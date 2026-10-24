@@ -1,0 +1,299 @@
+---
+baseline_commit: a2fe8d65f095fb31dedace6e1bdc5303e91e45d6
+---
+
+# Story 0.53: Add Home & Living, Fashion & Beauty, Finance & Investment, and Gadgets & Devices event categories
+
+## Story Details
+
+- Epic: 0
+- Story ID: 0.53
+- Status: ready-for-dev
+
+<!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
+
+## Story
+
+As a developer maintaining FestGrid's AI event-extraction pipeline,
+I want to add `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, and `GADGETS_AND_DEVICES` as four new `EventCategory` values across every hand-maintained and generated source that names the taxonomy, narrow `TECHNOLOGY` and `BUSINESS_AND_NETWORKING` accordingly, and retire the unused `event_category` Postgres enum,
+so that the 22-value taxonomy AD-44 adopted is actually live end-to-end (extraction, storage, filtering, UI labels) instead of partially built, and no dead schema object is left behind.
+
+## Acceptance Criteria
+
+1. `packages/shared-types/src/index.ts`'s `EventCategory` enum gains exactly 4 new members — `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, `GADGETS_AND_DEVICES` — inserted immediately before `OTHER` (declaration order is facet order; `OTHER` stays last), taking total membership from 18 to 22. `Object.values(EventCategory)` reflects exactly these 22 values and nothing else. [AD-44 Rule 3]
+2. `packages/shared-types/src/event-category-definitions.ts`'s `EVENT_CATEGORY_DEFINITIONS` gains a definition + ≥1 Indonesian alias for each of the 4 new members (each 1-2 sentences, non-empty, ≤280 chars, single-line — same shape Story 0.52 established). `TECHNOLOGY`'s definition narrows to software, AI, startups, developer and tech-community events, hackathons, and tech conferences (consumer hardware moves out to `GADGETS_AND_DEVICES`). `BUSINESS_AND_NETWORKING`'s definition narrows to trade, B2B, networking, and entrepreneurship (property and investment move out to `FINANCE_AND_INVESTMENT`). [AD-44 Rule 3, Rule 5]
+3. `CATEGORY_BOUNDARIES` is amended per AD-44's rewritten Rule 5 boundary table: the existing `business-networking-property` entry is replaced by a `FINANCE_AND_INVESTMENT`-routing entry (property/KPR-mortgage expos/seminars and stock/mutual-fund/bond/gold/crypto/forex/commodity trading-or-investing events, named routing wins regardless of audience); `business-networking-machinery` is unchanged (machinery for factories/production lines stays `BUSINESS_AND_NETWORKING`); the `hobbies-plants` entry gains the decorative-planting-sold-as-home-décor → `HOME_AND_LIVING` exception; the `arts-heritage` entry gains "plus `FASHION_AND_BEAUTY` only when a runway or apparel sale is the headline"; new entries are added for: consumer gadgets/phones/laptops/audio/cameras/wearables/gaming-gear → `GADGETS_AND_DEVICES` (with the device-and-software co-tag exception naming `TECHNOLOGY`); furniture/appliances/décor/interior/housewares/home-improvement/tools sold to consumers or tradespeople (tukang, kontraktor) → `HOME_AND_LIVING`; fashion/sneakers (incl. sport-branded)/barbershop/grooming/skincare/cosmetics → `FASHION_AND_BEAUTY` (cross-referencing the existing clinical-aesthetic → `HEALTH_AND_WELLNESS` and participatory-sport-event → `SPORTS_AND_FITNESS` exceptions, which stay unchanged); an explicit cross-reference confirming car/motorcycle fairs, exhibitions, accessories, and tools stay `AUTOMOTIVE`, unaffected by the new categories; and wedding/bridal/similar-services expos → dominant subject category if one clearly exists, else `OTHER`. [AD-44 Rule 5]
+4. `apps/backend/src/schema/events.graphql`'s `EventCategory` SDL enum gains the same 4 values in the same position (before `OTHER`). `apps/backend/src/schema/schema-consistency.test.ts`'s existing exact-set-equality test (unmodified) continues to pass, mechanically re-verifying SDL↔TS-enum parity at 22 values. [AD-44 Rule 6]
+5. The committed codegen outputs — `apps/web/src/generated/graphql.ts` and `apps/backend/src/generated/resolvers-types.ts` — are regenerated via each app's existing `pnpm codegen` and contain exactly the 22-member `EventCategory` type, in each file's existing ordering convention. `apps/web/fix-codegen.js` needs no change (confirmed: it has no `EventCategory`-specific regex, so it stays a no-op for this enum). A new test asserts both committed generated files' `EventCategory` member sets equal `Object.values(EventCategory)` exactly, closing the "stale committed codegen output, no freshness check" gap the AD-44 feasibility review flagged (D3/D4). [AD-44 Rule 6]
+6. `apps/web/locales/en.json` and `id.json`'s `EventCategory` namespace each gain the 4 new keys with these exact owner-directed labels: `HOME_AND_LIVING` → "Home & Living" / "Rumah Tangga & Interior"; `FASHION_AND_BEAUTY` → "Fashion & Beauty" / "Fashion & Gaya"; `FINANCE_AND_INVESTMENT` → "Finance & Investment" / "Keuangan & Investasi"; `GADGETS_AND_DEVICES` → "Gadgets & Devices" / "Gadget & Perangkat". `apps/web/locales/locales.test.ts`'s `EventCategory`/`EventType` coverage assertions switch from `expect.arrayContaining(...)` to exact sorted-array equality (so a stale/extra key fails CI too, not just a missing one) and gain a check that every value is a non-empty string. [AD-44 Rule 6]
+7. `packages/domain/src/events/transform-gemini-response-to-event-info.ts` needs **no logic change** — its cap-4/dedupe/OTHER-exclusivity enforcement is category-value-agnostic; the routing change lives entirely in the definitions/boundary prose the model reads, not in this function. This is confirmed and stated explicitly in Completion Notes rather than silently assumed. [AD-44 Rule 2, unaffected]
+8. The `eventCategoryEnum` pgEnum declaration is deleted from `packages/database/schema.ts` (the `events.categories` column has always been `text[]`, never backed by this type). A new migration drops the now-fully-unused Postgres type: generated via `pnpm --filter @festgrid/database generate` and hand-adjusted (matching the `0003`/`0038` precedent of hand-adjusting generated SQL) to `DROP TYPE IF EXISTS "event_category";` with no `CASCADE` (so it fails loudly if anything unexpectedly depends on it). `packages/database/migrations/meta/_journal.json` gains the new migration's journal entry and a corresponding `meta/00NN_snapshot.json` is committed. [AD-44 Rule 6, Rule 8]
+9. `packages/database/seed.ts`'s `FIXTURE_EVENTS` const is exported (currently module-private) so a new test can validate it; a new test asserts every `FIXTURE_EVENTS[*].categories` string is a member of `Object.values(EventCategory)`. `packages/database/seed-volume.ts`'s `CATEGORIES` constant is retyped as `readonly EventCategory[]` (deriving its correctness from the enum at compile time, per AD-44 Rule 6's "`seed-volume.ts` deriving from the enum") and a companion test asserts every entry is a real `EventCategory` member — without being required to include all 22 values in the curated volume-seed variety subset. [AD-44 Rule 6]
+10. The PRD's `EventCategory` pseudo-code interface block (`prd.md`) gains the same 4 members in the same position as the shared-types enum; its existing pointer comment (added by Story 0.52) needs no further change. [AD-44 Rule 6]
+11. The existing ratchet test (`apps/backend/src/lib/ai-gateway/event-category-definitions.ratchet.test.ts`) is updated so Check B's negative controls no longer assert against the 4 tokens that are now legal members (`HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, `GADGETS_AND_DEVICES` each now correctly appear, unflagged, in real boundary-rule/definition prose) and instead exercise the unknown-token detector against tokens that remain genuinely unknown at 22 values (e.g. `TOOLS_AND_HARDWARE`, `SHOPPING_AND_RETAIL` — both explicitly Deferred/Rejected by AD-44, guaranteed not to become real members without a further architecture change). A new positive-confirmation assertion proves all 4 new tokens now appear in `CATEGORY_BOUNDARIES`/`EVENT_CATEGORY_DEFINITIONS` without being flagged by Check B. Checks A, C, and D need no logic change (they already operate generically over `Object.values(EventCategory)` / the rendered prompts) but must still pass at 22 values. [AD-44 Rule 4; patches Story 0.52's Review Findings "Patch finding 3"]
+12. The 12 (+1 bonus) golden-corpus fixtures in `apps/backend/src/lib/ai-processor/event-category-golden-corpus.fixtures.ts` are re-derived for the 22-value taxonomy per the table in Dev Notes below — several `expected`/`mustNotInclude` values change from Story 0.52's 18-value interim answers (most notably fixtures #1, #2, #4, #6, #7, #9, #10, #11, #12, and 6b). The header comment is updated to say "22-value taxonomy," not "18-value interim." The gated opt-in `event-category-golden-corpus.live-eval.test.ts` continues to require `RUN_LIVE_GEMINI_TESTS=true` and stays excluded from CI (AD-44 Rule 10: never a CI gate). [AD-44 Rule 10]
+13. `_bmad-output/project-context.md`'s "Event categories" rule note is updated to state all 22 values are built (no remaining plan-only values), with the `BUSINESS_AND_NETWORKING`/`TECHNOLOGY`/`GADGETS_AND_DEVICES`/`HOME_AND_LIVING`/`FASHION_AND_BEAUTY`/`FINANCE_AND_INVESTMENT` routing stated in final (not interim) form. `_bmad-output/implementation-artifacts/deferred-work.md`'s "Postgres enum irreversibility" note (the one flagging that `event_category` has no `ALTER TYPE ... DROP VALUE`) is corrected/closed out: since this story retires the type entirely rather than extending it, that one-way-door risk no longer applies to it going forward. [AD-44 Follow-up 3]
+14. Architecture Spine AD-44 Rule 7 is updated in-place by this story to record `taxonomyEffectiveFrom` as this story's actual deploy date (replacing the "Story 2 deploy date... Story 2 records it in this Rule" placeholder language with the concrete date). This is a planning-artifact edit, not application code, but Rule 7's own text makes it explicitly this story's responsibility. [AD-44 Rule 7]
+15. `git diff --stat` for this story's branch, reviewed before committing, touches only the files listed in the Implementation Plan's File Change Plan below — no unrelated file is touched. (Unlike Story 0.52's AC10, this story is *expected* to touch locales, the pgEnum, migrations, `generated/`, and seeds — that is its whole point — so this AC is a discipline check, not an exclusion list.)
+16. This story needs no `docs/infrastructure/*.md` or `architecture-diagram.md` update (CLAUDE.md §4 is not triggered: no service, queue, Lambda, scraper, database, hosting provider, or major library is added, removed, or replaced — deleting an unused Postgres type is a schema/migration change, not an infrastructure-provider change). State this explicitly in Completion Notes rather than silently skipping it. [CLAUDE.md §4]
+
+## Tasks / Subtasks
+
+- [ ] Task 1: Extend the enum and definitions source (AC: #1, #2, #3)
+  - [ ] In `packages/shared-types/src/index.ts`, add `HOME_AND_LIVING = 'HOME_AND_LIVING'`, `FASHION_AND_BEAUTY = 'FASHION_AND_BEAUTY'`, `FINANCE_AND_INVESTMENT = 'FINANCE_AND_INVESTMENT'`, `GADGETS_AND_DEVICES = 'GADGETS_AND_DEVICES'` to the `EventCategory` enum, in that order, immediately before `OTHER`. The existing pointer comment above the enum (added by Story 0.52) needs no change.
+  - [ ] In `packages/shared-types/src/event-category-definitions.ts`'s `EVENT_CATEGORY_DEFINITIONS`, add four entries (insert before `OTHER`'s entry to mirror enum order, though object key order is not semantically significant here):
+    - `HOME_AND_LIVING`: definition covering furniture, appliances, décor, interior design, housewares, home-improvement products, and consumer-or-tradesperson tools; aliases `['rumah tangga', 'interior']`.
+    - `FASHION_AND_BEAUTY`: definition covering fashion, apparel, sneakers, barbershop and grooming, skincare, and cosmetics; aliases `['gaya', 'kecantikan']`.
+    - `FINANCE_AND_INVESTMENT`: definition covering property and real-estate expos, KPR/mortgage, and stock, mutual-fund, bond, gold, crypto, forex, and commodity trading or investing events; aliases `['investasi', 'keuangan']`.
+    - `GADGETS_AND_DEVICES`: definition covering consumer electronics, phones, laptops, audio, cameras, wearables, and gaming gear, including their launches, promos, and expos; aliases `['gadget', 'elektronik']`.
+  - [ ] Rewrite `TECHNOLOGY`'s definition to: software, apps, AI, startups, developer and tech-community events, hackathons, and tech conferences (drop the gadget-promo scope entirely — it was never actually widened in Story 0.52, so this is a pure narrowing of the original "Tech product promos, hackathons, and tech meetups or conferences" wording to remove "Tech product promos").
+  - [ ] Rewrite `BUSINESS_AND_NETWORKING`'s definition to: trade, B2B, networking, and entrepreneurship events, defined by subject matter rather than audience (drop "property, and investment").
+  - [ ] In `CATEGORY_BOUNDARIES`: replace the `business-networking-property` entry's `rule` text with FINANCE_AND_INVESTMENT routing (property/KPR-mortgage, stock/mutual-fund/bond/gold/crypto/forex/commodity trading-or-investing, named routing wins over audience) — keep the id `business-networking-property` or rename to something like `finance-investment-property-and-trading` (dev agent's call; if renamed, grep the codebase first to confirm nothing references the id string itself, which today nothing does — it is prose-only). Leave `business-networking-machinery` and `business-networking-umkm-exclusion` unchanged. Amend `hobbies-plants`'s rule text to add the decorative-planting → `HOME_AND_LIVING` exception. Amend `arts-heritage`'s rule text to add "plus FASHION_AND_BEAUTY only when a runway or apparel sale is the headline." Add new entries: `gadgets-and-devices` (consumer gadgets/phones/laptops/audio/cameras/wearables/gaming-gear → GADGETS_AND_DEVICES; software/AI/startups/developer/hackathons/tech-conferences stay TECHNOLOGY; a device+software launch may carry both, headline first), `home-living-tools-and-furniture` (furniture/appliances/décor/interior/housewares/home-improvement/tools sold to consumers or tradespeople → HOME_AND_LIVING), `fashion-and-beauty` (fashion/sneakers incl. sport-branded/barbershop/grooming/skincare/cosmetics → FASHION_AND_BEAUTY; cross-reference the existing clinical-aesthetic → HEALTH_AND_WELLNESS and participatory-sport-event → SPORTS_AND_FITNESS exceptions), `automotive-unaffected` (cars/motorcycles and their fairs/accessories/tools stay AUTOMOTIVE), `wedding-services-expo` (dominant subject category if one clearly exists, else OTHER).
+  - [ ] Keep every definition/boundary string single-line, non-empty, and (for `EVENT_CATEGORY_DEFINITIONS` entries specifically — Check A's bound) ≤280 chars.
+
+- [ ] Task 2: GraphQL SDL and codegen (AC: #4, #5)
+  - [ ] Add the same 4 values before `OTHER` in `apps/backend/src/schema/events.graphql`'s `EventCategory` enum.
+  - [ ] Run `pnpm codegen` in `apps/backend` and in `apps/web` (in that order — web's codegen reads backend's SDL per `apps/web/codegen.ts`'s `schema: '../backend/src/schema/**/*.graphql'`), confirm `apps/web/fix-codegen.js` still runs clean with no `EventCategory`-specific hand-patch needed, and commit both regenerated files.
+  - [ ] Create a new test (e.g. `apps/backend/src/schema/codegen-consistency.test.ts`, `node:test`) that reads `apps/web/src/generated/graphql.ts` and `apps/backend/src/generated/resolvers-types.ts` via relative `fs` paths, extracts each file's `EventCategory` member list (regex over the enum/union block — these are plain compiled `.ts` files, not SDL, so `graphql`'s `parse()` doesn't apply here the way `schema-consistency.test.ts` uses it for the SDL), and asserts each file's member *set* equals `Object.values(EventCategory)` exactly. Include a negative control (a synthetic stale list missing one member fails the assertion).
+
+- [ ] Task 3: Locale files (AC: #6)
+  - [ ] Add the 4 keys with the exact labels specified in AC6 to both `apps/web/locales/en.json` and `id.json`'s `EventCategory` namespace, before `OTHER`'s sibling key (object key order in JSON is not semantically significant, but match existing style).
+  - [ ] In `apps/web/locales/locales.test.ts`, change the two `EventCategory`/`EventType` "every member has a matching key" tests from `expect(localeKeys).toEqual(expect.arrayContaining(enumMembers))` to exact equality (`expect(localeKeys).toEqual(enumMembers)` after sorting both, or equivalent) so a stale/extra key fails too. Add an assertion that every `en.EventCategory` value is a non-empty string.
+
+- [ ] Task 4: Confirm the cardinality transform needs no change (AC: #7)
+  - [ ] Read `packages/domain/src/events/transform-gemini-response-to-event-info.ts` and confirm its valid-category filter / dedupe / OTHER-exclusivity / cap-4 logic operates generically over whatever `EventCategory` contains — no new branch, no category-name literal, nothing to edit. Record this confirmation explicitly in Completion Notes (do not silently skip it just because there is no diff).
+  - [ ] Run the existing `transform-gemini-response-to-event-info.test.ts`/`.edge-cases.test.ts` suite unmodified and confirm it still passes at 22 enum values (the 100%-coverage gate in `packages/domain` should be unaffected since no new branch exists to cover).
+
+- [ ] Task 5: Retire the pgEnum (AC: #8)
+  - [ ] Delete the `eventCategoryEnum` pgEnum declaration (and its pointer comment, which becomes dead with it) from `packages/database/schema.ts`. Confirm via grep that `eventCategoryEnum` has zero remaining references anywhere in the codebase before deleting (it should already be fully unused — the `categories` column is `text('categories').array()`, never `eventCategoryEnum(...)`).
+  - [ ] Run `pnpm --filter @festgrid/database generate`, inspect the generated SQL (likely `DROP TYPE "event_category";` with no `IF EXISTS`), and hand-adjust it to `DROP TYPE IF EXISTS "event_category";` with no `CASCADE` — matching the `0003_strong_stark_industries.sql`/`0038_smooth_switch.sql` precedent of hand-adjusting drizzle-kit's raw output. Confirm `drizzle-kit generate` also produced/updated `packages/database/migrations/meta/_journal.json` (new `idx`/`tag` entry) and a new `meta/00NN_snapshot.json`; commit both alongside the new numbered `.sql` file.
+  - [ ] Run `pnpm --filter @festgrid/database run migrate` against the local dev DB and confirm it applies cleanly and is idempotent on a second run (`IF EXISTS` makes the second run a no-op rather than an error).
+
+- [ ] Task 6: Seed fixtures (AC: #9)
+  - [ ] Add `export` to `packages/database/seed.ts`'s `const FIXTURE_EVENTS = [...]` declaration.
+  - [ ] Add a new test (in `seed.test.ts` or a new colocated file) asserting every `FIXTURE_EVENTS[*].categories` string is a member of `Object.values(EventCategory)` (Vitest, no DB needed — matches `seed.test.ts`'s existing no-DB pattern, distinct from `seed.integration.test.ts`'s DB-backed tests).
+  - [ ] Optional, low-stakes: if it fits naturally without forcing a narrative mismatch, add one of the 4 new values to an existing fixture event's `categories` array purely for seeded-data variety (not required for correctness — Rule 6's check only requires every used string to be a valid member, not that every member be used).
+  - [ ] In `packages/database/seed-volume.ts`, retype `CATEGORIES` from a bare string-literal tuple to `const CATEGORIES: readonly EventCategory[] = [...]` (importing `EventCategory` from `@festgrid/shared-types`) — keep the existing curated 8-value subset unless adding 1-2 of the new values also fits naturally; the point is compile-time derivation from the enum, not exhaustive coverage. Add a Vitest case asserting every `CATEGORIES` entry is a real `EventCategory` member (trivially true once retyped, but still worth a test per Rule 6's explicit callout — a future bad edit that widens the type back to `string` would be caught).
+
+- [ ] Task 7: Ratchet test update (AC: #11)
+  - [ ] In `apps/backend/src/lib/ai-gateway/event-category-definitions.ratchet.test.ts`'s "Check B negative control" test, replace the four assertions that currently expect `findUnknownTokens(...)` to flag `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, and `GADGETS_AND_DEVICES` as unknown (these will start failing the moment Task 1 lands, since those tokens become real `EventCategory` members and `findUnknownTokens` will correctly stop flagging them) with equivalent assertions against tokens that remain genuinely unknown at 22 values — use `TOOLS_AND_HARDWARE` and `SHOPPING_AND_RETAIL` (both explicitly named as Deferred/Rejected in AD-44, so they are safe, stable choices that won't themselves become real members without a further architecture change).
+  - [ ] Add a new assertion (near Check B's existing "positive confirmation the scan isn't vacuous" check) proving all 4 new tokens now appear somewhere in `CATEGORY_BOUNDARIES`/`EVENT_CATEGORY_DEFINITIONS` text *without* being flagged by `findUnknownTokens` — i.e. explicitly confirm the check's behavior flips correctly from "forbidden" to "legal" for these four, rather than only inferring it from Check A/B passing overall.
+  - [ ] Run Checks A, C, D unmodified and confirm they still pass at 22 values (no code change expected in those checks; this is a regression-confirmation step, not an editing step).
+
+- [ ] Task 8: Golden corpus re-derivation (AC: #12)
+  - [ ] Using the re-derivation table in Dev Notes below, update `apps/backend/src/lib/ai-processor/event-category-golden-corpus.fixtures.ts`'s `expected`/`mustNotInclude` arrays and `rationale` strings for the fixtures that change (see the table's "Change from Story 0.52" column). Update the file's header comment to describe the 22-value taxonomy, not the "18-value interim" framing.
+  - [ ] Confirm `event-category-golden-corpus.live-eval.test.ts` still gates correctly on `RUN_LIVE_GEMINI_TESTS=true` and is excluded from the default CI run (no change expected to this file itself, only to the fixtures it imports).
+  - [ ] Per AD-44 Rule 10, the actual live-Gemini run against the updated corpus (and a re-run of `build-gemini-request.live-cc024-regression.test.ts` to confirm no regression from the prompt-content growth) is a manual/nightly step, not a CI gate — but Story 0.52's two live runs are still pending the owner (see that story's Completion Notes) and this story adds its own re-derived corpus on top. Record in this story's Completion Notes whether the owner ran it, and if so, the per-fixture pass/fail result; if not, mark PENDING/MANUAL exactly as Story 0.52 did, rather than silently omitting the section.
+
+- [ ] Task 9: Docs and planning-artifact updates (AC: #10, #13, #14)
+  - [ ] Add the same 4 members to the PRD's `EventCategory` pseudo-code block (`prd.md`), before `OTHER`.
+  - [ ] Update `_bmad-output/project-context.md`'s "Event categories" note: state all 22 values are built, remove the "still plan-only" framing, and state the final (non-interim) routing for `BUSINESS_AND_NETWORKING`/`TECHNOLOGY`/`GADGETS_AND_DEVICES`/`HOME_AND_LIVING`/`FASHION_AND_BEAUTY`/`FINANCE_AND_INVESTMENT`.
+  - [ ] Update `_bmad-output/implementation-artifacts/deferred-work.md`'s "Postgres enum irreversibility" note (under "Deferred from: quick-dev addition of RELIGION_AND_SPIRITUALITY category") to state the risk is now moot for `event_category` specifically, since the type is retired (dropped) rather than further extended by this story.
+  - [ ] Update Architecture Spine AD-44 Rule 7 in `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` to record the actual `taxonomyEffectiveFrom` date (this story's deploy date) in place of the "Story 2 deploy date... Story 2 records it in this Rule" placeholder sentence.
+
+- [ ] Task 10: Verification (AC: all)
+  - [ ] `git diff --stat` reviewed to confirm only the files in the Implementation Plan's File Change Plan are touched.
+  - [ ] `pnpm --filter backend build`, `pnpm --filter @festgrid/shared-types lint`, `pnpm --filter @festgrid/database build`, `pnpm --filter backend lint`, `pnpm --filter @festgrid/domain test` (100% coverage gate, unaffected), `pnpm --filter @festgrid/database test` (Vitest, the new seed/seed-volume category tests), `pnpm --filter backend test` (ratchet + codegen-consistency + existing suite, row-count ratchet harness), `pnpm --filter web test` (locale test).
+  - [ ] `pnpm --filter @festgrid/database run migrate` against local dev DB, applied and re-run idempotently.
+  - [ ] State explicitly in Completion Notes: no `docs/infrastructure/*` or `architecture-diagram.md` change needed (AC16).
+
+## Dev Notes
+
+- **This story is AD-44 Follow-up 2 ("Story 2" in the architecture spine / "S2" in the feasibility review), extending Story 0.52 ("Story 1"/"S1"), which is implemented and code-reviewed (status `review`; its two optional live-Gemini runs remain pending the owner — see that story's Completion Notes).** Story 0.52 built the entire reusable mechanism this story only extends: `EVENT_CATEGORY_DEFINITIONS`/`CATEGORY_BOUNDARIES` in `packages/shared-types`, the single `renderEventCategoryGlossary()` renderer in `apps/backend/src/lib/ai-gateway/` consumed by both Gemini-facing prompts, the ratchet test guarding drift, and the cap-4/OTHER-exclusivity cardinality enforcement in `packages/domain`'s `transformGeminiResponseToEventInfo`. This story introduces **zero new mechanism** — it is pure data/taxonomy growth (4 new values, a few definition/boundary-text amendments) propagated through the already-built register, plus retiring one specific dead schema object. All three story-split gates (run fresh, below) confirm this shape: no new architecture layer, no new reusable UI component, no new foundational dependency. [Source: `_bmad-output/implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md`]
+- **Why four values, not two:** the original AD-44 draft (and the feasibility review's "S2" section) scoped this as adding only `HOME_AND_LIVING` and `FASHION_AND_BEAUTY`. The architecture spine's §12/§13 owner decisions (2026-10-23, both *after* the feasibility review was written) added `FINANCE_AND_INVESTMENT` (property/KPR/stocks/crypto/forex, narrowing `BUSINESS_AND_NETWORKING` to trade/B2B/networking/entrepreneurship) and then reversed an earlier "widen `TECHNOLOGY`" decision in favor of a dedicated `GADGETS_AND_DEVICES` (narrowing `TECHNOLOGY` to software/AI/startups/developer/hackathon events instead). So this story is deliberately scoped to 4 values / 22 total, not the feasibility review's original 2-value/20-total file-change list — that list's *shape* (file inventory, test design, sequencing advice) is still the right reference, but its specific value count and its "`TECHNOLOGY` widens" framing are superseded by the later owner decisions. [Source: festgrid-architecture-spine.md#AD-44 §§3,5,7,12,13; event-category-review-2026-10-23.md §§7,8,11,12,13]
+- **Current shipped state this story builds on (confirmed by direct read, not assumed from the plan):**
+  - `packages/shared-types/src/event-category-definitions.ts` ships exactly the 18-value `EVENT_CATEGORY_DEFINITIONS` + 10-entry `CATEGORY_BOUNDARIES` described in Story 0.52's Dev Agent Record — `TECHNOLOGY`'s definition is "Tech product promos, hackathons, and tech meetups or conferences" (never widened — the owner's 2026-10-23 reversal landed before Story 0.52 was coded, so Story 0.52 never touched it) and `BUSINESS_AND_NETWORKING`'s is "Trade, B2B, networking, entrepreneurship, property, and investment events, defined by subject matter rather than audience" (the interim property/investment routing this story narrows away).
+  - `apps/backend/src/lib/ai-gateway/render-event-category-glossary.ts` and its `.test.ts` are unchanged by this story — the renderer is already fully generic over `Object.values(EventCategory)` and `CATEGORY_BOUNDARIES`, so 22 values need no renderer edit.
+  - `event-category-definitions.ratchet.test.ts`'s Check B negative control, as shipped (a Story 0.52 review-patch), already asserts `findUnknownTokens` flags all four of `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, and `GADGETS_AND_DEVICES` by literal name. **This is the exact assertion Task 7 must change** — the moment this story's Task 1 lands, those four tokens are real `EventCategory` members, `KNOWN_TOKENS` (built from `Object.values(EventCategory) ∪ Object.values(EventType)`) includes them, and `findUnknownTokens` correctly returns `[]` for each — making the existing `assert.deepStrictEqual(findUnknownTokens(...), ['HOME_AND_LIVING'])`-style assertions fail with an actual/expected mismatch, not a confusing false-negative. This is a predictable, mechanical test update, not a design question.
+  - `packages/domain/src/events/transform-gemini-response-to-event-info.ts`'s cardinality logic (as shipped, including the two Story-0.52-review patches: dedupe-before-OTHER-drop, and empty-fallback applied last) is confirmed fully category-value-agnostic — it filters against `Object.values(EventCategory)`, dedupes, drops `OTHER` when another category is present, truncates to 4, and falls back to `[OTHER]` only if the result is empty. None of this needs to change for 22 values; Task 4 is a confirm-and-record step, not an edit.
+  - `packages/database/schema.ts`'s `eventCategoryEnum` pgEnum (18 hand-typed string literals) is confirmed still present and still fully unused by any column (`events.categories` is `text('categories').array()`, indexed via a GIN partial index at `event_categories_idx`, never via the pgEnum). No migration has ever added a value to it beyond the initial `CREATE TYPE` and the five historical `ADD VALUE ... BEFORE 'OTHER'` statements in `0038_smooth_switch.sql` (confirmed: those five correspond to the 18-value set's `TECHNOLOGY` through `AUTOMOTIVE`, i.e. the enum grew from 13 to 18 members once, years before this AD). This story is the first migration to *drop* a type rather than extend one — no precedent in this repo for that exact SQL shape, hence the explicit hand-adjustment instruction in Task 5 (drizzle-kit's raw `generate` output for a removed `pgEnum()` declaration is expected to be a bare `DROP TYPE "event_category";`, needing the `IF EXISTS` added by hand).
+
+### Golden category corpus re-derivation for the 22-value taxonomy (Task 8, AC12)
+
+Re-derives Story 0.52's own derivation table (same 12 Indonesian posts + 1 bonus, from `reviews/review-adversarial-pair.md` §2) against AD-44's final Rule 5 boundary table, now that `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, and `GADGETS_AND_DEVICES` are real categories instead of deferred ones. Captions quoted verbatim from the shipped `event-category-golden-corpus.fixtures.ts` (Story 0.52).
+
+| # | Caption (verbatim) | 22-value `expected` | 22-value `mustNotInclude` | Change from Story 0.52 / confidence |
+|---|---|---|---|---|
+| 1-property-expo | "PAMERAN PROPERTI JOGJA 2026: KPR DP 0%, 40+ developer, bunga fix 3,5%, gratis masuk, JEC 14-17 Nov. Hadiah umroh!" | `[FINANCE_AND_INVESTMENT]` | `[BUSINESS_AND_NETWORKING, OTHER]` | **Flips** from `BUSINESS_AND_NETWORKING` (Story 0.52's interim routing) to `FINANCE_AND_INVESTMENT` (Rule 5's named routing). `BUSINESS_AND_NETWORKING` is now a `mustNotInclude`, not just `OTHER` — the direct test that property no longer lands on the old category. Firm. |
+| 2-furniture-trade-fair | "Jogja Furniture & Craft Fair: Trade Day 12-13 Nov (buyer & eksportir), Public Day 14-16 Nov" | `[HOME_AND_LIVING, BUSINESS_AND_NETWORKING]` | `[OTHER]` | **Flips** from `OTHER` (no category existed) to a firm two-tag answer: furniture now has `HOME_AND_LIVING`; "Trade Day (buyer & eksportir)" is a directly *stated* buyer/exporter purpose (stronger than the generic "UMKM" exclusion), satisfying Rule 5.3's bar for `BUSINESS_AND_NETWORKING`. No longer "confirm on first live run" — `HOME_AND_LIVING` resolves the prior ambiguity. |
+| 3-umkm-bazaar | "Bazar UMKM Lebaran: kuliner, kriya, fashion muslim, 30 tenant binaan Pemkot, Atrium Hartono Mall, 12-20 Maret. Free workshop 'UMKM Go Digital' tiap Sabtu" | `[FOOD_AND_DRINK, ARTS_AND_CULTURE, FASHION_AND_BEAUTY]` | `[BUSINESS_AND_NETWORKING, OTHER]` | **Gains a third tag**: "fashion muslim" now has a category (`FASHION_AND_BEAUTY`). The `BUSINESS_AND_NETWORKING`/`OTHER` exclusions are unchanged — "UMKM"/the workshop still doesn't trigger `BUSINESS_AND_NETWORKING` (Rule 5.3, unaffected by this story). Firm. |
+| 4-gadget-roadshow-esports | "Erafone x ASUS ROG Roadshow: laptop gaming s.d. 3jt, trade-in HP, mini turnamen Mobile Legends hadiah 5jt, Lippo Plaza" | `[GADGETS_AND_DEVICES, HOBBIES_AND_INTERESTS]` | `[TECHNOLOGY, OTHER]` | **Flips** `TECHNOLOGY` → `GADGETS_AND_DEVICES` for the consumer-gadget content (laptop gaming, HP trade-in); esports stays `HOBBIES_AND_INTERESTS`. `TECHNOLOGY` moves from "expected" to `mustNotInclude` — this is the single sharpest test of the `TECHNOLOGY`-narrows / `GADGETS_AND_DEVICES`-launch boundary. Firm. |
+| 5-fashion-week-heritage-textile | "Jogja Fashion Week 'Wastra Nusantara': 40 desainer lokal, batik & tenun, runway, buyer meeting hari ke-2, live music" | `[ARTS_AND_CULTURE, FASHION_AND_BEAUTY, BUSINESS_AND_NETWORKING]` | `[OTHER]` | **Gains a tag**: the post's own "runway" is explicitly the `arts-heritage` boundary's stated trigger for a `FASHION_AND_BEAUTY` co-tag alongside heritage-textile `ARTS_AND_CULTURE`; the buyer meeting still gives `BUSINESS_AND_NETWORKING`. 3 tags, within cap 4. "Live music" (`MUSIC`) stays a soft-miss note, unchanged from Story 0.52. |
+| 6-barbershop-grand-opening | "Grand Opening Gentleman's Barbershop Sleman: potong + hairwash 25rb, free kopi, 1 minggu" | `[FASHION_AND_BEAUTY]` | `[OTHER]` | **Flips** from `OTHER` to `FASHION_AND_BEAUTY` — barbershop/grooming is named explicitly in the new boundary entry. This is the exact "before/after pair" Story 0.52's own Dev Notes called out in advance. Firm. |
+| 7-power-tools-roadshow | "Makita Power Tools Roadshow: demo bor, gerinda; diskon 30% untuk tukang & kontraktor; workshop pasang keramik; Toko Bangunan Jaya Abadi, Bantul" | `[HOME_AND_LIVING]` | `[BUSINESS_AND_NETWORKING, OTHER]` | **Flips** from `OTHER` to `HOME_AND_LIVING` — tools sold to tradespeople (tukang, kontraktor) is named explicitly in the new boundary. `BUSINESS_AND_NETWORKING` stays excluded — this remains the direct test that a professional *customer segment* alone (not a stated trade/B2B purpose) never triggers it. Firm. |
+| 8-plant-fair-contest | "Pameran Tanaman Hias & Kontes Aglaonema, Jogja Expo Center, jual tanaman, pot, media tanam, lomba kolektor, 3 hari" | `[HOBBIES_AND_INTERESTS]` | `[OTHER, HOME_AND_LIVING]` | **Unchanged expected** (contest/collecting framing, not décor framing, so "tag the headline only" keeps this at `HOBBIES_AND_INTERESTS` alone) but `HOME_AND_LIVING` is now an explicit `mustNotInclude` — worth asserting now that the décor exception exists and could tempt a co-tag. Firm. |
+| 9-mall-multi-brand-sale | "MID YEAR SALE Hartono Mall: diskon s.d. 70% fashion, elektronik, home living, kuliner, gratis parkir, 1-30 Juni" | `[OTHER]` | `[TECHNOLOGY, FOOD_AND_DRINK, GADGETS_AND_DEVICES, HOME_AND_LIVING, FASHION_AND_BEAUTY]` | **Unchanged expected** (`OTHER` — no single headline subject, Rule 5.4's first clause, independent of the subject count) but now a much sharper test: the caption literally names "fashion," "elektronik," and "home living" as three of its four listed subjects, each of which now has a real category. A naive model has far more temptation to fragment this into per-subject tags than it did at 18 values. This fixture is now the single most important regression check for the cap/OTHER-exclusivity-for-no-headline rule. |
+| 10-sneaker-launch-fun-run | "Nike Run Club x Pakuwon: launch Pegasus 42, 5K fun run, goodie bag, 24 Nov" | `[SPORTS_AND_FITNESS]` | `[OTHER, FASHION_AND_BEAUTY]` | **Unchanged expected** but `FASHION_AND_BEAUTY` is now an explicit `mustNotInclude` — sneakers are named directly in the new boundary ("sneakers, also sport-branded"), making this fixture the direct test of the explicit carve-out: a participatory sport event keeps `SPORTS_AND_FITNESS` even though the launched product (sneakers) now has its own category. Firm. |
+| 11-wedding-expo | "Jogja Wedding Expo: 60 vendor gedung, katering, rias, busana, dekorasi, paket hemat" | `[OTHER]` | `[FOOD_AND_DRINK, FASHION_AND_BEAUTY, HOME_AND_LIVING]` | **Unchanged expected**, but promoted to **confirm on first live run** (was Firm in Story 0.52): "busana"/"rias" (bridal wear/styling) and "dekorasi" (décor) now each have a real category (`FASHION_AND_BEAUTY`, `HOME_AND_LIVING`), so the wedding-services-expo boundary's "dominant subject category if one clearly exists" clause is now genuinely contestable — a model could plausibly decide bridal wear is the expo's dominant subject and tag `FASHION_AND_BEAUTY` instead of `OTHER`. If the live run disagrees, adjust the fixture, not the prompt (same escape valve Story 0.52 used for its own #2/#5). |
+| 12-cosmetics-launch-makeup-class | "Launching Wardah Colorfit di Jogja City Mall: meet & greet, makeup class, doorprize, 12 Okt" | `[FASHION_AND_BEAUTY]` | `[OTHER, EDUCATION]` | **Flips** from `OTHER` to `FASHION_AND_BEAUTY` — cosmetics is named directly in the new boundary. `EDUCATION` stays excluded (the "class" is a brand promo activity, not an academic competition — unaffected by this story). Another clean before/after pair. Firm. |
+| 6b-bonus-aesthetic-clinic | "Promo Glow Up Clinic: facial, botox, laser rejuvenation 50%, 17-19 Agustus" | `[HEALTH_AND_WELLNESS]` | `[OTHER, FASHION_AND_BEAUTY]` | **Unchanged expected**, but `FASHION_AND_BEAUTY` is now an explicit `mustNotInclude` — "facial" is skincare-adjacent and `FASHION_AND_BEAUTY` now exists, making the clinical-aesthetic exception (explicitly preserved in the new boundary entry) a sharper test than before. Firm. |
+
+Net effect: 6 of 13 fixtures flip from `OTHER` to a real category (#2, #6, #7, #12 cleanly; #1 and #4 flip between two *different* real categories rather than from `OTHER`); #3 and #5 gain an additional co-tag; #8, #9, #10, #6b keep the same `expected` but gain a new, more-relevant `mustNotInclude` entry; #11 is demoted from Firm to a live-run-confirm item. This is exactly the "before/after pair" outcome Story 0.52's own Dev Notes anticipated for fixtures #2, #6, #7, and #12.
+
+### Architecture & UX Gate Findings
+
+All three gates were run fresh via subagent (no epic-readiness sweep exists or applies to a standalone, non-formed-epic story like this one — same precedent as Story 0.34 and Story 0.52):
+
+- **Gate 1 (Architecture/Infrastructure Completeness, Winston persona):** No gap found. Every touched file is in an existing layer this story only extends (shared-types constants, the GraphQL SDL + its existing codegen pipeline, an existing domain transform function needing zero edits, an existing DB schema/migration tool used to drop a type, existing locale files, existing docs/fixtures). No new DB/ORM call from `apps/web`, no frontend-to-external-service bypass, no new resolver/query/mutation (the SDL widens an existing enum on an existing field), no auth/secrets/business-rule addition in frontend code, no new infra dependency, no new queue/Lambda/external service.
+- **Gate 2 (UI Complexity & Reusability, Freya persona):** No gap found. Every category-consuming UI surface (`correction-dialog.tsx`'s `Object.values(EventCategory).map(...)` picker, FilterHub/CorrectionForm in `packages/ui`, and every page's own `buildEnumLabels`-style helper) is already fully generic over the enum + locale namespace, confirmed by direct code read — they will pick up the 4 new values automatically once the enum/locale keys exist, with zero UI code change. No new component, variant, state, image, or micro-interaction is needed; the authoritative UX specs (DESIGN.md/EXPERIENCE.md) define no per-category visual treatment to miss. Precedent: Story 0.34's `RELIGION_AND_SPIRITUALITY` addition absorbed with zero UI code change.
+- **Gate 3 (Foundational/Cross-Cutting Dependency Completeness, Winston persona):** No gap found. The one piece of shared, reusable infrastructure this taxonomy needed (the definitions-source/renderer/ratchet/cardinality mechanism) was already built by its own dedicated prerequisite story, Story 0.52 — this is the textbook "mechanism story, then adoption story" shape the gate exists to enforce, not a gap in it. The GraphQL codegen pipeline, the i18n locale namespace, and the Drizzle migration tooling this story touches are all pre-existing and used exactly as designed; retiring the `event_category` pgEnum is a one-off, taxonomy-specific cleanup, not a new generic capability other stories would reach for.
+
+### Data Type Compatibility & Migration Requirements
+
+- Compatibility finding: No mismatch found — this story is additive (4 new string enum members, one dropped unused pgEnum type) with no change to any persisted *shape*.
+- Impacted fields/contracts: `EventCategory`'s own membership (TS enum, GraphQL SDL, committed codegen outputs, locale keys) grows from 18 to 22 — every one of those sources is a declared target of this story, not an incidental side effect. `events.categories` (Postgres `text[]`, GIN-indexed) is completely unaffected by either the enum growth or the pgEnum drop, since it was never backed by that type. No `EventInfo`/`GeminiEventPayload`/`ExtractedEventMessage` interface changes shape.
+- Required DB migration changes: one migration, `DROP TYPE IF EXISTS "event_category";` (no `CASCADE`) — a schema cleanup, not a data migration. No backfill, no column change, no index change. `pnpm --filter @festgrid/database generate` plus a hand-adjustment for the `IF EXISTS` clause (see Task 5); confirm `meta/_journal.json` and the new `meta/00NN_snapshot.json` are committed.
+- Required TypeScript type changes: additive only — 4 new enum members, 4 new `EVENT_CATEGORY_DEFINITIONS` entries, amended boundary-rule strings, a retyped `seed-volume.ts` `CATEGORIES` constant (`readonly EventCategory[]` instead of a bare string tuple). No existing interface changes shape.
+- Backward compatibility and rollout notes: this changes live extraction *behavior* (prompt content grows with 4 more categories + amended boundaries) without changing any stored *shape*. Per AD-44 Rule 7, the API/AI-processor/ingestor Lambdas deploy separately, so a short window exists where a writer could emit a value a reader can't yet serialize — accepted per the architecture's existing bounded-window reasoning (an unserializable value nulls that event's whole `categories` list with a masked error, not the row, and heals when the deploy completes). `taxonomyEffectiveFrom` (AC14) records the date this bounded window actually starts. No mass re-extraction or backfill of previously-stored `categories` arrays; existing events keep their current tags, including any that were tagged under the Story 0.52 interim routing (property events tagged `BUSINESS_AND_NETWORKING`, gadget events tagged `TECHNOLOGY`) — those are not retroactively re-tagged by this story (AD-44 Rule 8: narrowing a category's *going-forward* matching is accepted and not migrated).
+- Verification checks: the ratchet's exhaustiveness (compile-time `tsc` + the runtime ratchet test, now at 22 members), the new codegen-consistency test (Task 2), the amended locale-exact-equality test (Task 3), the new seed/seed-volume member tests (Task 6), and the re-derived golden corpus (Task 8, behavioral/non-CI) together verify end-to-end alignment across every AD-44 Rule 6 source.
+
+### Project Structure Notes
+
+- No new directories or packages. New files: one migration `.sql` + its `meta/00NN_snapshot.json` under `packages/database/migrations/`; possibly a new `apps/backend/src/schema/codegen-consistency.test.ts`; possibly a new colocated seed-category test file under `packages/database/`.
+- No conflicts with package-boundary rules: all edits stay within each file's existing package (`packages/shared-types` stays dependency-free/logic-free data; `apps/backend` holds the SDL, codegen output, and the new consistency test; `packages/database` holds the schema/migration/seed changes; `apps/web` holds locales and its own codegen output; `packages/domain` is touched by zero edits, confirmed in Task 4).
+- State management / analytics package-boundary rules from `project-context.md` do not apply — no frontend React state, no new PostHog event, no new next-intl namespace (only new keys in the existing `EventCategory` namespace).
+
+### References
+
+- [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-44] (binding source for this story's entire scope, including §§3,5,6,7,8 Rule text and Follow-up 2; lines 2454-2644)
+- [Source: _bmad-output/planning-artifacts/architecture/architecture-festgrid-2026-09-22/event-category-review-2026-10-23.md §11] (four-reviewer disposition table) and §§7, 8, 12, 13 (owner decisions establishing the final 4-value/22-total scope, superseding the feasibility review's original 2-value framing)
+- [Source: _bmad-output/planning-artifacts/architecture/architecture-festgrid-2026-09-22/reviews/review-code-feasibility.md §§1, 8] (complete source-register inventory; recommended Story-2/S2 file-change list and test design — reference for *shape*, not final value count)
+- [Source: _bmad-output/planning-artifacts/architecture/architecture-festgrid-2026-09-22/reviews/review-adversarial-pair.md §2] (the 12 Indonesian posts underlying the golden corpus, re-derived above)
+- [Source: _bmad-output/implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md] (prerequisite story: Dev Agent Record, Review Findings, and shipped-code confirmation this story builds on)
+- [Source: _bmad-output/implementation-artifacts/backlog.yaml#IDEA-100] (already-promoted backlog row; both `0-52-...`/`0-53-...` story keys already attached — no new backlog carve-out needed)
+- [Source: packages/shared-types/src/index.ts, event-category-definitions.ts] (current 18-value shipped state)
+- [Source: apps/backend/src/lib/ai-gateway/render-event-category-glossary.ts, event-category-definitions.ratchet.test.ts] (renderer and ratchet, unchanged mechanism; ratchet's Check B negative control is the one test this story must edit)
+- [Source: packages/domain/src/events/transform-gemini-response-to-event-info.ts] (cardinality logic, confirmed to need no change)
+- [Source: apps/backend/src/schema/events.graphql, schema-consistency.test.ts] (SDL and its existing exact-equality guard)
+- [Source: apps/web/src/generated/graphql.ts, apps/backend/src/generated/resolvers-types.ts, apps/web/fix-codegen.js, apps/backend/codegen.ts, apps/web/codegen.ts] (committed codegen outputs and pipeline, confirmed `EventCategory`-safe for `fix-codegen.js`)
+- [Source: apps/web/locales/en.json, id.json, locales.test.ts] (locale files and their existing `arrayContaining`-based test, being tightened)
+- [Source: packages/database/schema.ts, migrations/0000_cultured_ultragirl.sql, 0003_strong_stark_industries.sql, 0038_smooth_switch.sql, migrations/meta/_journal.json] (pgEnum, its CREATE/ADD-VALUE history, and the hand-adjustment precedent this story's DROP follows)
+- [Source: packages/database/seed.ts, seed-volume.ts, seed.test.ts, seed-volume.test.ts, seed.integration.test.ts] (seed fixtures and existing Vitest test precedent)
+- [Source: _bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md] (EventCategory pseudo-code block)
+- [Source: _bmad-output/project-context.md#Event categories] (note being finalized by this story)
+- [Source: _bmad-output/implementation-artifacts/deferred-work.md] ("Postgres enum irreversibility" note being closed out)
+- [Source: apps/web/src/features/events/correction-dialog.tsx] (confirmed generic `Object.values(EventCategory)`-driven picker, no UI edit needed)
+- [Source: _bmad-output/implementation-artifacts/0-34-harden-eventcategory-eventtype-cross-source-consistency.md] (precedent: standalone Epic 0 story, no epics.md section)
+
+## Global Rules References
+
+- [ ] `project-context.md` — Code Organization / package-boundary rules (no package boundary crossed; `packages/domain` touched by zero edits); updated by Task 9 ("Event categories" note finalized)
+- [ ] `story-content-structure.md` — canonical section order and status vocabulary followed
+- [ ] Architecture spine — AD-44 (binding source for this entire story; Rule 7's `taxonomyEffectiveFrom` recorded by Task 9)
+- [ ] Infrastructure docs — not applicable; no infra/deploy change (AC16; no `docs/infrastructure/*` update needed)
+
+## Implementation Plan (Rule-Compliant)
+
+### File Change Plan
+
+Create:
+- `packages/database/migrations/00NN_<drizzle-generated-name>.sql` (`DROP TYPE IF EXISTS "event_category";`, hand-adjusted)
+- `packages/database/migrations/meta/00NN_snapshot.json` (drizzle-kit generated)
+- `apps/backend/src/schema/codegen-consistency.test.ts` (new Rule-6 check: generated outputs ↔ enum)
+- A new colocated seed-category test (in `seed.test.ts` or a new file under `packages/database/`)
+
+Modify:
+- `packages/shared-types/src/index.ts` — add 4 enum members before `OTHER`
+- `packages/shared-types/src/event-category-definitions.ts` — 4 new definitions; narrow `TECHNOLOGY`/`BUSINESS_AND_NETWORKING`; amend/add `CATEGORY_BOUNDARIES` entries
+- `apps/backend/src/schema/events.graphql` — 4 new SDL enum values before `OTHER`
+- `apps/web/src/generated/graphql.ts` — regenerated (`pnpm codegen`), 22-member enum
+- `apps/backend/src/generated/resolvers-types.ts` — regenerated (`pnpm codegen`), 22-member union
+- `apps/web/locales/en.json`, `id.json` — 4 new `EventCategory` keys with the owner-directed labels
+- `apps/web/locales/locales.test.ts` — exact-equality + non-empty-string assertions
+- `apps/backend/src/lib/ai-gateway/event-category-definitions.ratchet.test.ts` — Check B negative-control token replacement + new positive confirmation
+- `apps/backend/src/lib/ai-processor/event-category-golden-corpus.fixtures.ts` — re-derived `expected`/`mustNotInclude`/`rationale` per the Dev Notes table; header comment
+- `packages/database/schema.ts` — delete `eventCategoryEnum`
+- `packages/database/seed.ts` — export `FIXTURE_EVENTS`
+- `packages/database/seed-volume.ts` — retype `CATEGORIES` as `readonly EventCategory[]`
+- `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md` — 4 new members in the `EventCategory` pseudo-code block
+- `_bmad-output/project-context.md` — "Event categories" note finalized (all 22 built)
+- `_bmad-output/implementation-artifacts/deferred-work.md` — close out the Postgres-enum-irreversibility note for `event_category`
+- `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` — AD-44 Rule 7's `taxonomyEffectiveFrom` recorded
+
+Do not touch: `packages/domain/src/events/transform-gemini-response-to-event-info.ts` (confirmed no change needed, Task 4); `render-event-category-glossary.ts` and its test (mechanism unchanged); `apps/web/fix-codegen.js` (confirmed no `EventCategory`-specific patch needed).
+
+### Rule Mapping
+
+- AD-44 Rule 3 (membership, labels) → AC1, AC2, Task 1
+- AD-44 Rule 4 (one definitions source, ratchet) → AC2, AC11, Tasks 1, 7
+- AD-44 Rule 5 (boundary procedure, routing) → AC3, Task 1
+- AD-44 Rule 6 (closed source register, new checks, pgEnum retirement) → AC4-AC10, Tasks 2, 3, 5, 6, 9
+- AD-44 Rule 2 (cardinality, unaffected) → AC7, Task 4
+- AD-44 Rule 7 (rollout, taxonomyEffectiveFrom) → AC14, Task 9
+- AD-44 Rule 8 (removal/narrowing is accepted, not migrated) → Data Type Compatibility section
+- AD-44 Rule 10 (golden corpus) → AC12, Task 8
+- AD-44 Follow-up 3 (docs correction) → AC13, Task 9
+- CLAUDE.md §4 (architecture diagram upkeep) → AC16 (confirmed not triggered)
+- `story-split-gate.md` Gates 1/2/3 → all "no gap found," recorded above under Architecture & UX Gate Findings
+
+### Verification Plan
+
+- `pnpm --filter @festgrid/shared-types lint`
+- `pnpm --filter backend build` (tsc exhaustiveness on the now-22-member `Record<EventCategoryKey,...>`) and `pnpm --filter backend lint`
+- `pnpm --filter backend test` (ratchet Checks A-D + updated negative controls; new codegen-consistency test; full existing suite for regressions — row-count-ratchet harness, writes no new rows)
+- `pnpm --filter @festgrid/domain test` (100% coverage gate; expected unaffected since Task 4 makes no edit)
+- `pnpm --filter @festgrid/database build`, `pnpm --filter @festgrid/database test` (new seed/seed-volume member tests)
+- `pnpm --filter @festgrid/database generate` then `pnpm --filter @festgrid/database run migrate` (applies cleanly; idempotent on re-run)
+- `pnpm --filter web test` (updated `locales.test.ts`)
+- `pnpm codegen` in both `apps/backend` and `apps/web`; `git diff` on both generated files reviewed for a clean, expected 22-member diff
+- One opt-in run of the re-derived `event-category-golden-corpus.live-eval.test.ts` (`RUN_LIVE_GEMINI_TESTS=true`) and a re-run of `build-gemini-request.live-cc024-regression.test.ts`, results recorded in Completion Notes (owner-dependent, per AD-44 Rule 10 — see Story 0.52's own precedent for this being PENDING/MANUAL if quota policy still applies)
+- `git diff --stat` reviewed against the File Change Plan above
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope confirmation — this story is AD-44 Follow-up 2 (4 new values: `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, `GADGETS_AND_DEVICES`; 22 total), extending the mechanism Story 0.52 built. Labels, cap (4), and property→`FINANCE_AND_INVESTMENT` routing are owner-settled per AD-44 §§3,5,7,12,13 — not open questions for this story.
+- [ ] Architecture and boundary confirmation — no new GraphQL resolver/type, no frontend change beyond locale keys + regenerated codegen output, no new DB table/column (only a pgEnum drop); `packages/domain` confirmed to need zero edits (Task 4).
+- [ ] Testing plan confirmation — ratchet Check B update + new positive confirmation, new codegen-consistency test, tightened locale-equality test, new seed/seed-volume member tests, re-derived golden corpus (12+1 fixtures), migration apply/idempotency check, per Tasks 1-10.
+- [ ] Explicit human approval state (Default: pending approval)
+- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates ran fresh via subagent with "no gap found" (see Architecture & UX Gate Findings). Story 0.52 (the prerequisite mechanism story) is implemented and code-reviewed (status `review`); its two pending live-Gemini runs are not a blocker for starting this story's implementation, but should be resolved before this story is marked `done` alongside this story's own golden-corpus run.
+
+## Testing Requirements
+
+- [ ] Integration tests — ratchet test (Check B update + new positive confirmation; Checks A/C/D re-verified at 22 values), new `codegen-consistency.test.ts`, tightened `locales.test.ts` assertions, new seed/seed-volume category-membership tests, migration apply + idempotency — all passing.
+- [ ] E2E tests — not required; no new UI surface or interaction is introduced (Gate 2: no gap). Optionally extend `apps/web/e2e/locale.spec.ts` for the 4 new labels if convenient, per the feasibility review's "optional" note — not a blocker.
+- [ ] Opt-in live-model tests (non-CI) — re-derived golden category corpus (12+1 fixtures) and the existing CC-024 regression, run once manually before this story is marked done. Record PENDING/MANUAL in Completion Notes if the owner's live-Gemini-quota policy from Story 0.52 still applies.
+
+## Deliverables Checklist
+
+- [ ] `EventCategory` enum at 22 members (`packages/shared-types/src/index.ts`)
+- [ ] `EVENT_CATEGORY_DEFINITIONS` + `CATEGORY_BOUNDARIES` amended for all 4 new members and the narrowed `TECHNOLOGY`/`BUSINESS_AND_NETWORKING`
+- [ ] `events.graphql` SDL at 22 members; both committed codegen outputs regenerated and verified by a new consistency test
+- [ ] `en.json`/`id.json` `EventCategory` namespace at 22 keys with the exact owner-directed labels; `locales.test.ts` tightened to exact equality
+- [ ] Confirmed (not edited) `transform-gemini-response-to-event-info.ts` needs no change
+- [ ] `eventCategoryEnum` deleted from `schema.ts`; `DROP TYPE IF EXISTS "event_category"` migration + meta files committed; migration applies and is idempotent
+- [ ] `FIXTURE_EVENTS` exported and member-validated; `seed-volume.ts` `CATEGORIES` retyped and member-validated
+- [ ] Ratchet Check B negative controls updated (safe deferred tokens) + new positive confirmation for the 4 new members
+- [ ] Golden corpus (12+1 fixtures) re-derived for 22 values per the Dev Notes table
+- [ ] PRD block, `project-context.md`, `deferred-work.md`, and AD-44 Rule 7's `taxonomyEffectiveFrom` all updated
+- [ ] `sprint-status.yaml` updated per this workflow's completion step
+
+## Out of Scope
+
+- `TOOLS_AND_HARDWARE`, `PROPERTY` (as its own category), `SHOPPING_AND_RETAIL` — deferred or not planned in AD-44 (evidence-trigger thresholds not yet met); `TOOLS_AND_HARDWARE`/`SHOPPING_AND_RETAIL` are deliberately reused as this story's ratchet negative-control tokens precisely because they are guaranteed to stay unreal for now.
+- A moderation posture for scam-prone finance events (forex/crypto/"trading robot" pitches) — explicitly left undecided by AD-44's own Deferred list; an owner-and-moderation question, not this story's job.
+- Retroactive re-tagging/backfill of previously-stored `events.categories` values under the new boundaries (e.g. events tagged `BUSINESS_AND_NETWORKING` for property, or `TECHNOLOGY` for gadgets, under Story 0.52's interim routing) — AD-44 Rule 8 explicitly accepts this as not migrated.
+- A lint rule (e.g. `import/no-cycle`) hardening the type-only `EventCategory` import in `event-category-definitions.ts` against a future accidental value-import — deferred by Story 0.52's own Review Findings (FIND-096), unrelated to this story's scope.
+- Grouping/restructuring the FilterHub category chips (AD-44 Rule 9 only calls for revisiting this if the set passes 24 values; 22 does not trigger it).
+- Any change to `EventType` definitions/rendering — AD-44 scopes this entire mechanism to `EventCategory` only.
+
+## Definition of Done
+
+- [ ] AC1-AC16 satisfied and verified (AC12's live-eval run may be gated-and-verified-but-PENDING/MANUAL per owner policy, matching Story 0.52's precedent — see Completion Notes)
+- [ ] Required tests passing: `apps/backend` (ratchet + codegen-consistency + full suite via row-count-ratchet harness), `packages/domain` (100% coverage gate, unaffected), `packages/database` (new Vitest member-check cases), `apps/web` (tightened locale test)
+- [ ] Lint and type checks passing for `packages/shared-types`, `apps/backend`, `packages/database`, `apps/web`
+- [ ] Migration applied to local dev DB and confirmed idempotent
+- [ ] Both opt-in live-model runs (golden corpus, CC-024 regression) executed once and results recorded in Completion Notes, or explicitly marked PENDING/MANUAL per owner policy
+
+## Completion Status
+
+- [ ] Not started
+
+## Dev Agent Record
+
+### Agent Model Used
+
+### Debug Log References
+
+### Completion Notes List
+
+### File List
