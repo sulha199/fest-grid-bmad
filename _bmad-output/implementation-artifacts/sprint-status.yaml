@@ -367,6 +367,9 @@ development_status:
   # epics.md: standalone Epic 0 stories, Story 0.34 precedent).
   0-52-build-the-event-category-definitions-source-renderer-and-ratchet: review
   0-53-add-home-living-fashion-finance-and-gadget-event-categories: review
+  # AD-44 amendment 2026-10-24 (owner-directed): non-exclusive OTHER + safety cap 6, UMKM/entrepreneurship
+  # rule, SCIENCE_AND_ENGINEERING (23rd value), golden-corpus re-derivation + live re-run + CC-024 rescrape.
+  0-54-amend-event-category-cardinality-and-add-science-and-engineering: backlog
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.

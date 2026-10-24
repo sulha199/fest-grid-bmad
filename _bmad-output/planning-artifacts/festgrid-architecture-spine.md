@@ -2484,15 +2484,21 @@ This document defines the core architectural invariants for the FestDaily applic
         `tracks`/`eligibility`, `[PROPOSED]`). `BUSINESS_AND_NETWORKING` is defined by its subject
         matter — trade, B2B, networking, entrepreneurship — not by the audience's identity.
         Property and investment belong to `FINANCE_AND_INVESTMENT` (Rule 3).
-    2.  **Cardinality.** An event carries **at most 4** categories, headline subject first; the prompt
-        asks for at most 3 headline subjects and permits a fourth only for a multi-subject festival
-        (the CC-024 reference festival carries four). `OTHER` is **exclusive**: it means "no single
-        subject" or "no valid value", never co-occurs with another category, and is dropped when any
-        other category is present. Both are enforced in `transformGeminiResponseToEventInfo`
-        (truncate in model order; drop `OTHER` beside others), not left to the prompt. An *empty*
-        list falls back to `[OTHER]` (existing). A value outside the enum fails the extraction
-        schema's Ajv validation and the **whole extraction is dropped**
-        (`process-ai-job.ts:158-164`); it does not fall back to `OTHER`.
+    2.  **Cardinality and `OTHER`, `[AMENDED 2026-10-24, owner-directed]`.** A post is never collapsed
+        into `OTHER` to save tags. The prompt asks the model to name **every** category whose subject
+        the post states, headline subject first; when the post lists *distinct events* (different
+        date or venue) it emits one event each, through the existing multi-event extraction, rather
+        than stacking their subjects on one event. `OTHER` is **non-exclusive**: it means "the post
+        names a subject no category covers" (added beside the real categories that do apply) or, alone,
+        "no category applies" / "no valid value". `transformGeminiResponseToEventInfo` enforces a
+        **safety cap of 6 real categories** (`OTHER` does not count against it): filter to valid
+        values, dedupe, move `OTHER` last, truncate real categories in model order to 6 (a truncation
+        is logged as a structured line, never silent), and fall back to `[OTHER]` on an empty list.
+        The cap is a runaway guard, not the target: a 4-subject mall sale carries 4 categories. A
+        value outside the enum fails the extraction schema's Ajv validation and the **whole
+        extraction is dropped** (`process-ai-job.ts:158-164`); it does not fall back to `OTHER`.
+        *Supersedes the original "at most 4, `OTHER` exclusive" rule, whose collapse of a
+        multi-subject post to `OTHER` lost every subject the post stated.*
     3.  **Membership, `[ADOPTED, user-directed 2026-10-23]`:** `HOME_AND_LIVING` (EN "Home & Living",
         ID "Rumah Tangga & Interior"), `FASHION_AND_BEAUTY` (EN "Fashion & Beauty", ID "Fashion &
         Gaya", owner's choice) and `FINANCE_AND_INVESTMENT` (EN "Finance & Investment", ID "Keuangan &
@@ -2507,6 +2513,15 @@ This document defines the core architectural invariants for the FestDaily applic
         category under AD-42 Rule 8. A user-facing label is
         not a definition: the Indonesian "Fashion & Gaya" is softer than its definition (it does not
         say "beauty"), accepted by the owner; the definition, not the label, governs tagging.
+        **Fifth addition, `[ADOPTED, user-directed 2026-10-24]`:** `SCIENCE_AND_ENGINEERING` (EN
+        "Science & Engineering", ID "Sains & Teknik"), before `OTHER`, taking the set from 22 to 23.
+        Engineering disciplines and hardware, scientific research seminars and conferences, science
+        and maker expos, and invention or innovation showcases had no home and would have scattered
+        across `EDUCATION`, `BUSINESS_AND_NETWORKING` and `OTHER`, each needing a workaround rule.
+        It is added now, before any production deploy, because that is the cheapest moment (no
+        stored events to re-extract). "Innovation" is an alias, deliberately **not** in the label:
+        every startup pitch claims it and it would become a catch-all. `TECHNOLOGY` keeps its name,
+        label and definition. Not a sensitive category under AD-42 Rule 8.
     4.  **One definitions source, one renderer.** `packages/shared-types/src/event-category-definitions.ts`
         (relative imports inside shared-types are **extensionless**: it is consumed as raw TypeScript by
         Next's webpack, which cannot resolve a `.js` specifier; ratchet Check E enforces it)
@@ -2539,10 +2554,15 @@ This document defines the core architectural invariants for the FestDaily applic
         categories, headline first. 2. Otherwise the
         **subject of what is sold or shown** decides a consumer-facing sale, bazaar, expo or promo; a
         trade-day/public-day split does not change the subject. 3. Add `BUSINESS_AND_NETWORKING` only
-        when the post states a trade, buyer, B2B, franchise, supplier or business-matching purpose;
-        "UMKM", "support local" or a seller workshop alone do not count. 4. A sale or expo with no
-        headline subject, or whose named subjects span more than four categories, is `[OTHER]` with its
-        `EventType` (`PROMOTION`/`MARKET`) — correct, not a gap.
+        when the post states a trade, buyer, B2B, franchise, supplier or business-matching purpose,
+        **or frames entrepreneurship `[AMENDED 2026-10-24]`** (incubated tenants "binaan", UMKM
+        business-skills or "go digital" workshops, franchise or reseller recruitment), alongside the
+        product categories of what is sold; "support local" or a bare "UMKM" bazaar with no
+        entrepreneurship or trade framing does not count. 4. **No collapse `[AMENDED 2026-10-24]`:**
+        a sale or expo whose named subjects span several categories carries each of them (up to the
+        Rule 2 safety cap), with `OTHER` added only for a stated subject no category covers (for
+        example a wedding expo's venue vendors); `[OTHER]` alone is for a post with no identifiable
+        subject at all.
         **Boundary table:** consumer gadgets, phones, laptops, audio, cameras, wearables, gaming gear and their
         launches, promos and expos → `GADGETS_AND_DEVICES`; software, apps, AI, startups, developer
         and tech-community events, hackathons and tech conferences → `TECHNOLOGY`, and a launch whose
@@ -2555,10 +2575,18 @@ This document defines the core architectural invariants for the FestDaily applic
         `HOBBIES_AND_INTERESTS`, decorative planting sold as home décor → `HOME_AND_LIVING`, tag the
         headline only; fashion, sneakers (also sport-branded), barbershop, grooming, skincare and
         cosmetics → `FASHION_AND_BEAUTY`, but clinical aesthetic treatment → `HEALTH_AND_WELLNESS` and a
-        participatory sport event (fun run, tournament) → `SPORTS_AND_FITNESS` even when a shoe or
-        apparel is launched; batik, tenun and wastra heritage events → `ARTS_AND_CULTURE` (plus
+        participatory sport event (fun run, tournament) keeps `SPORTS_AND_FITNESS` as the headline,
+        with `FASHION_AND_BEAUTY` a valid co-tag when a shoe or apparel launch is stated
+        `[AMENDED 2026-10-24]`; batik, tenun and wastra heritage events → `ARTS_AND_CULTURE` (plus
         `FASHION_AND_BEAUTY` only when a runway or apparel sale is the headline); wedding, bridal and
-        similar services expos → the dominant subject category if one exists, else `[OTHER]`.
+        similar services expos → every subject category the post names (for example `FASHION_AND_BEAUTY`,
+        `HOME_AND_LIVING`, `FOOD_AND_DRINK`) plus `OTHER` for uncovered services such as venues
+        `[AMENDED 2026-10-24]`; engineering (civil, mechanical, electrical, robotics, IoT), scientific
+        research seminars and conferences, science and maker expos, and invention or innovation
+        showcases → `SCIENCE_AND_ENGINEERING`, while software, AI, startups, developer events and
+        hackathons stay `TECHNOLOGY`, academic olympiads and school or university competitions stay
+        `EDUCATION` even in science subjects, and machinery sold to factories stays
+        `BUSINESS_AND_NETWORKING`.
     6.  **Adding a value touches this closed source register in one change,** and the tests fail if
         any machine-checkable item is missing: the `EventCategory` enum; the definitions record and
         boundary table; the SDL enum; the committed web and backend codegen outputs (checked by
@@ -2647,6 +2675,12 @@ This document defines the core architectural invariants for the FestDaily applic
         re-run on the 22-value set. Ships after Story 1.
     3.  **Docs** — correct the "Postgres enum irreversibility" note in `deferred-work.md`; update
         `project-context.md` as Stories 1 and 2 land (its rule is marked plan-only until then).
+    4.  **Story 0.54 (follow-up, 2026-10-24) — Rule 2 amendment and the fifth addition.** Replaces the
+        cap-4/`OTHER`-exclusive transform with the safety cap of 6 and non-exclusive `OTHER`, adds
+        `SCIENCE_AND_ENGINEERING` across the Rule 6 register (23 values), rewrites the Rule 5.3/5.4
+        and boundary lines above in the single definitions source, re-derives the golden corpus
+        (fixtures 3, 5, 9, 10, 11 change) and re-runs it live, then re-runs the CC-024 regression on
+        fresh image links.
 
 ---
 
