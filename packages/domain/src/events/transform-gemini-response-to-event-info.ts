@@ -28,17 +28,19 @@ export function transformGeminiResponseToEventInfo(
   const validCategories = payload.categories.filter((c): c is EventCategory =>
     Object.values(EventCategory).includes(c as EventCategory)
   );
-  // Story 0.52 (AD-44 Rule 2), patched per code review: valid-category filter (above), then
-  // dedupe (preserving first occurrence / model order) so a repeated category can never
-  // displace a distinct one past the cap below nor silently empty out an all-duplicate-OTHER
-  // list, then OTHER-exclusivity, then the cap-4 truncation, then empty-fallback last -- in that
-  // order, so a 5-category response that happens to include OTHER never wastes one of the 4 kept
-  // slots on it, and a duplicate-only raw list (e.g. ['OTHER', 'OTHER']) never collapses to [].
-  let categories: EventCategory[] = Array.from(new Set(validCategories));
-  if (categories.length > 1 && categories.includes(EventCategory.OTHER)) {
-    categories = categories.filter((c) => c !== EventCategory.OTHER);
-  }
-  categories = categories.slice(0, 4);
+  // Story 0.52 (AD-44 Rule 2), amended by Story 0.54 (AD-44 Rule 2, [AMENDED 2026-10-24]):
+  // valid-category filter (above), then dedupe (preserving first occurrence / model order) so a
+  // repeated category can never displace a distinct one past the cap below nor silently empty
+  // out an all-duplicate-OTHER list, then split into "real" categories and whether OTHER was
+  // present, then truncate "real" to the first 6 (in model order) -- OTHER never counts against
+  // this safety cap and is never dropped, only appended last when present -- then empty-fallback
+  // last. This supersedes the old cap-4/OTHER-exclusive rule: OTHER is now non-exclusive (kept
+  // alongside real categories, moved to the end) and the cap is a safety cap of 6, not a forced
+  // truncation of ordinary multi-subject posts.
+  const categoriesDeduped: EventCategory[] = Array.from(new Set(validCategories));
+  const hasOther = categoriesDeduped.includes(EventCategory.OTHER);
+  const realCategories = categoriesDeduped.filter((c) => c !== EventCategory.OTHER).slice(0, 6);
+  let categories: EventCategory[] = hasOther ? [...realCategories, EventCategory.OTHER] : realCategories;
   if (categories.length === 0) {
     categories = [EventCategory.OTHER];
   }

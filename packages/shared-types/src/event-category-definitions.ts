@@ -13,8 +13,11 @@ import type { EventCategory } from './index';
  * next-intl locale files (see `project-context.md`'s "Locale-Sensitive Data Rendering" rule);
  * this file has no relationship to that pipeline.
  *
- * Scope: the 22-value taxonomy AD-44 adopted (Story 0.52's 18-value interim set, plus Story 0.53's
- * `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, and `GADGETS_AND_DEVICES`).
+ * Scope: the 23-value taxonomy AD-44 adopted (Story 0.52's 18-value interim set, plus Story 0.53's
+ * `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, and `GADGETS_AND_DEVICES`,
+ * plus Story 0.54's `SCIENCE_AND_ENGINEERING`). Story 0.54 (AD-44 Follow-up 4) also amended the
+ * cardinality rule from cap-4/OTHER-exclusive to a safety cap of 6 real categories with
+ * non-exclusive OTHER (kept and moved last, never dropped).
  * Only real `EventCategory`/`EventType` members may be named anywhere in this file -- not in a
  * definition, not in a boundary rule, not even in a comment like this one -- the ratchet test's
  * Check B fails loudly if any forward-reference token (or a typo of a real member) ever appears
@@ -126,6 +129,11 @@ export const EVENT_CATEGORY_DEFINITIONS: Readonly<Record<EventCategoryKey, Event
     definition: 'Consumer electronics, phones, laptops, audio, cameras, wearables, and gaming gear, including their launches, promos, and expos.',
     aliases: ['gadget', 'elektronik']
   },
+  SCIENCE_AND_ENGINEERING: {
+    definition:
+      'Engineering disciplines and hardware (civil, mechanical, electrical, robotics, IoT), scientific research seminars and conferences, science and maker expos, and invention or innovation showcases.',
+    aliases: ['teknik', 'rekayasa', 'riset', 'inovasi', 'sains']
+  },
   OTHER: {
     definition: 'No single subject applies, or no valid value could be determined for this event.',
     aliases: ['lainnya', 'lain-lain']
@@ -146,7 +154,7 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
   {
     id: 'cardinality',
     rule:
-      'Select at most 4 categories per event; never select OTHER together with another category -- choose OTHER alone only when no other category applies.'
+      '[AMENDED 2026-10-24] Name every category whose subject the post states, headline subject first -- never collapse a multi-subject post into OTHER to save tags. OTHER is non-exclusive and may sit alongside real categories (added only for a stated subject none of them covers) or alone when nothing applies. Real categories beyond the first 6 named are dropped automatically, in listed order.'
   },
   {
     id: 'finance-investment-property-and-trading',
@@ -165,7 +173,7 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
   {
     id: 'business-networking-umkm-exclusion',
     rule:
-      '"UMKM", "support local", or a seller workshop alone do not trigger BUSINESS_AND_NETWORKING -- a stated trade, buyer, B2B, franchise, supplier, or business-matching purpose is required.'
+      '[AMENDED 2026-10-24] A bare "support local" or UMKM bazaar with no entrepreneurship or trade framing does not trigger BUSINESS_AND_NETWORKING. BUSINESS_AND_NETWORKING now also applies when the post frames entrepreneurship -- incubated tenants ("binaan"), UMKM business-skills or "go digital" workshops, or franchise or reseller recruitment -- alongside the product categories named, in addition to a stated trade, buyer, B2B, franchise, supplier, or business-matching purpose.'
   },
   {
     id: 'hobbies-esports',
@@ -187,7 +195,8 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
   },
   {
     id: 'sports-branded-gear',
-    rule: 'A participatory sport event (fun run, tournament) keeps SPORTS_AND_FITNESS even when branded gear or apparel is also launched at it.'
+    rule:
+      'A participatory sport event (fun run, tournament) keeps SPORTS_AND_FITNESS as the headline category even when branded gear or apparel is also launched at it -- FASHION_AND_BEAUTY is a valid co-tag when a shoe or apparel launch is explicitly stated.'
   },
   {
     id: 'other-no-single-subject',
@@ -216,6 +225,11 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
   {
     id: 'wedding-services-expo',
     rule:
-      'Wedding, bridal, and similar-services expos route to the dominant subject category when one clearly exists, otherwise OTHER.'
+      '[AMENDED 2026-10-24] Wedding, bridal, and similar-services expos route to every subject category the post names (for example FASHION_AND_BEAUTY, HOME_AND_LIVING, FOOD_AND_DRINK), plus OTHER for a stated service none of the named categories covers (for example venues).'
+  },
+  {
+    id: 'science-and-engineering',
+    rule:
+      'Engineering, research, maker, and invention content routes to SCIENCE_AND_ENGINEERING; software, AI, startups, developer events, tech conferences, and hackathons stay TECHNOLOGY; academic olympiads and school or university competitions stay EDUCATION even in science subjects; machinery sold to factories or production lines stays BUSINESS_AND_NETWORKING (see business-networking-machinery above).'
   }
 ];
