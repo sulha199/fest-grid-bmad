@@ -254,6 +254,7 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: none
   summary: This change is the first migration in the repo to add a value to an existing Postgres enum via `ALTER TYPE ... ADD VALUE` (previous category/type values were all part of the initial `CREATE TYPE` in `0000_cultured_ultragirl.sql`). Postgres has no `ALTER TYPE ... DROP VALUE` — once applied, removing or renaming `RELIGION_AND_SPIRITUALITY` requires recreating the whole `event_category` type and repointing every dependent column. No process doc currently flags this one-way-door risk for future enum additions.
   evidence: Inherent Postgres limitation, not a defect in this change; noted by adversarial review since this is the first migration of this kind in the repo.
+  **CLOSED (Story 0.53, 2026-10-24):** moot for `event_category` specifically — Story 0.53 retired the type entirely (`DROP TYPE IF EXISTS "event_category"`, since the `events.categories` column was always `text[]` and never backed by this pgEnum), rather than further extending it. The underlying "no `ALTER TYPE ... DROP VALUE`" limitation remains a real Postgres constraint for any *other* enum that does back a live column, but no longer applies to this one.
 
 ## Deferred from: code review of 1-2a-create-posts-table-and-link-seeded-events-to-their-source-post.md (2026-08-03)
 
