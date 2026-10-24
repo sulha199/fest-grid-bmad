@@ -241,11 +241,11 @@ Do not touch: `packages/domain/src/events/transform-gemini-response-to-event-inf
 
 ## Pre-Coding Approval Gate
 
-- [ ] Scope confirmation — this story is AD-44 Follow-up 2 (4 new values: `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, `GADGETS_AND_DEVICES`; 22 total), extending the mechanism Story 0.52 built. Labels, cap (4), and property→`FINANCE_AND_INVESTMENT` routing are owner-settled per AD-44 §§3,5,7,12,13 — not open questions for this story.
-- [ ] Architecture and boundary confirmation — no new GraphQL resolver/type, no frontend change beyond locale keys + regenerated codegen output, no new DB table/column (only a pgEnum drop); `packages/domain` confirmed to need zero edits (Task 4).
-- [ ] Testing plan confirmation — ratchet Check B update + new positive confirmation, new codegen-consistency test, tightened locale-equality test, new seed/seed-volume member tests, re-derived golden corpus (12+1 fixtures), migration apply/idempotency check, per Tasks 1-10.
-- [ ] Explicit human approval state (Default: pending approval)
-- [ ] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates ran fresh via subagent with "no gap found" (see Architecture & UX Gate Findings). Story 0.52 (the prerequisite mechanism story) is implemented and code-reviewed (status `review`); its two pending live-Gemini runs are not a blocker for starting this story's implementation, but should be resolved before this story is marked `done` alongside this story's own golden-corpus run.
+- [x] Scope confirmation — this story is AD-44 Follow-up 2 (4 new values: `HOME_AND_LIVING`, `FASHION_AND_BEAUTY`, `FINANCE_AND_INVESTMENT`, `GADGETS_AND_DEVICES`; 22 total), extending the mechanism Story 0.52 built. Labels, cap (4), and property→`FINANCE_AND_INVESTMENT` routing are owner-settled per AD-44 §§3,5,7,12,13 — not open questions for this story.
+- [x] Architecture and boundary confirmation — no new GraphQL resolver/type, no frontend change beyond locale keys + regenerated codegen output, no new DB table/column (only a pgEnum drop); `packages/domain` confirmed to need zero edits (Task 4).
+- [x] Testing plan confirmation — ratchet Check B update + new positive confirmation, new codegen-consistency test, tightened locale-equality test, new seed/seed-volume member tests, re-derived golden corpus (12+1 fixtures), migration apply/idempotency check, per Tasks 1-10.
+- [x] Explicit human approval state — **Approved** (human owner, 2026-10-24: "Approve all, incl. pgEnum drop" — full scope as summarized, including retiring `event_category` via `eventCategoryEnum` deletion + `DROP TYPE IF EXISTS "event_category"` migration applied to the local sandbox DB only).
+- [x] Gate 1/2/3 prerequisites confirmed done or gap accepted — all three gates ran fresh via subagent with "no gap found" (see Architecture & UX Gate Findings). Story 0.52 (the prerequisite mechanism story) is implemented and code-reviewed (status `review`); its two pending live-Gemini runs are not a blocker for starting this story's implementation, but should be resolved before this story is marked `done` alongside this story's own golden-corpus run.
 
 ## Testing Requirements
 
