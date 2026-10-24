@@ -2392,6 +2392,14 @@ items:
      touches: [pkg:domain, cross:ai-extraction],
      note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). Decided by the product owner and fixed: a qualifier beside an OR's branches applies to the whole group, AND(OR(branches), fields). See Story 9.4's amendment."}
 
+  FIND-096:
+    {type: finding, status: backlog, created: 2026-10-24,
+     impact: internal, effort: xs,
+     title: "No lint guard against event-category-definitions.ts's type-only EventCategory import silently reverting to a value import and reintroducing a runtime cycle",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md],
+     touches: [pkg:shared-types],
+     note: "Deferred from: code review of story-0-52 (2026-10-24). Forward-looking hardening only, no current defect."}
+
   BUG-076:
     {type: bug, status: triaged, created: 2026-10-23,
      impact: user-visible, effort: s,

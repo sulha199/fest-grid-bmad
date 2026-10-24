@@ -750,3 +750,9 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
   summary: RESOLVED (product owner chose to apply the qualifier to the whole group; fixed in the transform, Story 9.4 amended). Leaf fields written on an OR node beside its `children` are joined to that OR as additional alternatives, so `{op:'OR', children:[jazz, blues], isFree:true}` becomes `OR(jazz, blues, isFree)`.
   evidence: Reproduced by Edge Case Hunter. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess about the model's intent. (FIND-091)
+
+## Deferred from: code review of story-0-52 (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md`
+  summary: No automated guard (lint rule, e.g. `import/no-cycle`) stops a future edit from converting the deliberate `import type { EventCategory }` in `event-category-definitions.ts` back into a regular value import, silently reintroducing the runtime import-cycle risk the type-only import was specifically added to avoid — protected today only by an inline comment.
+  evidence: Surfaced by Blind Hunter. Forward-looking hardening suggestion, not a defect in the code as shipped; no current failure mode. (FIND-096)
