@@ -2400,6 +2400,14 @@ items:
      touches: [pkg:shared-types],
      note: "Deferred from: code review of story-0-52 (2026-10-24). Forward-looking hardening only, no current defect."}
 
+  FIND-097:
+    {type: finding, status: backlog, created: 2026-10-24,
+     impact: internal, effort: xs,
+     title: "Golden-corpus fixture 11-wedding-expo hard-asserts a classification its own rationale calls genuinely contestable, with no soft-miss mechanism in the live-eval test",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/0-53-add-home-living-fashion-finance-and-gadget-event-categories.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Deferred from: code review of story-0-53 (2026-10-24). Continues Story 0.52's pattern; bounded by AD-44 Rule 10 (manual/nightly, never a CI gate)."}
+
   BUG-076:
     {type: bug, status: triaged, created: 2026-10-23,
      impact: user-visible, effort: s,

@@ -154,6 +154,11 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
       'Property/KPR-mortgage expos or seminars, and stock, mutual-fund, bond, gold, crypto, forex, or commodity trading-or-investing events, route to FINANCE_AND_INVESTMENT by subject, regardless of audience -- named routing wins over the subject-of-sale default.'
   },
   {
+    id: 'finance-investment-home-expo-dual-tag',
+    rule:
+      'A home expo that also lists properties for sale may carry both HOME_AND_LIVING and FINANCE_AND_INVESTMENT, headline subject first; furniture, decor, and appliances stay HOME_AND_LIVING.'
+  },
+  {
     id: 'business-networking-machinery',
     rule: 'Machinery for factories or production lines routes to BUSINESS_AND_NETWORKING.'
   },

@@ -757,3 +757,9 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md`
   summary: No automated guard (lint rule, e.g. `import/no-cycle`) stops a future edit from converting the deliberate `import type { EventCategory }` in `event-category-definitions.ts` back into a regular value import, silently reintroducing the runtime import-cycle risk the type-only import was specifically added to avoid — protected today only by an inline comment.
   evidence: Surfaced by Blind Hunter. Forward-looking hardening suggestion, not a defect in the code as shipped; no current failure mode. (FIND-096)
+
+## Deferred from: code review of story-0-53 (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-53-add-home-living-fashion-finance-and-gadget-event-categories.md`
+  summary: Golden-corpus fixture `11-wedding-expo` keeps a hard `expected`/`mustNotInclude` assertion in `event-category-golden-corpus.live-eval.test.ts` even though its own rationale (and the test file's header comment) explicitly calls its classification "genuinely contestable" now that `FASHION_AND_BEAUTY`/`HOME_AND_LIVING` both exist — there is no soft-miss mechanism, only a code comment instructing a human to adjust the fixture (not the prompt) if the live run disagrees.
+  evidence: Surfaced by Edge Case Hunter. Continues Story 0.52's own established pattern for ambiguous fixtures rather than introducing it; bounded by AD-44 Rule 10 (golden corpus is manual/nightly, never a CI gate). Already flagged for the pending manual live run per this story's own Completion Notes. (FIND-097)

@@ -2581,7 +2581,11 @@ This document defines the core architectural invariants for the FestDaily applic
         a writer can emit a value a reader cannot serialize for a short window. Accepted because the
         effect is bounded: an unserializable value nulls that event's whole `categories` list
         (`[EventCategory!]`) with a masked error, not the row, and heals when the deploy completes.
-        `taxonomyEffectiveFrom` is **2026-10-24** (Story 2/0.53's deploy date, recorded here per this Rule). No evidence query has a valid window before that date. No mass
+        `taxonomyEffectiveFrom` is **not yet set**. Story 0.53's register change is implemented and committed but not
+        deployed to any environment running live extraction (only a local sandbox-DB migration was applied).
+        Whichever deploy actually ships Story 0.53's code (API, AI processor and ingestor Lambdas) to production
+        must record the real deploy date here, in place. No Rule 6 evidence query has a valid window, and none
+        may run, until that date is recorded. No mass
         re-extraction and no backfill; existing events keep their tags. The moderator re-extraction
         preview and manual extraction will adopt the new definitions as they are used; that is
         expected. The Archive page keeps old events visible, so the facet is sparse for older events;

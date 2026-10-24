@@ -1,6 +1,6 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, statSync } from 'fs';
 import { resolve, join } from 'path';
 import { EventCategory, EventType, EVENT_CATEGORY_DEFINITIONS, CATEGORY_BOUNDARIES } from '@festgrid/shared-types';
 import { renderEventCategoryGlossary } from './render-event-category-glossary.js';
@@ -231,14 +231,21 @@ function findRelativeJsImports(source: string): string[] {
 const SHARED_TYPES_SRC = resolve(process.cwd(), '..', '..', 'packages', 'shared-types', 'src');
 
 test('Check E: shared-types source files use no `.js`-suffixed relative imports (they break next build)', () => {
-  const files = readdirSync(SHARED_TYPES_SRC).filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'));
+  // Recursive, so a file added in a subdirectory later is scanned too.
+  const listTsFiles = (dir: string): string[] =>
+    readdirSync(dir).flatMap((entry) => {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) return listTsFiles(full);
+      return entry.endsWith('.ts') && !entry.endsWith('.d.ts') ? [full] : [];
+    });
+  const files = listTsFiles(SHARED_TYPES_SRC);
   assert.ok(files.length >= 2, `Expected to scan at least index.ts and event-category-definitions.ts, found: ${files.join(', ')}`);
   const offenders: string[] = [];
   let relativeImportsSeen = 0;
   for (const file of files) {
-    const source = readFileSync(join(SHARED_TYPES_SRC, file), 'utf8');
+    const source = readFileSync(file, 'utf8');
     relativeImportsSeen += (source.match(/(?:from|import)\s*\(?\s*['"]\.{1,2}\//g) ?? []).length;
-    for (const spec of findRelativeJsImports(source)) offenders.push(`${file}: ${spec}`);
+    for (const spec of findRelativeJsImports(source)) offenders.push(`${file.replace(SHARED_TYPES_SRC, '')}: ${spec}`);
   }
   // Positive confirmation the scan is not vacuous: shared-types does have relative imports today.
   assert.ok(relativeImportsSeen >= 2, `Expected to see the index.ts re-export and the type-only import, saw ${relativeImportsSeen}`);
