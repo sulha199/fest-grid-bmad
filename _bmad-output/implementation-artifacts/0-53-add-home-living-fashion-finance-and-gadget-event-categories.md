@@ -375,3 +375,22 @@ Claude Sonnet 5 (claude-sonnet-5), via `bmad-dev-story`.
 - `apps/backend/src/schema/codegen-consistency.test.ts`
 - `packages/database/migrations/0081_warm_the_fallen.sql`
 - `packages/database/migrations/meta/0081_snapshot.json`
+
+### Live Gemini evaluation results (run 2026-10-24 by the orchestrating session, with the owner's explicit go-ahead; one run per fixture)
+
+Golden corpus (22-value taxonomy, `event-category-golden-corpus.live-eval.test.ts`): **8 of 13 fixtures pass, 5 mismatch.** Three fixtures (6, 7, 8) first hit transient Gemini `503 high demand` errors and passed on retry via a throwaway script (same request-building and call path; removed afterwards).
+
+| Fixture | Result | Detail |
+|---|---|---|
+| 1-property-expo, 2-furniture-trade-fair, 4-gadget-roadshow-esports, 12-cosmetics-launch-makeup-class, 6b-bonus-aesthetic-clinic | pass | |
+| 6-barbershop-grand-opening, 7-power-tools-roadshow, 8-plant-fair-contest | pass (on retry) | after 503s |
+| 3-umkm-bazaar | **mismatch** | model returned `[FASHION_AND_BEAUTY, FOOD_AND_DRINK, ARTS_AND_CULTURE, BUSINESS_AND_NETWORKING]`; fixture forbids `BUSINESS_AND_NETWORKING` (Rule 5.3: "UMKM" alone does not trigger it). Candidate prompt/boundary defect: the model ignored the exclusion. |
+| 9-mall-multi-brand-sale | **mismatch** | expected `[OTHER]`, got `[FASHION_AND_BEAUTY, GADGETS_AND_DEVICES, HOME_AND_LIVING, FOOD_AND_DRINK]`. The caption names exactly four subjects and Rule 5.4 says `OTHER` for **more than four**, so the model followed the rule as written; the fixture or the threshold needs a decision. |
+| 5-fashion-week-heritage-textile | mismatch | expected a `BUSINESS_AND_NETWORKING` co-tag for a stated buyer meeting; got `[ARTS_AND_CULTURE, FASHION_AND_BEAUTY]`. Contestable. |
+| 10-sneaker-launch-fun-run | mismatch | fixture forbids `FASHION_AND_BEAUTY`; got `[SPORTS_AND_FITNESS, FASHION_AND_BEAUTY]`. The boundary text is ambiguous about a co-tag. Contestable. |
+| 11-wedding-expo | mismatch | expected `[OTHER]`; got `[FASHION_AND_BEAUTY, HOME_AND_LIVING, FOOD_AND_DRINK]`. Already flagged as contestable: adjust the fixture, not the prompt. |
+
+No prompt, boundary or fixture was changed in response: those are owner decisions (tracked as FIND-098). One run per fixture is a small sample from a non-deterministic model.
+
+CC-024 regression (`build-gemini-request.live-cc024-regression.test.ts`, 1 repeat per post): **blocked, not a regression.** All 4 reference posts fail with `Failed to fetch image: Status 403` because their signed image links expired on 2026-10-06; no Gemini call was made. It needs fresh links from a `poc-ingestion-preview.ts --force` re-scrape (uses scraper vendor quota) before it can validate anything.
+
