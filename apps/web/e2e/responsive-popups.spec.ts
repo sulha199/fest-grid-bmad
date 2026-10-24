@@ -54,6 +54,7 @@ const scenarios: PopupScenario[] = [
   {
     name: 'discovery: Filter with AI overlay',
     route: '/en',
+    session: 'user', // the AI filter is only offered to signed-in viewers
     open: async (page) => {
       await page.getByRole('button', { name: 'Filter with AI' }).click();
       return page.locator(DIALOG).last();
