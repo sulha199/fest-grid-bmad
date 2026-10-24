@@ -110,8 +110,11 @@ test('Check B negative control: a synthetic forward-reference token is flagged, 
   const forbiddenSnippet = 'Furniture and décor route to HOME_AND_LIVING, not OTHER.';
   assert.deepStrictEqual(findUnknownTokens(forbiddenSnippet), ['HOME_AND_LIVING']);
 
-  const typoSnippet = 'Route to MUSICC when unsure.';
-  assert.deepStrictEqual(findUnknownTokens(typoSnippet), ['MUSICC']);
+  // The regex only targets underscored ALL_CAPS tokens (per AC4(b)'s own scope) -- a single-word
+  // typo like "MUSICC" has no underscore and is intentionally out of scope for this check. An
+  // underscored typo of a real member IS caught:
+  const typoSnippet = 'Route to BUSINESS_AND_NETWORKED when unsure.';
+  assert.deepStrictEqual(findUnknownTokens(typoSnippet), ['BUSINESS_AND_NETWORKED']);
 
   const safeSnippet = 'Route to MUSIC or OTHER when unsure, never UMKM alone.';
   assert.deepStrictEqual(findUnknownTokens(safeSnippet), []);
