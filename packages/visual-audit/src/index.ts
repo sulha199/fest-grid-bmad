@@ -73,3 +73,6 @@ export {
 } from './rules/page-overflow.js';
 
 export { renderAuditReport, classifyResult, type AuditRow, type AuditRowStatus, type AuditReportMeta } from './rules/page-overflow-report.js';
+
+export { measurePopup } from './compare/popup-containment.js';
+export { checkPopupContainment, POPUP_TOLERANCE_PX, type PopupMeasurement, type Box as PopupBox } from './rules/popup-containment.js';

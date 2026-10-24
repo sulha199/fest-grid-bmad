@@ -24,6 +24,7 @@ interface InPageOutput {
   scrollWidth: number;
   clientWidth: number;
   masked: boolean;
+  truncated: boolean;
   chains: Array<{ chain: SelectorSegment[]; tag: string; classes: string; depth: number; left: number; right: number; width: number }>;
 }
 
@@ -55,6 +56,7 @@ export async function detectPageOverflow(page: Page): Promise<PageOverflowResult
       const masked = clips(getComputedStyle(root).overflowX) || clips(getComputedStyle(document.body).overflowX);
 
       const chains: InPageOutput['chains'] = [];
+      let truncated = false;
       const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'LINK', 'META', 'NOSCRIPT', 'TEMPLATE', 'HEAD']);
 
       const segmentOf = (el: Element): SelectorSegment => {
@@ -77,7 +79,11 @@ export async function detectPageOverflow(page: Page): Promise<PageOverflowResult
       };
 
       const visit = (el: Element, ancestors: SelectorSegment[], clippedByAncestor: boolean) => {
-        if (chains.length >= maxCandidates || SKIP_TAGS.has(el.tagName)) return;
+        if (chains.length >= maxCandidates) {
+          truncated = true;
+          return;
+        }
+        if (SKIP_TAGS.has(el.tagName)) return;
         const style = getComputedStyle(el);
         if (style.display === 'none' || style.visibility === 'hidden') return;
         // Fixed elements are positioned against the viewport and never widen the document.
@@ -110,7 +116,7 @@ export async function detectPageOverflow(page: Page): Promise<PageOverflowResult
         visit(child, [segmentOf(root), segmentOf(document.body)], false);
       }
 
-      return { scrollWidth: root.scrollWidth, clientWidth, masked, chains };
+      return { scrollWidth: root.scrollWidth, clientWidth, masked, truncated, chains };
     },
     { epsilon: OVERFLOW_EPSILON_PX, maxCandidates: MAX_CANDIDATES }
   );
@@ -124,7 +130,7 @@ export async function detectPageOverflow(page: Page): Promise<PageOverflowResult
     right: c.right,
     width: c.width,
   }));
-  return buildPageOverflowResult({ scrollWidth: raw.scrollWidth, clientWidth: raw.clientWidth, masked: raw.masked, candidates });
+  return buildPageOverflowResult({ scrollWidth: raw.scrollWidth, clientWidth: raw.clientWidth, masked: raw.masked, truncated: raw.truncated, candidates });
 }
 
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;

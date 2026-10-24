@@ -54,7 +54,7 @@ export function renderAuditReport(rows: AuditRow[], meta: AuditReportMeta): stri
   out.push(`# Page-overflow audit -- ${meta.generatedOn}`, '');
   out.push(`Base URL: \`${meta.baseUrl}\`. Metric: \`documentElement.scrollWidth - clientWidth\` (px the page is wider than the viewport).`, '');
   out.push('## Summary', '');
-  out.push(`- Routes swept: ${routes.length} × ${widths.length} viewports = ${rows.length} checks`);
+  out.push(`- Checks: ${rows.length} (${routes.length} route(s) across ${widths.length} viewport width(s))`);
   out.push(`- Overflowing: ${overflowRows.length} checks across ${failingRoutes.size} route(s)`);
   out.push(`- Errors (page not measured): ${errorRows.length}`);
   out.push(`- Skipped routes: ${meta.skipped.length}`, '');
@@ -85,7 +85,8 @@ export function renderAuditReport(rows: AuditRow[], meta: AuditReportMeta): stri
   const labelOf = new Map([...culprits.keys()].map((key, i) => [key, `C${i + 1}`]));
 
   out.push('## Distinct culprits', '');
-  if (culprits.size === 0) out.push('No overflow detected.', '');
+  if (overflowRows.length === 0) out.push('No overflow detected.', '');
+  else if (culprits.size === 0) out.push('Overflow was detected but no culprit element could be identified (it may be absolutely positioned outside a clipping ancestor).', '');
   for (const [key, entry] of culprits) {
     const w = [...entry.widths].sort((a, b) => a - b);
     out.push(`### ${labelOf.get(key)} -- \`${key}\``, '');
@@ -112,7 +113,7 @@ export function renderAuditReport(rows: AuditRow[], meta: AuditReportMeta): stri
 
   if (errorRows.length > 0) {
     out.push('## Errors', '');
-    for (const row of errorRows) out.push(`- \`${row.route}\` @ ${row.viewportWidth}px -- ${row.error ?? 'unknown error'}`);
+    for (const row of errorRows) out.push(`- \`${row.route}\` @ ${row.viewportWidth}px -- ${(row.error ?? 'unknown error').replace(/\s+/g, ' ')}`);
     out.push('');
   }
   if (meta.notes && meta.notes.length > 0) {

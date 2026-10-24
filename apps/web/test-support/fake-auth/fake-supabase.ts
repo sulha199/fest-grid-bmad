@@ -14,6 +14,8 @@ import { dirname } from 'node:path';
 import { assertLocalUrl } from './local-guard';
 
 export const FAKE_SUPABASE_PORT = 54321;
+/** An IP literal, not `localhost`: the stub binds IPv4 only and `localhost` may resolve to `::1` first. */
+export const FAKE_SUPABASE_URL = `http://127.0.0.1:${FAKE_SUPABASE_PORT}`;
 export const FAKE_ANON_KEY = 'local-fake-anon-key';
 const KEY_ID = 'local-dev';
 /** `@supabase/ssr` splits cookies above this encoded length into `.0`, `.1`...; our sessions never reach it. */
@@ -29,6 +31,8 @@ export interface FakeUser {
 export interface SessionCookie {
   name: string;
   value: string;
+  /** The signed JWT inside the cookie, for callers that need to send it as a Bearer token. */
+  accessToken: string;
 }
 
 export interface StorageStateCookie {
@@ -95,12 +99,13 @@ export function buildSessionCookie(supabaseUrl: string, privateKey: KeyObject, u
   if (value.length > MAX_COOKIE_VALUE_LENGTH) {
     throw new Error(`Fake session cookie is ${value.length} chars; @supabase/ssr would chunk it, which this fixture does not emulate.`);
   }
-  return { name: sessionCookieName(supabaseUrl), value };
+  return { name: sessionCookieName(supabaseUrl), value, accessToken };
 }
 
 export function toStorageState(cookie: SessionCookie, hostname = 'localhost') {
   const stateCookie: StorageStateCookie = {
-    ...cookie,
+    name: cookie.name,
+    value: cookie.value,
     domain: hostname,
     path: '/',
     expires: Math.floor(Date.now() / 1000) + SESSION_LIFETIME_SECONDS,
@@ -117,8 +122,12 @@ export function toStorageState(cookie: SessionCookie, hostname = 'localhost') {
  */
 function loadOrCreateKeyPair(keyFile: string): { privateKey: KeyObject; publicJwk: JsonWebKey } {
   if (existsSync(keyFile)) {
-    const privateKey = createPrivateKey({ key: JSON.parse(readFileSync(keyFile, 'utf8')) as JsonWebKey, format: 'jwk' });
-    return { privateKey, publicJwk: createPublicKey(privateKey).export({ format: 'jwk' }) };
+    try {
+      const privateKey = createPrivateKey({ key: JSON.parse(readFileSync(keyFile, 'utf8')) as JsonWebKey, format: 'jwk' });
+      return { privateKey, publicJwk: createPublicKey(privateKey).export({ format: 'jwk' }) };
+    } catch {
+      // Empty/truncated file (e.g. a crash mid-write): it only ever holds a throwaway key, so regenerate.
+    }
   }
   const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
   mkdirSync(dirname(keyFile), { recursive: true });
@@ -128,14 +137,16 @@ function loadOrCreateKeyPair(keyFile: string): { privateKey: KeyObject; publicJw
 
 export async function startFakeSupabase(options: { keyFile: string; port?: number; supabaseUrl?: string }): Promise<FakeSupabase> {
   const port = options.port ?? FAKE_SUPABASE_PORT;
-  const supabaseUrl = options.supabaseUrl ?? `http://localhost:${port}`;
+  const supabaseUrl = options.supabaseUrl ?? `http://127.0.0.1:${port}`;
   assertLocalUrl('SUPABASE_URL', supabaseUrl);
 
   const { privateKey, publicJwk } = loadOrCreateKeyPair(options.keyFile);
   const jwks = JSON.stringify({ keys: [{ ...publicJwk, kid: KEY_ID, alg: 'RS256', use: 'sig' }] });
 
   const server: Server = createServer((req, res) => {
-    if (req.url === '/auth/v1/.well-known/jwks.json') {
+    // Only the JWKS is served: the app reads its session with getSession() (no /auth/v1/user or refresh call),
+    // and the minted tokens last 30 days, so nothing else is needed. Query strings are ignored.
+    if (req.url?.split('?')[0] === '/auth/v1/.well-known/jwks.json') {
       res.setHeader('content-type', 'application/json');
       res.end(jwks);
       return;
@@ -145,7 +156,13 @@ export async function startFakeSupabase(options: { keyFile: string; port?: numbe
   });
   // 127.0.0.1 only: the stub must not be reachable from other machines.
   await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
+    server.once('error', (error: NodeJS.ErrnoException) => {
+      reject(
+        error.code === 'EADDRINUSE'
+          ? new Error(`Port ${port} is already in use (a local Supabase CLI listens there by default). Stop it, or whatever else holds the port, before running with E2E_FAKE_AUTH=1.`)
+          : error
+      );
+    });
     server.listen(port, '127.0.0.1', resolve);
   });
 

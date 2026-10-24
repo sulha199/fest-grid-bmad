@@ -21,6 +21,30 @@ const mockTabs: TabbedShellTab[] = [
 ];
 
 describe('TabbedShell', () => {
+  it('scrolls the active tab into view (the bar scrolls sideways on narrow screens) and re-does it when the tab changes', () => {
+    const scrollIntoView = vi.fn();
+    const original = window.HTMLElement.prototype.scrollIntoView;
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      const { rerender } = render(<TabbedShell tabs={mockTabs} activeKey="tab2" onTabChange={vi.fn()} />);
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest', inline: 'nearest' });
+      expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole('tab', { name: 'Tab Two' }));
+
+      rerender(<TabbedShell tabs={mockTabs} activeKey="tab3" onTabChange={vi.fn()} />);
+      expect(scrollIntoView).toHaveBeenCalledTimes(2);
+      expect(scrollIntoView.mock.contexts[1]).toBe(screen.getByRole('tab', { name: 'Tab Three' }));
+    } finally {
+      window.HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
+
+  it('wraps the tab list in a horizontally scrolling box so many tabs cannot stretch the page', () => {
+    render(<TabbedShell tabs={mockTabs} activeKey="tab1" onTabChange={vi.fn()} />);
+    const bar = screen.getByRole('tablist').parentElement;
+    expect(bar).toHaveClass('max-w-full', 'overflow-x-auto');
+  });
+
   it('mounts only the active tab content component in the DOM', () => {
     render(
       <TabbedShell

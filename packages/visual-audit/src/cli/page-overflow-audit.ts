@@ -12,10 +12,10 @@ import { chromium, type Browser } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { detectPageOverflow, settleLayout } from '../compare/page-overflow.js';
+import { normalizeRoute, parseWidths } from '../rules/audit-args.js';
 import { classifyPageHealth } from '../rules/page-overflow.js';
 import { classifyResult, renderAuditReport, type AuditRow } from '../rules/page-overflow-report.js';
 
-const DEFAULT_WIDTHS = [320, 360, 375, 390, 412, 768, 1024, 1280, 1440];
 const VIEWPORT_HEIGHT = 900;
 const NAV_TIMEOUT_MS = 30_000;
 const SETTLE_TIMEOUT_MS = 8_000;
@@ -73,8 +73,11 @@ async function discoverDynamicRoutes(browser: Browser, baseUrl: string): Promise
 async function main(): Promise<void> {
   // eslint-disable-next-line turbo/no-undeclared-env-vars -- CLI-only input pointing at a running dev server, not a repo build input.
   const baseUrl = (process.env.BASE_URL ?? 'http://localhost:3000').replace(/\/$/, '');
-  const widths = (arg('widths')?.split(',').map(Number) ?? DEFAULT_WIDTHS).filter((n) => Number.isFinite(n) && n > 0);
-  if (widths.length === 0) throw new Error(`--widths must be a comma-separated list of positive numbers (got "${arg('widths')}")`);
+  // The sweep clicks through the app (it opens an event card to discover routes), so keep it off real sites.
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseUrl).hostname) && !process.argv.includes('--allow-remote')) {
+    throw new Error(`BASE_URL points at ${new URL(baseUrl).hostname}, not this machine; pass --allow-remote to audit it anyway.`);
+  }
+  const widths = parseWidths(arg('widths'));
   const outPath = resolve(
     arg('out') ?? resolve(__dirname, `../../../../_bmad-output/implementation-artifacts/page-overflow-audit-${new Date().toISOString().slice(0, 10)}.md`)
   );
@@ -85,7 +88,7 @@ async function main(): Promise<void> {
   const skipped: Array<{ route: string; reason: string }> = [];
   const notes: string[] = [];
   try {
-    const explicitRoutes = arg('routes')?.split(',');
+    const explicitRoutes = arg('routes')?.split(',').map(normalizeRoute);
     const dynamic = explicitRoutes ? [] : await discoverDynamicRoutes(browser, baseUrl);
     if (!explicitRoutes && !dynamic.some((r) => r.includes('/events/'))) {
       skipped.push({ route: '/en/events/[slug]', reason: 'no event link found on /en (is the DB seeded?)' });
@@ -107,7 +110,7 @@ async function main(): Promise<void> {
           for (const width of widths) rows.push({ route, viewportWidth: width, status: 'error', error: `HTTP ${response?.status() ?? 'no response'}` });
           continue;
         }
-        if (finalPath !== route && route !== '/en') {
+        if (finalPath.replace(/\/$/, '') !== route.replace(/\/$/, '')) {
           skipped.push({ route, reason: `redirected to ${finalPath} (likely needs login)` });
           continue;
         }

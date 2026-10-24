@@ -5,9 +5,17 @@ import { cn } from '../../lib/utils';
 
 export function TabbedShell({ tabs, activeKey, onTabChange, className }: TabbedShellProps) {
   const lastCalledRef = React.useRef<string | null>(activeKey);
+  const tabBarRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     lastCalledRef.current = activeKey;
+  }, [activeKey]);
+
+  // The tab bar scrolls sideways on narrow screens, so an active tab (from the URL, or via keyboard)
+  // can sit off-screen; keep it visible. `block: 'nearest'` never scrolls the page itself.
+  React.useEffect(() => {
+    const active = tabBarRef.current?.querySelector<HTMLElement>('[data-state="active"]');
+    active?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [activeKey]);
 
   const handleTabChange = React.useCallback((key: string) => {
@@ -20,7 +28,8 @@ export function TabbedShell({ tabs, activeKey, onTabChange, className }: TabbedS
   return (
     <Tabs value={activeKey} onValueChange={handleTabChange} className={cn('w-full space-y-6', className)}>
       {/* Tab labels never wrap, so many tabs are wider than a phone: scroll the bar inside its own box rather than stretch the page. */}
-      <div className="max-w-full overflow-x-auto">
+      {/* py-1 -my-1: `overflow-x: auto` also clips vertically, which would cut off the 2px focus ring + 2px offset. */}
+      <div ref={tabBarRef} className="max-w-full overflow-x-auto py-1 -my-1">
         <TabsList className="inline-flex h-11 items-center justify-start rounded-lg bg-gray-100 p-1 text-muted-foreground dark:bg-slate-800">
           {tabs.map((tab) => (
             <TabsTrigger

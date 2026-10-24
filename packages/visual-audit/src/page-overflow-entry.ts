@@ -11,3 +11,6 @@ export {
   type PageOverflowResult,
   type PageOverflowOffender,
 } from './rules/page-overflow.js';
+
+export { measurePopup } from './compare/popup-containment.js';
+export { checkPopupContainment, type PopupMeasurement } from './rules/popup-containment.js';

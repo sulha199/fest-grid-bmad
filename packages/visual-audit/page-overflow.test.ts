@@ -13,6 +13,8 @@ import {
   type SelectorSegment,
 } from './src/rules/page-overflow.js';
 import { classifyResult, renderAuditReport, type AuditRow } from './src/rules/page-overflow-report.js';
+import { normalizeRoute, parseWidths } from './src/rules/audit-args.js';
+import { checkPopupContainment, type PopupMeasurement } from './src/rules/popup-containment.js';
 
 const seg = (tag: string, extra: Partial<SelectorSegment> = {}): SelectorSegment => ({
   tag,
@@ -179,5 +181,128 @@ test('describeOverflow', async (t) => {
     const text = describeOverflow(result);
     assert.match(text, /page is 138px wider than the viewport/);
     assert.match(text, /culprit: main > div\.banner \(\+138px/);
+  });
+});
+
+test('audit CLI arguments', async (t) => {
+  await t.test('parseWidths defaults, dedupes, and rejects a typo instead of silently dropping it', () => {
+    assert.strictEqual(parseWidths(undefined).length, 9);
+    assert.deepStrictEqual(parseWidths('320, 375,320'), [320, 375]);
+    assert.throws(() => parseWidths('320,abc'), /positive numbers/);
+    assert.throws(() => parseWidths('320,'), /positive numbers/);
+    assert.throws(() => parseWidths(''), /positive numbers/);
+  });
+
+  await t.test('normalizeRoute adds the leading slash and drops query/hash so it is not read as a redirect', () => {
+    assert.strictEqual(normalizeRoute('en/feed'), '/en/feed');
+    assert.strictEqual(normalizeRoute('/en/feed?x=1#top'), '/en/feed');
+    assert.throws(() => normalizeRoute(' '), /empty route/);
+  });
+});
+
+test('page health and describeOverflow edge branches', async (t) => {
+  await t.test('a 404 page and a runtime error overlay are unhealthy', () => {
+    assert.match(classifyPageHealth({ pageErrors: [], bodyText: '404 This page could not be found.' }) ?? '', /framework error/);
+    assert.match(classifyPageHealth({ pageErrors: [], bodyText: 'Unhandled Runtime Error' }) ?? '', /framework error/);
+  });
+
+  await t.test('describeOverflow: masked head, no-culprit note, extra roots and truncation are all spelled out', () => {
+    const masked = buildPageOverflowResult({ scrollWidth: 375, clientWidth: 375, masked: true, candidates: [candidate('html > body > a', 500)] });
+    assert.match(describeOverflow(masked), /hidden by `overflow-x` on html\/body/);
+
+    const none = { ...buildPageOverflowResult({ scrollWidth: 500, clientWidth: 375, masked: false, candidates: [] }), truncated: true };
+    const noneText = describeOverflow(none);
+    assert.match(noneText, /no culprit element identified/);
+    assert.match(noneText, /scan hit its cap/);
+
+    const many = buildPageOverflowResult({
+      scrollWidth: 900,
+      clientWidth: 375,
+      masked: false,
+      candidates: ['a', 'b', 'c', 'd', 'e'].map((x, i) => candidate(`html > body > ${x}`, 500 + i)),
+    });
+    assert.match(describeOverflow(many), /and 2 more root culprit/);
+  });
+
+  await t.test('report: masked and missing cells, no-culprit message, and table-safe error text', () => {
+    const masked = buildPageOverflowResult({ scrollWidth: 375, clientWidth: 375, masked: true, candidates: [candidate('html > body > a', 500)] });
+    const noCulprit = buildPageOverflowResult({ scrollWidth: 500, clientWidth: 375, masked: false, candidates: [] });
+    const rows: AuditRow[] = [
+      { route: '/a', viewportWidth: 375, status: classifyResult(masked), result: masked },
+      { route: '/b', viewportWidth: 375, status: classifyResult(noCulprit), result: noCulprit },
+      { route: '/b', viewportWidth: 1280, status: 'error', error: 'boom\n| pipe' },
+    ];
+    const md = renderAuditReport(rows, { generatedOn: 'd', baseUrl: 'u', skipped: [] });
+    assert.match(md, /\| `\/a` \| masked \| – \|/);
+    assert.match(md, /@ 1280px -- boom \| pipe/);
+
+    const onlyNoCulprit = renderAuditReport([rows[1]], { generatedOn: 'd', baseUrl: 'u', skipped: [] });
+    assert.match(onlyNoCulprit, /no culprit element could be identified/);
+  });
+
+  await t.test('report: more than three roots in one cell are capped and the rest are not silently lost from the count', () => {
+    const result = buildPageOverflowResult({
+      scrollWidth: 900,
+      clientWidth: 375,
+      masked: false,
+      candidates: ['a', 'b', 'c', 'd'].map((x, i) => candidate(`html > body > ${x}`, 500 + i)),
+    });
+    const md = renderAuditReport([{ route: '/x', viewportWidth: 375, status: 'overflow', result }], { generatedOn: 'd', baseUrl: 'u', skipped: [] });
+    assert.strictEqual((md.match(/^### C\d+/gm) ?? []).length, 3);
+  });
+});
+
+test('checkPopupContainment', async (t) => {
+  const base: PopupMeasurement = {
+    viewport: { width: 375, height: 667 },
+    box: { left: 20, top: 100, right: 308, bottom: 500 },
+    scrollable: false,
+    interactiveCount: 12,
+    lastInteractiveAfterScroll: { left: 30, top: 440, right: 120, bottom: 480 },
+  };
+
+  await t.test('a popup that fits and shows its last option is fine', () => {
+    assert.deepStrictEqual(checkPopupContainment(base), []);
+  });
+
+  await t.test('the reported bug: taller than the screen with no scroll -> off-screen AND last option unreachable', () => {
+    const tall: PopupMeasurement = {
+      ...base,
+      box: { left: 20, top: 120, right: 308, bottom: 900 },
+      lastInteractiveAfterScroll: { left: 30, top: 840, right: 120, bottom: 880 },
+    };
+    const problems = checkPopupContainment(tall);
+    assert.strictEqual(problems.length, 2);
+    assert.match(problems[0], /233px below the bottom edge.*does not scroll/);
+    assert.match(problems[1], /last of 12 interactive element/);
+  });
+
+  await t.test('capped to the viewport and scrolled to its end: fine', () => {
+    const capped: PopupMeasurement = {
+      ...base,
+      scrollable: true,
+      box: { left: 20, top: 120, right: 308, bottom: 659 },
+      lastInteractiveAfterScroll: { left: 30, top: 600, right: 120, bottom: 640 },
+    };
+    assert.deepStrictEqual(checkPopupContainment(capped), []);
+  });
+
+  await t.test('scrollable but still overhanging the bottom of the viewport is flagged (part of the scroll area is off-screen)', () => {
+    const overhang: PopupMeasurement = { ...base, scrollable: true, box: { left: 20, top: 120, right: 308, bottom: 700 } };
+    const problems = checkPopupContainment(overhang);
+    assert.match(problems[0], /33px below the bottom edge\)$/);
+  });
+
+  await t.test('wider than the screen and off the left edge are both reported', () => {
+    const wide: PopupMeasurement = { ...base, box: { left: -12, top: 100, right: 400, bottom: 500 } };
+    assert.match(checkPopupContainment(wide)[0], /12px past the left edge, 25px past the right edge/);
+  });
+
+  await t.test('no interactive elements: only the box is checked', () => {
+    assert.deepStrictEqual(checkPopupContainment({ ...base, interactiveCount: 0, lastInteractiveAfterScroll: null }), []);
+  });
+
+  await t.test('a sub-pixel overhang is within tolerance', () => {
+    assert.deepStrictEqual(checkPopupContainment({ ...base, box: { ...base.box, bottom: 667.6 } }), []);
   });
 });

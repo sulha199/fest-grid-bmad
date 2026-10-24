@@ -118,3 +118,34 @@ Document overflow = `documentElement.scrollWidth - documentElement.clientWidth`.
 
 - Unit tests for the pure logic: ranking, grouping, health, report rendering.
   [`page-overflow.test.ts:35`](../../packages/visual-audit/page-overflow.test.ts#L35)
+
+## Review Findings
+
+Code review (2026-10-24) of `eb70799..e965f1f`: Blind Hunter, Edge Case Hunter and Acceptance Auditor (all three layers ran; none failed). 0 `decision-needed`, 26 `patch` (all applied), 4 `defer` clusters (`FIND-092`), about 30 dismissed as noise or already handled.
+
+- [x] [Review][Patch] Fake-auth guard ran after the destructive seed; now `assertFakeAuthPreconditions` runs first [apps/web/e2e/global-setup.ts]
+- [x] [Review][Patch] Guard never checked the configured `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL`; now rejects a non-loopback value [apps/web/test-support/fake-auth/local-guard.ts]
+- [x] [Review][Patch] Reused servers keep the Supabase URL they started with; `assertBackendTrustsStub` sends a stub token to the backend and fails with the fix [apps/web/test-support/fake-auth/index.ts]
+- [x] [Review][Patch] Port left bound when setup threw after the stub started; now closed on every failure path [apps/web/test-support/fake-auth/index.ts]
+- [x] [Review][Patch] `EADDRINUSE` (e.g. a local Supabase CLI on 54321) gets an explanatory error; corrupt key file regenerates; JWKS path ignores a query string [apps/web/test-support/fake-auth/fake-supabase.ts]
+- [x] [Review][Patch] Stub URL is `127.0.0.1` (it binds IPv4 only; `localhost` may resolve to `::1`); guard accepts all of 127.0.0.0/8, rejects `0.0.0.0` and a `?host=` DB override [apps/web/test-support/fake-auth/]
+- [x] [Review][Patch] Signed-in groups could measure the login prompt if the session was rejected; `expectSignedIn` requires the profile menu first [apps/web/e2e/responsive-overflow.spec.ts]
+- [x] [Review][Patch] HTTP status ignored (a 404 passed); health re-checked after the width sweep; `settleLayout` "never settled" surfaced as an annotation; tab loop scoped to the first tablist; timeout 120s -> 300s [apps/web/e2e/responsive-overflow.spec.ts]
+- [x] [Review][Patch] `classifyPageHealth` missed Next's 404 and runtime-error overlay text [packages/visual-audit/src/rules/page-overflow.ts]
+- [x] [Review][Patch] Element scan cap was silent; result now carries `truncated` and `describeOverflow` says so, also names extra roots and the no-culprit case [packages/visual-audit/src/]
+- [x] [Review][Patch] Report: summary arithmetic, "No overflow detected" contradicting overflow rows, unescaped error text [packages/visual-audit/src/rules/page-overflow-report.ts]
+- [x] [Review][Patch] CLI: `--widths` typos silently dropped, `--routes` without a slash or with a query read as a redirect, `/en` exempt from the redirect check, no guard against auditing a remote site [packages/visual-audit/src/cli/page-overflow-audit.ts, src/rules/audit-args.ts]
+- [x] [Review][Patch] `TabbedShell`: active tab not scrolled into view; scroll box clipped the focus ring [packages/ui/src/core/tabbed-shell/TabbedShell.tsx]
+- [x] [Review][Patch] Token "matches DESIGN.md" test only compared strings to themselves; now reads DESIGN.md [packages/ui/src/core/ambient-capability-banner-tokens.test.ts]
+- [x] [Review][Patch] Hydration fix had no unit test; `renderToString` regression test added [apps/web/src/lib/hooks/usePwaInstallPrompt.test.ts]
+- [x] [Review][Patch] Untested pure branches (masked/missing cells, `describeOverflow` variants, `MAX` truncation, `startFakeAuth` throwing before opening a port) now have named cases
+- [x] [Review][Patch] "Android" PWA test name overstated (no Android UA is set); renamed
+- [x] [Review][Defer] Detector v1 blind spots (absolute-positioned escape, left-edge/RTL, translated drawers, deep recursion) [packages/visual-audit/src/compare/page-overflow.ts] -- deferred, accepted limitation
+- [x] [Review][Defer] Path-prefix ancestry and `culpritKey` grouping can merge elements with a truncated identical path [packages/visual-audit/src/rules/page-overflow.ts] -- deferred, no collision observed
+- [x] [Review][Defer] `settleLayout` signature blind to class-only changes; duplicated route/width lists; hard-coded English labels and storage keys in the PWA tests -- deferred, low
+- [x] [Review][Defer] Stub does not emulate `/auth/v1/user` or token refresh; fixed port -- deferred, app only calls `getSession()` today
+
+Dismissed (verified false or by design): `.auth` not git-ignored (it is: `.gitignore:22`), `PageContainer` drops `space-y-8` (it includes it), `::1` / `[::1]` handling (covered by tests), `.js` specifiers in the TS export (Playwright and Vite resolve them), `seed.ts` imported for `FIXTURE_USERS` (guarded by `require.main`), `E2E_AUTH_STORAGE_STATE ??=` (opt-in by design, now commented), cumulative `pageErrors` in the CLI (any page error taints the page).
+
+Spec reconciliation: `rankOffenders` keeps descendants and ranks outermost roots first (the Design Notes and Review Order), not "innermost/widest-first" as the I/O matrix row reads; the Design Notes sentence "drops descendants" is superseded by the `isRoot` / `descendantCount` model. The frozen block is left untouched.
+

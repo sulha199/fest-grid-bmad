@@ -45,6 +45,8 @@ export interface PageOverflowResult {
   overflowPx: number;
   /** `html`/`body` has `overflow-x: hidden|clip`, so a stretched document would read as 0 overflow. */
   masked: boolean;
+  /** The element scan stopped at its cap, so `offenders` may be missing later culprits. */
+  truncated: boolean;
   offenders: PageOverflowOffender[];
 }
 
@@ -98,6 +100,7 @@ export function buildPageOverflowResult(input: {
   clientWidth: number;
   masked: boolean;
   candidates: RawOverflowCandidate[];
+  truncated?: boolean;
 }): PageOverflowResult {
   const overflowPx = Math.max(0, input.scrollWidth - input.clientWidth);
   const hasProblem = overflowPx > 0 || input.masked;
@@ -106,6 +109,7 @@ export function buildPageOverflowResult(input: {
     clientWidth: input.clientWidth,
     overflowPx,
     masked: input.masked,
+    truncated: input.truncated ?? false,
     offenders: hasProblem ? rankOffenders(input.candidates, input.clientWidth) : [],
   };
 }
@@ -115,7 +119,8 @@ export function isOverflowing(result: PageOverflowResult): boolean {
   return result.overflowPx > 0 || (result.masked && result.offenders.length > 0);
 }
 
-const CRASH_TEXT = /Application error: a client-side exception|Internal Server Error|This page couldn.t load/i;
+const CRASH_TEXT =
+  /Application error: a client-side exception|Internal Server Error|This page couldn.t load|This page could not be found|Unhandled Runtime Error/i;
 
 /**
  * A crashed or blank page has nothing to overflow, so measuring it reports a false "ok". Returns a
@@ -148,7 +153,10 @@ export function describeOverflow(result: PageOverflowResult): string {
   const head = result.masked && result.overflowPx === 0
     ? 'overflow is hidden by `overflow-x` on html/body'
     : `page is ${result.overflowPx}px wider than the viewport (scrollWidth ${result.scrollWidth} vs clientWidth ${result.clientWidth})`;
-  const roots = result.offenders.filter((o) => o.isRoot).slice(0, MAX_REPORTED_ROOTS);
-  if (roots.length === 0) return head;
-  return [head, ...roots.map((o) => `  culprit: ${shortenPath(o.path)} (+${o.overflowPx}px, width ${Math.round(o.width)}px)`)].join('\n');
+  const roots = result.offenders.filter((o) => o.isRoot);
+  const lines = roots.slice(0, MAX_REPORTED_ROOTS).map((o) => `  culprit: ${shortenPath(o.path)} (+${o.overflowPx}px, width ${Math.round(o.width)}px)`);
+  if (roots.length > MAX_REPORTED_ROOTS) lines.push(`  ...and ${roots.length - MAX_REPORTED_ROOTS} more root culprit(s)`);
+  if (roots.length === 0) lines.push('  no culprit element identified (it may be absolutely positioned outside a clipping ancestor)');
+  if (result.truncated) lines.push('  element scan hit its cap, so the culprit list may be incomplete');
+  return [head, ...lines].join('\n');
 }
