@@ -335,6 +335,7 @@ export enum EventCategory {
   Music = 'MUSIC',
   Other = 'OTHER',
   ReligionAndSpirituality = 'RELIGION_AND_SPIRITUALITY',
+  ScienceAndEngineering = 'SCIENCE_AND_ENGINEERING',
   SportsAndFitness = 'SPORTS_AND_FITNESS',
   Technology = 'TECHNOLOGY',
   TravelAndTourism = 'TRAVEL_AND_TOURISM'
