@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { buildVolumeFixtures } from './seed-volume';
+import { buildVolumeFixtures, CATEGORIES } from './seed-volume';
+import { EventCategory } from '@festgrid/shared-types';
 
 const TODAY = new Date('2026-10-01T12:00:00Z');
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -9,6 +10,17 @@ function shiftDate(iso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+// Story 0.53 (AD-44 Rule 6): CATEGORIES is now typed `readonly EventCategory[]` (deriving
+// correctness from the enum at compile time), but this still runs the check -- a future bad
+// edit that widens the type back to `string` would otherwise pass silently until a typo slipped
+// through.
+test('every CATEGORIES entry is a real EventCategory member', () => {
+  const validCategories = new Set<string>(Object.values(EventCategory));
+  for (const category of CATEGORIES) {
+    expect(validCategories.has(category)).toBe(true);
+  }
+});
 
 describe('buildVolumeFixtures', () => {
   const fx = buildVolumeFixtures({ eventCount: 600, today: TODAY });

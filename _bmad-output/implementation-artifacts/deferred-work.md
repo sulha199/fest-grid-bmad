@@ -2,6 +2,15 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: code review of 0-54-amend-event-category-cardinality-and-add-science-and-engineering (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md`
+  summary: Golden-corpus fixture `11-wedding-expo`'s `mustNotInclude: []` gives it no negative-boundary coverage, unlike its sibling amended fixtures (3, 5, 9, 10), which each keep at least one exclusion — a live run returning the 4 expected categories plus an unrelated one would still pass.
+  evidence: Surfaced by the Edge Case Hunter review pass. The story's own re-derivation table didn't specify `mustNotInclude` for this row and already flags fixture 11 "confirm on next live run" for the same wedding-expo boundary — best strengthened together once live-run evidence lands.
+- source_spec: `_bmad-output/implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md`
+  summary: Ratchet Check D's "<3 distinct `EventCategory` names outside the glossary block" margin in the extraction prompt is now 1 of 3 (from this story's new `build-gemini-request.ts` item-3 prose naming `OTHER`), with no dedicated test pinned to this specific sentence's consumption of that margin.
+  evidence: Surfaced by the Edge Case Hunter review pass. Check D passes today (no violation) — this is a forward-looking margin observation for whoever next edits that prose, not a current defect.
+
 ## Deferred from: bmad-quick-dev IDEA-015 review (2026-09-18)
 
 - source_spec: none (one-shot route, no frozen spec)
@@ -254,6 +263,7 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: none
   summary: This change is the first migration in the repo to add a value to an existing Postgres enum via `ALTER TYPE ... ADD VALUE` (previous category/type values were all part of the initial `CREATE TYPE` in `0000_cultured_ultragirl.sql`). Postgres has no `ALTER TYPE ... DROP VALUE` — once applied, removing or renaming `RELIGION_AND_SPIRITUALITY` requires recreating the whole `event_category` type and repointing every dependent column. No process doc currently flags this one-way-door risk for future enum additions.
   evidence: Inherent Postgres limitation, not a defect in this change; noted by adversarial review since this is the first migration of this kind in the repo.
+  **CLOSED (Story 0.53, 2026-10-24):** moot for `event_category` specifically — Story 0.53 retired the type entirely (`DROP TYPE IF EXISTS "event_category"`, since the `events.categories` column was always `text[]` and never backed by this pgEnum), rather than further extending it. The underlying "no `ALTER TYPE ... DROP VALUE`" limitation remains a real Postgres constraint for any *other* enum that does back a live column, but no longer applies to this one.
 
 ## Deferred from: code review of 1-2a-create-posts-table-and-link-seeded-events-to-their-source-post.md (2026-08-03)
 
@@ -750,6 +760,18 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
   summary: RESOLVED (product owner chose to apply the qualifier to the whole group; fixed in the transform, Story 9.4 amended). Leaf fields written on an OR node beside its `children` are joined to that OR as additional alternatives, so `{op:'OR', children:[jazz, blues], isFree:true}` becomes `OR(jazz, blues, isFree)`.
   evidence: Reproduced by Edge Case Hunter. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess about the model's intent. (FIND-091)
+
+## Deferred from: code review of story-0-52 (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md`
+  summary: No automated guard (lint rule, e.g. `import/no-cycle`) stops a future edit from converting the deliberate `import type { EventCategory }` in `event-category-definitions.ts` back into a regular value import, silently reintroducing the runtime import-cycle risk the type-only import was specifically added to avoid — protected today only by an inline comment.
+  evidence: Surfaced by Blind Hunter. Forward-looking hardening suggestion, not a defect in the code as shipped; no current failure mode. (FIND-096)
+
+## Deferred from: code review of story-0-53 (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-53-add-home-living-fashion-finance-and-gadget-event-categories.md`
+  summary: Golden-corpus fixture `11-wedding-expo` keeps a hard `expected`/`mustNotInclude` assertion in `event-category-golden-corpus.live-eval.test.ts` even though its own rationale (and the test file's header comment) explicitly calls its classification "genuinely contestable" now that `FASHION_AND_BEAUTY`/`HOME_AND_LIVING` both exist — there is no soft-miss mechanism, only a code comment instructing a human to adjust the fixture (not the prompt) if the live run disagrees.
+  evidence: Surfaced by Edge Case Hunter. Continues Story 0.52's own established pattern for ambiguous fixtures rather than introducing it; bounded by AD-44 Rule 10 (golden corpus is manual/nightly, never a CI gate). Already flagged for the pending manual live run per this story's own Completion Notes. (FIND-097)
 
 ## Deferred from: code review of the page-overflow audit, fake-auth fixture, responsive matrix and fixes (2026-10-24)
 

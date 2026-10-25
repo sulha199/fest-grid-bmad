@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-10-20T00:00:00Z"
+updated: "2026-10-23T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -1656,6 +1656,15 @@ This document defines the core architectural invariants for the FestDaily applic
         `applicableDaysOfWeek`; and post-level `groupingReason` (`single-event | program-lineup |
         dependent-stages | separate-events | roundup`), `groupingRationale`, `skippedItems`,
         `minEventCount`. `hasFaceImage`/`faceImageCount` stay at the payload root (post-level).
+        **Amended 2026-10-25 (owner-directed, Story 0.54):** `groupingReason` is **required in the
+        model-facing response schema** (`build-gemini-request.ts`) and the prompt says to always
+        include it, using the neutral `single-event` when `isEvent` is false; the consumer-side AJV
+        schema stays nullable, and `processAiJob` logs `groupingReason: null` for a non-event post.
+        Reason: the live CC-024 regression saw the model omit it in 4 of 9 runs on the roundup post
+        when it was optional, and the roundup handling depends on it. Measured trade-off: with it
+        required, the same roundup post returned 39 events (over the soft cap of 10) in 4 of 9 runs
+        versus 0 of 9 when optional; the code-level truncation (`process-ai-job.ts` 5.6) still
+        enforces the cap, so the cost is wasted tokens, tracked as FIND-102.
         Per-post cap on events (default 10, configurable); timezone inference, private-contact and
         performer-leakage guards (3.6a/3.6i/3.6j) run **per event**; the children's-data filter
         (3.6k) stays post-level.
@@ -2448,6 +2457,242 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **Docs** — `docs/infrastructure/architecture-diagram.md` and `high-level-overview.md`
         (the API → scraper async-invoke edge and the sweep) in the same change as story 1
         (CLAUDE.md §4); the `project-context.md` rule added with this AD is updated by the same story.
+
+---
+
+### AD-44: EventCategory Is a Closed Subject Taxonomy With One Definitions Source
+
+*   **Binds:** `EventCategory` (`packages/shared-types/src/index.ts`); a new definitions module beside
+    it (`event-category-definitions.ts`, Rule 3); the single glossary renderer and the two prompts
+    that list categories to Gemini (`apps/backend/src/lib/ai-processor/build-gemini-request.ts`,
+    `apps/backend/src/lib/ai-event-filters/build-filter-extraction-request.ts`);
+    `transformGeminiResponseToEventInfo` (`packages/domain/src/events/`); the GraphQL `EventCategory`
+    enum (`apps/backend/src/schema/events.graphql`) and the **committed** codegen outputs (web
+    `generated/graphql.ts`, backend `generated/resolvers-types.ts`); `apps/web/locales/en.json` and
+    `id.json`; FilterHub and the correction dialog (both list categories from an enum); the
+    `schema.ts` `eventCategoryEnum` pgEnum and its migrations (declared, used by no column —
+    `events.categories` is `text[]`); `packages/database/seed.ts` and `seed-volume.ts`; the PRD
+    `EventCategory` block; stored category values (Rule 6). Interacts with AD-1 (enum filters), AD-6
+    (i18n) and AD-42 Rule 7 (interests refine categories, `[PROPOSED]`, on branch
+    `claude/ecstatic-shannon-e8eh9h`, not merged — its "18 values" becomes 20 when both land).
+*   **Prevents:** Two units tagging the same post differently because the model saw only enum
+    *names*. A second `OTHER` under a vague name ("lifestyle"). Two sibling categories claiming one
+    subject (gadgets vs `TECHNOLOGY`) with no stated boundary, which splits filter recall. A category named for a *form*
+    (shopping, promo, market). A bare ambiguous noun ("tool"). Two boundary rules that contradict
+    each other (property is both a consumer sale and an investment). The extraction prompt and the
+    AI-filter prompt using different synonyms for one category (filter maps "properti" to a category
+    extraction never assigns, giving zero results). A taxonomy change merging green with a stale
+    source (generated output, pgEnum, seed, locale). A removal or rollback silently dropping stored
+    values.
+*   **Rule:**
+    1.  **A category is a subject domain, including that domain's product promotions.** The form of
+        an event (promotion, market, festival) is `EventType`'s job and is never a category. A
+        category must be a bounded subject a user would filter on; catch-all names (lifestyle,
+        general, misc) and bare ambiguous nouns are refused. **Categories are defined by subject
+        matter, never by who attends:** none is defined by gender, age or eligibility (that is AD-42
+        `tracks`/`eligibility`, `[PROPOSED]`). `BUSINESS_AND_NETWORKING` is defined by its subject
+        matter — trade, B2B, networking, entrepreneurship — not by the audience's identity.
+        Property and investment belong to `FINANCE_AND_INVESTMENT` (Rule 3).
+    2.  **Cardinality and `OTHER`, `[AMENDED 2026-10-24, owner-directed]`.** A post is never collapsed
+        into `OTHER` to save tags. The prompt asks the model to name **every** category whose subject
+        the post states, headline subject first; when the post lists *distinct events* (different
+        date or venue) it emits one event each, through the existing multi-event extraction, rather
+        than stacking their subjects on one event. `OTHER` is **non-exclusive**: it means "the post
+        names a subject no category covers" (added beside the real categories that do apply) or, alone,
+        "no category applies" / "no valid value". `transformGeminiResponseToEventInfo` enforces a
+        **safety cap of 6 real categories** (`OTHER` does not count against it): filter to valid
+        values, dedupe, move `OTHER` last, truncate real categories in model order to 6 (a truncation
+        is logged as a structured line, never silent), and fall back to `[OTHER]` on an empty list.
+        The cap is a runaway guard, not the target: a 4-subject mall sale carries 4 categories. A
+        value outside the enum fails the extraction schema's Ajv validation and the **whole
+        extraction is dropped** (`process-ai-job.ts:158-164`); it does not fall back to `OTHER`.
+        *Supersedes the original "at most 4, `OTHER` exclusive" rule, whose collapse of a
+        multi-subject post to `OTHER` lost every subject the post stated.*
+    3.  **Membership, `[ADOPTED, user-directed 2026-10-23]`:** `HOME_AND_LIVING` (EN "Home & Living",
+        ID "Rumah Tangga & Interior"), `FASHION_AND_BEAUTY` (EN "Fashion & Beauty", ID "Fashion &
+        Gaya", owner's choice) and `FINANCE_AND_INVESTMENT` (EN "Finance & Investment", ID "Keuangan &
+        Investasi", owner-directed 2026-10-23; "trading" means financial trading, not commerce, and is
+        deliberately not in the name) and `GADGETS_AND_DEVICES` (EN "Gadgets & Devices", ID "Gadget &
+        Perangkat", owner-directed 2026-10-23) are added before `OTHER`, taking the set from 18 to 22.
+        `TECHNOLOGY` keeps its name and label; in Story 2 its definition narrows to software, AI,
+        startups, developer and tech-community events, hackathons and tech conferences, and consumer
+        hardware moves to `GADGETS_AND_DEVICES`. The owner first declined a separate gadget category
+        and reversed that once the shared definitions list (Rule 4) made two adjacent categories
+        enforceable. No lifestyle or tool category exists. None of the four new values is a sensitive
+        category under AD-42 Rule 8. A user-facing label is
+        not a definition: the Indonesian "Fashion & Gaya" is softer than its definition (it does not
+        say "beauty"), accepted by the owner; the definition, not the label, governs tagging.
+        **Fifth addition, `[ADOPTED, user-directed 2026-10-24]`:** `SCIENCE_AND_ENGINEERING` (EN
+        "Science & Engineering", ID "Sains & Teknik"), before `OTHER`, taking the set from 22 to 23.
+        Engineering disciplines and hardware, scientific research seminars and conferences, science
+        and maker expos, and invention or innovation showcases had no home and would have scattered
+        across `EDUCATION`, `BUSINESS_AND_NETWORKING` and `OTHER`, each needing a workaround rule.
+        It is added now, before any production deploy, because that is the cheapest moment (no
+        stored events to re-extract). "Innovation" is an alias, deliberately **not** in the label:
+        every startup pitch claims it and it would become a catch-all. `TECHNOLOGY` keeps its name,
+        label and definition. Not a sensitive category under AD-42 Rule 8.
+    4.  **One definitions source, one renderer.** `packages/shared-types/src/event-category-definitions.ts`
+        (relative imports inside shared-types are **extensionless**: it is consumed as raw TypeScript by
+        Next's webpack, which cannot resolve a `.js` specifier; ratchet Check E enforces it)
+        exports `EVENT_CATEGORY_DEFINITIONS: Record<EventCategory, { definition: string; aliases:
+        readonly string[] }>` (one to two English sentences, at most 280 characters, never rendered in
+        any UI; `aliases` are trigger terms in English and Indonesian, at least one Indonesian) and
+        `CATEGORY_BOUNDARIES` (Rule 5's table, as `{ id, between, rule }`). One function
+        `renderEventCategoryGlossary()` in `apps/backend` renders `NAME — definition (also: aliases)`
+        lines and the boundary lines; both prompts embed its output and carry **no other prose about
+        categories or category synonyms**, so extraction and filtering use the same vocabulary. The
+        structured-output `enum:` lists stay `Object.values(EventCategory)` (the model API takes bare
+        strings for enum values; definitions can only go in the system instruction). The per-value
+        comments in `shared-types`, `events.graphql`, `schema.ts` and the PRD block become
+        `// see EVENT_CATEGORY_DEFINITIONS`; they are not definitions.
+        **Ratchet** (a `node:test` file in `apps/backend`, because `shared-types` has no runner;
+        negative controls included): (a) every member has a non-empty bounded definition and at least
+        one Indonesian alias, and the record has no extra keys; (b) every underscored token in a
+        definition or boundary names a real `EventCategory` or `EventType` member; (c) each built
+        prompt contains the renderer's output verbatim exactly once; (d) outside that block neither
+        built prompt names three or more distinct `EventCategory` values. It checks the rendered
+        prompts, not a source grep, because the prompt files legitimately keep
+        `Object.values(EventCategory)` for response schemas.
+    5.  **Boundaries, in this order (stop at the first that matches), rendered into both prompts:**
+        1. *Named routing wins:* property and real-estate expos or seminars, KPR/mortgage, and
+        stock, mutual-fund, bond, gold, crypto, forex and commodity trading or investing events →
+        `FINANCE_AND_INVESTMENT`, whoever the audience (the one routing that overrides the subject-of-
+        sale rule; property is an asset class, `[ADOPTED, user-directed 2026-10-23]`). Cars and
+        motorcycles stay `AUTOMOTIVE`, art collecting stays `ARTS_AND_CULTURE`, and furniture, décor
+        and appliances stay `HOME_AND_LIVING`; a home expo that also lists properties may carry both
+        categories, headline first. 2. Otherwise the
+        **subject of what is sold or shown** decides a consumer-facing sale, bazaar, expo or promo; a
+        trade-day/public-day split does not change the subject. 3. Add `BUSINESS_AND_NETWORKING` only
+        when the post states a trade, buyer, B2B, franchise, supplier or business-matching purpose,
+        **or is aimed at tradespeople, contractors or small-business operators as business customers
+        (for example a discount "untuk tukang & kontraktor") `[AMENDED 2026-10-25, owner-directed]`,
+        or frames entrepreneurship `[AMENDED 2026-10-24]`** (incubated tenants "binaan", UMKM
+        business-skills or "go digital" workshops, franchise or reseller recruitment), alongside the
+        product categories of what is sold; "support local" or a bare "UMKM" bazaar with no
+        entrepreneurship or trade framing does not count. 4. **No collapse `[AMENDED 2026-10-24]`:**
+        a sale or expo whose named subjects span several categories carries each of them (up to the
+        Rule 2 safety cap), with `OTHER` added only for a stated subject no category covers (for
+        example a wedding expo's venue vendors); `[OTHER]` alone is for a post with no identifiable
+        subject at all.
+        **Boundary table:** consumer gadgets, phones, laptops, audio, cameras, wearables, gaming gear and their
+        launches, promos and expos → `GADGETS_AND_DEVICES`; software, apps, AI, startups, developer
+        and tech-community events, hackathons and tech conferences → `TECHNOLOGY`, and a launch whose
+        headline is both a device and its software may carry both, headline first;
+        esports and gaming tournaments → `HOBBIES_AND_INTERESTS` `[default; owner may prefer
+        SPORTS_AND_FITNESS]`; furniture, appliances, décor, interior, housewares, home improvement and
+        tools sold to consumers or tradespeople (tukang, kontraktor) → `HOME_AND_LIVING`; machinery
+        for factories or production lines → `BUSINESS_AND_NETWORKING`; car and motorcycle accessories
+        and tools → `AUTOMOTIVE`; plants — collecting, contests, breeding, gardening →
+        `HOBBIES_AND_INTERESTS`, decorative planting sold as home décor → `HOME_AND_LIVING`, tag the
+        headline only; fashion, sneakers (also sport-branded), barbershop, grooming, skincare and
+        cosmetics → `FASHION_AND_BEAUTY`, but clinical aesthetic treatment → `HEALTH_AND_WELLNESS` and a
+        participatory sport event (fun run, tournament) keeps `SPORTS_AND_FITNESS` as the headline,
+        with `FASHION_AND_BEAUTY` a valid co-tag when a shoe or apparel launch is stated
+        `[AMENDED 2026-10-24]`; batik, tenun and wastra heritage events → `ARTS_AND_CULTURE` (plus
+        `FASHION_AND_BEAUTY` only when a runway or apparel sale is the headline); wedding, bridal and
+        similar services expos → every subject category the post names (for example `FASHION_AND_BEAUTY`,
+        `HOME_AND_LIVING`, `FOOD_AND_DRINK`) plus `OTHER` for uncovered services such as venues
+        `[AMENDED 2026-10-24]`; engineering (civil, mechanical, electrical, robotics, IoT), scientific
+        research seminars and conferences, science and maker expos, and invention or innovation
+        showcases → `SCIENCE_AND_ENGINEERING`, while software, AI, startups, developer events and
+        hackathons stay `TECHNOLOGY`, a science olympiad or school or university science competition
+        carries both `EDUCATION` (an academic contest) and `SCIENCE_AND_ENGINEERING` (its subject is
+        science) `[AMENDED 2026-10-25, owner-directed]` while non-science academic contests stay
+        `EDUCATION` only, and machinery sold to factories stays `BUSINESS_AND_NETWORKING`.
+    6.  **Adding a value touches this closed source register in one change,** and the tests fail if
+        any machine-checkable item is missing: the `EventCategory` enum; the definitions record and
+        boundary table; the SDL enum; the committed web and backend codegen outputs (checked by
+        asserting each enum member appears in them); `en.json` and `id.json` (exact key equality with
+        the enum, non-empty values — today's check uses `arrayContaining` and passes with stale keys);
+        every seed `categories` string being a member (`seed.ts`) and `seed-volume.ts` deriving from
+        the enum; the golden category corpus (Rule 8). Reviewed by hand and listed in the story
+        checklist: the PRD block, `project-context.md`, and the four prose comments (Rule 4). The
+        Story 0.34 tests cover only the SDL and `en.json`; the rest are new checks. **The pgEnum is
+        retired, not extended:** `eventCategoryEnum` is deleted from `schema.ts` and a migration drops
+        the unused type with `DROP TYPE IF EXISTS "event_category"` (no `CASCADE`, so it fails loudly
+        if anything depends on it). The `drizzle-kit generate` output must be checked for the
+        `meta/` journal and snapshot. Evidence for a *new* value, measured over events extracted
+        at or after `taxonomyEffectiveFrom` (Rule 7): at least 50 events whose headline subject the
+        model could not place, from at least 3 distinct accounts, and the subject at least 2% of events
+        — all three together, on a hand-read sample. Rule 3's two additions are adopted by the owner
+        ahead of that evidence, and the exit criterion that would reverse them is the same measure
+        falling below half the threshold after 90 days.
+    7.  **Rollout and taxonomy date.** The API, AI processor and ingestor Lambdas deploy separately, so
+        a writer can emit a value a reader cannot serialize for a short window. Accepted because the
+        effect is bounded: an unserializable value nulls that event's whole `categories` list
+        (`[EventCategory!]`) with a masked error, not the row, and heals when the deploy completes.
+        `taxonomyEffectiveFrom` is **not yet set**. Story 0.53's register change is implemented and committed but not
+        deployed to any environment running live extraction (only a local sandbox-DB migration was applied).
+        Whichever deploy actually ships Story 0.53's code (API, AI processor and ingestor Lambdas) to production
+        must record the real deploy date here, in place. No Rule 6 evidence query has a valid window, and none
+        may run, until that date is recorded. No mass
+        re-extraction and no backfill; existing events keep their tags. The moderator re-extraction
+        preview and manual extraction will adopt the new definitions as they are used; that is
+        expected. The Archive page keeps old events visible, so the facet is sparse for older events;
+        accepted.
+    8.  **Removing, renaming or narrowing a value is a two-phase data change.** Phase 1: keep the value
+        in the SDL marked `@deprecated`, accept it as an alias in the transform, and migrate every
+        stored place: `events.categories`, `widgets.filters`, `ai_event_filters.resolved_filter`,
+        `corrections.proposed_data`, `manual_extraction_jobs.result_data`, in-flight queue messages,
+        the `categories` URL parameter (sanitise in FilterHub and the AI-filter hook) and any analytics
+        property. Phase 2: drop it from the SDL, enum and locales. A rename states its mapping in the
+        AD. Rolling back after a row carries a new value is the same problem: clean those rows first.
+        Stored filters have two shapes (flat and a recursive tree) and an unknown leaf is **silently
+        dropped**, which broadens an embedded widget with no error. Nothing is removed by this AD.
+        Narrowing `TECHNOLOGY` (consumer hardware moves out) and `BUSINESS_AND_NETWORKING` change what
+        stored filters match going forward; this is accepted and not migrated.
+    9.  **Finer subjects are not categories.** Tools, gadgets, property, plants and the like are
+        reached by keyword search today and by AD-42's interest tags (which may name a parent
+        category) if that is adopted. Revisit grouping the FilterHub chips if the set passes 24.
+    10. **Tagging quality is measurable.** The extraction path logs one structured line per event when
+        the category list was empty (fallback to `OTHER`) and when the model returned `OTHER`
+        deliberately, so the `OTHER` share and the Rule 6 evidence can be computed without a schema
+        change. A **golden category corpus** (the twelve Indonesian posts in
+        `reviews/review-adversarial-pair.md` §2, each with `expected` and `mustNotInclude` categories)
+        is committed as fixtures; running it against live Gemini is a manual or nightly step reported
+        in the story, never a CI gate, and re-run whenever a definition or boundary line changes.
+*   **Alternatives considered:** a `GADGET_AND_LIFESTYLE` category (unbounded name; overlaps
+    `TECHNOLOGY`); a bare `TOOL` or `TOOLS_AND_HARDWARE` now (ambiguous, no demand evidence in the
+    seed data); `SHOPPING_AND_RETAIL` (form, not subject); a separate `PROPERTY` category (property is an
+    asset class inside `FINANCE_AND_INVESTMENT`); a two-level category tree (cost without a 24-value problem yet);
+    relabeling `TECHNOLOGY` to "Technology & Gadgets" (offered, declined by the owner in favour of a
+    separate `GADGETS_AND_DEVICES`); a source grep
+    as the ratchet (the prompt files legitimately keep `Object.values(EventCategory)`); a 14-day
+    deprecation clock, a docs-side source register, a FilterHub empty-state hint and a one-time
+    reclassification job (all rejected as cost without a measured need); extending the pgEnum
+    (rejected: no column uses it).
+*   **Deferred:** `TOOLS_AND_HARDWARE` — split out of `HOME_AND_LIVING` when tool/hardware events are at
+    least 2% of events extracted after `taxonomyEffectiveFrom`, **and** at least 50 events from at least
+    3 distinct accounts; `PROPERTY` — split out of `FINANCE_AND_INVESTMENT` under the same
+    measured gate when property events are at least 2% of events extracted after
+    `taxonomyEffectiveFrom`; a moderation posture for finance events (forex, crypto and "trading
+    robot" pitches are a common scam channel, so a dedicated category makes them easier to find as
+    well as to flag) — not decided here, an owner and moderation question; `SHOPPING_AND_RETAIL` — not planned; a prompt version
+    stamp (nothing pins prompt text today; AD-42's proposed `insight_version` makes a prompt change a
+    required bump once it lands); the other 13 definitions are written in Story 1 and reviewed there.
+*   **Follow-ups this AD creates (for `bmad-create-story` / `bmad-form-epics`):**
+    1.  **Story 1 — definitions source, renderer, both prompts, ratchet, cardinality, metric.** Writes
+        definitions correct for the **existing 18 values** and names only existing values (Rule 4
+        check (b) enforces this); amends nothing for the four new values. Its interim effect on live
+        extraction is real and accepted: `TECHNOLOGY` keeps its existing definition unchanged
+        (gadget promos stay with it until Story 2), `BUSINESS_AND_NETWORKING` narrows to
+        subject matter (and, because Rule 4 check (b) forbids naming `FINANCE_AND_INVESTMENT` here,
+        keeps property and investment as an interim routing that Story 2 moves), and a consumer
+        furniture bazaar tags `OTHER` until Story 2. Acceptance includes the golden corpus
+        run on the 18-value set and the CC-024 reference posts.
+    2.  **Story 2 — the four new values across the register (Rule 6),** retiring the pgEnum,
+        widening the definitions and boundary table to name the new members, moving property and
+        investment from `BUSINESS_AND_NETWORKING` to `FINANCE_AND_INVESTMENT`, moving consumer
+        hardware from `TECHNOLOGY` to `GADGETS_AND_DEVICES`, `taxonomyEffectiveFrom`, and the corpus
+        re-run on the 22-value set. Ships after Story 1.
+    3.  **Docs** — correct the "Postgres enum irreversibility" note in `deferred-work.md`; update
+        `project-context.md` as Stories 1 and 2 land (its rule is marked plan-only until then).
+    4.  **Story 0.54 (follow-up, 2026-10-24) — Rule 2 amendment and the fifth addition.** Replaces the
+        cap-4/`OTHER`-exclusive transform with the safety cap of 6 and non-exclusive `OTHER`, adds
+        `SCIENCE_AND_ENGINEERING` across the Rule 6 register (23 values), rewrites the Rule 5.3/5.4
+        and boundary lines above in the single definitions source, re-derives the golden corpus
+        (fixtures 3, 5, 9, 10, 11 change) and re-runs it live, then re-runs the CC-024 regression on
+        fresh image links.
 
 ---
 

@@ -1,6 +1,7 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
 import { DateAnchor, DateOffsetUnit, DayOfWeek, TemporalFilter } from '@festgrid/domain/events';
 import { FILTER_NODE_MAX_DEPTH, FILTER_NODE_MAX_NODES } from '@festgrid/domain/ai-event-filters';
+import { renderEventCategoryGlossary } from '../ai-gateway/render-event-category-glossary.js';
 
 /**
  * Story 9.4 AC1: the full system instruction sent to Gemini for `resolvePromptToEventFilter`.
@@ -16,7 +17,8 @@ Each node in the tree is either a GROUP (has "op": "AND" or "OR" plus "children"
 
 - accountId: optional string -- the social media account the user named, exactly as written (an @handle, username or display name). NEVER invent a UUID; if no account is named, omit it.
 - types: optional array of EventType strings: ${Object.values(EventType).join(', ')}.
-- categories: optional array of EventCategory strings: ${Object.values(EventCategory).join(', ')}.
+- categories: optional array of EventCategory strings, each given as \`NAME -- definition\`:
+${renderEventCategoryGlossary()}
 - keyword: optional free-text search phrase string.
 - dateRange: optional object -- { anchor: one of ${Object.values(DateAnchor).join(', ')}, offsetAmount: integer (positive or negative), offsetUnit: one of ${Object.values(DateOffsetUnit).join(', ')}, spanAmount: optional positive integer widening the window (e.g. "next 7 days"), spanUnit: optional, same allowed values as offsetUnit, required together with spanAmount }.
 - dayOfWeek: optional array of one or more weekday strings: ${Object.values(DayOfWeek).join(', ')} (e.g. "weekends" -> ["SAT", "SUN"]).

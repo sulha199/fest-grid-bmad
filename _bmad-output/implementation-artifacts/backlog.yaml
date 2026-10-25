@@ -2392,6 +2392,22 @@ items:
      touches: [pkg:domain, cross:ai-extraction],
      note: "Deferred from: re-review of the epic-9 fixes (2026-10-23). Decided by the product owner and fixed: a qualifier beside an OR's branches applies to the whole group, AND(OR(branches), fields). See Story 9.4's amendment."}
 
+  FIND-096:
+    {type: finding, status: backlog, created: 2026-10-24,
+     impact: internal, effort: xs,
+     title: "No lint guard against event-category-definitions.ts's type-only EventCategory import silently reverting to a value import and reintroducing a runtime cycle",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md],
+     touches: [pkg:shared-types],
+     note: "Deferred from: code review of story-0-52 (2026-10-24). Forward-looking hardening only, no current defect."}
+
+  FIND-097:
+    {type: finding, status: backlog, created: 2026-10-24,
+     impact: internal, effort: xs,
+     title: "Golden-corpus fixture 11-wedding-expo hard-asserts a classification its own rationale calls genuinely contestable, with no soft-miss mechanism in the live-eval test",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/0-53-add-home-living-fashion-finance-and-gadget-event-categories.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Deferred from: code review of story-0-53 (2026-10-24). Continues Story 0.52's pattern; bounded by AD-44 Rule 10 (manual/nightly, never a CI gate)."}
+
   FIND-092:
     {type: finding, status: backlog, created: 2026-10-24,
      impact: internal, effort: m,
@@ -2439,3 +2455,70 @@ items:
      ref: [apps/backend/scripts/debug-brightdata.ts, apps/infrastructure/lib/festgrid-backend-stack.ts],
      touches: [app:backend, app:infrastructure],
      note: "Script is on the PR for the owner to run with their own token; the alarm (and an alarm on the scraping DLQ depth) is proposed in the PR description, not built."}
+
+  IDEA-100:
+    {type: idea, status: promoted, created: 2026-10-23,
+     title: "Add Home & Living, Fashion & Beauty, Finance & Investment and Gadgets & Devices event categories behind a single definitions source (Architecture Spine AD-44)",
+     ref: [planning-artifacts/festgrid-architecture-spine.md,
+           planning-artifacts/architecture/architecture-festgrid-2026-09-22/event-category-review-2026-10-23.md],
+     stories: [0-52-build-the-event-category-definitions-source-renderer-and-ratchet,
+               0-53-add-home-living-fashion-finance-and-gadget-event-categories],
+     touches: [cross:ai-extraction, cross:i18n, pkg:shared-types, pkg:database, app:backend, web:events],
+     note: "AD-44 after a four-lens review. 0-52 ships first (definitions for the existing 18, one renderer, ratchet, cardinality, OTHER-share log lines); 0-53 adds the four values across the AD-44 source register and retires the unused event_category pgEnum. No epics.md section (Story 0.34 precedent)."}
+
+  BUG-080:
+    {type: bug, status: triaged, created: 2026-10-23,
+     impact: user-visible, effort: m,
+     title: "Online events get the posting account's default location and a map pin; the product has no attendance-mode (in person / online / hybrid) concept",
+     ref: [implementation-artifacts/backlog/BUG-080-online-events-get-the-accounts-default-location-pin.md,
+           packages/domain/src/events/transform-gemini-response-to-event-info.ts,
+           apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
+     touches: [web:events, app:backend, pkg:domain, pkg:shared-types, pkg:database, cross:ai-extraction, cross:prd, cross:i18n],
+     note: "Traced in code, not yet reproduced. Proposal in the note: per-schedule AttendanceMode enum, not an EventType. Needs a PRD change, so route via bmad-correct-course."}
+
+  FIND-098:
+    {type: finding, status: promoted, created: 2026-10-24,
+     impact: user-visible, effort: s,
+     title: "Live golden-corpus run (22 values) shows 5 of 13 mismatches: UMKM bazaar still tagged BUSINESS_AND_NETWORKING, Rule 5.4 'more than four' vs a four-subject sale, and three contestable fixtures",
+     ref: [implementation-artifacts/0-53-add-home-living-fashion-finance-and-gadget-event-categories.md,
+           planning-artifacts/festgrid-architecture-spine.md,
+           implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md],
+     stories: [0-54-amend-event-category-cardinality-and-add-science-and-engineering],
+     touches: [cross:ai-extraction, pkg:shared-types, app:backend],
+     note: "Resolved by Story 0.54 (2026-10-24): Rule 5.4 rewritten to non-collapse (safety cap 6, no OTHER-for-several-subjects); UMKM exclusion admits entrepreneurship framing; fixtures 3/5/9/10/11 re-derived. CC-024 regression blocker NOT covered here -- carved into FIND-099."}
+
+  FIND-099:
+    {type: finding, parent: FIND-098, status: done, created: 2026-10-24,
+     impact: user-visible, effort: s,
+     title: "CC-024 live-Gemini regression test blocked: reference posts' signed image links expired 2026-10-06 (403), needs a fresh re-scrape before it can validate anything",
+     ref: [implementation-artifacts/0-53-add-home-living-fashion-finance-and-gadget-event-categories.md,
+           implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Done 2026-10-25: re-scraped all 4 posts with --force, merged the new image fields into the fixtures (links valid to 2026-10-29), regression run; result in FIND-101."}
+
+  FIND-100:
+    {type: finding, status: backlog, created: 2026-10-24,
+     impact: internal, effort: s,
+     title: "Story 0.54 code review: fixture 11 empty mustNotInclude, ratchet Check D margin now 1-of-3",
+     ref: [implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md,
+           implementation-artifacts/deferred-work.md],
+     touches: [cross:ai-extraction, app:backend, pkg:shared-types],
+     note: "2 low-severity findings deferred (the duplicate-OTHER log gap was fixed in the 0.54 patch pass); see deferred-work.md heading 'Deferred from: code review of 0-54-amend-event-category-cardinality-and-add-science-and-engineering (2026-10-24)'."}
+
+  FIND-101:
+    {type: finding, status: done, created: 2026-10-25,
+     impact: user-visible, effort: s,
+     title: "CC-024 live regression: groupingReason omitted in 2 of 12 runs (post 2 run 1, post 3 run 3); event counts all correct, baseline unknown",
+     ref: [implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md,
+           implementation-artifacts/cc-024-reference-posts/README.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Done 2026-10-25: groupingReason now required in the model-facing schema (omitted 4 of 9 runs before, 0 of 15 after); side effect tracked in FIND-102. Option 2 chosen by the owner."}
+
+  FIND-102:
+    {type: finding, status: backlog, created: 2026-10-25,
+     impact: internal, effort: s,
+     title: "With groupingReason required, the CC-024 roundup post returns 39 events (soft cap 10) in 4 of 9 live runs vs 0 of 9 when optional; code truncation still caps it",
+     ref: [implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md,
+           planning-artifacts/festgrid-architecture-spine.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Cost is wasted output tokens and which 10 survive truncation. Try restating the cap beside the groupingReason line; re-measure post 3 with CC024_LIVE_POSTS=3 (6 runs, about 6 calls)."}

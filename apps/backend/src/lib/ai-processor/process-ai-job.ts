@@ -1,4 +1,5 @@
 import { type ProcessingJobMessage } from '@festgrid/domain/posts';
+import { EventCategory } from '@festgrid/shared-types';
 import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
@@ -177,7 +178,9 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         faceImageCount: payload.faceImageCount ?? null,
         minEventCount: payload.minEventCount ?? null,
         actualEventCount: 0,
-        groupingReason: payload.groupingReason ?? null,
+        // null, not the model's value: the response schema requires groupingReason even for a
+        // non-event post (neutral "single-event"), which would otherwise pollute this log.
+        groupingReason: null,
         eventsCompleteness: [],
         aiImageInput,
         actualFaceDetectionCount: aiImageInput === 'blurred' ? (totalFaceDetectionCount ?? 0) : null,
@@ -264,6 +267,30 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       subscriberUserIds,
       defaultLocation?.timezone
     );
+
+    // Story 0.52 (AD-44 Rule 10), extended by Story 0.54 (AD-44 Rule 2/10): inspect the RAW
+    // (pre-transform) category list -- already AJV-enum-validated by this point (see this file's
+    // own isValid check above), so the only way it's empty is a genuinely empty model response,
+    // the only way it's exactly ['OTHER'] is a deliberate model choice, and a deduped/OTHER-excluded
+    // count above the safety cap of 6 is the only way the real-category truncation applies.
+    // console.info on purpose, matching logFaceBlurThumbnailOutcome's convention above -- several
+    // test files assert exact console.log/console.warn counts for unrelated features. These three
+    // outcomes are mutually exclusive (empty, solo OTHER, >6 real categories can never co-occur).
+    // Deduped first, mirroring transformGeminiResponseToEventInfo, so a raw ['OTHER','OTHER']
+    // (which the transform collapses to a solo OTHER) is logged as deliberate_other too.
+    const distinctCategories = Array.from(new Set(event.categories));
+    if (distinctCategories.length === 0) {
+      console.info(`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=empty_list_fallback_to_other`);
+    } else if (distinctCategories.length === 1 && distinctCategories[0] === EventCategory.OTHER) {
+      console.info(`[processAiJob] category-fallback post=${message.postId} event=${i} outcome=deliberate_other`);
+    } else {
+      const realCategoryCount = distinctCategories.filter((c) => c !== EventCategory.OTHER).length;
+      if (realCategoryCount > 6) {
+        console.info(
+          `[processAiJob] category-fallback post=${message.postId} event=${i} outcome=truncated_to_safety_cap realCategoryCount=${realCategoryCount}`
+        );
+      }
+    }
 
     const eventMessage = transformGeminiResponseToEventInfo(event, {
       postId: message.postId,

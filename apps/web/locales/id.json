@@ -548,6 +548,11 @@
     "EDUCATION": "Pendidikan",
     "CAREER": "Karier",
     "AUTOMOTIVE": "Otomotif",
+    "HOME_AND_LIVING": "Rumah Tangga & Interior",
+    "FASHION_AND_BEAUTY": "Fashion & Gaya",
+    "FINANCE_AND_INVESTMENT": "Keuangan & Investasi",
+    "GADGETS_AND_DEVICES": "Gadget & Perangkat",
+    "SCIENCE_AND_ENGINEERING": "Sains & Teknik",
     "OTHER": "Lainnya"
   },
   "EventCard": {

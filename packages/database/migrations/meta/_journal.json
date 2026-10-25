@@ -575,6 +575,13 @@
       "when": 1792892290799,
       "tag": "0081_tiresome_masked_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "6",
+      "when": 1792892291799,
+      "tag": "0082_warm_the_fallen",
+      "breakpoints": true
     }
   ]
 }
