@@ -1,5 +1,5 @@
 {
-  "id": "02e8a134-03ff-44e9-8a7a-4c1bd642d7d3",
+  "id": "f2c2ff3a-aa95-4187-b5d2-5afa901d30b1",
   "prevId": "f0f4be8c-f0d1-46a3-9d7d-eaef5c5ef962",
   "version": "6",
   "dialect": "postgresql",
@@ -3451,6 +3451,12 @@
           "notNull": true,
           "default": 0
         },
+        "no_targets_reason": {
+          "name": "no_targets_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -4388,6 +4394,30 @@
         "REJECTED",
         "REVERTED",
         "SUPERSEDED"
+      ]
+    },
+    "public.event_category": {
+      "name": "event_category",
+      "schema": "public",
+      "values": [
+        "MUSIC",
+        "ARTS_AND_CULTURE",
+        "FOOD_AND_DRINK",
+        "SPORTS_AND_FITNESS",
+        "FAMILY_AND_KIDS",
+        "HOBBIES_AND_INTERESTS",
+        "BUSINESS_AND_NETWORKING",
+        "HEALTH_AND_WELLNESS",
+        "HOLIDAY",
+        "CHARITY_AND_CAUSES",
+        "CIVIC_AND_COMMUNITY",
+        "RELIGION_AND_SPIRITUALITY",
+        "TECHNOLOGY",
+        "TRAVEL_AND_TOURISM",
+        "EDUCATION",
+        "CAREER",
+        "AUTOMOTIVE",
+        "OTHER"
       ]
     },
     "public.event_detail_level": {

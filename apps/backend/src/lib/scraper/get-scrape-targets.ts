@@ -1,9 +1,9 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions, brightdataPendingJobs, posts } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
-import { ScrapablePlatform, isAdapterRegistered } from '@festgrid/domain';
+import { ScrapablePlatform, isAdapterRegistered, resolveScrapeDueCutoff, type ScrapeDueCutoff } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
-import { and, eq, isNull, lt, or, inArray, sql } from 'drizzle-orm';
+import { and, eq, isNull, lt, or, inArray, sql, type SQL } from 'drizzle-orm';
 
 export interface ScrapeTarget {
   profileId: string;
@@ -17,10 +17,43 @@ export interface ScrapeTarget {
   newestPostPublishedAt?: Date;
 }
 
-export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
-  const env = loadBackendEnv();
-  const skipHours = env.scrapeSkipRecentHours;
-  const cutoffDate = new Date(Date.now() - skipHours * 60 * 60 * 1000);
+export interface BatchScrapeTargetOptions {
+  /**
+   * The fire time of the EventBridge cycle this batch belongs to. When set, "due" means not scraped
+   * since just before that time; when absent (a manual invoke) the rolling SCRAPE_SKIP_RECENT_HOURS
+   * window applies. See resolveScrapeDueCutoff.
+   */
+  scheduledTime?: Date;
+}
+
+export function getScrapeDueCutoff(options: BatchScrapeTargetOptions = {}): ScrapeDueCutoff {
+  return resolveScrapeDueCutoff({
+    scheduledTime: options.scheduledTime,
+    skipRecentHours: loadBackendEnv().scrapeSkipRecentHours,
+    now: new Date(),
+  });
+}
+
+/**
+ * SQL form of isScrapableAccountType() in @festgrid/domain -- keep the two in lockstep. Shared by the
+ * batch query and by the zero-target diagnosis, so both always agree on who may be scraped at all.
+ */
+export function scrapableAccountTypeCondition(): SQL {
+  return or(
+    isNull(socialMediaAccountProfiles.accountTypeStatus),
+    and(
+      eq(socialMediaAccountProfiles.accountType, 'ORGANIZER_VENUE_EVENT'),
+      eq(socialMediaAccountProfiles.accountTypeStatus, 'CONFIRMED')
+    ),
+    and(
+      eq(socialMediaAccountProfiles.accountType, 'CURATOR_GUIDE'),
+      eq(socialMediaAccountProfiles.accountTypeStatus, 'CONFIRMED')
+    )
+  )!;
+}
+
+export async function getBatchScrapeTargets(options: BatchScrapeTargetOptions = {}): Promise<ScrapeTarget[]> {
+  const { cutoff: cutoffDate } = getScrapeDueCutoff(options);
 
   const rows = await db.select({
     profileId: socialMediaAccountProfiles.id,
@@ -37,18 +70,7 @@ export async function getBatchScrapeTargets(): Promise<ScrapeTarget[]> {
           isNull(socialMediaAccountProfiles.lastScrapedAt),
           lt(socialMediaAccountProfiles.lastScrapedAt, cutoffDate)
         ),
-        // SQL form of isScrapableAccountType() in @festgrid/domain -- keep the two in lockstep.
-        or(
-          isNull(socialMediaAccountProfiles.accountTypeStatus),
-          and(
-            eq(socialMediaAccountProfiles.accountType, 'ORGANIZER_VENUE_EVENT'),
-            eq(socialMediaAccountProfiles.accountTypeStatus, 'CONFIRMED')
-          ),
-          and(
-            eq(socialMediaAccountProfiles.accountType, 'CURATOR_GUIDE'),
-            eq(socialMediaAccountProfiles.accountTypeStatus, 'CONFIRMED')
-          )
-        )
+        scrapableAccountTypeCondition()
       )
     );
 

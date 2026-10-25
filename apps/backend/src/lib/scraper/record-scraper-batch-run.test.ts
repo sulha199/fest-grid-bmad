@@ -32,6 +32,7 @@ test('record-scraper-batch-run per-cycle audit row', async (t) => {
     assert.strictEqual(row.dispatchedSucceeded, 0);
     assert.strictEqual(row.dispatchedFailed, 0);
     assert.strictEqual(row.dispatchedQueued, 0);
+    assert.strictEqual(row.noTargetsReason, null);
     assert.strictEqual(row.completedAt, null);
   });
 
@@ -73,6 +74,25 @@ test('record-scraper-batch-run per-cycle audit row', async (t) => {
     assert.strictEqual(row.dispatchedSucceeded, 7);
     assert.strictEqual(row.dispatchedFailed, 0);
     assert.strictEqual(row.dispatchedQueued, 31);
+  });
+
+  await t.test('complete records why a cycle found no targets, and leaves the reason null when it had targets', async () => {
+    const emptyId = await recordScraperBatchRunStart();
+    const busyId = await recordScraperBatchRunStart();
+    createdIds.push(emptyId, busyId);
+
+    await completeScraperBatchRun(emptyId, {
+      targetsFound: 0,
+      dispatchedSucceeded: 0,
+      dispatchedFailed: 0,
+      noTargetsReason: '38 subscribed profile(s) eligible: 38 skipped as scraped since 2026-10-24T02:13:00.000Z',
+    });
+    await completeScraperBatchRun(busyId, { targetsFound: 3, dispatchedSucceeded: 3, dispatchedFailed: 0 });
+
+    const [empty] = await db.select().from(scraperBatchRuns).where(eq(scraperBatchRuns.id, emptyId));
+    const [busy] = await db.select().from(scraperBatchRuns).where(eq(scraperBatchRuns.id, busyId));
+    assert.match(empty.noTargetsReason ?? '', /38 skipped as scraped since/);
+    assert.strictEqual(busy.noTargetsReason, null);
   });
 });
 

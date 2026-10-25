@@ -1,6 +1,8 @@
 import type { SQSEvent, EventBridgeEvent, Context } from 'aws-lambda';
 import '../lib/scraper/register-adapters.js';
 import { getBatchScrapeTargets } from '../lib/scraper/get-scrape-targets.js';
+import { explainEmptyScrapeCycle } from '../lib/scraper/explain-empty-scrape-cycle.js';
+import { getScheduledCycleTime } from '../lib/scraper/scheduled-cycle-time.js';
 import { enqueueScrapeJob } from '../lib/scraper/enqueue-scrape-job.js';
 import { processScrapeJob } from '../lib/scraper/process-scrape-job.js';
 import { pollAndDrainQueue, hasJobType } from '../lib/aws/poll-and-drain-queue.js';
@@ -127,8 +129,31 @@ export const handler = async (
         console.error('Failed to record scraper batch run start:', startErr);
       }
 
-      const targets = await getBatchScrapeTargets();
+      // A scheduled cycle is judged against its own fire time, not the rolling skip window, so a manual
+      // or recovery rerun late the day before cannot starve it (2026-10-24). Anything else -- an empty
+      // manual invoke -- keeps the rolling SCRAPE_SKIP_RECENT_HOURS window.
+      const scheduledTime = getScheduledCycleTime(event);
+      console.log(
+        scheduledTime
+          ? `Scheduled cycle fired at ${scheduledTime.toISOString()}`
+          : 'Manual (non-scheduled) invocation: using the rolling skip-recent window'
+      );
+
+      const targets = await getBatchScrapeTargets({ scheduledTime });
       console.log(`Found ${targets.length} distinct targets to scrape`);
+
+      // A 0-target cycle used to leave only that line, indistinguishable from "nobody subscribed".
+      // Record why; diagnosing must never abort the run, so a failure here is only logged.
+      let noTargetsReason: string | undefined;
+      if (targets.length === 0) {
+        try {
+          const explanation = await explainEmptyScrapeCycle({ scheduledTime });
+          noTargetsReason = explanation.reason;
+          console.warn(`Scrape cycle found 0 targets: ${explanation.reason}`);
+        } catch (explainErr) {
+          console.error('Failed to explain the empty scrape cycle:', explainErr);
+        }
+      }
 
       // FIND-035: loaded once for the whole batch, not per-target inside the map below.
       const env = loadBackendEnv();
@@ -261,6 +286,7 @@ export const handler = async (
             dispatchedSucceeded,
             dispatchedFailed,
             dispatchedQueued,
+            noTargetsReason,
           });
         } catch (completeErr) {
           console.error('Failed to record scraper batch run completion:', completeErr);

@@ -394,3 +394,7 @@ No prompt, boundary or fixture was changed in response: those are owner decision
 
 CC-024 regression (`build-gemini-request.live-cc024-regression.test.ts`, 1 repeat per post): **blocked, not a regression.** All 4 reference posts fail with `Failed to fetch image: Status 403` because their signed image links expired on 2026-10-06; no Gemini call was made. It needs fresh links from a `poc-ingestion-preview.ts --force` re-scrape (uses scraper vendor quota) before it can validate anything.
 
+
+### Merge note (2026-10-25)
+
+The pgEnum-retirement migration documented above as `0081_warm_the_fallen` was **renumbered to `0082_warm_the_fallen`** when merging into `master`: PR #100 had taken `0081` (`0081_tiresome_masked_marvel`, `scraper_batch_runs.no_targets_reason`). Its snapshot was regenerated from master's `0081` snapshot minus the `event_category` enum, the journal gained idx 82, and `drizzle-kit generate` still reports "No schema changes". The SQL is unchanged (`DROP TYPE IF EXISTS "event_category";`).

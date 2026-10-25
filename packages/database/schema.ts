@@ -232,6 +232,9 @@ export const scraperBatchRuns = pgTable('scraper_batch_runs', {
   // Targets no async vendor took that were enqueued onto the scraping queue instead -- a working
   // fallback, not a failure. Counted in neither dispatched_succeeded nor dispatched_failed.
   dispatchedQueued: integer('dispatched_queued').default(0).notNull(),
+  // Why a cycle found no targets (e.g. every subscribed profile was scraped since the cutoff), so a
+  // 0-target row can be told apart from "nobody is subscribed". Null on any cycle that had targets.
+  noTargetsReason: text('no_targets_reason'),
   ...timestamps,
 }, (t) => ({
   startedAtIdx: index('idx_scraper_batch_runs_started_at').on(t.startedAt),
