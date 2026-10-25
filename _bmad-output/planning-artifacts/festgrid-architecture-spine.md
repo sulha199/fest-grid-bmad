@@ -2621,13 +2621,14 @@ This document defines the core architectural invariants for the FestDaily applic
         a writer can emit a value a reader cannot serialize for a short window. Accepted because the
         effect is bounded: an unserializable value nulls that event's whole `categories` list
         (`[EventCategory!]`) with a masked error, not the row, and heals when the deploy completes.
-        `taxonomyEffectiveFrom` is **not yet set**. Story 0.53's register change is implemented and committed but not
-        deployed to any environment running live extraction (only a local sandbox-DB migration was applied).
-        Whichever deploy actually ships Story 0.53's code (API, AI processor and ingestor Lambdas) to production
-        must record the real deploy date here, in place. No Rule 6 evidence query has a valid window, and none
-        may run, until that date is recorded. No mass
+        **`taxonomyEffectiveFrom` = 2026-10-25T03:10:21Z** `[RECORDED 2026-10-25]`: the production deploy
+        that shipped Stories 0.52, 0.53 and 0.54 together (PR #101, merge commit `9d83ecf`, CI/CD pipeline
+        run 411: the production `db-migrate` job succeeded at 03:08 UTC, running migration
+        `0082_warm_the_fallen` = `DROP TYPE IF EXISTS "event_category"`, and `deploy-infrastructure`
+        completed at 03:10:21 UTC). A Rule 6 evidence query counts only events extracted at or after that
+        instant; events before it were tagged under the old 18-value, cap-4, `OTHER`-exclusive rules. No mass
         re-extraction and no backfill; existing events keep their tags. The moderator re-extraction
-        preview and manual extraction will adopt the new definitions as they are used; that is
+        preview and manual extraction use the new definitions from that same deploy; that is
         expected. The Archive page keeps old events visible, so the facet is sparse for older events;
         accepted.
     8.  **Removing, renaming or narrowing a value is a two-phase data change.** Phase 1: keep the value
