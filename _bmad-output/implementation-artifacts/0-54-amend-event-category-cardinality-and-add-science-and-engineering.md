@@ -371,3 +371,11 @@ Fixtures that failed last time (3 UMKM, 5 fashion week, 9 mall sale, 10 sneaker/
 No prompt, boundary or fixture was changed in response to these results; they need owner decisions (7: prompt tightening vs fixture; 6b/14: relax fixtures; 15: boundary vs co-tag).
 
 CC-024 regression and rescrape: **not run.** Gemini quota is exhausted, so a regression could not complete; the rescrape (vendor quota) is deferred until Gemini quota is available, because the refreshed image links would expire again if the regression can't run soon after.
+
+### Live Gemini evaluation results, round 2 (2026-10-25, after the owner's decisions of the same day)
+
+Owner decisions applied: a science olympiad carries **both** `EDUCATION` and `SCIENCE_AND_ENGINEERING` (the earlier "olympiads stay Education" clause was wrong); a promo aimed at tradespeople / contractors / small-business operators as business customers counts as a stated trade purpose, so fixture 7 expects `BUSINESS_AND_NETWORKING`; fixtures 6b and 14 accept the extra co-tags. Live calls are now paced (`LIVE_EVAL_CALL_SPACING_MS`, default 5000) and can be limited with `LIVE_EVAL_FIXTURES=7,14`, after round 1 tripped the free tier's 15-requests-per-minute limit on `gemini-3.5-flash-lite` (a per-minute limit, not the daily one; see `project-context.md`).
+
+- Golden corpus, full paced run: **15 of 16 pass, no 429s.** Fixture 2's one failure was a malformed (truncated) JSON response, not a category mismatch; re-run twice alone, it passed both times. Last-sample result: 16 of 16.
+- CC-024 regression (3 runs per post, 12 calls): all four **fresh re-scrapes** produced the expected grouping (`program-lineup`, `dependent-stages`, `roundup`, `separate-events`). In the regression test, posts 1 and 4 matched 3 of 3; post 2 matched 2 of 3 and post 3 matched 2 of 3, in each case because one run omitted `groupingReason` (event counts correct in all 12 runs). `groupingReason` is optional in the response schema. Whether this predates this story is **unknown** (no baseline run); tracked as FIND-101.
+- Fixtures: only `imageUrl` / `additionalImageUrls` / `scrapedAt` / `imageUrlExpiresAt` were refreshed in `cc-024-reference-posts/*.json` (captions and the masked phone numbers are untouched). New links are valid until 2026-10-29.

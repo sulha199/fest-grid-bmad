@@ -2480,13 +2480,13 @@ items:
      note: "Resolved by Story 0.54 (2026-10-24): Rule 5.4 rewritten to non-collapse (safety cap 6, no OTHER-for-several-subjects); UMKM exclusion admits entrepreneurship framing; fixtures 3/5/9/10/11 re-derived. CC-024 regression blocker NOT covered here -- carved into FIND-099."}
 
   FIND-099:
-    {type: finding, parent: FIND-098, status: backlog, created: 2026-10-24,
+    {type: finding, parent: FIND-098, status: done, created: 2026-10-24,
      impact: user-visible, effort: s,
      title: "CC-024 live-Gemini regression test blocked: reference posts' signed image links expired 2026-10-06 (403), needs a fresh re-scrape before it can validate anything",
      ref: [implementation-artifacts/0-53-add-home-living-fashion-finance-and-gadget-event-categories.md,
            implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md],
      touches: [cross:ai-extraction, app:backend],
-     note: "Needs a poc-ingestion-preview.ts --force re-scrape (scraper vendor quota) to refresh the 4 CC-024 posts' expired image links, then re-run live-cc024-regression.test.ts and the 23-value golden-corpus live-eval -- post-merge, not Story 0.54's scope."}
+     note: "Done 2026-10-25: re-scraped all 4 posts with --force, merged the new image fields into the fixtures (links valid to 2026-10-29), regression run; result in FIND-101."}
 
   FIND-100:
     {type: finding, status: backlog, created: 2026-10-24,
@@ -2496,3 +2496,12 @@ items:
            implementation-artifacts/deferred-work.md],
      touches: [cross:ai-extraction, app:backend, pkg:shared-types],
      note: "2 low-severity findings deferred (the duplicate-OTHER log gap was fixed in the 0.54 patch pass); see deferred-work.md heading 'Deferred from: code review of 0-54-amend-event-category-cardinality-and-add-science-and-engineering (2026-10-24)'."}
+
+  FIND-101:
+    {type: finding, parent: FIND-099, status: backlog, created: 2026-10-25,
+     impact: user-visible, effort: s,
+     title: "CC-024 live regression: groupingReason omitted in 2 of 12 runs (post 2 run 1, post 3 run 3); event counts all correct, baseline unknown",
+     ref: [implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md,
+           implementation-artifacts/cc-024-reference-posts/README.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "groupingReason is optional in the response schema; options: A/B the baseline prompt (about 20 calls), or make the field required. Links expire 2026-10-29."}
