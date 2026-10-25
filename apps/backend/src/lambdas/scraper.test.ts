@@ -643,3 +643,109 @@ test('scraper lambda daily-batch branch: provider health after a degraded start 
     assert.strictEqual(recovered[0].Provider, 'brightdata');
   });
 });
+
+// 2026-10-24: a recovery rerun at 15:59 UTC on 10-23 stamped every profile ~11h before the 03:13 UTC cron,
+// inside SCRAPE_SKIP_RECENT_HOURS (12), so the cron found 0 targets and no scraper_actor_runs row was
+// written for the day. A scheduled invocation is now judged against its own fire time.
+test('scraper lambda daily-batch branch: scheduled cycle vs manual invoke (2026-10-24)', async (t) => {
+  const originalAttemptBrightDataTrigger = attemptBrightDataTrigger;
+  const originalAttemptApifyAsyncTrigger = attemptApifyAsyncTrigger;
+  const providerHealthBefore = await snapshotProviderHealthIds();
+  const createdProfiles: string[] = [];
+  const createdSubs: string[] = [];
+  const testStart = new Date();
+
+  t.after(async () => {
+    if (createdSubs.length > 0) await db.delete(subscriptions).where(inArray(subscriptions.id, createdSubs));
+    if (createdProfiles.length > 0) await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, createdProfiles));
+    await db.delete(scraperBatchRuns).where(gte(scraperBatchRuns.startedAt, testStart));
+    await deleteProviderHealthCreatedSince(providerHealthBefore);
+    setAttemptBrightDataTrigger(originalAttemptBrightDataTrigger);
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+  });
+
+  const [seededUser] = await db.select().from(users).limit(1);
+  assert.ok(seededUser, 'Must have at least 1 seeded user for test');
+
+  const cronTime = new Date();
+  const scheduledEvent = {
+    version: '0',
+    id: randomUUID(),
+    'detail-type': 'Scheduled Event',
+    source: 'aws.events',
+    account: '123456789012',
+    time: cronTime.toISOString(),
+    region: 'ap-southeast-1',
+    resources: ['arn:aws:events:ap-southeast-1:123456789012:rule/ScraperScheduleRule'],
+    detail: {},
+  };
+
+  async function addProfile(key: string, lastScrapedAt: Date) {
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: `test-sched-lambda-${key}-${Date.now()}`,
+      platform: 'instagram',
+      displayName: key,
+      username: `sched_lambda_${key}_${Date.now()}`,
+      lastScrapedAt,
+    }).returning();
+    createdProfiles.push(profile.id);
+    const [sub] = await db.insert(subscriptions).values({ userId: seededUser.id, accountId: profile.id }).returning();
+    createdSubs.push(sub.id);
+    return profile;
+  }
+
+  const lateRerun = await addProfile('late_rerun', new Date(cronTime.getTime() - 11 * 60 * 60 * 1000));
+  const sameCycle = await addProfile('same_cycle', new Date(cronTime.getTime() + 60 * 1000));
+
+  async function dispatchedUsernames(event: unknown): Promise<Set<string>> {
+    const seen = new Set<string>();
+    setAttemptBrightDataTrigger(async (target) => {
+      seen.add(target.username);
+      return { success: true };
+    });
+    setAttemptApifyAsyncTrigger(async (target) => {
+      seen.add(target.username);
+      return { success: true };
+    });
+    await handler(event as any, {} as any);
+    return seen;
+  }
+
+  await t.test('a scheduled cycle scrapes a profile a late manual rerun stamped 11h earlier', async () => {
+    const seen = await dispatchedUsernames(scheduledEvent);
+    assert.ok(seen.has(lateRerun.username), 'the cron must not be starved by the previous afternoon\'s rerun');
+  });
+
+  await t.test('a duplicate delivery of the same cycle skips what that cycle already stamped', async () => {
+    const seen = await dispatchedUsernames(scheduledEvent);
+    assert.strictEqual(seen.has(sameCycle.username), false);
+  });
+
+  await t.test('a manual invoke (empty event) still honours the 12h window', async () => {
+    const seen = await dispatchedUsernames({});
+    assert.strictEqual(seen.has(lateRerun.username), false, 'stamped 11h ago, inside SCRAPE_SKIP_RECENT_HOURS');
+    assert.strictEqual(seen.has(sameCycle.username), false);
+  });
+
+  await t.test('a scheduled-looking event without a valid time falls back to the manual window', async () => {
+    const { time: _time, ...withoutTime } = scheduledEvent;
+    const seen = await dispatchedUsernames(withoutTime);
+    assert.strictEqual(seen.has(lateRerun.username), false);
+  });
+
+  await t.test('the batch row records why a cycle found no targets, and only then', async () => {
+    await db.delete(scraperBatchRuns).where(gte(scraperBatchRuns.startedAt, testStart));
+    // 2000-01-01: only never-scraped profiles are due, so the run has no targets unless the DB holds
+    // one (the dev DB is shared, so the invariant is asserted either way).
+    await dispatchedUsernames({ ...scheduledEvent, time: '2000-01-01T00:00:00Z' });
+
+    const [batch] = await db.select().from(scraperBatchRuns).where(gte(scraperBatchRuns.startedAt, testStart));
+    assert.ok(batch);
+    if (batch.targetsFound === 0) {
+      assert.match(batch.noTargetsReason ?? '', /subscribed profile\(s\) eligible: \d+ skipped as scraped since 2000-01-01T00:00:00.000Z/);
+      assert.match(batch.noTargetsReason ?? '', /Cutoff mode: scheduled/);
+    } else {
+      assert.strictEqual(batch.noTargetsReason, null);
+    }
+  });
+});

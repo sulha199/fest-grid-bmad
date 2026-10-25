@@ -31,6 +31,8 @@ export interface ScraperBatchRunCompletion {
   dispatchedFailed: number;
   /** Enqueued onto the scraping queue after the async vendors declined: a working fallback, not a failure. */
   dispatchedQueued?: number;
+  /** Why the cycle found 0 targets (explain-empty-scrape-cycle.ts); leave unset when it had targets. */
+  noTargetsReason?: string;
 }
 
 /**
@@ -50,6 +52,7 @@ export async function completeScraperBatchRun(
       dispatchedSucceeded: completion.dispatchedSucceeded,
       dispatchedFailed: completion.dispatchedFailed,
       dispatchedQueued: completion.dispatchedQueued ?? 0,
+      noTargetsReason: completion.noTargetsReason ?? null,
       updatedAt: new Date(),
     })
     .where(eq(scraperBatchRuns.id, id));
