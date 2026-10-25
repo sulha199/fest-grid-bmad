@@ -1,6 +1,10 @@
+---
+backlog_id: CC-033
+---
+
 # Sprint Change Proposal: Attendance mode (in person / online / hybrid) — BUG-080
 
-Date: 2026-10-25 · Prepared for: shulha · Mode: Batch · Status: **draft, awaiting approval**
+Date: 2026-10-25 · Prepared for: shulha · Mode: Batch · Status: **approved 2026-10-25 (shulha), scope: Moderate**
 
 ## 1. Issue summary
 

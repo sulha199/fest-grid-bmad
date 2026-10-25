@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-23"
+last_updated: "2026-10-25"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2467,14 +2467,12 @@ items:
      note: "AD-44 after a four-lens review. 0-52 ships first (definitions for the existing 18, one renderer, ratchet, cardinality, OTHER-share log lines); 0-53 adds the four values across the AD-44 source register and retires the unused event_category pgEnum. No epics.md section (Story 0.34 precedent)."}
 
   BUG-080:
-    {type: bug, status: triaged, created: 2026-10-23,
-     impact: user-visible, effort: m,
+    {type: bug, status: superseded, created: 2026-10-23, superseded_by: CC-033,
      title: "Online events get the posting account's default location and a map pin; the product has no attendance-mode (in person / online / hybrid) concept",
      ref: [implementation-artifacts/backlog/BUG-080-online-events-get-the-accounts-default-location-pin.md,
-           packages/domain/src/events/transform-gemini-response-to-event-info.ts,
-           apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
+           planning-artifacts/sprint-change-proposal-2026-10-25.md],
      touches: [web:events, app:backend, pkg:domain, pkg:shared-types, pkg:database, cross:ai-extraction, cross:prd, cross:i18n],
-     note: "Traced in code, not yet reproduced. Proposal in the note: per-schedule AttendanceMode enum, not an EventType. Needs a PRD change, so route via bmad-correct-course."}
+     note: "Routed through bmad-correct-course 2026-10-25 and approved; the fix is tracked on CC-033."}
 
   FIND-098:
     {type: finding, status: promoted, created: 2026-10-24,
@@ -2522,3 +2520,39 @@ items:
            planning-artifacts/festgrid-architecture-spine.md],
      touches: [cross:ai-extraction, app:backend],
      note: "Cost is wasted output tokens and which 10 survive truncation. Try restating the cap beside the groupingReason line; re-measure post 3 with CC024_LIVE_POSTS=3 (6 runs, about 6 calls)."}
+
+
+  # ── 2026-10-25 ───────────────────────────────────────────────────────────
+  CC-033:
+    {type: proposal, status: triaged, created: 2026-10-25,
+     impact: user-visible, effort: m,
+     title: "Attendance mode (in person / online / hybrid) per schedule, so online events stop getting a default-location pin",
+     ref: [implementation-artifacts/backlog/BUG-080-online-events-get-the-accounts-default-location-pin.md,
+           planning-artifacts/sprint-change-proposal-2026-10-25.md],
+     touches: [web:events, web:locations, app:backend, pkg:domain, pkg:shared-types, pkg:database, pkg:ui,
+               cross:ai-extraction, cross:prd, cross:architecture, cross:ux-tokens, cross:i18n],
+     note: "Approved 2026-10-25, moderate scope: PRD edits P1-P7, provisional AD-45, bmad-ux pass, then bmad-form-epics."}
+
+  FIND-103:
+    {type: finding, status: backlog, created: 2026-10-25, parent: CC-033,
+     impact: internal, effort: xs,
+     title: "Reproduce BUG-080 on live data and count events whose location equals the account default with online cues in the caption",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-25.md],
+     touches: [web:events, cross:ai-extraction],
+     note: "Carved out of CC-033; also decides whether a one-off moderator clean-up of past online events is worth doing."}
+
+  IDEA-101:
+    {type: idea, status: backlog, created: 2026-10-25, parent: CC-033,
+     impact: user-visible, effort: m,
+     title: "Joinable link for online schedules (meeting or stream link as its own field, shown on the card and detail)",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-25.md],
+     touches: [web:events, app:backend, pkg:database, cross:ai-extraction, cross:prd],
+     note: "Deferred by CC-033: the link currently lives in contact or registration text."}
+
+  IDEA-102:
+    {type: idea, status: backlog, created: 2026-10-25, parent: CC-033,
+     impact: user-visible, effort: m,
+     title: "Hybrid events with two distinct venues (for example a venue in Jakarta and another in Surabaya on the same date)",
+     ref: [planning-artifacts/sprint-change-proposal-2026-10-25.md],
+     touches: [web:events, app:backend, pkg:domain, cross:ai-extraction],
+     note: "Deferred by CC-033: HYBRID carries one stated venue per schedule."}
