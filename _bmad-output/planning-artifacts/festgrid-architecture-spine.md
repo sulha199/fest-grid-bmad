@@ -2555,7 +2555,9 @@ This document defines the core architectural invariants for the FestDaily applic
         **subject of what is sold or shown** decides a consumer-facing sale, bazaar, expo or promo; a
         trade-day/public-day split does not change the subject. 3. Add `BUSINESS_AND_NETWORKING` only
         when the post states a trade, buyer, B2B, franchise, supplier or business-matching purpose,
-        **or frames entrepreneurship `[AMENDED 2026-10-24]`** (incubated tenants "binaan", UMKM
+        **or is aimed at tradespeople, contractors or small-business operators as business customers
+        (for example a discount "untuk tukang & kontraktor") `[AMENDED 2026-10-25, owner-directed]`,
+        or frames entrepreneurship `[AMENDED 2026-10-24]`** (incubated tenants "binaan", UMKM
         business-skills or "go digital" workshops, franchise or reseller recruitment), alongside the
         product categories of what is sold; "support local" or a bare "UMKM" bazaar with no
         entrepreneurship or trade framing does not count. 4. **No collapse `[AMENDED 2026-10-24]`:**
@@ -2584,9 +2586,10 @@ This document defines the core architectural invariants for the FestDaily applic
         `[AMENDED 2026-10-24]`; engineering (civil, mechanical, electrical, robotics, IoT), scientific
         research seminars and conferences, science and maker expos, and invention or innovation
         showcases → `SCIENCE_AND_ENGINEERING`, while software, AI, startups, developer events and
-        hackathons stay `TECHNOLOGY`, academic olympiads and school or university competitions stay
-        `EDUCATION` even in science subjects, and machinery sold to factories stays
-        `BUSINESS_AND_NETWORKING`.
+        hackathons stay `TECHNOLOGY`, a science olympiad or school or university science competition
+        carries both `EDUCATION` (an academic contest) and `SCIENCE_AND_ENGINEERING` (its subject is
+        science) `[AMENDED 2026-10-25, owner-directed]` while non-science academic contests stay
+        `EDUCATION` only, and machinery sold to factories stays `BUSINESS_AND_NETWORKING`.
     6.  **Adding a value touches this closed source register in one change,** and the tests fail if
         any machine-checkable item is missing: the `EventCategory` enum; the definitions record and
         boundary table; the SDL enum; the committed web and backend codegen outputs (checked by

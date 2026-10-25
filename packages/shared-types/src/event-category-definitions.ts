@@ -174,7 +174,7 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
   {
     id: 'business-networking-umkm-exclusion',
     rule:
-      '[AMENDED 2026-10-24] A bare "support local" or UMKM bazaar with no entrepreneurship or trade framing does not trigger BUSINESS_AND_NETWORKING. BUSINESS_AND_NETWORKING now also applies when the post frames entrepreneurship -- incubated tenants ("binaan"), UMKM business-skills or "go digital" workshops, or franchise or reseller recruitment -- alongside the product categories named, in addition to a stated trade, buyer, B2B, franchise, supplier, or business-matching purpose.'
+      '[AMENDED 2026-10-24] A bare "support local" or UMKM bazaar with no entrepreneurship or trade framing does not trigger BUSINESS_AND_NETWORKING. BUSINESS_AND_NETWORKING now also applies when the post frames entrepreneurship -- incubated tenants ("binaan"), UMKM business-skills or "go digital" workshops, or franchise or reseller recruitment -- alongside the product categories named, in addition to a stated trade, buyer, B2B, franchise, supplier, or business-matching purpose. A promo or event aimed at tradespeople, contractors, or small-business operators as business customers (for example a discount "untuk tukang & kontraktor") also counts as a stated trade purpose.'
   },
   {
     id: 'hobbies-esports',
@@ -231,6 +231,6 @@ export const CATEGORY_BOUNDARIES: readonly CategoryBoundaryRule[] = [
   {
     id: 'science-and-engineering',
     rule:
-      'Engineering, research, maker, and invention content routes to SCIENCE_AND_ENGINEERING; software, AI, startups, developer events, tech conferences, and hackathons stay TECHNOLOGY; academic olympiads and school or university competitions stay EDUCATION even in science subjects; machinery sold to factories or production lines stays BUSINESS_AND_NETWORKING (see business-networking-machinery above).'
+      'Engineering, research, maker, and invention content routes to SCIENCE_AND_ENGINEERING; software, AI, startups, developer events, tech conferences, and hackathons stay TECHNOLOGY; a science olympiad or school or university science competition carries both EDUCATION (it is an academic contest) and SCIENCE_AND_ENGINEERING (its subject is science), while non-science academic contests stay EDUCATION only; machinery sold to factories or production lines stays BUSINESS_AND_NETWORKING (see business-networking-machinery above).'
   }
 ];

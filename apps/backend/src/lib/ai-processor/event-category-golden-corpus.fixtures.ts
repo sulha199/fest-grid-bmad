@@ -91,10 +91,10 @@ export const EVENT_CATEGORY_GOLDEN_CORPUS: readonly EventCategoryGoldenFixture[]
     id: '7-power-tools-roadshow',
     caption:
       'Makita Power Tools Roadshow: demo bor, gerinda; diskon 30% untuk tukang & kontraktor; workshop pasang keramik; Toko Bangunan Jaya Abadi, Bantul',
-    expected: [EventCategory.HOME_AND_LIVING],
-    mustNotInclude: [EventCategory.BUSINESS_AND_NETWORKING, EventCategory.OTHER],
+    expected: [EventCategory.HOME_AND_LIVING, EventCategory.BUSINESS_AND_NETWORKING],
+    mustNotInclude: [EventCategory.OTHER],
     rationale:
-      'Flips from OTHER to HOME_AND_LIVING -- tools sold to tradespeople (tukang, kontraktor) is named explicitly in the new boundary. BUSINESS_AND_NETWORKING stays excluded: a professional customer SEGMENT alone (not a stated trade/B2B purpose) never triggers it.'
+      'HOME_AND_LIVING -- tools sold to tradespeople (tukang, kontraktor) is named explicitly in the boundary. BUSINESS_AND_NETWORKING [owner-directed 2026-10-25, reversing the earlier exclusion]: a promo aimed at tradespeople, contractors or small-business operators as business customers ("diskon untuk tukang & kontraktor") counts as a stated trade purpose, matching what the live model returned in two runs.'
   },
   {
     id: '8-plant-fair-contest',
@@ -146,9 +146,9 @@ export const EVENT_CATEGORY_GOLDEN_CORPUS: readonly EventCategoryGoldenFixture[]
     id: '6b-bonus-aesthetic-clinic',
     caption: 'Promo Glow Up Clinic: facial, botox, laser rejuvenation 50%, 17-19 Agustus',
     expected: [EventCategory.HEALTH_AND_WELLNESS],
-    mustNotInclude: [EventCategory.OTHER, EventCategory.FASHION_AND_BEAUTY],
+    mustNotInclude: [EventCategory.OTHER],
     rationale:
-      'Unchanged expected, but FASHION_AND_BEAUTY is now an explicit mustNotInclude -- "facial" is skincare-adjacent and FASHION_AND_BEAUTY now exists, making the clinical-aesthetic exception (explicitly preserved in the new boundary entry) a sharper test than before.'
+      'HEALTH_AND_WELLNESS stays the headline for clinical aesthetic treatment (botox, laser). FASHION_AND_BEAUTY is an allowed co-tag [owner-confirmed 2026-10-25]: "facial" is skincare, which the FASHION_AND_BEAUTY definition names, so the live model\'s co-tag is correct under multi-valued tagging.'
   },
   // Story 0.54 (AD-44 Rule 3/5, Follow-up 4): new fixtures for the 23rd category,
   // SCIENCE_AND_ENGINEERING, and its boundary against TECHNOLOGY/EDUCATION.
@@ -156,17 +156,17 @@ export const EVENT_CATEGORY_GOLDEN_CORPUS: readonly EventCategoryGoldenFixture[]
     id: '14-engineering-robotics-seminar',
     caption: 'Seminar Nasional Teknik Robotika & IoT UGM: riset mahasiswa, pameran prototipe, 20 Nov, Fakultas Teknik',
     expected: [EventCategory.SCIENCE_AND_ENGINEERING],
-    mustNotInclude: [EventCategory.TECHNOLOGY, EventCategory.EDUCATION, EventCategory.OTHER],
+    mustNotInclude: [EventCategory.OTHER],
     rationale:
-      'Direct positive test of the new category: a university engineering/robotics research seminar with a prototype expo routes to SCIENCE_AND_ENGINEERING (engineering disciplines, robotics, research), not TECHNOLOGY (software/AI/startups/developer events) or EDUCATION (academic olympiads/school contests).'
+      'Direct positive test of the new category: a university engineering/robotics research seminar with a prototype expo must carry SCIENCE_AND_ENGINEERING. TECHNOLOGY and EDUCATION are allowed co-tags [owner-confirmed 2026-10-25]: IoT and robotics touch technology and a university seminar touches education, and multi-valued tagging is the point.'
   },
   {
     id: '15-science-olympiad',
     caption: 'Olimpiade Sains Nasional (OSN) Tingkat SMA: fisika, kimia, biologi, matematika, 15 Sept',
-    expected: [EventCategory.EDUCATION],
-    mustNotInclude: [EventCategory.SCIENCE_AND_ENGINEERING, EventCategory.OTHER],
+    expected: [EventCategory.EDUCATION, EventCategory.SCIENCE_AND_ENGINEERING],
+    mustNotInclude: [EventCategory.OTHER],
     rationale:
-      'Direct negative test: an academic olympiad stays EDUCATION even in science subjects (AC7\'s boundary clause: "academic olympiads and school/university competitions stay EDUCATION even in science subjects"), guarding against SCIENCE_AND_ENGINEERING over-grabbing academic competitions.'
+      'A science olympiad carries BOTH EDUCATION (an academic contest) and SCIENCE_AND_ENGINEERING (its subject is science) [owner-directed 2026-10-25: the earlier "olympiads stay EDUCATION even in science subjects" clause was wrong, the category name includes science]. A non-science academic contest would stay EDUCATION only.'
   },
   // Bonus 16th fixture, optional -- negative-tests the TECHNOLOGY boundary.
   {

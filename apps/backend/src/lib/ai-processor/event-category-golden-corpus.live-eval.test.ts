@@ -35,7 +35,23 @@ test('EventCategory golden corpus (opt-in live Gemini eval, Story 0.52/0.53/0.54
 
   const apiKey = process.env.SYSTEM_GEMINI_API_KEY;
 
-  for (const fixture of EVENT_CATEGORY_GOLDEN_CORPUS) {
+  // The free tier of the *-flash-lite model allows only 15 requests PER MINUTE (and a separate
+  // per-DAY cap); 16+ back-to-back fixture calls trip the per-minute limit with a 429. Space the
+  // calls out (override with LIVE_EVAL_CALL_SPACING_MS) so a full run stays under 15 RPM.
+  const callSpacingMs = Number(process.env.LIVE_EVAL_CALL_SPACING_MS ?? 5000);
+  let callCount = 0;
+
+  // LIVE_EVAL_FIXTURES=7,14,15 runs only fixtures whose id starts with one of those numbers
+  // (matched as '<n>-' or '<n>b-'); unset runs the whole corpus. Saves RPD when re-checking one fixture.
+  const onlyFixtures = (process.env.LIVE_EVAL_FIXTURES ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const selected = onlyFixtures.length
+    ? EVENT_CATEGORY_GOLDEN_CORPUS.filter((f) => onlyFixtures.some((n) => f.id.startsWith(`${n}-`) || f.id.startsWith(`${n}b-`)))
+    : EVENT_CATEGORY_GOLDEN_CORPUS;
+
+  for (const fixture of selected) {
     await t.test(fixture.id, async () => {
       const message: ProcessingJobMessage = {
         postId: randomUUID(),
@@ -46,6 +62,10 @@ test('EventCategory golden corpus (opt-in live Gemini eval, Story 0.52/0.53/0.54
       };
 
       const { request } = await buildGeminiExtractionRequest(message);
+
+      if (callCount++ > 0 && callSpacingMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, callSpacingMs));
+      }
 
       const result = await callGeminiGenerateContent(apiKey, request);
       const payload: any = JSON.parse(result.text);
