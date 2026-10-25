@@ -141,7 +141,13 @@ export function buildGeminiExtractionResponseSchema() {
       // hasFaceImage above.
       faceImageCount: { type: 'NUMBER' }
     },
-    required: ['isEvent', 'events']
+    // groupingReason is required here (model-facing schema only) since 2026-10-25: the live
+    // CC-024 regression saw the model omit it in 2 of 12 runs (counts were right), and the
+    // post-level grouping decision drives how events are grouped. The AJV schema on the consumer
+    // side (extracted-event.schema.ts) stays nullable so a stored or replayed response without it
+    // is still valid, and a non-event post simply gets the neutral "single-event" value, which
+    // processAiJob does not persist when isEvent is false (AD-30 Rule 5, amended).
+    required: ['isEvent', 'events', 'groupingReason']
   };
 }
 
@@ -240,7 +246,7 @@ ${categoryGlossary}
 11. Self-report this event's extraction completeness: set minScheduleCount to the best-effort count of distinct schedules this event's caption/image content appears to describe (whether or not every field was extractable). Set expectedScheduleNames to an array of the name/title text of the schedules you can identify for this event, even when some of their other fields could not be extracted. Report a single number/count and names you are reasonably confident about; these are advisory only and are never required to be perfectly exhaustive.
 
 Also report, once for the whole post (not per event):
-- groupingReason: the exact value from this allowed list matching the rule you applied in the GROUPING DECISION above: ${allowedGroupingReasons}.
+- groupingReason (ALWAYS include it, in every response): the exact value from this allowed list matching the rule you applied in the GROUPING DECISION above: ${allowedGroupingReasons}. If the post is not an event (isEvent is false), use "single-event" as a neutral value; it is not stored in that case.
 - postTitle: a short headline/title for the post as a whole (at most about 80 characters), preferring a title the post states itself (e.g. "Weekend Event Roundup in Jakarta"); otherwise write a brief descriptive one. Omit it if no sensible title exists.
 - groupingRationale: one sentence explaining your grouping decision, for debugging only.
 - minEventCount: your own best-effort count of distinct events you believe the content describes overall (mirrors minScheduleCount's self-report pattern, advisory only).

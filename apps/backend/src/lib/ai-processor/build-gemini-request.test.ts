@@ -330,7 +330,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(!geminiExtractionResponseSchema.required.includes('postTitle'));
     assert.ok('minEventCount' in props);
     assert.ok('skippedItems' in props);
-    assert.deepStrictEqual(geminiExtractionResponseSchema.required, ['isEvent', 'events']);
+    assert.deepStrictEqual(geminiExtractionResponseSchema.required, ['isEvent', 'events', 'groupingReason']);
 
     const eventItemSchema: any = props.events.items;
     assert.ok('organizerHandle' in eventItemSchema.properties);
@@ -370,7 +370,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok('faceImageCount' in props);
     assert.strictEqual(props.hasFaceImage.type, 'BOOLEAN');
     assert.strictEqual(props.faceImageCount.type, 'NUMBER');
-    assert.deepStrictEqual(geminiExtractionResponseSchema.required, ['isEvent', 'events']);
+    assert.deepStrictEqual(geminiExtractionResponseSchema.required, ['isEvent', 'events', 'groupingReason']);
     assert.ok(!geminiExtractionResponseSchema.required.includes('hasFaceImage'));
     assert.ok(!geminiExtractionResponseSchema.required.includes('faceImageCount'));
 

@@ -157,6 +157,34 @@ test('processAiJob extraction_audit_logs write-path tests', async (t) => {
     assert.strictEqual(row.geminiModel, env.geminiModel);
   });
 
+  await t.test('Case A2 (2026-10-25): isEvent=false with the neutral "single-event" groupingReason the response schema now requires -> audit row logs groupingReason null', async () => {
+    const postId = await insertTestPost(profile.id, 'https://www.instagram.com/p/audit-case-a2/');
+    const payload: GeminiExtractionPayload = {
+      isEvent: false,
+      events: [],
+      groupingReason: 'single-event'
+    };
+
+    const message: ProcessingJobMessage = {
+      postId,
+      accountId: profile.id,
+      content: 'Not an event, neutral grouping value',
+      postUrl: 'https://www.instagram.com/p/audit-case-a2/',
+      publishedAt: '2026-08-29T10:24:17Z'
+    };
+
+    setCallGeminiSeam(async () => ({ text: JSON.stringify(payload) }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    await processAiJob(message);
+
+    const rows = await db.select().from(extractionAuditLogs).where(eq(extractionAuditLogs.postId, postId));
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].isEvent, false);
+    assert.strictEqual(rows[0].groupingReason, null, 'a non-event post must not log the neutral grouping value');
+  });
+
   await t.test('Case B: isEvent=true, zero-events defensive branch -> one row, actualEventCount 0, eventsCompleteness []', async () => {
     const postId = await insertTestPost(profile.id, 'https://www.instagram.com/p/audit-case-b/');
     const payload: GeminiExtractionPayload = {

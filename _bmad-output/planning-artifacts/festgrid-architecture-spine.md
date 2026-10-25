@@ -1656,6 +1656,15 @@ This document defines the core architectural invariants for the FestDaily applic
         `applicableDaysOfWeek`; and post-level `groupingReason` (`single-event | program-lineup |
         dependent-stages | separate-events | roundup`), `groupingRationale`, `skippedItems`,
         `minEventCount`. `hasFaceImage`/`faceImageCount` stay at the payload root (post-level).
+        **Amended 2026-10-25 (owner-directed, Story 0.54):** `groupingReason` is **required in the
+        model-facing response schema** (`build-gemini-request.ts`) and the prompt says to always
+        include it, using the neutral `single-event` when `isEvent` is false; the consumer-side AJV
+        schema stays nullable, and `processAiJob` logs `groupingReason: null` for a non-event post.
+        Reason: the live CC-024 regression saw the model omit it in 4 of 9 runs on the roundup post
+        when it was optional, and the roundup handling depends on it. Measured trade-off: with it
+        required, the same roundup post returned 39 events (over the soft cap of 10) in 4 of 9 runs
+        versus 0 of 9 when optional; the code-level truncation (`process-ai-job.ts` 5.6) still
+        enforces the cap, so the cost is wasted tokens, tracked as FIND-102.
         Per-post cap on events (default 10, configurable); timezone inference, private-contact and
         performer-leakage guards (3.6a/3.6i/3.6j) run **per event**; the children's-data filter
         (3.6k) stays post-level.

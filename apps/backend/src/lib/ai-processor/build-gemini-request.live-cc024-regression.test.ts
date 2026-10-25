@@ -79,7 +79,12 @@ test('CC-024 reference-post regression fixtures (opt-in live, Task 9.3)', async 
   const apiKey = process.env.SYSTEM_GEMINI_API_KEY;
   const runs = getLiveRunCount();
 
-  for (const fixtureCase of FIXTURES) {
+  // CC024_LIVE_POSTS=3 (or 2,3) runs only the posts whose file starts with those numbers, to save
+  // Gemini quota (RPM/RPD, see project-context.md) when re-checking one post.
+  const onlyPosts = (process.env.CC024_LIVE_POSTS ?? '').split(',').map((v) => v.trim()).filter(Boolean);
+  const selectedFixtures = onlyPosts.length ? FIXTURES.filter((f) => onlyPosts.some((n) => f.file.startsWith(`${n}-`))) : FIXTURES;
+
+  for (const fixtureCase of selectedFixtures) {
     await t.test(`${fixtureCase.file} (${runs} runs)`, async () => {
       const entry: CacheEntry = JSON.parse(readFileSync(resolve(fixtureDir, fixtureCase.file), 'utf-8'));
       const scrapedPost = entry.scrapedPost;

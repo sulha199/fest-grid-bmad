@@ -178,7 +178,9 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         faceImageCount: payload.faceImageCount ?? null,
         minEventCount: payload.minEventCount ?? null,
         actualEventCount: 0,
-        groupingReason: payload.groupingReason ?? null,
+        // null, not the model's value: the response schema requires groupingReason even for a
+        // non-event post (neutral "single-event"), which would otherwise pollute this log.
+        groupingReason: null,
         eventsCompleteness: [],
         aiImageInput,
         actualFaceDetectionCount: aiImageInput === 'blurred' ? (totalFaceDetectionCount ?? 0) : null,

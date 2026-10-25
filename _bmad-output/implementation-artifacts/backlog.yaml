@@ -2498,10 +2498,19 @@ items:
      note: "2 low-severity findings deferred (the duplicate-OTHER log gap was fixed in the 0.54 patch pass); see deferred-work.md heading 'Deferred from: code review of 0-54-amend-event-category-cardinality-and-add-science-and-engineering (2026-10-24)'."}
 
   FIND-101:
-    {type: finding, status: backlog, created: 2026-10-25,
+    {type: finding, status: done, created: 2026-10-25,
      impact: user-visible, effort: s,
      title: "CC-024 live regression: groupingReason omitted in 2 of 12 runs (post 2 run 1, post 3 run 3); event counts all correct, baseline unknown",
      ref: [implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md,
            implementation-artifacts/cc-024-reference-posts/README.md],
      touches: [cross:ai-extraction, app:backend],
-     note: "groupingReason is optional in the response schema; options: A/B the baseline prompt (about 20 calls), or make the field required. Links expire 2026-10-29."}
+     note: "Done 2026-10-25: groupingReason now required in the model-facing schema (omitted 4 of 9 runs before, 0 of 15 after); side effect tracked in FIND-102. Option 2 chosen by the owner."}
+
+  FIND-102:
+    {type: finding, status: backlog, created: 2026-10-25,
+     impact: internal, effort: s,
+     title: "With groupingReason required, the CC-024 roundup post returns 39 events (soft cap 10) in 4 of 9 live runs vs 0 of 9 when optional; code truncation still caps it",
+     ref: [implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md,
+           planning-artifacts/festgrid-architecture-spine.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Cost is wasted output tokens and which 10 survive truncation. Try restating the cap beside the groupingReason line; re-measure post 3 with CC024_LIVE_POSTS=3 (6 runs, about 6 calls)."}
