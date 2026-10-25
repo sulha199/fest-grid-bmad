@@ -2,7 +2,7 @@
 
 *   **What it does:** Stops one real-world event from becoming several `events` rows when it is posted more than once (a hype post, a registration reminder, a medal reveal, a roundup). Runs on the write path only, inside the ingestion Lambda, after extraction and before the insert.
 *   **Authority:** Architecture Spine **AD-30 Rule 7** (matching) and **Rule 9** (merge). The flow is drawn in `_bmad-output/planning-artifacts/diagrams/event-dedup-flow.html`. This page is the operator's summary; the spine wins on any disagreement.
-*   **Code:** `findMatchingEvent` (`apps/backend/src/lib/events/match-event-to-existing.ts`), scoring and thresholds (`packages/domain/src/events/match-scoring.ts`), merge and undo (`apps/backend/src/lib/events/merge-events.ts`), operator merge (`apps/backend/src/merge-events-by-slug.ts`), backlog drain (`apps/backend/src/drain-event-match-backlog.ts`).
+*   **Code:** `findMatchingEvent` (`apps/backend/src/lib/events/match-event-to-existing.ts`), scoring and thresholds (`packages/domain/src/events/match-scoring.ts`), merge and undo (`apps/backend/src/lib/events/merge-events.ts`), operator merge (`apps/backend/src/merge-events-by-slug.ts`), backlog drain and stub scan (`apps/backend/src/drain-event-match-backlog.ts`, `apps/backend/src/lib/events/scan-stub-repeats.ts`).
 
 ## How a new event is matched
 
@@ -16,11 +16,17 @@
     * the posting account matches the candidate's account, or a link is shared. With the current weights a mid cannot be reached without one of the two, so this condition is implied; it is kept explicit so a future weight change cannot silently drop it.
 
     Weights and thresholds are unchanged. A promoted pair is logged with `promotedByRule: true`.
-5. **Tier outcome.**
+5. **Stub repeat (2026-10-25).** A curator or roundup account that posts one event again creates a *stub* event each time, scores at most 0.40 (organizer discounted, no links) and so was never even queued. A **stub repeat is lifted to high** whatever the score, when all hold (`evaluateStubRepeat`, `packages/domain/src/events/match-scoring.ts`):
+    * both the new item and the candidate are stubs;
+    * the **strict names** are equal and have **at least two words** (lowercase; punctuation and year removed; bracketed text kept, so "(Morning)" is not "(Evening)"; no trigram path);
+    * one schedule pair has the **same start date**, a **positive venue match on that pair** (same text, or coordinates within 150 m; two absent venues do not match) and equal start times when both are set.
+
+    The posting account, organizer, links and score are not inputs: a different curator's stub links on the same terms. **Same name and date at a different or unknown venue are different events** and never link. The link is **additive** (empty fields filled, nothing overwritten, no schedule deleted; an ordinary high link overwrites and prunes). With several identical stubs the **oldest** absorbs the repost. Logged as `promotionRule: "stub-repeat"`. The link is not undoable (the high path writes no journal); scan-mode merges are.
+6. **Tier outcome.**
     * **High:** enrich the existing event and promote the better primary post. No new row.
     * **Mid:** insert as its own event and queue one `event_match_candidates` row. A moderator accepts (a merge) or rejects it.
     * **Low:** plain new event.
-6. A candidate with **no schedule within ±2 days** (admitted only by the shared link) is capped at **mid**. It is never auto-linked, promotion included.
+7. A candidate with **no schedule within ±2 days** (admitted only by the shared link) is capped at **mid**. It is never auto-linked, promotion included.
 
 ## Reading the auto-link rate (CloudWatch)
 
@@ -40,7 +46,16 @@ fields @timestamp, @message
   by bin(7d)
 ```
 
-`auto_pct_of_matched` is the share of matched pairs resolved without a moderator. To see what the rule contributes, group by `promoted`; to find a bad auto-link, list `outcome = "linked"` lines with `promotedByRule` true and look the ids up (`candidateEventId` is the event that absorbed the post). Lines exist only from the deploy of this change on; earlier history is inferred from extra `event_posts` rows per event.
+`auto_pct_of_matched` is the share of matched pairs resolved without a moderator. To see what each rule contributes, group by `promotionRule` (`mid-to-high`, `stub-repeat`, or null for a score-only decision):
+
+```
+fields @message
+| filter @message like /"event":"event_dedup_decision"/
+| parse @message /"promotionRule":(?<rule>null|"[a-z-]+")/
+| stats count(*) by rule, bin(7d)
+```
+
+To see what the rule contributes overall, group by `promoted`; to find a bad auto-link, list `outcome = "linked"` lines with `promotedByRule` true and look the ids up (`candidateEventId` is the event that absorbed the post). Lines exist only from the deploy of this change on; earlier history is inferred from extra `event_posts` rows per event.
 
 ## Why a deadline post and a race-day post are different
 
@@ -96,6 +111,22 @@ DATABASE_URL=<write-capable url> pnpm tsx src/drain-event-match-backlog.ts --mod
 ```
 
 A pair is printed with its suggestion id, `promoted` or `scored-high`, score, name similarity, day difference, and which signals fired. **Spot-check the list before `--apply`**: there is almost no rejection ground truth (only a handful of moderator decisions exist, all accepts), so precision is unmeasured. `--exclude` leaves a suggestion in the queue. The tagged-organizer-handle leg of the organizer signal is not stored, so the drain can only under-link relative to ingestion, never over-link.
+
+## Repeated stub posts: the scan
+
+`drain-event-match-backlog.ts --scan-stubs` finds **active stub events that repeat one another** with the same predicate ingestion uses, merges each cluster into its **oldest** event through `mergeEvents()` (journaled, reversible with `undoEventMerge`), and prints a **near-miss list**. It covers duplicates created before the rule existed (they have no suggestion row, so the suggestion drain cannot see them) and two posts ingested in the same few seconds (no lock prevents that).
+
+```bash
+cd apps/backend
+# 1. Read-only: nothing merged, works with the read-only prod role. Attach the output to the PR / ask a moderator to spot-check.
+DATABASE_URL=<read-only url> pnpm tsx src/drain-event-match-backlog.ts --moderator-id <users.id> --scan-stubs --evaluate-only
+# 2. Dry run on a write-capable url: the real merges, rolled back.
+DATABASE_URL=<write-capable url> pnpm tsx src/drain-event-match-backlog.ts --moderator-id <users.id> --scan-stubs
+# 3. After the spot-check, off-hours: commit all-or-nothing. --exclude takes an EVENT id here.
+DATABASE_URL=<write-capable url> pnpm tsx src/drain-event-match-backlog.ts --moderator-id <users.id> --scan-stubs [--exclude <event id> ...] --apply
+```
+
+Each cluster prints its winner and losers (name, slug, id, created time). The **near-misses** are stub pairs with the same strict name and start date that were *not* merged, with the reason: `venue-differs`, `venue-unknown-one-side`, `venue-unknown-both`, `times-differ`, `name-too-short`. Read it for lookalikes the rule deliberately left apart (several "Christmas Market" listings in different places). A generic two-word name at the same venue and day from two curators still links, so spot-check the clusters before `--apply`.
 
 ## Re-extract preview (moderators)
 

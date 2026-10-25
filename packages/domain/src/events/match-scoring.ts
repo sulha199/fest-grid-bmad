@@ -305,6 +305,126 @@ export function hasVenueConflict(
   return compared.every((pair) => !venuePairCompatible(pair.a, pair.b));
 }
 
+// --- Stub repeat (AD-30 Rule 7, amended 2026-10-25) ------------------------------------------------
+// A curator or roundup account that posts about one event again produces a stub event each time.
+// The organizer weight is discounted for stubs (BUG-058), and such posts carry no links, so the pair
+// scores at most 0.40 (date/name 0.25 + venue 0.15) -- `low`, never even queued. This predicate lets
+// the same event, seen again as a stub, link on name + start date + venue alone. The posting account,
+// organizer, links and score are NOT inputs.
+
+/**
+ * The strict name for the stub-repeat rule: lowercase, year tokens and punctuation removed, bracketed
+ * text KEPT ("Open (Morning)" is not "Open (Evening)"). A sibling of `normalizeEventNameForMatch`,
+ * which deletes brackets and stays for the mid-to-high promotion.
+ */
+export function normalizeEventNameStrict(name: string): string {
+  return name.toLowerCase().replace(YEAR_TOKEN, ' ').replace(NON_ALPHANUMERIC, ' ').trim();
+}
+
+// A one-word name ("Christmas", "Bazaar") is too generic to link on name + date + venue alone.
+const STUB_REPEAT_MIN_NAME_TOKENS = 2;
+
+export interface StubRepeatSchedule extends MatchVenueLike {
+  eventStartDate?: string | null;
+  eventStartTime?: string | null;
+}
+
+export type StubRepeatReason =
+  | 'match'
+  | 'not-stub'
+  | 'name-differs'
+  | 'name-too-short'
+  | 'no-same-date'
+  | 'times-differ'
+  | 'venue-differs'
+  | 'venue-unknown-one-side'
+  | 'venue-unknown-both';
+
+export interface StubRepeatInput {
+  newIsStub: boolean;
+  candidateIsStub: boolean;
+  newEventName: string;
+  candidateEventName: string;
+  newSchedules: StubRepeatSchedule[];
+  candidateSchedules: StubRepeatSchedule[];
+}
+
+type PairVenueState = 'match' | 'differs' | 'unknown-one-side' | 'unknown-both';
+
+function hasAnyVenueInfo(v: MatchVenueLike): boolean {
+  return normalizeVenueText(v.location) !== '' || hasCoordinates(v);
+}
+
+// "match" is the same test as the score's venue signal (equal trimmed, lowercased text, or
+// coordinates within 150 m). "differs" needs both sides to state a comparable venue (text against
+// text, or coordinates against coordinates) and disagree; anything else cannot be compared.
+function pairVenueState(a: MatchVenueLike, b: MatchVenueLike): PairVenueState {
+  if (hasVenueMatch([a], [b])) return 'match';
+  const bothHaveText = normalizeVenueText(a.location) !== '' && normalizeVenueText(b.location) !== '';
+  if (bothHaveText || (hasCoordinates(a) && hasCoordinates(b))) return 'differs';
+  return hasAnyVenueInfo(a) || hasAnyVenueInfo(b) ? 'unknown-one-side' : 'unknown-both';
+}
+
+function startTimesConflict(a: StubRepeatSchedule, b: StubRepeatSchedule): boolean {
+  if (!a.eventStartTime || !b.eventStartTime) return false;
+  return a.eventStartTime.slice(0, 5) !== b.eventStartTime.slice(0, 5);
+}
+
+// When no schedule pair qualifies, the most informative reason wins (a pair that matched on venue
+// but not on time says more than one with no venue at all).
+type StubRepeatNearMiss = 'times-differ' | 'venue-differs' | 'venue-unknown-one-side' | 'venue-unknown-both';
+
+const STUB_REPEAT_REASON_RANK: Record<StubRepeatNearMiss, number> = {
+  'times-differ': 4,
+  'venue-differs': 3,
+  'venue-unknown-one-side': 2,
+  'venue-unknown-both': 1,
+};
+
+/**
+ * Why a (new, candidate) pair is or is not a stub repeat. `'match'` means it is one. Every other value
+ * names the first test that failed; the scan mode lists the venue/time/name-length ones as
+ * "near-misses" (same strict name and start date, deliberately not merged).
+ *
+ * A repeat needs ALL of: both events are stubs; equal strict names of at least two words; a schedule
+ * pair with the same `eventStartDate` on which the venue positively matches (two absent venues do
+ * not) and, when both carry a start time, equal times. The same name and date at a different
+ * venue are different events.
+ */
+export function evaluateStubRepeat(input: StubRepeatInput): StubRepeatReason {
+  if (!input.newIsStub || !input.candidateIsStub) return 'not-stub';
+
+  const newName = normalizeEventNameStrict(input.newEventName);
+  const candidateName = normalizeEventNameStrict(input.candidateEventName);
+  if (newName === '' || newName !== candidateName) return 'name-differs';
+  if (newName.split(' ').length < STUB_REPEAT_MIN_NAME_TOKENS) return 'name-too-short';
+
+  let reason: StubRepeatNearMiss | null = null;
+  for (const a of input.newSchedules) {
+    for (const b of input.candidateSchedules) {
+      if (!a.eventStartDate || a.eventStartDate !== b.eventStartDate) continue;
+      const venue = pairVenueState(a, b);
+      let pairReason: StubRepeatNearMiss;
+      if (venue === 'match') {
+        if (!startTimesConflict(a, b)) return 'match';
+        pairReason = 'times-differ';
+      } else if (venue === 'differs') {
+        pairReason = 'venue-differs';
+      } else if (venue === 'unknown-one-side') {
+        pairReason = 'venue-unknown-one-side';
+      } else {
+        pairReason = 'venue-unknown-both';
+      }
+      if (reason === null || STUB_REPEAT_REASON_RANK[pairReason] > STUB_REPEAT_REASON_RANK[reason]) reason = pairReason;
+    }
+  }
+  return reason ?? 'no-same-date';
+}
+
+export function matchesStubRepeat(input: StubRepeatInput): boolean {
+  return evaluateStubRepeat(input) === 'match';
+}
+
 export interface MatchDecisionInput {
   organizerMatch: boolean;
   sharedLink: boolean;
@@ -318,7 +438,13 @@ export interface MatchDecisionInput {
   candidateVenues: Array<MatchVenueLike & MatchScheduleLike>;
   /** The candidate date window (`DATE_WINDOW_DAYS`); outside it a candidate is never promoted. */
   windowDays: number;
+  /** Stub-repeat inputs (AD-30 Rule 7, 2026-10-25). Omitted means "not a stub": the rule is off. */
+  newIsStub?: boolean;
+  candidateIsStub?: boolean;
 }
+
+/** Which rule lifted a pair to `high`; `null` when none did (the score decided). */
+export type PromotionRule = 'mid-to-high' | 'stub-repeat' | null;
 
 export interface MatchDecision {
   score: number;
@@ -326,8 +452,13 @@ export interface MatchDecision {
   scoredTier: MatchTier;
   /** The tier ingestion acts on. */
   tier: MatchTier;
-  /** True when `tier` is `high` only because the promotion rule lifted a `mid`. */
+  /** True when `tier` is `high` only because a promotion rule lifted a `low` or `mid`. */
   promotedByRule: boolean;
+  /** Which rule did it; `null` when `promotedByRule` is false. */
+  promotionRule: PromotionRule;
+  /** True when the pair is a stub repeat, whether or not the score alone already reached `high`. The
+   * link is then additive (never overwrites or deletes). */
+  stubRepeat: boolean;
   venueMatch: boolean;
   venueConflict: boolean;
 }
@@ -336,7 +467,7 @@ export interface MatchDecision {
  * The single tier decision for one (new item, candidate) pair, shared by ingestion
  * (`findMatchingEvent`) and the backlog drain script so they can never disagree.
  *
- * `mid` is promoted to `high` only when ALL hold: the candidate has a schedule inside the date
+ * A stub repeat (`matchesStubRepeat`) is lifted to `high` whatever its score. Otherwise a `mid` is promoted to `high` only when ALL hold: the candidate has a schedule inside the date
  * window (so a shared-link-only candidate, admitted up to 90 days away, is never promoted); the
  * names are the same (`areNamesAutoLinkable`); no venue conflict; and the posting account matches
  * the candidate's (`organizerMatch`) OR a link is shared. Anything else keeps its scored tier, and
@@ -353,15 +484,36 @@ export function decideMatchTier(input: MatchDecisionInput): MatchDecision {
   });
   const venueConflict = hasVenueConflict(input.newVenues, input.candidateVenues, input.windowDays);
 
-  const promotedByRule =
+  // Two stubs of one event (same strict name, start date and venue): not score-based, so it lifts a
+  // `low` as well as a `mid`. Its equal start date makes it in-window by construction, so the
+  // window cap below never applies to it.
+  const stubRepeat = matchesStubRepeat({
+    newIsStub: input.newIsStub ?? false,
+    candidateIsStub: input.candidateIsStub ?? false,
+    newEventName: input.newEventName,
+    candidateEventName: input.candidateEventName,
+    newSchedules: input.newVenues,
+    candidateSchedules: input.candidateVenues,
+  });
+
+  const midToHigh =
     scoredTier === 'mid' &&
     input.minDayDiff <= input.windowDays &&
     (input.organizerMatch || input.sharedLink) &&
     !venueConflict &&
     areNamesAutoLinkable(input.newEventName, input.candidateEventName, input.nameSimilarity);
 
-  const tier = capTierWhenOutsideDateWindow(promotedByRule ? 'high' : scoredTier, input.minDayDiff, input.windowDays);
-  return { score, scoredTier, tier, promotedByRule, venueMatch, venueConflict };
+  let promotionRule: PromotionRule = null;
+  if (scoredTier !== 'high') {
+    if (stubRepeat) promotionRule = 'stub-repeat';
+    else if (midToHigh) promotionRule = 'mid-to-high';
+  }
+
+  const tier =
+    promotionRule === 'stub-repeat'
+      ? 'high'
+      : capTierWhenOutsideDateWindow(promotionRule === 'mid-to-high' ? 'high' : scoredTier, input.minDayDiff, input.windowDays);
+  return { score, scoredTier, tier, promotedByRule: promotionRule !== null, promotionRule, stubRepeat, venueMatch, venueConflict };
 }
 
 export interface MatchScoreInput {

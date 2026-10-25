@@ -16,8 +16,11 @@ export interface DedupDecisionLog {
   /** The tier the unchanged weights and thresholds gave, before the promotion rule. */
   scoredTier: 'high' | 'mid' | 'low' | 'none';
   score: number | null;
-  /** True when `tier` is `high` only because the mid-to-high promotion rule lifted it. */
+  /** True when `tier` is `high` only because a promotion rule lifted it (either rule). */
   promotedByRule: boolean;
+  /** Which rule: `mid-to-high` (score-based) or `stub-repeat` (name + start date + venue between
+   * two stubs); `null` when the score alone decided. */
+  promotionRule: 'mid-to-high' | 'stub-repeat' | null;
   nameSimilarity: number | null;
   /** `null` when there is no usable date pair. */
   minDayDiff: number | null;
@@ -45,6 +48,7 @@ export function buildDedupDecisionLog(match: MatchResult | null, newEventId: str
       scoredTier: 'none',
       score: null,
       promotedByRule: false,
+      promotionRule: null,
       nameSimilarity: null,
       minDayDiff: null,
       organizerMatch: null,
@@ -65,6 +69,7 @@ export function buildDedupDecisionLog(match: MatchResult | null, newEventId: str
     scoredTier: signals.scoredTier,
     score,
     promotedByRule: signals.promotedByRule,
+    promotionRule: signals.promotionRule,
     nameSimilarity: signals.nameSimilarity,
     minDayDiff: Number.isFinite(signals.minDayDiff) ? signals.minDayDiff : null,
     organizerMatch: signals.organizerMatch,

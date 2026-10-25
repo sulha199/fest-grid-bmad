@@ -925,6 +925,78 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(lines[0].venueConflict, false);
   });
 
+  await t.test('AD-30 Rule 7 (2026-10-25): a roundup post that repeats a stub event links to it additively (no new row, no schedule deleted, still a stub), scored low', async () => {
+    const repeatSuffix = Date.now();
+    const makeRoundupPost = async (tag: string) => {
+      const [post] = await db
+        .insert(posts)
+        .values({
+          accountId: profile.id,
+          platform: 'instagram',
+          groupingReason: 'roundup',
+          postUrl: `https://instagram.com/p/stub-repeat-${tag}-${repeatSuffix}`,
+          publishedAt: new Date('2026-01-01T03:00:00Z'),
+        })
+        .returning();
+      extraSeededPostIds.push(post.id);
+      await db.insert(postAccountAssociations).values({ postId: post.id, accountId: post.accountId, role: 'PUBLISHER' });
+      return post;
+    };
+    const firstPost = await makeRoundupPost('a');
+    const secondPost = await makeRoundupPost('b');
+    const name = 'Stub Repeat Open ' + repeatSuffix;
+    const venue = 'Arena Grand Paris';
+
+    const seedRes = await processIngestionJob(
+      baseExtractedEventMessage({
+        postId: firstPost.id,
+        sourceSocialMediaAccountId: accountId,
+        eventName: name,
+        schedules: [
+          { isMainSchedule: true, eventStartDate: '2026-11-05', location: venue },
+          { isMainSchedule: false, eventStartDate: '2026-11-06', location: venue },
+        ],
+      })
+    );
+    assert.strictEqual(seedRes.inserted, true);
+    const [seedEvent] = await db.select().from(events).where(eq(events.postId, firstPost.id));
+    assert.strictEqual(seedEvent.detailLevel, 'stub');
+
+    // The repost lists only the first date and carries a description the stub lacks.
+    const { result, lines } = await captureDedupLogs(() =>
+      processIngestionJob(
+        baseExtractedEventMessage({
+          postId: secondPost.id,
+          sourceSocialMediaAccountId: accountId,
+          eventName: name,
+          description: 'Added by the repost',
+          schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-05', location: venue }],
+        })
+      )
+    );
+    assert.strictEqual(result.inserted, true);
+
+    const rows = await db.select().from(events).where(inArray(events.postId, [firstPost.id, secondPost.id]));
+    assert.strictEqual(rows.length, 1, 'no new event row');
+    assert.strictEqual(rows[0].id, seedEvent.id);
+    assert.strictEqual(rows[0].detailLevel, 'stub', 'the event stays a stub');
+    assert.strictEqual(rows[0].description, 'Added by the repost', 'an empty field is filled');
+
+    const eventSchedules = await db.select().from(schedules).where(eq(schedules.eventId, seedEvent.id));
+    assert.strictEqual(eventSchedules.length, 2, 'the omitted second day is NOT deleted');
+    const links = await db.select().from(eventPosts).where(eq(eventPosts.eventId, seedEvent.id));
+    assert.strictEqual(links.length, 2);
+    const suggestions = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.candidateEventId, seedEvent.id));
+    assert.strictEqual(suggestions.length, 0, 'no moderator suggestion');
+
+    assert.strictEqual(lines.length, 1);
+    assert.strictEqual(lines[0].outcome, 'linked');
+    assert.strictEqual(lines[0].scoredTier, 'low');
+    assert.strictEqual(lines[0].promotionRule, 'stub-repeat');
+    assert.strictEqual(lines[0].promotedByRule, true);
+    assert.strictEqual(lines[0].organizerMatch, false, 'the curator/roundup account earns no organizer weight');
+  });
+
   await t.test('Story 3.6v (AC1): a low-score/no-candidate case is unchanged from pre-story behavior', async () => {
     // A wholly unique name/date with nothing else in the suite sharing it -- no SQL candidate
     // passes the trigram pre-filter at all, so findMatchingEvent returns null and the plain

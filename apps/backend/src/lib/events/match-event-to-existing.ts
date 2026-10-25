@@ -8,6 +8,7 @@ import {
   minScheduleDayDifference,
   normalizeEventLinkUrl,
   type MatchTier,
+  type PromotionRule,
 } from '@festgrid/domain/events';
 import type { DbExecutor } from './set-event-primary-post.js';
 import { buildEventAccountMatchCondition } from './event-account-match.js';
@@ -43,14 +44,24 @@ export interface MatchSourcePost {
    */
   accountId: string | undefined;
   groupingReason: string | null;
+  /**
+   * Whether the new item is a stub (roundup- or curator-sourced, AD-30 Rule 10) -- the flag
+   * `evaluateIngestionMatch` already computed. Feeds the stub-repeat rule; omitted means "not a
+   * stub", which switches that rule off.
+   */
+  isStub?: boolean;
 }
 
 /** The inputs and outcome of one scored candidate, kept for the structured ingestion log. */
 export interface MatchSignals {
   /** The tier the unchanged weights and thresholds gave, before the promotion rule and window cap. */
   scoredTier: MatchTier;
-  /** True when `tier` is `high` only because the mid-to-high promotion rule lifted it. */
+  /** True when `tier` is `high` only because a promotion rule lifted it. */
   promotedByRule: boolean;
+  /** Which rule lifted it; `null` when the score alone decided. */
+  promotionRule: PromotionRule;
+  /** True when the pair is a stub repeat (even if the score alone reached `high`): the link is additive. */
+  stubRepeat: boolean;
   nameSimilarity: number;
   /** `Infinity` when there is no usable date pair. */
   minDayDiff: number;
@@ -186,7 +197,10 @@ export async function findMatchingEvent(
         )`
       )
     )
-    .orderBy(desc(sql`similarity(${events.eventName}, ${newEvent.eventName})`))
+    // Name similarity first (so the LIMIT drops only the weakest), then oldest first: with N
+    // identical stubs the absorbing event is always the oldest, never an arbitrary one (AD-30
+    // Rule 7, 2026-10-25).
+    .orderBy(desc(sql`similarity(${events.eventName}, ${newEvent.eventName})`), asc(events.createdAt), asc(events.id))
     .limit(CANDIDATE_LIMIT);
 
   if (candidateRows.length === 0) {
@@ -226,7 +240,7 @@ export async function findMatchingEvent(
 
     // The tier decision (weights, thresholds, mid-to-high promotion, window cap) is one pure
     // function shared with the backlog drain script, so the two can never disagree.
-    const { score, tier, scoredTier, promotedByRule, venueMatch, venueConflict } = decideMatchTier({
+    const { score, tier, scoredTier, promotedByRule, promotionRule, stubRepeat, venueMatch, venueConflict } = decideMatchTier({
       organizerMatch,
       sharedLink,
       nameSimilarity,
@@ -236,6 +250,8 @@ export async function findMatchingEvent(
       newVenues: newSchedules,
       candidateVenues: candidateSchedules,
       windowDays: DATE_WINDOW_DAYS,
+      newIsStub: sourcePost.isStub ?? false,
+      candidateIsStub: candidateEvent.detailLevel === 'stub',
     });
 
     // Rank by the final tier first, so a date-distant shared-link candidate whose raw
@@ -245,7 +261,18 @@ export async function findMatchingEvent(
         candidate: candidateEvent,
         score,
         tier,
-        signals: { scoredTier, promotedByRule, nameSimilarity, minDayDiff, organizerMatch, sharedLink, venueMatch, venueConflict },
+        signals: {
+          scoredTier,
+          promotedByRule,
+          promotionRule,
+          stubRepeat,
+          nameSimilarity,
+          minDayDiff,
+          organizerMatch,
+          sharedLink,
+          venueMatch,
+          venueConflict,
+        },
       };
     }
   }

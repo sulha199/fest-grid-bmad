@@ -1797,6 +1797,47 @@ This document defines the core architectural invariants for the FestDaily applic
         accepts), so the first `--apply` follows a moderator spot-check of the dry-run output.
         Out of scope and still open: LLM adjudication of the mid band, auto-expiring suggestions
         for past events, moderator UI changes.
+        **Amended 2026-10-25 (stub repeat; design record:
+        `_bmad-output/planning-artifacts/architecture/architecture-festgrid-2026-10-25-curator-dedup/`).**
+        Prod case: 11 stub events "Yonex French Open 2026" from one curator account, same name, dates
+        and venue, none linked and none queued. A stub's organizer weight is discounted (BUG-058) and
+        such posts carry no links, so the pair scores at most 0.40 (date/name 0.25 + venue 0.15): `low`.
+        Weights, thresholds and the mid-to-high promotion are unchanged. `decideMatchTier` gains a
+        tier override that is not score-based: **a stub repeat is lifted to `high`** (also from `low`).
+        *   **Predicate** (`matchesStubRepeat` / `evaluateStubRepeat`, `packages/domain`): both the new
+            item and the candidate are stubs (the new item's `isStub` from `evaluateIngestionMatch`,
+            passed on `MatchSourcePost`; the candidate's `events.detail_level = 'stub'`); the strict
+            names are equal and have at least two words (`normalizeEventNameStrict`: lowercase,
+            punctuation and year tokens removed, **bracketed text kept**; no trigram path); and one
+            schedule pair has the **same `eventStartDate`**, a **positive venue match on that same
+            pair** (equal trimmed lowercase text, or coordinates within 150 m; two absent venues are
+            not a match), and equal start times when both are set. The posting account, organizer,
+            links and score are not inputs, so a different curator's stub links on the same terms.
+            Same name and date at a different or unknown venue are different events and never link.
+        *   **Additive link** (`enrichAndPromoteEvent(..., { additive: true })`, set when
+            `signals.stubRepeat`): an event or schedule field takes the new value only where the
+            existing one is *unfilled* (null, blank, empty array, or the `'Location not specified'`
+            placeholder; `isUnfilledValue`), and a schedule the repost omits is **kept**. Every other
+            high match keeps the overwrite-and-prune behavior. Primary-post ordering, re-slug with
+            alias and `detail_level = 'stub'` are unchanged; a stub never notifies.
+        *   **Deterministic absorber.** The candidate query orders by name similarity, then
+            `events.created_at`, then `events.id`: with several identical stubs the oldest absorbs the
+            repost, and the scan merges into the same event.
+        *   **Scan mode** (`drain-event-match-backlog.ts --scan-stubs`, `lib/events/scan-stub-repeats.ts`):
+            finds active stub pairs with the same predicate (SQL pre-filter: equal start date and name
+            similarity > 0.5), clusters them, and merges every loser into the oldest event through
+            `mergeEvents()` (journaled, undoable). Dry run by default; `--evaluate-only` needs only
+            SELECT; `--exclude <event id>`; `--apply` is all-or-nothing. It prints a **near-miss list**
+            (same strict name and start date, not merged, with the reason: venue differs, venue unknown
+            on one or both sides, times differ, name too short). It is the backlog tool and the backstop
+            for two posts ingested in the same few seconds, which no lock prevents.
+        *   **Observability.** The `event_dedup_decision` line gains `promotionRule`
+            (`mid-to-high` | `stub-repeat` | null); `promotedByRule` stays true for both.
+        **Accepted:** the ingestion-time auto-link is not undoable (the high path writes no
+        `event_merges` row); scan-mode merges are. A generic two-word name ("Christmas Bazaar") at one
+        venue and day from two curators still links; the spot-check of the scan's dry-run list before
+        merge and the near-miss list are the controls. The 2026-10-25 mid-to-high promotion still uses
+        the overwrite-and-prune link; moving it to the additive link is a follow-up.
     8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
         `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
         candidate was matched to this event rather than creating one) and keeps its old link

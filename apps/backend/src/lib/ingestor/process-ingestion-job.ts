@@ -89,7 +89,10 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
         event,
         scheduleValues,
         message.postId,
-        extractionOrdinal
+        extractionOrdinal,
+        // A stub repeat (AD-30 Rule 7, 2026-10-25) only adds to the existing event: a thin curator
+        // repost must not overwrite its fields or delete its schedules.
+        { additive: match.signals.stubRepeat }
       );
 
       insertedEvent = enrichedEvent;

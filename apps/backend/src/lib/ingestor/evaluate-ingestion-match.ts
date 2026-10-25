@@ -74,6 +74,9 @@ export async function evaluateIngestionMatch(
           // aggregator/curator account is not the organizer of what it lists.
           accountId: isRoundupSourced || isCuratorSourced ? undefined : sourcePost?.accountId,
           groupingReason,
+          // AD-30 Rule 7 (2026-10-25): the stub-repeat rule reads the flag computed above, never a
+          // second derivation.
+          isStub,
         },
         organizerHandleForMatching
       )

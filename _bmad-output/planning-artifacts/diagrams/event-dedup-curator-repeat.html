@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Explainer for the AD-30 Rule 7 stub-repeat rule (2026-10-25). The rule is also summarized in event-dedup-flow.html. -->
+<title>Curator Repeated Posts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a single vertical spine for the ingestion path, branching right for exits and down into three tier outcomes. */
+:root {
+  --bg: #f3f5f7; --ink: #14202b; --muted: #55656f; --surface: #ffffff; --line: #b4c0ca;
+  --accent: #1f6f8b; --green: #2e7d4f; --green-bg: #e3f2e9; --amber: #a86a0c; --amber-bg: #fbefd6;
+  --red: #b3261e; --red-bg: #fbe4e1; --grey-bg: #e8ecef;
+  --seg-namedate: #7da7bc; --seg-venue: #9bb88f; --seg-org: #d0836f; --seg-link: #b79bc9;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10181f; --ink: #e3eaf0; --muted: #9aabb8; --surface: #17222b; --line: #3a4a57;
+    --accent: #5bb4d2; --green: #5fbf86; --green-bg: #17301f; --amber: #e0a93b; --amber-bg: #34270d;
+    --red: #f0776e; --red-bg: #3a1a18; --grey-bg: #1d2a34;
+    --seg-namedate: #4d7a90; --seg-venue: #5f8a55; --seg-org: #b5624d; --seg-link: #8564a0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10181f; --ink: #e3eaf0; --muted: #9aabb8; --surface: #17222b; --line: #3a4a57;
+  --accent: #5bb4d2; --green: #5fbf86; --green-bg: #17301f; --amber: #e0a93b; --amber-bg: #34270d;
+  --red: #f0776e; --red-bg: #3a1a18; --grey-bg: #1d2a34;
+  --seg-namedate: #4d7a90; --seg-venue: #5f8a55; --seg-org: #b5624d; --seg-link: #8564a0;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.55; padding-inline: 16px; padding-block: 28px 56px; }
+main { max-width: 960px; margin-inline: auto; }
+h1 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 6px; text-wrap: balance; font-weight: 600; }
+h2 { font-size: 1.1rem; margin: 40px 0 6px; font-weight: 600; text-wrap: balance; }
+p { margin: 0 0 12px; max-width: 68ch; }
+.lede { color: var(--muted); }
+code { font-family: var(--font-mono); font-size: 0.86em; background: var(--grey-bg); padding: 1px 5px; border-radius: 3px; }
+figure { margin: 14px 0 0; }
+figcaption { color: var(--muted); font-size: 0.88rem; margin-top: 8px; max-width: 72ch; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 8px; }
+svg { display: block; width: 100%; min-width: 640px; height: auto; color: var(--ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+.legend span::before { content: ""; display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border: 1.5px solid var(--line); }
+.legend.nobox span::before { display: none; }
+.legend .lh::before { background: var(--green-bg); border-color: var(--green); }
+.legend .lm::before { background: var(--amber-bg); border-color: var(--amber); }
+.legend .ll::before { background: var(--grey-bg); }
+.legend .lf::before { background: var(--red-bg); border-color: var(--red); }
+ul.open { padding-left: 1.1rem; max-width: 72ch; margin: 8px 0 0; }
+ul.open li { margin-bottom: 8px; }
+/* SVG parts */
+.node { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.n-high { fill: var(--green-bg); stroke: var(--green); }
+.n-mid { fill: var(--amber-bg); stroke: var(--amber); }
+.n-low { fill: var(--grey-bg); stroke: var(--line); }
+.n-flag { fill: var(--red-bg); stroke: var(--red); }
+.n-exit { fill: var(--grey-bg); stroke: var(--line); stroke-dasharray: 4 3; }
+.ttl { font: 600 13px var(--font-body); fill: currentColor; }
+.sub { font: 400 11.5px var(--font-body); fill: var(--muted); }
+.mono { font: 400 11.5px var(--font-mono); fill: currentColor; }
+.lbl { font: 500 11px var(--font-mono); fill: var(--accent); }
+.lbl-r { font: 500 11px var(--font-mono); fill: var(--red); }
+.edge { stroke: currentColor; stroke-width: 1.5; fill: none; opacity: 0.8; }
+.edge-dash { stroke: currentColor; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; opacity: 0.7; }
+.edge-red { stroke: var(--red); stroke-width: 2; fill: none; }
+.head { fill: currentColor; opacity: 0.8; }
+.head-red { fill: var(--red); }
+.head-ok { fill: var(--green); }
+.edge-ok { stroke: var(--green); stroke-width: 2; fill: none; }
+.okmark { fill: var(--green); }
+.thr { stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: 0.7; }
+.seg-nd { fill: var(--seg-namedate); } .seg-v { fill: var(--seg-venue); }
+.seg-o { fill: var(--seg-org); } .seg-l { fill: var(--seg-link); }
+.axis { stroke: var(--line); stroke-width: 1; }
+.tick { font: 400 10.5px var(--font-mono); fill: var(--muted); }
+.flagmark { fill: var(--red); }
+.flagtxt { font: 700 11px var(--font-body); fill: #fff; }
+@media (prefers-reduced-motion: no-preference) { svg * { transition: none; } }
+body { margin: 0; }
+</style>
+
+</head>
+<body>
+<main>
+  <h1>Curator repeated posts: one event, twelve rows</h1>
+  <p class="lede">Explainer for the proposed stub-repeat rule (AD-30 Rule 7 amendment, design of 2026-10-25). <strong>Status: built (PR #102).</strong> Companion to <code>event-dedup-flow.html</code>, which shows the rest of matching.</p>
+
+  <h2>What happened to "Yonex French Open 2026"</h2>
+  <p>A badminton curator account (<code>badminton.ina</code>) posted about one tournament eleven times in three days. Each post became its own event. None reached a moderator, none was linked. Every pair had the same name, the same dates (20 to 25 Oct) and the same venue (the same text, or the same coordinates), and no links.</p>
+
+  <figure>
+    <div class="scroll">
+<svg viewBox="0 0 900 250" role="img" aria-label="Score bar on a 0 to 1 scale. Name and date contribute 0.25 and venue 0.15, for a total of 0.40, which is below the 0.45 mid threshold, so the pair is low. The organizer weight of 0.40 and the shared link weight of 0.20 are missing.">
+  <!-- scale: x = 100 + score * 700 -->
+  <line class="axis" x1="100" y1="50" x2="100" y2="170"/>
+  <line class="axis" x1="800" y1="50" x2="800" y2="170"/>
+  <line class="thr" x1="415" y1="40" x2="415" y2="170"/>
+  <line class="thr" x1="625" y1="40" x2="625" y2="170"/>
+  <text class="tick" x="415" y="30" text-anchor="middle">mid ≥ 0.45</text>
+  <text class="tick" x="625" y="30" text-anchor="middle">high ≥ 0.75</text>
+  <text class="tick" x="100" y="190" text-anchor="middle">0</text>
+  <text class="tick" x="800" y="190" text-anchor="middle">1.0</text>
+
+  <rect class="seg-nd" x="100" y="70" width="175" height="40"/>
+  <text class="mono" x="187" y="95" text-anchor="middle" style="fill: #fff">name+date 0.25</text>
+  <rect class="seg-v" x="275" y="70" width="105" height="40"/>
+  <text class="mono" x="327" y="95" text-anchor="middle" style="fill: #fff">venue 0.15</text>
+  <text class="mono" x="430" y="95" style="fill: var(--red)">0.40 → low</text>
+
+  <rect class="node n-exit" x="470" y="120" width="150" height="40" rx="4"/>
+  <text class="sub" x="545" y="137" text-anchor="middle">organizer 0.40</text>
+  <text class="sub" x="545" y="151" text-anchor="middle">discounted: curator</text>
+  <rect class="node n-exit" x="640" y="120" width="150" height="40" rx="4"/>
+  <text class="sub" x="715" y="137" text-anchor="middle">shared link 0.20</text>
+  <text class="sub" x="715" y="151" text-anchor="middle">no links on any</text>
+  <text class="sub" x="100" y="225">A pair with no organizer and no link can never score above 0.40, so it is never even queued for review.</text>
+</svg>
+    </div>
+    <figcaption>The curator's account does not count as the organizer on purpose (BUG-058): an aggregator is not the organizer of what it lists. That protection is right; it just leaves repeated posts with nothing to link on but the name, date and venue.</figcaption>
+  </figure>
+
+  <h2>The proposed rule</h2>
+  <p>Add one check beside the score: if the <em>same event</em> shows up again as a stub, link it. Weights and thresholds do not change, and the account, organizer and links are not inputs. All four tests must pass.</p>
+
+  <figure>
+    <div class="scroll">
+<svg viewBox="0 0 900 330" role="img" aria-label="Four checks in a row: both events are stubs, strict names equal, a schedule pair with the same start date, and on that pair the venue matches and any start times are equal. All four pass: auto-link as high, additive. Any check fails: the normal score decides.">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="head"/></marker>
+    <marker id="aho" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="head-ok"/></marker>
+  </defs>
+  <rect class="node" x="20" y="20" width="200" height="86" rx="6"/>
+  <text class="ttl" x="120" y="44" text-anchor="middle">1. Both are stubs</text>
+  <text class="sub" x="120" y="64" text-anchor="middle">curator or roundup sourced</text>
+  <text class="sub" x="120" y="80" text-anchor="middle">(detail_level = stub)</text>
+  <text class="sub" x="120" y="96" text-anchor="middle">any account</text>
+  <line class="edge" x1="220" y1="63" x2="240" y2="63" marker-end="url(#ah)"/>
+
+  <rect class="node" x="242" y="20" width="200" height="86" rx="6"/>
+  <text class="ttl" x="342" y="44" text-anchor="middle">2. Same name, strictly</text>
+  <text class="sub" x="342" y="64" text-anchor="middle">lowercase, punctuation, year out;</text>
+  <text class="sub" x="342" y="80" text-anchor="middle">"(Morning)" kept; at least</text>
+  <text class="sub" x="342" y="96" text-anchor="middle">two words</text>
+  <line class="edge" x1="442" y1="63" x2="462" y2="63" marker-end="url(#ah)"/>
+
+  <rect class="node" x="464" y="20" width="200" height="86" rx="6"/>
+  <text class="ttl" x="564" y="44" text-anchor="middle">3. Same start date</text>
+  <text class="sub" x="564" y="64" text-anchor="middle">one schedule from each side</text>
+  <text class="sub" x="564" y="80" text-anchor="middle">starts on the same day</text>
+  <text class="sub" x="564" y="96" text-anchor="middle">(a weekly show is safe)</text>
+  <line class="edge" x1="664" y1="63" x2="684" y2="63" marker-end="url(#ah)"/>
+
+  <rect class="node" x="686" y="20" width="200" height="86" rx="6"/>
+  <text class="ttl" x="786" y="44" text-anchor="middle">4. Same place, same time</text>
+  <text class="sub" x="786" y="64" text-anchor="middle">on that same schedule pair:</text>
+  <text class="sub" x="786" y="80" text-anchor="middle">venue text equal or ≤ 150 m;</text>
+  <text class="sub" x="786" y="96" text-anchor="middle">start times equal if both set</text>
+
+  <line class="edge-ok" x1="786" y1="106" x2="786" y2="150" />
+  <path class="edge-ok" d="M 786 150 L 220 150 L 220 178" marker-end="url(#aho)"/>
+  <text class="lbl" x="800" y="132">all four</text>
+  <rect class="node n-high" x="20" y="180" width="400" height="130" rx="6"/>
+  <text class="ttl" x="36" y="204" style="fill: var(--green)">Auto-link (tier high), additive</text>
+  <text class="sub" x="36" y="226">• the new post joins the oldest matching event</text>
+  <text class="sub" x="36" y="244">• empty fields are filled; nothing is overwritten</text>
+  <text class="sub" x="36" y="262">• no schedule is deleted; never notifies</text>
+  <text class="sub" x="36" y="280">• logged: promotionRule = stub-repeat</text>
+  <text class="sub" x="36" y="298">• not undoable (accepted; a stub loses nothing)</text>
+
+  <line class="edge-dash" x1="342" y1="106" x2="342" y2="140"/>
+  <line class="edge-dash" x1="564" y1="106" x2="564" y2="140"/>
+  <line class="edge-dash" x1="120" y1="106" x2="120" y2="140"/>
+  <line class="edge-dash" x1="120" y1="140" x2="564" y2="140"/>
+  <path class="edge-dash" d="M 564 140 L 640 140 L 640 190" marker-end="url(#ah)"/>
+  <text class="lbl" x="652" y="168">any check fails</text>
+  <rect class="node n-low" x="500" y="192" width="386" height="86" rx="6"/>
+  <text class="ttl" x="516" y="216">Nothing changes</text>
+  <text class="sub" x="516" y="236">the score decides as before: high, mid (queued)</text>
+  <text class="sub" x="516" y="252">or low; the mid-to-high promotion of 2026-10-25</text>
+  <text class="sub" x="516" y="268">still applies to non-stub pairs</text>
+</svg>
+    </div>
+    <figcaption>The four checks are one pure function, used by ingestion and by the backlog scan, so the two cannot disagree.</figcaption>
+  </figure>
+  <div class="legend"><span class="lh">Auto-link</span><span class="ll">Falls through to the normal score</span></div>
+
+  <h2>What it will not link</h2>
+  <ul class="open">
+    <li><strong>Same name and date, different venue</strong> (several "Christmas Market" listings on one day in different places). A venue that differs, or is unknown on either side, never matches, so they stay separate. The scan lists these as near-misses so a moderator can see them.</li>
+    <li><strong>A one-word name</strong> such as "Bazaar" or "Christmas": the name needs at least two words.</li>
+    <li><strong>"Yonex French Open 2026 - Quarterfinals".</strong> Different name (similarity 0.62) and a different start date. Stays its own event.</li>
+    <li><strong>A morning and an evening session</strong> with the same name, day and venue: bracketed text is kept in the name, and differing start times block it.</li>
+    <li><strong>A weekly recurrence</strong> of the same name at the same venue: the start date differs.</li>
+    <li><strong>A curator post about an organizer's event</strong> (one side not a stub): out of scope; the normal score applies.</li>
+    <li><strong>Posts from the same curator in the same post</strong> (a multi-event post): unchanged, one item per post per event.</li>
+  </ul>
+
+  <h2>Why the link is "additive"</h2>
+  <p>Today's auto-link lets the newest post overwrite the event's fields and deletes any schedule the new post leaves out. That suits an organizer's post, but a thin curator repost listing one date would erase the others. For a stub repeat the link only adds: it fills empty fields, inserts new schedules, and keeps everything already there. Empty means null, a blank string, an empty list, or the "Location not specified" placeholder.</p>
+
+  <h2>Catching what already exists, and what slips through</h2>
+  <p>The 11 Yonex events have no suggestion row to drain, so the backlog script gets a scan mode (<code>--scan-stubs</code>). It finds clusters with the same four checks, keeps the oldest event, and merges the rest through the journaled merge, so those merges can be undone. It also prints a near-miss list: same name and date that were not merged, and why. Dry run by default; <code>--evaluate-only</code> works with the read-only prod role. It is also the backstop for two posts ingested in the same few seconds, which neither can see yet (the Yonex events were created seconds apart).</p>
+
+  <h2>Decided, and still open</h2>
+  <ul class="open">
+    <li><strong>Decided:</strong> auto-link as high (not undoable); stub to stub on name + date + venue, whichever account; strict name of at least two words, same start date, venue match; scan mode for the backlog.</li>
+    <li><strong>Gate before merge:</strong> run the scan with <code>--evaluate-only</code> against prod read-only from the branch, attach the cluster list to the PR, and have a moderator spot-check it.</li>
+    <li><strong>Accepted risk:</strong> a generic two-word name ("Christmas Bazaar") at the same venue and day from two curators still links. The spot-check and the scan's near-miss list are the controls.</li>
+    <li><strong>Open, follow-up:</strong> the 2026-10-25 mid-to-high promotion still uses the overwrite-and-delete link; moving it to the additive link is a separate change.</li>
+  </ul>
+</main>
+</body>
+</html>

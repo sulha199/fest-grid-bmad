@@ -12,6 +12,8 @@ function matchResult(overrides: Partial<Omit<MatchResult, 'candidate'>> = {}, si
     signals: {
       scoredTier: 'mid',
       promotedByRule: true,
+      promotionRule: 'mid-to-high',
+      stubRepeat: false,
       nameSimilarity: 1,
       minDayDiff: 0,
       organizerMatch: true,
@@ -33,6 +35,7 @@ test('buildDedupDecisionLog', async (t) => {
       scoredTier: 'mid',
       score: 0.65,
       promotedByRule: true,
+      promotionRule: 'mid-to-high',
       nameSimilarity: 1,
       minDayDiff: 0,
       organizerMatch: true,
@@ -43,6 +46,25 @@ test('buildDedupDecisionLog', async (t) => {
       newEventId: null,
       postId: 'post-1',
     });
+  });
+
+  await t.test('a stub repeat is attributed to its own rule, scored low, with the organizer discount visible', () => {
+    const log = buildDedupDecisionLog(
+      matchResult({ score: 0.4 }, { scoredTier: 'low', promotionRule: 'stub-repeat', stubRepeat: true, organizerMatch: false, venueMatch: true }),
+      null,
+      'post-1'
+    );
+    assert.strictEqual(log.outcome, 'linked');
+    assert.strictEqual(log.scoredTier, 'low');
+    assert.strictEqual(log.promotedByRule, true);
+    assert.strictEqual(log.promotionRule, 'stub-repeat');
+    assert.strictEqual(log.organizerMatch, false);
+  });
+
+  await t.test('a score-only decision carries a null promotion rule', () => {
+    const log = buildDedupDecisionLog(matchResult({}, { promotedByRule: false, promotionRule: null }), null, 'p');
+    assert.strictEqual(log.promotionRule, null);
+    assert.strictEqual(buildDedupDecisionLog(null, 'n', 'p').promotionRule, null);
   });
 
   await t.test('mid is queued and low is new, both with the inserted event id', () => {
