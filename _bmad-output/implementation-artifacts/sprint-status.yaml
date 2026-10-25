@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-24T17:32:56Z
+last_updated: 2026-10-25T02:13:56Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -365,11 +365,11 @@ development_status:
   # Promotes IDEA-100 (Architecture Spine AD-44, 2026-10-23): EventCategory closed subject taxonomy.
   # 0-52 ships first and names only the existing 18 values; 0-53 depends on it (not expressible in
   # epics.md: standalone Epic 0 stories, Story 0.34 precedent).
-  0-52-build-the-event-category-definitions-source-renderer-and-ratchet: review
-  0-53-add-home-living-fashion-finance-and-gadget-event-categories: review
+  0-52-build-the-event-category-definitions-source-renderer-and-ratchet: done
+  0-53-add-home-living-fashion-finance-and-gadget-event-categories: done
   # AD-44 amendment 2026-10-24 (owner-directed): non-exclusive OTHER + safety cap 6, UMKM/entrepreneurship
   # rule, SCIENCE_AND_ENGINEERING (23rd value), golden-corpus re-derivation + live re-run + CC-024 rescrape.
-  0-54-amend-event-category-cardinality-and-add-science-and-engineering: review
+  0-54-amend-event-category-cardinality-and-add-science-and-engineering: done
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
