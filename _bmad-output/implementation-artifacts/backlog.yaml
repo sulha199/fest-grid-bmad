@@ -2498,7 +2498,7 @@ items:
      note: "2 low-severity findings deferred (the duplicate-OTHER log gap was fixed in the 0.54 patch pass); see deferred-work.md heading 'Deferred from: code review of 0-54-amend-event-category-cardinality-and-add-science-and-engineering (2026-10-24)'."}
 
   FIND-101:
-    {type: finding, parent: FIND-099, status: backlog, created: 2026-10-25,
+    {type: finding, status: backlog, created: 2026-10-25,
      impact: user-visible, effort: s,
      title: "CC-024 live regression: groupingReason omitted in 2 of 12 runs (post 2 run 1, post 3 run 3); event counts all correct, baseline unknown",
      ref: [implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md,
