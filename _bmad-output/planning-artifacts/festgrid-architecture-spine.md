@@ -1763,6 +1763,40 @@ This document defines the core architectural invariants for the FestDaily applic
         Weights and thresholds are unchanged. A pair already in the database is merged by a
         moderator accepting the queued suggestion, or by `merge-events-by-slug.ts` (a dry run by
         default) when no suggestion exists; both run `mergeEvents()` (Rule 9) and are undoable.
+        **Amended 2026-10-25 (mid-to-high promotion; diagram updated).** The moderators could not
+        keep up with the mid queue (218 pending on 2026-10-24 against about 152 auto-links since
+        2026-10-05): the score tops out near 0.65 (organizer 0.40 + date/name 0.25) whenever the
+        venue (0.15) or the shared link (0.20) is missing, usually because one side has no
+        `location`, so same-account, same-day, same-name pairs waited for a human. Weights,
+        thresholds, the candidate query and the Rule 9 merge are unchanged. One pure function,
+        `decideMatchTier` (`packages/domain/src/events/match-scoring.ts`), now owns the tier
+        decision for ingestion and the backlog drain: it scores, **promotes a `mid` to `high`**, then
+        applies `capTierWhenOutsideDateWindow`. The promotion requires **all** of:
+        *   **Window.** `minDayDiff ≤ DATE_WINDOW_DAYS` (2). A candidate admitted only by the
+            shared-link path (BUG-063) is never promoted; its cap stays.
+        *   **Same name.** `normalizeEventNameForMatch` (lowercase; bracketed groups, year tokens
+            and punctuation removed) equal, **or** trigram similarity ≥ 0.85
+            (`MID_PROMOTION_NAME_SIMILARITY`) with identical digit tokens in the same order, which
+            keeps daily series ("… Sale" vs "… Sale - Day 12") and "Part 1"/"Part 2" apart.
+        *   **No venue conflict.** `hasVenueConflict`: a side with no venue never conflicts; equal or
+            containing venue texts, or coordinates within 5 km (`VENUE_COMPATIBLE_METERS`), are
+            compatible; both venues known and clearly different (a touring event) blocks. Only
+            schedule pairs inside the window are compared.
+        *   **Same account or shared link.** `organizerMatch || sharedLink`. Under the unchanged
+            weights a `mid` is unreachable without one of the two, so this is implied today; it is
+            explicit so a later weight change cannot silently drop it.
+        `MatchResult` now carries the pre-promotion `scoredTier`, `promotedByRule` and the signals.
+        **Observability.** `processIngestionJob` writes one JSON line `event_dedup_decision` per
+        match decision (tier, score, promotion flag, signals, candidate and new event ids; no
+        names or account ids) after the transaction commits; `docs/infrastructure/7-event-dedup.md`
+        holds the CloudWatch Logs Insights query for the auto-linked vs queued rate. **Backlog.**
+        `apps/backend/src/drain-event-match-backlog.ts` re-evaluates every pending suggestion with
+        the same function and accepts the qualifying ones through `mergeEvents()` (existing event
+        wins, journaled, undoable); dry run by default, `--evaluate-only` needs only SELECT.
+        **Risk accepted:** precision is unmeasured (only 4 moderator decisions existed, all
+        accepts), so the first `--apply` follows a moderator spot-check of the dry-run output.
+        Out of scope and still open: LLM adjudication of the mid band, auto-expiring suggestions
+        for past events, moderator UI changes.
     8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
         `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
         candidate was matched to this event rather than creating one) and keeps its old link

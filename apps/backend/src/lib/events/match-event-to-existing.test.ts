@@ -262,7 +262,7 @@ test('findMatchingEvent integration tests', async (t) => {
     assert.strictEqual(result!.candidate.id, mergeTarget.id);
   });
 
-  await t.test('organizerHandle resolves to an account and contributes to the match (mid tier)', async () => {
+  await t.test('organizerHandle resolves to an account and contributes to the match (mid by score, then promoted)', async () => {
     const { event: candidate } = await makeCandidateEvent({
       accountId: otherAccount.id,
       postIdSuffix: 'handle',
@@ -281,8 +281,12 @@ test('findMatchingEvent integration tests', async (t) => {
 
     assert.ok(result);
     assert.strictEqual(result!.candidate.id, candidate.id);
-    // organizer (0.40, via the resolved handle) + dateNameSimilarity (1 * 0.25) = 0.65 -> mid
-    assert.strictEqual(result!.tier, 'mid');
+    // organizer (0.40, via the resolved handle) + dateNameSimilarity (1 * 0.25) = 0.65 -> mid by score
+    assert.strictEqual(result!.signals.scoredTier, 'mid');
+    assert.strictEqual(result!.signals.organizerMatch, true);
+    // ... and the same name, same day, no venue evidence against it: promoted to high (AD-30 Rule 7, 2026-10-25).
+    assert.strictEqual(result!.tier, 'high');
+    assert.strictEqual(result!.signals.promotedByRule, true);
   });
 
   await t.test('BUG-058: a discounted (undefined) posting account earns no organizer weight, but the same account counts when not discounted', async () => {
@@ -316,8 +320,9 @@ test('findMatchingEvent integration tests', async (t) => {
     );
     assert.ok(counted);
     assert.strictEqual(counted!.candidate.id, candidate.id);
-    // organizer (0.40) + date/name (0.25) = 0.65 -> mid
-    assert.strictEqual(counted!.tier, 'mid');
+    // organizer (0.40) + date/name (0.25) = 0.65 -> mid by score, promoted by the same-name rule
+    assert.strictEqual(counted!.signals.scoredTier, 'mid');
+    assert.strictEqual(counted!.tier, 'high');
   });
 
   await t.test('shared link and venue proximity both contribute without an organizer match', async () => {
@@ -347,6 +352,101 @@ test('findMatchingEvent integration tests', async (t) => {
     assert.strictEqual(result!.candidate.id, candidate.id);
     // organizer (0.40) absent; shared link (0.20) + date/name (~0.25) + venue (0.15) = mid/high
     assert.notStrictEqual(result!.tier, 'low');
+  });
+
+  await t.test('mid-to-high promotion: a venue conflict (a touring event) keeps the pair at mid', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'tour',
+      eventName: 'Lomba Mewarnai Keliling ' + suffix,
+      eventStartDate: '2026-11-03',
+      location: 'Tenth Avenue Bandung',
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Lomba Mewarnai Keliling ' + suffix }),
+      [newSchedule('2026-11-03', { location: 'BG Junction Surabaya' })],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    assert.strictEqual(result!.signals.venueConflict, true);
+    assert.strictEqual(result!.tier, 'mid');
+    assert.strictEqual(result!.signals.promotedByRule, false);
+  });
+
+  await t.test('mid-to-high promotion: a daily series ("... - Day 12") is not promoted although the names are near-identical', async () => {
+    const baseName = 'Mid Year Grand Anniversary Biggest Sale Festival ' + suffix;
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'series',
+      eventName: baseName,
+      eventStartDate: '2026-11-10',
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: baseName + ' - Day 12' }),
+      [newSchedule('2026-11-11')],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    // The trigram score alone would qualify; the differing digit token is what holds it back.
+    assert.ok(result!.signals.nameSimilarity >= 0.85, `name similarity was ${result!.signals.nameSimilarity}`);
+    assert.strictEqual(result!.tier, 'mid');
+    assert.strictEqual(result!.signals.promotedByRule, false);
+  });
+
+  await t.test('mid-to-high promotion: two different store promos at the same mall on the same date stay mid', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'stores',
+      eventName: 'Zara Mid Year Sale Grand Mall ' + suffix,
+      eventStartDate: '2026-11-17',
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Uniqlo Mid Year Sale Grand Mall ' + suffix }),
+      [newSchedule('2026-11-17', { location: 'Grand Mall' })],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    assert.ok(result!.signals.nameSimilarity < 0.85, `name similarity was ${result!.signals.nameSimilarity}`);
+    assert.strictEqual(result!.tier, 'mid');
+    assert.strictEqual(result!.signals.promotedByRule, false);
+  });
+
+  await t.test('mid-to-high promotion: a candidate admitted only by a shared link stays capped at mid', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'promo-link-far',
+      eventName: 'Borobudur Marathon Far ' + suffix,
+      eventStartDate: '2026-12-01',
+      links: [{ url: 'https://register.example.com/bm-' + suffix }],
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Borobudur Marathon Far ' + suffix, links: [{ url: 'https://register.example.com/bm-' + suffix }] }),
+      [newSchedule('2026-12-20')],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    assert.strictEqual(result!.tier, 'mid');
+    assert.strictEqual(result!.signals.promotedByRule, false);
   });
 
   await t.test('BUG-063: a shared-link candidate ~3 weeks away (registration deadline vs race day) is admitted but capped at mid', async () => {

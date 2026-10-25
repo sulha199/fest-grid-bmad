@@ -186,6 +186,184 @@ export function capTierWhenOutsideDateWindow(tier: MatchTier, minDayDiff: number
   return tier === 'high' && !(minDayDiff <= windowDays) ? 'mid' : tier;
 }
 
+// --- Mid -> high promotion (AD-30 Rule 7, amended 2026-10-25) -------------------------------------
+// The score caps at about 0.65 (organizer 0.40 + date/name 0.25) whenever the venue (0.15) or the
+// shared link (0.20) signal is missing -- usually because one side has no `location`. A pair that
+// is plainly the same event (same account, same day, same name, no venue evidence against it) then
+// sat in the moderator queue. These helpers decide when such a `mid` is promoted to `high`.
+// Weights and thresholds are untouched; the promotion is a separate, stricter gate on top.
+
+/** Trigram similarity at or above which two names count as "the same name" for promotion. */
+export const MID_PROMOTION_NAME_SIMILARITY = 0.85;
+
+/**
+ * Two known venues closer than this are one place for promotion purposes. Wide on purpose: it only
+ * has to separate "same venue, different geocode" from "different city" (Bandung vs Surabaya).
+ */
+export const VENUE_COMPATIBLE_METERS = 5000;
+
+// A bracketed group: "(Day 1)", "[SOLD OUT]", "{Jakarta}".
+const BRACKETED_GROUP = /[([{][^)\]}]*[)\]}]/g;
+const YEAR_TOKEN = /\b(?:19|20)\d{2}\b/g;
+const NON_ALPHANUMERIC = /[^\p{L}\p{N}]+/gu;
+
+/**
+ * Normalizes an event name for the promotion comparison: lowercase, bracketed groups and year
+ * tokens removed, punctuation collapsed to single spaces. "Jazz Night 2026 (SOLD OUT)!" and
+ * "jazz  night" normalize alike. Returns '' for a name with nothing left (only a year, symbols).
+ */
+export function normalizeEventNameForMatch(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(BRACKETED_GROUP, ' ')
+    .replace(YEAR_TOKEN, ' ')
+    .replace(NON_ALPHANUMERIC, ' ')
+    .trim();
+}
+
+function digitTokens(normalizedName: string): string[] {
+  return normalizedName.match(/\d+/g) ?? [];
+}
+
+/**
+ * Whether two names support auto-linking: the normalized names are equal, or the (SQL trigram)
+ * similarity is >= `MID_PROMOTION_NAME_SIMILARITY` AND the names carry the same digit tokens in the
+ * same order. The digit rule is what keeps a daily series apart ("32 Days of C&F Biggest Sale" vs
+ * "... - Day 12", "Part 1" vs "Part 2"), which trigram similarity alone scores as near-identical.
+ */
+export function areNamesAutoLinkable(newName: string, candidateName: string, nameSimilarity: number): boolean {
+  const a = normalizeEventNameForMatch(newName);
+  const b = normalizeEventNameForMatch(candidateName);
+  if (a === '' || b === '') return false;
+  if (a === b) return true;
+  if (!(nameSimilarity >= MID_PROMOTION_NAME_SIMILARITY)) return false;
+  const digitsA = digitTokens(a);
+  const digitsB = digitTokens(b);
+  return digitsA.length === digitsB.length && digitsA.every((token, i) => token === digitsB[i]);
+}
+
+function normalizeVenueText(location: string | null | undefined): string {
+  return (location ?? '').toLowerCase().replace(NON_ALPHANUMERIC, ' ').trim();
+}
+
+// "tenth avenue" inside "tenth avenue bandung" is the same place; a 1-2 character string inside
+// anything is not evidence of anything.
+const MIN_CONTAINED_VENUE_LENGTH = 3;
+
+function venueTextsOverlap(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  return shorter.length >= MIN_CONTAINED_VENUE_LENGTH && longer.includes(shorter);
+}
+
+function hasCoordinates(v: MatchVenueLike): v is MatchVenueLike & { latitude: number; longitude: number } {
+  return v.latitude != null && v.longitude != null;
+}
+
+/**
+ * One schedule pair is compatible unless BOTH sides state a venue (text or coordinates) and the
+ * statements disagree. Overlapping text or nearby coordinates make it compatible; so does a side
+ * that states nothing, because absence of a venue is not evidence of a different one.
+ */
+function venuePairCompatible(a: MatchVenueLike, b: MatchVenueLike): boolean {
+  const textA = normalizeVenueText(a.location);
+  const textB = normalizeVenueText(b.location);
+  const bothHaveText = textA !== '' && textB !== '';
+  const bothHaveCoordinates = hasCoordinates(a) && hasCoordinates(b);
+  if (!bothHaveText && !bothHaveCoordinates) return true;
+
+  if (bothHaveText && venueTextsOverlap(textA, textB)) return true;
+  if (
+    bothHaveCoordinates &&
+    haversineDistanceMeters(a.latitude, a.longitude, b.latitude, b.longitude) <= VENUE_COMPATIBLE_METERS
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function pairDayDifference(a: MatchScheduleLike, b: MatchScheduleLike): number {
+  return minScheduleDayDifference([a], [b]);
+}
+
+/**
+ * True when the two events state clearly different venues, e.g. a touring event ("Tenth Avenue
+ * Bandung" vs "BG Junction Surabaya") that shares name, date and account. Only schedule pairs
+ * inside the date window are compared (a tour has one venue per date); when no pair is inside the
+ * window all pairs are. A pair with an unknown side never conflicts, and a single compatible pair
+ * clears the whole comparison.
+ */
+export function hasVenueConflict(
+  newVenues: Array<MatchVenueLike & MatchScheduleLike>,
+  candidateVenues: Array<MatchVenueLike & MatchScheduleLike>,
+  windowDays: number
+): boolean {
+  const pairs = newVenues.flatMap((a) => candidateVenues.map((b) => ({ a, b, dayDiff: pairDayDifference(a, b) })));
+  if (pairs.length === 0) return false;
+  const inWindow = pairs.filter((pair) => pair.dayDiff <= windowDays);
+  const compared = inWindow.length > 0 ? inWindow : pairs;
+  return compared.every((pair) => !venuePairCompatible(pair.a, pair.b));
+}
+
+export interface MatchDecisionInput {
+  organizerMatch: boolean;
+  sharedLink: boolean;
+  /** 0..1, trigram similarity of the two event names. */
+  nameSimilarity: number;
+  /** See `minScheduleDayDifference` -- `Infinity` is a valid "no date pair" input. */
+  minDayDiff: number;
+  newEventName: string;
+  candidateEventName: string;
+  newVenues: Array<MatchVenueLike & MatchScheduleLike>;
+  candidateVenues: Array<MatchVenueLike & MatchScheduleLike>;
+  /** The candidate date window (`DATE_WINDOW_DAYS`); outside it a candidate is never promoted. */
+  windowDays: number;
+}
+
+export interface MatchDecision {
+  score: number;
+  /** The tier the unchanged weights and thresholds give, before promotion and the window cap. */
+  scoredTier: MatchTier;
+  /** The tier ingestion acts on. */
+  tier: MatchTier;
+  /** True when `tier` is `high` only because the promotion rule lifted a `mid`. */
+  promotedByRule: boolean;
+  venueMatch: boolean;
+  venueConflict: boolean;
+}
+
+/**
+ * The single tier decision for one (new item, candidate) pair, shared by ingestion
+ * (`findMatchingEvent`) and the backlog drain script so they can never disagree.
+ *
+ * `mid` is promoted to `high` only when ALL hold: the candidate has a schedule inside the date
+ * window (so a shared-link-only candidate, admitted up to 90 days away, is never promoted); the
+ * names are the same (`areNamesAutoLinkable`); no venue conflict; and the posting account matches
+ * the candidate's (`organizerMatch`) OR a link is shared. Anything else keeps its scored tier, and
+ * a `high` outside the window is still capped to `mid`.
+ */
+export function decideMatchTier(input: MatchDecisionInput): MatchDecision {
+  const venueMatch = hasVenueMatch(input.newVenues, input.candidateVenues);
+  const { score, tier: scoredTier } = computeMatchScore({
+    organizerMatch: input.organizerMatch,
+    sharedLink: input.sharedLink,
+    nameSimilarity: input.nameSimilarity,
+    minDayDiff: input.minDayDiff,
+    venueMatch,
+  });
+  const venueConflict = hasVenueConflict(input.newVenues, input.candidateVenues, input.windowDays);
+
+  const promotedByRule =
+    scoredTier === 'mid' &&
+    input.minDayDiff <= input.windowDays &&
+    (input.organizerMatch || input.sharedLink) &&
+    !venueConflict &&
+    areNamesAutoLinkable(input.newEventName, input.candidateEventName, input.nameSimilarity);
+
+  const tier = capTierWhenOutsideDateWindow(promotedByRule ? 'high' : scoredTier, input.minDayDiff, input.windowDays);
+  return { score, scoredTier, tier, promotedByRule, venueMatch, venueConflict };
+}
+
 export interface MatchScoreInput {
   /** Resolved by the caller before calling in here -- see this file's header comment. */
   organizerMatch: boolean;

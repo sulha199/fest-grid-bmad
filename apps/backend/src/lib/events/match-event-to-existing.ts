@@ -3,10 +3,8 @@ import { events, schedules, socialMediaAccountProfiles } from '@festgrid/databas
 import { activeOnly } from '@festgrid/graphql-select';
 import type { EventInsertValues, ScheduleInsertValues } from '@festgrid/domain/events';
 import {
-  capTierWhenOutsideDateWindow,
-  computeMatchScore,
+  decideMatchTier,
   hasSharedEventLink,
-  hasVenueMatch,
   minScheduleDayDifference,
   normalizeEventLinkUrl,
   type MatchTier,
@@ -25,7 +23,7 @@ const CANDIDATE_LIMIT = 20;
 const NAME_SIMILARITY_FLOOR = 0.3;
 // AC1 -- candidates are selected by schedule date-range overlap within +/-2 days of any of the
 // new item's schedules.
-const DATE_WINDOW_DAYS = 2;
+export const DATE_WINDOW_DAYS = 2;
 // BUG-063 -- a candidate sharing a normalized event link with the new item is also admitted when
 // a schedule is within +/-90 days: a registration-deadline post and the race-day post of one
 // event sit weeks apart (GembiRun Loka 2026: 21 Oct vs 8 Nov), far outside +/-2 days. 90 days
@@ -47,10 +45,27 @@ export interface MatchSourcePost {
   groupingReason: string | null;
 }
 
+/** The inputs and outcome of one scored candidate, kept for the structured ingestion log. */
+export interface MatchSignals {
+  /** The tier the unchanged weights and thresholds gave, before the promotion rule and window cap. */
+  scoredTier: MatchTier;
+  /** True when `tier` is `high` only because the mid-to-high promotion rule lifted it. */
+  promotedByRule: boolean;
+  nameSimilarity: number;
+  /** `Infinity` when there is no usable date pair. */
+  minDayDiff: number;
+  organizerMatch: boolean;
+  sharedLink: boolean;
+  venueMatch: boolean;
+  venueConflict: boolean;
+}
+
 export interface MatchResult {
   candidate: EventRow;
   score: number;
+  /** The tier ingestion acts on: after the promotion rule and the date-window cap. */
   tier: MatchTier;
+  signals: MatchSignals;
 }
 
 /**
@@ -206,23 +221,32 @@ export async function findMatchingEvent(
 
     const organizerMatch = await resolveOrganizerMatch(tx, candidateEventId, sourcePost.accountId, organizerHandleAccountId);
     const sharedLink = hasSharedEventLink(newEvent.links, candidateEvent.links);
-    const venueMatch = hasVenueMatch(newSchedules, candidateSchedules);
     const minDayDiff = minScheduleDayDifference(newSchedules, candidateSchedules);
     const nameSimilarity = nameSimByEventId.get(candidateEventId) ?? 0;
 
-    const { score, tier: scoredTier } = computeMatchScore({
+    // The tier decision (weights, thresholds, mid-to-high promotion, window cap) is one pure
+    // function shared with the backlog drain script, so the two can never disagree.
+    const { score, tier, scoredTier, promotedByRule, venueMatch, venueConflict } = decideMatchTier({
       organizerMatch,
       sharedLink,
       nameSimilarity,
       minDayDiff,
-      venueMatch,
+      newEventName: newEvent.eventName,
+      candidateEventName: candidateEvent.eventName,
+      newVenues: newSchedules,
+      candidateVenues: candidateSchedules,
+      windowDays: DATE_WINDOW_DAYS,
     });
-    const tier = capTierWhenOutsideDateWindow(scoredTier, minDayDiff, DATE_WINDOW_DAYS);
 
-    // Rank by the (possibly capped) tier first, so a date-distant shared-link candidate whose raw
+    // Rank by the final tier first, so a date-distant shared-link candidate whose raw
     // score is higher can never displace an in-window `high` candidate.
     if (!best || TIER_RANK[tier] > TIER_RANK[best.tier] || (tier === best.tier && score > best.score)) {
-      best = { candidate: candidateEvent, score, tier };
+      best = {
+        candidate: candidateEvent,
+        score,
+        tier,
+        signals: { scoredTier, promotedByRule, nameSimilarity, minDayDiff, organizerMatch, sharedLink, venueMatch, venueConflict },
+      };
     }
   }
 
@@ -236,7 +260,7 @@ export async function findMatchingEvent(
  * is sufficient -- this mirrors the pure scorer's single `organizerMatch: boolean` input, with
  * the "discount" decision (passing `organizerHandleAccountId: null`) already made by the caller.
  */
-async function resolveOrganizerMatch(
+export async function resolveOrganizerMatch(
   tx: DbExecutor,
   candidateEventId: string,
   sourceAccountId: string | undefined,

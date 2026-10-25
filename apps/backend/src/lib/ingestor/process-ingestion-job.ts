@@ -6,10 +6,14 @@ import { parsePlatformPostIdentity } from '@festgrid/domain/scraper';
 import { insertEventWithPrimaryPost, enrichAndPromoteEvent } from '../events/set-event-primary-post.js';
 import { notifyNewEvent } from '../events/notify-new-event.js';
 import { evaluateIngestionMatch } from './evaluate-ingestion-match.js';
+import { buildDedupDecisionLog, type DedupDecisionLog } from './build-dedup-decision-log.js';
 
 export async function processIngestionJob(message: ExtractedEventMessage): Promise<{ inserted: boolean }> {
   let insertedEvent: any = null;
   let shouldNotify = false;
+  // Set on the paths that act on a match decision; logged only after the transaction commits, so a
+  // rolled-back attempt never reports a decision that did not happen.
+  let dedupDecisionLog: DedupDecisionLog | null = null;
 
   const result = await db.transaction(async (tx) => {
     const extractionOrdinal = message.extractionOrdinal ?? 0;
@@ -90,6 +94,7 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
 
       insertedEvent = enrichedEvent;
       shouldNotify = becameOrganizerAuthored;
+      dedupDecisionLog = buildDedupDecisionLog(match, null, message.postId);
 
       return { inserted: true };
     }
@@ -132,8 +137,17 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
         .onConflictDoNothing({ target: [eventMatchCandidates.eventId, eventMatchCandidates.candidateEventId] });
     }
 
+    dedupDecisionLog = buildDedupDecisionLog(match, insertedEvent.id, message.postId);
+
     return { inserted: true };
   });
+
+  // One structured line per match decision (high / mid / low / no candidate). The high path leaves
+  // no other trace, so this line is the only way to read the auto-linked vs queued rate; the
+  // Logs Insights queries are in docs/infrastructure/7-event-dedup.md.
+  if (dedupDecisionLog) {
+    console.log(JSON.stringify(dedupDecisionLog));
+  }
 
   if (result.inserted && insertedEvent && shouldNotify && message.sourceSocialMediaAccountId) {
     // FIND-061: must be awaited, not fire-and-forget, after the transaction commits. The
