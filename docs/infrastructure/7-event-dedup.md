@@ -11,7 +11,7 @@
 3. **Score.** Organizer 0.40 + shared link 0.20 + mean(name similarity, date proximity) × 0.25 + venue 0.15. **High ≥ 0.75, mid ≥ 0.45, low below.** Roundup and curator posts get no organizer weight from the posting account.
 4. **Promotion (2026-10-25).** The score tops out near 0.65 when the venue or the shared link is missing (usually one side has no `location`), so an obvious duplicate sat at mid. A **mid is promoted to high** when *all* of these hold (`decideMatchTier`, `packages/domain/src/events/match-scoring.ts`):
     * a schedule is within **±2 days** (never for a candidate admitted only by the shared link);
-    * the names are the same: equal after lowercasing and dropping punctuation, years and bracketed groups, **or** trigram similarity ≥ 0.85 with the same digit tokens in the same order (so "Sale" and "Sale - Day 12", or "Part 1" and "Part 2", stay apart);
+    * the names are the same: equal after lowercasing and dropping punctuation, years and bracketed groups, **or** trigram similarity ≥ 0.85; **either way the digit tokens must be identical in the same order, read with bracketed text kept** (so "Sale" and "Sale - Day 12", "Part 1" and "Part 2", and "Series (10K)" and "Series" stay apart);
     * **no venue conflict**: a side with no venue never conflicts; venue texts that are equal or contain one another, or coordinates within 5 km, are compatible; two known, clearly different venues (a tour: Bandung vs Surabaya) block. Only schedules inside the date window are compared;
     * the posting account matches the candidate's account, or a link is shared. With the current weights a mid cannot be reached without one of the two, so this condition is implied; it is kept explicit so a future weight change cannot silently drop it.
 

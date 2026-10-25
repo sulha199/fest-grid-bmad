@@ -226,20 +226,24 @@ function digitTokens(normalizedName: string): string[] {
 }
 
 /**
- * Whether two names support auto-linking: the normalized names are equal, or the (SQL trigram)
- * similarity is >= `MID_PROMOTION_NAME_SIMILARITY` AND the names carry the same digit tokens in the
- * same order. The digit rule is what keeps a daily series apart ("32 Days of C&F Biggest Sale" vs
- * "... - Day 12", "Part 1" vs "Part 2"), which trigram similarity alone scores as near-identical.
+ * Whether two names support auto-linking: the digit tokens match, AND the normalized names are equal
+ * or the (SQL trigram) similarity is >= `MID_PROMOTION_NAME_SIMILARITY`.
+ *
+ * The digit rule applies on BOTH paths and reads the names with bracketed text KEPT (years still
+ * dropped), because the normalizer used for equality deletes brackets: it is what keeps a daily series
+ * apart ("32 Days of C&F Biggest Sale" vs "... - Day 12", "Part 1" vs "Part 2") and a race category
+ * apart ("Erafone Run Series (10K)" vs "Erafone Run Series", "(5K)" vs "(10K)"), which trigram
+ * similarity or bracket-stripping alone would call the same. Found by running the rule on prod.
  */
 export function areNamesAutoLinkable(newName: string, candidateName: string, nameSimilarity: number): boolean {
   const a = normalizeEventNameForMatch(newName);
   const b = normalizeEventNameForMatch(candidateName);
   if (a === '' || b === '') return false;
+  const digitsA = digitTokens(normalizeEventNameStrict(newName));
+  const digitsB = digitTokens(normalizeEventNameStrict(candidateName));
+  if (digitsA.length !== digitsB.length || !digitsA.every((token, i) => token === digitsB[i])) return false;
   if (a === b) return true;
-  if (!(nameSimilarity >= MID_PROMOTION_NAME_SIMILARITY)) return false;
-  const digitsA = digitTokens(a);
-  const digitsB = digitTokens(b);
-  return digitsA.length === digitsB.length && digitsA.every((token, i) => token === digitsB[i]);
+  return nameSimilarity >= MID_PROMOTION_NAME_SIMILARITY;
 }
 
 function normalizeVenueText(location: string | null | undefined): string {

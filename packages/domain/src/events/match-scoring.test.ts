@@ -338,12 +338,22 @@ test('decideMatchTier: promotes a mid to high when every condition holds', async
 
   await t.test('names that differ only by case, punctuation, a year or a bracketed suffix are the same name', () => {
     const result = decide({
-      newEventName: 'Mall Anniversary Sale 2026 (Day 1)!',
+      newEventName: 'Mall Anniversary Sale 2026 (SOLD OUT)!',
       candidateEventName: 'mall   anniversary sale',
       nameSimilarity: 0.7, // the trigram score is irrelevant once the normalized names are equal
     });
     assert.strictEqual(result.scoredTier, 'mid');
     assert.strictEqual(result.promotedByRule, true);
+  });
+
+  await t.test('a digit inside the brackets ("(Day 1)", "(10K)") still separates the names, even though brackets are otherwise noise', () => {
+    const result = decide({
+      newEventName: 'Mall Anniversary Sale 2026 (Day 1)',
+      candidateEventName: 'mall anniversary sale',
+      nameSimilarity: 1,
+    });
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
   });
 
   await t.test('trigram similarity >= 0.85 with no differing digits is the same name', () => {
@@ -483,6 +493,12 @@ test('normalizeEventNameForMatch', async (t) => {
 test('areNamesAutoLinkable', async (t) => {
   await t.test('equal normalized names ignore the similarity score', () => {
     assert.strictEqual(areNamesAutoLinkable('Jazz Night 2026', 'jazz night', 0), true);
+  });
+  await t.test('a bracketed category or number is not noise: "(10K)" vs no number, "(5K)" vs "(10K)" (found on prod)', () => {
+    assert.strictEqual(areNamesAutoLinkable('Erafone Run 2026 - Yogyakarta Series (10K)', 'erafone Run 2026 Yogyakarta Series', 0.9), false);
+    assert.strictEqual(areNamesAutoLinkable('Erafone Run Series (5K)', 'Erafone Run Series (10K)', 1), false);
+    assert.strictEqual(areNamesAutoLinkable('Global EduFair (GEF) 2026', 'Global EduFair 2026', 0.87), true, 'a bracketed abbreviation is still noise');
+    assert.strictEqual(areNamesAutoLinkable('Perayaan Jumat Spooky (PJS)', 'Perayaan Jumat Spooky', 0.88), true);
   });
   await t.test('similar names need >= 0.85 and the same digit tokens in order', () => {
     assert.strictEqual(areNamesAutoLinkable('Fun Run 5K Jakarta', 'Fun Run 5K Jakarta Edition', 0.86), true);

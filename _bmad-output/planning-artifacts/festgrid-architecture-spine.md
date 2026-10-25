@@ -1776,8 +1776,11 @@ This document defines the core architectural invariants for the FestDaily applic
             shared-link path (BUG-063) is never promoted; its cap stays.
         *   **Same name.** `normalizeEventNameForMatch` (lowercase; bracketed groups, year tokens
             and punctuation removed) equal, **or** trigram similarity ≥ 0.85
-            (`MID_PROMOTION_NAME_SIMILARITY`) with identical digit tokens in the same order, which
-            keeps daily series ("… Sale" vs "… Sale - Day 12") and "Part 1"/"Part 2" apart.
+            (`MID_PROMOTION_NAME_SIMILARITY`), **and on both paths the digit tokens must be
+            identical in the same order**, read with bracketed text kept (years dropped). That keeps
+            a daily series ("… Sale" vs "… Sale - Day 12"), "Part 1"/"Part 2" and a race category
+            ("… Series (10K)" vs "… Series"; "(5K)" vs "(10K)") apart, which the bracket-stripping
+            normalizer alone would merge. Found 2026-10-25 by running the rule read-only on prod.
         *   **No venue conflict.** `hasVenueConflict`: a side with no venue never conflicts; equal or
             containing venue texts, or coordinates within 5 km (`VENUE_COMPATIBLE_METERS`), are
             compatible; both venues known and clearly different (a touring event) blocks. Only
