@@ -587,6 +587,23 @@ export const accountProfileMerges = pgTable('account_profile_merges', {
   survivorIdx: index('idx_account_profile_merges_survivor').on(t.survivorId),
 }));
 
+// BUG-081 -- audit record for scripts/repair-rewritten-profile-usernames.ts: one row per repaired profile,
+// holding the name fields as they were (`before`), as written (`after`) and the evidence the choice rested on.
+// Written in the same transaction as the repair, so a repair either leaves a row or never happened. The
+// profile row outlives the repair (no cascade), and `before` is enough to put the old values back by hand.
+export const accountProfileRepairs = pgTable('account_profile_repairs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  repairKind: text('repair_kind').notNull(),
+  before: jsonb('before').$type<Record<string, unknown>>().notNull(),
+  after: jsonb('after').$type<Record<string, unknown>>().notNull(),
+  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull(),
+  performedBy: text('performed_by').notNull(),
+  ...timestamps,
+}, (t) => ({
+  profileIdx: index('idx_account_profile_repairs_profile').on(t.profileId),
+}));
+
 // Story 3.6p / AD-29 Rule 3 -- records why actualFaceDetectionCount is null (Story 3.6n/3.6o's
 // eventual backfill), so a null is never misread as "detection ran and found zero faces."
 export const extractionAuditFaceDetectionSkippedReasonEnum = pgEnum('extraction_audit_face_detection_skipped_reason', [
