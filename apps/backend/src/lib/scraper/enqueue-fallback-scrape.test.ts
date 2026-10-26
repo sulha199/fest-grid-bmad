@@ -83,7 +83,8 @@ test('enqueueFallbackScrape', async (t) => {
     assert.deepStrictEqual(JSON.parse(sqsBodies[0]), {
       profileId: profile.id,
       accountId: profile.accountId,
-      username: profile.username,
+      // A handle-keyed profile is scraped by its account_id, not the mutable username (BUG-081).
+      username: profile.accountId,
       platform: 'instagram',
     });
   });

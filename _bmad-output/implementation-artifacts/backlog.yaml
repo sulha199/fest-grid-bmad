@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-23"
+last_updated: "2026-10-26"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2244,7 +2244,7 @@ items:
      title: "A subscribed account and its scrape-discovered numeric-ID profile are two rows; posts land on the one nobody subscribed to",
      ref: [apps/backend/src/lib/accounts/get-or-create-discovered-account-profile.ts, apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/posts/posts-scraped-under-account.ts, apps/backend/src/lib/posts/auto-enqueue-new-post.ts, backlog/BUG-059-subscribed-profile-twin-split.md],
      touches: [app:backend, pkg:database, web:post-selection, web:subscriptions],
-     note: "2026-10-16: new twins stopped by a stopgap (c76385b4); merge tool built (d3123f5b) but not yet run on PROD; auto-extraction and manual listing now follow associations (91c5405b). Numeric account_id identity model still to build. Detail in backlog/BUG-059-subscribed-profile-twin-split.md."}
+     note: "Twin merge tool built (d3123f5b), not yet run on PROD; numeric account_id identity model still to build. Related but distinct: BUG-081 (username overwrite relabelled 13 rows + 0587b45b). Detail in the linked note."}
 
   BUG-061:
     {type: bug, status: done, created: 2026-10-16,
@@ -2522,3 +2522,12 @@ items:
            planning-artifacts/festgrid-architecture-spine.md],
      touches: [cross:ai-extraction, app:backend],
      note: "Cost is wasted output tokens and which 10 survive truncation. Try restating the cap beside the groupingReason line; re-measure post 3 with CC024_LIVE_POSTS=3 (6 runs, about 6 calls)."}
+
+  # ── 2026-10-26 (prod: batch scraping the wrong accounts after the profile backfill relabelled usernames) ──
+  BUG-081:
+    {type: bug, status: backlog, created: 2026-10-26,
+     impact: user-visible, effort: s,
+     title: "Profile backfill overwrites a subscribed username with a non-owner post's; the batch scrapes the wrong account",
+     ref: [apps/backend/src/lib/accounts/backfill-account-profile-and-infer-location.ts, packages/domain/src/scraper/account-enrichment.ts, backlog/BUG-081-profile-backfill-overwrites-subscribed-username.md],
+     touches: [app:backend, pkg:domain, web:subscriptions],
+     note: "Fix and PROD repair script in the same PR; set done once merged and the repair workflow has run. 0587b45b is probably jogjakajian's account (inferred)."}

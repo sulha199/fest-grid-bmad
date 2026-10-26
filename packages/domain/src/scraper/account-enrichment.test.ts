@@ -2,38 +2,66 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   computeProfileBackfillPatch,
+  normalizeHandle,
+  isNumericAccountId,
+  isPostOwnedByProfile,
+  selectOwnPostForBackfill,
+  resolveScrapeHandle,
   buildLocationInferenceRequest,
   parseLocationInferenceResponse,
   locationInferenceResponseSchema,
   resolveDiscoveredIdentityNames
 } from "./account-enrichment.js";
 
-test("computeProfileBackfillPatch: returns patch when both fields differ and are scraped", () => {
-  const current = { displayName: "Old Name", username: "old_user" };
-  const scraped = { ownerDisplayName: "New Name", ownerUsername: "new_user" };
+test("computeProfileBackfillPatch: updates displayName and corrects a case-only username difference", () => {
+  const current = { accountId: "old_user", displayName: "Old Name", username: "Old_User" };
+  const scraped = { ownerDisplayName: "New Name", ownerUsername: "old_user" };
   const patch = computeProfileBackfillPatch(current, scraped);
 
-  assert.deepEqual(patch, { displayName: "New Name", username: "new_user" });
+  assert.deepEqual(patch, { displayName: "New Name", username: "old_user" });
 });
 
 test("computeProfileBackfillPatch: returns patch when only displayName differs", () => {
-  const current = { displayName: "Old Name", username: "old_user" };
+  const current = { accountId: "old_user", displayName: "Old Name", username: "old_user" };
   const scraped = { ownerDisplayName: "New Name", ownerUsername: "old_user" };
   const patch = computeProfileBackfillPatch(current, scraped);
 
   assert.deepEqual(patch, { displayName: "New Name" });
 });
 
-test("computeProfileBackfillPatch: returns patch when only username differs", () => {
-  const current = { displayName: "Old Name", username: "old_user" };
-  const scraped = { ownerDisplayName: "Old Name", ownerUsername: "new_user" };
-  const patch = computeProfileBackfillPatch(current, scraped);
+test("computeProfileBackfillPatch: never overwrites a set username with a different handle (BUG-081)", () => {
+  const current = { accountId: "laridijogja", displayName: "Old Name", username: "laridijogja" };
+  const scraped = { ownerDisplayName: "Old Name", ownerUsername: "kulonprogohalfmarathon" };
 
-  assert.deepEqual(patch, { username: "new_user" });
+  assert.equal(computeProfileBackfillPatch(current, scraped), null);
+});
+
+test("computeProfileBackfillPatch: fills an empty username", () => {
+  const current = { accountId: "laridijogja", displayName: "Old Name", username: "  " };
+  const scraped = { ownerDisplayName: "Old Name", ownerUsername: " laridijogja " };
+
+  assert.deepEqual(computeProfileBackfillPatch(current, scraped), { username: "laridijogja" });
+});
+
+test("computeProfileBackfillPatch: fills the numeric-ID placeholder username of a numeric-keyed row", () => {
+  const current = { accountId: "68892898447", displayName: "68892898447", username: "68892898447" };
+  const scraped = { ownerDisplayName: "Lari di Jogja", ownerUsername: "laridijogja" };
+
+  assert.deepEqual(computeProfileBackfillPatch(current, scraped), {
+    displayName: "Lari di Jogja",
+    username: "laridijogja",
+  });
+});
+
+test("computeProfileBackfillPatch: a handle-keyed row whose username equals its account_id is not a placeholder", () => {
+  const current = { accountId: "laridijogja", displayName: "x", username: "laridijogja" };
+  const scraped = { ownerDisplayName: "x", ownerUsername: "someoneelse" };
+
+  assert.equal(computeProfileBackfillPatch(current, scraped), null);
 });
 
 test("computeProfileBackfillPatch: returns null when fields are identical", () => {
-  const current = { displayName: "Old Name", username: "old_user" };
+  const current = { accountId: "old_user", displayName: "Old Name", username: "old_user" };
   const scraped = { ownerDisplayName: "Old Name", ownerUsername: "old_user" };
   const patch = computeProfileBackfillPatch(current, scraped);
 
@@ -41,11 +69,119 @@ test("computeProfileBackfillPatch: returns null when fields are identical", () =
 });
 
 test("computeProfileBackfillPatch: returns null when scraped fields are missing or whitespace-only", () => {
-  const current = { displayName: "Old Name", username: "old_user" };
-  const scraped = { ownerDisplayName: "   ", ownerUsername: "" };
-  const patch = computeProfileBackfillPatch(current, scraped);
+  const current = { accountId: "old_user", displayName: "Old Name", username: "old_user" };
+  const blank = { ownerDisplayName: "   ", ownerUsername: "" };
+  const absent = {};
 
-  assert.equal(patch, null);
+  assert.equal(computeProfileBackfillPatch(current, blank), null);
+  assert.equal(computeProfileBackfillPatch(current, absent), null);
+  assert.equal(computeProfileBackfillPatch(current, { ownerUsername: "   " }), null);
+});
+
+test("normalizeHandle: trims, strips leading @ and lower-cases; blank and absent give ''", () => {
+  assert.equal(normalizeHandle("  @@LariDiJogja "), "laridijogja");
+  assert.equal(normalizeHandle("jogjacoffeeweek.id"), "jogjacoffeeweek.id");
+  assert.equal(normalizeHandle(""), "");
+  assert.equal(normalizeHandle("   "), "");
+  assert.equal(normalizeHandle(undefined), "");
+  assert.equal(normalizeHandle(null), "");
+});
+
+test("isNumericAccountId: true only for an all-digit id", () => {
+  assert.equal(isNumericAccountId("4842911995"), true);
+  assert.equal(isNumericAccountId(" 4842911995 "), true);
+  assert.equal(isNumericAccountId("laridijogja"), false);
+  assert.equal(isNumericAccountId("jogja2026"), false);
+  assert.equal(isNumericAccountId(""), false);
+});
+
+test("isPostOwnedByProfile: handle-keyed row matches the owner username case-insensitively", () => {
+  const profile = { accountId: "LariDiJogja", username: "kulonprogohalfmarathon" };
+
+  assert.equal(isPostOwnedByProfile(profile, { ownerUsername: "laridijogja" }), true);
+  assert.equal(isPostOwnedByProfile(profile, { ownerUsername: "@LARIDIJOGJA " }), true);
+});
+
+test("isPostOwnedByProfile: handle-keyed row rejects a collab/repost owner, a blank owner and an ownerId-only post", () => {
+  const profile = { accountId: "laridijogja", username: "laridijogja" };
+
+  assert.equal(isPostOwnedByProfile(profile, { ownerUsername: "kulonprogohalfmarathon" }), false);
+  assert.equal(isPostOwnedByProfile(profile, { ownerUsername: "  " }), false);
+  assert.equal(isPostOwnedByProfile(profile, {}), false);
+  assert.equal(isPostOwnedByProfile(profile, { ownerId: "123" }), false);
+});
+
+test("isPostOwnedByProfile: a handle-keyed row's own (relabelled) username never proves ownership", () => {
+  const relabelled = { accountId: "laridijogja", username: "kulonprogohalfmarathon" };
+
+  assert.equal(isPostOwnedByProfile(relabelled, { ownerUsername: "kulonprogohalfmarathon" }), false);
+});
+
+test("isPostOwnedByProfile: numeric-keyed row requires ownerId to equal account_id", () => {
+  const profile = { accountId: "68892898447", username: "laridijogja" };
+
+  assert.equal(isPostOwnedByProfile(profile, { ownerId: "68892898447", ownerUsername: "laridijogja" }), true);
+  assert.equal(isPostOwnedByProfile(profile, { ownerId: " 68892898447 " }), true);
+  assert.equal(isPostOwnedByProfile(profile, { ownerId: "999", ownerUsername: "laridijogja" }), false);
+  assert.equal(isPostOwnedByProfile(profile, { ownerUsername: "laridijogja" }), false);
+});
+
+test("isPostOwnedByProfile: numeric-keyed row with a matching ownerId but a disagreeing owner handle is a conflict", () => {
+  const relabelled = { accountId: "4842911995", username: "masjidmuhajirinnitikan" };
+
+  assert.equal(isPostOwnedByProfile(relabelled, { ownerId: "4842911995", ownerUsername: "jogjakajian" }), false);
+});
+
+test("isPostOwnedByProfile: numeric-keyed row with a blank or placeholder username accepts the owner's handle", () => {
+  const placeholder = { accountId: "4842911995", username: "4842911995" };
+  const blank = { accountId: "4842911995", username: " " };
+
+  assert.equal(isPostOwnedByProfile(placeholder, { ownerId: "4842911995", ownerUsername: "jogjakajian" }), true);
+  assert.equal(isPostOwnedByProfile(blank, { ownerId: "4842911995", ownerUsername: "jogjakajian" }), true);
+});
+
+test("selectOwnPostForBackfill: picks the first matching post, not the first post with an owner (collab/repost first)", () => {
+  const profile = { accountId: "laridijogja", username: "laridijogja" };
+  const posts = [
+    { ownerUsername: "kulonprogohalfmarathon", ownerDisplayName: "Kulonprogo Half Marathon" },
+    { postUrl: "no owner at all" },
+    { ownerUsername: "laridijogja", ownerDisplayName: "Lari di Jogja" },
+    { ownerUsername: "laridijogja", ownerDisplayName: "Later Name" },
+  ];
+
+  assert.equal(selectOwnPostForBackfill(profile, posts), posts[2]);
+});
+
+test("selectOwnPostForBackfill: a matching post with only a display name or only a username still counts", () => {
+  const numeric = { accountId: "4842911995", username: "4842911995" };
+
+  assert.deepEqual(selectOwnPostForBackfill(numeric, [{ ownerId: "4842911995", ownerDisplayName: "Info Kajian" }]), {
+    ownerId: "4842911995",
+    ownerDisplayName: "Info Kajian",
+  });
+  assert.deepEqual(selectOwnPostForBackfill(numeric, [{ ownerId: "4842911995", ownerUsername: "jogjakajian" }]), {
+    ownerId: "4842911995",
+    ownerUsername: "jogjakajian",
+  });
+});
+
+test("selectOwnPostForBackfill: null when no post is the profile's own, when owner data is missing, and for an empty batch", () => {
+  const profile = { accountId: "laridijogja", username: "laridijogja" };
+
+  assert.equal(selectOwnPostForBackfill(profile, [{ ownerUsername: "someoneelse", ownerDisplayName: "X" }]), null);
+  assert.equal(selectOwnPostForBackfill(profile, [{ ownerId: "123" }]), null);
+  assert.equal(selectOwnPostForBackfill(profile, []), null);
+});
+
+test("resolveScrapeHandle: a handle-keyed row is scraped by account_id, whatever its username says (BUG-081)", () => {
+  assert.equal(resolveScrapeHandle({ accountId: "laridijogja", username: "kulonprogohalfmarathon" }), "laridijogja");
+  assert.equal(resolveScrapeHandle({ accountId: " @laridijogja ", username: "kulonprogohalfmarathon" }), "laridijogja");
+  assert.equal(resolveScrapeHandle({ accountId: "jogjacoffeeweek.id", username: "mors.roastery" }), "jogjacoffeeweek.id");
+});
+
+test("resolveScrapeHandle: a numeric-keyed or blank-keyed row has only its username to scrape by", () => {
+  assert.equal(resolveScrapeHandle({ accountId: "4842911995", username: "jogjakajian" }), "jogjakajian");
+  assert.equal(resolveScrapeHandle({ accountId: "  ", username: "jogjakajian" }), "jogjakajian");
 });
 
 test("buildLocationInferenceRequest: returns request when both locationName and content are present", () => {

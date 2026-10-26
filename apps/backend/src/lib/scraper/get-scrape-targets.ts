@@ -1,7 +1,7 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions, brightdataPendingJobs, posts } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
-import { ScrapablePlatform, isAdapterRegistered, resolveScrapeDueCutoff, type ScrapeDueCutoff } from '@festgrid/domain';
+import { ScrapablePlatform, isAdapterRegistered, resolveScrapeDueCutoff, resolveScrapeHandle, type ScrapeDueCutoff } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
 import { and, eq, isNull, lt, or, inArray, sql, type SQL } from 'drizzle-orm';
 
@@ -112,7 +112,8 @@ export async function getBatchScrapeTargets(options: BatchScrapeTargetOptions = 
       profileId: row.profileId,
       platform: row.platform as ScrapablePlatform,
       accountId: row.accountId,
-      username: row.username,
+      // The handle the scrape is addressed with comes from the row's identity, not the mutable username (BUG-081).
+      username: resolveScrapeHandle(row),
       newestPostPublishedAt: newestPostByProfileId.get(row.profileId),
     });
   }

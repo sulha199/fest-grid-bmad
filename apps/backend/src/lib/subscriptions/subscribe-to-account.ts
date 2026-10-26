@@ -2,7 +2,7 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
 import { and, eq, isNull, lt, or } from 'drizzle-orm';
 import { activeOnly } from '@festgrid/graphql-select';
-import { ScraperCapacityExceededError, ScrapablePlatform, isScrapableAccountType } from '@festgrid/domain';
+import { ScraperCapacityExceededError, ScrapablePlatform, isScrapableAccountType, resolveScrapeHandle } from '@festgrid/domain';
 import { verifyAccountProfileForDiscovery } from '../accounts/verify-account-profile-for-discovery.js';
 import { computeClaimCutoff } from '@festgrid/domain/shared';
 import { loadBackendEnv } from '../../env.js';
@@ -168,7 +168,7 @@ export async function subscribeToAccount({
             profileId: accountProfile.id,
             platform: accountProfile.platform as ScrapablePlatform,
             accountId: accountProfile.accountId,
-            username: accountProfile.username,
+            username: resolveScrapeHandle(accountProfile),
             isInitialNewSubscription: true,
           };
 

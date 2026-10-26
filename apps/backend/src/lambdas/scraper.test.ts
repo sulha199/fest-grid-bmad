@@ -220,11 +220,11 @@ test('scraper lambda daily-batch branch: per-target incremental newerThan (FIND-
 
     const capturedNewerThan: string[] = [];
     setAttemptBrightDataTrigger(async (target, newerThan) => {
-      if (target.username === profile.username) capturedNewerThan.push(newerThan);
+      if (target.username === profile.accountId) capturedNewerThan.push(newerThan);
       return { success: true };
     });
     setAttemptApifyAsyncTrigger(async (target, newerThan) => {
-      if (target.username === profile.username) capturedNewerThan.push(newerThan);
+      if (target.username === profile.accountId) capturedNewerThan.push(newerThan);
       return { success: true };
     });
 
@@ -259,11 +259,11 @@ test('scraper lambda daily-batch branch: per-target incremental newerThan (FIND-
 
     const capturedNewerThan: string[] = [];
     setAttemptBrightDataTrigger(async (target, newerThan) => {
-      if (target.username === profile.username) capturedNewerThan.push(newerThan);
+      if (target.username === profile.accountId) capturedNewerThan.push(newerThan);
       return { success: true };
     });
     setAttemptApifyAsyncTrigger(async (target, newerThan) => {
-      if (target.username === profile.username) capturedNewerThan.push(newerThan);
+      if (target.username === profile.accountId) capturedNewerThan.push(newerThan);
       return { success: true };
     });
 
@@ -542,7 +542,7 @@ test('scraper lambda daily-batch branch: provider health after a degraded start 
     let ourCalls = 0;
     const ours = new Set<string>();
     setAttemptBrightDataTrigger(async (target) => {
-      if (!target.username.startsWith('batch_health')) return { success: true };
+      if (!target.username.startsWith('test-batch-health')) return { success: true };
       ours.add(target.username);
       ourCalls += 1;
       return ourCalls === 1 ? { success: true } : { success: false, failureReason: 'PROVIDER_DEGRADED' };
@@ -697,6 +697,8 @@ test('scraper lambda daily-batch branch: scheduled cycle vs manual invoke (2026-
   const lateRerun = await addProfile('late_rerun', new Date(cronTime.getTime() - 11 * 60 * 60 * 1000));
   const sameCycle = await addProfile('same_cycle', new Date(cronTime.getTime() + 60 * 1000));
 
+  // The handle a handle-keyed profile is scraped by is its account_id, never the mutable username (BUG-081),
+  // so the dispatched "usernames" below are compared against account_id.
   async function dispatchedUsernames(event: unknown): Promise<Set<string>> {
     const seen = new Set<string>();
     setAttemptBrightDataTrigger(async (target) => {
@@ -713,24 +715,24 @@ test('scraper lambda daily-batch branch: scheduled cycle vs manual invoke (2026-
 
   await t.test('a scheduled cycle scrapes a profile a late manual rerun stamped 11h earlier', async () => {
     const seen = await dispatchedUsernames(scheduledEvent);
-    assert.ok(seen.has(lateRerun.username), 'the cron must not be starved by the previous afternoon\'s rerun');
+    assert.ok(seen.has(lateRerun.accountId), 'the cron must not be starved by the previous afternoon\'s rerun');
   });
 
   await t.test('a duplicate delivery of the same cycle skips what that cycle already stamped', async () => {
     const seen = await dispatchedUsernames(scheduledEvent);
-    assert.strictEqual(seen.has(sameCycle.username), false);
+    assert.strictEqual(seen.has(sameCycle.accountId), false);
   });
 
   await t.test('a manual invoke (empty event) still honours the 12h window', async () => {
     const seen = await dispatchedUsernames({});
-    assert.strictEqual(seen.has(lateRerun.username), false, 'stamped 11h ago, inside SCRAPE_SKIP_RECENT_HOURS');
-    assert.strictEqual(seen.has(sameCycle.username), false);
+    assert.strictEqual(seen.has(lateRerun.accountId), false, 'stamped 11h ago, inside SCRAPE_SKIP_RECENT_HOURS');
+    assert.strictEqual(seen.has(sameCycle.accountId), false);
   });
 
   await t.test('a scheduled-looking event without a valid time falls back to the manual window', async () => {
     const { time: _time, ...withoutTime } = scheduledEvent;
     const seen = await dispatchedUsernames(withoutTime);
-    assert.strictEqual(seen.has(lateRerun.username), false);
+    assert.strictEqual(seen.has(lateRerun.accountId), false);
   });
 
   await t.test('the batch row records why a cycle found no targets, and only then', async () => {

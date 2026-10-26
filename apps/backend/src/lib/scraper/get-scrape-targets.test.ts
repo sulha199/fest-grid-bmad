@@ -486,4 +486,47 @@ test('get-scrape-targets batch targeting tests', async (t) => {
       'newestPostPublishedAt should be undefined for a profile with zero posts (first-ever scrape)'
     );
   });
+  await t.test('BUG-081: a handle-keyed profile is scraped by account_id even when its username was rewritten', async () => {
+    const stamp = Date.now();
+    const handle = 'bug081_handle_' + stamp;
+    // The 2026-10-26 incident: the profile backfill relabelled `username` with another account's handle.
+    const [rewritten] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: handle,
+      platform: 'instagram',
+      displayName: 'Rewritten',
+      username: 'kulonprogohalfmarathon',
+    }).returning();
+    createdProfiles.push(rewritten.id);
+
+    const numericId = String(9_200_000_000 + (stamp % 1_000_000));
+    const [numericKeyed] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: numericId,
+      platform: 'instagram',
+      displayName: 'Numeric keyed',
+      username: 'numeric_keyed_' + stamp,
+    }).returning();
+    createdProfiles.push(numericKeyed.id);
+
+    for (const profileId of [rewritten.id, numericKeyed.id]) {
+      const [sub] = await db.insert(subscriptions).values({ userId: user1.id, accountId: profileId }).returning();
+      createdSubs.push(sub.id);
+    }
+
+    const targets = await getBatchScrapeTargets();
+    const rewrittenTarget = targets.find((target) => target.profileId === rewritten.id);
+    const numericTarget = targets.find((target) => target.profileId === numericKeyed.id);
+
+    assert.ok(rewrittenTarget, 'the rewritten profile is still a target');
+    assert.strictEqual(
+      rewrittenTarget!.username,
+      handle,
+      'the scrape handle comes from account_id, never from the mutable username'
+    );
+    assert.ok(numericTarget, 'the numeric-keyed profile is a target');
+    assert.strictEqual(
+      numericTarget!.username,
+      'numeric_keyed_' + stamp,
+      'a numeric-keyed profile has no handle in account_id, so it is scraped by its username'
+    );
+  });
 });

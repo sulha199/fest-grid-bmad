@@ -18,6 +18,7 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
   const originalQueueUrl = process.env.SCRAPING_QUEUE_URL;
 
   let profileId: string;
+  let profileAccountId: string;
   let subscriptionId: string;
   let progressCalls: string[];
   let progressResult: BrightDataProgressResponse | Error;
@@ -52,8 +53,9 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
         username: 'bd_webhook_test_user',
         displayName: 'BD Webhook Test User',
       })
-      .returning({ id: socialMediaAccountProfiles.id });
+      .returning({ id: socialMediaAccountProfiles.id, accountId: socialMediaAccountProfiles.accountId });
     profileId = profile.id;
+    profileAccountId = profile.accountId;
 
     // The fallback re-queue is a scrape start (AD-34): it needs an active subscription.
     const [seededUser] = await db.select().from(users).limit(1);
@@ -168,7 +170,8 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     assert.strictEqual(sqsMessages[0].queueUrl, 'https://sqs.us-east-1.amazonaws.com/12345/ScrapingQueue');
     const target = JSON.parse(sqsMessages[0].body);
     assert.strictEqual(target.profileId, profileId);
-    assert.strictEqual(target.username, 'bd_webhook_test_user');
+    // A handle-keyed profile is scraped by its account_id, not the mutable username (BUG-081).
+    assert.strictEqual(target.username, profileAccountId);
     assert.strictEqual(target.platform, 'instagram');
   });
 

@@ -35,7 +35,7 @@ import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, v
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import type { EventFilterInput } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
-import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText } from '@festgrid/domain';
+import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText, resolveScrapeHandle } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, type ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
@@ -736,7 +736,7 @@ export const resolvers: Resolvers = {
         profileId: profile.id,
         platform: profile.platform as ScrapablePlatform,
         accountId: profile.accountId,
-        username: profile.username,
+        username: resolveScrapeHandle(profile),
         isInitialNewSubscription: isInitialScrape,
       };
 
@@ -2165,7 +2165,7 @@ export const resolvers: Resolvers = {
                   profileId: refreshedProfile.id,
                   platform: refreshedProfile.platform as ScrapablePlatform,
                   accountId: refreshedProfile.accountId,
-                  username: refreshedProfile.username,
+                  username: resolveScrapeHandle(refreshedProfile),
                   isInitialNewSubscription: isInitialScrape,
                 },
                 newerThan
