@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { ScrapedPost } from '@festgrid/domain';
 import {
   computeProfileBackfillPatch,
+  selectOwnPostForBackfill,
   buildLocationInferenceRequest,
   parseLocationInferenceResponse,
 } from '@festgrid/domain';
@@ -38,18 +39,24 @@ export async function backfillAccountProfileAndInferDefaultLocation(
       return;
     }
 
-    // 2. Profile backfill (AC1, AC2)
-    let backfillPost: ScrapedPost | null = null;
-    for (const post of scrapedPosts) {
-      if (post.ownerDisplayName || post.ownerUsername) {
-        backfillPost = post;
-        break;
-      }
+    // 2. Profile backfill (AC1, AC2). Owner data is applied only from a post this profile's OWN
+    // account published: a profile scrape also returns collab, repost and curator-feed posts whose
+    // owner is someone else, and applying one of those rewrote `username`, which the scraper builds
+    // its next target from (BUG-081).
+    const backfillPost = selectOwnPostForBackfill(
+      { accountId: profile.accountId, username: profile.username || '' },
+      scrapedPosts
+    );
+
+    if (!backfillPost && scrapedPosts.some((post) => post.ownerDisplayName || post.ownerUsername)) {
+      console.log(
+        `[backfillAccountProfileAndInferDefaultLocation] No scraped post is owned by profile ${profile.accountId} (${accountId}); name fields left unchanged.`
+      );
     }
 
     if (backfillPost) {
       const patch = computeProfileBackfillPatch(
-        { displayName: profile.displayName || '', username: profile.username || '' },
+        { accountId: profile.accountId, displayName: profile.displayName || '', username: profile.username || '' },
         { ownerDisplayName: backfillPost.ownerDisplayName, ownerUsername: backfillPost.ownerUsername }
       );
       if (patch) {
