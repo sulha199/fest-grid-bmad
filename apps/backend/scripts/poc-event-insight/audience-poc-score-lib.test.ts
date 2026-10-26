@@ -4,7 +4,7 @@ import { formatReport, isHardStratum, mapsToCategory, prop, score, type Row } fr
 import type { RunRecord } from './audience-poc-lib.js';
 
 const label = (id: string, over: Row = {}): Row => ({
-  id, stratum: 'venue', audience_country: 'id', geo_scope: 'city', post_language: 'id', target_area_level: 'none', eligibility: 'unspecified',
+  id, is_event: 'yes', cost_source: 'caption', stratum: 'venue', audience_country: 'id', geo_scope: 'city', post_language: 'id', target_area_level: 'none', eligibility: 'unspecified',
   track_count: '0', age_written: 'no', cost_tier: 'unspecified', sensitive: 'none', ...over,
 });
 
@@ -17,7 +17,7 @@ const run = (id: string, n: number, o: RunOver = {}): RunRecord => ({
   id, run: n, ok: true, errors: [], usage: { latencyMs: 1000, rateLimitRetries: 0, inputTokens: 800, outputTokens: 100 },
   claims: { proposed: o.proposed ?? 0, dropped: o.dropped ?? 0, nonVerbatimQuotes: 0, quotes: 0 },
   model: {
-    postLanguage: o.lang ?? 'id', statedCountry: o.stated ?? null, statedVerified: Boolean(o.stated), eventCountry: o.eventCountry ?? null,
+    isEvent: true, postLanguage: o.lang ?? 'id', statedCountry: o.stated ?? null, statedVerified: Boolean(o.stated), eventCountry: o.eventCountry ?? null,
     geoScope: o.geo ?? 'city', geoScopeRaw: o.geoRaw ?? o.geo ?? 'city', targetAreaLevel: 'none', eligibility: 'unspecified', eligibilityRaw: 'unspecified',
     costTier: 'unspecified', sensitiveTopic: o.modelSensitive ?? 'none', trackCount: 0, ageWritten: o.age ?? 'no', interests: o.interests ?? ['fun run'],
   },
@@ -126,4 +126,29 @@ test('posts without runs are left out of every denominator', () => {
   const rep = score([label('a'), label('b')], [run('a', 1)]);
   assert.equal(rep.postsWithRuns, 1);
   assert.equal(rep.posts, 2);
+});
+
+test('a post labelled is_event = no is scored on country, language and sensitive only; event fields leave its denominator', () => {
+  const labels = [
+    label('e1'),
+    label('n1', { is_event: 'no', geo_scope: 'unclear', eligibility: 'unclear', track_count: 'unclear', cost_tier: 'unclear', target_area_level: 'unclear' }),
+  ];
+  const rep = score(labels, [run('e1', 1), run('n1', 1, { geo: 'city' })]);
+  const geo = rep.verdicts.find((v) => v.measure.startsWith('geoScope'))!;
+  assert.match(geo.value, /\(1\/1;/);
+  const country = rep.verdicts.find((v) => v.measure.startsWith('Audience country, exact, all'))!;
+  assert.match(country.value, /\(2\/2;/);
+});
+
+test('track count: none listed counts as 1, and the model returning zero tracks is read as 1', () => {
+  const rep = score([label('a', { track_count: '1' })], [run('a', 1)]);
+  const t = rep.fields.find((f) => f.field.startsWith('track count'))!;
+  assert.equal(t.accuracy.k, 1);
+});
+
+test('cost is scored on caption-priced rows apart from rows whose price is only in the image', () => {
+  const labels = [label('a', { cost_tier: 'free', cost_source: 'caption' }), label('b', { cost_tier: 'high', cost_source: 'image' })];
+  const rep = score(labels, [run('a', 1), run('b', 1)]);
+  assert.equal(rep.fields.find((f) => f.field.startsWith('costTier (events whose'))!.accuracy.n, 1);
+  assert.equal(rep.fields.find((f) => f.field.startsWith('costTier (all'))!.accuracy.n, 2);
 });

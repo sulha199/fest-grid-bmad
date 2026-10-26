@@ -21,6 +21,7 @@ export const COST_TIERS = ['free', 'low', 'medium', 'high', 'unspecified'] as co
 export const SENSITIVE_TOPICS = ['none', 'religion', 'politics_civic', 'health_condition', 'sexuality', 'ethnicity'] as const;
 
 export interface AudienceInsight {
+  isEvent: boolean;
   postLanguage: string;
   statedAudience?: { country: string; quote: string } | null;
   eventCountry?: string | null;
@@ -37,6 +38,7 @@ export interface AudienceInsight {
 export const audienceInsightSchema = {
   type: 'OBJECT',
   properties: {
+    isEvent: { type: 'BOOLEAN' },
     postLanguage: { type: 'STRING', enum: [...POST_LANGUAGES] },
     statedAudience: {
       type: 'OBJECT',
@@ -59,18 +61,19 @@ export const audienceInsightSchema = {
     interests: { type: 'ARRAY', items: { type: 'STRING' } },
     evidence: { type: 'ARRAY', items: { type: 'STRING' } },
   },
-  required: ['postLanguage', 'geoScope', 'targetAreaLevel', 'eligibility', 'tracks', 'costTier', 'sensitiveTopic', 'interests', 'evidence'],
+  required: ['isEvent', 'postLanguage', 'geoScope', 'targetAreaLevel', 'eligibility', 'tracks', 'costTier', 'sensitiveTopic', 'interests', 'evidence'],
 };
 
-export const AUDIENCE_INSIGHT_INSTRUCTION_V1 = `You are an analyst for an event-discovery app. Given the text of one social media post, report who it is for and what kind of event it is. The post may be Indonesian, Malay, English or a mix. Answer with the English enum values. Report only what the post supports; "unspecified", "none" or an empty list is the correct answer when the post says nothing. Do not guess.
+export const AUDIENCE_INSIGHT_INSTRUCTION_V2 = `You are an analyst for an event-discovery app. Given the text of one social media post, report who it is for and what kind of event it is. The post may be Indonesian, Malay, English or a mix. Answer with the English enum values. Report only what the post supports; "unspecified", "none" or an empty list is the correct answer when the post says nothing. Do not guess.
 
+- isEvent: true if the post advertises or reports on something with a date (an event that is coming up or running). false if it has no schedule: a recap or thank-you after the event, a repost of a personal vlog, news, a shop or restaurant promo, a quote or greeting. For a post that is not an event, still fill every field with your best answer.
 - postLanguage: the language the caption is written in: id (Indonesian), ms (Malay), en (English), mixed (Indonesian and English in one caption), other. Indonesian and Malay look alike; use the words, not the account.
 - statedAudience: ONLY if the post itself says who may take part or who it is for ("seluruh Indonesia", "se-ASEAN", "open worldwide", a named country). country = the lower-case two-letter code (id, my, sg, au, dk ...) or "international"; quote = the exact words from the post that state it. Leave it out if the post states nothing. A venue, a performer or a city is not a stated audience. "Open to the public" or "free entry" is not one either.
 - eventCountry: the two-letter code of the country where the event takes place, if the post shows it. Leave it out otherwise.
-- geoScope: venue_local (people around the venue's neighbourhood), city (one city or regency), region (a province, or several named areas), national (the post invites people from anywhere in the country; a contest at a local campus that invites the whole country is national), international (several countries or a continent), online (attendance is remote and open regardless of location), unspecified (the post gives no basis, or nobody is invited to attend, such as a result or follow-only post). A venue called "Galeri Nasional" is just a venue. "Open to the public" does not raise the scope.
-- targetAreaLevel: the finest area the audience is drawn from, if the post names one: neighborhood, city, regency, province, country, continent, or none.
-- eligibility: restricted ONLY if the post limits who may take part by membership (invitation only, one school, one company, members only). open_to_public if it says so; unspecified if it says nothing. Age and gender are not eligibility.
-- tracks: one entry per separately qualifying category the post lists (for example "Kids Dash 6-10, 5K 12+, 10K 17+" is three). Empty if none. ageMin / ageMax ONLY if that exact number is written in the post next to an age word; never derive an age from a school level.
+- geoScope: venue_local (a venue is named: the people around it), city (only a city or regency is named, no venue), region (a province, or several named areas), national (the post invites people from anywhere in the country; a contest at a local campus that invites the whole country is national), international (several countries or a continent), online (attendance is remote and open regardless of location), unspecified (the post gives no basis, or nobody is invited to attend, such as a result or follow-only post). A venue called "Galeri Nasional" is just a venue. "Open to the public" does not raise the scope.
+- targetAreaLevel: the finest area the audience is drawn from: neighborhood, city, regency, province, country, continent. Take it from the venue, then the hashtags, then what the posting account covers (its name and other cues). none only if nothing points to any area.
+- eligibility: restricted ONLY if the post limits who may take part by membership (invitation only, one school, one company, members only). Otherwise open_to_public: an event with no restriction is open. unspecified only when the post is not an event. Age and gender are not eligibility.
+- tracks: one entry per separately qualifying category the post lists (for example "Kids Dash 6-10, 5K 12+, 10K 17+" is three). If it lists none, return one entry with no ages (one tier open to everybody). Ticket packs and prices are not categories. ageMin / ageMax ONLY if that exact number is written in the post next to an age word; never derive an age from a school level.
 - costTier: the cheapest stated fee a participant pays: free (explicitly free), low (under about Rp 50,000), medium (up to about Rp 250,000), high (above that), or the equivalent in another currency. unspecified if no price is stated.
 - sensitiveTopic: none, or the single topic the post is about if it is religion, politics_civic, health_condition, sexuality or ethnicity. A mosque's open iftar is religion; a fitness class is none; a diabetes screening is health_condition.
 - interests: up to 6 lower-case English interest tags, the things a person would have to like to want to go. Not generic words such as "event" or "fun".
@@ -88,6 +91,7 @@ export function validateAudienceInsight(raw: unknown): { ok: boolean; value?: Au
   const errors: string[] = [];
   const r = raw as any;
   if (typeof r !== 'object' || r === null) return { ok: false, errors: ['not an object'] };
+  if (typeof r.isEvent !== 'boolean') errors.push('isEvent');
   if (!oneOf(POST_LANGUAGES, r.postLanguage)) errors.push('postLanguage');
   if (!oneOf(GEO_SCOPES, r.geoScope)) errors.push('geoScope');
   if (!oneOf(AREA_LEVELS, r.targetAreaLevel)) errors.push('targetAreaLevel');

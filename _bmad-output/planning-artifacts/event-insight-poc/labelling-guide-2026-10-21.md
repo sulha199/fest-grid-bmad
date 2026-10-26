@@ -14,14 +14,16 @@ For the two people who label the posts of the audience, language and taxonomy PO
 
 | Column | What to write |
 |---|---|
+| `is_event` | `yes` if the post advertises or reports on something with a date: an event coming up or running. `no` if it has no schedule: a recap or thank-you after the event, a repost of a personal vlog, news, a shop or restaurant promo, a quote or greeting. For a `no` post fill only `audience_country`, `post_language`, `sensitive` and `unsure`; write `unclear` in the other label columns and say why in the notes (name the event in the notes if the post is about a known event). |
 | `audience_country` | The country the post is written for, as a two-letter code (`id` Indonesia, `my` Malaysia, `sg` Singapore, `au` Australia, `dk` Denmark ...), or `international` if it is aimed at people in several countries, or `unclear`. See the decision steps below. |
-| `geo_scope` | `venue_local`, `city`, `region`, `national`, `international`, `online` or `unspecified`. See the table below. |
+| `geo_scope` | `venue_local` (a venue is named), `city` (only a city or area, no venue), `region`, `national`, `international`, `online` or `unspecified`. See the table below. |
 | `post_language` | `id`, `en`, `ms` (Malay), `mixed` (Indonesian and English in one caption), `other`, or the main language if one clearly dominates. |
-| `target_area_level` | The finest area the audience is drawn from, if the post names one: `neighborhood`, `city`, `regency`, `province`, `country`, `continent`, or `none`. |
-| `eligibility` | `restricted` only if the post limits who may take part by membership (invitation only, one school, one company, members only); otherwise `open_to_public`; `unspecified` if it says nothing either way. Age and gender are not eligibility. |
-| `track_count` | How many separately qualifying categories the post lists (for example "Kids Dash 6-10, 5K 12+, 10K 17+" is 3). `0` if none, `1` if there is one stated group. |
+| `target_area_level` | The finest area the audience is drawn from: `neighborhood`, `city`, `regency`, `province`, `country`, `continent`. Take it from the venue, then the hashtags, then the coverage of the posting account. For a repost use what the post itself shows (the original account is not looked up in this POC). `none` only if nothing points to any area. |
+| `eligibility` | `restricted` only if the post limits who may take part by membership (invitation only, one school, one company, members only); otherwise `open_to_public`: an event with no restriction is open. `unspecified` only for a post that is not an event. Age and gender are not eligibility. |
+| `track_count` | How many separately qualifying categories the event lists (for example "Kids Dash 6-10, 5K 12+, 10K 17+" is 3). If it lists none, it is one tier open to everybody: `1`. Ticket packs and prices are not categories. `unclear` for a post that is not an event. |
 | `age_written` | `yes` if any age number is written in the text (a number next to an age word), otherwise `no`. Do not infer an age from "SD" or "mahasiswa". |
-| `cost_tier` | `free`, `low`, `medium`, `high` or `unspecified`. Low is roughly under Rp 50,000, medium up to Rp 250,000, high above that, or the equivalent. |
+| `cost_tier` | `free`, `low`, `medium`, `high` or `unspecified`. Low is roughly under Rp 50,000, medium up to Rp 250,000, high above that, or the equivalent. You may read the price from the image. |
+| `cost_source` | Where you read the price: `caption`, `image` (the price is only in the picture) or `none` (no price anywhere). The model reads the caption only, so cost is scored on `caption` and `none` rows. |
 | `sensitive` | `none`, or one of `religion`, `politics_civic`, `health_condition`, `sexuality`, `ethnicity`: the topic the event is about, if it is one of these. A mosque's open iftar is `religion`; a fitness class is `none`; a diabetes screening is `health_condition`. |
 | `unsure` | `yes` or `no`. |
 | `notes` | One short line when you wrote `unclear` or `unsure`. |
@@ -38,8 +40,8 @@ For the two people who label the posts of the audience, language and taxonomy PO
 
 | Value | Meaning | Not this |
 |---|---|---|
-| `venue_local` | People around the venue's neighborhood. | |
-| `city` | One city or regency. | |
+| `venue_local` | A venue is named: the people around it. | |
+| `city` | Only a city or regency is named, no venue. | |
 | `region` | A province, or several named areas ("se-DIY dan Jawa Tengah"). | |
 | `national` | The post invites people from anywhere in the country ("seluruh Indonesia", "tingkat nasional", entrants from many cities). A contest held at a local campus that invites the whole country is `national`. | "Open to the public" or "free entry" says who may attend, not how far they live: not `national`. A venue called "Galeri Nasional" is just a venue. |
 | `international` | Several countries or a continent. | |
@@ -50,12 +52,12 @@ For the two people who label the posts of the audience, language and taxonomy PO
 
 | Post (summary) | audience_country | geo_scope | eligibility | track_count | Why |
 |---|---|---|---|---|---|
-| Indonesian caption from a mall account: "Bazaar kuliner 12-14 Okt, Plaza X, gratis masuk" | `id` | `venue_local` | `open_to_public` | 0 | Nothing wider is stated; written for people near the mall. |
+| Indonesian caption from a mall account: "Bazaar kuliner 12-14 Okt, Plaza X, gratis masuk" | `id` | `venue_local` | `open_to_public` | 1 | Nothing wider is stated; written for people near the mall. |
 | Indonesian caption: "Lomba esai tingkat nasional, terbuka untuk mahasiswa seluruh Indonesia", held at a Surabaya campus | `id` | `national` | `open_to_public` | 1 | The whole country is invited; the campus is only the venue. |
-| Indonesian caption from an Indonesian curator: "Jadwal Denmark Open 2026, dukung wakil Indonesia!" | `id` | `unspecified` | `unspecified` | 0 | Written for Indonesian followers although the event is in Denmark. Nobody is invited to attend, so there is no attendance scope: a follow-only post gets `unspecified`; its audience is still `id`. |
-| English caption, prices in Rp, WIB time, Bali account: "Sunset yoga for expats, Rp 150k" | `id` | `city` | `open_to_public` | 0 | English alone says nothing; Rp, WIB and the account say Indonesia. |
-| English caption, prices in S$, a Singapore account | `sg` | `city` | `open_to_public` | 0 | Same language, different clues. |
-| English caption, no price, no place clue, no account clue | `unclear` | `unspecified` | `unspecified` | 0 | Shared language and no second clue: do not guess. |
+| Indonesian caption from an Indonesian curator: "Jadwal Denmark Open 2026, dukung wakil Indonesia!" | `id` | `unspecified` | `open_to_public` | 1 | Written for Indonesian followers although the event is in Denmark. Nobody is invited to attend, so there is no attendance scope: a follow-only post gets `unspecified`; its audience is still `id`. |
+| English caption, prices in Rp, WIB time, Bali account: "Sunset yoga for expats, Rp 150k" | `id` | `city` | `open_to_public` | 1 | English alone says nothing; Rp, WIB and the account say Indonesia. |
+| English caption, prices in S$, a Singapore account | `sg` | `city` | `open_to_public` | 1 | Same language, different clues. |
+| English caption, no price, no place clue, no account clue | `unclear` | `unspecified` | `open_to_public` | 1 | Shared language and no second clue: do not guess. |
 | "Kids Dash 6-10 th, 5K 12+, 10K 17+, Master 45+" | per the other clues | per the other clues | `open_to_public` | 4 | Four separate categories; ages are written. |
 | "Webinar karir untuk mahasiswa Yogyakarta via Zoom" | `id` | `region` or `city` (write what the text supports) | `open_to_public` | 1 | Online, but the audience is named (Yogyakarta students). |
 

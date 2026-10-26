@@ -22,6 +22,7 @@ export interface RunRecord {
   usage: RunUsage;
   /** The model's own values, before and after the guards, as enums and counts. */
   model?: {
+    isEvent: boolean;
     postLanguage: string;
     statedCountry: string | null;
     statedVerified: boolean;
@@ -76,6 +77,7 @@ export function evaluateRun(args: { id: string; run: number; caption: string; ac
   rec.claims = g.claims;
   rec.actions = g.actions;
   rec.model = {
+    isEvent: g.value.isEvent,
     postLanguage: g.value.postLanguage,
     statedCountry: raw.statedAudience ? raw.statedAudience.country.toLowerCase() : null,
     statedVerified: Boolean(g.value.statedAudience),

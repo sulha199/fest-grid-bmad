@@ -24,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 import { callGeminiGenerateContent, GeminiRateLimitedError, setGenerateContentSeam } from '../../src/lib/ai-gateway/gemini-client.js';
 import { loadBackendEnv } from '../../src/env.js';
 import { accountCountryOf } from './audience-country.js';
-import { audienceInsightContents, audienceInsightSchema, AUDIENCE_INSIGHT_INSTRUCTION_V1 } from './audience-insight.js';
+import { audienceInsightContents, audienceInsightSchema, AUDIENCE_INSIGHT_INSTRUCTION_V2 } from './audience-insight.js';
 import { evaluateRun, mergeRecords, runGate, type RunRecord } from './audience-poc-lib.js';
 import { halfOf, parseCsv, postId, type SourcePost } from './label-sheets-lib.js';
 
@@ -45,7 +45,7 @@ const CONCURRENCY = parseInt(arg('concurrency', '2')!, 10);
 const LOCAL = resolve(arg('dir', join(here, 'local'))!);
 const OUT = resolve(arg('out', join(LOCAL, 'extraction-runs.local.json'))!);
 const API_KEY = arg('gemini-key') ?? process.env.GEMINI_API_KEY ?? process.env.SYSTEM_GEMINI_API_KEY;
-const PROMPT_VERSION = 'audience-v1';
+const PROMPT_VERSION = 'audience-v2';
 
 let lastUsage: { prompt?: number; output?: number; thoughts?: number } = {};
 setGenerateContentSeam(async (ai, params) => {
@@ -70,7 +70,7 @@ async function oneCall(model: string, contents: string): Promise<{ text: string;
     const t0 = Date.now();
     try {
       const { text } = await callGeminiGenerateContent(API_KEY!, {
-        contents, systemInstruction: AUDIENCE_INSIGHT_INSTRUCTION_V1, responseSchema: audienceInsightSchema, responseMimeType: 'application/json', maxOutputTokens: 4096, model,
+        contents, systemInstruction: AUDIENCE_INSIGHT_INSTRUCTION_V2, responseSchema: audienceInsightSchema, responseMimeType: 'application/json', maxOutputTokens: 4096, model,
       });
       return { text, usage: { inputTokens: lastUsage.prompt, outputTokens: lastUsage.output, thoughtTokens: lastUsage.thoughts, latencyMs: Date.now() - t0, rateLimitRetries: retries } };
     } catch (e) {
@@ -141,7 +141,7 @@ async function main(): Promise<void> {
       const country = accountCountry.get(acct(j.p));
       let rec: RunRecord;
       try {
-        const { text, usage } = await oneCall(model, audienceInsightContents(j.p.caption, acct(j.p), j.p.datePosted));
+        const { text, usage } = await oneCall(model, audienceInsightContents(j.p.caption, acct(j.p), j.p.datePosted, { hashtags: j.p.hashtags, place: j.p.locationName }));
         rec = evaluateRun({ id: j.id, run: j.run, caption: j.p.caption, accountCountry: country, rawText: text, usage });
       } catch (e) {
         rec = { id: j.id, run: j.run, ok: false, errors: [`${(e as Error).name}: ${String((e as Error).message).slice(0, 160)}`], usage: { latencyMs: 0, rateLimitRetries: 0 } };

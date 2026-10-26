@@ -5,13 +5,14 @@ import {
 } from './audience-insight.js';
 
 const base = (over: Partial<AudienceInsight> = {}): AudienceInsight => ({
-  postLanguage: 'id', geoScope: 'city', targetAreaLevel: 'none', eligibility: 'unspecified', tracks: [], costTier: 'unspecified',
+  isEvent: true, postLanguage: 'id', geoScope: 'city', targetAreaLevel: 'none', eligibility: 'unspecified', tracks: [], costTier: 'unspecified',
   sensitiveTopic: 'none', interests: [], evidence: [], ...over,
 });
 
 test('validation rejects values outside the enums and keeps a well-formed answer', () => {
   assert.equal(validateAudienceInsight(base()).ok, true);
   assert.deepEqual(validateAudienceInsight(base({ geoScope: 'galaxy' })).errors, ['geoScope']);
+  assert.deepEqual(validateAudienceInsight({ ...base(), isEvent: 'yes' }).errors, ['isEvent']);
   assert.equal(validateAudienceInsight(null).ok, false);
   assert.deepEqual(validateAudienceInsight({ ...base(), statedAudience: { country: 5 } }).errors, ['statedAudience']);
 });

@@ -125,6 +125,8 @@ export function score(labelsAll: Row[], records: RunRecord[]): Report {
   const labels = labelsAll.filter((l) => runs.has(l.id));
   const usable = [...runs.values()].flat();
   const verdicts: Verdict[] = [];
+  // Posts the labeller marked is_event = no (a recap, a repost, news, a shop promo) have no schedule: event-specific fields are not scored on them.
+  const eventLabels = labels.filter((l) => lc(l.is_event) !== 'no');
 
   // ---- audience country (the ladder's output)
   const country = (l: Row) => lc(l.audience_country);
@@ -149,8 +151,8 @@ export function score(labelsAll: Row[], records: RunRecord[]): Report {
   verdicts.push({ measure: 'Critical errors (invented age, wrongly national, wrong country on a stated audience)', bar: '0', value: String(critical.length), status: critical.length === 0 ? 'PASS' : 'FAIL', note: `non-verbatim quotes the guard removed before they could surface: ${nonVerbatim} (a surviving one would be critical; none can, by construction)` });
 
   // ---- geoScope
-  const geo = accuracy(labels, runs, (l) => lc(l.geo_scope), (r) => r.model!.geoScope);
-  const geoRaw = accuracy(labels, runs, (l) => lc(l.geo_scope), (r) => r.model!.geoScopeRaw);
+  const geo = accuracy(eventLabels, runs, (l) => lc(l.geo_scope), (r) => r.model!.geoScope);
+  const geoRaw = accuracy(eventLabels, runs, (l) => lc(l.geo_scope), (r) => r.model!.geoScopeRaw);
   verdicts.push(atLeast('geoScope exact (after the guards)', 90, geo.pooled, `before the guards: ${pctStr(geoRaw.pooled)}`));
 
   // ---- run-to-run agreement on the audience country
@@ -199,12 +201,15 @@ export function score(labelsAll: Row[], records: RunRecord[]): Report {
   verdicts.push(atLeast('Sensitive screen recall on the labelled sensitive events (model flag or word list)', 95, sensitive[2].recall, `precision ${pctStr(sensitive[2].precision)}`));
 
   // ---- other fields, reported
+  const captionPriced = eventLabels.filter((l) => ['caption', 'none', ''].includes(lc(l.cost_source)));
   const fields: Report['fields'] = [
-    { field: 'eligibility (after the guards)', accuracy: accuracy(labels, runs, (l) => lc(l.eligibility), (r) => r.model!.eligibility).pooled },
-    { field: 'costTier', accuracy: accuracy(labels, runs, (l) => lc(l.cost_tier), (r) => r.model!.costTier).pooled },
-    { field: 'track count', accuracy: accuracy(labels, runs, (l) => lc(l.track_count), (r) => String(r.model!.trackCount)).pooled },
-    { field: 'age written', accuracy: accuracy(labels, runs, (l) => lc(l.age_written), (r) => r.model!.ageWritten).pooled },
-    { field: 'target area level', accuracy: accuracy(labels, runs, (l) => lc(l.target_area_level), (r) => r.model!.targetAreaLevel).pooled },
+    { field: 'is_event', accuracy: accuracy(labels, runs, (l) => lc(l.is_event), (r) => (r.model!.isEvent === undefined ? undefined : r.model!.isEvent ? 'yes' : 'no')).pooled },
+    { field: 'eligibility (events only, after the guards)', accuracy: accuracy(eventLabels, runs, (l) => lc(l.eligibility), (r) => r.model!.eligibility).pooled },
+    { field: 'costTier (events whose price is in the caption or absent)', accuracy: accuracy(captionPriced, runs, (l) => lc(l.cost_tier), (r) => r.model!.costTier).pooled },
+    { field: 'costTier (all events, including prices only in the image)', accuracy: accuracy(eventLabels, runs, (l) => lc(l.cost_tier), (r) => r.model!.costTier).pooled },
+    { field: 'track count (events only; none listed counts as 1)', accuracy: accuracy(eventLabels, runs, (l) => lc(l.track_count), (r) => String(Math.max(1, r.model!.trackCount))).pooled },
+    { field: 'age written (events only)', accuracy: accuracy(eventLabels, runs, (l) => lc(l.age_written), (r) => r.model!.ageWritten).pooled },
+    { field: 'target area level (events only)', accuracy: accuracy(eventLabels, runs, (l) => lc(l.target_area_level), (r) => r.model!.targetAreaLevel).pooled },
     { field: 'post language (resolved)', accuracy: langAll.pooled },
     { field: 'sensitive topic (exact, any variant)', accuracy: accuracy(labels, runs, (l) => lc(l.sensitive), (r) => r.resolved!.sensitive).pooled },
   ];

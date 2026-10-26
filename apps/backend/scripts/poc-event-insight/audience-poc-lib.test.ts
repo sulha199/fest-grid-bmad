@@ -4,7 +4,7 @@ import { evaluateRun, frozenHashOf, mergeRecords, runGate, sha256, type RunRecor
 
 const usage = { latencyMs: 900, rateLimitRetries: 0, inputTokens: 700, outputTokens: 120 };
 const answer = (over: Record<string, unknown> = {}) => JSON.stringify({
-  postLanguage: 'id', geoScope: 'city', targetAreaLevel: 'none', eligibility: 'unspecified', tracks: [], costTier: 'unspecified',
+  isEvent: true, postLanguage: 'id', geoScope: 'city', targetAreaLevel: 'none', eligibility: 'unspecified', tracks: [], costTier: 'unspecified',
   sensitiveTopic: 'none', interests: ['fun run'], evidence: [], eventCountry: 'dk', ...over,
 });
 

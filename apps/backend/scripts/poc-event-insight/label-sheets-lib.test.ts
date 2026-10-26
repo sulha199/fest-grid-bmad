@@ -10,8 +10,8 @@ const mk = (url: string, over: Partial<SourcePost> = {}): SourcePost => ({
 });
 
 const full = (id: string, over: Record<string, string> = {}): Record<string, string> => ({
-  id, audience_country: 'id', geo_scope: 'city', post_language: 'id', target_area_level: 'city', eligibility: 'open_to_public', track_count: '0', age_written: 'no',
-  cost_tier: 'free', sensitive: 'none', unsure: 'no', notes: '', ...over,
+  id, is_event: 'yes', audience_country: 'id', geo_scope: 'city', post_language: 'id', target_area_level: 'city', eligibility: 'open_to_public', track_count: '0', age_written: 'no',
+  cost_tier: 'free', cost_source: 'caption', sensitive: 'none', unsure: 'no', notes: '', ...over,
 });
 
 test('postId is stable and short; halfOf is stable and roughly balanced', () => {

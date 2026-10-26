@@ -19,14 +19,16 @@ export const ELIGIBILITY = ['open_to_public', 'restricted', 'unspecified'] as co
 export const COST_TIERS = ['free', 'low', 'medium', 'high', 'unspecified'] as const;
 export const SENSITIVE = ['none', 'religion', 'politics_civic', 'health_condition', 'sexuality', 'ethnicity'] as const;
 export const YES_NO = ['yes', 'no'] as const;
+/** Where the labeller read the price: the caption, text on the image, or nowhere (no price shown). The model sees the caption only, so cost is scored on the rows the caption can answer. */
+export const COST_SOURCES = ['caption', 'image', 'none'] as const;
 
 /** The label columns, in sheet order. `notes` is free text and is never compared. */
 export const LABEL_FIELDS = [
-  'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'eligibility', 'track_count', 'age_written', 'cost_tier', 'sensitive', 'unsure', 'notes',
+  'is_event', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'eligibility', 'track_count', 'age_written', 'cost_tier', 'cost_source', 'sensitive', 'unsure', 'notes',
 ] as const;
 export type LabelField = (typeof LABEL_FIELDS)[number];
 /** The fields that are compared between labellers. */
-export const COMPARED_FIELDS = LABEL_FIELDS.filter((f) => f !== 'notes' && f !== 'unsure') as readonly LabelField[];
+export const COMPARED_FIELDS = LABEL_FIELDS.filter((f) => f !== 'notes' && f !== 'unsure' && f !== 'cost_source') as readonly LabelField[];
 
 export const CONTEXT_COLUMNS = ['id', 'account', 'stratum', 'url', 'post_date', 'caption', 'hashtags', 'tagged_place'] as const;
 export const SHEET_COLUMNS: readonly string[] = [...CONTEXT_COLUMNS, ...LABEL_FIELDS];
@@ -41,8 +43,9 @@ function allowed(field: LabelField, value: string): boolean {
     case 'target_area_level': return (AREA_LEVELS as readonly string[]).includes(value);
     case 'eligibility': return (ELIGIBILITY as readonly string[]).includes(value);
     case 'track_count': return /^\d{1,2}$/.test(value);
-    case 'age_written': case 'unsure': return (YES_NO as readonly string[]).includes(value);
+    case 'is_event': case 'age_written': case 'unsure': return (YES_NO as readonly string[]).includes(value);
     case 'cost_tier': return (COST_TIERS as readonly string[]).includes(value);
+    case 'cost_source': return (COST_SOURCES as readonly string[]).includes(value);
     case 'sensitive': return (SENSITIVE as readonly string[]).includes(value);
     case 'notes': return true;
   }

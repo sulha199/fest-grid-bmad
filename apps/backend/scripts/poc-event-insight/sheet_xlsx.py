@@ -19,12 +19,14 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 CONTEXT = ['id', 'account', 'stratum', 'url', 'post_date', 'caption', 'hashtags', 'tagged_place']
-LABELS = ['audience_country', 'geo_scope', 'post_language', 'target_area_level', 'eligibility', 'track_count',
-          'age_written', 'cost_tier', 'sensitive', 'unsure', 'notes']
+LABELS = ['is_event', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'eligibility', 'track_count',
+          'age_written', 'cost_tier', 'cost_source', 'sensitive', 'unsure', 'notes']
 COLUMNS = CONTEXT + LABELS
 
 COUNTRIES = ['id', 'my', 'sg', 'au', 'dk', 'th', 'jp', 'kr', 'cn', 'in', 'ph', 'vn', 'us', 'gb', 'eg', 'international', 'unclear']
 LISTS = {
+    'is_event': ['yes', 'no'],
+    'cost_source': ['caption', 'image', 'none'],
     'audience_country': COUNTRIES,
     'geo_scope': ['venue_local', 'city', 'region', 'national', 'international', 'online', 'unspecified', 'unclear'],
     'post_language': ['id', 'en', 'ms', 'mixed', 'other', 'unclear'],
@@ -38,17 +40,19 @@ LISTS = {
 
 GUIDE = [
     ('Field', 'What to write'),
+    ('is_event', 'yes if the post advertises or reports on something with a date (a schedule): an event that is coming up or running. no if it has no schedule: a recap or thank-you after it ended, a repost of a personal vlog, news, a shop or restaurant promo, a quote or greeting. For a "no" post fill only audience_country, post_language, sensitive and unsure; write unclear in the other label columns and say why in notes. If it is about a known event (a recap or update), say which in notes.'),
     ('audience_country', 'The country the post is written FOR: two-letter code (id, my, sg, au, dk ...), "international", or "unclear". Steps: (1) does the post state who it is for? (2) else language + where the account is based; an Indonesian post from an Indonesian account is "id" even if the event is abroad; (3) shared language (English, Malay, Indonesian) needs a second clue: currency, phone code, time zone, account; (4) online with no stated audience = international; (5) last resort: where the event takes place.'),
-    ('geo_scope', 'venue_local = around the venue; city; region = province or several named areas; national = invites people from anywhere in the country ("seluruh Indonesia"); international; online = remote and open to all; unspecified = no basis (a result post, a follow-only post). "Open to the public" is NOT national. A venue called "Galeri Nasional" is just a venue.'),
+    ('geo_scope', 'venue_local = a venue is named (the audience is the people around it). city = only a city or area is named, no venue. region = a province, or several named areas. national = invites people from anywhere in the country ("seluruh Indonesia"). international. online = remote and open to all. unspecified = no basis. "Open to the public" is NOT national. A venue called "Galeri Nasional" is just a venue.'),
     ('post_language', 'id, en, ms (Malay), mixed (Indonesian and English in one caption), other.'),
-    ('target_area_level', 'The finest area the audience is drawn from, if the post names one: neighborhood, city, regency, province, country, continent, or none.'),
-    ('eligibility', 'restricted ONLY if membership limits who may take part (invitation only, one school, one company, members only). open_to_public if the post says so; unspecified if it says nothing. Age and gender are NOT eligibility.'),
-    ('track_count', 'How many separately qualifying categories the post lists. Whole number. "Kids Dash 6-10, 5K 12+, 10K 17+" is 3. 0 if none is listed, 1 if there is one stated group. Write unclear (and why in notes) if you cannot tell.'),
+    ('target_area_level', 'The finest area the audience is drawn from: neighborhood, city, regency, province, country, continent. Take it from the venue, then the hashtags, then the coverage of the posting account. For a repost, use what the post shows; the original account is not looked up in this POC. none only if nothing points to any area.'),
+    ('eligibility', 'restricted ONLY if membership limits who may take part (invitation only, one school, one company, members only). Otherwise open_to_public: an event with no restriction is open. unspecified only for a post that is not an event. Age and gender are NOT eligibility.'),
+    ('track_count', 'How many separately qualifying categories the event lists. If it lists none, it is one tier open to everybody: write 1. "Kids Dash 6-10, 5K 12+, 10K 17+" is 3. Ticket packs and prices are not categories. For a post that is not an event write unclear.'),
     ('age_written', 'yes if any age NUMBER is written next to an age word (usia 6-10 tahun, 12+, under 17). Do not infer from SD, SMA or mahasiswa.'),
-    ('cost_tier', 'free, low (under about Rp 50,000), medium (up to about Rp 250,000), high (above), unspecified. The cheapest fee a participant pays.'),
+    ('cost_tier', 'free, low (under about Rp 50,000), medium (up to about Rp 250,000), high (above), unspecified. The cheapest fee a participant pays. You may read the price from the image.'),
+    ('cost_source', 'Where you read the price: caption, image (the price is only in the picture), or none (no price anywhere). The model sees the caption only, so cost is scored on caption and none rows.'),
     ('sensitive', 'none, or the topic the event is about: religion, politics_civic, health_condition, sexuality, ethnicity.'),
     ('unsure', 'yes or no. Write unclear in a field you cannot decide after about two minutes, and say why in notes. Never guess.'),
-    ('Rules', 'Label from the post only (caption, hashtags, tagged place, text on the image). Work alone; do not look at any other labels or model output. The posts are other people\'s content: do not copy or share them.'),
+    ('Rules', 'Label from the post only (caption, hashtags, tagged place, text on the image). Work alone; do not look at any other labels or model output. The posts are content of other people: do not copy or share them.'),
 ]
 
 
@@ -72,7 +76,7 @@ def to_xlsx(src, dst):
         cell.alignment = Alignment(vertical='center', wrap_text=True)
 
     widths = {'id': 12, 'account': 18, 'stratum': 12, 'url': 14, 'post_date': 12, 'caption': 90, 'hashtags': 28, 'tagged_place': 22,
-              'audience_country': 14, 'geo_scope': 14, 'post_language': 12, 'target_area_level': 16, 'eligibility': 16,
+              'is_event': 9, 'cost_source': 11, 'audience_country': 14, 'geo_scope': 14, 'post_language': 12, 'target_area_level': 16, 'eligibility': 16,
               'track_count': 11, 'age_written': 11, 'cost_tier': 12, 'sensitive': 16, 'unsure': 9, 'notes': 36}
     for c, name in enumerate(COLUMNS, start=1):
         ws.column_dimensions[get_column_letter(c)].width = widths[name]
@@ -116,7 +120,7 @@ def to_xlsx(src, dst):
     dv.add(f'{tc}2:{tc}{last}')
 
     # a still-empty label cell shows in a stronger yellow so nothing is skipped
-    first_label, last_label = col['audience_country'], col['unsure']
+    first_label, last_label = col['is_event'], col['unsure']
     ws.conditional_formatting.add(
         f'{first_label}2:{last_label}{last}',
         FormulaRule(formula=[f'LEN({first_label}2)=0'], fill=PatternFill('solid', bgColor='FFE08A', fgColor='FFE08A')))
@@ -146,14 +150,18 @@ def to_csv(src, dst):
     wb = load_workbook(src, data_only=True)
     ws = wb['Labels']
     header = [c.value for c in ws[1]]
-    if header != COLUMNS:
-        raise SystemExit(f'unexpected columns in {src}: {header}')
+    missing = [c for c in CONTEXT if c not in header]
+    if missing:
+        raise SystemExit(f'missing columns in {src}: {missing}')
+    # by name, so a moved column still converts; a label column an older sheet lacks (is_event, cost_source) comes out blank
+    idx = {name: header.index(name) for name in COLUMNS if name in header}
     out = []
     for row in ws.iter_rows(min_row=2, values_only=True):
-        if row[0] in (None, ''):
+        if row[idx['id']] in (None, ''):
             continue
         rec = {}
-        for name, v in zip(COLUMNS, row):
+        for name in COLUMNS:
+            v = row[idx[name]] if name in idx else None
             if v is None:
                 v = ''
             elif isinstance(v, float) and v.is_integer():

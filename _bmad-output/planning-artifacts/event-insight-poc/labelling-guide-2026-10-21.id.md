@@ -14,14 +14,16 @@ Untuk dua orang yang melabeli postingan pada POC audiens, bahasa, dan taksonomi 
 
 | Kolom | Isi |
 |---|---|
+| `is_event` | `yes` jika postingan mengiklankan atau melaporkan sesuatu yang punya tanggal: acara yang akan datang atau sedang berlangsung. `no` jika tidak ada jadwal: rekap atau ucapan terima kasih setelah acara, repost vlog pribadi, berita, promo toko atau restoran, kutipan atau ucapan. Untuk postingan `no`, isi hanya `audience_country`, `post_language`, `sensitive`, dan `unsure`; tulis `unclear` di kolom label lain dan jelaskan di catatan (sebut nama acaranya di catatan jika postingan itu tentang acara yang dikenal). |
 | `audience_country` | Negara yang dituju postingan, dengan kode dua huruf (`id` Indonesia, `my` Malaysia, `sg` Singapura, `au` Australia, `dk` Denmark ...), atau `international` jika ditujukan ke orang di beberapa negara, atau `unclear`. Lihat langkah keputusan di bawah. |
-| `geo_scope` | `venue_local`, `city`, `region`, `national`, `international`, `online`, atau `unspecified`. Lihat tabel di bawah. |
+| `geo_scope` | `venue_local` (tempat/venue disebut), `city` (hanya kota atau wilayah, tanpa venue), `region`, `national`, `international`, `online`, atau `unspecified`. Lihat tabel di bawah. |
 | `post_language` | `id`, `en`, `ms` (Melayu), `mixed` (Indonesia dan Inggris dalam satu caption), `other`, atau bahasa utama jika jelas dominan. |
-| `target_area_level` | Wilayah terkecil tempat audiens berasal, jika postingan menyebutnya: `neighborhood`, `city`, `regency`, `province`, `country`, `continent`, atau `none`. |
-| `eligibility` | `restricted` hanya jika postingan membatasi peserta berdasarkan keanggotaan (undangan, satu sekolah, satu perusahaan, khusus anggota); selain itu `open_to_public`; `unspecified` jika tidak dikatakan apa-apa. Usia dan jenis kelamin bukan eligibility. |
-| `track_count` | Berapa kategori terpisah yang memenuhi syarat yang disebut (misalnya "Kids Dash 6-10, 5K 12+, 10K 17+" berarti 3). `0` jika tidak ada, `1` jika ada satu kelompok. |
+| `target_area_level` | Wilayah terkecil tempat audiens berasal: `neighborhood`, `city`, `regency`, `province`, `country`, `continent`. Ambil dari venue, lalu hashtag, lalu cakupan akun pengunggah. Untuk repost, pakai yang ditunjukkan postingan itu sendiri (akun aslinya tidak dicari dalam POC ini). `none` hanya jika tidak ada petunjuk wilayah sama sekali. |
+| `eligibility` | `restricted` hanya jika postingan membatasi peserta berdasarkan keanggotaan (undangan, satu sekolah, satu perusahaan, khusus anggota); selain itu `open_to_public`: acara tanpa pembatasan berarti terbuka. `unspecified` hanya untuk postingan yang bukan acara. Usia dan gender bukan eligibility. |
+| `track_count` | Berapa kategori terpisah yang memenuhi syarat yang disebut acara (misalnya "Kids Dash 6-10, 5K 12+, 10K 17+" berarti 3). Jika tidak ada yang disebut, itu satu tingkat yang terbuka untuk semua: `1`. Paket tiket dan harga bukan kategori. `unclear` untuk postingan yang bukan acara. |
 | `age_written` | `yes` jika ada angka usia yang tertulis (angka di samping kata usia), selain itu `no`. Jangan menyimpulkan usia dari "SD" atau "mahasiswa". |
-| `cost_tier` | `free`, `low`, `medium`, `high`, atau `unspecified`. Rendah kira-kira di bawah Rp 50.000, sedang sampai Rp 250.000, tinggi di atas itu, atau setara. |
+| `cost_tier` | `free`, `low`, `medium`, `high`, atau `unspecified`. Rendah kira-kira di bawah Rp 50.000, sedang sampai Rp 250.000, tinggi di atas itu, atau setara. Harga boleh dibaca dari gambar. |
+| `cost_source` | Dari mana harga dibaca: `caption`, `image` (harga hanya ada di gambar), atau `none` (tidak ada harga). Model hanya membaca caption, jadi biaya dinilai pada baris `caption` dan `none`. |
 | `sensitive` | `none`, atau salah satu dari `religion`, `politics_civic`, `health_condition`, `sexuality`, `ethnicity`: topik acara, jika termasuk di antaranya. Buka puasa bersama di masjid adalah `religion`; kelas kebugaran `none`; skrining diabetes `health_condition`. |
 | `unsure` | `yes` atau `no`. |
 | `notes` | Satu baris singkat bila Anda menulis `unclear` atau `unsure`. |
@@ -50,12 +52,12 @@ Untuk dua orang yang melabeli postingan pada POC audiens, bahasa, dan taksonomi 
 
 | Postingan (ringkasan) | audience_country | geo_scope | eligibility | track_count | Alasan |
 |---|---|---|---|---|---|
-| Caption Indonesia dari akun mal: "Bazaar kuliner 12-14 Okt, Plaza X, gratis masuk" | `id` | `venue_local` | `open_to_public` | 0 | Tidak ada yang lebih luas disebut; ditulis untuk orang di sekitar mal. |
+| Caption Indonesia dari akun mal: "Bazaar kuliner 12-14 Okt, Plaza X, gratis masuk" | `id` | `venue_local` | `open_to_public` | 1 | Tidak ada yang lebih luas disebut; ditulis untuk orang di sekitar mal. |
 | Caption Indonesia: "Lomba esai tingkat nasional, terbuka untuk mahasiswa seluruh Indonesia", di kampus Surabaya | `id` | `national` | `open_to_public` | 1 | Seluruh negara diundang; kampus hanya lokasi. |
-| Caption Indonesia dari kurator Indonesia: "Jadwal Denmark Open 2026, dukung wakil Indonesia!" | `id` | `unspecified` | `unspecified` | 0 | Ditulis untuk pengikut Indonesia padahal acaranya di Denmark. Tidak ada yang diundang hadir, jadi tidak ada cakupan kehadiran: postingan sekadar mengikuti diberi `unspecified`; audiensnya tetap `id`. |
-| Caption Inggris, harga dalam Rp, jam WIB, akun Bali: "Sunset yoga for expats, Rp 150k" | `id` | `city` | `open_to_public` | 0 | Bahasa Inggris saja tidak menunjukkan negara; Rp, WIB, dan akunnya menunjukkan Indonesia. |
-| Caption Inggris, harga dalam S$, akun Singapura | `sg` | `city` | `open_to_public` | 0 | Bahasa sama, petunjuk berbeda. |
-| Caption Inggris, tanpa harga, tanpa petunjuk tempat atau akun | `unclear` | `unspecified` | `unspecified` | 0 | Bahasa bersama dan tanpa petunjuk kedua: jangan menebak. |
+| Caption Indonesia dari kurator Indonesia: "Jadwal Denmark Open 2026, dukung wakil Indonesia!" | `id` | `unspecified` | `open_to_public` | 1 | Ditulis untuk pengikut Indonesia padahal acaranya di Denmark. Tidak ada yang diundang hadir, jadi tidak ada cakupan kehadiran: postingan sekadar mengikuti diberi `unspecified`; audiensnya tetap `id`. |
+| Caption Inggris, harga dalam Rp, jam WIB, akun Bali: "Sunset yoga for expats, Rp 150k" | `id` | `city` | `open_to_public` | 1 | Bahasa Inggris saja tidak menunjukkan negara; Rp, WIB, dan akunnya menunjukkan Indonesia. |
+| Caption Inggris, harga dalam S$, akun Singapura | `sg` | `city` | `open_to_public` | 1 | Bahasa sama, petunjuk berbeda. |
+| Caption Inggris, tanpa harga, tanpa petunjuk tempat atau akun | `unclear` | `unspecified` | `open_to_public` | 1 | Bahasa bersama dan tanpa petunjuk kedua: jangan menebak. |
 | "Kids Dash 6-10 th, 5K 12+, 10K 17+, Master 45+" | sesuai petunjuk lain | sesuai petunjuk lain | `open_to_public` | 4 | Empat kategori terpisah; usia tertulis. |
 | "Webinar karir untuk mahasiswa Yogyakarta via Zoom" | `id` | `region` atau `city` (tulis yang didukung teks) | `open_to_public` | 1 | Daring, tetapi audiensnya disebut (mahasiswa Yogyakarta). |
 

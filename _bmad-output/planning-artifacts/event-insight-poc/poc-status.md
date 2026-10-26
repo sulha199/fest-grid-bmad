@@ -15,20 +15,30 @@ Last updated 2026-10-23. **Update this file at the end of every work session**, 
 | 1. POC code: country ladder, language resolver, guards, schema | **Done** (committed `ae78bbf5`): `audience-country.ts`, `audience-insight.ts` + tests |
 | 2. Gather posts (`fetch-poc-posts.ts`) | **Done**: 437 posts, 38 accounts, in `local/poc-posts.local.json` |
 | 3. Label | **In progress, owner**: owner sheet 0 of 437 labelled; Claude drafted the tuning half (209) |
-| 4. Extraction runs (3 per post) | Runner **built, not yet run** (needs the owner's Gemini key): `run-audience-poc.ts` |
+| 4. Extraction runs (3 per post) | Runner **built, not yet run** (needs the owner's Gemini key): `run-audience-poc.ts` (prompt `audience-v2`) |
 | 5. Score and report | Scorer **built, not yet run**: `score-audience-poc.ts` |
 | 6. Reviewer Gate (rubric walker, adversarial two-units, data-integrity, POC code review) | Not started |
 | 7. Decision: AD-42 PROPOSED to ADOPTED / change / drop; then second PRD pass and stories | Not started |
 
+## Blind-sample result and the rules decided (2026-10-26)
+
+Owner's 36-post sample vs Claude's first draft: audience_country 100% (35/35), age_written 100%, sensitive 94%, post_language 91%; cost_tier 67%, geo_scope 31%, eligibility 25%, target_area_level 3%, track_count 3%. The low ones were different readings of the guide, not noise. The owner settled them:
+
+- **eligibility:** `open_to_public` unless a membership restriction exists; `unspecified` only for a non-event.
+- **target_area_level:** from the venue, then hashtags, then the posting account's coverage. Reposts: use what the post shows; looking up the original account is out of scope (backlog IDEA-103).
+- **track_count:** an event listing no categories is one tier open to everybody = 1. Not an event = `unclear`.
+- **geo_scope:** a named venue = `venue_local`; only a city or area = `city`.
+- **New column `is_event`:** `no` = no schedule (recap, repost of a personal vlog, news, shop promo, greeting). Event fields are not scored on those posts. A schedule-less post that concerns a known event could link to it (backlog IDEA-102).
+- **cost_tier:** may be read from the image; new column `cost_source` (caption / image / none). The model sees the caption only, so cost is scored on caption and none rows.
+
+Done in code: sheet schema (`is_event`, `cost_source`), both guides, `sheet_xlsx.py`, model prompt `audience-v2` (isEvent, venue/hashtag/place context), scorer (event-only fields, track count normalised to at least 1, cost split). **Pending:** (a) owner fills `is_event` and `cost_source` in the v2 sheet and re-checks the changed columns; (b) Claude re-reads the tuning draft for geo_scope and target_area_level (draft v2 has them as `unclear` for now, so they are not scored) and re-checks its `is_event` guesses, which came from a keyword pass over its own notes and are rough; (c) re-run the comparison.
+
 ## What the owner does next
 
-Label in Excel: `local/label-sheet-owner-tuning-sample.xlsx` and `local/label-sheet-owner-heldout-subset.xlsx` have drop-downs (a `Guide` sheet has the rules). After saving, convert back before `check`/`compare`: `python scripts/poc-event-insight/sheet_xlsx.py to-csv local/<name>.xlsx local/<name>.csv` (needs `pip install openpyxl`; `to-xlsx` makes a sheet from a CSV). The CSV stays the file the tools read.
-
-1. Label `local/label-sheet-owner-tuning-sample.csv` (36 posts) **without looking at** `local/label-sheet-claude-tuning.csv`. Then `label-sheets.ts check`, and `compare --a local/label-sheet-owner-tuning-sample.csv --b local/label-sheet-claude-tuning.csv` to measure how far Claude's draft can be trusted (country agreement 95% or better = keep using it for tuning).
-2. Label `local/label-sheet-owner-heldout-subset.csv` (122 posts; the scored set). No pre-fill, no look at any model output.
-3. Second labeller (the owner's wife, if she agrees) labels the same 122 blind. Then `compare`, settle disagreements once, write `local/labels-final.csv`, run `label-sheets.ts freeze --sheet local/labels-final.csv`, **commit the printed hash** (`local/labels-frozen.sha256` holds it).
-4. Run the extraction with the owner's key (commands below).
-5. Bright Data: support ticket #751032 is open (outage since 2026-10-21); owner side of IDEA-101.
+1. Open `local/label-sheet-owner-tuning-sample-v2.xlsx` (your 36 labels carried over; two new empty columns `is_event` and `cost_source`). Fill those two, and revisit `geo_scope`, `target_area_level`, `track_count` where the rules above change your answer. Convert back: `python scripts/poc-event-insight/sheet_xlsx.py to-csv local/<name>.xlsx local/<name>.csv` (needs `pip install openpyxl`; the CSV is what the tools read). Do not look at `label-sheet-claude-tuning*.csv` until done.
+2. Then `local/label-sheet-owner-heldout-subset.xlsx` (122 posts, scored set, blank, new schema). No pre-fill, no look at model output.
+3. Second labeller (the owner's wife, if she agrees) labels the same 122 blind; `compare`, settle disagreements once, `labels-final.csv`, `label-sheets.ts freeze`, **commit the printed hash**.
+4. Run the extraction with the owner's key (commands below). Bright Data ticket #751032 is open (IDEA-101).
 
 ## What Claude does next
 
@@ -43,7 +53,7 @@ Label in Excel: `local/label-sheet-owner-tuning-sample.xlsx` and `local/label-sh
 export DATABASE_URL=postgres://u:p@localhost:5432/x      # placeholder; the code never connects
 # model runs: the key from the environment or --gemini-key, never from .env
 GEMINI_API_KEY=... npx tsx scripts/poc-event-insight/run-audience-poc.ts --half tuning --ids-from scripts/poc-event-insight/local/label-sheet-owner-tuning-sample.csv
-npx tsx scripts/poc-event-insight/score-audience-poc.ts --labels scripts/poc-event-insight/local/label-sheet-claude-tuning.csv
+npx tsx scripts/poc-event-insight/score-audience-poc.ts --labels scripts/poc-event-insight/local/label-sheet-claude-tuning-v2.csv
 # held-out (gated on the frozen hash):
 GEMINI_API_KEY=... npx tsx scripts/poc-event-insight/run-audience-poc.ts --half heldout --frozen-sheet scripts/poc-event-insight/local/labels-final.csv
 npx tsx scripts/poc-event-insight/score-audience-poc.ts --labels scripts/poc-event-insight/local/labels-final.csv --half heldout
@@ -59,7 +69,7 @@ NODE_ENV=test npx tsx --test scripts/poc-event-insight/*.test.ts
 
 Committed (`apps/backend/scripts/poc-event-insight/`): `fetch-poc-posts.ts`, `label-sheets.ts` (+ `-lib`), `audience-country.ts`, `audience-insight.ts`, `audience-poc-lib.ts`, `run-audience-poc.ts`, `audience-poc-score-lib.ts`, `score-audience-poc.ts`, `ladder-baseline.ts`, and the older experiments (`audience-areas.ts`, `tracks.ts`, `country-signals.ts`, `guards.ts`, ...). Labelling guide: `labelling-guide-2026-10-21.md` (+ `.id.md`).
 
-Local only, git-ignored, contain third-party captions (`apps/backend/scripts/poc-event-insight/local/`): `poc-posts.local.json`, `poc-accounts.local.json`, `label-sheet-owner.csv` (all 437), `label-sheet-owner-heldout-subset.csv` (122), `label-sheet-owner-tuning-sample.csv` (36), `label-sheet-claude-tuning.csv` and `claude-tuning-labels.tsv` (Claude's draft, 209), `tuning-half-to-draft.csv`, later `extraction-runs.local.json`, `labels-frozen.sha256`. These do not travel with git: a different machine starts without them. Never commit them.
+Local only, git-ignored, contain third-party captions (`apps/backend/scripts/poc-event-insight/local/`): `poc-posts.local.json`, `poc-accounts.local.json`, `label-sheet-owner.csv` (all 437), `label-sheet-owner-heldout-subset.csv` (122), `label-sheet-owner-tuning-sample.csv` (36), `label-sheet-claude-tuning.csv` and `claude-tuning-labels.tsv` (Claude's first draft, 209, old rules), `label-sheet-claude-tuning-v2.csv` (draft under the new rules, partly pending), `label-sheet-owner-tuning-sample (1).xlsx` (owner's first 36 labels), `tuning-half-to-draft.csv`, later `extraction-runs.local.json`, `labels-frozen.sha256`. These do not travel with git: a different machine starts without them. Never commit them.
 
 ## How the sets were built
 

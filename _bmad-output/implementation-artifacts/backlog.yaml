@@ -2835,3 +2835,20 @@ items:
      ref: [apps/backend/scripts/debug-brightdata.ts, apps/infrastructure/lib/festgrid-backend-stack.ts],
      touches: [app:backend, app:infrastructure],
      note: "Script is on the PR for the owner to run with their own token; the alarm (and an alarm on the scraping DLQ depth) is proposed in the PR description, not built. Owner side, 2026-10-23: Bright Data support ticket #751032 opened (every discover_new snapshot on dataset gd_lk5ns7kz21pck8jpis returns 0 records since 2026-10-21 03:13 UTC, with and without start_date; credit review requested). Awaiting their reply."}
+
+
+  IDEA-102:
+    {type: idea, status: backlog, created: 2026-10-26,
+     impact: user-visible, effort: m,
+     title: "Link a schedule-less post (recap, update, 'registration extended') to the event it is about, by event name, while that event is still open",
+     ref: [planning-artifacts/event-insight-poc/poc-status.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "From the owner's POC labelling (2026-10-26): posts with no schedule (is_event = no) often concern a known event. Match by event name against open events and attach the post to that event's detail instead of creating or dropping an event; useless once the event has ended, since ended events leave the regular list. Needs the same matcher as event dedup (AD-30)."}
+
+  IDEA-103:
+    {type: idea, status: backlog, created: 2026-10-26,
+     impact: internal, effort: m,
+     title: "Reposts: read the audience area and country from the original account (extra profile scrape), not the curator that reposted",
+     ref: [planning-artifacts/event-insight-poc/poc-status.md, backlog/IDEA-075-profile-enrichment-country-reach-retry.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "From the owner's POC labelling (2026-10-26): target area is read from venue, hashtags and the posting account's coverage, which is wrong for a repost, where the original account is the real source. The POC does not look the original up. Costs one more scrape per distinct original account; fits IDEA-075's profile enrichment."}
