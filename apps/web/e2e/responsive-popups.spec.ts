@@ -89,6 +89,19 @@ const scenarios: PopupScenario[] = [
     },
   },
   {
+    // The modal a card click opens (an intercepted route), not the direct page: its content sits in a
+    // single-column grid, where one wide child used to stretch the whole column past the screen.
+    name: 'event detail modal (moderator): content and Re-extract button',
+    route: '/en',
+    session: 'moderator',
+    open: async (page) => {
+      await page.locator('article h3').first().click();
+      await page.waitForURL(/\/en\/events\//);
+      await expect(page.getByRole('button', { name: 'Re-extract' }).first()).toBeVisible({ timeout: 30_000 });
+      return page.locator(DIALOG).last();
+    },
+  },
+  {
     name: 'event detail (moderator): Re-extract dialog',
     route: EVENT_ROUTE,
     session: 'moderator',
