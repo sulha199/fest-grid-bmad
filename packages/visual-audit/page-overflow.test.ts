@@ -257,6 +257,7 @@ test('checkPopupContainment', async (t) => {
     viewport: { width: 375, height: 667 },
     box: { left: 20, top: 100, right: 308, bottom: 500 },
     scrollable: false,
+    horizontalOverflowPx: 0,
     interactiveCount: 12,
     lastInteractiveAfterScroll: { left: 30, top: 440, right: 120, bottom: 480 },
   };
@@ -296,6 +297,20 @@ test('checkPopupContainment', async (t) => {
   await t.test('wider than the screen and off the left edge are both reported', () => {
     const wide: PopupMeasurement = { ...base, box: { left: -12, top: 100, right: 400, bottom: 500 } };
     assert.match(checkPopupContainment(wide)[0], /12px past the left edge, 25px past the right edge/);
+  });
+
+  await t.test('the moderator Re-extract bug: a 320px dialog whose content is 597px wide is flagged even though the box fits the screen', () => {
+    const wideContent: PopupMeasurement = {
+      ...base,
+      viewport: { width: 320, height: 800 },
+      box: { left: 0, top: 60, right: 320, bottom: 740 },
+      horizontalOverflowPx: 277,
+      lastInteractiveAfterScroll: { left: 508, top: 660, right: 605, bottom: 696 },
+    };
+    const problems = checkPopupContainment(wideContent);
+    assert.strictEqual(problems.length, 2);
+    assert.match(problems[0], /277px wider than the popup itself/);
+    assert.match(problems[1], /last of 12 interactive element/);
   });
 
   await t.test('no interactive elements: only the box is checked', () => {

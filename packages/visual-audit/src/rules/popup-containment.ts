@@ -20,6 +20,11 @@ export interface PopupMeasurement {
   box: Box;
   /** The overlay scrolls vertically (`overflow-y: auto|scroll` and content taller than the box). */
   scrollable: boolean;
+  /**
+   * `scrollWidth - clientWidth` of the overlay: content wider than its own box. Overlays clip or
+   * sideways-scroll this, so options past the edge are unreachable even when the box fits the screen.
+   */
+  horizontalOverflowPx: number;
   /** Number of visible interactive descendants. */
   interactiveCount: number;
   /** Box of the lowest interactive descendant, measured after scrolling the overlay to its end; null when there are none. */
@@ -40,6 +45,10 @@ export function checkPopupContainment(m: PopupMeasurement, tolerance = POPUP_TOL
   if (box.bottom > vp.height + tolerance) offscreen.push(`${Math.round(box.bottom - vp.height)}px below the bottom edge`);
   if (offscreen.length > 0) {
     problems.push(`popup extends outside the ${vp.width}x${vp.height} viewport (${offscreen.join(', ')})${m.scrollable ? '' : ' and does not scroll'}`);
+  }
+
+  if (m.horizontalOverflowPx > tolerance) {
+    problems.push(`content is ${Math.round(m.horizontalOverflowPx)}px wider than the popup itself, so its right side is clipped or only reachable by scrolling sideways`);
   }
 
   const last = m.lastInteractiveAfterScroll;

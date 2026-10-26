@@ -18,6 +18,7 @@ export async function measurePopup(page: Page, popup: Locator): Promise<PopupMea
       new Promise<{
         box: { left: number; top: number; right: number; bottom: number };
         scrollable: boolean;
+        horizontalOverflowPx: number;
         interactiveCount: number;
         last: { left: number; top: number; right: number; bottom: number } | null;
       }>((resolve) => {
@@ -36,6 +37,7 @@ export async function measurePopup(page: Page, popup: Locator): Promise<PopupMea
           resolve({
             box: rectOf(el.getBoundingClientRect()),
             scrollable,
+            horizontalOverflowPx: el.scrollWidth - el.clientWidth,
             interactiveCount: items.length,
             last: lowest ? rectOf(lowest) : null,
           });
@@ -44,5 +46,5 @@ export async function measurePopup(page: Page, popup: Locator): Promise<PopupMea
     INTERACTIVE
   );
   const viewport = page.viewportSize() ?? { width: 0, height: 0 };
-  return { viewport, box: raw.box, scrollable: raw.scrollable, interactiveCount: raw.interactiveCount, lastInteractiveAfterScroll: raw.last };
+  return { viewport, box: raw.box, scrollable: raw.scrollable, horizontalOverflowPx: raw.horizontalOverflowPx, interactiveCount: raw.interactiveCount, lastInteractiveAfterScroll: raw.last };
 }
