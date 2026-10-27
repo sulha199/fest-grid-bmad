@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-26"
+last_updated: "2026-10-27"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2961,3 +2961,20 @@ items:
      ref: [apps/backend/src/lib/accounts/backfill-account-profile-and-infer-location.ts, packages/domain/src/scraper/account-enrichment.ts, backlog/BUG-081-profile-backfill-overwrites-subscribed-username.md],
      touches: [app:backend, pkg:domain, web:subscriptions],
      note: "Fix and PROD repair script in the same PR; set done once merged and the repair workflow has run. 0587b45b is probably jogjakajian's account (inferred)."}
+
+  # ── 2026-10-27 (target-area spec: findings from the venue-only and multi-area discussion) ──
+  BUG-087:
+    {type: bug, status: backlog, created: 2026-10-27,
+     impact: user-visible, effort: m,
+     title: "LocationDetails.city is often a kecamatan (DIY schedules: Depok 352, Mlati 48, Banguntapan 26; Depok is also Kota Depok in West Java) and the province is spelled two ways, so any area read from a pin's city string is wrong",
+     ref: [planning-artifacts/event-insight-poc/target-area-spec-2026-10-27.md, apps/backend/src/lib/geolocation/geoapify-client.ts, backlog/BUG-087-geocoder-city-is-a-kecamatan.md],
+     touches: [app:backend, pkg:domain, web:locations],
+     note: "Prod 2026-10-27; LocationDetails has no kabupaten field. Evidence and fix direction in backlog/BUG-087-geocoder-city-is-a-kecamatan.md."}
+
+  IDEA-105:
+    {type: idea, status: backlog, created: 2026-10-27,
+     impact: user-visible, effort: l,
+     title: "Target area in production: a mixed-level set with roles and qualifiers, the venue-without-address ladder with account venue memory, an owner-maintained aggregates table, neighbourhood with an anchor",
+     ref: [planning-artifacts/event-insight-poc/target-area-spec-2026-10-27.md, planning-artifacts/event-insight-poc/target-area-edits-draft-2026-10-27.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/IDEA-105-target-area-in-production.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction, web:locations],
+     note: "Owner decisions 2026-10-27, applied to the POC and PRD 3.20 on the ecstatic-shannon branch; what is open before building is in backlog/IDEA-105-target-area-in-production.md."}

@@ -25,13 +25,26 @@ Last updated 2026-10-23. **Update this file at the end of every work session**, 
 Owner's 36-post sample vs Claude's first draft: audience_country 100% (35/35), age_written 100%, sensitive 94%, post_language 91%; cost_tier 67%, geo_scope 31%, eligibility 25%, target_area_level 3%, track_count 3%. The low ones were different readings of the guide, not noise. The owner settled them:
 
 - **eligibility:** `open_to_public` unless a membership restriction exists; `unspecified` only for a non-event.
-- **target_area_level:** from the venue, then hashtags, then the posting account's coverage. Reposts: use what the post shows; looking up the original account is out of scope (backlog IDEA-103).
+- **target_area_level:** ~~from the venue, then hashtags, then the posting account's coverage~~ **SUPERSEDED 2026-10-27** by the target-area spec (`target-area-spec-2026-10-27.md`): the labeller writes only the area the post STATES (`target_area_name`, `target_area_source`, `target_area_level` = the level of that name, the wider one when a name could be a city or its province); the venue, hashtag and account areas are derived by code. Reposts: use what the post shows; looking up the original account is out of scope (backlog IDEA-103).
 - **track_count:** an event listing no categories is one tier open to everybody = 1. Not an event = `unclear`.
 - **geo_scope:** a named venue = `venue_local`; only a city or area = `city`.
 - **New column `is_event`:** `no` = no schedule (recap, repost of a personal vlog, news, shop promo, greeting). Event fields are not scored on those posts. A schedule-less post that concerns a known event could link to it (backlog IDEA-102).
 - **cost_tier:** may be read from the image; new column `cost_source` (caption / image / none). The model sees the caption only, so cost is scored on caption and none rows.
 
 Done in code: sheet schema (`is_event`, `cost_source`), both guides, `sheet_xlsx.py`, model prompt `audience-v2` (isEvent, venue/hashtag/place context), scorer (event-only fields, track count normalised to at least 1, cost split). **Pending:** (a) owner fills `is_event` and `cost_source` in the v2 sheet and re-checks the changed columns; (b) Claude re-reads the tuning draft for geo_scope and target_area_level (draft v2 has them as `unclear` for now, so they are not scored) and re-checks its `is_event` guesses, which came from a keyword pass over its own notes and are rough; (c) re-run the comparison.
+
+## Target-area change (2026-10-27) — applied on this branch
+
+Spec: `target-area-spec-2026-10-27.md` (decisions, edge cases, evidence). Draft edits and where each landed: `target-area-edits-draft-2026-10-27.md`.
+
+- **Split of work:** the model (prompt `audience-v3`, `--prompt v3`, the default) reports only the areas the post STATES, with a verbatim quote; code derives everything implicit (`target-areas.ts`, `hashtag-places.ts`, `implicit-level-policy.ts`, `venue-resolution.ts`). Prompt `audience-v2` stays so earlier results can be reproduced.
+- **Label sheet:** two new columns, `target_area_name` and `target_area_source` (`stated | stated_poster | none`); `target_area_level` is now the level of that name. Both guides and `sheet_xlsx.py` are updated. An older sheet without the columns is flagged "blank" until they are filled.
+- **Scorer:** for v3 runs only, it adds the area source and the area name, compared through the gazetteer ("Jogja" = "DIY").
+- **Policy changes:** a never-classified account is treated as a curator (reverses 2026-10-18); a large venue in DIY or DKI Jakarta resolves to the province; the gazetteer resolves a name inside its province (Depok in DIY is a kecamatan of Sleman).
+- **Seed table:** 12 informal aggregates in `area-resolver.ts` whose member lists the owner must verify.
+- **PRD:** Section 3.20 amended (target area as a mixed-level set, order, venue without an address, unclassified = curator, bio-stated audience area).
+- **Owner to do:** re-label the 36 tuning posts for the three target-area columns (the 3% agreement on 2026-10-26 was a different reading of the old rule); add the 14 probe cases (spec section 7) as a separate sheet; fill the aggregates table check.
+- **Not done:** the real gazetteer (Kemendagri/BPS), the geocoder wiring of `decideVenue`, account venue memory storage, profile enrichment (IDEA-075). Backlog: BUG-087, IDEA-105.
 
 ## What the owner does next
 
