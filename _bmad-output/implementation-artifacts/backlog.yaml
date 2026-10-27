@@ -2540,3 +2540,12 @@ items:
      ref: [packages/domain/src/scraper/evaluate-provider-run-health.ts, apps/backend/src/lib/scraper/provider-run-health-store.ts],
      touches: [app:backend, pkg:domain],
      note: "Fixed in the PR that adds this row (14-day carry-over); set done once merged. 2026-10-26 03:13 UTC: all 38 targets went to Bright Data and failed, Apify re-queue recovered the data."}
+
+  # ── 2026-10-27 (prod: Apify memory cap on the queue path recorded as vendor failures) ──
+  BUG-083:
+    {type: bug, status: backlog, created: 2026-10-27,
+     impact: user-visible, effort: xs,
+     title: "Queue-path Apify runs refused by the account memory cap (402) are recorded FAILED and burn SQS receives",
+     ref: [apps/backend/src/lib/scraper/instagram-adapter.ts, packages/domain/src/scraper/apify-memory-limit-wait.ts],
+     touches: [app:backend, pkg:domain],
+     note: "Fixed in the PR that adds this row (bounded wait inside the call budget, no row for a run that never started); set done once merged. 2026-10-25 03:13 UTC: 31 SYNC rows FAILED, 34 later SUCCEEDED via redelivery."}
