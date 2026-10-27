@@ -1868,5 +1868,330 @@ test('processAiJob orchestrator tests', async (t) => {
 
     assert.strictEqual(callGeminiCallCount, 1, 'processAiJob must call Gemini exactly once per post, regardless of how many events come back (AD-13)');
   });
+
+  await t.test('Case T (Story 0.52 AC6): logs outcome=empty_list_fallback_to_other when the raw category list is empty', async () => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000020',
+      accountId: profile.id,
+      content: 'Empty categories check',
+      postUrl: 'https://test.com/pt',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'No Category Event',
+            types: ['OTHER'],
+            categories: [],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    const infoCalls: unknown[][] = [];
+    const infoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      infoCalls.push(args);
+    });
+
+    try {
+      await processAiJob(message);
+    } finally {
+      infoMock.mock.restore();
+    }
+
+    const matching = infoCalls.filter((args) =>
+      String(args[0]).includes(`[processAiJob] category-fallback post=${message.postId} event=0 outcome=empty_list_fallback_to_other`)
+    );
+    assert.strictEqual(matching.length, 1, 'Expected exactly one empty_list_fallback_to_other log line');
+  });
+
+  await t.test('Case U (Story 0.52 AC6): logs outcome=deliberate_other when the raw category list is exactly [OTHER]', async () => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000021',
+      accountId: profile.id,
+      content: 'Deliberate OTHER check',
+      postUrl: 'https://test.com/pu',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'Deliberate Other Event',
+            types: ['OTHER'],
+            categories: ['OTHER'],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    const infoCalls: unknown[][] = [];
+    const infoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      infoCalls.push(args);
+    });
+
+    try {
+      await processAiJob(message);
+    } finally {
+      infoMock.mock.restore();
+    }
+
+    const matching = infoCalls.filter((args) =>
+      String(args[0]).includes(`[processAiJob] category-fallback post=${message.postId} event=0 outcome=deliberate_other`)
+    );
+    assert.strictEqual(matching.length, 1, 'Expected exactly one deliberate_other log line');
+
+    const emptyFallbackMatches = infoCalls.filter((args) => String(args[0]).includes('outcome=empty_list_fallback_to_other'));
+    assert.strictEqual(emptyFallbackMatches.length, 0, 'Should not ALSO log the empty-list outcome for a deliberate single-OTHER list');
+  });
+
+  await t.test('Case U2 (Story 0.54 review patch): logs outcome=deliberate_other for a duplicate-OTHER-only raw list', async () => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000022',
+      accountId: profile.id,
+      content: 'Duplicate OTHER check',
+      postUrl: 'https://test.com/pu',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'Duplicate Other Event',
+            types: ['OTHER'],
+            categories: ['OTHER', 'OTHER'],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    const infoCalls: unknown[][] = [];
+    const infoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      infoCalls.push(args);
+    });
+
+    try {
+      await processAiJob(message);
+    } finally {
+      infoMock.mock.restore();
+    }
+
+    const matching = infoCalls.filter((args) =>
+      String(args[0]).includes(`[processAiJob] category-fallback post=${message.postId} event=0 outcome=deliberate_other`)
+    );
+    assert.strictEqual(matching.length, 1, 'Expected exactly one deliberate_other log line for a duplicate-OTHER-only list');
+  });
+
+  await t.test('Case V (Story 0.52 AC6): does NOT log a category-fallback line for a normal, non-fallback category list', async () => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000022',
+      accountId: profile.id,
+      content: 'Normal category check',
+      postUrl: 'https://test.com/pv',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'Normal Event',
+            types: ['PERFORMANCE'],
+            categories: ['MUSIC'],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    const infoCalls: unknown[][] = [];
+    const infoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      infoCalls.push(args);
+    });
+
+    try {
+      await processAiJob(message);
+    } finally {
+      infoMock.mock.restore();
+    }
+
+    const matching = infoCalls.filter((args) => String(args[0]).includes('[processAiJob] category-fallback'));
+    assert.strictEqual(matching.length, 0, 'Should not log a category-fallback line when the raw category list is a normal, non-empty, non-solo-OTHER list');
+  });
+
+  await t.test('Case W (Story 0.54 AC4): logs outcome=truncated_to_safety_cap when the raw, deduped, OTHER-excluded category count exceeds 6, and does NOT log it for a 6-or-fewer list or when combined with OTHER', async () => {
+    const overCapMessage: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000023',
+      accountId: profile.id,
+      content: 'Over-safety-cap categories check',
+      postUrl: 'https://test.com/pw',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'Over Cap Event',
+            types: ['OTHER'],
+            categories: [
+              'MUSIC',
+              'ARTS_AND_CULTURE',
+              'FOOD_AND_DRINK',
+              'SPORTS_AND_FITNESS',
+              'FAMILY_AND_KIDS',
+              'HOBBIES_AND_INTERESTS',
+              'BUSINESS_AND_NETWORKING'
+            ],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+    setSendSqsMessage(async () => {});
+    setMarkPostExtractedSeam(async () => ({} as any));
+
+    const overCapInfoCalls: unknown[][] = [];
+    const overCapInfoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      overCapInfoCalls.push(args);
+    });
+
+    try {
+      await processAiJob(overCapMessage);
+    } finally {
+      overCapInfoMock.mock.restore();
+    }
+
+    const overCapMatching = overCapInfoCalls.filter((args) =>
+      String(args[0]).includes(
+        `[processAiJob] category-fallback post=${overCapMessage.postId} event=0 outcome=truncated_to_safety_cap realCategoryCount=7`
+      )
+    );
+    assert.strictEqual(overCapMatching.length, 1, 'Expected exactly one truncated_to_safety_cap log line with realCategoryCount=7');
+
+    // Combined with OTHER: OTHER never counts against the cap, so >6 real categories plus OTHER
+    // still fires the truncation outcome (never the empty/deliberate-OTHER outcomes).
+    const overCapWithOtherMessage: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000024',
+      accountId: profile.id,
+      content: 'Over-safety-cap categories plus OTHER check',
+      postUrl: 'https://test.com/pw2',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'Over Cap Plus Other Event',
+            types: ['OTHER'],
+            categories: [
+              'OTHER',
+              'MUSIC',
+              'ARTS_AND_CULTURE',
+              'FOOD_AND_DRINK',
+              'SPORTS_AND_FITNESS',
+              'FAMILY_AND_KIDS',
+              'HOBBIES_AND_INTERESTS',
+              'BUSINESS_AND_NETWORKING'
+            ],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+
+    const overCapWithOtherInfoCalls: unknown[][] = [];
+    const overCapWithOtherInfoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      overCapWithOtherInfoCalls.push(args);
+    });
+
+    try {
+      await processAiJob(overCapWithOtherMessage);
+    } finally {
+      overCapWithOtherInfoMock.mock.restore();
+    }
+
+    const overCapWithOtherMatching = overCapWithOtherInfoCalls.filter((args) =>
+      String(args[0]).includes(
+        `[processAiJob] category-fallback post=${overCapWithOtherMessage.postId} event=0 outcome=truncated_to_safety_cap realCategoryCount=7`
+      )
+    );
+    assert.strictEqual(
+      overCapWithOtherMatching.length,
+      1,
+      'Expected exactly one truncated_to_safety_cap log line with realCategoryCount=7 even when OTHER is present'
+    );
+    const otherOutcomesOnOverCapWithOther = overCapWithOtherInfoCalls.filter(
+      (args) =>
+        String(args[0]).includes('outcome=empty_list_fallback_to_other') || String(args[0]).includes('outcome=deliberate_other')
+    );
+    assert.strictEqual(otherOutcomesOnOverCapWithOther.length, 0, 'Should not ALSO log the empty-list or deliberate-OTHER outcomes');
+
+    // A 6-or-fewer-real-category list must NOT log the truncation outcome.
+    const atCapMessage: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-000000000025',
+      accountId: profile.id,
+      content: 'At-safety-cap categories check',
+      postUrl: 'https://test.com/pw3',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: true,
+        events: [
+          {
+            eventName: 'At Cap Event',
+            types: ['OTHER'],
+            categories: ['MUSIC', 'ARTS_AND_CULTURE', 'FOOD_AND_DRINK', 'SPORTS_AND_FITNESS', 'FAMILY_AND_KIDS', 'HOBBIES_AND_INTERESTS'],
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15' }],
+            confidenceScore: 0.9
+          }
+        ]
+      })
+    }));
+
+    const atCapInfoCalls: unknown[][] = [];
+    const atCapInfoMock = t.mock.method(console, 'info', (...args: unknown[]) => {
+      atCapInfoCalls.push(args);
+    });
+
+    try {
+      await processAiJob(atCapMessage);
+    } finally {
+      atCapInfoMock.mock.restore();
+    }
+
+    const atCapMatching = atCapInfoCalls.filter((args) => String(args[0]).includes('[processAiJob] category-fallback'));
+    assert.strictEqual(atCapMatching.length, 0, 'Should not log any category-fallback line for a 6-real-category list (at, not over, the safety cap)');
+  });
 });
 

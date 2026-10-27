@@ -48,6 +48,7 @@ import {
 } from './schema';
 import { loadDatabaseEnv } from './env';
 import { FIXTURE_USERS, createSqlClient, isLocalConnectionString, relativeDate } from './seed';
+import { EventCategory } from '@festgrid/shared-types';
 
 export const DEFAULT_VOLUME_EVENT_COUNT = 30_000;
 const CHUNK_SIZE = 1000;
@@ -96,7 +97,20 @@ const CITIES = [
 ] as const;
 const VENUE_TYPES = ['hall', 'mall', 'park', 'cafe', 'stadium', 'museum', 'campus', 'hotel'] as const;
 const TYPES = ['EXHIBITION', 'COMPETITION', 'FESTIVAL', 'PERFORMANCE', 'WORKSHOP', 'SEMINAR', 'MARKET', 'GATHERING', 'PROMOTION', 'OTHER'] as const;
-const CATEGORIES = ['MUSIC', 'ARTS_AND_CULTURE', 'FOOD_AND_DRINK', 'SPORTS_AND_FITNESS', 'FAMILY_AND_KIDS', 'HOBBIES_AND_INTERESTS', 'BUSINESS_AND_NETWORKING', 'TECHNOLOGY'] as const;
+// Story 0.53 (AD-44 Rule 6): typed as `readonly EventCategory[]` so correctness is derived from
+// the enum at compile time, rather than a bare string-literal tuple that could silently drift
+// from real EventCategory members. Deliberately still a curated subset for seeded-data variety --
+// not required to cover all 22 values.
+export const CATEGORIES: readonly EventCategory[] = [
+  EventCategory.MUSIC,
+  EventCategory.ARTS_AND_CULTURE,
+  EventCategory.FOOD_AND_DRINK,
+  EventCategory.SPORTS_AND_FITNESS,
+  EventCategory.FAMILY_AND_KIDS,
+  EventCategory.HOBBIES_AND_INTERESTS,
+  EventCategory.BUSINESS_AND_NETWORKING,
+  EventCategory.TECHNOLOGY,
+];
 const PRICES = ['Free', 'Gratis', 'IDR 50000', 'IDR 150000', 'IDR 250000', 'Free before 9 PM', null] as const;
 const HASHTAGS = ['jogja', 'music', 'festival', 'run', 'market', 'workshop', 'expo', 'kids', 'tech', 'art', 'food', 'charity'] as const;
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;

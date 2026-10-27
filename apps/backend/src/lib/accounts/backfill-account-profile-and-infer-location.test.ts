@@ -15,12 +15,15 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
 
   t.beforeEach(async () => {
     // Insert a fresh test profile for each subtest
+    const handle = 'test_handle_' + Math.random().toString(36).slice(2, 9);
     const [profile] = await db
       .insert(socialMediaAccountProfiles)
       .values({
         platform: 'instagram',
-        accountId: 'test-account-id-' + Math.random().toString(36).slice(2, 9),
-        username: 'old_username',
+        // A handle-keyed subscribed row: account_id is the handle the user typed and username starts equal
+        // to it. The prefix keeps the random suffix from ever being all digits (a numeric-keyed row).
+        accountId: handle,
+        username: handle,
         displayName: 'Old Display Name',
         defaultLocation: null,
       })
@@ -47,7 +50,7 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
       .from(socialMediaAccountProfiles)
       .where(eq(socialMediaAccountProfiles.id, testProfile.id));
 
-    assert.equal(profile.username, 'old_username');
+    assert.equal(profile.username, testProfile.accountId);
     assert.equal(profile.displayName, 'Old Display Name');
     assert.equal(profile.defaultLocation, null);
   });
@@ -77,17 +80,17 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
         postUrl: 'https://post-url',
         publishedAt: new Date().toISOString(),
         ownerDisplayName: 'New Display Name',
-        ownerUsername: 'new_username',
+        ownerUsername: testProfile.accountId,
       },
     ]);
 
-    // Assert profile fields are backfilled
+    // Assert the display name is backfilled from the profile's own post; the username is untouched
     const [profile] = await db
       .select()
       .from(socialMediaAccountProfiles)
       .where(eq(socialMediaAccountProfiles.id, testProfile.id));
 
-    assert.equal(profile.username, 'new_username');
+    assert.equal(profile.username, testProfile.accountId);
     assert.equal(profile.displayName, 'New Display Name');
     assert.equal(geminiCalled, false);
   });
@@ -119,7 +122,7 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
         postUrl: 'https://post-url',
         publishedAt: new Date().toISOString(),
         ownerDisplayName: 'Old Display Name', // no change
-        ownerUsername: 'old_username', // no change
+        ownerUsername: testProfile.accountId, // no change
       },
     ]);
 
@@ -129,7 +132,7 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
       .from(socialMediaAccountProfiles)
       .where(eq(socialMediaAccountProfiles.id, testProfile.id));
 
-    assert.equal(profile.username, 'old_username');
+    assert.equal(profile.username, testProfile.accountId);
     assert.equal(profile.displayName, 'Old Display Name');
     assert.ok(profile.defaultLocation);
     assert.equal((profile.defaultLocation as any).placeName, 'Central Park');
@@ -173,7 +176,7 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
         postUrl: 'https://post-url',
         publishedAt: new Date().toISOString(),
         ownerDisplayName: 'Backfilled Display Name',
-        ownerUsername: 'backfilled_username',
+        ownerUsername: testProfile.accountId,
       },
     ]);
 
@@ -182,7 +185,7 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
       .from(socialMediaAccountProfiles)
       .where(eq(socialMediaAccountProfiles.id, testProfile.id));
 
-    assert.equal(profile.username, 'backfilled_username');
+    assert.equal(profile.username, testProfile.accountId);
     assert.equal(profile.displayName, 'Backfilled Display Name');
     assert.ok(profile.defaultLocation);
     assert.equal((profile.defaultLocation as any).placeName, 'Sydney Opera House');
@@ -229,5 +232,103 @@ test('backfillAccountProfileAndInferDefaultLocation orchestration', async (t) =>
       .where(eq(socialMediaAccountProfiles.id, testProfile.id));
 
     assert.equal(profile.defaultLocation, null);
+  });
+
+  const post = (owner: { ownerUsername?: string; ownerDisplayName?: string; ownerId?: string }, n = 1) => ({
+    content: 'No location signal here',
+    postUrl: `https://post-url/${n}`,
+    publishedAt: new Date().toISOString(),
+    ...owner,
+  });
+
+  const readProfile = async () => {
+    const [profile] = await db
+      .select()
+      .from(socialMediaAccountProfiles)
+      .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+    return profile;
+  };
+
+  await t.test('7. BUG-081: a collab/repost first post never rewrites username or displayName', async () => {
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({ defaultLocation: { placeName: 'Preset', formattedAddress: 'Preset', coordinates: { latitude: 0, longitude: 0 } } })
+      .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
+    await backfillAccountProfileAndInferDefaultLocation(testProfile.id, [
+      post({ ownerUsername: 'kulonprogohalfmarathon', ownerDisplayName: 'Kulonprogo Half Marathon' }),
+    ]);
+
+    const profile = await readProfile();
+    assert.equal(profile.username, testProfile.accountId);
+    assert.equal(profile.displayName, 'Old Display Name');
+  });
+
+  await t.test('8. BUG-081: takes the first MATCHING post, not the first post with an owner', async () => {
+    await db
+      .update(socialMediaAccountProfiles)
+      .set({ defaultLocation: { placeName: 'Preset', formattedAddress: 'Preset', coordinates: { latitude: 0, longitude: 0 } } })
+      .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
+    await backfillAccountProfileAndInferDefaultLocation(testProfile.id, [
+      post({ ownerUsername: 'someone.else', ownerDisplayName: 'Someone Else' }, 1),
+      post({ ownerUsername: testProfile.accountId.toUpperCase(), ownerDisplayName: 'Own Name' }, 2),
+      post({ ownerUsername: testProfile.accountId, ownerDisplayName: 'Later Own Name' }, 3),
+    ]);
+
+    const profile = await readProfile();
+    // display name from the first own post; username corrected to the owner's spelling (case-only difference)
+    assert.equal(profile.displayName, 'Own Name');
+    assert.equal(profile.username.toLowerCase(), testProfile.accountId.toLowerCase());
+    assert.notEqual(profile.username.toLowerCase(), 'someone.else');
+  });
+
+  await t.test('9. BUG-081: a numeric-keyed row is backfilled only from a post with its own ownerId', async () => {
+    const numericId = String(9_000_000_000 + Math.floor(Math.random() * 1_000_000));
+    const [numeric] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ platform: 'instagram', accountId: numericId, username: numericId, displayName: numericId })
+      .returning();
+    try {
+      await db
+        .update(socialMediaAccountProfiles)
+        .set({ defaultLocation: { placeName: 'Preset', formattedAddress: 'Preset', coordinates: { latitude: 0, longitude: 0 } } })
+        .where(eq(socialMediaAccountProfiles.id, numeric.id));
+
+      await backfillAccountProfileAndInferDefaultLocation(numeric.id, [
+        post({ ownerId: '111', ownerUsername: 'foreign', ownerDisplayName: 'Foreign' }, 1),
+        post({ ownerId: numericId, ownerUsername: 'real.owner', ownerDisplayName: 'Real Owner' }, 2),
+      ]);
+
+      const [after] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, numeric.id));
+      assert.equal(after.username, 'real.owner');
+      assert.equal(after.displayName, 'Real Owner');
+    } finally {
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, numeric.id));
+    }
+  });
+
+  await t.test('10. BUG-081: a numeric-keyed row whose handle disagrees with its ownerId is left for a human', async () => {
+    const numericId = String(9_100_000_000 + Math.floor(Math.random() * 1_000_000));
+    const [relabelled] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ platform: 'instagram', accountId: numericId, username: 'masjidmuhajirinnitikan', displayName: 'Masjid Muhajirin Nitikan' })
+      .returning();
+    try {
+      await db
+        .update(socialMediaAccountProfiles)
+        .set({ defaultLocation: { placeName: 'Preset', formattedAddress: 'Preset', coordinates: { latitude: 0, longitude: 0 } } })
+        .where(eq(socialMediaAccountProfiles.id, relabelled.id));
+
+      await backfillAccountProfileAndInferDefaultLocation(relabelled.id, [
+        post({ ownerId: numericId, ownerUsername: 'jogjakajian', ownerDisplayName: 'Info Kajian Jogja' }),
+      ]);
+
+      const [after] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, relabelled.id));
+      assert.equal(after.username, 'masjidmuhajirinnitikan');
+      assert.equal(after.displayName, 'Masjid Muhajirin Nitikan');
+    } finally {
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, relabelled.id));
+    }
   });
 });

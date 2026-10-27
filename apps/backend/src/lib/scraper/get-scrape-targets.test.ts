@@ -372,6 +372,47 @@ test('get-scrape-targets batch targeting tests', async (t) => {
     );
   });
 
+  await t.test('2026-10-24: a scheduled cycle is judged against its own fire time, not the rolling skip window', async () => {
+    // Prod incident: a recovery rerun at 15:59 UTC stamped every profile ~11h before the 03:13 UTC cron,
+    // inside the 12h window, so the cron found 0 targets. Reproduced here with a cron that "fires now".
+    const cronTime = new Date();
+    const hoursBefore = (h: number) => new Date(cronTime.getTime() - h * 60 * 60 * 1000);
+    const minutesAfter = (m: number) => new Date(cronTime.getTime() + m * 60 * 1000);
+    const stamps: Record<string, Date> = {
+      late_manual_rerun_11h: hoursBefore(11),
+      just_before_cron_30m: new Date(cronTime.getTime() - 30 * 60 * 1000),
+      older_than_margin_2h: hoursBefore(2),
+      stamped_by_this_cycle: minutesAfter(1),
+    };
+    const profileByKey: Record<string, string> = {};
+    for (const [key, lastScrapedAt] of Object.entries(stamps)) {
+      const [p] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: `test-sched-${key}-` + Date.now(),
+        platform: 'instagram',
+        displayName: key,
+        username: `sched_${key}_` + Date.now(),
+        lastScrapedAt,
+      }).returning();
+      createdProfiles.push(p.id);
+      const [s] = await db.insert(subscriptions).values({ userId: user1.id, accountId: p.id }).returning();
+      createdSubs.push(s.id);
+      profileByKey[key] = p.id;
+    }
+
+    const scheduledIds = (await getBatchScrapeTargets({ scheduledTime: cronTime })).map((x) => x.profileId);
+    assert.ok(scheduledIds.includes(profileByKey.late_manual_rerun_11h), 'scheduled run must scrape a profile a late manual rerun stamped 11h ago');
+    assert.ok(scheduledIds.includes(profileByKey.older_than_margin_2h), 'scheduled run must scrape a profile stamped 2h before the cron (outside the margin)');
+    assert.strictEqual(scheduledIds.includes(profileByKey.just_before_cron_30m), false, 'a run within the margin before the cron counts as this cycle having scraped it');
+    assert.strictEqual(scheduledIds.includes(profileByKey.stamped_by_this_cycle), false, 'a duplicate delivery of the same cycle must skip a profile this cycle already stamped');
+
+    // Same data, manual invocation (no scheduled time): the rolling 12h window still applies.
+    const manualIds = (await getBatchScrapeTargets()).map((x) => x.profileId);
+    assert.strictEqual(manualIds.includes(profileByKey.late_manual_rerun_11h), false, 'manual run keeps honouring SCRAPE_SKIP_RECENT_HOURS (11h < 12h)');
+    assert.strictEqual(manualIds.includes(profileByKey.just_before_cron_30m), false);
+    assert.strictEqual(manualIds.includes(profileByKey.older_than_margin_2h), false);
+    assert.strictEqual(manualIds.includes(profileByKey.stamped_by_this_cycle), false);
+  });
+
   await t.test('FIND-035: attaches newestPostPublishedAt for incremental scraping', async () => {
     // Profile with prior posts -- should surface its newest publishedAt, not the oldest.
     const [pWithPosts] = await db.insert(socialMediaAccountProfiles).values({
@@ -443,6 +484,49 @@ test('get-scrape-targets batch targeting tests', async (t) => {
       targetNoPosts!.newestPostPublishedAt,
       undefined,
       'newestPostPublishedAt should be undefined for a profile with zero posts (first-ever scrape)'
+    );
+  });
+  await t.test('BUG-081: a handle-keyed profile is scraped by account_id even when its username was rewritten', async () => {
+    const stamp = Date.now();
+    const handle = 'bug081_handle_' + stamp;
+    // The 2026-10-26 incident: the profile backfill relabelled `username` with another account's handle.
+    const [rewritten] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: handle,
+      platform: 'instagram',
+      displayName: 'Rewritten',
+      username: 'kulonprogohalfmarathon',
+    }).returning();
+    createdProfiles.push(rewritten.id);
+
+    const numericId = String(9_200_000_000 + (stamp % 1_000_000));
+    const [numericKeyed] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: numericId,
+      platform: 'instagram',
+      displayName: 'Numeric keyed',
+      username: 'numeric_keyed_' + stamp,
+    }).returning();
+    createdProfiles.push(numericKeyed.id);
+
+    for (const profileId of [rewritten.id, numericKeyed.id]) {
+      const [sub] = await db.insert(subscriptions).values({ userId: user1.id, accountId: profileId }).returning();
+      createdSubs.push(sub.id);
+    }
+
+    const targets = await getBatchScrapeTargets();
+    const rewrittenTarget = targets.find((target) => target.profileId === rewritten.id);
+    const numericTarget = targets.find((target) => target.profileId === numericKeyed.id);
+
+    assert.ok(rewrittenTarget, 'the rewritten profile is still a target');
+    assert.strictEqual(
+      rewrittenTarget!.username,
+      handle,
+      'the scrape handle comes from account_id, never from the mutable username'
+    );
+    assert.ok(numericTarget, 'the numeric-keyed profile is a target');
+    assert.strictEqual(
+      numericTarget!.username,
+      'numeric_keyed_' + stamp,
+      'a numeric-keyed profile has no handle in account_id, so it is scraped by its username'
     );
   });
 });

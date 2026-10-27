@@ -28,15 +28,22 @@ describe('locale files stay in sync', () => {
 // above already cover id.json transitively once en.json is asserted
 // complete, so only en.json is checked directly here.
 describe('EventCategory/EventType enums stay in sync with locale files', () => {
-  it('every EventType member has a matching en.json "EventType" key', () => {
+  it('every EventType member has a matching en.json "EventType" key, and no stale/extra key', () => {
     const enumMembers = Object.values(EventType).sort();
     const localeKeys = Object.keys(en.EventType).sort();
-    expect(localeKeys).toEqual(expect.arrayContaining(enumMembers));
+    expect(localeKeys).toEqual(enumMembers);
   });
 
-  it('every EventCategory member has a matching en.json "EventCategory" key', () => {
+  it('every EventCategory member has a matching en.json "EventCategory" key, and no stale/extra key', () => {
     const enumMembers = Object.values(EventCategory).sort();
     const localeKeys = Object.keys(en.EventCategory).sort();
-    expect(localeKeys).toEqual(expect.arrayContaining(enumMembers));
+    expect(localeKeys).toEqual(enumMembers);
+  });
+
+  it('every en.EventCategory value is a non-empty string', () => {
+    for (const value of Object.values(en.EventCategory)) {
+      expect(typeof value).toBe('string');
+      expect(value.length).toBeGreaterThan(0);
+    }
   });
 });

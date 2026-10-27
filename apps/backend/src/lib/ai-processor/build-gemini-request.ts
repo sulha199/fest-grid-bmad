@@ -2,6 +2,7 @@ import { EventType, EventCategory } from '@festgrid/shared-types';
 import { type ProcessingJobMessage, POST_GROUPING_REASONS, type AiImageInput } from '@festgrid/domain/posts';
 import { DayOfWeek } from '@festgrid/domain/events';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
+import { renderEventCategoryGlossary } from '../ai-gateway/render-event-category-glossary.js';
 import { loadBackendEnv } from '../../env.js';
 // Story 3.20 (Task 3.6) -- detect-and-blur-faces.ts imports `@tensorflow/tfjs`/
 // `tfjs-backend-wasm`/`sharp`/`@vladmandic/face-api` at module top level. Fixed 2026-10-04
@@ -140,7 +141,13 @@ export function buildGeminiExtractionResponseSchema() {
       // hasFaceImage above.
       faceImageCount: { type: 'NUMBER' }
     },
-    required: ['isEvent', 'events']
+    // groupingReason is required here (model-facing schema only) since 2026-10-25: the live
+    // CC-024 regression saw the model omit it in 2 of 12 runs (counts were right), and the
+    // post-level grouping decision drives how events are grouped. The AJV schema on the consumer
+    // side (extracted-event.schema.ts) stays nullable so a stored or replayed response without it
+    // is still valid, and a non-event post simply gets the neutral "single-event" value, which
+    // processAiJob does not persist when isEvent is false (AD-30 Rule 5, amended).
+    required: ['isEvent', 'events', 'groupingReason']
   };
 }
 
@@ -196,7 +203,10 @@ export async function buildGeminiExtractionRequest(
 ): Promise<BuildGeminiExtractionRequestResult> {
   const env = loadBackendEnv();
   const allowedTypes = Object.values(EventType).join(', ');
-  const allowedCategories = Object.values(EventCategory).join(', ');
+  // Story 0.52 (AD-44 Rule 4): rendered once here, before ${publishDate} is interpolated below
+  // (which appears later in the template), so any provider-side prefix caching still sees a
+  // stable prompt prefix.
+  const categoryGlossary = renderEventCategoryGlossary();
 
   const publishDate = message.publishedAt.substring(0, 10);
 
@@ -220,7 +230,8 @@ ROUNDUP HANDLING: when the post is a roundup/aggregator listing (groupingReason:
 For EACH identified event in the events array, extract:
 1. eventName (required).
 2. types: select appropriate values from this allowed list: ${allowedTypes}.
-3. categories: select appropriate values from this allowed list: ${allowedCategories}.
+3. categories: select every value that fits, using only the values below, each given as \`NAME -- definition\`. Name every category whose subject the post states for THIS event, headline subject first -- never collapse a multi-subject post into OTHER just to save tags. If the post actually lists several distinct events (different dates, venues, or independent registration pipelines -- see the GROUPING DECISION in section 0 above), extract each as its own event with its own categories, rather than stacking every subject onto a single event entry:
+${categoryGlossary}
 4. schedules: for each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, ticketPrice, and applicableDaysOfWeek if available.
    4a. Set a schedule's applicableDaysOfWeek only when the source text states that schedule recurs only on specific weekdays within a date span (e.g. "every Friday and Saturday, Oct 1-31") -- use values from this allowed list: ${allowedDaysOfWeek}. Leave it absent when the schedule is a single occurrence or the text does not state specific recurring weekdays.
    4b. When a schedule runs past midnight (e.g. "21:00 - 02:00", "until late" with a stated end time earlier than the start time), set eventEndDate to the NEXT calendar day after eventStartDate, not to eventStartDate, and keep eventEndTime as the stated time. Do not set eventEndDate at all when the text gives no end time or end date.
@@ -235,7 +246,7 @@ For EACH identified event in the events array, extract:
 11. Self-report this event's extraction completeness: set minScheduleCount to the best-effort count of distinct schedules this event's caption/image content appears to describe (whether or not every field was extractable). Set expectedScheduleNames to an array of the name/title text of the schedules you can identify for this event, even when some of their other fields could not be extracted. Report a single number/count and names you are reasonably confident about; these are advisory only and are never required to be perfectly exhaustive.
 
 Also report, once for the whole post (not per event):
-- groupingReason: the exact value from this allowed list matching the rule you applied in the GROUPING DECISION above: ${allowedGroupingReasons}.
+- groupingReason (ALWAYS include it, in every response): the exact value from this allowed list matching the rule you applied in the GROUPING DECISION above: ${allowedGroupingReasons}. If the post is not an event (isEvent is false), use "single-event" as a neutral value; it is not stored in that case.
 - postTitle: a short headline/title for the post as a whole (at most about 80 characters), preferring a title the post states itself (e.g. "Weekend Event Roundup in Jakarta"); otherwise write a brief descriptive one. Omit it if no sensible title exists.
 - groupingRationale: one sentence explaining your grouping decision, for debugging only.
 - minEventCount: your own best-effort count of distinct events you believe the content describes overall (mirrors minScheduleCount's self-report pattern, advisory only).

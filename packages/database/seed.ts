@@ -761,7 +761,7 @@ export const FIXTURE_UNPROCESSED_PAYLOADS = [
   },
 ];
 
-const FIXTURE_EVENTS = [
+export const FIXTURE_EVENTS = [
   {
     id: '40000000-0000-0000-0000-000000000001',
     slug: 'past-jazz-night-2025-fixed',

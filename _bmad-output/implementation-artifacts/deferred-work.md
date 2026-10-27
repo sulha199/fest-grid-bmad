@@ -2,6 +2,15 @@
 
 This file tracks work deferred from development stories, code reviews, and planning sessions.
 
+## Deferred from: code review of 0-54-amend-event-category-cardinality-and-add-science-and-engineering (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md`
+  summary: Golden-corpus fixture `11-wedding-expo`'s `mustNotInclude: []` gives it no negative-boundary coverage, unlike its sibling amended fixtures (3, 5, 9, 10), which each keep at least one exclusion — a live run returning the 4 expected categories plus an unrelated one would still pass.
+  evidence: Surfaced by the Edge Case Hunter review pass. The story's own re-derivation table didn't specify `mustNotInclude` for this row and already flags fixture 11 "confirm on next live run" for the same wedding-expo boundary — best strengthened together once live-run evidence lands.
+- source_spec: `_bmad-output/implementation-artifacts/0-54-amend-event-category-cardinality-and-add-science-and-engineering.md`
+  summary: Ratchet Check D's "<3 distinct `EventCategory` names outside the glossary block" margin in the extraction prompt is now 1 of 3 (from this story's new `build-gemini-request.ts` item-3 prose naming `OTHER`), with no dedicated test pinned to this specific sentence's consumption of that margin.
+  evidence: Surfaced by the Edge Case Hunter review pass. Check D passes today (no violation) — this is a forward-looking margin observation for whoever next edits that prose, not a current defect.
+
 ## Deferred from: bmad-quick-dev IDEA-015 review (2026-09-18)
 
 - source_spec: none (one-shot route, no frozen spec)
@@ -254,6 +263,7 @@ This file tracks work deferred from development stories, code reviews, and plann
 - source_spec: none
   summary: This change is the first migration in the repo to add a value to an existing Postgres enum via `ALTER TYPE ... ADD VALUE` (previous category/type values were all part of the initial `CREATE TYPE` in `0000_cultured_ultragirl.sql`). Postgres has no `ALTER TYPE ... DROP VALUE` — once applied, removing or renaming `RELIGION_AND_SPIRITUALITY` requires recreating the whole `event_category` type and repointing every dependent column. No process doc currently flags this one-way-door risk for future enum additions.
   evidence: Inherent Postgres limitation, not a defect in this change; noted by adversarial review since this is the first migration of this kind in the repo.
+  **CLOSED (Story 0.53, 2026-10-24):** moot for `event_category` specifically — Story 0.53 retired the type entirely (`DROP TYPE IF EXISTS "event_category"`, since the `events.categories` column was always `text[]` and never backed by this pgEnum), rather than further extending it. The underlying "no `ALTER TYPE ... DROP VALUE`" limitation remains a real Postgres constraint for any *other* enum that does back a live column, but no longer applies to this one.
 
 ## Deferred from: code review of 1-2a-create-posts-table-and-link-seeded-events-to-their-source-post.md (2026-08-03)
 
@@ -762,3 +772,31 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md`
   summary: The stale-job sweep trusts `getBrightDataSnapshot` to return an array: a JSON object (for example a 202 "not ready" body) makes `output.items.length` undefined, classification is skipped, the run is stored SUCCEEDED with a null count, and `processBrightDataResult` throws on a non-iterable so the job stays PENDING and is retried hourly.
   evidence: Surfaced by Edge Case Hunter. Pre-existing (the sweep never validated the body); the webhook path now guards with `Array.isArray`. Fix by validating in `getBrightDataSnapshot` and treating a non-array as "not ready".
+
+## Deferred from: code review of story-0-52 (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-52-build-the-event-category-definitions-source-renderer-and-ratchet.md`
+  summary: No automated guard (lint rule, e.g. `import/no-cycle`) stops a future edit from converting the deliberate `import type { EventCategory }` in `event-category-definitions.ts` back into a regular value import, silently reintroducing the runtime import-cycle risk the type-only import was specifically added to avoid — protected today only by an inline comment.
+  evidence: Surfaced by Blind Hunter. Forward-looking hardening suggestion, not a defect in the code as shipped; no current failure mode. (FIND-096)
+
+## Deferred from: code review of story-0-53 (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/0-53-add-home-living-fashion-finance-and-gadget-event-categories.md`
+  summary: Golden-corpus fixture `11-wedding-expo` keeps a hard `expected`/`mustNotInclude` assertion in `event-category-golden-corpus.live-eval.test.ts` even though its own rationale (and the test file's header comment) explicitly calls its classification "genuinely contestable" now that `FASHION_AND_BEAUTY`/`HOME_AND_LIVING` both exist — there is no soft-miss mechanism, only a code comment instructing a human to adjust the fixture (not the prompt) if the live run disagrees.
+  evidence: Surfaced by Edge Case Hunter. Continues Story 0.52's own established pattern for ambiguous fixtures rather than introducing it; bounded by AD-44 Rule 10 (golden corpus is manual/nightly, never a CI gate). Already flagged for the pending manual live run per this story's own Completion Notes. (FIND-097)
+
+## Deferred from: code review of the page-overflow audit, fake-auth fixture, responsive matrix and fixes (2026-10-24)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-responsive-page-overflow-audit.md`
+  summary: The page-overflow detector's v1 model has known blind spots: an absolutely positioned element that escapes a clipping ancestor widens the document but gets no culprit; only the right edge is checked (RTL / negative-direction overflow); an off-screen `translate-x-full` drawer reads as an offender when html/body masks overflow; the DOM walk recurses (a pathologically deep tree would overflow the stack).
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. The first limitation is documented in `detectPageOverflow`'s doc comment; none has produced a wrong result on the 17 audited routes. A containing-block-aware clip model would remove the first and third.
+- source_spec: `_bmad-output/implementation-artifacts/spec-responsive-page-overflow-audit.md`
+  summary: Selector paths are truncated (3 classes, no `__` hashes, no `nth-of-type` when the element is the only one of its tag), so `rankOffenders` ancestry (path prefix) and `culpritKey` grouping can merge two distinct elements that share a truncated path.
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. No collision on the audited routes; fix is to carry a real parent index from the in-page walk instead of inferring ancestry from the display string.
+- source_spec: `_bmad-output/implementation-artifacts/spec-responsive-overflow-e2e-matrix.md`
+  summary: `settleLayout`'s stability signature (scrollWidth x scrollHeight x element count) cannot see a class-only or text-only layout change; the route and width lists are duplicated between the audit CLI and the e2e matrix; the PWA/location tests hard-code English button labels and the two localStorage keys instead of importing them.
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. Each only matters when the app's copy, keys or late-mounting UI change; the matrix fails loudly (banner "should mount") rather than passing falsely.
+- source_spec: `_bmad-output/implementation-artifacts/spec-e2e-fake-auth-fixture.md`
+  summary: The fake-auth stub serves only the JWKS: it does not emulate `/auth/v1/user` or `/auth/v1/token`, so a future `auth.getUser()` or token refresh in the app would treat the fake session as signed out; the stub port (54321) is fixed and not configurable.
+  evidence: Surfaced by Blind Hunter and Edge Case Hunter. The app today only calls `getSession()` (verified by grep) and the minted tokens last 30 days, so nothing breaks now; the port clash now fails with an explanatory message.
+

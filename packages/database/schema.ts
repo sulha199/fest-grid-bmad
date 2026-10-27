@@ -51,20 +51,6 @@ export const eventTypeEnum = pgEnum('event_type', [
   'SEMINAR', 'MARKET', 'GATHERING', 'PROMOTION', 'FUNDRAISER', 'CIVIC', 'OTHER'
 ]);
 
-// RELIGION_AND_SPIRITUALITY: Worship services, retreats, interfaith gatherings
-// TECHNOLOGY: Tech product promos, hackathons, tech meetups/conferences
-// TRAVEL_AND_TOURISM: Travel gear promos, travel fairs, tourism expos
-// EDUCATION: Academic olympiads/competitions, school contests
-// CAREER: Job fairs, career workshops
-// AUTOMOTIVE: Car and motorcycle fairs, exhibitions
-export const eventCategoryEnum = pgEnum('event_category', [
-  'MUSIC', 'ARTS_AND_CULTURE', 'FOOD_AND_DRINK', 'SPORTS_AND_FITNESS',
-  'FAMILY_AND_KIDS', 'HOBBIES_AND_INTERESTS', 'BUSINESS_AND_NETWORKING',
-  'HEALTH_AND_WELLNESS', 'HOLIDAY', 'CHARITY_AND_CAUSES', 'CIVIC_AND_COMMUNITY',
-  'RELIGION_AND_SPIRITUALITY', 'TECHNOLOGY', 'TRAVEL_AND_TOURISM', 'EDUCATION',
-  'CAREER', 'AUTOMOTIVE', 'OTHER'
-]);
-
 export const userRoleEnum = pgEnum('user_role', ['user', 'moderator']);
 
 export const geolocationQueryTypeEnum = pgEnum('geolocation_query_type', ['GEOCODE', 'REVERSE_GEOCODE', 'PLACE_DETAILS']);
@@ -252,6 +238,9 @@ export const scraperBatchRuns = pgTable('scraper_batch_runs', {
   // Targets no async vendor took that were enqueued onto the scraping queue instead -- a working
   // fallback, not a failure. Counted in neither dispatched_succeeded nor dispatched_failed.
   dispatchedQueued: integer('dispatched_queued').default(0).notNull(),
+  // Why a cycle found no targets (e.g. every subscribed profile was scraped since the cutoff), so a
+  // 0-target row can be told apart from "nobody is subscribed". Null on any cycle that had targets.
+  noTargetsReason: text('no_targets_reason'),
   ...timestamps,
 }, (t) => ({
   startedAtIdx: index('idx_scraper_batch_runs_started_at').on(t.startedAt),
@@ -440,7 +429,8 @@ export const events = pgTable('events', {
   eventName: text('event_name').notNull(),
   // Drizzle doesn't perfectly support enum arrays, so we use text arrays but expect values from eventTypeEnum
   types: text('types').array(),
-  // Expect values from eventCategoryEnum
+  // Expect values from EventCategory (@festgrid/shared-types) -- never backed by a pgEnum;
+  // the event_category Postgres type was retired as unused (Story 0.53, AD-44 Rule 6/8).
   categories: text('categories').array(),
   // High-level summary of location (e.g. "Chicago, IL"). Specific coordinates are in schedules[n].locationDetails
   location: text('location').notNull(),
@@ -600,6 +590,23 @@ export const accountProfileMerges = pgTable('account_profile_merges', {
   undoneAt: timestamp('undone_at', { withTimezone: true }),
 }, (t) => ({
   survivorIdx: index('idx_account_profile_merges_survivor').on(t.survivorId),
+}));
+
+// BUG-081 -- audit record for scripts/repair-rewritten-profile-usernames.ts: one row per repaired profile,
+// holding the name fields as they were (`before`), as written (`after`) and the evidence the choice rested on.
+// Written in the same transaction as the repair, so a repair either leaves a row or never happened. The
+// profile row outlives the repair (no cascade), and `before` is enough to put the old values back by hand.
+export const accountProfileRepairs = pgTable('account_profile_repairs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
+  repairKind: text('repair_kind').notNull(),
+  before: jsonb('before').$type<Record<string, unknown>>().notNull(),
+  after: jsonb('after').$type<Record<string, unknown>>().notNull(),
+  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull(),
+  performedBy: text('performed_by').notNull(),
+  ...timestamps,
+}, (t) => ({
+  profileIdx: index('idx_account_profile_repairs_profile').on(t.profileId),
 }));
 
 // Story 3.6p / AD-29 Rule 3 -- records why actualFaceDetectionCount is null (Story 3.6n/3.6o's

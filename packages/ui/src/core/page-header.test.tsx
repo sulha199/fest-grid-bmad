@@ -69,6 +69,11 @@ describe('PageHeader', () => {
     expect(labelSpan.className).toContain('sm:inline');
   });
 
+  it('gives the action button an accessible name even where the visible label is hidden (below `sm` it is icon-only)', () => {
+    render(<PageHeader title="T" action={{ label: 'Add API Key', icon: <svg data-testid="icon" />, onClick: vi.fn() }} />);
+    expect(screen.getByRole('button', { name: 'Add API Key' })).toHaveAttribute('aria-label', 'Add API Key');
+  });
+
   it('correctly passes disabled prop to action button and prevents clicking', async () => {
     const mockOnClick = vi.fn();
     const user = userEvent.setup();

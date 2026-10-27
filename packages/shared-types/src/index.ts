@@ -29,6 +29,9 @@ export enum EventType {
   OTHER = 'OTHER'
 }
 
+// Per-value prose definitions live in EVENT_CATEGORY_DEFINITIONS (./event-category-definitions.ts)
+// -- the one source both Gemini-facing prompts render from (AD-44 Rule 3/4). Do not add per-value
+// prose comments back here; update that file instead.
 export enum EventCategory {
   MUSIC = 'MUSIC',
   ARTS_AND_CULTURE = 'ARTS_AND_CULTURE',
@@ -39,14 +42,19 @@ export enum EventCategory {
   BUSINESS_AND_NETWORKING = 'BUSINESS_AND_NETWORKING',
   HEALTH_AND_WELLNESS = 'HEALTH_AND_WELLNESS',
   HOLIDAY = 'HOLIDAY',
-  CHARITY_AND_CAUSES = 'CHARITY_AND_CAUSES',     // Fundraisers, non-profit events (New)
-  CIVIC_AND_COMMUNITY = 'CIVIC_AND_COMMUNITY',    // Town halls, local government, volunteering (New)
-  RELIGION_AND_SPIRITUALITY = 'RELIGION_AND_SPIRITUALITY', // Worship services, retreats, interfaith gatherings (New)
-  TECHNOLOGY = 'TECHNOLOGY',              // Tech product promos, hackathons, tech meetups/conferences (New)
-  TRAVEL_AND_TOURISM = 'TRAVEL_AND_TOURISM',      // Travel gear promos, travel fairs, tourism expos (New)
-  EDUCATION = 'EDUCATION',               // Academic olympiads/competitions, school contests (New)
-  CAREER = 'CAREER',                  // Job fairs, career workshops (New)
-  AUTOMOTIVE = 'AUTOMOTIVE',              // Car and motorcycle fairs, exhibitions (New)
+  CHARITY_AND_CAUSES = 'CHARITY_AND_CAUSES',
+  CIVIC_AND_COMMUNITY = 'CIVIC_AND_COMMUNITY',
+  RELIGION_AND_SPIRITUALITY = 'RELIGION_AND_SPIRITUALITY',
+  TECHNOLOGY = 'TECHNOLOGY',
+  TRAVEL_AND_TOURISM = 'TRAVEL_AND_TOURISM',
+  EDUCATION = 'EDUCATION',
+  CAREER = 'CAREER',
+  AUTOMOTIVE = 'AUTOMOTIVE',
+  HOME_AND_LIVING = 'HOME_AND_LIVING',
+  FASHION_AND_BEAUTY = 'FASHION_AND_BEAUTY',
+  FINANCE_AND_INVESTMENT = 'FINANCE_AND_INVESTMENT',
+  GADGETS_AND_DEVICES = 'GADGETS_AND_DEVICES',
+  SCIENCE_AND_ENGINEERING = 'SCIENCE_AND_ENGINEERING',
   OTHER = 'OTHER'
 }
 
@@ -210,3 +218,6 @@ export interface CalendarEntry {
   createdAt: DateTimeIso;
   deletedAt?: DateTimeIso;
 }
+
+// Story 0.52 (AD-44 Rule 3) -- the one prose-definitions source for EventCategory.
+export * from './event-category-definitions';

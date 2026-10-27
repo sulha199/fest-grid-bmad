@@ -1,0 +1,1 @@
+ALTER TABLE "scraper_batch_runs" ADD COLUMN "no_targets_reason" text;

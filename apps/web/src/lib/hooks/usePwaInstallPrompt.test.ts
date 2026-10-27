@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+import { createElement } from 'react'
+import { renderToString } from 'react-dom/server'
 import { usePwaInstallStore } from '@/lib/state/pwa-install-store'
 import { usePwaInstallPrompt } from './usePwaInstallPrompt'
 
@@ -158,6 +160,18 @@ describe('usePwaInstallPrompt (Story 0.38a AC1-AC10)', () => {
       // iOS never triggers a native prompt — only signals the caller.
       expect(outcome).toBe('ios-instructions')
       expect(usePwaInstallStore.getState().deferredEvent).toBeNull()
+    })
+
+    it('does not claim eligibility during the first (server/hydration) render, only after mount -- otherwise a returning iOS visitor hydrates a banner the server never rendered', () => {
+      stubIosSafari()
+      localStorage.setItem(VISIT_COUNT_KEY, '5')
+      const Probe = () => createElement('span', null, String(usePwaInstallPrompt().canShow))
+
+      // renderToString runs no effects: this is exactly what the server, and the first client render, produce.
+      expect(renderToString(createElement(Probe))).toContain('false')
+
+      const { result } = renderHook(() => usePwaInstallPrompt())
+      expect(result.current.canShow).toBe(true)
     })
 
     it('is ios but canShow stays false below the visit-count threshold (first visit)', () => {

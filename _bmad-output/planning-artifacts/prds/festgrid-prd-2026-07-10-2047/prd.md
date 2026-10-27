@@ -108,7 +108,7 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Slug Follows the Primary Post:** An event's URL slug names its primary post (Section 4.1). When the primary changes, the event gets a new slug and the old one permanently redirects to it.
     *   **Post Deletion:** When a post is deleted (including through account or profile erasure), the event's next linked post becomes primary by the rule above; an event left with no linked post stays, keeping its slug, with no image or source link.
     *   **Related Events:** An event's detail view shows the other events that share a linked post with it, grouped by post, each group headed "Events from [post headline/title]" (the AI-extracted post headline; posts without one fall back to "Events from [account]" -- no backfill for already-extracted posts), loaded lazily as they near the viewport and hidden when there are none. Events that have already ended are hidden (same rule as the event list); the rest are ordered happening-now first (earliest end first), then upcoming (earliest start first). Each card shows the "till" tag only when the event has started and ends after today. Each group shows up to 5 events inline, then a "See all N events" link to a **post collection page** listing every event from that post. That page reuses the existing event-list view, filters and Next/Previous detail navigation (Section 3.12), not a separate list implementation. Soft-deleted and merged events are never shown or counted.
-*   **Account Profile Backfill from Scraped Posts (added 2026-08-24):** Every scraped post also carries the publishing account's own profile information (its current display name and username). When this differs from what is stored, the system updates the account's stored profile to match — keeping subscriber-facing account details current without requiring a subscriber to notice and re-enter them.
+*   **Account Profile Backfill from Scraped Posts (added 2026-08-24):** Every scraped post also carries the publishing account's own profile information (its current display name and username). When this differs from what is stored, the system updates the account's stored profile to match — keeping subscriber-facing account details current without requiring a subscriber to notice and re-enter them. **Amended 2026-10-26 (BUG-081):** this applies only to a post the account itself published — a profile scrape also returns collab, repost and curator-feed posts whose owner is someone else, and those never update the profile. A post is the account's own when its owner username equals the handle the profile is keyed by, or (for a profile keyed by the platform's numeric ID) when its owner ID equals that ID. The display name follows the owner's current name; the username is filled in when empty or corrected when only its letter case differs, and is never replaced by a different handle, because scraping addresses the account by it (a profile keyed by a handle is scraped by that handle).
 *   **Quota Management & Notifications:**
 *   **Email Notifications:** Users will receive email notifications if `X` of their subscribed posts have been queued for `Y` days due to Gemini API quota exhaustion. These notifications will suggest contributing an additional API key.
 *   **In-App Queue Status:** A dedicated section within the user menu will display the real-time queue status of posts pending extraction for each user, providing transparency on API key performance and quota impact.
@@ -424,6 +424,9 @@ enum EventType {
   OTHER
 }
 
+// Per-value prose definitions live in EVENT_CATEGORY_DEFINITIONS
+// (packages/shared-types/src/event-category-definitions.ts) -- the one source both Gemini-facing
+// prompts render from (AD-44 Rule 3/4). Do not add per-value prose comments back here.
 enum EventCategory {
   MUSIC,
   ARTS_AND_CULTURE,
@@ -434,14 +437,19 @@ enum EventCategory {
   BUSINESS_AND_NETWORKING,
   HEALTH_AND_WELLNESS,
   HOLIDAY,
-  CHARITY_AND_CAUSES,     // Fundraisers, non-profit events (New)
-  CIVIC_AND_COMMUNITY,    // Town halls, local government, volunteering (New)
-  RELIGION_AND_SPIRITUALITY, // Worship services, retreats, interfaith gatherings (New)
-  TECHNOLOGY,             // Tech product promos, hackathons, tech meetups/conferences (New)
-  TRAVEL_AND_TOURISM,     // Travel gear promos, travel fairs, tourism expos (New)
-  EDUCATION,              // Academic olympiads/competitions, school contests (New)
-  CAREER,                 // Job fairs, career workshops (New)
-  AUTOMOTIVE,             // Car and motorcycle fairs, exhibitions (New)
+  CHARITY_AND_CAUSES,
+  CIVIC_AND_COMMUNITY,
+  RELIGION_AND_SPIRITUALITY,
+  TECHNOLOGY,
+  TRAVEL_AND_TOURISM,
+  EDUCATION,
+  CAREER,
+  AUTOMOTIVE,
+  HOME_AND_LIVING,
+  FASHION_AND_BEAUTY,
+  FINANCE_AND_INVESTMENT,
+  GADGETS_AND_DEVICES,
+  SCIENCE_AND_ENGINEERING,
   OTHER
 }
 

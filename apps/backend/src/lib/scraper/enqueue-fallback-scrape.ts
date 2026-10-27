@@ -1,7 +1,7 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
-import { isScrapableAccountType } from '@festgrid/domain';
+import { isScrapableAccountType, resolveScrapeHandle } from '@festgrid/domain';
 import { and, eq } from 'drizzle-orm';
 import { enqueueScrapeJob } from './enqueue-scrape-job.js';
 
@@ -49,7 +49,7 @@ export async function enqueueFallbackScrape(profileId: string): Promise<Fallback
     await enqueueScrapeJob({
       profileId: profile.id,
       accountId: profile.accountId,
-      username: profile.username,
+      username: resolveScrapeHandle(profile),
       platform: profile.platform,
     });
     return 'enqueued';

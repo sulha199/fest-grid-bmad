@@ -39,3 +39,11 @@ Reported 2026-10-15 as "the posts of 74d8c8d5-… are scraped in prod but not on
 ## Open question
 
 Which identifier should be canonical: the username (can change on Instagram) or the numeric ID (stable, but not what subscribe knows at subscribe time)? The numeric ID is the safer long-term key, but subscribe-time resolution of it would need a vendor lookup.
+
+## Related but distinct: the username overwrite (BUG-081, 2026-10-26)
+
+Found after the twin work above; **not** a twin problem. The post-scrape profile backfill rewrote the `username` and display name of handle-keyed subscribed rows with the first scraped post's owner (a collab or curator-feed account), so the next batch scraped that other account. 13 of 30 handle-keyed subscribed Instagram rows were rewritten on 2026-10-26 (`laridijogja`, `visitingjogja` and `visitkulonprogo` all became `kulonprogohalfmarathon`; the others are listed in the BUG-081 note).
+
+It also touches the numeric-keyed side of this bug: profile `0587b45b-cdb1-4ffd-b0f5-c86542bb8c2b` (`account_id` 4842911995, username `masjidmuhajirinnitikan`) carries `jogjakajian`'s numeric ID. Apify's raw output pairs 4842911995 with `jogjakajian` as `ownerId` of /p/DeeAONmFE4r/ and as a co-author of /p/Deiw9h4xcsi/ (published by `pojokdakwah_mbm`), and the row's feed holds `jogjakajian`'s many reposts. So it is most likely `jogjakajian`'s account relabelled by that backfill, not the mosque's feed with a wrong ID; the mosque's real row is probably `37757e54-6105-4879-a306-6e625e463e33` (`account_id` 8490230452, created 10-23, no subscription). Inferred, not proven.
+
+Why it matters here: a twin merge or an `account_id` re-key that trusts `username` on such a row would carry the wrong label forward. Run the BUG-081 repair (or settle `0587b45b` by hand) before merging or re-keying anything near these rows. The numeric `account_id` identity unification stays out of scope of BUG-081.

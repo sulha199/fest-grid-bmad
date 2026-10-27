@@ -1,20 +1,24 @@
 {
-  "createdAt": "2026-09-30T02:47:27.530Z",
+  "createdAt": "2026-10-23T18:23:46.047018Z",
   "mode": "stories",
   "modeValue": [
-    "1.6d",
-    "1.6c",
-    "1.3k",
-    "0.i5d",
-    "0.i5e"
+    "0.52",
+    "0.53"
   ],
-  "epicsFile": "/home/user/fest-grid-bmad/_bmad-output/planning-artifacts/epics.md",
-  "implementationArtifacts": "/home/user/fest-grid-bmad/_bmad-output/implementation-artifacts",
+  "epicsFile": "../../../planning-artifacts/epics.md",
+  "implementationArtifacts": "../../../implementation-artifacts",
   "order": [
-    "1.6d",
-    "1.6c",
-    "1.3k",
-    "0.i5d",
-    "0.i5e"
-  ]
+    "0.52",
+    "0.53"
+  ],
+  "context": {
+    "0.52": {
+      "bmad-create-story": "Authoritative source: Architecture Spine AD-44 (_bmad-output/planning-artifacts/festgrid-architecture-spine.md, '### AD-44') and its four reviews in _bmad-output/planning-artifacts/architecture/architecture-festgrid-2026-09-22/reviews/ plus event-category-review-2026-10-23.md section 11. Backlog row IDEA-100; sprint-status keys 0-52 and 0-53 already exist. This is a standalone Epic 0 story with no epics.md section (Story 0.34 is the precedent; see its 'Why this story has no epics.md section' note) -- do NOT ask about epic homing or about adding an epics.md section; the answer is standalone Epic 0, no epics.md section. Story scope = AD-44 Follow-up 1 ONLY: the definitions module in packages/shared-types, the single glossary renderer in apps/backend, both prompts (build-gemini-request.ts and build-filter-extraction-request.ts) rendering from it, the render-and-assert ratchet with negative controls (Rule 4 checks a-d), cardinality enforcement in transformGeminiResponseToEventInfo (cap 4, OTHER exclusive, Rule 2), the structured category-fallback log lines (Rule 10), the golden category corpus fixtures (Rule 10), and replacing the four prose comment copies with pointers. It writes definitions for the EXISTING 18 values only and must name only existing members (ratchet check b). It must NOT add HOME_AND_LIVING or FASHION_AND_BEAUTY (that is 0-53). The interim live-behaviour effect is accepted per AD-44 Follow-up 1: TECHNOLOGY keeps its EXISTING definition unchanged (owner reversed the widening on 2026-10-23: consumer gadgets get their own category in 0-53), BUSINESS_AND_NETWORKING narrows to subject matter while keeping property/investment as an interim routing. Use reviews/review-code-feasibility.md sections 3, 4 and 8 (S1) for the prompt-rendering design, ratchet sketch and file list. Decisions already made by the owner -- do not re-ask: cap 4; esports->HOBBIES_AND_INTERESTS; property->BUSINESS_AND_NETWORKING. Run the three Story Split Gates fresh; record Data Type Compatibility notes.",
+      "bmad-dev-story": "Implement AD-44 Follow-up 1 exactly as the story file says. Names only the existing 18 EventCategory members in definitions/boundaries. Do NOT add HOME_AND_LIVING / FASHION_AND_BEAUTY. The ratchet must render the built prompts and assert (a) every member has a bounded non-empty definition plus at least one Indonesian alias, (b) definitions/boundaries name only real members, (c) each built prompt contains the renderer output verbatim exactly once, (d) outside that block neither built prompt names three or more distinct EventCategory values; include negative controls. Keep Object.values(EventCategory) for the structured-output enum lists. apps/backend tests use node:test. Do not call EnterWorktree. Do not delegate to cline-cli; implement directly in this checkout. Commit on the current branch; do not push."
+    },
+    "0.53": {
+      "bmad-create-story": "Authoritative source: Architecture Spine AD-44 and event-category-review-2026-10-23.md section 11 (same as 0-52). Story scope = AD-44 Follow-up 2: add HOME_AND_LIVING (EN 'Home & Living', ID 'Rumah Tangga & Interior'), FASHION_AND_BEAUTY (EN 'Fashion & Beauty', ID 'Fashion & Gaya') and FINANCE_AND_INVESTMENT (EN 'Finance & Investment', ID 'Keuangan & Investasi') and GADGETS_AND_DEVICES (EN 'Gadgets & Devices', ID 'Gadget & Perangkat') before OTHER; consumer gadgets/devices/gaming gear move from TECHNOLOGY to GADGETS_AND_DEVICES and TECHNOLOGY narrows to software, AI, startups, developer events (AD-44 Rule 3 and Rule 5 boundary table), moving property/KPR/stocks/crypto/forex investing events from BUSINESS_AND_NETWORKING to FINANCE_AND_INVESTMENT per AD-44 Rule 5 step 1 (BUSINESS_AND_NETWORKING narrows to trade, B2B, networking, entrepreneurship) across the full AD-44 Rule 6 source register (shared-types enum, definitions record + boundary table amended to name the new members and the cross-references in TECHNOLOGY / BUSINESS_AND_NETWORKING / HOBBIES_AND_INTERESTS / AUTOMOTIVE, SDL, committed codegen outputs for web AND backend, en.json + id.json, seed.ts fixtures and seed-volume.ts deriving from the enum, golden corpus re-run, PRD EventCategory block, project-context.md rule update), the new checks Rule 6 requires (each enum member present in both committed codegen outputs; exact en/id key equality with non-empty values; every seed categories string a member), and retiring the unused pgEnum (delete eventCategoryEnum from packages/database/schema.ts; a migration with DROP TYPE IF EXISTS \"event_category\", no CASCADE; verify drizzle meta journal/snapshot). Depends on Story 0-52 being done -- read its story file and completion notes first. Standalone Epic 0 story, no epics.md section (Story 0.34 precedent); do NOT ask about epic homing. Owner decisions already made -- do not re-ask: labels as above (and 22 values total); property->FINANCE_AND_INVESTMENT; cap 4. Use reviews/review-code-feasibility.md sections 1 and 8 (S2) for the inventory and file list. taxonomyEffectiveFrom is recorded in AD-44 Rule 7 by this story.",
+      "bmad-dev-story": "Implement AD-44 Follow-up 2 exactly as the story file says, after 0-52 is done. Add exactly four values, HOME_AND_LIVING, FASHION_AND_BEAUTY, FINANCE_AND_INVESTMENT and GADGETS_AND_DEVICES, before OTHER. Regenerate both codegen outputs with the repo's own codegen scripts (web and backend). Retire the pgEnum per the story (check the drizzle-kit output for meta/ journal and snapshot). Update AD-44 Rule 7 taxonomyEffectiveFrom and the project-context.md rule (remove the 'plan only' wording once true). Do not call EnterWorktree. Do not delegate to cline-cli; implement directly in this checkout. Commit on the current branch; do not push."
+    }
+  }
 }

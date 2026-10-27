@@ -1,0 +1,99 @@
+name: Repair Rewritten Profile Usernames
+
+# Manual-only, dedicated workflow -- never runs on push/pull_request, and is separate from
+# ci.yml so a manual trigger only ever runs this one script, not the full CI/CD pipeline.
+# Runs apps/backend/scripts/repair-rewritten-profile-usernames.ts (BUG-081): the profile backfill rewrote
+# the username and display name of handle-keyed social_media_account_profiles rows with another account's
+# (2026-10-26), so the daily batch scraped the wrong account. This restores username := account_id and
+# display_name from the account's own newest post. Runbook: _bmad-output/implementation-artifacts/backlog/BUG-081-*.md
+#
+# Like the other manual workflows it reads/writes only the database via DATABASE_URL, so no AWS credentials
+# step is needed. It writes to the account_profile_repairs audit table (migration 0083), so the ci.yml
+# `db-migrate` job must have run against production first -- an `apply` run without that table fails
+# before it changes anything.
+#
+# Safe by default:
+#   * `apply` defaults to false: a dry run prints the plan and writes nothing. Run it first, read the
+#     plan, then re-run with apply checked.
+#   * Only handle-keyed rows are ever changed. Numeric-keyed rows (account_id is the platform ID, e.g. the
+#     profile 0587b45b-cdb1-4ffd-b0f5-c86542bb8c2b) are LISTED in the log with the vendor evidence for a human
+#     decision and are never written by this workflow, with or without `apply`.
+#   * Each repair is one database transaction together with its audit row; re-running skips rows that
+#     already match.
+#   * `environment: production` -- add required reviewers to that environment so an apply run needs
+#     approval before it starts.
+#   * Take a backup of the affected rows before an apply run (the audit table keeps the old values too).
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Commit the repair (unchecked = dry run, writes nothing)'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  repair-rewritten-profile-usernames:
+    name: Repair Rewritten Profile Usernames (manual)
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: repair-rewritten-profile-usernames
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Workspace packages (@festgrid/database, @festgrid/domain) resolve to their gitignored
+      # dist/ output, so they must be built before the script can import them.
+      - name: Build workspace packages
+        run: pnpm run build
+
+      - name: Run repair
+        env:
+          # loadBackendEnv() (run at import time by db/client.ts) requires this; the script never
+          # binds a port, so any valid number works.
+          BACKEND_PORT: '4001'
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          cd apps/backend
+
+          args=()
+          if [ "$APPLY" = "true" ]; then
+            args+=(--apply)
+          else
+            echo "::notice::Running in DRY RUN mode -- nothing will be written. Re-run with 'apply' checked to commit."
+          fi
+
+          npx tsx scripts/repair-rewritten-profile-usernames.ts "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/repair-rewritten-profile-usernames.log"
+
+      - name: Publish the plan to the job summary
+        if: always()
+        env:
+          APPLY: ${{ inputs.apply }}
+        run: |
+          {
+            echo '### Repair Rewritten Profile Usernames'
+            echo ''
+            echo "- apply: \`$APPLY\`"
+            echo ''
+            echo '```'
+            cat "$RUNNER_TEMP/repair-rewritten-profile-usernames.log" 2>/dev/null || echo '(no output)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
