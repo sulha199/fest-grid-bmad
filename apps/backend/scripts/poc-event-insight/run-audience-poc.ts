@@ -24,7 +24,9 @@ import { fileURLToPath } from 'node:url';
 import { callGeminiGenerateContent, GeminiRateLimitedError, setGenerateContentSeam } from '../../src/lib/ai-gateway/gemini-client.js';
 import { loadBackendEnv } from '../../src/env.js';
 import { accountCountryOf } from './audience-country.js';
-import { audienceInsightContents, audienceInsightSchema, AUDIENCE_INSIGHT_INSTRUCTION_V2 } from './audience-insight.js';
+import {
+  audienceInsightContents, audienceInsightSchema, audienceInsightSchemaV3, AUDIENCE_INSIGHT_INSTRUCTION_V2, AUDIENCE_INSIGHT_INSTRUCTION_V3,
+} from './audience-insight.js';
 import { evaluateRun, mergeRecords, runGate, type RunRecord } from './audience-poc-lib.js';
 import { halfOf, parseCsv, postId, type SourcePost } from './label-sheets-lib.js';
 
@@ -45,7 +47,12 @@ const CONCURRENCY = parseInt(arg('concurrency', '2')!, 10);
 const LOCAL = resolve(arg('dir', join(here, 'local'))!);
 const OUT = resolve(arg('out', join(LOCAL, 'extraction-runs.local.json'))!);
 const API_KEY = arg('gemini-key') ?? process.env.GEMINI_API_KEY ?? process.env.SYSTEM_GEMINI_API_KEY;
-const PROMPT_VERSION = 'audience-v2';
+// v3 (default): the model reports only the areas the post STATES (`targetAreas`); the implicit ones are derived by code (target-areas.ts).
+// v2 is kept so earlier results can be reproduced. The caption-only call cannot emit `stated_poster`; the production call, which sends images, can.
+const PROMPT = (arg('prompt', 'v3') === 'v2' ? 'v2' : 'v3') as 'v2' | 'v3';
+const PROMPT_VERSION = `audience-${PROMPT}`;
+const INSTRUCTION = PROMPT === 'v2' ? AUDIENCE_INSIGHT_INSTRUCTION_V2 : AUDIENCE_INSIGHT_INSTRUCTION_V3;
+const SCHEMA = PROMPT === 'v2' ? audienceInsightSchema : audienceInsightSchemaV3(false);
 
 let lastUsage: { prompt?: number; output?: number; thoughts?: number } = {};
 setGenerateContentSeam(async (ai, params) => {
@@ -70,7 +77,7 @@ async function oneCall(model: string, contents: string): Promise<{ text: string;
     const t0 = Date.now();
     try {
       const { text } = await callGeminiGenerateContent(API_KEY!, {
-        contents, systemInstruction: AUDIENCE_INSIGHT_INSTRUCTION_V2, responseSchema: audienceInsightSchema, responseMimeType: 'application/json', maxOutputTokens: 4096, model,
+        contents, systemInstruction: INSTRUCTION, responseSchema: SCHEMA, responseMimeType: 'application/json', maxOutputTokens: 4096, model,
       });
       return { text, usage: { inputTokens: lastUsage.prompt, outputTokens: lastUsage.output, thoughtTokens: lastUsage.thoughts, latencyMs: Date.now() - t0, rateLimitRetries: retries } };
     } catch (e) {

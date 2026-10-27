@@ -8,7 +8,7 @@
  */
 import { createHash } from 'node:crypto';
 import {
-  ageWrittenOf, guardAudienceInsight, sensitiveScreen, trackCountOf, validateAudienceInsight, type ClaimCounts,
+  ageWrittenOf, guardAudienceInsight, sensitiveScreen, targetAreaLevelOf, targetAreaSourceOf, trackCountOf, validateAudienceInsight, type ClaimCounts,
 } from './audience-insight.js';
 import { resolveAudienceCountry, resolvePostLanguage, type AudienceSource } from './audience-country.js';
 
@@ -29,7 +29,12 @@ export interface RunRecord {
     eventCountry: string | null;
     geoScope: string;
     geoScopeRaw: string;
+    /** Prompt v2's own value, or the widest level among the v3 stated areas (`none` if empty). */
     targetAreaLevel: string;
+    /** Prompt v3 only: `stated` (caption), `stated_poster` (poster only) or `none`. */
+    targetAreaSource?: 'stated' | 'stated_poster' | 'none';
+    /** Prompt v3 only: the guarded stated areas, WITHOUT their quotes (a saved record never holds third-party text). */
+    targetAreas?: Array<{ name: string; level: string; source: string; qualifier: string; role: string; anchor?: string }>;
     eligibility: string;
     eligibilityRaw: string;
     costTier: string;
@@ -84,7 +89,11 @@ export function evaluateRun(args: { id: string; run: number; caption: string; ac
     eventCountry: raw.eventCountry ? raw.eventCountry.toLowerCase() : null,
     geoScope: g.value.geoScope,
     geoScopeRaw: raw.geoScope,
-    targetAreaLevel: g.value.targetAreaLevel,
+    targetAreaLevel: targetAreaLevelOf(g.value),
+    ...(g.value.targetAreas && {
+      targetAreaSource: targetAreaSourceOf(g.value),
+      targetAreas: g.value.targetAreas.map(({ quote: _quote, ...rest }) => rest),
+    }),
     eligibility: g.value.eligibility,
     eligibilityRaw: raw.eligibility,
     costTier: g.value.costTier,
