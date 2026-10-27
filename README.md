@@ -17,11 +17,20 @@ FestDaily helps city residents and families cut through disorganized event info 
 
 ---
 
-## UI target
+## Screenshots
 
-![FestDaily mobile discovery feed target — search bar with a Filter button, category chips (All, Nearest 4 km, Promo & Discounts, Sports), a two-column grid of event cards with status badges, and a bottom tab bar](docs/assets/discovery-feed-ui-target.png)
+<table>
+  <tr>
+    <th align="center">Current build</th>
+    <th align="center">UI target</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/assets/discovery-feed-current.png" width="320" alt="FestDaily mobile discovery feed as built today, Indonesian locale — page title, a Show filters toggle, a search field, a Today / Upcoming / All switch, Type and Category filters, Card and Calendar view tabs, a two-column grid of event cards with date boxes, and a bottom tab bar"></td>
+    <td align="center"><img src="docs/assets/discovery-feed-ui-target.png" width="320" alt="FestDaily mobile discovery feed design target — search bar with a Filter button, category chips (All, Nearest 4 km, Promo &amp; Discounts, Sports), a two-column grid of photo event cards with status badges, and a bottom tab bar"></td>
+  </tr>
+</table>
 
-*Design target for the mobile discovery feed (Indonesian locale): search and filter chips, an ongoing / soon status badge, distance and end date on each card, and a bottom tab bar. This is the look the build is working toward, not a capture of the current app.*
+*Left: the mobile discovery feed as it renders today (Indonesian locale, signed out), captured with Playwright from a production build against the seeded local demo data, so the events are test fixtures without photos. Right: the design target the build is working toward — photo cards, status badges (ongoing / soon) and distance and end date on each card. The two are not the same yet.*
 
 ---
 
