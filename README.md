@@ -17,11 +17,11 @@ FestDaily helps city residents and families cut through disorganized event info 
 
 ---
 
-## Screenshot
+## UI target
 
-![FestDaily discovery feed on mobile — search bar, category filters, and a card-view event feed](docs/assets/screenshot-placeholder.jpg)
+![FestDaily mobile discovery feed target — search bar with a Filter button, category chips (All, Nearest 4 km, Promo & Discounts, Sports), a two-column grid of event cards with status badges, and a bottom tab bar](docs/assets/discovery-feed-ui-target.png)
 
-*Discovery feed (mobile): search, category filters, and card/calendar view toggle.*
+*Design target for the mobile discovery feed (Indonesian locale): search and filter chips, an ongoing / soon status badge, distance and end date on each card, and a bottom tab bar. This is the look the build is working toward, not a capture of the current app.*
 
 ---
 
