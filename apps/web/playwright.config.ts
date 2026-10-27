@@ -27,12 +27,15 @@ export default defineConfig({
       command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
       url: 'http://localhost:3000',
       reuseExistingServer: !process.env.CI,
+      // In CI this runs `next build` first, which takes far longer than Playwright's 60s default.
+      timeout: process.env.CI ? 300_000 : 120_000,
       env: fakeAuthEnv,
     },
     {
       command: 'pnpm --filter backend dev',
       url: 'http://localhost:4001/graphql',
       reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
       env: fakeAuthEnv,
     },
   ],
