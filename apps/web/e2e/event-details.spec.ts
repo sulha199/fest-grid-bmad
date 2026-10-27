@@ -36,28 +36,34 @@ test.describe("Event Details", () => {
     await expect(page.locator("role=dialog")).not.toBeVisible()
   })
 
-  test("should redirect unauthenticated users to login on favorite click", async ({ page }) => {
-    // Clear any previous session
-    await page.addInitScript(() => {
-      localStorage.removeItem("sb-shvehlxrbeifvqnspowi-auth-token")
-      localStorage.removeItem("festgrid_has_session")
+  // The file-level storage state above signs every test in as the moderator when
+  // E2E_AUTH_STORAGE_STATE is set, so this one starts from an empty (signed-out) state explicitly.
+  test.describe("signed out", () => {
+    test.use({ storageState: { cookies: [], origins: [] } })
+
+    test("should redirect unauthenticated users to login on favorite click", async ({ page }) => {
+      // Clear any previous session
+      await page.addInitScript(() => {
+        localStorage.removeItem("sb-shvehlxrbeifvqnspowi-auth-token")
+        localStorage.removeItem("festgrid_has_session")
+      })
+
+      // Navigate to a specific event
+      await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed")
+
+      // Wait for heading to load
+      await expect(page.locator("h1", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible()
+
+      // Find the favorite button (it should be in "Add to Favorites" state initially)
+      const favBtn = page.getByRole("button", { name: "Add to Favorites" })
+      await expect(favBtn).toHaveAttribute("aria-pressed", "false")
+
+      // Click to favorite
+      await favBtn.click()
+
+      // Verify it redirects to login
+      await expect(page).toHaveURL(/\/en\/login/)
     })
-
-    // Navigate to a specific event
-    await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed")
-
-    // Wait for heading to load
-    await expect(page.locator("h1", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible()
-
-    // Find the favorite button (it should be in "Add to Favorites" state initially)
-    const favBtn = page.getByRole("button", { name: "Add to Favorites" })
-    await expect(favBtn).toHaveAttribute("aria-pressed", "false")
-
-    // Click to favorite
-    await favBtn.click()
-
-    // Verify it redirects to login
-    await expect(page).toHaveURL(/\/en\/login/)
   })
 
   test("should support deep-link direct navigation to event detail view", async ({ page }) => {

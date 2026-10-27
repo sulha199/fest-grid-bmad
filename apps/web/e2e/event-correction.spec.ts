@@ -5,15 +5,20 @@ if (storageStatePath) {
   test.use({ storageState: storageStatePath });
 }
 
+// A submitted correction is applied to the event straight away (name, location, schedule), and the E2E
+// database is shared by every spec. These tests therefore edit a fixture no other spec reads, rather
+// than the Ongoing Culture Fest that discovery, details, reports and the calendar specs look up by name.
+const CORRECTION_FIXTURE_PATH = "/en/events/upcoming-family-workshop-2027-fixed";
+
 test.describe("Event Correction E2E", () => {
   test("authenticated happy path: open more actions, click Correct Data, edit field, submit and assert success toast", async ({ page }) => {
     test.skip(!storageStatePath, "Set E2E_AUTH_STORAGE_STATE to run authenticated event correction flow.");
 
     // Navigate to an event page that is seeded
-    await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed");
+    await page.goto(CORRECTION_FIXTURE_PATH);
 
-    // Wait for event title to load
-    await expect(page.locator("h1", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible();
+    // Wait for the event title to load (any title: a retried attempt sees the name an earlier attempt saved)
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
     // Click "More actions" overflow trigger
     const moreBtn = page.getByRole("button", { name: "More actions" });
@@ -32,7 +37,7 @@ test.describe("Event Correction E2E", () => {
     // Edit event name input
     const eventNameInput = page.getByLabel("Event Name");
     await expect(eventNameInput).toBeVisible();
-    await eventNameInput.fill("Ongoing Culture Fest 2026-2027 Edited");
+    await eventNameInput.fill("Upcoming Family Workshop 2027 Edited");
 
     // Click Submit
     const submitBtn = page.getByRole("button", { name: "Submit Correction" });
@@ -45,7 +50,7 @@ test.describe("Event Correction E2E", () => {
     await expect(dialogTitle).not.toBeVisible();
 
     // Verify the page title updated immediately (patched React Query cache)
-    await expect(page.locator("h1")).toHaveText("Ongoing Culture Fest 2026-2027 Edited");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Upcoming Family Workshop 2027 Edited");
   });
 
   test("authenticated AI-assisted correction path: click AI-Assisted Correction, enter URL, extract, and submit", async ({ page }) => {
@@ -94,7 +99,7 @@ test.describe("Event Correction E2E", () => {
                       eventEndTime: "21:00",
                       title: "AI Extracted Stage",
                       performers: ["AI Artist"],
-                      location: "AI Extracted Sched Loc",
+                      location: "AI Extracted Location - Stage",
                       ticketPrice: "$88",
                     },
                   ],
@@ -111,7 +116,7 @@ test.describe("Event Correction E2E", () => {
     });
 
     // Navigate to an event page that is seeded
-    await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed");
+    await page.goto(CORRECTION_FIXTURE_PATH);
 
     // Click "More actions" overflow trigger
     const moreBtn = page.getByRole("button", { name: "More actions" });
@@ -157,6 +162,6 @@ test.describe("Event Correction E2E", () => {
     await expect(dialogTitle).not.toBeVisible();
 
     // Verify React Query patch
-    await expect(page.locator("h1")).toHaveText("AI Extracted Event");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("AI Extracted Event");
   });
 });
