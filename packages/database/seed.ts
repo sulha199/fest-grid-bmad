@@ -4,7 +4,10 @@ import {
   apiKeys,
   events,
   eventPosts,
+  favorites,
+  accountTypeClassificationReviews,
   posts,
+  postAccountAssociations,
   schedules,
   subscriptions,
   userLocations,
@@ -31,6 +34,24 @@ export const FIXTURE_USERS = [
     email: 'festdailyapps@gmail.com',
     name: 'FestDaily Apps',
     avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocKTsMqAPgUw06qKWJ2RRoD3FMEJBaXXQkXyR_RCCz05xSAm=s96-c',
+    role: 'user' as const,
+  },
+  // Reporters of the cancellation-threshold fixture event. The cancellation rule counts DISTINCT
+  // reporters, and fake auth can only sign in as the two accounts above, so the two seeded reports
+  // must come from people who are not them: whichever account signs in is then the third reporter.
+  // Appended after the sign-in accounts on purpose -- fake auth takes the first user of each role.
+  {
+    id: 'd1000000-0000-0000-0000-000000000001',
+    email: 'alice.reporter@example.test',
+    name: 'Alice Reporter',
+    avatarUrl: null,
+    role: 'user' as const,
+  },
+  {
+    id: 'd1000000-0000-0000-0000-000000000002',
+    email: 'bob.reporter@example.test',
+    name: 'Bob Reporter',
+    avatarUrl: null,
     role: 'user' as const,
   },
 ];
@@ -945,6 +966,42 @@ const FIXTURE_EVENT_POSTS = FIXTURE_EVENTS.filter((e) => e.postId).map((e) => ({
   extractionOrdinal: e.extractionOrdinal,
 }));
 
+// Story 3.18: `Query.events` matches an account's events only through `post_account_associations`
+// (apps/backend/src/lib/events/event-account-match.ts); the legacy bare `posts.account_id` leg is
+// gone. Ingestion writes a PUBLISHER row for every post whose `accountId` resolves to a profile, so
+// the fixtures do the same -- without it the account page and every account-filtered query
+// (calendar, feed by account) return nothing for the seeded data.
+export const FIXTURE_POST_ACCOUNT_ASSOCIATIONS = FIXTURE_POSTS.map((p) => ({
+  postId: p.id,
+  accountId: p.accountId,
+  role: 'PUBLISHER' as const,
+}));
+
+// The moderator fixture user starts with one favorited event, so the authenticated Favorites flows
+// (favorites.spec.ts, event-details.spec.ts's isFavorited hydration check) have a card to act on
+// without a previous spec having to favorite something first. It is an EventCard fixture with a
+// thumbnail (dates relative to the seed run, so it never becomes a past event) that no spec edits:
+// the correction specs rewrite the event they open, which would change this card under the others.
+export const FIXTURE_FAVORITES = [
+  {
+    id: 'b1000000-0000-0000-0000-000000000001',
+    userId: FIXTURE_USERS[0].id,
+    eventId: '40000000-0000-0000-0000-000000000005',
+  },
+];
+
+// One account-type classification awaiting moderator review, so the moderator Items page has a row to
+// resolve (moderator-account-type-classification.spec.ts skips itself when the list is empty). Low
+// confidence is what sends a real classification to review; the profile is a plain fixture account.
+export const FIXTURE_ACCOUNT_TYPE_CLASSIFICATION_REVIEWS = [
+  {
+    id: 'c1000000-0000-0000-0000-000000000001',
+    accountId: '70000000-0000-0000-0000-000000000005',
+    proposedAccountType: 'ORGANIZER_VENUE_EVENT' as const,
+    confidenceScore: 0.55,
+  },
+];
+
 // Returns a 'YYYY-MM-DD' date offsetDays from the actual seed-run date (UTC), so the
 // Event-Card manual investigation fixtures below keep rendering their intended state
 // (not-started / ongoing / ends-today) no matter when the seed is run.
@@ -955,7 +1012,7 @@ export function relativeDate(offsetDays: number, from: Date = new Date()): strin
   return d.toISOString().slice(0, 10);
 }
 
-const FIXTURE_SCHEDULES = [
+export const FIXTURE_SCHEDULES = [
   {
     id: '50000000-0000-0000-0000-000000000001',
     slug: 'past-jazz-night-2025-main-fixed',
@@ -982,7 +1039,7 @@ const FIXTURE_SCHEDULES = [
     eventEndTime: '21:00:00',
     title: 'Daily Main Program',
     performers: ['Rotating Local Communities'],
-    location: 'Merdeka Square - Main Area',
+    location: 'Merdeka Square, Jakarta - Main Area',
     ticketPrice: 'Free',
     locationDetails: { coordinates: { latitude: -6.1701, longitude: 106.8283 } },
   },
@@ -1159,11 +1216,11 @@ const FIXTURE_SCHEDULES = [
   },
 ];
 
-const FIXTURE_REPORTS = [
+export const FIXTURE_REPORTS = [
   {
     id: '80000000-0000-0000-0000-000000000001',
     eventId: '40000000-0000-0000-0000-000000000004',
-    reporterUserId: FIXTURE_USERS[0].id,
+    reporterUserId: FIXTURE_USERS[2].id,
     reason: 'cancelled' as const,
     details: 'Widely reported as cancelled',
     status: 'pending' as const,
@@ -1171,7 +1228,7 @@ const FIXTURE_REPORTS = [
   {
     id: '80000000-0000-0000-0000-000000000002',
     eventId: '40000000-0000-0000-0000-000000000004',
-    reporterUserId: FIXTURE_USERS[1].id,
+    reporterUserId: FIXTURE_USERS[3].id,
     reason: 'cancelled' as const,
     details: 'Cancelled by organizer',
     status: 'pending' as const,
@@ -1185,6 +1242,9 @@ export const FIXTURE_COUNTS = {
   subscriptions: FIXTURE_SUBSCRIPTIONS.length,
   apiKeys: FIXTURE_API_KEYS.length,
   posts: FIXTURE_POSTS.length,
+  postAccountAssociations: FIXTURE_POST_ACCOUNT_ASSOCIATIONS.length,
+  favorites: FIXTURE_FAVORITES.length,
+  accountTypeClassificationReviews: FIXTURE_ACCOUNT_TYPE_CLASSIFICATION_REVIEWS.length,
   scraperActorRuns: FIXTURE_SCRAPER_ACTOR_RUNS.length,
   events: FIXTURE_EVENTS.length,
   schedules: FIXTURE_SCHEDULES.length,
@@ -1310,12 +1370,15 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
       await tx.insert(subscriptions).values([...FIXTURE_SUBSCRIPTIONS]);
       await tx.insert(apiKeys).values([...FIXTURE_API_KEYS]);
       await tx.insert(posts).values([...FIXTURE_POSTS]);
+      await tx.insert(postAccountAssociations).values([...FIXTURE_POST_ACCOUNT_ASSOCIATIONS]);
       await tx.insert(scraperActorRuns).values([...FIXTURE_SCRAPER_ACTOR_RUNS]);
       await tx.insert(parserVersionRegistry).values([...FIXTURE_PARSER_VERSIONS]);
       await tx.insert(unprocessedScraperPayloads).values([...FIXTURE_UNPROCESSED_PAYLOADS]);
       await tx.insert(events).values([...FIXTURE_EVENTS]);
       await tx.insert(eventPosts).values([...FIXTURE_EVENT_POSTS]);
       await tx.insert(schedules).values([...FIXTURE_SCHEDULES]);
+      await tx.insert(favorites).values([...FIXTURE_FAVORITES]);
+      await tx.insert(accountTypeClassificationReviews).values([...FIXTURE_ACCOUNT_TYPE_CLASSIFICATION_REVIEWS]);
       await tx.insert(reports).values([...FIXTURE_REPORTS]);
     });
   } finally {

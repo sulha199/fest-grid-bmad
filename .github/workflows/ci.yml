@@ -78,6 +78,88 @@ jobs:
       - name: Verify coverage badge is current
         run: node scripts/coverage-badge.mjs --check
 
+  # Playwright end-to-end suite (apps/web/e2e) against a production build of the web app and the backend
+  # on a seeded Postgres. Sign-in and the Geoapify address lookups are answered by local stand-ins
+  # (E2E_FAKE_AUTH=1, see apps/web/test-support), so the job needs no secrets and makes no calls to
+  # Supabase or Geoapify. Deliberately not in `needs` of db-migrate / deploy-infrastructure yet: a red
+  # run is reported on the commit/PR but does not block the production deploy.
+  e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: festgrid
+          POSTGRES_PASSWORD: festgrid
+          POSTGRES_DB: festgrid_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://festgrid:festgrid@localhost:5432/festgrid_test
+      E2E_FAKE_AUTH: '1'
+      BACKEND_PORT: '4001'
+      GEOAPIFY_API_KEY: 'test-geoapify-key'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Turbo Cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-e2e-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-e2e-
+            ${{ runner.os }}-turbo-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The web app and the backend consume the workspace packages from their built `dist`. Playwright
+      # builds the web app itself (`pnpm build && pnpm start`) and runs the backend from source, so only
+      # their dependencies are built here.
+      - name: Build workspace packages
+        run: pnpm exec turbo run build --filter='web^...' --filter='backend^...'
+
+      - name: Run Database Migrations (test DB)
+        run: pnpm --filter @festgrid/database run migrate
+
+      - name: Install Playwright browser
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # global-setup seeds the database before the first spec.
+      - name: Run end-to-end tests
+        run: pnpm --filter web run test:e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
   db-migrate:
     name: Database Migrations
     needs: ci

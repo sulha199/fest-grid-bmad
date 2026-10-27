@@ -24,7 +24,12 @@ test.describe('Moderator actor runs', () => {
     await page.locator('select').first().selectOption('APIFY');
     await expect(page.getByText(/E2E-ACTOR-RUN-001/)).toBeVisible();
 
-    await page.getByRole('button', { name: 'View details' }).click();
+    // The seed holds several APIFY runs, each with its own "View details" button: open the run named above.
+    const runRow = page
+      .locator('div', { has: page.getByText(/E2E-ACTOR-RUN-001/) })
+      .filter({ has: page.getByRole('button', { name: 'View details' }) })
+      .last();
+    await runRow.getByRole('button', { name: 'View details' }).click();
     await expect(page.getByText('Raw Input')).toBeVisible();
     await expect(page.getByText('Raw Output')).toBeVisible();
 

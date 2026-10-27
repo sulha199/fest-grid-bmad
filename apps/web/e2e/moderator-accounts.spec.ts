@@ -21,7 +21,7 @@ test.describe('Moderator account profiles', () => {
     await expect(page).toHaveURL(/\/en\/moderator\/tools$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Moderator Tools' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Accounts' }).click();
+    await page.getByRole('tab', { name: 'Accounts' }).click();
 
     await page.getByPlaceholder('Search by display name, username, or platform...').fill('jakarta');
     await page.keyboard.press('Enter');

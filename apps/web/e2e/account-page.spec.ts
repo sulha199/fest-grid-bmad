@@ -5,8 +5,9 @@ test.describe("Public Account Page E2E", () => {
     // Navigate directly to Jakarta City Events account page
     await page.goto("/en/ig/jktcity.events");
 
-    // Check account page header shows displayName
-    const header = page.locator("h1");
+    // Check account page header shows displayName. Role-based, not locator("h1"): while Next streams the
+    // page in, a hidden duplicate <h1> briefly sits in the DOM and would trip strict mode.
+    const header = page.getByRole("heading", { level: 1 });
     await expect(header).toBeVisible({ timeout: 15000 });
     await expect(header).toHaveText("Jakarta City Events");
 
@@ -50,7 +51,7 @@ test.describe("Public Account Page E2E", () => {
     await page.goto("/en/ig/2237970730?view=list");
 
     await expect(page).toHaveURL(/\/en\/ig\/pakuwonmall\.jogja\?view=list/);
-    await expect(page.locator("h1")).toHaveText("Pakuwon Mall Jogja", { timeout: 15000 });
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Pakuwon Mall Jogja", { timeout: 15000 });
   });
 
   test("redirects a mixed-case username URL to the lower-case username URL", async ({ page }) => {
