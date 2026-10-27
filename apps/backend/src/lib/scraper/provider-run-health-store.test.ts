@@ -139,13 +139,25 @@ test('provider-run-health-store', async (t) => {
     assert.strictEqual((await getProviderRunHealth('BRIGHTDATA')).degraded, false);
   });
 
-  await t.test('runs older than the recency window are ignored: a flag with no fresh evidence expires', async () => {
-    await insertRuns('BRIGHTDATA', repeat('failed', 20), 0, 100);
+  await t.test('runs older than the carry-over cap are ignored: a flag with no evidence at all expires', async () => {
+    await insertRuns('BRIGHTDATA', repeat('failed', 20), 0, 15 * 24);
 
     const health = await getProviderRunHealth('BRIGHTDATA');
 
     assert.strictEqual(health.sampled, 0);
     assert.strictEqual(health.degraded, false);
+  });
+
+  await t.test('a degraded provider stays degraded when probing left under minRuns runs in 72 hours (2026-10-26)', async () => {
+    // 20 failed runs finished 4 days ago, then only 3 probe runs in the last day: the fresh window holds 3.
+    await insertRuns('BRIGHTDATA', repeat('failed', 20), 0, 96);
+    await insertRuns('BRIGHTDATA', repeat('failed', 3), 0, 12);
+
+    const health = await getProviderRunHealth('BRIGHTDATA');
+
+    assert.strictEqual(health.degraded, true);
+    assert.strictEqual(health.reason, 'VENDOR_FAILURE');
+    assert.strictEqual(await gateDegradedProvider('BRIGHTDATA'), 'probe');
   });
 
   await t.test('the gate proceeds for a healthy provider, every time', async () => {

@@ -17,6 +17,9 @@ export type ScraperVendor = 'APIFY' | 'BRIGHTDATA';
 /** How long a degraded provider is left alone before one more trigger is let through to test it. */
 export const PROVIDER_PROBE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
+// Only the newest sampleSize finished runs are read, of any age: evaluateProviderRunHealth applies the
+// fresh window and the longer carry-over cap (BUG-082), so a degraded provider that is only probed a few
+// times a day stays degraded until a probe returns posts.
 export async function getProviderRunHealth(vendor: ScraperVendor, now: Date = new Date()): Promise<ProviderRunHealth> {
   const runs = await db
     .select({
