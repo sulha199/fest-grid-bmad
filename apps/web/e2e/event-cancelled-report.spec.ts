@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-const storageStatePath = process.env.E2E_AUTH_STORAGE_STATE;
+// A moderator can still open an event once it is cancelled, so the "not found" outcome below only holds for a
+// regular user: prefer the plain-user session when the fake-auth stack provides one.
+const storageStatePath = process.env.E2E_AUTH_USER_STORAGE_STATE ?? process.env.E2E_AUTH_STORAGE_STATE;
 if (storageStatePath) {
   test.use({ storageState: storageStatePath });
 }
@@ -13,7 +15,7 @@ test.describe("Event Cancellation Threshold E2E", () => {
     await page.goto("/en/events/cancellation-threshold-test-fixed");
 
     // Wait for event details to load
-    await expect(page.locator("h1", { hasText: "Cancellation Threshold Test Event" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Cancellation Threshold Test Event" })).toBeVisible();
 
     // Click "More actions" overflow trigger
     const moreBtn = page.getByRole("button", { name: "More actions" });
@@ -34,7 +36,7 @@ test.describe("Event Cancellation Threshold E2E", () => {
     await expect(submitBtn).toBeDisabled();
 
     // Click 'Event Cancelled' reason label (reason-cancelled)
-    const cancelledLabel = page.locator("label[htmlFor='reason-cancelled']");
+    const cancelledLabel = page.locator("label[for='reason-cancelled']");
     await expect(cancelledLabel).toBeVisible();
     await cancelledLabel.click();
 
@@ -53,12 +55,12 @@ test.describe("Event Cancellation Threshold E2E", () => {
 
     // We should see the generic "Not Found" state (from EventDetailWrapper.tsx / EventDetailsPage namespace)
     // t("notFoundTitle") / t("notFoundBody")
-    // By default: "Event Not Found" / "This event does not exist, has been removed, or is no longer active."
-    const notFoundTitle = page.locator("h2, h1, div, p", { hasText: "Event Not Found" });
-    await expect(notFoundTitle).toBeVisible();
-
-    const notFoundBody = page.locator("p, div", { hasText: "This event does not exist, has been removed, or is no longer active." });
-    await expect(notFoundBody).toBeVisible();
+    // By default: "Event Not Found" / "Sorry, the event you are looking for could not be found."
+    // Role/text queries, not an "h2, h1, div, p" locator: every ancestor <div> also contains this text, so
+    // that locator matches several nested elements and trips strict mode.
+    await expect(page.getByRole("heading", { name: "Event Not Found" })).toBeVisible();
+    // visible only: while Next streams the page a hidden copy of the text sits in the DOM and would trip strict mode.
+    await expect(page.getByText("Sorry, the event you are looking for could not be found.").filter({ visible: true })).toBeVisible();
   });
 });
 

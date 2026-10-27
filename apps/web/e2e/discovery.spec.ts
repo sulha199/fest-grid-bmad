@@ -7,7 +7,7 @@ test.describe('Discovery Page', () => {
     await page.goto('/en');
 
     // Check that the title is visible
-    await expect(page.locator('h1', { hasText: 'Discover Events' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Discover Events' })).toBeVisible();
 
     // Verify initial cards are loaded
     const eventCards = page.locator('article');
@@ -23,7 +23,7 @@ test.describe('Discovery Page', () => {
     // Currently we might not have enough seeded events to actually trigger a new page
     // but the scroll behavior shouldn't crash.
     // If there were more events, the count would increase. We just verify the page is still interactive and no errors.
-    await expect(page.locator('h1', { hasText: 'Discover Events' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Discover Events' })).toBeVisible();
   });
 
   test('should not overflow horizontally at md/lg/xl breakpoint edges (BUG-045)', async ({ page }) => {

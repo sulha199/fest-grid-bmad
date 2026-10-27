@@ -2532,6 +2532,15 @@ items:
      touches: [app:backend, pkg:domain, web:subscriptions],
      note: "Fix and PROD repair script in the same PR; set done once merged and the repair workflow has run. 0587b45b is probably jogjakajian's account (inferred)."}
 
+  # ── 2026-10-27 (prod: Bright Data degraded state flapped back to healthy while the vendor was still down) ──
+  BUG-082:
+    {type: bug, status: backlog, created: 2026-10-27,
+     impact: user-visible, effort: xs,
+     title: "Provider health trusts a degraded provider again once probing leaves under 10 runs in 72h, so the next batch sends it every target",
+     ref: [packages/domain/src/scraper/evaluate-provider-run-health.ts, apps/backend/src/lib/scraper/provider-run-health-store.ts],
+     touches: [app:backend, pkg:domain],
+     note: "Fixed in the PR that adds this row (14-day carry-over); set done once merged. 2026-10-26 03:13 UTC: all 38 targets went to Bright Data and failed, Apify re-queue recovered the data."}
+
   # ── 2026-10-27 (prod: Apify memory cap on the queue path recorded as vendor failures) ──
   BUG-083:
     {type: bug, status: backlog, created: 2026-10-27,

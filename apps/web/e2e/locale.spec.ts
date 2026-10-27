@@ -16,14 +16,14 @@ import { test, expect } from '@playwright/test';
 test.describe('Locale switching', () => {
   test('category facet label re-translates when switching locale', async ({ page }) => {
     await page.goto('/en');
-    await expect(page.locator('h1', { hasText: 'Discover Events' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Discover Events' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Category', exact: true }).click();
     const musicButtonEn = page.getByRole('button', { name: 'Music', exact: true });
     await expect(musicButtonEn).toBeVisible();
 
     await page.goto('/id');
-    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
     await page.getByRole('button', { name: 'Kategori', exact: true }).click();
     const musicButtonId = page.getByRole('button', { name: 'Musik', exact: true });

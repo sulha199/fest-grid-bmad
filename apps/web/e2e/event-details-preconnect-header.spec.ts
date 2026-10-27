@@ -11,15 +11,18 @@ test.describe("Event Details - Instagram preconnect/dns-prefetch Link header (St
     const response = await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed")
     expect(response).not.toBeNull()
 
+    // next-intl also puts its hreflang alternates in `Link`, so assert the Instagram hints are
+    // among the entries rather than that they are the whole header.
     const link = response!.headers()["link"]
-    expect(link).toBe("<https://www.instagram.com>; rel=preconnect, <https://www.instagram.com>; rel=dns-prefetch")
+    expect(link).toContain("<https://www.instagram.com>; rel=preconnect")
+    expect(link).toContain("<https://www.instagram.com>; rel=dns-prefetch")
   })
 
-  test("an unrelated route does not carry the Link header", async ({ page }) => {
+  test("an unrelated route does not carry the Instagram hints", async ({ page }) => {
     const response = await page.goto("/en/discover")
     expect(response).not.toBeNull()
 
-    const link = response!.headers()["link"]
-    expect(link).toBeUndefined()
+    const link = response!.headers()["link"] ?? ""
+    expect(link).not.toContain("instagram.com")
   })
 })

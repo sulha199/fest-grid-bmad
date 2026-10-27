@@ -29,36 +29,40 @@ test.describe('My Locations page', () => {
     // 4. Save
     await page.getByRole('button', { name: 'Save' }).click();
 
+    // The seeded user already has other locations (e.g. "Home Jakarta"), so find the new one by its exact
+    // name and act on its own row, never on the first Edit/Delete button in the list.
+    const homeHeading = page.getByRole('heading', { name: 'Home', exact: true });
+    const homeRow = homeHeading.locator('xpath=ancestor::div[.//button[@aria-label="Edit"]][1]');
+
     // 5. Verify it appears in the list
-    await expect(page.getByText('Home')).toBeVisible();
+    await expect(homeHeading).toBeVisible();
 
     // 6. Edit its radius
-    const editButton = page.getByLabel('Edit').first();
-    await editButton.click();
+    await homeRow.getByLabel('Edit').click();
 
     await page.getByLabel('Radius').fill('15'); // 15 km
     await page.getByRole('button', { name: 'Save' }).click();
 
     // Verify updated radius
-    await expect(page.getByText('15 km')).toBeVisible();
+    await expect(homeRow.getByText('15 km')).toBeVisible();
 
     // 7. Delete with Undo
-    const deleteButton = page.getByLabel('Delete').first();
-    await deleteButton.click();
+    await homeRow.getByLabel('Delete').click();
 
     const undoButton = page.getByRole('button', { name: 'Undo' });
     await expect(undoButton).toBeVisible();
     await undoButton.click();
 
     // Still present
-    await expect(page.getByText('Home')).toBeVisible();
+    await expect(homeHeading).toBeVisible();
 
     // 8. Delete again and navigate away
-    await deleteButton.click();
+    await homeRow.getByLabel('Delete').click();
     await page.goto('/en');
 
     // Revisit the page -> gone
     await page.goto('/en/settings/locations');
-    await expect(page.getByText('Home')).not.toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'My Locations' })).toBeVisible();
+    await expect(homeHeading).toHaveCount(0);
   });
 });

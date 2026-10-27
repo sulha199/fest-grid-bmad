@@ -9,11 +9,22 @@ test.describe("My Reports E2E", () => {
   test("authenticated happy path: submit a report and verify it is listed on My Reports page", async ({ page }) => {
     test.skip(!storageStatePath, "Set E2E_AUTH_STORAGE_STATE to run authenticated My Reports flow.");
 
+    // event-report.spec.ts already reports this event as the same user, so the list may hold
+    // earlier entries for it: count them first and assert exactly one more shows up afterwards.
+    const eventLinks = page.locator("a", { hasText: "Ongoing Culture Fest 2026-2027" });
+    const countListedReports = async () => {
+      await page.goto("/en/reports");
+      await expect(page.getByRole("heading", { level: 1, name: "My Reports" })).toBeVisible();
+      await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+      return eventLinks.count();
+    };
+    const reportsBefore = await countListedReports();
+
     // Navigate to a seeded event page
     await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed");
 
     // Wait for event title to load
-    await expect(page.locator("h1", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Ongoing Culture Fest 2026-2027" })).toBeVisible();
 
     // Click "More actions" overflow trigger
     const moreBtn = page.getByRole("button", { name: "More actions" });
@@ -47,15 +58,9 @@ test.describe("My Reports E2E", () => {
     // Wait for success toast
     await expect(page.getByText("Report submitted successfully")).toBeVisible();
 
-    // Navigate to /en/reports
-    await page.goto("/en/reports");
-
-    // Verify reports page title loads
-    await expect(page.locator("h1", { hasText: "My Reports" })).toBeVisible();
-
-    // Verify submitted report exists in the list
-    await expect(page.locator("a", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible();
-    await expect(page.getByText("Personal")).toBeVisible();
-    await expect(page.getByText("Pending")).toBeVisible();
+    // Verify the submitted report is now listed, in addition to any earlier ones
+    expect(await countListedReports()).toBe(reportsBefore + 1);
+    await expect(page.getByText("Personal").first()).toBeVisible();
+    await expect(page.getByText("Pending").first()).toBeVisible();
   });
 });

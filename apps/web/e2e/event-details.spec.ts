@@ -23,7 +23,7 @@ test.describe("Event Details", () => {
     await expect(page).toHaveURL(/\/en\/events\/[a-z0-9-]+/)
 
     // Check modal title matches clicked card's name
-    const modalTitle = page.locator("role=dialog").locator("h1")
+    const modalTitle = page.getByRole("dialog").getByRole("heading", { level: 1 })
     await expect(modalTitle).toHaveText(eventName)
 
     // Verify close modal button dismisses the modal and restores URL
@@ -36,28 +36,34 @@ test.describe("Event Details", () => {
     await expect(page.locator("role=dialog")).not.toBeVisible()
   })
 
-  test("should redirect unauthenticated users to login on favorite click", async ({ page }) => {
-    // Clear any previous session
-    await page.addInitScript(() => {
-      localStorage.removeItem("sb-shvehlxrbeifvqnspowi-auth-token")
-      localStorage.removeItem("festgrid_has_session")
+  // The file-level storage state above signs every test in as the moderator when
+  // E2E_AUTH_STORAGE_STATE is set, so this one starts from an empty (signed-out) state explicitly.
+  test.describe("signed out", () => {
+    test.use({ storageState: { cookies: [], origins: [] } })
+
+    test("should redirect unauthenticated users to login on favorite click", async ({ page }) => {
+      // Clear any previous session
+      await page.addInitScript(() => {
+        localStorage.removeItem("sb-shvehlxrbeifvqnspowi-auth-token")
+        localStorage.removeItem("festgrid_has_session")
+      })
+
+      // Navigate to a specific event
+      await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed")
+
+      // Wait for heading to load
+      await expect(page.getByRole("heading", { level: 1, name: "Ongoing Culture Fest 2026-2027" })).toBeVisible()
+
+      // Find the favorite button (it should be in "Add to Favorites" state initially)
+      const favBtn = page.getByRole("button", { name: "Add to Favorites" })
+      await expect(favBtn).toHaveAttribute("aria-pressed", "false")
+
+      // Click to favorite
+      await favBtn.click()
+
+      // Verify it redirects to login
+      await expect(page).toHaveURL(/\/en\/login/)
     })
-
-    // Navigate to a specific event
-    await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed")
-
-    // Wait for heading to load
-    await expect(page.locator("h1", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible()
-
-    // Find the favorite button (it should be in "Add to Favorites" state initially)
-    const favBtn = page.getByRole("button", { name: "Add to Favorites" })
-    await expect(favBtn).toHaveAttribute("aria-pressed", "false")
-
-    // Click to favorite
-    await favBtn.click()
-
-    // Verify it redirects to login
-    await expect(page).toHaveURL(/\/en\/login/)
   })
 
   test("should support deep-link direct navigation to event detail view", async ({ page }) => {
@@ -65,7 +71,7 @@ test.describe("Event Details", () => {
     await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed")
 
     // Standalone detail view should render the title
-    const eventHeading = page.locator("h1")
+    const eventHeading = page.getByRole("heading", { level: 1 })
     await expect(eventHeading).toHaveText("Ongoing Culture Fest 2026-2027")
 
     // Since accessed directly via deep link with no list context, the navigation controls must be hidden/disabled
@@ -96,7 +102,7 @@ test.describe("Event Details", () => {
     const tracker = countGetEventBySlugRequests(page)
 
     await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed")
-    await expect(page.locator("h1", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1, name: "Ongoing Culture Fest 2026-2027" })).toBeVisible()
 
     // Settle window: give any would-be client re-fetch a chance to fire before asserting it didn't.
     await page.waitForTimeout(1000)
@@ -115,7 +121,7 @@ test.describe("Event Details", () => {
 
     await firstCard.click()
     await expect(page).toHaveURL(/\/en\/events\/[a-z0-9-]+/)
-    await expect(page.locator("role=dialog").locator("h1")).toBeVisible()
+    await expect(page.getByRole("dialog").getByRole("heading", { level: 1 })).toBeVisible()
 
     await page.waitForTimeout(1000)
 
@@ -141,7 +147,7 @@ test.describe("Event Details", () => {
     await firstCard.click()
 
     await expect(page).toHaveURL(/\/en\/events\/[a-z0-9-]+/)
-    const modalTitle = page.locator("role=dialog").locator("h1")
+    const modalTitle = page.getByRole("dialog").getByRole("heading", { level: 1 })
     await expect(modalTitle).toHaveText(eventName)
 
     // The very first render of the "Remove from Favorites" (favorited=true) button state --

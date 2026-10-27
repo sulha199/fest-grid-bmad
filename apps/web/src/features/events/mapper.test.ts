@@ -387,7 +387,7 @@ describe('mapGraphQLEventToDetailViewProps coauthors mapping (Story 0.i6g)', () 
         username: 'coauthor_one',
         displayName: 'Coauthor One',
         profileImageUrl: 'https://example.com/coauthor-1.png',
-        accountHref: '/ig/coauthor_one',
+        accountHref: '/en/ig/coauthor_one',
         isSubscribed: false,
         isTogglePending: false,
       },
@@ -477,7 +477,7 @@ describe('mapGraphQLEventToDetailViewProps sourcePosts mapping (Story 3.6u)', ()
           username: 'acct_one',
           displayName: 'Acct One',
           profileImageUrl: 'https://example.com/acct-1.png',
-          accountHref: '/ig/acct_one',
+          accountHref: '/en/ig/acct_one',
         },
         coauthors: [],
       },
@@ -696,8 +696,14 @@ describe('mapGraphQLEventToDetailViewProps accountHref (AD-35)', () => {
   it('builds the source account href from the lower-cased username, not the numeric account id', () => {
     const event = { ...buildEvent({}), sourceSocialMediaAccountProfile: profile({}) };
     const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
-    expect(props.accountHref).toBe('/ig/jktcity.events');
+    expect(props.accountHref).toBe('/en/ig/jktcity.events');
     expect(props.accountHref).not.toContain('17841400000');
+  });
+
+  it('prefixes the href with the active locale, since the UI renders it as a plain anchor', () => {
+    const event = { ...buildEvent({}), sourceSocialMediaAccountProfile: profile({}) };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'id', (k) => k, (k) => k);
+    expect(props.accountHref).toBe('/id/ig/jktcity.events');
   });
 
   it('yields a null href (unlinked) rather than a numeric fallback when the username is empty', () => {
