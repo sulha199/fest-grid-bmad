@@ -50,7 +50,7 @@ Since Vercel natively integrates with GitHub for Continuous Deployment (CD), you
 #### Hold production deploys until the tests pass (Deployment Checks)
 
 Vercel deploys from Git on its own, so the `needs:` ordering in `.github/workflows/ci.yml` cannot stop it (it only gates the database migration and the AWS deploy). To keep a commit whose tests fail from reaching the production domain, add Vercel [Deployment Checks](https://vercel.com/docs/deployment-checks):
-1. In the Vercel project, open **Settings -> Environments -> Production** and make sure **automatic aliasing** for production is on.
+1. In the Vercel project, open **Settings -> Environments -> Production -> Branch Tracking** and make sure **Auto-assign Custom Production Domains** is on (it is by default). This is what lets a deployment take the production domains once its checks pass; with it off, every production deployment waits for a manual promotion and the checks never matter.
 2. Open **Settings -> Build and Deployment -> Deployment Checks** and select **Add Checks**.
 3. Choose **GitHub** as the provider and select **Continuous Integration** and **End-to-End Tests** (the job names in `ci.yml`).
 
