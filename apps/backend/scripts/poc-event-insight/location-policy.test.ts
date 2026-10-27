@@ -10,13 +10,13 @@ import {
 const TYPES: AccountType[] = ['ORGANIZER_VENUE_EVENT', 'CURATOR_GUIDE', 'PERSONAL', null];
 const STATUSES: AccountTypeStatus[] = ['CONFIRMED', 'AWAITING_APPROVAL', null];
 
-test('mayUseAccountLocation: confirmed organizers and never-classified accounts may lend; curators, personal and awaiting approval may not', () => {
-  const expected = (t: AccountType, s: AccountTypeStatus): boolean => s === null || (s === 'CONFIRMED' && t === 'ORGANIZER_VENUE_EVENT');
+test('mayUseAccountLocation: only confirmed organizers may lend; curators, personal, awaiting approval and never-classified accounts may not', () => {
+  const expected = (t: AccountType, s: AccountTypeStatus): boolean => s === 'CONFIRMED' && t === 'ORGANIZER_VENUE_EVENT';
   for (const t of TYPES) for (const s of STATUSES) assert.equal(mayUseAccountLocation(t, s), expected(t, s), `${t}/${s}`);
   assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'CONFIRMED'), true);
   assert.equal(mayUseAccountLocation('CURATOR_GUIDE', 'CONFIRMED'), false, 'the curator case');
   assert.equal(mayUseAccountLocation('ORGANIZER_VENUE_EVENT', 'AWAITING_APPROVAL'), false, 'might be a curator');
-  assert.equal(mayUseAccountLocation(null, null), true, 'DECISION 2026-10-18: a never-classified account that already has a location is not changed');
+  assert.equal(mayUseAccountLocation(null, null), false, 'DECISION 2026-10-27: a never-classified account is treated as a curator until classified (reverses 2026-10-18)');
 });
 
 test('mayUseAccountLocation: a NATIONAL organizer\'s account location is a head office — it does not lend it; unknown reach does', () => {
@@ -95,7 +95,7 @@ test('effectiveAudienceAreas: local government vs national company, both posting
   assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'national' }), { keys: [], source: 'none' }, 'a national company\'s webinar is for everyone — its head-office city is not its audience');
   assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'unknown' }), { keys: [], source: 'none' });
   assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'local', accountType: 'CURATOR_GUIDE' }), { keys: [], source: 'none' }, 'never a curator');
-  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'local', accountTypeStatus: null, accountType: null }), { keys: ['sleman'], source: 'account' }, 'a never-classified account with a location and a KNOWN local reach is unchanged');
+  assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'local', accountTypeStatus: null, accountType: null }), { keys: [], source: 'none' }, 'DECISION 2026-10-27: a never-classified account is treated as a curator, so even a KNOWN local reach lends no location');
   assert.deepEqual(effectiveAudienceAreas({ ...online, accountReach: 'unknown', accountTypeStatus: null, accountType: null }), { keys: [], source: 'none' }, 'online still needs a known local reach');
 });
 

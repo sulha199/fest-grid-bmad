@@ -26,15 +26,14 @@ export type AccountReach = 'local' | 'regional' | 'national' | 'international' |
 //   * a national company's or a national organizer's account location is a head office, not where an
 //     area-less post's event happens (reach 'national' / 'international');
 //   * an account awaiting approval — it might be a curator.
-// NEVER-CLASSIFIED accounts (accountTypeStatus null) keep today's behaviour: they may lend the location they
-// have. Decision 2026-10-18, after a stricter draft: the never-classified accounts WITHOUT a location are all
-// curators and are set to CURATOR_GUIDE by one bulk update (IDEA-075), so the only never-classified accounts
-// left are the ones that already have a location, and the product owner said not to change them. The risk
-// that remains is a curator among them that carries an arbitrary stored location (FIND-086 and the scatter
-// query in the IDEA-075 runbook are how to look for one).
+// NEVER-CLASSIFIED accounts (accountTypeStatus null) are treated as CURATORS until they are classified: they lend no location.
+// DECISION 2026-10-27 (target-area-spec section 6), reversing the 2026-10-18 one that let them lend the location they have. In prod on
+// 2026-10-26 336 accounts with posts were never classified and only 4 had a default location, so the old rule lent almost nothing anyway; the
+// risk it carried (a curator among them with an arbitrary stored location, FIND-086) is gone. Cost: about 25% of the last 30 days' posts come
+// from such accounts and now get no account fallback unless the account's profile states an audience area (`audienceAreaKeys` in
+// `effectiveAudienceAreas`). This differs from PRD FR122 ("every other account lends at most the area of its default location"): a PRD delta.
 export function mayUseAccountLocation(accountType: AccountType, accountTypeStatus: AccountTypeStatus, reach: AccountReach = 'unknown'): boolean {
   if (reach === 'national' || reach === 'international') return false;
-  if (accountTypeStatus === null) return true;
   return accountTypeStatus === 'CONFIRMED' && accountType === 'ORGANIZER_VENUE_EVENT';
 }
 
