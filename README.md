@@ -83,9 +83,11 @@ packages/
   testing-config/     shared Vitest presets and MSW handlers
   visual-audit/       Playwright-based visual-regression tooling
   eslint-config/, typescript-config/
+ai-dev-orchestrator/  early scaffolding for a CLI that drives the BMad workflow (config, ports/adapters;
+                      no commands wired yet) -- excluded from the root build, lint and test scripts
 ```
 
-The Architecture Spine records **37 binding architectural decisions (AD-1 to AD-41)** — among them the unified query DSL and single event-query endpoint, code-first schema migrations, strict three-tier frontend state (server/URL/client), single-provider analytics, single-framework i18n, JWT-verified auth context, the soft-delete convention, the scrape gate, and a planned move of subscribe-time classification and first scrape off the request path. Full rationale for each: [Architecture Spine](_bmad-output/planning-artifacts/festgrid-architecture-spine.md).
+The Architecture Spine records **38 binding architectural decisions (numbered AD-1 to AD-44)** — among them the unified query DSL and single event-query endpoint, code-first schema migrations, strict three-tier frontend state (server/URL/client), single-provider analytics, single-framework i18n, JWT-verified auth context, the soft-delete convention, the scrape gate, a closed event-category taxonomy with one definitions source, and a planned move of subscribe-time classification and first scrape off the request path. Full rationale for each: [Architecture Spine](_bmad-output/planning-artifacts/festgrid-architecture-spine.md).
 
 Infrastructure deep-dive by layer: [`docs/infrastructure/`](docs/infrastructure/index.md), including a current [architecture diagram and tech-stack table](docs/infrastructure/architecture-diagram.md).
 
@@ -110,7 +112,7 @@ Infrastructure deep-dive by layer: [`docs/infrastructure/`](docs/infrastructure/
 | i18n | next-intl (`en`, `id`) |
 | Validation | AJV (backend boundary), Zod (frontend boundary) |
 | Testing | Vitest, MSW, Playwright; `node:test` + c8 for `packages/domain` |
-| CI/CD | GitHub Actions |
+| CI/CD | GitHub Actions (lint, build, unit/integration tests, Playwright E2E; the E2E job gates the database migration and AWS deploy); Vercel Git deploys for the web app |
 
 ---
 
@@ -125,6 +127,8 @@ pnpm test    # turbo run test (includes the packages/domain coverage gate)
 pnpm lint    # turbo run lint
 pnpm build   # turbo run build
 ```
+
+End-to-end tests (Playwright, `apps/web/e2e`) need a local, migrated Postgres and **re-seed it first, wiping its rows**; see [Testing & Coverage](#testing--coverage) for the command.
 
 Full environment setup (Vercel, AWS, Supabase, FCM, PostHog, Geoapify credentials): see **[SETUP_WALKTHROUGH.md](SETUP_WALKTHROUGH.md)**.
 
@@ -142,7 +146,7 @@ Testing follows a deliberate, tiered strategy (rules in [`project-context.md`](_
 
 **The `packages/domain` gate.** `pnpm --filter @festgrid/domain test` runs the suite under [c8](https://github.com/bcoe/c8) with the thresholds in [`packages/domain/.c8rc.json`](packages/domain/.c8rc.json). Below 100% on any metric the command exits non-zero, so the CI `test` step (`pnpm run test`) fails. The gate counts every file under `src/` — including files no test imports — so new untested logic fails it too; test files (`*.test.ts`, `__tests__/`) are the only exclusion. A branch that is provably unreachable may carry a `/* c8 ignore */` hint, but only with a comment saying why.
 
-**The end-to-end gate.** The Playwright suite in [`apps/web/e2e`](apps/web/e2e) runs in CI as its own `e2e` job (`.github/workflows/ci.yml`): it builds the web app, starts it and the backend against a freshly migrated and seeded Postgres, and drives them in Chromium. Sign-in and the Geoapify address lookups are answered by local stand-ins (`E2E_FAKE_AUTH=1`, see [`apps/web/test-support`](apps/web/test-support)), so the job needs no secrets and calls no external service. To run it locally: `E2E_FAKE_AUTH=1 pnpm --filter web run test:e2e` against a local, seeded `DATABASE_URL`. The suite shares one database and a few specs change seeded rows, so a spec that edits an event uses a fixture no other spec reads. A red run blocks the database migration and the AWS deploy (`needs:` in the workflow); the Vercel frontend is held by Vercel's Deployment Checks instead, set up as described in [SETUP_WALKTHROUGH.md](SETUP_WALKTHROUGH.md#vercel-deployment-setup-manual-step).
+**The end-to-end gate.** The Playwright suite in [`apps/web/e2e`](apps/web/e2e) runs in CI as its own `e2e` job (`.github/workflows/ci.yml`): it builds the web app, starts it and the backend against a freshly migrated and seeded Postgres, and drives them in Chromium. Sign-in and the Geoapify address lookups are answered by local stand-ins (`E2E_FAKE_AUTH=1`, see [`apps/web/test-support`](apps/web/test-support)), so the job needs no secrets and calls no external service. To run it locally: `E2E_FAKE_AUTH=1 pnpm --filter web run test:e2e` against a local, migrated `DATABASE_URL`; the run starts by re-seeding that database (existing rows are deleted), and `E2E_FAKE_AUTH=1` refuses to run against anything but a local database. The suite shares one database and a few specs change seeded rows, so a spec that edits an event uses a fixture no other spec reads. A red run blocks the database migration and the AWS deploy (`needs:` in the workflow); the Vercel frontend is held by Vercel's Deployment Checks instead, set up as described in [SETUP_WALKTHROUGH.md](SETUP_WALKTHROUGH.md#vercel-deployment-setup-manual-step).
 
 **The coverage badge.** The badge at the top reads [`docs/badges/domain-coverage.json`](docs/badges/domain-coverage.json), which is generated from the measured c8 summary (lowest of the four metrics, truncated rather than rounded). CI runs `node scripts/coverage-badge.mjs --check` after the tests and fails if the committed file no longer matches the measured coverage. After a change that moves coverage, run `pnpm --filter @festgrid/domain test && pnpm coverage:badge` and commit the result.
 
@@ -150,15 +154,15 @@ Testing follows a deliberate, tiered strategy (rules in [`project-context.md`](_
 
 ## Project Status & Roadmap
 
-FestDaily is **actively in development**, built incrementally epic by epic, with each story implemented, then reviewed before it counts as done. The backend deploys to AWS from `master` through CI, the web app is hosted on Vercel, and the system has run against production data (see the [incident write-ups](docs/infrastructure/incidents/)).
+FestDaily is **actively in development**, built incrementally epic by epic, with each story implemented, then reviewed before it counts as done. The backend deploys to AWS from `master` through CI, the web app is hosted on Vercel (its production deploys are held by Vercel Deployment Checks until the CI and E2E checks pass), and the system has run against production data (see the [incident write-ups](docs/infrastructure/incidents/)).
 
-_Snapshot of 23 Oct 2026, from [`sprint-status.yaml`](_bmad-output/implementation-artifacts/sprint-status.yaml) (last updated 15 Oct 2026) and the [backlog board](_bmad-output/implementation-artifacts/backlog.yaml)._
+_Snapshot of 27 Oct 2026, from [`sprint-status.yaml`](_bmad-output/implementation-artifacts/sprint-status.yaml) (last updated 25 Oct 2026) and the [backlog board](_bmad-output/implementation-artifacts/backlog.yaml) (last updated 26 Oct 2026)._
 
-**309 tracked stories: 53 done, 230 implemented and awaiting code review, 1 ready for development, 22 in the backlog, 3 closed (superseded or won't-do).**
+**312 tracked stories: 56 done, 230 implemented and awaiting code review, 1 ready for development, 22 in the backlog, 3 closed (superseded or won't-do).**
 
 | Epic | Scope | Stories | Status |
 |---|---|---|---|
-| 0 | Project setup & DevOps foundation | 96 | In progress — 12 done, 64 in review, 1 ready-for-dev, 18 backlog |
+| 0 | Project setup & DevOps foundation | 99 | In progress — 15 done, 64 in review, 1 ready-for-dev, 18 backlog |
 | 1 | Core app & event discovery | 48 | In progress — 14 done, 34 in review |
 | 2 | Personalization (favorites, saved locations, calendar) | 23 | In progress — 6 done, 14 in review, 3 backlog |
 | 3 | Social media subscription, scraping & AI extraction | 85 | In progress — 12 done, 71 in review, 1 backlog |
@@ -169,13 +173,13 @@ _Snapshot of 23 Oct 2026, from [`sprint-status.yaml`](_bmad-output/implementatio
 | 8 | Account claim & image-storage self-service opt-in | — | Backlog — placeholder only, not yet specified |
 | 9 | Boolean, nested & richer-date AI filters | 11 | Implemented — all 11 stories in code review |
 
-**What the picture says.** Most planned stories are already implemented, so the bottleneck is code review (230 of 309 stories), not building. Epic 0 holds most of the remaining backlog (18 stories of tooling and foundation work).
+**What the picture says.** Most planned stories are already implemented, so the bottleneck is code review (230 of 312 stories), not building. Epic 0 holds most of the remaining backlog (18 stories of tooling and foundation work).
 
 **Next up**
 - Burn down the review queue, starting with the epics that have nothing left in the backlog (1, 4, 5, 6 and 9).
 - Async subscribe: moving subscribe-time classification and the first scrape off the request path is decided ([AD-41](_bmad-output/planning-artifacts/festgrid-architecture-spine.md)) but not yet built.
 - Epic 8 (account claim) once its scope is specified.
-- 74 open backlog items (10 bugs, 40 findings, 22 ideas, 2 proposals) awaiting triage or promotion into stories.
+- 92 open backlog items (17 bugs, 49 findings, 24 ideas, 2 proposals) awaiting triage or promotion into stories.
 
 Live, per-story detail: [`sprint-status.yaml`](_bmad-output/implementation-artifacts/sprint-status.yaml).
 
@@ -188,7 +192,7 @@ Every decision behind this codebase is written down, not just implied by the cod
 | Artifact | What it covers |
 |---|---|
 | [PRD](_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md) | Full product requirements & data schema |
-| [Architecture Spine](_bmad-output/planning-artifacts/festgrid-architecture-spine.md) | The 37 binding architectural decisions (AD-1–AD-41) |
+| [Architecture Spine](_bmad-output/planning-artifacts/festgrid-architecture-spine.md) | The 38 binding architectural decisions (AD-1–AD-44) |
 | [Epics & Stories](_bmad-output/planning-artifacts/epics.md) | Full epic/story breakdown with acceptance criteria |
 | [Critical-Path Report](_bmad-output/planning-artifacts/critical-path-report-2026-07-31.md) | Cross-epic dependency analysis — which stories are true bottlenecks vs. local prerequisites |
 | [Epic Readiness Reports](_bmad-output/planning-artifacts/epic-readiness/) | Per-epic architecture & foundational-dependency sweeps |
