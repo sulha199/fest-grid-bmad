@@ -165,7 +165,7 @@ Testing follows a deliberate, tiered strategy (rules in [`project-context.md`](_
 
 FestDaily is **actively in development**, built incrementally epic by epic, with each story implemented, then reviewed before it counts as done. The backend deploys to AWS from `master` through CI, the web app is hosted on Vercel (its production deploys are held by Vercel Deployment Checks until the CI and E2E checks pass), and the system has run against production data (see the [incident write-ups](docs/infrastructure/incidents/)).
 
-_Snapshot of 27 Oct 2026, from [`sprint-status.yaml`](_bmad-output/implementation-artifacts/sprint-status.yaml) (last updated 25 Oct 2026) and the [backlog board](_bmad-output/implementation-artifacts/backlog.yaml) (last updated 26 Oct 2026)._
+_Snapshot of 27 Oct 2026, from [`sprint-status.yaml`](_bmad-output/implementation-artifacts/sprint-status.yaml) (last updated 25 Oct 2026) and the [backlog board](_bmad-output/implementation-artifacts/backlog.yaml) (last updated 27 Oct 2026)._
 
 **312 tracked stories: 56 done, 230 implemented and awaiting code review, 1 ready for development, 22 in the backlog, 3 closed (superseded or won't-do).**
 
@@ -188,7 +188,7 @@ _Snapshot of 27 Oct 2026, from [`sprint-status.yaml`](_bmad-output/implementatio
 - Burn down the review queue, starting with the epics that have nothing left in the backlog (1, 4, 5, 6 and 9).
 - Async subscribe: moving subscribe-time classification and the first scrape off the request path is decided ([AD-41](_bmad-output/planning-artifacts/festgrid-architecture-spine.md)) but not yet built.
 - Epic 8 (account claim) once its scope is specified.
-- 92 open backlog items (17 bugs, 49 findings, 24 ideas, 2 proposals) awaiting triage or promotion into stories.
+- 93 open backlog items (18 bugs, 49 findings, 24 ideas, 2 proposals) awaiting triage or promotion into stories.
 
 Live, per-story detail: [`sprint-status.yaml`](_bmad-output/implementation-artifacts/sprint-status.yaml).
 
