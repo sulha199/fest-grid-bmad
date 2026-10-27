@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-26"
+last_updated: "2026-10-27"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2531,3 +2531,12 @@ items:
      ref: [apps/backend/src/lib/accounts/backfill-account-profile-and-infer-location.ts, packages/domain/src/scraper/account-enrichment.ts, backlog/BUG-081-profile-backfill-overwrites-subscribed-username.md],
      touches: [app:backend, pkg:domain, web:subscriptions],
      note: "Fix and PROD repair script in the same PR; set done once merged and the repair workflow has run. 0587b45b is probably jogjakajian's account (inferred)."}
+
+  # ── 2026-10-27 (prod: Apify memory cap on the queue path recorded as vendor failures) ──
+  BUG-083:
+    {type: bug, status: backlog, created: 2026-10-27,
+     impact: user-visible, effort: xs,
+     title: "Queue-path Apify runs refused by the account memory cap (402) are recorded FAILED and burn SQS receives",
+     ref: [apps/backend/src/lib/scraper/instagram-adapter.ts, packages/domain/src/scraper/apify-memory-limit-wait.ts],
+     touches: [app:backend, pkg:domain],
+     note: "Fixed in the PR that adds this row (bounded wait inside the call budget, no row for a run that never started); set done once merged. 2026-10-25 03:13 UTC: 31 SYNC rows FAILED, 34 later SUCCEEDED via redelivery."}

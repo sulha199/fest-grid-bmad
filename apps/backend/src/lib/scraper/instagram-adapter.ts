@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { ApifyApiError, ApifyClient } from 'apify-client';
-import { ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult, ApifyRequestTimeoutError } from '@festgrid/domain';
+import {
+  ScraperAdapter,
+  ScraperAccountRef,
+  ScrapedPost,
+  AccountProfileLookupResult,
+  ApifyRequestTimeoutError,
+  nextApifyMemoryLimitWaitMs,
+  resolveApifyMemoryLimitMaxWaitMs,
+} from '@festgrid/domain';
 import { assertProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
@@ -149,7 +157,7 @@ function normalizeApifyError(err: unknown, context: string): Error {
   // Story 0.i2d (AC5) — a deliberate kill-switch rejection or the wrapper's own generic
   // timeout bound are not Apify-vendor-shaped errors to re-wrap; pass them through unchanged
   // so a future caller can still distinguish them via `instanceof`.
-  if (err instanceof VendorDpaNotConfirmedError || err instanceof VendorCallTimeoutError) {
+  if (err instanceof VendorDpaNotConfirmedError || err instanceof VendorCallTimeoutError || err instanceof ApifyMemoryLimitExhaustedError) {
     return err;
   }
 
@@ -206,6 +214,29 @@ export function isApifyMemoryLimitError(error: unknown): boolean {
   return error instanceof ApifyApiError && error.statusCode === 402 && error.type === 'actor-memory-limit-exceeded';
 }
 
+/**
+ * The synchronous (queue) path waited its whole memory budget and Apify still refused to start the run
+ * with the account's memory cap (BUG-083). Nothing was started, so nothing is audited and provider health
+ * never sees it; the queue worker rethrows it and SQS redelivers the message.
+ */
+export class ApifyMemoryLimitExhaustedError extends Error {
+  constructor(
+    public readonly waitedMs: number,
+    public readonly attempts: number,
+    detail: string
+  ) {
+    super(`Apify account memory limit still reached after waiting ${waitedMs}ms over ${attempts} attempts (no run started): ${detail}`);
+    this.name = 'ApifyMemoryLimitExhaustedError';
+  }
+}
+
+/** Test seam: the pause between two attempts at a memory-limited start. */
+export let sleepForApifyMemory = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+export function setSleepForApifyMemory(fn: typeof sleepForApifyMemory) {
+  sleepForApifyMemory = fn;
+}
+
 // Story 0.i2d (AD-32 Rule 1) — the single chokepoint every real Apify call site routes
 // through. No `opts.lockKey` is ever passed here (AC4): Apify has exactly one static,
 // always-valid credential, no multi-key pool to protect, and no candidate-exclusion retry
@@ -252,38 +283,75 @@ export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorIn
   const auditProfileId = apifyAuditContext?.profileId;
   let startedRunId: string | undefined;
 
+  const callStartedAt = Date.now();
+  // Time spent on this call so far. The larger of the wall clock and the time accounted for (each
+  // refused attempt plus each requested wait), so a wait that ran short, or a clock that did not move,
+  // can never let the loop spin past its budget.
+  let accountedMs = 0;
+  const elapsedMs = () => Math.max(Date.now() - callStartedAt, accountedMs);
+  // Waiting for memory only where there is an audit context, i.e. the queue worker (the API Lambda has
+  // none and fails fast). The wait is carved out of `timeoutMs`, never added to it (BUG-083).
+  const maxMemoryWaitMs = auditProfileId ? resolveApifyMemoryLimitMaxWaitMs(timeoutMs) : 0;
+
   let outcome: { run: { id: string; status: string; defaultDatasetId?: string }; items: ActorOutputFor<T> };
   try {
-    outcome = await callApifyClient(
-      { timeoutMs, maxAttempts: 1 },
-      async (client, signal) => {
-        // start + waitForFinish, not `.call()`: `.call()` hides the run id, so a timeout could not stop
-        // the run, which would keep running (and billing) with its output thrown away.
-        const started = await client.actor(actorId).start(input as unknown as Record<string, unknown>);
-        startedRunId = started.id;
-        const abortRun = () => {
-          client.run(started.id).abort().catch((abortErr) => {
-            console.error(`Failed to abort Apify run ${started.id} after its call timed out:`, abortErr);
-          });
-        };
-        if (signal.aborted) {
-          abortRun();
-        } else {
-          signal.addEventListener('abort', abortRun, { once: true });
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        outcome = await callApifyClient(
+          // The first attempt gets the whole budget; a start that waited for memory only what is left of it.
+          { timeoutMs: attempt === 0 ? timeoutMs : Math.max(1, timeoutMs - elapsedMs()), maxAttempts: 1 },
+          async (client, signal) => {
+            // start + waitForFinish, not `.call()`: `.call()` hides the run id, so a timeout could not stop
+            // the run, which would keep running (and billing) with its output thrown away.
+            const started = await client.actor(actorId).start(input as unknown as Record<string, unknown>);
+            startedRunId = started.id;
+            const abortRun = () => {
+              client.run(started.id).abort().catch((abortErr) => {
+                console.error(`Failed to abort Apify run ${started.id} after its call timed out:`, abortErr);
+              });
+            };
+            if (signal.aborted) {
+              abortRun();
+            } else {
+              signal.addEventListener('abort', abortRun, { once: true });
+            }
+            const runResult = await client.run(started.id).waitForFinish();
+            const datasetId = runResult.defaultDatasetId;
+            const runItems = datasetId
+              ? (await client.dataset(datasetId).listItems({ clean: true, limit: 1000 })).items as ActorOutputFor<T>
+              : ([] as ActorOutputFor<T>);
+            return { run: runResult, items: runItems };
+          }
+        );
+        break;
+      } catch (attemptErr) {
+        // The account's memory cap refused the start (402 actor-memory-limit-exceeded): no run exists, so
+        // wait for memory to free up and try again inside the budget. The queue's 3 receives are not spent
+        // on it, and nothing is audited for a run that never started.
+        if (!isApifyMemoryLimitError(attemptErr) || maxMemoryWaitMs === 0) {
+          throw attemptErr;
         }
-        const runResult = await client.run(started.id).waitForFinish();
-        const datasetId = runResult.defaultDatasetId;
-        const runItems = datasetId
-          ? (await client.dataset(datasetId).listItems({ clean: true, limit: 1000 })).items as ActorOutputFor<T>
-          : ([] as ActorOutputFor<T>);
-        return { run: runResult, items: runItems };
+        const spentMs = elapsedMs();
+        const waitMs = nextApifyMemoryLimitWaitMs({ attempt, elapsedMs: spentMs, maxWaitMs: maxMemoryWaitMs });
+        if (waitMs === null) {
+          throw new ApifyMemoryLimitExhaustedError(
+            spentMs,
+            attempt + 1,
+            attemptErr instanceof Error ? attemptErr.message : String(attemptErr)
+          );
+        }
+        console.warn(`Apify memory limit reached; waiting ${waitMs}ms before attempt ${attempt + 2} (waited ${spentMs}ms of ${maxMemoryWaitMs}ms)`);
+        await sleepForApifyMemory(waitMs);
+        accountedMs = spentMs + waitMs;
       }
-    );
+    }
   } catch (err) {
     // A failed or timed-out call used to leave no trace: no audit row, so provider health never saw it
     // (2026-10-23: 11 profiles dropped on a 26s timeout). Recorded OUTSIDE the guarded call, like the
-    // success row below; the caller still gets the original error.
-    if (auditProfileId) {
+    // success row below; the caller still gets the original error. Except the memory cap: that is a
+    // capacity condition of our own account, not the vendor failing (2026-10-25: 31 such FAILED rows
+    // counted against Apify's health), and no run was started.
+    if (auditProfileId && !(err instanceof ApifyMemoryLimitExhaustedError)) {
       await recordSyncActorRun({
         vendor: 'APIFY',
         profileId: auditProfileId,

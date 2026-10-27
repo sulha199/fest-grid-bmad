@@ -99,6 +99,7 @@ export const handler = async (
       },
       // One job is one Apify call (bounded by the queue budget) plus its persistence; size each receive so
       // the whole batch finishes inside the poll-and-drain budget and the queue's 300s visibility timeout.
+      // Waiting for the account's memory cap to lift (BUG-083) happens inside that call budget, not on top.
       { perMessageBudgetMs: queueEnv.scrapeQueueApifyCallTimeoutMs + QUEUE_JOB_OVERHEAD_MS }
     );
     return;
