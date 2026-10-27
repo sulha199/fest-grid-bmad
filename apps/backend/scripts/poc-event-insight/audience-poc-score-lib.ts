@@ -9,6 +9,7 @@
  *     `weak` flags a pass whose lower bound is under the bar, and a stratum under MIN_STRATUM_N posts is flagged as too small to claim anything.
  */
 import type { RunRecord } from './audience-poc-lib.js';
+import { areaCanon } from './area-name-agreement.js';
 
 export type Row = Record<string, string>;
 export const MIN_STRATUM_N = 15;
@@ -213,6 +214,17 @@ export function score(labelsAll: Row[], records: RunRecord[]): Report {
     { field: 'post language (resolved)', accuracy: langAll.pooled },
     { field: 'sensitive topic (exact, any variant)', accuracy: accuracy(labels, runs, (l) => lc(l.sensitive), (r) => r.resolved!.sensitive).pooled },
   ];
+
+  // Prompt v3 only (target-area-spec-2026-10-27.md): the model reports only STATED areas, so it is scored on what the post states. The venue,
+  // hashtag and account areas are derived by code and are tested with fixtures (target-areas.test.ts), not with the model.
+  if ([...runs.values()].some((rs) => rs.some((r) => r.model!.targetAreas !== undefined))) {
+    const sourced = eventLabels.filter((l) => lc(l.target_area_source) !== '');
+    const stated = sourced.filter((l) => ['stated', 'stated_poster'].includes(lc(l.target_area_source)));
+    fields.push(
+      { field: 'target area source (events; prompt v3)', accuracy: accuracy(sourced, runs, (l) => lc(l.target_area_source), (r) => r.model!.targetAreaSource).pooled },
+      { field: 'target area name, compared through the gazetteer (events where an area is stated; prompt v3)', accuracy: accuracy(stated, runs, (l) => areaCanon([l.target_area_name ?? '']), (r) => areaCanon((r.model!.targetAreas ?? []).map((a) => a.name))).pooled },
+    );
+  }
 
   // ---- interests
   const jac: number[] = [];

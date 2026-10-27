@@ -10,7 +10,7 @@ const mk = (url: string, over: Partial<SourcePost> = {}): SourcePost => ({
 });
 
 const full = (id: string, over: Record<string, string> = {}): Record<string, string> => ({
-  id, is_event: 'yes', audience_country: 'id', geo_scope: 'city', post_language: 'id', target_area_level: 'city', eligibility: 'open_to_public', track_count: '0', age_written: 'no',
+  id, is_event: 'yes', audience_country: 'id', geo_scope: 'city', post_language: 'id', target_area_level: 'city', target_area_name: 'Yogyakarta', target_area_source: 'stated', eligibility: 'open_to_public', track_count: '0', age_written: 'no',
   cost_tier: 'free', cost_source: 'caption', sensitive: 'none', unsure: 'no', notes: '', ...over,
 });
 
@@ -109,4 +109,17 @@ test('the comparison report names no caption', () => {
   const c = compareSheets(a, b);
   const text = formatComparison(c) + JSON.stringify(adjudicationRows(c.disagreements));
   assert.ok(!text.includes('SECRET'));
+});
+
+test('the target-area columns: the source is an enum, the name is free text and is not compared by string equality', () => {
+  assert.deepEqual(validateSheet([full('a')]), []);
+  assert.deepEqual(validateSheet([full('a', { target_area_source: 'venue' })]), [{ id: 'a', field: 'target_area_source', problem: 'unknown value "venue"' }]);
+  assert.deepEqual(validateSheet([full('a', { target_area_source: 'stated_poster', target_area_name: 'DIY', target_area_level: 'province' })]), []);
+  assert.deepEqual(validateSheet([full('a', { target_area_source: 'none', target_area_name: 'none', target_area_level: 'none' })]), []);
+  assert.deepEqual(validateSheet([full('a', { target_area_name: '' })]), [{ id: 'a', field: 'target_area_name', problem: 'blank' }], 'an older sheet without the new columns is flagged until they are filled');
+  // two labellers who write the same area differently do not disagree on it here (the scorer resolves the names through the gazetteer)
+  const c = compareSheets([full('a', { target_area_name: 'Jogja' })], [full('a', { target_area_name: 'DIY' })]);
+  assert.equal(c.fields.some((f) => f.field === 'target_area_name'), false);
+  assert.equal(c.disagreements.length, 0);
+  assert.equal(c.fields.some((f) => f.field === 'target_area_source'), true);
 });

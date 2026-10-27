@@ -19,16 +19,21 @@ export const ELIGIBILITY = ['open_to_public', 'restricted', 'unspecified'] as co
 export const COST_TIERS = ['free', 'low', 'medium', 'high', 'unspecified'] as const;
 export const SENSITIVE = ['none', 'religion', 'politics_civic', 'health_condition', 'sexuality', 'ethnicity'] as const;
 export const YES_NO = ['yes', 'no'] as const;
+/**
+ * Where the audience area was read: the caption (`stated`), only the poster (`stated_poster`), or nowhere (`none`: the system derives it from the
+ * venue, hashtags or account, so the labeller does not write those). Added 2026-10-27 with the target-area spec.
+ */
+export const AREA_SOURCES = ['stated', 'stated_poster', 'none'] as const;
 /** Where the labeller read the price: the caption, text on the image, or nowhere (no price shown). The model sees the caption only, so cost is scored on the rows the caption can answer. */
 export const COST_SOURCES = ['caption', 'image', 'none'] as const;
 
 /** The label columns, in sheet order. `notes` is free text and is never compared. */
 export const LABEL_FIELDS = [
-  'is_event', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'eligibility', 'track_count', 'age_written', 'cost_tier', 'cost_source', 'sensitive', 'unsure', 'notes',
+  'is_event', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'target_area_name', 'target_area_source', 'eligibility', 'track_count', 'age_written', 'cost_tier', 'cost_source', 'sensitive', 'unsure', 'notes',
 ] as const;
 export type LabelField = (typeof LABEL_FIELDS)[number];
-/** The fields that are compared between labellers. */
-export const COMPARED_FIELDS = LABEL_FIELDS.filter((f) => f !== 'notes' && f !== 'unsure' && f !== 'cost_source') as readonly LabelField[];
+/** The fields that are compared between labellers. `target_area_name` is free text ("Jogja" and "DIY" are the same area) and is compared by the scorer through the gazetteer, not by string equality. */
+export const COMPARED_FIELDS = LABEL_FIELDS.filter((f) => f !== 'notes' && f !== 'unsure' && f !== 'cost_source' && f !== 'target_area_name') as readonly LabelField[];
 
 export const CONTEXT_COLUMNS = ['id', 'account', 'stratum', 'url', 'post_date', 'caption', 'hashtags', 'tagged_place'] as const;
 export const SHEET_COLUMNS: readonly string[] = [...CONTEXT_COLUMNS, ...LABEL_FIELDS];
@@ -41,6 +46,8 @@ function allowed(field: LabelField, value: string): boolean {
     case 'geo_scope': return (GEO_SCOPES as readonly string[]).includes(value);
     case 'post_language': return (LANGUAGES as readonly string[]).includes(value);
     case 'target_area_level': return (AREA_LEVELS as readonly string[]).includes(value);
+    case 'target_area_name': return true; // the area as written, or `none`
+    case 'target_area_source': return (AREA_SOURCES as readonly string[]).includes(value);
     case 'eligibility': return (ELIGIBILITY as readonly string[]).includes(value);
     case 'track_count': return /^\d{1,2}$/.test(value);
     case 'is_event': case 'age_written': case 'unsure': return (YES_NO as readonly string[]).includes(value);

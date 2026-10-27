@@ -152,3 +152,33 @@ test('cost is scored on caption-priced rows apart from rows whose price is only 
   assert.equal(rep.fields.find((f) => f.field.startsWith('costTier (events whose'))!.accuracy.n, 1);
   assert.equal(rep.fields.find((f) => f.field.startsWith('costTier (all'))!.accuracy.n, 2);
 });
+
+test('prompt v3: the scorer adds the area source and the area name, compared through the gazetteer; prompt v2 runs do not get them', () => {
+  const v3 = (id: string, areas: Array<{ name: string; source?: string }>, level = 'province'): RunRecord => {
+    const r = run(id, 1);
+    r.model!.targetAreaLevel = level;
+    r.model!.targetAreaSource = areas.length === 0 ? 'none' : areas.some((a) => (a.source ?? 'stated') === 'stated') ? 'stated' : 'stated_poster';
+    r.model!.targetAreas = areas.map((a) => ({ name: a.name, level, source: a.source ?? 'stated', qualifier: 'none', role: 'both' }));
+    return r;
+  };
+  const labels = [
+    label('a', { target_area_level: 'province', target_area_name: 'Jogja', target_area_source: 'stated' }),
+    label('b', { target_area_level: 'none', target_area_name: 'none', target_area_source: 'none' }),
+    label('c', { target_area_level: 'province', target_area_name: 'DIY', target_area_source: 'stated_poster' }),
+    label('d', { target_area_level: 'province', target_area_name: 'Jawa Tengah', target_area_source: 'stated' }),
+  ];
+  const rep = score(labels, [
+    v3('a', [{ name: 'Daerah Istimewa Yogyakarta' }]),       // same area written differently: counts
+    v3('b', []),                                              // nothing stated: counts
+    v3('c', [{ name: 'Yogyakarta', source: 'stated_poster' }]),
+    v3('d', [{ name: 'Surabaya' }]),                          // wrong area
+  ]);
+  const source = rep.fields.find((f) => f.field.startsWith('target area source'))!;
+  assert.equal(source.accuracy.n, 4);
+  assert.equal(source.accuracy.k, 4);
+  const name = rep.fields.find((f) => f.field.startsWith('target area name'))!;
+  assert.equal(name.accuracy.n, 3, 'only rows where an area is stated');
+  assert.equal(name.accuracy.k, 2);
+  const v2 = score([label('a')], [run('a', 1)]);
+  assert.equal(v2.fields.some((f) => f.field.startsWith('target area source') || f.field.startsWith('target area name')), false);
+});

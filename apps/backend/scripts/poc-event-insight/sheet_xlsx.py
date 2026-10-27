@@ -19,8 +19,8 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 CONTEXT = ['id', 'account', 'stratum', 'url', 'post_date', 'caption', 'hashtags', 'tagged_place']
-LABELS = ['is_event', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'eligibility', 'track_count',
-          'age_written', 'cost_tier', 'cost_source', 'sensitive', 'unsure', 'notes']
+LABELS = ['is_event', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'target_area_name', 'target_area_source',
+          'eligibility', 'track_count', 'age_written', 'cost_tier', 'cost_source', 'sensitive', 'unsure', 'notes']
 COLUMNS = CONTEXT + LABELS
 
 COUNTRIES = ['id', 'my', 'sg', 'au', 'dk', 'th', 'jp', 'kr', 'cn', 'in', 'ph', 'vn', 'us', 'gb', 'eg', 'international', 'unclear']
@@ -31,6 +31,7 @@ LISTS = {
     'geo_scope': ['venue_local', 'city', 'region', 'national', 'international', 'online', 'unspecified', 'unclear'],
     'post_language': ['id', 'en', 'ms', 'mixed', 'other', 'unclear'],
     'target_area_level': ['neighborhood', 'city', 'regency', 'province', 'country', 'continent', 'none', 'unclear'],
+    'target_area_source': ['stated', 'stated_poster', 'none', 'unclear'],
     'eligibility': ['open_to_public', 'restricted', 'unspecified', 'unclear'],
     'age_written': ['yes', 'no', 'unclear'],
     'cost_tier': ['free', 'low', 'medium', 'high', 'unspecified', 'unclear'],
@@ -44,7 +45,9 @@ GUIDE = [
     ('audience_country', 'The country the post is written FOR: two-letter code (id, my, sg, au, dk ...), "international", or "unclear". Steps: (1) does the post state who it is for? (2) else language + where the account is based; an Indonesian post from an Indonesian account is "id" even if the event is abroad; (3) shared language (English, Malay, Indonesian) needs a second clue: currency, phone code, time zone, account; (4) online with no stated audience = international; (5) last resort: where the event takes place.'),
     ('geo_scope', 'venue_local = a venue is named (the audience is the people around it). city = only a city or area is named, no venue. region = a province, or several named areas. national = invites people from anywhere in the country ("seluruh Indonesia"). international. online = remote and open to all. unspecified = no basis. "Open to the public" is NOT national. A venue called "Galeri Nasional" is just a venue.'),
     ('post_language', 'id, en, ms (Malay), mixed (Indonesian and English in one caption), other.'),
-    ('target_area_level', 'The finest area the audience is drawn from: neighborhood, city, regency, province, country, continent. Take it from the venue, then the hashtags, then the coverage of the posting account. For a repost, use what the post shows; the original account is not looked up in this POC. none only if nothing points to any area.'),
+    ('target_area_level', 'The level of the area you wrote in target_area_name: neighborhood (ONLY when the post says RW, RT, kampung, dusun or lingkungan), city, regency, province, country, continent. If the name could be a city or its province (Jogja, Yogyakarta, Jakarta), pick the WIDER one. none when target_area_source is none.'),
+    ('target_area_name', 'The area the post SAYS the event is for, as written: "Jogja", "DIY", "RW 05 Kelurahan X". Read the caption AND the poster. An address or "Tempat:" line, the venue name, and where performers, exhibitors or vendors come from are NOT an audience. People who attend, register or compete ARE ("peserta se-DIY", "warga Jogja"). Several areas: separate them with ; . Write none if the post states no area. Do NOT write an area taken from the venue, the hashtags or the account: the system derives those.'),
+    ('target_area_source', 'stated = the caption says it. stated_poster = only the poster says it. none = nothing states an area (the system will derive it). Do not label venue, hashtag or account areas by hand.'),
     ('eligibility', 'restricted ONLY if membership limits who may take part (invitation only, one school, one company, members only). Otherwise open_to_public: an event with no restriction is open. unspecified only for a post that is not an event. Age and gender are NOT eligibility.'),
     ('track_count', 'How many separately qualifying categories the event lists. If it lists none, it is one tier open to everybody: write 1. "Kids Dash 6-10, 5K 12+, 10K 17+" is 3. Ticket packs and prices are not categories. For a post that is not an event write unclear.'),
     ('age_written', 'yes if any age NUMBER is written next to an age word (usia 6-10 tahun, 12+, under 17). Do not infer from SD, SMA or mahasiswa.'),
@@ -76,7 +79,7 @@ def to_xlsx(src, dst):
         cell.alignment = Alignment(vertical='center', wrap_text=True)
 
     widths = {'id': 12, 'account': 18, 'stratum': 12, 'url': 14, 'post_date': 12, 'caption': 90, 'hashtags': 28, 'tagged_place': 22,
-              'is_event': 9, 'cost_source': 11, 'audience_country': 14, 'geo_scope': 14, 'post_language': 12, 'target_area_level': 16, 'eligibility': 16,
+              'is_event': 9, 'cost_source': 11, 'audience_country': 14, 'geo_scope': 14, 'post_language': 12, 'target_area_level': 16, 'target_area_name': 26, 'target_area_source': 16, 'eligibility': 16,
               'track_count': 11, 'age_written': 11, 'cost_tier': 12, 'sensitive': 16, 'unsure': 9, 'notes': 36}
     for c, name in enumerate(COLUMNS, start=1):
         ws.column_dimensions[get_column_letter(c)].width = widths[name]
