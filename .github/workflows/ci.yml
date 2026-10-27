@@ -81,8 +81,9 @@ jobs:
   # Playwright end-to-end suite (apps/web/e2e) against a production build of the web app and the backend
   # on a seeded Postgres. Sign-in and the Geoapify address lookups are answered by local stand-ins
   # (E2E_FAKE_AUTH=1, see apps/web/test-support), so the job needs no secrets and makes no calls to
-  # Supabase or Geoapify. Deliberately not in `needs` of db-migrate / deploy-infrastructure yet: a red
-  # run is reported on the commit/PR but does not block the production deploy.
+  # Supabase or Geoapify. A red run blocks db-migrate and deploy-infrastructure (below). It cannot block
+  # the frontend, which Vercel deploys from Git on its own: gate that with Vercel's Deployment Checks
+  # (SETUP_WALKTHROUGH.md), which reads this job by its name, so do not rename it.
   e2e:
     name: End-to-End Tests
     runs-on: ubuntu-latest
@@ -142,8 +143,16 @@ jobs:
       - name: Run Database Migrations (test DB)
         run: pnpm --filter @festgrid/database run migrate
 
+      # No `--with-deps`: it runs apt-get for fonts and xvfb that headless Chromium doesn't need, and when
+      # the Ubuntu mirror is slow that alone took over 7 minutes. The runner image already carries every
+      # shared library Chromium links against, so launch it once to prove it, and only if that ever stops
+      # being true (image change) fall back to installing the system packages.
       - name: Install Playwright browser
-        run: pnpm --filter web exec playwright install --with-deps chromium
+        working-directory: apps/web
+        run: |
+          pnpm exec playwright install chromium
+          node -e "require('@playwright/test').chromium.launch().then((b) => b.close())" \
+            || pnpm exec playwright install-deps chromium
 
       # global-setup seeds the database before the first spec.
       - name: Run end-to-end tests
@@ -162,7 +171,7 @@ jobs:
 
   db-migrate:
     name: Database Migrations
-    needs: ci
+    needs: [ci, e2e]
     runs-on: ubuntu-latest
     environment: production
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
@@ -204,7 +213,7 @@ jobs:
 
   deploy-infrastructure:
     name: Deploy Infrastructure to AWS
-    needs: [ci, db-migrate]
+    needs: [ci, e2e, db-migrate]
     runs-on: ubuntu-latest
     environment: production
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'

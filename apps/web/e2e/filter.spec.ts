@@ -6,7 +6,7 @@ test.describe('Filter Hub', () => {
     await page.goto('/en');
 
     // Wait for the page to load
-    await expect(page.locator('h1', { hasText: 'Discover Events' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Discover Events' })).toBeVisible();
 
     // Open the Type facet and select Festival from its popover.
     await page.getByRole('button', { name: 'Type', exact: true }).click();
@@ -31,7 +31,7 @@ test.describe('Filter Hub', () => {
     await page.waitForLoadState('networkidle');
 
     // Close the open popover (an outside click) so the row-level clear action is unambiguous.
-    await page.locator('h1', { hasText: 'Discover Events' }).click();
+    await page.getByRole('heading', { level: 1, name: 'Discover Events' }).click();
     const clearButton = page.getByRole('main').getByRole('button', { name: 'Clear filters', exact: true });
     await expect(clearButton).toBeVisible();
     await clearButton.click();

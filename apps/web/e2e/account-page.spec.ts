@@ -29,7 +29,7 @@ test.describe("Public Account Page E2E", () => {
     // the still-mounted account page, so a bare page.locator("h1") is ambiguous
     // (matches both the account page's "Jakarta City Events" heading and the modal's
     // own title) — scope to the dialog, matching event-details.spec.ts's pattern.
-    const detailTitle = page.locator("role=dialog").locator("h1");
+    const detailTitle = page.getByRole("dialog").getByRole("heading", { level: 1 });
     await expect(detailTitle).toBeVisible();
     await expect(detailTitle).toHaveText("Ongoing Culture Fest 2026-2027");
 
