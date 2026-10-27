@@ -25,12 +25,12 @@ FestDaily helps city residents and families cut through disorganized event info 
     <th align="center">UI target</th>
   </tr>
   <tr>
-    <td align="center"><img src="docs/assets/discovery-feed-current.png" width="320" alt="FestDaily mobile discovery feed as built today, Indonesian locale — page title, a Show filters toggle, a search field, a Today / Upcoming / All switch, Type and Category filters, Card and Calendar view tabs, a two-column grid of event cards with date boxes, and a bottom tab bar"></td>
+    <td align="center"><img src="docs/assets/discovery-feed-current.png" width="320" alt="FestDaily mobile discovery feed as built today, Indonesian locale — a two-column masonry of event cards, including a large-poster card with a big thumbnail, a date chip and a favorite button, next to cards with a date box and a smaller thumbnail, and a bottom tab bar"></td>
     <td align="center"><img src="docs/assets/discovery-feed-ui-target.png" width="320" alt="FestDaily mobile discovery feed design target — search bar with a Filter button, category chips (All, Nearest 4 km, Promo &amp; Discounts, Sports), a two-column grid of photo event cards with status badges, and a bottom tab bar"></td>
   </tr>
 </table>
 
-*Left: the mobile discovery feed as it renders today (Indonesian locale, signed out), captured with Playwright from a production build against the seeded local demo data, so the events are test fixtures without photos. Right: the design target the build is working toward — photo cards, status badges (ongoing / soon) and distance and end date on each card. The two are not the same yet.*
+*Left: the mobile discovery feed as it renders today (Indonesian locale, signed out, scrolled to the large-poster cards), captured with Playwright from a production build against the seeded local demo data, so the events are test fixtures. The fixtures' image host no longer serves the files, so a generated sample poster was supplied for those images during the capture; the card layout is the app's own. Right: the design target the build is working toward — photo cards, status badges (ongoing / soon) and distance and end date on each card. The two are not the same yet.*
 
 ---
 
