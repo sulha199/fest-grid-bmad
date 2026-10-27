@@ -32,7 +32,7 @@ test.describe("Event Details - Instagram Embed CSP (Story 3.7d AC10)", () => {
     expect(csp).toMatch(/img-src[^;]*https:/)
     expect(csp).toMatch(/connect-src[^;]*https:/)
 
-    await expect(page.locator("h1", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1, name: "Ongoing Culture Fest 2026-2027" })).toBeVisible()
 
     // Mirror InstagramEmbed.tsx's actual behavior: inject the oEmbed blockquote markup and
     // Instagram's embed.js widget script under this page's real, already-applied CSP.

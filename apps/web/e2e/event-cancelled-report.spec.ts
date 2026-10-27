@@ -15,7 +15,7 @@ test.describe("Event Cancellation Threshold E2E", () => {
     await page.goto("/en/events/cancellation-threshold-test-fixed");
 
     // Wait for event details to load
-    await expect(page.locator("h1", { hasText: "Cancellation Threshold Test Event" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Cancellation Threshold Test Event" })).toBeVisible();
 
     // Click "More actions" overflow trigger
     const moreBtn = page.getByRole("button", { name: "More actions" });
@@ -59,7 +59,8 @@ test.describe("Event Cancellation Threshold E2E", () => {
     // Role/text queries, not an "h2, h1, div, p" locator: every ancestor <div> also contains this text, so
     // that locator matches several nested elements and trips strict mode.
     await expect(page.getByRole("heading", { name: "Event Not Found" })).toBeVisible();
-    await expect(page.getByText("Sorry, the event you are looking for could not be found.")).toBeVisible();
+    // visible only: while Next streams the page a hidden copy of the text sits in the DOM and would trip strict mode.
+    await expect(page.getByText("Sorry, the event you are looking for could not be found.").filter({ visible: true })).toBeVisible();
   });
 });
 

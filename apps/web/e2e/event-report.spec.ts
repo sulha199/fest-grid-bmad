@@ -13,7 +13,7 @@ test.describe("Event Reporting E2E", () => {
     await page.goto("/en/events/ongoing-culture-fest-2026-2027-fixed");
 
     // Wait for event title to load
-    await expect(page.locator("h1", { hasText: "Ongoing Culture Fest 2026-2027" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Ongoing Culture Fest 2026-2027" })).toBeVisible();
 
     // Click "More actions" overflow trigger
     const moreBtn = page.getByRole("button", { name: "More actions" });
