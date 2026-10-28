@@ -80,6 +80,7 @@ test('findMatchingEvent integration tests', async (t) => {
     links?: { url: string }[] | null;
     deletedAt?: Date | null;
     mergedIntoEventId?: string | null;
+    detailLevel?: 'full' | 'stub';
   }) {
     const post = await makePost(opts.accountId, opts.postIdSuffix);
     const inserted = await insertEventWithPrimaryPost(db, {
@@ -92,6 +93,10 @@ test('findMatchingEvent integration tests', async (t) => {
     });
     if (!inserted) throw new Error('expected insert to succeed');
     eventIds.push(inserted.id);
+
+    if (opts.detailLevel === 'stub') {
+      await db.update(events).set({ detailLevel: 'stub' }).where(eq(events.id, inserted.id));
+    }
 
     if (opts.deletedAt || opts.mergedIntoEventId) {
       const patch: { deletedAt?: Date; mergedIntoEventId?: string } = {};
@@ -262,7 +267,7 @@ test('findMatchingEvent integration tests', async (t) => {
     assert.strictEqual(result!.candidate.id, mergeTarget.id);
   });
 
-  await t.test('organizerHandle resolves to an account and contributes to the match (mid tier)', async () => {
+  await t.test('organizerHandle resolves to an account and contributes to the match (mid by score, then promoted)', async () => {
     const { event: candidate } = await makeCandidateEvent({
       accountId: otherAccount.id,
       postIdSuffix: 'handle',
@@ -281,8 +286,12 @@ test('findMatchingEvent integration tests', async (t) => {
 
     assert.ok(result);
     assert.strictEqual(result!.candidate.id, candidate.id);
-    // organizer (0.40, via the resolved handle) + dateNameSimilarity (1 * 0.25) = 0.65 -> mid
-    assert.strictEqual(result!.tier, 'mid');
+    // organizer (0.40, via the resolved handle) + dateNameSimilarity (1 * 0.25) = 0.65 -> mid by score
+    assert.strictEqual(result!.signals.scoredTier, 'mid');
+    assert.strictEqual(result!.signals.organizerMatch, true);
+    // ... and the same name, same day, no venue evidence against it: promoted to high (AD-30 Rule 7, 2026-10-25).
+    assert.strictEqual(result!.tier, 'high');
+    assert.strictEqual(result!.signals.promotedByRule, true);
   });
 
   await t.test('BUG-058: a discounted (undefined) posting account earns no organizer weight, but the same account counts when not discounted', async () => {
@@ -316,8 +325,9 @@ test('findMatchingEvent integration tests', async (t) => {
     );
     assert.ok(counted);
     assert.strictEqual(counted!.candidate.id, candidate.id);
-    // organizer (0.40) + date/name (0.25) = 0.65 -> mid
-    assert.strictEqual(counted!.tier, 'mid');
+    // organizer (0.40) + date/name (0.25) = 0.65 -> mid by score, promoted by the same-name rule
+    assert.strictEqual(counted!.signals.scoredTier, 'mid');
+    assert.strictEqual(counted!.tier, 'high');
   });
 
   await t.test('shared link and venue proximity both contribute without an organizer match', async () => {
@@ -347,6 +357,280 @@ test('findMatchingEvent integration tests', async (t) => {
     assert.strictEqual(result!.candidate.id, candidate.id);
     // organizer (0.40) absent; shared link (0.20) + date/name (~0.25) + venue (0.15) = mid/high
     assert.notStrictEqual(result!.tier, 'low');
+  });
+
+  await t.test('mid-to-high promotion: a venue conflict (a touring event) keeps the pair at mid', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'tour',
+      eventName: 'Lomba Mewarnai Keliling ' + suffix,
+      eventStartDate: '2026-11-03',
+      location: 'Tenth Avenue Bandung',
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Lomba Mewarnai Keliling ' + suffix }),
+      [newSchedule('2026-11-03', { location: 'BG Junction Surabaya' })],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    assert.strictEqual(result!.signals.venueConflict, true);
+    assert.strictEqual(result!.tier, 'mid');
+    assert.strictEqual(result!.signals.promotedByRule, false);
+  });
+
+  await t.test('mid-to-high promotion: a daily series ("... - Day 12") is not promoted although the names are near-identical', async () => {
+    const baseName = 'Mid Year Grand Anniversary Biggest Sale Festival ' + suffix;
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'series',
+      eventName: baseName,
+      eventStartDate: '2026-11-10',
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: baseName + ' - Day 12' }),
+      [newSchedule('2026-11-11')],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    // The trigram score alone would qualify; the differing digit token is what holds it back.
+    assert.ok(result!.signals.nameSimilarity >= 0.85, `name similarity was ${result!.signals.nameSimilarity}`);
+    assert.strictEqual(result!.tier, 'mid');
+    assert.strictEqual(result!.signals.promotedByRule, false);
+  });
+
+  await t.test('mid-to-high promotion: two different store promos at the same mall on the same date stay mid', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'stores',
+      eventName: 'Zara Mid Year Sale Grand Mall ' + suffix,
+      eventStartDate: '2026-11-17',
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Uniqlo Mid Year Sale Grand Mall ' + suffix }),
+      [newSchedule('2026-11-17', { location: 'Grand Mall' })],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    assert.ok(result!.signals.nameSimilarity < 0.85, `name similarity was ${result!.signals.nameSimilarity}`);
+    assert.strictEqual(result!.tier, 'mid');
+    assert.strictEqual(result!.signals.promotedByRule, false);
+  });
+
+  await t.test('mid-to-high promotion: a candidate admitted only by a shared link stays capped at mid', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'promo-link-far',
+      eventName: 'Borobudur Marathon Far ' + suffix,
+      eventStartDate: '2026-12-01',
+      links: [{ url: 'https://register.example.com/bm-' + suffix }],
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Borobudur Marathon Far ' + suffix, links: [{ url: 'https://register.example.com/bm-' + suffix }] }),
+      [newSchedule('2026-12-20')],
+      { postId: UNRELATED_POST_ID, accountId: matchingAccount.id, groupingReason: null },
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    assert.strictEqual(result!.tier, 'mid');
+    assert.strictEqual(result!.signals.promotedByRule, false);
+  });
+
+  // --- AD-30 Rule 7 (2026-10-25): stub repeat ------------------------------------------------------
+  // The prod case: a curator account (organizer weight discounted -> accountId undefined) posts the
+  // same event again. Score alone is date/name 0.25 + venue 0.15 = 0.40 (low); the rule lifts it.
+  const curatorPost = (): { postId: string; accountId: undefined; groupingReason: string | null; isStub: boolean } => ({
+    postId: UNRELATED_POST_ID,
+    accountId: undefined,
+    groupingReason: 'single-event',
+    isStub: true,
+  });
+  const ARENA = { location: 'Arena Grand Paris', latitude: 48.9764032, longitude: 2.5300418 };
+
+  await t.test('stub repeat: the same stub event posted again by a curator links although the score alone is low (the Yonex case)', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'yonex',
+      eventName: 'Yonex French Open ' + suffix,
+      eventStartDate: '2026-10-20',
+      detailLevel: 'stub',
+      ...ARENA,
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Yonex French Open ' + suffix }),
+      [newSchedule('2026-10-20', ARENA)],
+      curatorPost(),
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    assert.strictEqual(result!.score, 0.4);
+    assert.strictEqual(result!.signals.scoredTier, 'low');
+    assert.strictEqual(result!.signals.organizerMatch, false);
+    assert.strictEqual(result!.tier, 'high');
+    assert.strictEqual(result!.signals.promotedByRule, true);
+    assert.strictEqual(result!.signals.promotionRule, 'stub-repeat');
+    assert.strictEqual(result!.signals.stubRepeat, true);
+  });
+
+  await t.test('stub repeat: a venue known only by coordinates still links (two of the 11 Yonex events had no venue text)', async () => {
+    const { event: candidate } = await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'yonex-coords',
+      eventName: 'Yonex Coords Open ' + suffix,
+      eventStartDate: '2026-10-21',
+      detailLevel: 'stub',
+      latitude: ARENA.latitude,
+      longitude: ARENA.longitude,
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Yonex Coords Open ' + suffix }),
+      [newSchedule('2026-10-21', { latitude: ARENA.latitude, longitude: ARENA.longitude })],
+      curatorPost(),
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.candidate.id, candidate.id);
+    assert.strictEqual(result!.signals.promotionRule, 'stub-repeat');
+  });
+
+  await t.test('stub repeat: same name and date at a DIFFERENT venue (two "Christmas Market" listings) stay separate', async () => {
+    await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'xmas-a',
+      eventName: 'Christmas Market ' + suffix,
+      eventStartDate: '2026-12-24',
+      detailLevel: 'stub',
+      location: 'Grand Mall Jakarta',
+      latitude: -6.2,
+      longitude: 106.8,
+    });
+
+    const result = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Christmas Market ' + suffix }),
+      [newSchedule('2026-12-24', { location: 'Tunjungan Plaza Surabaya', latitude: -7.26, longitude: 112.74 })],
+      curatorPost(),
+      undefined
+    );
+
+    assert.ok(result);
+    assert.strictEqual(result!.tier, 'low');
+    assert.strictEqual(result!.signals.stubRepeat, false);
+    assert.strictEqual(result!.signals.promotedByRule, false);
+  });
+
+  await t.test('stub repeat: venue unknown on one side, or on both, is not enough', async () => {
+    await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'xmas-unknown',
+      eventName: 'Christmas Bazaar ' + suffix,
+      eventStartDate: '2026-12-25',
+      detailLevel: 'stub',
+      location: 'Grand Mall Jakarta',
+    });
+
+    const oneSide = await findMatchingEvent(db, newEvent({ eventName: 'Christmas Bazaar ' + suffix }), [newSchedule('2026-12-25')], curatorPost(), undefined);
+    assert.ok(oneSide);
+    assert.strictEqual(oneSide!.tier, 'low');
+
+    await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'xmas-unknown-both',
+      eventName: 'Boxing Day Bazaar ' + suffix,
+      eventStartDate: '2026-12-26',
+      detailLevel: 'stub',
+    });
+    const bothUnknown = await findMatchingEvent(db, newEvent({ eventName: 'Boxing Day Bazaar ' + suffix }), [newSchedule('2026-12-26')], curatorPost(), undefined);
+    assert.ok(bothUnknown);
+    assert.strictEqual(bothUnknown!.tier, 'low');
+    assert.strictEqual(bothUnknown!.signals.stubRepeat, false);
+  });
+
+  await t.test('stub repeat: a one-word name is too generic, even with the same date and venue', async () => {
+    const oneWord = 'Natalan' + suffix;
+    await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'oneword',
+      eventName: oneWord,
+      eventStartDate: '2026-12-27',
+      detailLevel: 'stub',
+      ...ARENA,
+    });
+
+    const result = await findMatchingEvent(db, newEvent({ eventName: oneWord }), [newSchedule('2026-12-27', ARENA)], curatorPost(), undefined);
+    assert.ok(result);
+    assert.strictEqual(result!.tier, 'low');
+    assert.strictEqual(result!.signals.stubRepeat, false);
+  });
+
+  await t.test('stub repeat: only stub-to-stub. A full candidate, or a new item that is not a stub, is left to the score', async () => {
+    await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'full-cand',
+      eventName: 'Full Event Open ' + suffix,
+      eventStartDate: '2026-12-28',
+      ...ARENA,
+    });
+    const fullCandidate = await findMatchingEvent(db, newEvent({ eventName: 'Full Event Open ' + suffix }), [newSchedule('2026-12-28', ARENA)], curatorPost(), undefined);
+    assert.ok(fullCandidate);
+    assert.strictEqual(fullCandidate!.tier, 'low', 'candidate is a full event');
+
+    await makeCandidateEvent({
+      accountId: matchingAccount.id,
+      postIdSuffix: 'stub-cand',
+      eventName: 'Stub Event Open ' + suffix,
+      eventStartDate: '2026-12-29',
+      detailLevel: 'stub',
+      ...ARENA,
+    });
+    const newNotStub = await findMatchingEvent(
+      db,
+      newEvent({ eventName: 'Stub Event Open ' + suffix }),
+      [newSchedule('2026-12-29', ARENA)],
+      { ...curatorPost(), isStub: false },
+      undefined
+    );
+    assert.ok(newNotStub);
+    assert.strictEqual(newNotStub!.tier, 'low', 'the new item is not a stub');
+    assert.strictEqual(newNotStub!.signals.stubRepeat, false);
+  });
+
+  await t.test('stub repeat: with several identical stubs the OLDEST one absorbs the repost', async () => {
+    const name = 'Oldest Wins Open ' + suffix;
+    const first = await makeCandidateEvent({ accountId: matchingAccount.id, postIdSuffix: 'old-1', eventName: name, eventStartDate: '2026-12-30', detailLevel: 'stub', ...ARENA });
+    await makeCandidateEvent({ accountId: matchingAccount.id, postIdSuffix: 'old-2', eventName: name, eventStartDate: '2026-12-30', detailLevel: 'stub', ...ARENA });
+    await makeCandidateEvent({ accountId: matchingAccount.id, postIdSuffix: 'old-3', eventName: name, eventStartDate: '2026-12-30', detailLevel: 'stub', ...ARENA });
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const result = await findMatchingEvent(db, newEvent({ eventName: name }), [newSchedule('2026-12-30', ARENA)], curatorPost(), undefined);
+      assert.ok(result);
+      assert.strictEqual(result!.candidate.id, first.event.id, 'the same, oldest candidate every time');
+    }
   });
 
   await t.test('BUG-063: a shared-link candidate ~3 weeks away (registration deadline vs race day) is admitted but capped at mid', async () => {

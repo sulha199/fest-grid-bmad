@@ -28,6 +28,22 @@ test('processIngestionJob integration tests', async (t) => {
   const postId4 = 'post-ingest-4-' + Date.now();
 
   const extraSeededPostIds: string[] = [];
+
+  // The structured `event_dedup_decision` lines processIngestionJob logs after a decision commits.
+  async function captureDedupLogs<T>(run: () => Promise<T>): Promise<{ result: T; lines: Array<Record<string, unknown>> }> {
+    const original = console.log;
+    const lines: Array<Record<string, unknown>> = [];
+    console.log = (...args: unknown[]) => {
+      if (typeof args[0] === 'string' && args[0].startsWith('{"event":"event_dedup_decision"')) {
+        lines.push(JSON.parse(args[0]));
+      }
+    };
+    try {
+      return { result: await run(), lines };
+    } finally {
+      console.log = original;
+    }
+  }
   let profile: any;
   let seededPost1: any;
   let seededPost2: any;
@@ -746,8 +762,17 @@ test('processIngestionJob integration tests', async (t) => {
       schedules: [{ isMainSchedule: true, eventStartDate: '2026-09-01', location: 'shared venue' }],
     });
 
-    const matchRes = await processIngestionJob(matchMessage);
+    const { result: matchRes, lines: matchLogs } = await captureDedupLogs(() => processIngestionJob(matchMessage));
     assert.strictEqual(matchRes.inserted, true);
+
+    // One structured decision line: linked to the seed event, no new event row, not promoted.
+    assert.strictEqual(matchLogs.length, 1);
+    assert.strictEqual(matchLogs[0].outcome, 'linked');
+    assert.strictEqual(matchLogs[0].tier, 'high');
+    assert.strictEqual(matchLogs[0].promotedByRule, false);
+    assert.strictEqual(matchLogs[0].candidateEventId, seedEvent.id);
+    assert.strictEqual(matchLogs[0].newEventId, null);
+    assert.strictEqual(matchLogs[0].postId, seededPost12.id);
 
     // No new event row for post12 -- only the one seeded event exists for this pair.
     const allEventsForPair = await db
@@ -787,7 +812,7 @@ test('processIngestionJob integration tests', async (t) => {
       postId: seededPost13.id,
       sourceSocialMediaAccountId: accountId,
       eventName: 'Mid Score Seed Event ' + midSuffix,
-      schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-01' }],
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-01', location: 'Mid Venue Alpha' }],
     });
     const seedRes = await processIngestionJob(seedMessage);
     assert.strictEqual(seedRes.inserted, true);
@@ -797,21 +822,31 @@ test('processIngestionJob integration tests', async (t) => {
     // Same account (organizerMatch 0.40) and the IDENTICAL name (nameSim exactly 1.0, removing
     // any trigram-threshold flakiness) but a date 1 day apart (dateProximity 0.5) -- no shared
     // link, no venue match -- caps the composite score at 0.4 + 0.25*avg(1, 0.5) = 0.5875,
-    // squarely inside the 0.45-0.75 mid band and well below the 0.75 high threshold.
+    // squarely inside the 0.45-0.75 mid band and well below the 0.75 high threshold. The two
+    // sides state different venues (a conflict), which is what keeps this pair from being
+    // promoted to high by the AD-30 Rule 7 (2026-10-25) same-name rule -- it stays a moderator call.
     const midMessage = baseExtractedEventMessage({
       postId: seededPost14.id,
       sourceSocialMediaAccountId: accountId,
       eventName: 'Mid Score Seed Event ' + midSuffix,
-      schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-02' }], // 1 day apart
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-02', location: 'Mid Venue Beta' }], // 1 day apart
     });
 
-    const midRes = await processIngestionJob(midMessage);
+    const { result: midRes, lines: midLogs } = await captureDedupLogs(() => processIngestionJob(midMessage));
     assert.strictEqual(midRes.inserted, true);
 
     // A NEW event row was inserted for post14 (not an enrichment of post13's event).
     const [midEvent] = await db.select().from(events).where(eq(events.postId, seededPost14.id));
     assert.ok(midEvent);
     assert.notStrictEqual(midEvent.id, seedEvent.id);
+
+    assert.strictEqual(midLogs.length, 1);
+    assert.strictEqual(midLogs[0].outcome, 'queued');
+    assert.strictEqual(midLogs[0].tier, 'mid');
+    assert.strictEqual(midLogs[0].venueConflict, true);
+    assert.strictEqual(midLogs[0].promotedByRule, false);
+    assert.strictEqual(midLogs[0].newEventId, midEvent.id);
+    assert.strictEqual(midLogs[0].candidateEventId, seedEvent.id);
 
     // Exactly one suggestion row, pointing the new event at the seed candidate.
     const suggestions = await db
@@ -830,6 +865,138 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(suggestionsAfterRerun.length, 1, 'Resending the same message must not duplicate the suggestion row');
   });
 
+  await t.test('AD-30 Rule 7 (2026-10-25): a same-account, same-name, same-day pair scoring mid is promoted and linked, and logged as promoted', async () => {
+    const promoSuffix = Date.now();
+    const makePost = async (tag: string) => {
+      const [post] = await db
+        .insert(posts)
+        .values({
+          accountId: profile.id,
+          platform: 'instagram',
+          postUrl: `https://instagram.com/p/promo-${tag}-${promoSuffix}`,
+          publishedAt: new Date('2026-01-01T02:00:00Z'),
+        })
+        .returning();
+      extraSeededPostIds.push(post.id);
+      await db.insert(postAccountAssociations).values({ postId: post.id, accountId: post.accountId, role: 'PUBLISHER' });
+      return post;
+    };
+    const firstPost = await makePost('a');
+    const secondPost = await makePost('b');
+
+    // The first side states no venue: no venue or link signal, so the score caps at
+    // organizer 0.40 + date/name 0.25 = 0.65 (mid) -- the shape that used to wait for a moderator.
+    const seedRes = await processIngestionJob(
+      baseExtractedEventMessage({
+        postId: firstPost.id,
+        sourceSocialMediaAccountId: accountId,
+        eventName: 'Promoted Duplicate Event ' + promoSuffix,
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-20' }],
+      })
+    );
+    assert.strictEqual(seedRes.inserted, true);
+    const [seedEvent] = await db.select().from(events).where(eq(events.postId, firstPost.id));
+
+    const { result, lines } = await captureDedupLogs(() =>
+      processIngestionJob(
+        baseExtractedEventMessage({
+          postId: secondPost.id,
+          sourceSocialMediaAccountId: accountId,
+          eventName: 'Promoted Duplicate Event ' + promoSuffix,
+          schedules: [{ isMainSchedule: true, eventStartDate: '2026-10-20', location: 'Grand Hall' }],
+        })
+      )
+    );
+    assert.strictEqual(result.inserted, true);
+
+    // Linked to the seed event: no second row, no suggestion for a moderator.
+    const rows = await db.select().from(events).where(inArray(events.postId, [firstPost.id, secondPost.id]));
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].id, seedEvent.id);
+    const suggestions = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.candidateEventId, seedEvent.id));
+    assert.strictEqual(suggestions.length, 0);
+
+    assert.strictEqual(lines.length, 1);
+    assert.strictEqual(lines[0].outcome, 'linked');
+    assert.strictEqual(lines[0].scoredTier, 'mid');
+    assert.strictEqual(lines[0].tier, 'high');
+    assert.strictEqual(lines[0].promotedByRule, true);
+    assert.strictEqual(lines[0].organizerMatch, true);
+    assert.strictEqual(lines[0].venueConflict, false);
+  });
+
+  await t.test('AD-30 Rule 7 (2026-10-25): a roundup post that repeats a stub event links to it additively (no new row, no schedule deleted, still a stub), scored low', async () => {
+    const repeatSuffix = Date.now();
+    const makeRoundupPost = async (tag: string) => {
+      const [post] = await db
+        .insert(posts)
+        .values({
+          accountId: profile.id,
+          platform: 'instagram',
+          groupingReason: 'roundup',
+          postUrl: `https://instagram.com/p/stub-repeat-${tag}-${repeatSuffix}`,
+          publishedAt: new Date('2026-01-01T03:00:00Z'),
+        })
+        .returning();
+      extraSeededPostIds.push(post.id);
+      await db.insert(postAccountAssociations).values({ postId: post.id, accountId: post.accountId, role: 'PUBLISHER' });
+      return post;
+    };
+    const firstPost = await makeRoundupPost('a');
+    const secondPost = await makeRoundupPost('b');
+    const name = 'Stub Repeat Open ' + repeatSuffix;
+    const venue = 'Arena Grand Paris';
+
+    const seedRes = await processIngestionJob(
+      baseExtractedEventMessage({
+        postId: firstPost.id,
+        sourceSocialMediaAccountId: accountId,
+        eventName: name,
+        schedules: [
+          { isMainSchedule: true, eventStartDate: '2026-11-05', location: venue },
+          { isMainSchedule: false, eventStartDate: '2026-11-06', location: venue },
+        ],
+      })
+    );
+    assert.strictEqual(seedRes.inserted, true);
+    const [seedEvent] = await db.select().from(events).where(eq(events.postId, firstPost.id));
+    assert.strictEqual(seedEvent.detailLevel, 'stub');
+
+    // The repost lists only the first date and carries a description the stub lacks.
+    const { result, lines } = await captureDedupLogs(() =>
+      processIngestionJob(
+        baseExtractedEventMessage({
+          postId: secondPost.id,
+          sourceSocialMediaAccountId: accountId,
+          eventName: name,
+          description: 'Added by the repost',
+          schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-05', location: venue }],
+        })
+      )
+    );
+    assert.strictEqual(result.inserted, true);
+
+    const rows = await db.select().from(events).where(inArray(events.postId, [firstPost.id, secondPost.id]));
+    assert.strictEqual(rows.length, 1, 'no new event row');
+    assert.strictEqual(rows[0].id, seedEvent.id);
+    assert.strictEqual(rows[0].detailLevel, 'stub', 'the event stays a stub');
+    assert.strictEqual(rows[0].description, 'Added by the repost', 'an empty field is filled');
+
+    const eventSchedules = await db.select().from(schedules).where(eq(schedules.eventId, seedEvent.id));
+    assert.strictEqual(eventSchedules.length, 2, 'the omitted second day is NOT deleted');
+    const links = await db.select().from(eventPosts).where(eq(eventPosts.eventId, seedEvent.id));
+    assert.strictEqual(links.length, 2);
+    const suggestions = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.candidateEventId, seedEvent.id));
+    assert.strictEqual(suggestions.length, 0, 'no moderator suggestion');
+
+    assert.strictEqual(lines.length, 1);
+    assert.strictEqual(lines[0].outcome, 'linked');
+    assert.strictEqual(lines[0].scoredTier, 'low');
+    assert.strictEqual(lines[0].promotionRule, 'stub-repeat');
+    assert.strictEqual(lines[0].promotedByRule, true);
+    assert.strictEqual(lines[0].organizerMatch, false, 'the curator/roundup account earns no organizer weight');
+  });
+
   await t.test('Story 3.6v (AC1): a low-score/no-candidate case is unchanged from pre-story behavior', async () => {
     // A wholly unique name/date with nothing else in the suite sharing it -- no SQL candidate
     // passes the trigram pre-filter at all, so findMatchingEvent returns null and the plain
@@ -842,7 +1009,7 @@ test('processIngestionJob integration tests', async (t) => {
       schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-15' }],
     });
 
-    const res = await processIngestionJob(message);
+    const { result: res, lines: lowLogs } = await captureDedupLogs(() => processIngestionJob(message));
     assert.strictEqual(res.inserted, true);
 
     const [insertedEvent] = await db
@@ -851,6 +1018,12 @@ test('processIngestionJob integration tests', async (t) => {
       .where(and(eq(events.postId, seededPost10.id), eq(events.extractionOrdinal, 7)));
     assert.ok(insertedEvent);
     assert.strictEqual(insertedEvent.eventName, message.eventName);
+
+    // No candidate at all still logs a decision (it is the denominator of the auto-link rate).
+    assert.strictEqual(lowLogs.length, 1);
+    assert.strictEqual(lowLogs[0].outcome, 'new');
+    assert.strictEqual(lowLogs[0].tier, 'none');
+    assert.strictEqual(lowLogs[0].newEventId, insertedEvent.id);
 
     const matchCandidateRows = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.eventId, insertedEvent.id));
     assert.strictEqual(matchCandidateRows.length, 0, 'No suggestion row should be written for a low/no-candidate insert');

@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { events, eventPosts, eventSlugAliases, schedules, posts, corrections, calendarAdditions } from '@festgrid/database';
 import { db } from '../../db/client.js';
+import { isUnfilledValue, LOCATION_NOT_SPECIFIED } from '@festgrid/domain/events';
 import type { EventInsertValues, ScheduleInsertValues, ProposedEventCorrection } from '@festgrid/domain/events';
 import { isOrganizerAuthoredPost } from '../posts/is-organizer-authored-post.js';
 import { activeOnly } from '@festgrid/graphql-select';
@@ -152,6 +153,20 @@ const ENRICHABLE_EVENT_FIELDS = [
   'links',
 ] as const satisfies readonly (keyof EventInsertValues)[];
 
+/** `events.location` is NOT NULL, so an unknown location is stored as this placeholder, not null. */
+const UNFILLED_PLACEHOLDERS: Partial<Record<(typeof ENRICHABLE_EVENT_FIELDS)[number], readonly string[]>> = {
+  location: [LOCATION_NOT_SPECIFIED],
+};
+
+export interface EnrichOptions {
+  /**
+   * AD-30 Rule 7 (2026-10-25), stub repeat: the link only ADDS. Event and schedule fields take the
+   * new value only where the existing one is unfilled, and a schedule the new post omits is kept.
+   * The default (false) is the organizer-authoritative behavior: the new post overwrites and prunes.
+   */
+  additive?: boolean;
+}
+
 function hasCompleteDateAndLocation(s: { eventStartDate?: string | null; location?: string | null }): boolean {
   return Boolean(s.eventStartDate) && Boolean(s.location);
 }
@@ -257,7 +272,8 @@ async function mergeSchedules(
   eventId: string,
   currentSchedules: ScheduleRow[],
   newSchedules: ScheduleInsertValues[],
-  protectedFieldsByScheduleId: Map<string, Set<string>>
+  protectedFieldsByScheduleId: Map<string, Set<string>>,
+  additive = false
 ): Promise<void> {
   const matchedCurrentIds = new Set<string>();
 
@@ -298,12 +314,17 @@ async function mergeSchedules(
     for (const [field, value] of candidates) {
       if (protectedFields.has(field)) continue;
       if (value === null || value === undefined) continue;
+      // Additive (stub repeat): a filled value is never overwritten.
+      if (additive && !isUnfilledValue((match as Record<string, unknown>)[field])) continue;
       (patch as Record<string, unknown>)[field] = value;
     }
     if (Object.keys(patch).length > 0) {
       await executor.update(schedules).set(patch).where(eq(schedules.id, match.id));
     }
   }
+
+  // Additive (stub repeat): a thin repost that omits a schedule must not erase it.
+  if (additive) return;
 
   const unmatchedCurrent = currentSchedules.filter((s) => !matchedCurrentIds.has(s.id));
   if (unmatchedCurrent.length === 0) return;
@@ -389,8 +410,10 @@ export async function enrichAndPromoteEvent(
   newEvent: EventInsertValues,
   newSchedules: ScheduleInsertValues[],
   newPostId: string,
-  newExtractionOrdinal: number | null
+  newExtractionOrdinal: number | null,
+  options: EnrichOptions = {}
 ): Promise<EnrichAndPromoteResult> {
+  const additive = options.additive === true;
   const previousOrganizerAuthored = candidateEvent.postId
     ? await isOrganizerAuthoredPost(candidateEvent.postId, executor)
     : false;
@@ -413,6 +436,12 @@ export async function enrichAndPromoteEvent(
     if (protectedFields.event.has(field)) continue;
     const value = newEvent[field];
     if (value === null || value === undefined) continue;
+    // Additive (stub repeat): fill only a field the candidate has not filled; an incoming placeholder
+    // ("Location not specified") never fills anything.
+    if (additive) {
+      const candidateValue = (candidateEvent as Record<string, unknown>)[field];
+      if (!isUnfilledValue(candidateValue, UNFILLED_PLACEHOLDERS[field]) || isUnfilledValue(value, UNFILLED_PLACEHOLDERS[field])) continue;
+    }
     eventPatch[field] = value;
   }
   if (Object.keys(eventPatch).length > 0) {
@@ -442,7 +471,7 @@ export async function enrichAndPromoteEvent(
   }
 
   // Schedule merge (AC4), using the pre-enrichment snapshot fetched above.
-  await mergeSchedules(executor, candidateEvent.id, currentSchedules, newSchedules, protectedFields.byScheduleId);
+  await mergeSchedules(executor, candidateEvent.id, currentSchedules, newSchedules, protectedFields.byScheduleId, additive);
 
   const [updatedEvent] = await executor.select().from(events).where(eq(events.id, candidateEvent.id)).limit(1);
 

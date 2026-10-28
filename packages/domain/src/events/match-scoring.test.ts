@@ -10,8 +10,14 @@ import {
   classifyMatchTier,
   capTierWhenOutsideDateWindow,
   computeMatchScore,
+  decideMatchTier,
+  normalizeEventNameForMatch,
+  areNamesAutoLinkable,
+  hasVenueConflict,
+  type MatchDecisionInput,
   MATCH_SCORE_WEIGHTS,
   MATCH_SCORE_THRESHOLDS,
+  MID_PROMOTION_MAX_DAY_DIFF,
 } from './match-scoring.js';
 
 test('normalizeEventLinkUrl', async (t) => {
@@ -292,5 +298,293 @@ test('capTierWhenOutsideDateWindow (BUG-063)', async (t) => {
   await t.test('never promotes or touches mid/low', () => {
     assert.strictEqual(capTierWhenOutsideDateWindow('mid', 18, 2), 'mid');
     assert.strictEqual(capTierWhenOutsideDateWindow('low', 18, 2), 'low');
+  });
+});
+
+// --- Mid -> high promotion (AD-30 Rule 7, amended 2026-10-25) ---------------------------------------
+
+const WINDOW_DAYS = 2;
+
+function decide(overrides: Partial<MatchDecisionInput> = {}) {
+  return decideMatchTier({
+    organizerMatch: true,
+    sharedLink: false,
+    nameSimilarity: 1,
+    minDayDiff: 0,
+    newEventName: 'Mall Anniversary Sale',
+    candidateEventName: 'Mall Anniversary Sale',
+    newVenues: [{ eventStartDate: '2026-10-10', location: null }],
+    candidateVenues: [{ eventStartDate: '2026-10-10', location: null }],
+    windowDays: WINDOW_DAYS,
+    ...overrides,
+  });
+}
+
+test('decideMatchTier: promotes a mid to high when every condition holds', async (t) => {
+  await t.test('same account, same day, same name, no venue on either side', () => {
+    const result = decide();
+    // organizer 0.40 + date/name 0.25 = 0.65: the cap the missing venue signal causes today.
+    assert.strictEqual(result.score, 0.65);
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.tier, 'high');
+    assert.strictEqual(result.promotedByRule, true);
+  });
+
+  await t.test('a shared link stands in for the account', () => {
+    const result = decide({ organizerMatch: false, sharedLink: true });
+    assert.strictEqual(result.scoredTier, 'mid'); // link 0.20 + date/name 0.25 = 0.45
+    assert.strictEqual(result.tier, 'high');
+    assert.strictEqual(result.promotedByRule, true);
+  });
+
+  await t.test('names that differ only by case, punctuation, a year or a bracketed suffix are the same name', () => {
+    const result = decide({
+      newEventName: 'Mall Anniversary Sale 2026 (SOLD OUT)!',
+      candidateEventName: 'mall   anniversary sale',
+      nameSimilarity: 0.7, // the trigram score is irrelevant once the normalized names are equal
+    });
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.promotedByRule, true);
+  });
+
+  await t.test('a digit inside the brackets ("(Day 1)", "(10K)") still separates the names, even though brackets are otherwise noise', () => {
+    const result = decide({
+      newEventName: 'Mall Anniversary Sale 2026 (Day 1)',
+      candidateEventName: 'mall anniversary sale',
+      nameSimilarity: 1,
+    });
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+
+  await t.test('different bracketed qualifiers ("(Morning)" vs "(Evening)") are not promoted, venue unknown or not', () => {
+    const result = decide({
+      newEventName: 'Baking Workshop (Morning)',
+      candidateEventName: 'Baking Workshop (Evening)',
+      nameSimilarity: 0.63, // the real trigram score of this pair on prod
+    });
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+
+  await t.test('trigram similarity >= 0.85 with no differing digits is the same name', () => {
+    const result = decide({
+      newEventName: 'Mall Anniversary Sale Weekend',
+      candidateEventName: 'Mall Anniversary Sales Weekend',
+      nameSimilarity: 0.86,
+      minDayDiff: 0,
+    });
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.promotedByRule, true);
+  });
+
+  await t.test('one side without a venue does not block, and overlapping venue text does not conflict', () => {
+    assert.strictEqual(
+      decide({ newVenues: [{ eventStartDate: '2026-10-10', location: 'Tenth Avenue Bandung' }] }).promotedByRule,
+      true
+    );
+    const overlapping = decide({
+      newVenues: [{ eventStartDate: '2026-10-10', location: 'Tenth Avenue' }],
+      candidateVenues: [{ eventStartDate: '2026-10-10', location: 'Tenth Avenue Bandung' }],
+    });
+    assert.strictEqual(overlapping.venueConflict, false);
+    // Not an exact string match, so the venue signal stays off and the promotion is what links it.
+    assert.strictEqual(overlapping.venueMatch, false);
+    assert.strictEqual(overlapping.promotedByRule, true);
+  });
+
+  await t.test('a shared start date is required: 1 or 2 days apart stays mid (the next instance of a recurring event)', () => {
+    for (const minDayDiff of [1, 2]) {
+      const result = decide({ minDayDiff });
+      assert.strictEqual(result.scoredTier, 'mid', `${minDayDiff} days apart`);
+      assert.strictEqual(result.tier, 'mid', `${minDayDiff} days apart`);
+      assert.strictEqual(result.promotedByRule, false, `${minDayDiff} days apart`);
+    }
+    assert.strictEqual(MID_PROMOTION_MAX_DAY_DIFF, 0);
+  });
+  await t.test('a weekly show posted for two consecutive weeks (prod 2026-10-28) is not linked', () => {
+    // Week of 13-18 Oct vs week of 20-25 Oct: nearest schedules are 2 days apart, same account, same name.
+    const result = decide({
+      newEventName: 'Pentas Paket Wisata Srimanganti',
+      candidateEventName: 'Pentas Paket Wisata Srimanganti',
+      minDayDiff: 2,
+    });
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+});
+
+test('decideMatchTier: known negatives stay mid (manual review)', async (t) => {
+  await t.test('(a) a touring event: same name, date and account, but Bandung vs Surabaya', () => {
+    const result = decide({
+      newEventName: 'Lomba Mata Pelajaran dan Mewarnai',
+      candidateEventName: 'Lomba Mata Pelajaran dan Mewarnai',
+      newVenues: [{ eventStartDate: '2026-10-10', location: 'BG Junction Surabaya' }],
+      candidateVenues: [{ eventStartDate: '2026-10-10', location: 'Tenth Avenue Bandung' }],
+    });
+    assert.strictEqual(result.venueConflict, true);
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+
+  await t.test('(b) a daily series: "... Biggest Sale" vs "... Biggest Sale - Day 12", one day apart', () => {
+    const result = decide({
+      newEventName: '32 Days of C&F Biggest Sale - Day 12',
+      candidateEventName: '32 Days of C&F Biggest Sale',
+      nameSimilarity: 0.9,
+      minDayDiff: 1,
+    });
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+
+  await t.test('(c) two different store promos at the same mall on the same date (venue known on one side only)', () => {
+    const result = decide({
+      newEventName: 'Uniqlo Mid Year Sale at Grand Mall',
+      candidateEventName: 'Zara Mid Year Sale at Grand Mall',
+      nameSimilarity: 0.62,
+      newVenues: [{ eventStartDate: '2026-10-10', location: 'Grand Mall' }],
+    });
+    assert.strictEqual(result.venueConflict, false);
+    assert.strictEqual(result.scoredTier, 'mid'); // 0.40 + (0.62 + 1) / 2 * 0.25
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+
+  await t.test('names below 0.85 similarity and not equal when normalized stay mid', () => {
+    const result = decide({ newEventName: 'Jazz Night', candidateEventName: 'Jazz Nights Special', nameSimilarity: 0.84 });
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+});
+
+test('decideMatchTier: the date window cap still holds', async (t) => {
+  await t.test('a shared-link candidate 18 days away is never promoted, even with the same account, name and venue', () => {
+    const result = decide({
+      organizerMatch: true,
+      sharedLink: true,
+      minDayDiff: 18,
+      newVenues: [{ eventStartDate: '2026-11-08', location: 'Gembira Loka Zoo' }],
+      candidateVenues: [{ eventStartDate: '2026-10-21', location: 'Gembira Loka Zoo' }],
+    });
+    // organizer 0.40 + link 0.20 + (1 + 0) / 2 * 0.25 + venue 0.15 = 0.875 -> scored high, capped to mid.
+    assert.strictEqual(result.scoredTier, 'high');
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+
+  await t.test('a mid outside the window is not promoted either', () => {
+    const result = decide({ minDayDiff: 18, sharedLink: true });
+    assert.strictEqual(result.scoredTier, 'mid'); // 0.40 + 0.20 + 0.125 = 0.725
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+
+  await t.test('no date pair at all (Infinity) is outside the window', () => {
+    assert.strictEqual(decide({ minDayDiff: Infinity, sharedLink: true }).promotedByRule, false);
+  });
+});
+
+test('decideMatchTier: other tiers pass through unchanged', async (t) => {
+  await t.test('a scored high is high and not flagged as promoted', () => {
+    const result = decide({ sharedLink: true });
+    assert.strictEqual(result.scoredTier, 'high');
+    assert.strictEqual(result.tier, 'high');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+
+  await t.test('a low is never promoted, however similar the names', () => {
+    const result = decide({ organizerMatch: false, sharedLink: false });
+    assert.strictEqual(result.scoredTier, 'low'); // date/name only: 0.25
+    assert.strictEqual(result.tier, 'low');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+});
+
+test('normalizeEventNameForMatch', async (t) => {
+  await t.test('lowercases and collapses punctuation and whitespace', () => {
+    assert.strictEqual(normalizeEventNameForMatch('  Jazz,  Night!! '), 'jazz night');
+  });
+  await t.test('drops year tokens and bracketed groups', () => {
+    assert.strictEqual(normalizeEventNameForMatch('Jazz Night 2026 [SOLD OUT] (Day 1)'), 'jazz night');
+  });
+  await t.test('keeps non-year numbers', () => {
+    assert.strictEqual(normalizeEventNameForMatch('Day 12 of 32'), 'day 12 of 32');
+  });
+});
+
+test('areNamesAutoLinkable', async (t) => {
+  await t.test('equal normalized names ignore the similarity score', () => {
+    assert.strictEqual(areNamesAutoLinkable('Jazz Night 2026', 'jazz night', 0), true);
+  });
+  await t.test('a bracketed category or number is not noise: "(10K)" vs no number, "(5K)" vs "(10K)" (found on prod)', () => {
+    assert.strictEqual(areNamesAutoLinkable('Erafone Run 2026 - Yogyakarta Series (10K)', 'erafone Run 2026 Yogyakarta Series', 0.9), false);
+    assert.strictEqual(areNamesAutoLinkable('Erafone Run Series (5K)', 'Erafone Run Series (10K)', 1), false);
+    assert.strictEqual(areNamesAutoLinkable('Global EduFair (GEF) 2026', 'Global EduFair 2026', 0.87), true, 'a bracketed abbreviation is still noise');
+    assert.strictEqual(areNamesAutoLinkable('Perayaan Jumat Spooky (PJS)', 'Perayaan Jumat Spooky', 0.88), true);
+  });
+  await t.test('different bracketed qualifiers on both sides are different events, whatever the similarity', () => {
+    assert.strictEqual(areNamesAutoLinkable('Baking Workshop (Morning)', 'Baking Workshop (Evening)', 0.63), false);
+    assert.strictEqual(areNamesAutoLinkable('Badminton Open (Men)', 'Badminton Open (Women)', 1), false);
+    assert.strictEqual(areNamesAutoLinkable('Fun Run Series [Jakarta]', 'Fun Run Series {Bandung}', 0.9), false);
+    assert.strictEqual(areNamesAutoLinkable('Open (Morning) (Free)', 'Open (Evening) (Free)', 1), false, 'a shared qualifier does not hide a differing one');
+  });
+  await t.test('a qualifier on one side only, or one the other side repeats, stays noise', () => {
+    assert.strictEqual(areNamesAutoLinkable('Jazz Night (SOLD OUT)', 'Jazz Night', 0.5), true);
+    assert.strictEqual(areNamesAutoLinkable('Jazz Night', 'Jazz Night (SOLD OUT)', 0.5), true);
+    assert.strictEqual(areNamesAutoLinkable('Expo (GEF)', 'Expo (GEF) (Early Bird)', 1), true);
+    assert.strictEqual(areNamesAutoLinkable('Expo (GEF) (Early Bird)', 'Expo (GEF)', 1), true);
+    assert.strictEqual(areNamesAutoLinkable('Summit (GIFTS) 2026', 'Summit (GIFTS 2026)', 0.93), true, 'the same qualifier with a year inside is the same qualifier (prod pair)');
+  });
+  await t.test('a bracket that holds only a year is not a qualifier', () => {
+    assert.strictEqual(areNamesAutoLinkable('Jazz Night (2026)', 'Jazz Night (2025)', 1), true);
+  });
+  await t.test('similar names need >= 0.85 and the same digit tokens in order', () => {
+    assert.strictEqual(areNamesAutoLinkable('Fun Run 5K Jakarta', 'Fun Run 5K Jakarta Edition', 0.86), true);
+    assert.strictEqual(areNamesAutoLinkable('Fun Run 5K Jakarta', 'Fun Run 5K Jakarta Edition', 0.849), false);
+    assert.strictEqual(areNamesAutoLinkable('Fun Run 5K Jakarta', 'Fun Run 10K Jakarta', 0.9), false);
+    assert.strictEqual(areNamesAutoLinkable('Part 1 of 2 Show', 'Part 2 of 1 Show', 0.95), false);
+  });
+});
+
+test('hasVenueConflict', async (t) => {
+  const surabaya = { eventStartDate: '2026-10-10', location: 'BG Junction Surabaya', latitude: -7.26, longitude: 112.74 };
+  const bandung = { eventStartDate: '2026-10-10', location: 'Tenth Avenue Bandung', latitude: -6.9, longitude: 107.6 };
+
+  await t.test('clearly different venues conflict', () => {
+    assert.strictEqual(hasVenueConflict([surabaya], [bandung], WINDOW_DAYS), true);
+  });
+  await t.test('coordinates within a few km are the same place even if the text differs', () => {
+    assert.strictEqual(
+      hasVenueConflict(
+        [{ eventStartDate: '2026-10-10', location: 'Gelora Bung Karno', latitude: -6.2183, longitude: 106.8018 }],
+        [{ eventStartDate: '2026-10-10', location: 'GBK Senayan', latitude: -6.2196, longitude: 106.8023 }],
+        WINDOW_DAYS
+      ),
+      false
+    );
+  });
+  await t.test('a side with no venue never conflicts', () => {
+    assert.strictEqual(hasVenueConflict([surabaya], [{ eventStartDate: '2026-10-10' }], WINDOW_DAYS), false);
+    assert.strictEqual(hasVenueConflict([], [bandung], WINDOW_DAYS), false);
+  });
+  await t.test('a tour: venues are compared only between schedules inside the date window', () => {
+    const tourCandidate = [
+      { eventStartDate: '2026-10-10', location: 'Tenth Avenue Bandung' },
+      { eventStartDate: '2026-10-17', location: 'BG Junction Surabaya' },
+    ];
+    // The new item is the Surabaya date: its in-window partner is the Surabaya schedule.
+    assert.strictEqual(
+      hasVenueConflict([{ eventStartDate: '2026-10-17', location: 'BG Junction Surabaya' }], tourCandidate, WINDOW_DAYS),
+      false
+    );
+    // The new item is a third city on the Bandung date: Bandung is its only in-window partner.
+    assert.strictEqual(
+      hasVenueConflict([{ eventStartDate: '2026-10-11', location: 'Paris Van Java Mall' }], tourCandidate, WINDOW_DAYS),
+      true
+    );
   });
 });

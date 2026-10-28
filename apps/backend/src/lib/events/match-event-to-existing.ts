@@ -3,13 +3,12 @@ import { events, schedules, socialMediaAccountProfiles } from '@festgrid/databas
 import { activeOnly } from '@festgrid/graphql-select';
 import type { EventInsertValues, ScheduleInsertValues } from '@festgrid/domain/events';
 import {
-  capTierWhenOutsideDateWindow,
-  computeMatchScore,
+  decideMatchTier,
   hasSharedEventLink,
-  hasVenueMatch,
   minScheduleDayDifference,
   normalizeEventLinkUrl,
   type MatchTier,
+  type PromotionRule,
 } from '@festgrid/domain/events';
 import type { DbExecutor } from './set-event-primary-post.js';
 import { buildEventAccountMatchCondition } from './event-account-match.js';
@@ -25,7 +24,7 @@ const CANDIDATE_LIMIT = 20;
 const NAME_SIMILARITY_FLOOR = 0.3;
 // AC1 -- candidates are selected by schedule date-range overlap within +/-2 days of any of the
 // new item's schedules.
-const DATE_WINDOW_DAYS = 2;
+export const DATE_WINDOW_DAYS = 2;
 // BUG-063 -- a candidate sharing a normalized event link with the new item is also admitted when
 // a schedule is within +/-90 days: a registration-deadline post and the race-day post of one
 // event sit weeks apart (GembiRun Loka 2026: 21 Oct vs 8 Nov), far outside +/-2 days. 90 days
@@ -45,12 +44,39 @@ export interface MatchSourcePost {
    */
   accountId: string | undefined;
   groupingReason: string | null;
+  /**
+   * Whether the new item is a stub (roundup- or curator-sourced, AD-30 Rule 10) -- the flag
+   * `evaluateIngestionMatch` already computed. Feeds the stub-repeat rule; omitted means "not a
+   * stub", which switches that rule off.
+   */
+  isStub?: boolean;
+}
+
+/** The inputs and outcome of one scored candidate, kept for the structured ingestion log. */
+export interface MatchSignals {
+  /** The tier the unchanged weights and thresholds gave, before the promotion rule and window cap. */
+  scoredTier: MatchTier;
+  /** True when `tier` is `high` only because a promotion rule lifted it. */
+  promotedByRule: boolean;
+  /** Which rule lifted it; `null` when the score alone decided. */
+  promotionRule: PromotionRule;
+  /** True when the pair is a stub repeat (even if the score alone reached `high`): the link is additive. */
+  stubRepeat: boolean;
+  nameSimilarity: number;
+  /** `Infinity` when there is no usable date pair. */
+  minDayDiff: number;
+  organizerMatch: boolean;
+  sharedLink: boolean;
+  venueMatch: boolean;
+  venueConflict: boolean;
 }
 
 export interface MatchResult {
   candidate: EventRow;
   score: number;
+  /** The tier ingestion acts on: after the promotion rule and the date-window cap. */
   tier: MatchTier;
+  signals: MatchSignals;
 }
 
 /**
@@ -171,7 +197,10 @@ export async function findMatchingEvent(
         )`
       )
     )
-    .orderBy(desc(sql`similarity(${events.eventName}, ${newEvent.eventName})`))
+    // Name similarity first (so the LIMIT drops only the weakest), then oldest first: with N
+    // identical stubs the absorbing event is always the oldest, never an arbitrary one (AD-30
+    // Rule 7, 2026-10-25).
+    .orderBy(desc(sql`similarity(${events.eventName}, ${newEvent.eventName})`), asc(events.createdAt), asc(events.id))
     .limit(CANDIDATE_LIMIT);
 
   if (candidateRows.length === 0) {
@@ -206,23 +235,45 @@ export async function findMatchingEvent(
 
     const organizerMatch = await resolveOrganizerMatch(tx, candidateEventId, sourcePost.accountId, organizerHandleAccountId);
     const sharedLink = hasSharedEventLink(newEvent.links, candidateEvent.links);
-    const venueMatch = hasVenueMatch(newSchedules, candidateSchedules);
     const minDayDiff = minScheduleDayDifference(newSchedules, candidateSchedules);
     const nameSimilarity = nameSimByEventId.get(candidateEventId) ?? 0;
 
-    const { score, tier: scoredTier } = computeMatchScore({
+    // The tier decision (weights, thresholds, mid-to-high promotion, window cap) is one pure
+    // function shared with the backlog drain script, so the two can never disagree.
+    const { score, tier, scoredTier, promotedByRule, promotionRule, stubRepeat, venueMatch, venueConflict } = decideMatchTier({
       organizerMatch,
       sharedLink,
       nameSimilarity,
       minDayDiff,
-      venueMatch,
+      newEventName: newEvent.eventName,
+      candidateEventName: candidateEvent.eventName,
+      newVenues: newSchedules,
+      candidateVenues: candidateSchedules,
+      windowDays: DATE_WINDOW_DAYS,
+      newIsStub: sourcePost.isStub ?? false,
+      candidateIsStub: candidateEvent.detailLevel === 'stub',
     });
-    const tier = capTierWhenOutsideDateWindow(scoredTier, minDayDiff, DATE_WINDOW_DAYS);
 
-    // Rank by the (possibly capped) tier first, so a date-distant shared-link candidate whose raw
+    // Rank by the final tier first, so a date-distant shared-link candidate whose raw
     // score is higher can never displace an in-window `high` candidate.
     if (!best || TIER_RANK[tier] > TIER_RANK[best.tier] || (tier === best.tier && score > best.score)) {
-      best = { candidate: candidateEvent, score, tier };
+      best = {
+        candidate: candidateEvent,
+        score,
+        tier,
+        signals: {
+          scoredTier,
+          promotedByRule,
+          promotionRule,
+          stubRepeat,
+          nameSimilarity,
+          minDayDiff,
+          organizerMatch,
+          sharedLink,
+          venueMatch,
+          venueConflict,
+        },
+      };
     }
   }
 
@@ -236,7 +287,7 @@ export async function findMatchingEvent(
  * is sufficient -- this mirrors the pure scorer's single `organizerMatch: boolean` input, with
  * the "discount" decision (passing `organizerHandleAccountId: null`) already made by the caller.
  */
-async function resolveOrganizerMatch(
+export async function resolveOrganizerMatch(
   tx: DbExecutor,
   candidateEventId: string,
   sourceAccountId: string | undefined,

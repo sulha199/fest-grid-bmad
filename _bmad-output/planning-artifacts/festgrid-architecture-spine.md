@@ -1772,6 +1772,95 @@ This document defines the core architectural invariants for the FestDaily applic
         Weights and thresholds are unchanged. A pair already in the database is merged by a
         moderator accepting the queued suggestion, or by `merge-events-by-slug.ts` (a dry run by
         default) when no suggestion exists; both run `mergeEvents()` (Rule 9) and are undoable.
+        **Amended 2026-10-25 (mid-to-high promotion; diagram updated).** The moderators could not
+        keep up with the mid queue (218 pending on 2026-10-24 against about 152 auto-links since
+        2026-10-05): the score tops out near 0.65 (organizer 0.40 + date/name 0.25) whenever the
+        venue (0.15) or the shared link (0.20) is missing, usually because one side has no
+        `location`, so same-account, same-day, same-name pairs waited for a human. Weights,
+        thresholds, the candidate query and the Rule 9 merge are unchanged. One pure function,
+        `decideMatchTier` (`packages/domain/src/events/match-scoring.ts`), now owns the tier
+        decision for ingestion and the backlog drain: it scores, **promotes a `mid` to `high`**, then
+        applies `capTierWhenOutsideDateWindow`. The promotion requires **all** of:
+        *   **Shared start date** (amended 2026-10-28). `minDayDiff ≤ MID_PROMOTION_MAX_DAY_DIFF`
+            (0): the nearest schedules of the two events fall on the same date. The candidate
+            window (±2 days) still decides which events are scored, but a pair 1 to 2 days apart
+            is more often the next instance of a recurring event (a weekly show, a numbered league
+            night, consecutive pop-up days) than a repost, and an auto-link is not undoable and
+            prunes the schedule the new post omits, so it stays `mid` for a moderator. Found by
+            the read-only prod evaluation on 2026-10-28 (22 of 66 pairs). A candidate admitted
+            only by the shared-link path (BUG-063) is never promoted; its cap stays.
+        *   **Same name.** `normalizeEventNameForMatch` (lowercase; bracketed groups, year tokens
+            and punctuation removed) equal, **or** trigram similarity ≥ 0.85
+            (`MID_PROMOTION_NAME_SIMILARITY`), **and on both paths the digit tokens must be
+            identical in the same order**, read with bracketed text kept (years dropped). That keeps
+            a daily series ("… Sale" vs "… Sale - Day 12"), "Part 1"/"Part 2" and a race category
+            ("… Series (10K)" vs "… Series"; "(5K)" vs "(10K)") apart, which the bracket-stripping
+            normalizer alone would merge. Found 2026-10-25 by running the rule read-only on prod.
+            **Bracketed qualifiers must not contradict** (added 2026-10-27): when both names carry
+            bracketed text and neither set contains the other ("(Morning)" vs "(Evening)", "(Men)"
+            vs "(Women)", "(Jakarta)" vs "(Bandung)"), the pair is not promoted, whatever the
+            similarity. A qualifier on one side only ("(SOLD OUT)", "(GEF)") or one the other side
+            repeats stays noise.
+        *   **No venue conflict.** `hasVenueConflict`: a side with no venue never conflicts; equal or
+            containing venue texts, or coordinates within 5 km (`VENUE_COMPATIBLE_METERS`), are
+            compatible; both venues known and clearly different (a touring event) blocks. Only
+            schedule pairs inside the window are compared.
+        *   **Same account or shared link.** `organizerMatch || sharedLink`. Under the unchanged
+            weights a `mid` is unreachable without one of the two, so this is implied today; it is
+            explicit so a later weight change cannot silently drop it.
+        `MatchResult` now carries the pre-promotion `scoredTier`, `promotedByRule` and the signals.
+        **Observability.** `processIngestionJob` writes one JSON line `event_dedup_decision` per
+        match decision (tier, score, promotion flag, signals, candidate and new event ids; no
+        names or account ids) after the transaction commits; `docs/infrastructure/7-event-dedup.md`
+        holds the CloudWatch Logs Insights query for the auto-linked vs queued rate. **Backlog.**
+        `apps/backend/src/drain-event-match-backlog.ts` re-evaluates every pending suggestion with
+        the same function and accepts the qualifying ones through `mergeEvents()` (existing event
+        wins, journaled, undoable); dry run by default, `--evaluate-only` needs only SELECT.
+        **Risk accepted:** precision is unmeasured (only 4 moderator decisions existed, all
+        accepts), so the first `--apply` follows a moderator spot-check of the dry-run output.
+        Out of scope and still open: LLM adjudication of the mid band, auto-expiring suggestions
+        for past events, moderator UI changes.
+        **Amended 2026-10-25 (stub repeat; design record:
+        `_bmad-output/planning-artifacts/architecture/architecture-festgrid-2026-10-25-curator-dedup/`).**
+        Prod case: 11 stub events "Yonex French Open 2026" from one curator account, same name, dates
+        and venue, none linked and none queued. A stub's organizer weight is discounted (BUG-058) and
+        such posts carry no links, so the pair scores at most 0.40 (date/name 0.25 + venue 0.15): `low`.
+        Weights, thresholds and the mid-to-high promotion are unchanged. `decideMatchTier` gains a
+        tier override that is not score-based: **a stub repeat is lifted to `high`** (also from `low`).
+        *   **Predicate** (`matchesStubRepeat` / `evaluateStubRepeat`, `packages/domain`): both the new
+            item and the candidate are stubs (the new item's `isStub` from `evaluateIngestionMatch`,
+            passed on `MatchSourcePost`; the candidate's `events.detail_level = 'stub'`); the strict
+            names are equal and have at least two words (`normalizeEventNameStrict`: lowercase,
+            punctuation and year tokens removed, **bracketed text kept**; no trigram path); and one
+            schedule pair has the **same `eventStartDate`**, a **positive venue match on that same
+            pair** (equal trimmed lowercase text, or coordinates within 150 m; two absent venues are
+            not a match), and equal start times when both are set. The posting account, organizer,
+            links and score are not inputs, so a different curator's stub links on the same terms.
+            Same name and date at a different or unknown venue are different events and never link.
+        *   **Additive link** (`enrichAndPromoteEvent(..., { additive: true })`, set when
+            `signals.stubRepeat`): an event or schedule field takes the new value only where the
+            existing one is *unfilled* (null, blank, empty array, or the `'Location not specified'`
+            placeholder; `isUnfilledValue`), and a schedule the repost omits is **kept**. Every other
+            high match keeps the overwrite-and-prune behavior. Primary-post ordering, re-slug with
+            alias and `detail_level = 'stub'` are unchanged; a stub never notifies.
+        *   **Deterministic absorber.** The candidate query orders by name similarity, then
+            `events.created_at`, then `events.id`: with several identical stubs the oldest absorbs the
+            repost, and the scan merges into the same event.
+        *   **Scan mode** (`drain-event-match-backlog.ts --scan-stubs`, `lib/events/scan-stub-repeats.ts`):
+            finds active stub pairs with the same predicate (SQL pre-filter: equal start date and name
+            similarity > 0.5), clusters them, and merges every loser into the oldest event through
+            `mergeEvents()` (journaled, undoable). Dry run by default; `--evaluate-only` needs only
+            SELECT; `--exclude <event id>`; `--apply` is all-or-nothing. It prints a **near-miss list**
+            (same strict name and start date, not merged, with the reason: venue differs, venue unknown
+            on one or both sides, times differ, name too short). It is the backlog tool and the backstop
+            for two posts ingested in the same few seconds, which no lock prevents.
+        *   **Observability.** The `event_dedup_decision` line gains `promotionRule`
+            (`mid-to-high` | `stub-repeat` | null); `promotedByRule` stays true for both.
+        **Accepted:** the ingestion-time auto-link is not undoable (the high path writes no
+        `event_merges` row); scan-mode merges are. A generic two-word name ("Christmas Bazaar") at one
+        venue and day from two curators still links; the spot-check of the scan's dry-run list before
+        merge and the near-miss list are the controls. The 2026-10-25 mid-to-high promotion still uses
+        the overwrite-and-prune link; moving it to the additive link is a follow-up.
     8.  **Promotion and post deletion.** On promotion the event adopts the matched candidate's
         `extraction_ordinal` under the new primary (that `(post, ordinal)` slot is free — the
         candidate was matched to this event rather than creating one) and keeps its old link
