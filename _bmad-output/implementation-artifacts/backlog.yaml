@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-27"
+last_updated: "2026-10-28"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2978,3 +2978,12 @@ items:
      ref: [planning-artifacts/event-insight-poc/target-area-spec-2026-10-27.md, planning-artifacts/event-insight-poc/target-area-edits-draft-2026-10-27.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/IDEA-105-target-area-in-production.md],
      touches: [app:backend, pkg:domain, cross:ai-extraction, web:locations],
      note: "Owner decisions 2026-10-27, applied to the POC and PRD 3.20 on the ecstatic-shannon branch; what is open before building is in backlog/IDEA-105-target-area-in-production.md."}
+
+  # ── 2026-10-28 (dedup review of PR #102: tournament results posts become events) ──
+  IDEA-106:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: user-visible, effort: m,
+     title: "Tell an event report or news post from an announcement in the AI extraction (post_kind: announcement | report | mixed), so results and recap posts stop becoming stub events",
+     ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, apps/backend/src/validation/extracted-event.schema.ts, planning-artifacts/event-insight-poc/poc-status.md, backlog/IDEA-106-event-report-post-kind.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Owner 2026-10-28 (Hylo Open case, PR #102 spot-check): results/news posts with a schedule pass isEvent; 78 of 140 stub-cluster events are one results account. Evidence and design: backlog/IDEA-106-event-report-post-kind.md."}

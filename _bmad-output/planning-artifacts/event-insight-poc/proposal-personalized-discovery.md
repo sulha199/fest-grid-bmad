@@ -65,6 +65,11 @@ Analysis and measurements are in [`proposal-discovery-ranking-and-scale.md`](./p
 28. **Whose key pays:** subscribers' keys for the per-post insight on new posts; a platform key only for the one-time backfill and the nightly evaluation (AD-39 Rule 8).
 29. **Interest profile privacy.** The profile learns from favorites and calendar adds. Non-sensitive interests are stored on the server for signed-in users and in the browser for anonymous visitors. Events in sensitive categories (religion and spirituality, civic or political, and sensitive tags such as a health condition) never enter what the profile learns and never change scores; they rank like any other event. A Settings switch, **default off**, lets a user opt in to using sensitive interests; once on they are stored with the rest, and turning it off deletes them. Sensitive topics are not offered as onboarding chips unless the switch is on. Reset and switch-off for the whole profile are in Settings; it is deleted with the account. Counsel should check this against Indonesia's PDP Law (not verified here).
 
+### Revision 10 — decisions from the 2026-10-28 dedup review (owner)
+
+30. **Category siblings are merged into one event, so personalization targets the track, not the event.** Event dedup (AD-30 Rule 7, PR #102) links posts about one event even when each post announces one category: the plain "Erafone Run 2026 Yogyakarta Series" and its "… - 5K" post are one event (owner: merging 5K and 10K is fine, the plan's personalization separates them later; one such pair in the 2026-10-28 prod evaluation). Nothing in this plan may assume one event = one category, one distance or one price. A person's fit (age, life stage, cost tier, distance) is read per track (§2.3), and the card shows the union.
+31. **What the build must do for that.** (a) When a post is linked to an existing event, `insight.tracks` is merged as a **union by track label and criteria**, never overwritten by the later post. Today's high-path link is last-writer-wins and prunes (AD-30 Rule 7), so a "10K" post linking after a "5K" post would erase the 5K track; the additive link (§3.4) is the model, and the union applies on both promotion rules. (b) Cost tier, age bands and distance are stored per track where the post states them and fall back to the event level only when it does not. (c) The golden set gets a merged-sibling case: a 5K post and a 10K post of one series give two tracks, and "for age 11" still finds the gap (§2.3). (d) The track label is what an affinity learned from favorites attaches to ("favours 5K"), so labels must be stable across posts ("5K" never "5 km" on one and "5K" on the next).
+
 ## 1. Recommendation
 
 **Build it, in two gated phases.** The POC says Gemini can extract *who an event is for and where its audience is* well enough to rank on — for some fields. For others it can't, and the design below uses each field only as far as the evidence supports.
@@ -175,6 +180,8 @@ Insight is read by the hottest query in the system, so it must be on the `events
 ### 3.4 Existing events
 
 A one-off backfill using the *standalone* call (measured **~1.2k input / ~0.25k output tokens per event**; multiply by event count and the current published rate to budget it) over events whose source caption still exists. Events from curator posts (caption cleared) stay `NULL` and rank **neutrally** — a missing insight is never a penalty.
+
+**Merged events (added 2026-10-28).** When event dedup links a later post to an existing event, or a moderator or the drain script merges two events, the surviving event's insight is the **union** of the parts, not the winner's alone: `tracks` by label and criteria (Revision 10, #30–31), `target_area_keys` as the set of both, interests as the set, `cost_tier` per track. A merge that keeps only the winner's insight silently drops a category (the 10K of a 5K + 10K series) from every card, filter and affinity. Backfill order: run the insight backfill after the 2026-10 dedup drain, or re-derive the merged events' insight from all their posts.
 
 ## 4. Ranking design
 
