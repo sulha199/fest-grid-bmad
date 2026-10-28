@@ -20,6 +20,12 @@ export const COST_TIERS = ['free', 'low', 'medium', 'high', 'unspecified'] as co
 export const SENSITIVE = ['none', 'religion', 'politics_civic', 'health_condition', 'sexuality', 'ethnicity'] as const;
 export const YES_NO = ['yes', 'no'] as const;
 /**
+ * What a post does about its event (IDEA-106, 2026-10-28): `announcement` advertises something upcoming or running; `report` reports on an event that
+ * is under way or over (results, winners, a recap, news, a thank-you) and announces nothing upcoming; `mixed` is a report that also announces
+ * something upcoming (the next round, the next edition); `none` is a post that is not about a specific event (`is_event` = no).
+ */
+export const POST_KINDS = ['announcement', 'report', 'mixed', 'none'] as const;
+/**
  * Where the audience area was read: the caption (`stated`), only the poster (`stated_poster`), or nowhere (`none`: the system derives it from the
  * venue, hashtags or account, so the labeller does not write those). Added 2026-10-27 with the target-area spec.
  */
@@ -29,7 +35,7 @@ export const COST_SOURCES = ['caption', 'image', 'none'] as const;
 
 /** The label columns, in sheet order. `notes` is free text and is never compared. */
 export const LABEL_FIELDS = [
-  'is_event', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'target_area_name', 'target_area_source', 'eligibility', 'track_count', 'age_written', 'cost_tier', 'cost_source', 'sensitive', 'unsure', 'notes',
+  'is_event', 'post_kind', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'target_area_name', 'target_area_source', 'eligibility', 'track_count', 'age_written', 'cost_tier', 'cost_source', 'sensitive', 'unsure', 'notes',
 ] as const;
 export type LabelField = (typeof LABEL_FIELDS)[number];
 /** The fields that are compared between labellers. `target_area_name` is free text ("Jogja" and "DIY" are the same area) and is compared by the scorer through the gazetteer, not by string equality. */
@@ -46,6 +52,7 @@ function allowed(field: LabelField, value: string): boolean {
     case 'geo_scope': return (GEO_SCOPES as readonly string[]).includes(value);
     case 'post_language': return (LANGUAGES as readonly string[]).includes(value);
     case 'target_area_level': return (AREA_LEVELS as readonly string[]).includes(value);
+    case 'post_kind': return (POST_KINDS as readonly string[]).includes(value);
     case 'target_area_name': return true; // the area as written, or `none`
     case 'target_area_source': return (AREA_SOURCES as readonly string[]).includes(value);
     case 'eligibility': return (ELIGIBILITY as readonly string[]).includes(value);
@@ -145,6 +152,11 @@ export function validateSheet(rows: Array<Record<string, string>>): Problem[] {
       if (v === '') out.push({ id, field: f, problem: 'blank' });
       else if (!allowed(f, v)) out.push({ id, field: f, problem: `unknown value "${v.slice(0, 30)}"` });
     }
+    // post_kind follows is_event: none exactly when the post is not about a specific event
+    const isEvent = normalizeLabel(r.is_event);
+    const kind = normalizeLabel(r.post_kind);
+    if (isEvent === 'no' && !['', 'none', 'unclear'].includes(kind)) out.push({ id, field: 'post_kind', problem: 'is_event is no, so post_kind must be none' });
+    if (isEvent === 'yes' && kind === 'none') out.push({ id, field: 'post_kind', problem: 'is_event is yes, so post_kind is announcement, report or mixed' });
   }
   return out;
 }

@@ -10,7 +10,7 @@ const mk = (url: string, over: Partial<SourcePost> = {}): SourcePost => ({
 });
 
 const full = (id: string, over: Record<string, string> = {}): Record<string, string> => ({
-  id, is_event: 'yes', audience_country: 'id', geo_scope: 'city', post_language: 'id', target_area_level: 'city', target_area_name: 'Yogyakarta', target_area_source: 'stated', eligibility: 'open_to_public', track_count: '0', age_written: 'no',
+  id, is_event: 'yes', post_kind: 'announcement', audience_country: 'id', geo_scope: 'city', post_language: 'id', target_area_level: 'city', target_area_name: 'Yogyakarta', target_area_source: 'stated', eligibility: 'open_to_public', track_count: '0', age_written: 'no',
   cost_tier: 'free', cost_source: 'caption', sensitive: 'none', unsure: 'no', notes: '', ...over,
 });
 
@@ -122,4 +122,14 @@ test('the target-area columns: the source is an enum, the name is free text and 
   assert.equal(c.fields.some((f) => f.field === 'target_area_name'), false);
   assert.equal(c.disagreements.length, 0);
   assert.equal(c.fields.some((f) => f.field === 'target_area_source'), true);
+});
+
+test('post_kind: an enum that follows is_event (none exactly when the post is not about an event)', () => {
+  assert.deepEqual(validateSheet([full('a'), full('b', { post_kind: 'report' }), full('c', { post_kind: 'mixed' }), full('d', { post_kind: 'unclear' })]), []);
+  assert.deepEqual(validateSheet([full('a', { post_kind: 'news' })]), [{ id: 'a', field: 'post_kind', problem: 'unknown value "news"' }]);
+  assert.deepEqual(validateSheet([full('a', { post_kind: '' })]), [{ id: 'a', field: 'post_kind', problem: 'blank' }], 'an older sheet without the column is flagged until it is filled');
+  assert.deepEqual(validateSheet([full('a', { is_event: 'no', post_kind: 'none' })]), []);
+  assert.deepEqual(validateSheet([full('a', { is_event: 'no', post_kind: 'report' })]), [{ id: 'a', field: 'post_kind', problem: 'is_event is no, so post_kind must be none' }]);
+  assert.deepEqual(validateSheet([full('a', { is_event: 'yes', post_kind: 'none' })]), [{ id: 'a', field: 'post_kind', problem: 'is_event is yes, so post_kind is announcement, report or mixed' }]);
+  assert.deepEqual(validateSheet([full('a', { is_event: 'no', post_kind: 'unclear' })]), [], 'unclear is always allowed');
 });

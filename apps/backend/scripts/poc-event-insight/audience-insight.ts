@@ -40,6 +40,8 @@ export interface StatedTargetArea {
 
 export interface AudienceInsight {
   isEvent: boolean;
+  /** Prompt v3 only: what the post does about its event (IDEA-106). Absent in a v2 answer. */
+  postKind?: string;
   postLanguage: string;
   statedAudience?: { country: string; quote: string } | null;
   eventCountry?: string | null;
@@ -101,6 +103,16 @@ export const AUDIENCE_INSIGHT_INSTRUCTION_V2 = `You are an analyst for an event-
 - evidence: up to 5 short VERBATIM snippets copied exactly from the post (each at most 100 characters) that support stated audience, ages, restriction and cost. If you cannot quote support for a claim, drop the claim.
 Strictly follow the JSON schema.`;
 
+// ---- prompt v3, event report vs announcement (IDEA-106, owner decision 2026-10-28) -----------------------------------------------------------
+// Production's `isEvent` only asks for "an event poster or advertisement", so a results or news post that also lists the next matches became a stub
+// event: 78 of the 140 events in the 2026-10-28 stub-repeat clusters came from one results account. The model now says what the post DOES about its
+// event; production then attaches a report to its event, or promotes it to an event when there is none (a 3-way value, with `isEvent` as the outer gate).
+export const POST_KINDS = ['announcement', 'report', 'mixed', 'none'] as const;
+const IS_EVENT_LINE_V3 =
+  '- isEvent: true if the post is about a specific event with a date: it announces the event (coming up or running) or reports on it (results, winners, a recap, news, a thank-you). false if it is not about a specific event: a repost of a personal vlog, a shop or restaurant promo, a quote or greeting, general news. For a post that is not about an event, still fill every field with your best answer.';
+const POST_KIND_LINE =
+  "- postKind: what the post does about its event. \"announcement\": it advertises something upcoming or running (a poster, an ad, a schedule). \"report\": it reports on an event that is under way or over (results, winners, scores, a recap, news, a live update, a thank-you); any dates in it belong to what already happened or is happening, and it announces nothing upcoming. \"mixed\": a report that also announces something upcoming (the next round, the next match day, the next edition); a tournament results post that lists tomorrow's matches is \"mixed\", not \"announcement\". \"none\" exactly when isEvent is false.";
+
 // ---- prompt v3: the model reports only what the post STATES; everything implicit is derived by code (target-areas.ts) ----------------
 // The v2 line told the model to take the area "from the venue, then the hashtags, then what the posting account covers (its name and other cues)".
 // That is code's job: the model cannot know the account type, its reach or the province policy, and an account NAME is not evidence of an audience.
@@ -116,9 +128,13 @@ const targetAreasLine = (withPoster: boolean): string =>
   * role: "participant" when the area is who may take part or register ("pendaftaran seluruh Indonesia"); "attendee" when it is who may come and watch; otherwise "both".
   * Several areas -> several entries (a tour lists each stop; "DIY dan Jawa Tengah" is two).`;
 
-export const AUDIENCE_INSIGHT_INSTRUCTION_V3 = AUDIENCE_INSIGHT_INSTRUCTION_V2.replace(/- targetAreaLevel:[^\n]*/, targetAreasLine(false));
+const instructionV3 = (withPoster: boolean): string =>
+  AUDIENCE_INSIGHT_INSTRUCTION_V2
+    .replace(/- isEvent:[^\n]*/, () => `${IS_EVENT_LINE_V3}\n${POST_KIND_LINE}`)
+    .replace(/- targetAreaLevel:[^\n]*/, () => targetAreasLine(withPoster));
+export const AUDIENCE_INSIGHT_INSTRUCTION_V3 = instructionV3(false);
 /** The production variant: the call also sends the poster image, so an area printed only on the poster counts (source stated_poster). */
-export const AUDIENCE_INSIGHT_INSTRUCTION_V3_WITH_POSTER = AUDIENCE_INSIGHT_INSTRUCTION_V2.replace(/- targetAreaLevel:[^\n]*/, targetAreasLine(true));
+export const AUDIENCE_INSIGHT_INSTRUCTION_V3_WITH_POSTER = instructionV3(true);
 
 const { targetAreaLevel: _dropLevel, ...schemaPropsV2 } = audienceInsightSchema.properties;
 void _dropLevel;
@@ -127,6 +143,7 @@ export function audienceInsightSchemaV3(withPoster = false) {
     type: 'OBJECT',
     properties: {
       ...schemaPropsV2,
+      postKind: { type: 'STRING', enum: [...POST_KINDS] },
       targetAreas: {
         type: 'ARRAY',
         items: {
@@ -144,7 +161,7 @@ export function audienceInsightSchemaV3(withPoster = false) {
         },
       },
     },
-    required: audienceInsightSchema.required.map((f) => (f === 'targetAreaLevel' ? 'targetAreas' : f)),
+    required: [...audienceInsightSchema.required.map((f) => (f === 'targetAreaLevel' ? 'targetAreas' : f)), 'postKind'],
   };
 }
 
@@ -176,6 +193,7 @@ export function validateAudienceInsight(raw: unknown): { ok: boolean; value?: Au
   const r = raw as any;
   if (typeof r !== 'object' || r === null) return { ok: false, errors: ['not an object'] };
   if (typeof r.isEvent !== 'boolean') errors.push('isEvent');
+  if (r.postKind !== undefined && !oneOf(POST_KINDS, r.postKind)) errors.push('postKind');
   if (!oneOf(POST_LANGUAGES, r.postLanguage)) errors.push('postLanguage');
   if (!oneOf(GEO_SCOPES, r.geoScope)) errors.push('geoScope');
   if (r.targetAreas !== undefined) {
@@ -270,7 +288,29 @@ export function guardAudienceInsight(input: AudienceInsight, caption: string): G
     }
   }
 
+  guardPostKind(value, caption, actions);
+
   return { value, actions, claims };
+}
+
+// ---- post kind (prompt v3) ---------------------------------------------------------------------------------------------------
+/** Wording that goes with a report: results, a recap, winners, a thank-you. Used as a log-only check (a report or mixed answer without any is flagged, not changed). */
+export const REPORT_CUE = /\b(juara|pemenang|hasil|rekap|recap|results?|winners?|champions?|skor|score|menang|kalah|selamat\s+kepada|congratulations?|terima\s+kasih|thank\s+you|highlights?|telah\s+(?:berlangsung|selesai|usai)|sukses)\b/i;
+export const hasReportCue = (caption: string): boolean => REPORT_CUE.test(caption);
+
+/**
+ * Keeps `postKind` consistent with `isEvent` (none exactly when the post is not about an event) and flags, log-only, a report or mixed answer whose
+ * caption has no results or recap wording. A downgrade on missing wording would turn real reports back into announcements, so it is measured first.
+ */
+function guardPostKind(value: AudienceInsight, caption: string, actions: string[]): void {
+  if (value.postKind === undefined) return;
+  const before = value.postKind;
+  if (!value.isEvent) value.postKind = 'none';
+  else if (value.postKind === 'none') value.postKind = 'announcement';
+  if (value.postKind !== before) actions.push(`postKind ${before} -> ${value.postKind}: made consistent with isEvent`);
+  if ((value.postKind === 'report' || value.postKind === 'mixed') && !hasReportCue(caption)) {
+    actions.push(`postKind ${value.postKind}: no results or recap wording in the caption (kept, log-only)`);
+  }
 }
 
 // ---- stated target areas (prompt v3) -----------------------------------------------------------------------------------------

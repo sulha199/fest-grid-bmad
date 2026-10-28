@@ -8,7 +8,7 @@
  */
 import { createHash } from 'node:crypto';
 import {
-  ageWrittenOf, guardAudienceInsight, sensitiveScreen, targetAreaLevelOf, targetAreaSourceOf, trackCountOf, validateAudienceInsight, type ClaimCounts,
+  ageWrittenOf, guardAudienceInsight, hasReportCue, sensitiveScreen, targetAreaLevelOf, targetAreaSourceOf, trackCountOf, validateAudienceInsight, type ClaimCounts,
 } from './audience-insight.js';
 import { resolveAudienceCountry, resolvePostLanguage, type AudienceSource } from './audience-country.js';
 
@@ -23,6 +23,10 @@ export interface RunRecord {
   /** The model's own values, before and after the guards, as enums and counts. */
   model?: {
     isEvent: boolean;
+    /** Prompt v3 only: what the post does about its event after the guards (announcement | report | mixed | none), the model's own value, and whether the caption has results or recap wording. */
+    postKind?: string;
+    postKindRaw?: string;
+    postKindCue?: boolean;
     postLanguage: string;
     statedCountry: string | null;
     statedVerified: boolean;
@@ -83,6 +87,7 @@ export function evaluateRun(args: { id: string; run: number; caption: string; ac
   rec.actions = g.actions;
   rec.model = {
     isEvent: g.value.isEvent,
+    ...(raw.postKind !== undefined && { postKind: g.value.postKind, postKindRaw: raw.postKind, postKindCue: hasReportCue(args.caption) }),
     postLanguage: g.value.postLanguage,
     statedCountry: raw.statedAudience ? raw.statedAudience.country.toLowerCase() : null,
     statedVerified: Boolean(g.value.statedAudience),

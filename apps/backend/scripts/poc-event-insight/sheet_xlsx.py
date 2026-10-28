@@ -19,13 +19,14 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 CONTEXT = ['id', 'account', 'stratum', 'url', 'post_date', 'caption', 'hashtags', 'tagged_place']
-LABELS = ['is_event', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'target_area_name', 'target_area_source',
+LABELS = ['is_event', 'post_kind', 'audience_country', 'geo_scope', 'post_language', 'target_area_level', 'target_area_name', 'target_area_source',
           'eligibility', 'track_count', 'age_written', 'cost_tier', 'cost_source', 'sensitive', 'unsure', 'notes']
 COLUMNS = CONTEXT + LABELS
 
 COUNTRIES = ['id', 'my', 'sg', 'au', 'dk', 'th', 'jp', 'kr', 'cn', 'in', 'ph', 'vn', 'us', 'gb', 'eg', 'international', 'unclear']
 LISTS = {
     'is_event': ['yes', 'no'],
+    'post_kind': ['announcement', 'report', 'mixed', 'none', 'unclear'],
     'cost_source': ['caption', 'image', 'none'],
     'audience_country': COUNTRIES,
     'geo_scope': ['venue_local', 'city', 'region', 'national', 'international', 'online', 'unspecified', 'unclear'],
@@ -41,7 +42,8 @@ LISTS = {
 
 GUIDE = [
     ('Field', 'What to write'),
-    ('is_event', 'yes if the post advertises or reports on something with a date (a schedule): an event that is coming up or running. no if it has no schedule: a recap or thank-you after it ended, a repost of a personal vlog, news, a shop or restaurant promo, a quote or greeting. For a "no" post fill only audience_country, post_language, sensitive and unsure; write unclear in the other label columns and say why in notes. If it is about a known event (a recap or update), say which in notes.'),
+    ('is_event', 'yes if the post is about a specific event with a date: it announces the event (coming up or running) or reports on it (results, winners, a recap, news, a thank-you). no if it is not about a specific event: a repost of a personal vlog, a shop or restaurant promo, a quote or greeting, general news. For a "no" post fill only audience_country, post_language, sensitive and unsure; write unclear in the other label columns and say why in notes. If it is about a known event, say which in notes.'),
+    ('post_kind', 'What the post does about its event. announcement = it advertises something upcoming or running (a poster, an ad, a schedule). report = it reports on an event that is under way or over: results, winners, scores, a recap, news, a live update, a thank-you; its dates belong to what already happened and it announces nothing upcoming. mixed = a report that also announces something upcoming (the next round, the next match day, the next edition). none = the post is not about a specific event (is_event no). For a report fill only audience_country, post_language, sensitive and unsure, like a "no" post (there is no upcoming event to target); write unclear in the other label columns. For a mixed post, label the event columns for the upcoming part.'),
     ('audience_country', 'The country the post is written FOR: two-letter code (id, my, sg, au, dk ...), "international", or "unclear". Steps: (1) does the post state who it is for? (2) else language + where the account is based; an Indonesian post from an Indonesian account is "id" even if the event is abroad; (3) shared language (English, Malay, Indonesian) needs a second clue: currency, phone code, time zone, account; (4) online with no stated audience = international; (5) last resort: where the event takes place.'),
     ('geo_scope', 'venue_local = a venue is named (the audience is the people around it). city = only a city or area is named, no venue. region = a province, or several named areas. national = invites people from anywhere in the country ("seluruh Indonesia"). international. online = remote and open to all. unspecified = no basis. "Open to the public" is NOT national. A venue called "Galeri Nasional" is just a venue.'),
     ('post_language', 'id, en, ms (Malay), mixed (Indonesian and English in one caption), other.'),
@@ -79,7 +81,7 @@ def to_xlsx(src, dst):
         cell.alignment = Alignment(vertical='center', wrap_text=True)
 
     widths = {'id': 12, 'account': 18, 'stratum': 12, 'url': 14, 'post_date': 12, 'caption': 90, 'hashtags': 28, 'tagged_place': 22,
-              'is_event': 9, 'cost_source': 11, 'audience_country': 14, 'geo_scope': 14, 'post_language': 12, 'target_area_level': 16, 'target_area_name': 26, 'target_area_source': 16, 'eligibility': 16,
+              'is_event': 9, 'post_kind': 14, 'cost_source': 11, 'audience_country': 14, 'geo_scope': 14, 'post_language': 12, 'target_area_level': 16, 'target_area_name': 26, 'target_area_source': 16, 'eligibility': 16,
               'track_count': 11, 'age_written': 11, 'cost_tier': 12, 'sensitive': 16, 'unsure': 9, 'notes': 36}
     for c, name in enumerate(COLUMNS, start=1):
         ws.column_dimensions[get_column_letter(c)].width = widths[name]

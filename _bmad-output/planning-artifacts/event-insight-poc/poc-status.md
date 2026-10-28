@@ -1,6 +1,6 @@
 # Audience, language and taxonomy POC: status and hand-off (single source of truth)
 
-Last updated 2026-10-23. **Update this file at the end of every work session**, so any session (any account) can continue from it. The plan is `audience-and-taxonomy-poc-plan-2026-10-21.md`; this file is where things stand. Branch: `claude/ecstatic-shannon-e8eh9h` (no PR, no merge into `master`; see `open-core-split-plan-2026-10-21.md`, "Interim rules"). Backlog: IDEA-092 (this POC), IDEA-093 (taxonomy), IDEA-074/075/081/087 (the work it unblocks). Gate for AD-42 Rules 2 to 8 (`festgrid-architecture-spine.md`).
+Last updated 2026-10-28. **Update this file at the end of every work session**, so any session (any account) can continue from it. The plan is `audience-and-taxonomy-poc-plan-2026-10-21.md`; this file is where things stand. Branch: `claude/ecstatic-shannon-e8eh9h` (no PR, no merge into `master`; see `open-core-split-plan-2026-10-21.md`, "Interim rules"). Backlog: IDEA-092 (this POC), IDEA-093 (taxonomy), IDEA-074/075/081/087 (the work it unblocks). Gate for AD-42 Rules 2 to 8 (`festgrid-architecture-spine.md`).
 
 ## Start here (new session)
 
@@ -28,7 +28,7 @@ Owner's 36-post sample vs Claude's first draft: audience_country 100% (35/35), a
 - **target_area_level:** ~~from the venue, then hashtags, then the posting account's coverage~~ **SUPERSEDED 2026-10-27** by the target-area spec (`target-area-spec-2026-10-27.md`): the labeller writes only the area the post STATES (`target_area_name`, `target_area_source`, `target_area_level` = the level of that name, the wider one when a name could be a city or its province); the venue, hashtag and account areas are derived by code. Reposts: use what the post shows; looking up the original account is out of scope (backlog IDEA-103).
 - **track_count:** an event listing no categories is one tier open to everybody = 1. Not an event = `unclear`.
 - **geo_scope:** a named venue = `venue_local`; only a city or area = `city`.
-- **New column `is_event`:** `no` = no schedule (recap, repost of a personal vlog, news, shop promo, greeting). Event fields are not scored on those posts. A schedule-less post that concerns a known event could link to it (backlog IDEA-102).
+- **New column `is_event`:** ~~`no` = no schedule (recap, repost of a personal vlog, news, shop promo, greeting)~~ **AMENDED 2026-10-28** by the event-report decision below: `yes` = the post is about a specific event (it announces it or reports on it); `no` = it is not (a personal vlog, a shop promo, a greeting, general news). Event fields are not scored on `no` posts or on `report` posts. A schedule-less post that concerns a known event could link to it (backlog IDEA-102).
 - **cost_tier:** may be read from the image; new column `cost_source` (caption / image / none). The model sees the caption only, so cost is scored on caption and none rows.
 
 Done in code: sheet schema (`is_event`, `cost_source`), both guides, `sheet_xlsx.py`, model prompt `audience-v2` (isEvent, venue/hashtag/place context), scorer (event-only fields, track count normalised to at least 1, cost split). **Pending:** (a) owner fills `is_event` and `cost_source` in the v2 sheet and re-checks the changed columns; (b) Claude re-reads the tuning draft for geo_scope and target_area_level (draft v2 has them as `unclear` for now, so they are not scored) and re-checks its `is_event` guesses, which came from a keyword pass over its own notes and are rough; (c) re-run the comparison.
@@ -45,6 +45,17 @@ Spec: `target-area-spec-2026-10-27.md` (decisions, edge cases, evidence). Draft 
 - **PRD:** Section 3.20 amended (target area as a mixed-level set, order, venue without an address, unclassified = curator, bio-stated audience area).
 - **Owner to do:** re-label the 36 tuning posts for the three target-area columns (the 3% agreement on 2026-10-26 was a different reading of the old rule); add the 14 probe cases (spec section 7) as a separate sheet; fill the aggregates table check.
 - **Not done:** the real gazetteer (Kemendagri/BPS), the geocoder wiring of `decideVenue`, account venue memory storage, profile enrichment (IDEA-075). Backlog: BUG-087, IDEA-105.
+
+## Event report vs announcement (2026-10-28) — applied on this branch
+
+Backlog IDEA-106 (detail in `implementation-artifacts/backlog/IDEA-106-event-report-post-kind.md`); PRD Section 3.18, bullet "Event Reports and News". Evidence: 78 of the 140 events in the 2026-10-28 prod stub-repeat clusters come from one results account.
+
+- **Decision (owner):** a three-way value `announcement | report | mixed`; a report is attached to its event when one exists and promoted to an event when there is none. `isEvent` stays the outer gate.
+- **Model:** prompt `audience-v3` (no model run exists yet, so it was extended in place) widens `isEvent` to reports and asks for `postKind` (`none` exactly when `isEvent` is false). Prompt v2 is untouched. Guard: `postKind` is kept consistent with `isEvent`; a `report` or `mixed` answer without results or recap wording is flagged log-only.
+- **Label sheet:** new column `post_kind` after `is_event` (`announcement | report | mixed | none | unclear`); it must be `none` exactly when `is_event` is `no` (checked by `label-sheets.ts check`). Both guides and `sheet_xlsx.py` updated. A `report` row is labelled like a `no` row: only country, language, sensitive and unsure; `unclear` elsewhere. For a `mixed` post, label the event columns for the upcoming part.
+- **Scorer (v3 runs):** `post_kind` accuracy; **announcements or mixed posts read as a report** (proposed bar 0: the upcoming event would be attached elsewhere or lost); reports or mixed read as announcements (reported); `report` rows leave the event-field denominators.
+- **Owner to do:** fill `post_kind` on every sheet (an older sheet is flagged "blank" until it is filled), including your 36 tuning posts. Consider adding about 40 posts from a results account (for example `badminton.ina`) as a separate stratum, labelled blind: the current POC set may hold few reports.
+- **Not done:** the production prompt, schema and ingestion path (report attach, report promote), the report-to-event matcher ("Day 2" must find the tournament), the one-off clean-up of the 119 existing stubs, and the production date cross-check. See IDEA-106 "Still open".
 
 ## What the owner does next
 

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AUDIENCE_INSIGHT_INSTRUCTION_V2, AUDIENCE_INSIGHT_INSTRUCTION_V3, AUDIENCE_INSIGHT_INSTRUCTION_V3_WITH_POSTER, audienceInsightSchemaV3,
-  guardAudienceInsight, invalidStatedAreaFields, targetAreaLevelOf, targetAreaSourceOf, validateAudienceInsight,
+  audienceInsightSchema, guardAudienceInsight, hasReportCue, invalidStatedAreaFields, targetAreaLevelOf, targetAreaSourceOf, validateAudienceInsight,
   type AudienceInsight, type StatedTargetArea,
 } from './audience-insight.js';
 import { evaluateRun } from './audience-poc-lib.js';
@@ -111,4 +111,61 @@ test('the saved record keeps the guarded areas WITHOUT their quotes', () => {
   assert.equal(rec.model!.targetAreaSource, 'stated');
   assert.deepEqual(rec.model!.targetAreas, [{ name: 'Jogja', level: 'province', source: 'stated', qualifier: 'none', role: 'both' }]);
   assert.equal(JSON.stringify(rec).includes('warga Jogja'), false, 'no third-party text in the saved record');
+});
+
+test('prompt v3 widens isEvent to reports and asks for postKind; prompt v2 is untouched (IDEA-106)', () => {
+  assert.match(AUDIENCE_INSIGHT_INSTRUCTION_V3, /- postKind: what the post does about its event/);
+  assert.match(AUDIENCE_INSIGHT_INSTRUCTION_V3, /reports on it \(results, winners, a recap, news, a thank-you\)/);
+  assert.match(AUDIENCE_INSIGHT_INSTRUCTION_V3, /lists tomorrow's matches is "mixed"/);
+  assert.equal(AUDIENCE_INSIGHT_INSTRUCTION_V3.includes('false if it has no schedule'), false, 'a recap is no longer "not an event"');
+  assert.match(AUDIENCE_INSIGHT_INSTRUCTION_V3_WITH_POSTER, /- postKind:/);
+  assert.equal(AUDIENCE_INSIGHT_INSTRUCTION_V2.includes('postKind'), false);
+  assert.match(AUDIENCE_INSIGHT_INSTRUCTION_V2, /false if it has no schedule: a recap or thank-you after the event/);
+});
+
+test('schema v3: postKind is a required four-value enum; schema v2 has none', () => {
+  const s = audienceInsightSchemaV3(false) as any;
+  assert.deepEqual(s.properties.postKind.enum, ['announcement', 'report', 'mixed', 'none']);
+  assert.ok(s.required.includes('postKind'));
+  assert.equal((audienceInsightSchema.properties as any).postKind, undefined);
+  assert.equal(audienceInsightSchema.required.includes('postKind' as never), false);
+});
+
+test('validation: postKind must be one of the four values; an answer without it (prompt v2) stays valid', () => {
+  assert.equal(validateAudienceInsight(base([], { postKind: 'report' })).ok, true);
+  assert.deepEqual(validateAudienceInsight(base([], { postKind: 'recap' })).errors, ['postKind']);
+  assert.equal(validateAudienceInsight(base([])).ok, true);
+});
+
+test('guard: postKind follows isEvent, and a report without results wording is flagged log-only, never changed', () => {
+  const caption = 'Hylo Open 2026 hari ke-2: juara tunggal putra Jonatan Christie. Besok semifinal jam 10.00';
+  const mixed = guardAudienceInsight(base([], { postKind: 'mixed' }), caption);
+  assert.equal(mixed.value.postKind, 'mixed');
+  assert.equal(mixed.actions.some((a) => a.startsWith('postKind')), false);
+
+  const notEvent = guardAudienceInsight(base([], { isEvent: false, postKind: 'announcement' }), caption);
+  assert.equal(notEvent.value.postKind, 'none');
+  assert.match(notEvent.actions.join(' '), /postKind announcement -> none/);
+
+  const noneOnEvent = guardAudienceInsight(base([], { postKind: 'none' }), caption);
+  assert.equal(noneOnEvent.value.postKind, 'announcement');
+
+  const cueless = guardAudienceInsight(base([], { postKind: 'report' }), 'Hylo Open 2026 hari ke-2 di Taiyuan');
+  assert.equal(cueless.value.postKind, 'report', 'kept: the check is log-only');
+  assert.match(cueless.actions.join(' '), /postKind report: no results or recap wording/);
+
+  assert.equal(guardAudienceInsight(base([]), caption).value.postKind, undefined, 'a prompt v2 answer has none');
+  assert.equal(hasReportCue('Selamat kepada para juara'), true);
+  assert.equal(hasReportCue('Pendaftaran dibuka, hadiah menarik'), false);
+});
+
+test('the saved record carries postKind, the model\'s own value and whether the caption has results wording; a v2 record has none', () => {
+  const rec = evaluateRun({ id: 'p1', run: 1, caption: 'Hasil hari ini, besok lanjut semifinal', rawText: JSON.stringify(base([], { postKind: 'mixed' })), usage: { latencyMs: 1, rateLimitRetries: 0 } });
+  assert.equal(rec.ok, true);
+  assert.equal(rec.model!.postKind, 'mixed');
+  assert.equal(rec.model!.postKindRaw, 'mixed');
+  assert.equal(rec.model!.postKindCue, true);
+  const v2 = evaluateRun({ id: 'p2', run: 1, caption: 'x', rawText: JSON.stringify({ ...base([]), targetAreas: undefined, targetAreaLevel: 'city' }), usage: { latencyMs: 1, rateLimitRetries: 0 } });
+  assert.equal(v2.ok, true);
+  assert.equal('postKind' in v2.model!, false);
 });

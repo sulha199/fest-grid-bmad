@@ -182,3 +182,40 @@ test('prompt v3: the scorer adds the area source and the area name, compared thr
   const v2 = score([label('a')], [run('a', 1)]);
   assert.equal(v2.fields.some((f) => f.field.startsWith('target area source') || f.field.startsWith('target area name')), false);
 });
+
+test('post kind (prompt v3, IDEA-106): scored on every labelled post; a report leaves the event-field denominators; an announcement read as a report is counted as lost', () => {
+  const kinded = (id: string, said: string): RunRecord => {
+    const r = run(id, 1);
+    r.model!.targetAreas = []; // marks a prompt v3 run
+    r.model!.postKind = said;
+    return r;
+  };
+  const notEventFields = { geo_scope: 'unclear', eligibility: 'unclear', track_count: 'unclear', cost_tier: 'unclear', target_area_level: 'unclear' };
+  const labels = [
+    label('a', { post_kind: 'announcement' }),
+    label('b', { post_kind: 'report', ...notEventFields }),
+    label('c', { post_kind: 'mixed' }),
+    label('d', { is_event: 'no', post_kind: 'none', ...notEventFields }),
+  ];
+  const rep = score(labels, [kinded('a', 'announcement'), kinded('b', 'report'), kinded('c', 'announcement'), kinded('d', 'none')]);
+
+  const kind = rep.fields.find((f) => f.field.startsWith('post kind'))!;
+  assert.equal(kind.accuracy.n, 4);
+  assert.equal(kind.accuracy.k, 3, 'the mixed post read as an announcement is the one miss');
+  const geo = rep.verdicts.find((v) => v.measure.startsWith('geoScope'))!;
+  assert.match(geo.value, /\(2\/2;/, 'only the announcement and the mixed post are event rows');
+  const lost = rep.verdicts.find((v) => v.measure.startsWith('Announcements or mixed posts read as a report'))!;
+  assert.equal(lost.value, '0');
+  assert.equal(lost.status, 'PASS');
+  const junk = rep.verdicts.find((v) => v.measure.startsWith('Reports or mixed posts read as an announcement'))!;
+  assert.equal(junk.value, '1');
+  assert.equal(junk.status, 'INFO');
+
+  const worse = score(labels, [kinded('a', 'report'), kinded('b', 'report'), kinded('c', 'report'), kinded('d', 'none')]);
+  const lostWorse = worse.verdicts.find((v) => v.measure.startsWith('Announcements or mixed posts read as a report'))!;
+  assert.equal(lostWorse.value, '2');
+  assert.equal(lostWorse.status, 'FAIL');
+
+  const v2 = score([label('a')], [run('a', 1)]);
+  assert.equal(v2.fields.some((f) => f.field.startsWith('post kind')), false, 'prompt v2 runs have no postKind');
+});

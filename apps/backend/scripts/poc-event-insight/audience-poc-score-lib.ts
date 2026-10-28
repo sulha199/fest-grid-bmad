@@ -126,8 +126,9 @@ export function score(labelsAll: Row[], records: RunRecord[]): Report {
   const labels = labelsAll.filter((l) => runs.has(l.id));
   const usable = [...runs.values()].flat();
   const verdicts: Verdict[] = [];
-  // Posts the labeller marked is_event = no (a recap, a repost, news, a shop promo) have no schedule: event-specific fields are not scored on them.
-  const eventLabels = labels.filter((l) => lc(l.is_event) !== 'no');
+  // Posts the labeller marked is_event = no (a vlog repost, a shop promo, a greeting) are not about an event, and a post_kind = report (results, a recap,
+  // news) announces nothing upcoming: event-specific fields are not scored on either.
+  const eventLabels = labels.filter((l) => lc(l.is_event) !== 'no' && lc(l.post_kind) !== 'report');
 
   // ---- audience country (the ladder's output)
   const country = (l: Row) => lc(l.audience_country);
@@ -224,6 +225,21 @@ export function score(labelsAll: Row[], records: RunRecord[]): Report {
       { field: 'target area source (events; prompt v3)', accuracy: accuracy(sourced, runs, (l) => lc(l.target_area_source), (r) => r.model!.targetAreaSource).pooled },
       { field: 'target area name, compared through the gazetteer (events where an area is stated; prompt v3)', accuracy: accuracy(stated, runs, (l) => areaCanon([l.target_area_name ?? '']), (r) => areaCanon((r.model!.targetAreas ?? []).map((a) => a.name))).pooled },
     );
+
+    // IDEA-106 (2026-10-28): what the post does about its event. An announcement, or the upcoming part of a mixed post, read as a report would be attached
+    // to another event or lost; a report read as an announcement would still create an event.
+    const kinded = labels.filter((l) => lc(l.post_kind) !== '');
+    fields.push({ field: 'post kind (all posts; prompt v3)', accuracy: accuracy(kinded, runs, (l) => lc(l.post_kind), (r) => r.model!.postKind).pooled });
+    let lost = 0, junk = 0;
+    for (const l of kinded) {
+      for (const r of runs.get(l.id) ?? []) {
+        const truth = lc(l.post_kind);
+        if ((truth === 'announcement' || truth === 'mixed') && r.model!.postKind === 'report') lost++;
+        if ((truth === 'report' || truth === 'mixed') && r.model!.postKind === 'announcement') junk++;
+      }
+    }
+    verdicts.push({ measure: 'Announcements or mixed posts read as a report (an upcoming event would be attached to another event or lost); proposed bar, IDEA-106', bar: '0', value: String(lost), status: kinded.length === 0 ? 'N/A' : lost === 0 ? 'PASS' : 'FAIL' });
+    verdicts.push({ measure: 'Reports or mixed posts read as an announcement (they would still create an event)', bar: 'reported', value: String(junk), status: 'INFO' });
   }
 
   // ---- interests
