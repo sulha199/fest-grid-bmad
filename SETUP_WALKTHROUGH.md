@@ -47,6 +47,15 @@ Since Vercel natively integrates with GitHub for Continuous Deployment (CD), you
 6. **Important**: Do NOT override the Build Command or Install Command. Leave them as their defaults. Vercel natively understands Turborepo and `pnpm` workspaces; it will automatically install dependencies at the repository root and use turbo to build the project.
 7. Click **Deploy**. Future pushes to the `main` branch will automatically trigger a new deployment.
 
+#### Hold production deploys until the tests pass (Deployment Checks)
+
+Vercel deploys from Git on its own, so the `needs:` ordering in `.github/workflows/ci.yml` cannot stop it (it only gates the database migration and the AWS deploy). To keep a commit whose tests fail from reaching the production domain, add Vercel [Deployment Checks](https://vercel.com/docs/deployment-checks):
+1. In the Vercel project, open **Settings -> Environments -> Production -> Branch Tracking** and make sure **Auto-assign Custom Production Domains** is on (it is by default). This is what lets a deployment take the production domains once its checks pass; with it off, every production deployment waits for a manual promotion and the checks never matter.
+2. Open **Settings -> Build and Deployment -> Deployment Checks** and select **Add Checks**.
+3. Choose **GitHub** as the provider and select **Continuous Integration** and **End-to-End Tests** (the job names in `ci.yml`).
+
+Vercel still builds every production deployment, but only assigns the production domains once both checks pass; a red run leaves the previous deployment live (**Force Promote** on the deployment page overrides this). The checks are matched by job name, so renaming either job in `ci.yml` means updating this setting. This guards what is released after a merge. To also stop a red change from being merged at all, require the same two checks in the `master` branch protection rule or ruleset.
+
 ## 2. Backend (AWS Serverless)
 
 The backend is built with TypeScript on a serverless architecture using AWS and is provisioned via the AWS Cloud Development Kit (CDK).

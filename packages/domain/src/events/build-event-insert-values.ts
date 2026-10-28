@@ -8,6 +8,7 @@ import {
 } from './types.js';
 import { getPlatformSlug } from '../scraper/platform-registry.js';
 import { normalizeOvernightEndDate } from './normalize-overnight-end-date.js';
+import { LOCATION_NOT_SPECIFIED } from './unfilled.js';
 import { ScrapablePlatform } from '../subscriptions/platforms.js';
 
 export function buildEventInsertValues(
@@ -24,7 +25,7 @@ export function buildEventInsertValues(
     eventName: message.eventName,
     types: message.types || [],
     categories: message.categories || [],
-    location: message.location ?? 'Location not specified',
+    location: message.location ?? LOCATION_NOT_SPECIFIED,
     organizerName: message.organizerName || null,
     contactInfo: message.contactInfo || null,
     hasPrivateContact: message.hasPrivateContact ?? false,

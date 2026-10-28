@@ -69,6 +69,14 @@ export function mapGraphQLEventToDetailViewProps(
   mySubscriptions?: GetMySubscriptionsQuery['mySubscriptions'] | null,
   pendingCoauthorAccountId?: string | null
 ): Omit<EventDetailViewProps, 'labels'> & { labels: EventDetailViewLabels } {
+  // The UI renders these as plain <a href>s, so they need the locale prefix. Without it the browser
+  // requests e.g. `/ig/jktcity.events`, which the i18n middleware's matcher skips (it ignores any
+  // path containing a dot) and the route 404s -- true of nearly every Instagram handle.
+  const buildLocalizedAccountHref = (platform: string, username: string | null | undefined): string | null => {
+    const href = buildAccountHref(platform as any, username);
+    return href ? `/${locale}${href}` : null;
+  };
+
   const mappedSchedules: ScheduleDetail[] = (event.schedules || []).map((s) => {
     return {
       id: s.id,
@@ -104,7 +112,7 @@ export function mapGraphQLEventToDetailViewProps(
     displayName: coauthor.displayName,
     username: coauthor.username,
     profileImageUrl: coauthor.profileImageUrl,
-    accountHref: buildAccountHref(coauthor.platform as any, coauthor.username),
+    accountHref: buildLocalizedAccountHref(coauthor.platform, coauthor.username),
     isSubscribed: !!mySubscriptions?.find((s) => s.account.accountId === coauthor.accountId),
     isTogglePending: pendingCoauthorAccountId === coauthor.accountId,
   }));
@@ -127,7 +135,7 @@ export function mapGraphQLEventToDetailViewProps(
           username: sourcePost.account.username,
           displayName: sourcePost.account.displayName,
           profileImageUrl: sourcePost.account.profileImageUrl,
-          accountHref: buildAccountHref(sourcePost.account.platform as any, sourcePost.account.username),
+          accountHref: buildLocalizedAccountHref(sourcePost.account.platform, sourcePost.account.username),
         }
       : null,
     coauthors: (sourcePost.coauthors || []).map((coauthor) => ({
@@ -136,7 +144,7 @@ export function mapGraphQLEventToDetailViewProps(
       displayName: coauthor.displayName,
       username: coauthor.username,
       profileImageUrl: coauthor.profileImageUrl,
-      accountHref: buildAccountHref(coauthor.platform as any, coauthor.username),
+      accountHref: buildLocalizedAccountHref(coauthor.platform, coauthor.username),
       isSubscribed: !!mySubscriptions?.find((s) => s.account.accountId === coauthor.accountId),
       isTogglePending: pendingCoauthorAccountId === coauthor.accountId,
     })),
@@ -184,7 +192,7 @@ export function mapGraphQLEventToDetailViewProps(
     accountId: event.sourceSocialMediaAccountProfile?.accountId ?? null,
     accountPlatformIconUrl: event.sourceSocialMediaAccountProfile?.profileImageUrl ?? null,
     accountHref: event.sourceSocialMediaAccountProfile
-      ? buildAccountHref(event.sourceSocialMediaAccountProfile.platform as any, event.sourceSocialMediaAccountProfile.username)
+      ? buildLocalizedAccountHref(event.sourceSocialMediaAccountProfile.platform, event.sourceSocialMediaAccountProfile.username)
       : null,
     accountLocation: (() => {
       const defaultLocation = event.sourceSocialMediaAccountProfile?.defaultLocation;

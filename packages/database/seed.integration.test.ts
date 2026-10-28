@@ -6,6 +6,9 @@ import {
   apiKeys,
   events,
   posts,
+  postAccountAssociations,
+  favorites,
+  accountTypeClassificationReviews,
   schedules,
   subscriptions,
   userLocations,
@@ -18,6 +21,7 @@ import {
 import {
   FIXTURE_API_KEY_IDS,
   FIXTURE_COUNTS,
+  FIXTURE_EVENTS,
   FIXTURE_EVENT_IDS,
   FIXTURE_EVENT_SLUGS,
   FIXTURE_POST_IDS,
@@ -33,6 +37,9 @@ import {
   seedDatabase,
 } from './seed';
 import { loadDatabaseEnv } from './env';
+
+// The "No-Image Fallback" EventCard fixtures deliberately have a post without a poster.
+const intentionallyImageless = new Set(FIXTURE_EVENTS.filter((e) => e.slug.includes('-noimage-')).map((e) => e.id));
 
 let databaseUrl: string | null = null;
 let databaseEnvError: Error | null = null;
@@ -62,6 +69,9 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const [subscriptionCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(subscriptions);
       const [apiKeyCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(apiKeys);
       const [postCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(posts);
+      const [postAssociationCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(postAccountAssociations);
+      const [favoriteCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(favorites);
+      const [classificationReviewCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(accountTypeClassificationReviews);
       const [eventCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events);
       const [scheduleCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(schedules);
       const [reportCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(reports);
@@ -72,6 +82,9 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.equal(subscriptionCount.count, FIXTURE_COUNTS.subscriptions);
       assert.equal(apiKeyCount.count, FIXTURE_COUNTS.apiKeys);
       assert.equal(postCount.count, FIXTURE_COUNTS.posts);
+      assert.equal(postAssociationCount.count, FIXTURE_COUNTS.postAccountAssociations);
+      assert.equal(favoriteCount.count, FIXTURE_COUNTS.favorites);
+      assert.equal(classificationReviewCount.count, FIXTURE_COUNTS.accountTypeClassificationReviews);
       assert.equal(eventCount.count, FIXTURE_COUNTS.events);
       assert.equal(scheduleCount.count, FIXTURE_COUNTS.schedules);
       assert.equal(reportCount.count, FIXTURE_COUNTS.reports);
@@ -86,6 +99,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       
       assert.equal(eventPostJoins.length, FIXTURE_COUNTS.events);
       eventPostJoins.forEach((row) => {
+        if (intentionallyImageless.has(row.eventId)) return;
         assert.ok(row.imageUrl !== null && row.imageUrl !== undefined, `Event ${row.eventId} is missing linked post imageUrl`);
       });
 
@@ -296,6 +310,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       
       assert.equal(eventPostJoinsSecondRun.length, FIXTURE_COUNTS.events);
       eventPostJoinsSecondRun.forEach((row) => {
+        if (intentionallyImageless.has(row.eventId)) return;
         assert.ok(row.imageUrl !== null && row.imageUrl !== undefined, `Event ${row.eventId} is missing linked post imageUrl`);
       });
 

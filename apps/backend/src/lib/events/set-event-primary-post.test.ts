@@ -411,6 +411,99 @@ test('enrichAndPromoteEvent integration tests', async (t) => {
     assert.strictEqual(calendarRow.length, 1); // still resolves
   });
 
+  // --- AD-30 Rule 7 (2026-10-25): a stub repeat links additively ---------------------------------
+  async function makeThinCandidate(tag: string, overrides: { location?: string } = {}) {
+    const { event, post, schedule } = await makeCandidate({
+      accountId: curatorAccount.id,
+      postIdSuffix: `additive-${tag}-candidate`,
+      eventName: `EAPE Additive ${tag} ${suffix}`,
+      location: overrides.location ?? 'Original Location',
+      scheduleDate: '2026-05-01',
+    });
+    // A second schedule the repost will not mention.
+    const [second] = await db
+      .insert(schedules)
+      .values({ eventId: event.id, eventStartDate: '2026-05-03', isMainSchedule: false, location: 'Second Day Venue' })
+      .returning();
+    scheduleIds.push(second.id);
+    return { event, post, schedule, second };
+  }
+
+  const repostEvent = (tag: string, overrides: Partial<EventInsertValues> = {}) =>
+    newEventValues({
+      eventName: `A Different Spelling ${tag} ${suffix}`,
+      location: 'New Location',
+      organizerName: 'PBSI',
+      description: 'Repost description',
+      ...overrides,
+    });
+  const repostSchedules: ScheduleInsertValues[] = [
+    { isMainSchedule: true, eventStartDate: '2026-05-01', eventEndDate: '2026-05-02', location: 'Newer Venue' },
+  ];
+
+  await t.test('additive: fills empty fields, never overwrites a filled one, and keeps a schedule the repost omits', async () => {
+    const { event: candidate, schedule, second } = await makeThinCandidate('on');
+    const newPost = await makePost(curatorAccount.id, 'additive-on-new');
+
+    await enrichAndPromoteEvent(db, candidate, repostEvent('on'), repostSchedules, newPost.id, 0, { additive: true });
+
+    const [after] = await db.select().from(events).where(eq(events.id, candidate.id));
+    assert.strictEqual(after.eventName, candidate.eventName, 'a filled name is never overwritten');
+    assert.strictEqual(after.location, 'Original Location', 'a filled location is never overwritten');
+    assert.strictEqual(after.organizerName, 'PBSI', 'an empty organizer is filled');
+    assert.strictEqual(after.description, 'Repost description', 'an empty description is filled');
+    assert.strictEqual(after.detailLevel, 'full', 'enrichment never touches detail_level (the candidate keeps its own)');
+
+    const [matched] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.strictEqual(matched.location, 'Original Location', 'a filled schedule field is never overwritten');
+    assert.strictEqual(matched.eventEndDate, '2026-05-02', 'an empty schedule field is filled');
+    const kept = await db.select().from(schedules).where(eq(schedules.id, second.id));
+    assert.strictEqual(kept.length, 1, 'a schedule the repost omits is NOT deleted');
+
+    const links = await db.select().from(eventPosts).where(eq(eventPosts.eventId, candidate.id));
+    assert.ok(links.some((l) => l.postId === newPost.id), 'the repost is still linked to the event');
+  });
+
+  await t.test('default (non-additive) behavior is unchanged: the repost overwrites fields and prunes the omitted schedule', async () => {
+    const { event: candidate, schedule, second } = await makeThinCandidate('off');
+    const newPost = await makePost(curatorAccount.id, 'additive-off-new');
+
+    await enrichAndPromoteEvent(db, candidate, repostEvent('off'), repostSchedules, newPost.id, 0);
+
+    const [after] = await db.select().from(events).where(eq(events.id, candidate.id));
+    assert.strictEqual(after.location, 'New Location');
+    const [matched] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.strictEqual(matched.location, 'Newer Venue');
+    const pruned = await db.select().from(schedules).where(eq(schedules.id, second.id));
+    assert.strictEqual(pruned.length, 0);
+  });
+
+  await t.test('additive: the NOT NULL location placeholder counts as unfilled, and an incoming placeholder fills nothing', async () => {
+    const { event: candidate } = await makeThinCandidate('placeholder', { location: 'Location not specified' });
+    const newPost = await makePost(curatorAccount.id, 'additive-placeholder-new');
+
+    await enrichAndPromoteEvent(db, candidate, repostEvent('placeholder', { location: 'Arena Grand Paris' }), repostSchedules, newPost.id, 0, { additive: true });
+    const [filled] = await db.select().from(events).where(eq(events.id, candidate.id));
+    assert.strictEqual(filled.location, 'Arena Grand Paris');
+
+    const second = await makePost(curatorAccount.id, 'additive-placeholder-new2');
+    await enrichAndPromoteEvent(db, filled, repostEvent('placeholder', { location: 'Location not specified' }), repostSchedules, second.id, 1, { additive: true });
+    const [unchanged] = await db.select().from(events).where(eq(events.id, candidate.id));
+    assert.strictEqual(unchanged.location, 'Arena Grand Paris', 'a placeholder never replaces a real location');
+  });
+
+  await t.test('additive: an empty array or blank string on the candidate is filled', async () => {
+    const { event: candidate } = await makeThinCandidate('empties');
+    await db.update(events).set({ types: [], description: '   ' }).where(eq(events.id, candidate.id));
+    const [refreshed] = await db.select().from(events).where(eq(events.id, candidate.id));
+    const newPost = await makePost(curatorAccount.id, 'additive-empties-new');
+
+    await enrichAndPromoteEvent(db, refreshed, repostEvent('empties', { types: ['MUSIC'] as EventInsertValues['types'] }), repostSchedules, newPost.id, 0, { additive: true });
+    const [after] = await db.select().from(events).where(eq(events.id, candidate.id));
+    assert.deepStrictEqual(after.types, ['MUSIC']);
+    assert.strictEqual(after.description, 'Repost description');
+  });
+
   await t.test('R-O-R alias reclaim: promoting back onto a slug that already exists as this event\'s own alias deletes it instead of duplicating', async () => {
     const { event: candidate } = await makeCandidate({
       accountId: curatorAccount.id,
