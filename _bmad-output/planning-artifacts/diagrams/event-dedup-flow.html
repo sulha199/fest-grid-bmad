@@ -242,16 +242,16 @@ body { margin: 0; }
 
   <figure>
     <div class="scroll">
-<svg viewBox="0 0 900 340" role="img" aria-label="A mid-scored pair is promoted to high only if it is within two days, has the same name, has no venue conflict, and has the same account or a shared link; any failed check leaves it at mid for a moderator.">
+<svg viewBox="0 0 900 340" role="img" aria-label="A mid-scored pair is promoted to high only if the two events share a start date, has the same name, has no venue conflict, and has the same account or a shared link; any failed check leaves it at mid for a moderator.">
   <rect class="node n-mid" x="20" y="20" width="170" height="64" rx="6"/>
   <text class="ttl" x="105" y="48" text-anchor="middle" style="fill: var(--amber)">Scored MID</text>
   <text class="sub" x="105" y="68" text-anchor="middle">0.45 to 0.75</text>
   <line class="edge" x1="190" y1="52" x2="226" y2="52" marker-end="url(#ah)"/>
 
   <rect class="node" x="228" y="20" width="200" height="64" rx="6"/>
-  <text class="ttl" x="328" y="44" text-anchor="middle">1. Inside the window</text>
-  <text class="sub" x="328" y="62" text-anchor="middle">schedule within ±2 days</text>
-  <text class="sub" x="328" y="76" text-anchor="middle">(never link-only, §†)</text>
+  <text class="ttl" x="328" y="44" text-anchor="middle">1. Same start date</text>
+  <text class="sub" x="328" y="62" text-anchor="middle">nearest schedules 0 days apart</text>
+  <text class="sub" x="328" y="76" text-anchor="middle">(1-2 days apart: moderator)</text>
   <line class="edge" x1="428" y1="52" x2="464" y2="52" marker-end="url(#ah)"/>
 
   <rect class="node" x="466" y="20" width="200" height="64" rx="6"/>
@@ -361,7 +361,7 @@ body { margin: 0; }
     <li><strong>Done: BUG-058.</strong> A roundup or curator posting account no longer earns the organizer weight. Assumes the Story 3.6v discount was meant to cover the posting account; the story text names only the handle.</li>
     <li><strong>Done: IDEA-068.</strong> The extraction prompt returns <code>organizerHandle</code> only for an organizer the caption names. The handle discount in the prepare step stays as protection for messages already in the queue.</li>
     <li><strong>Done: BUG-063.</strong> † A candidate admitted only by a shared link (no schedule within ±2 days) is capped at mid, so a deadline post and a race-day post of one event reach a moderator instead of being missed. See AD-30 Rule 7, amended 2026-10-18.</li>
-    <li><strong>Done: mid-to-high promotion (2026-10-25).</strong> ‡ A mid-scored pair inside the ±2-day window, with the same name, no venue conflict, and the same account or a shared link, is auto-linked. On the 2026-10-24 backlog (218 pending) an offline analysis estimated about 64 pairs would qualify (the backlog script's <code>--evaluate-only</code> gives the exact count), lifting the auto share from about 41% to about 59%. Precision is unmeasured: only four moderator decisions existed, all accepts. The backlog is drained by <code>drain-event-match-backlog.ts</code> (dry run first, moderator spot-check, then <code>--apply</code>); every ingestion decision now logs an <code>event_dedup_decision</code> line. See AD-30 Rule 7, amended 2026-10-25.</li>
+    <li><strong>Done: mid-to-high promotion (2026-10-25).</strong> ‡ A mid-scored pair that shares a start date (amended 2026-10-28: a pair 1 to 2 days apart stays for a moderator, because it is usually the next instance of a recurring event), with the same name, no venue conflict, and the same account or a shared link, is auto-linked. On the 2026-10-24 backlog (218 pending) an offline analysis estimated about 64 pairs would qualify (the backlog script's <code>--evaluate-only</code> gives the exact count), lifting the auto share from about 41% to about 59%. Precision is unmeasured: only four moderator decisions existed, all accepts. The backlog is drained by <code>drain-event-match-backlog.ts</code> (dry run first, moderator spot-check, then <code>--apply</code>); every ingestion decision now logs an <code>event_dedup_decision</code> line. See AD-30 Rule 7, amended 2026-10-25.</li>
     <li><strong>Done: stub repeat (2026-10-25).</strong> ‡‡ Two stubs of one event (strict name of two or more words, same start date, positive venue match on that pair, equal times) link as <strong>high</strong> whichever account posted and whatever the score. Additive link, oldest event wins, <code>--scan-stubs</code> for the backlog and as a backstop. The ingestion-time link is not undoable; scan merges are. See AD-30 Rule 7, amended 2026-10-25 (stub repeat).</li>
     <li><strong>Open, follow-up:</strong> the mid-to-high promotion still uses the overwrite-and-prune link; moving it to the additive link is a separate change.</li>
     <li><strong>Open, out of scope:</strong> LLM adjudication of the rest of the mid band, auto-expiring suggestions for events whose dates have passed (148 of the 218 pending), and moderator UI changes.</li>

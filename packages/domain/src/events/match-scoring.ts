@@ -197,6 +197,15 @@ export function capTierWhenOutsideDateWindow(tier: MatchTier, minDayDiff: number
 export const MID_PROMOTION_NAME_SIMILARITY = 0.85;
 
 /**
+ * Largest day gap between the nearest schedules of two events for the promotion: 0, so the two must
+ * share a start date. A pair a day or two apart is far more often the next instance of a recurring
+ * event (a weekly show, a numbered league night, consecutive pop-up days) than a repost, and an
+ * auto-link there is not undoable and prunes the schedule the new post omits. Such a pair stays
+ * `mid` for a moderator (found on prod 2026-10-28: 22 of the 66 pairs the rule would have linked).
+ */
+export const MID_PROMOTION_MAX_DAY_DIFF = 0;
+
+/**
  * Two known venues closer than this are one place for promotion purposes. Wide on purpose: it only
  * has to separate "same venue, different geocode" from "different city" (Bandung vs Surabaya).
  */
@@ -498,8 +507,9 @@ export interface MatchDecision {
  * The single tier decision for one (new item, candidate) pair, shared by ingestion
  * (`findMatchingEvent`) and the backlog drain script so they can never disagree.
  *
- * A stub repeat (`matchesStubRepeat`) is lifted to `high` whatever its score. Otherwise a `mid` is promoted to `high` only when ALL hold: the candidate has a schedule inside the date
- * window (so a shared-link-only candidate, admitted up to 90 days away, is never promoted); the
+ * A stub repeat (`matchesStubRepeat`) is lifted to `high` whatever its score. Otherwise a `mid` is promoted to `high` only when ALL hold: the two events share a start date
+ * (`MID_PROMOTION_MAX_DAY_DIFF`, which also keeps a shared-link-only candidate, admitted up to 90 days
+ * away, out of the promotion); the
  * names are the same (`areNamesAutoLinkable`); no venue conflict; and the posting account matches
  * the candidate's (`organizerMatch`) OR a link is shared. Anything else keeps its scored tier, and
  * a `high` outside the window is still capped to `mid`.
@@ -529,7 +539,7 @@ export function decideMatchTier(input: MatchDecisionInput): MatchDecision {
 
   const midToHigh =
     scoredTier === 'mid' &&
-    input.minDayDiff <= input.windowDays &&
+    input.minDayDiff <= MID_PROMOTION_MAX_DAY_DIFF &&
     (input.organizerMatch || input.sharedLink) &&
     !venueConflict &&
     areNamesAutoLinkable(input.newEventName, input.candidateEventName, input.nameSimilarity);

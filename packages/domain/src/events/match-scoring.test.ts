@@ -17,6 +17,7 @@ import {
   type MatchDecisionInput,
   MATCH_SCORE_WEIGHTS,
   MATCH_SCORE_THRESHOLDS,
+  MID_PROMOTION_MAX_DAY_DIFF,
 } from './match-scoring.js';
 
 test('normalizeEventLinkUrl', async (t) => {
@@ -372,7 +373,7 @@ test('decideMatchTier: promotes a mid to high when every condition holds', async
       newEventName: 'Mall Anniversary Sale Weekend',
       candidateEventName: 'Mall Anniversary Sales Weekend',
       nameSimilarity: 0.86,
-      minDayDiff: 1,
+      minDayDiff: 0,
     });
     assert.strictEqual(result.scoredTier, 'mid');
     assert.strictEqual(result.promotedByRule, true);
@@ -393,10 +394,24 @@ test('decideMatchTier: promotes a mid to high when every condition holds', async
     assert.strictEqual(overlapping.promotedByRule, true);
   });
 
-  await t.test('window boundary: exactly 2 days apart still promotes', () => {
-    const result = decide({ minDayDiff: 2 });
-    assert.strictEqual(result.scoredTier, 'mid');
-    assert.strictEqual(result.promotedByRule, true);
+  await t.test('a shared start date is required: 1 or 2 days apart stays mid (the next instance of a recurring event)', () => {
+    for (const minDayDiff of [1, 2]) {
+      const result = decide({ minDayDiff });
+      assert.strictEqual(result.scoredTier, 'mid', `${minDayDiff} days apart`);
+      assert.strictEqual(result.tier, 'mid', `${minDayDiff} days apart`);
+      assert.strictEqual(result.promotedByRule, false, `${minDayDiff} days apart`);
+    }
+    assert.strictEqual(MID_PROMOTION_MAX_DAY_DIFF, 0);
+  });
+  await t.test('a weekly show posted for two consecutive weeks (prod 2026-10-28) is not linked', () => {
+    // Week of 13-18 Oct vs week of 20-25 Oct: nearest schedules are 2 days apart, same account, same name.
+    const result = decide({
+      newEventName: 'Pentas Paket Wisata Srimanganti',
+      candidateEventName: 'Pentas Paket Wisata Srimanganti',
+      minDayDiff: 2,
+    });
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
   });
 });
 

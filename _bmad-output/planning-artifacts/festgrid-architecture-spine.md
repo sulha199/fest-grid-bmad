@@ -1772,8 +1772,14 @@ This document defines the core architectural invariants for the FestDaily applic
         `decideMatchTier` (`packages/domain/src/events/match-scoring.ts`), now owns the tier
         decision for ingestion and the backlog drain: it scores, **promotes a `mid` to `high`**, then
         applies `capTierWhenOutsideDateWindow`. The promotion requires **all** of:
-        *   **Window.** `minDayDiff ≤ DATE_WINDOW_DAYS` (2). A candidate admitted only by the
-            shared-link path (BUG-063) is never promoted; its cap stays.
+        *   **Shared start date** (amended 2026-10-28). `minDayDiff ≤ MID_PROMOTION_MAX_DAY_DIFF`
+            (0): the nearest schedules of the two events fall on the same date. The candidate
+            window (±2 days) still decides which events are scored, but a pair 1 to 2 days apart
+            is more often the next instance of a recurring event (a weekly show, a numbered league
+            night, consecutive pop-up days) than a repost, and an auto-link is not undoable and
+            prunes the schedule the new post omits, so it stays `mid` for a moderator. Found by
+            the read-only prod evaluation on 2026-10-28 (22 of 66 pairs). A candidate admitted
+            only by the shared-link path (BUG-063) is never promoted; its cap stays.
         *   **Same name.** `normalizeEventNameForMatch` (lowercase; bracketed groups, year tokens
             and punctuation removed) equal, **or** trigram similarity ≥ 0.85
             (`MID_PROMOTION_NAME_SIMILARITY`), **and on both paths the digit tokens must be
