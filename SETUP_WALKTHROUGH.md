@@ -331,7 +331,7 @@ The AI Gateway wraps all outbound Google Gemini API calls behind a single Adapte
         GEMINI_POSTS_PER_KEY_PER_CYCLE="300"
         API_KEY_USAGE_CYCLE_DAYS="30"
         ```
-    *   *Note: Decryption in `kms.ts` is lazily initialized and mocked locally/in test environments if `BYOK_KMS_KEY_ID` is omitted or when `NODE_ENV === 'test'`.*
+    *   *Note: `kms.ts` is lazily initialized and bypassed locally/in test environments (plain base64) if `BYOK_KMS_KEY_ID` is omitted or when `NODE_ENV === 'test'`. When a key id is configured it fails closed: a KMS error throws instead of storing or reading the key as base64. `BYOK_ALLOW_LEGACY_BASE64_FALLBACK=true` (default off) temporarily lets decrypt fall back to base64 for rows an older build stored that way; see `docs/infrastructure/supabase-rls-and-kms-rollout.md`.*
 
 #### Fallback System Key (`SYSTEM_GEMINI_API_KEY`)
 

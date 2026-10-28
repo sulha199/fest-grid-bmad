@@ -86,6 +86,7 @@ test('uploadFaceBlurThumbnail integration/unit tests', async (t) => {
     blurFacesBeforeAi: false,
     apifyScrapingConfirmed: true,
     brightdataScrapingConfirmed: true,
+    byokAllowLegacyBase64Fallback: false,
   };
 
   await t.test('Case A: happy path -- resizes/re-encodes, uploads to the thumb key, writes durableThumbnailUrl', async () => {
