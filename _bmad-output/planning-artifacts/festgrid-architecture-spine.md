@@ -1781,6 +1781,11 @@ This document defines the core architectural invariants for the FestDaily applic
             a daily series ("… Sale" vs "… Sale - Day 12"), "Part 1"/"Part 2" and a race category
             ("… Series (10K)" vs "… Series"; "(5K)" vs "(10K)") apart, which the bracket-stripping
             normalizer alone would merge. Found 2026-10-25 by running the rule read-only on prod.
+            **Bracketed qualifiers must not contradict** (added 2026-10-27): when both names carry
+            bracketed text and neither set contains the other ("(Morning)" vs "(Evening)", "(Men)"
+            vs "(Women)", "(Jakarta)" vs "(Bandung)"), the pair is not promoted, whatever the
+            similarity. A qualifier on one side only ("(SOLD OUT)", "(GEF)") or one the other side
+            repeats stays noise.
         *   **No venue conflict.** `hasVenueConflict`: a side with no venue never conflicts; equal or
             containing venue texts, or coordinates within 5 km (`VENUE_COMPATIBLE_METERS`), are
             compatible; both venues known and clearly different (a touring event) blocks. Only

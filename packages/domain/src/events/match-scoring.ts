@@ -226,19 +226,46 @@ function digitTokens(normalizedName: string): string[] {
 }
 
 /**
- * Whether two names support auto-linking: the digit tokens match, AND the normalized names are equal
- * or the (SQL trigram) similarity is >= `MID_PROMOTION_NAME_SIMILARITY`.
+ * The bracketed qualifiers of a name, lowercased, punctuation and years dropped: "Open (Morning) [2026]"
+ * gives {"morning"}. A group with nothing left (a bare year) is not a qualifier.
+ */
+function bracketedQualifiers(name: string): Set<string> {
+  const groups = name.toLowerCase().match(BRACKETED_GROUP) ?? [];
+  return new Set(groups.map((group) => group.replace(YEAR_TOKEN, ' ').replace(NON_ALPHANUMERIC, ' ').trim()).filter((q) => q !== ''));
+}
+
+/**
+ * True when BOTH names carry bracketed qualifiers and neither set contains the other: "(Morning)" vs
+ * "(Evening)", "(Men)" vs "(Women)", "(Jakarta)" vs "(Bandung)" are sessions, categories or editions of
+ * a series, not one event. A qualifier on one side only ("(SOLD OUT)", "(GEF)") or one that the other
+ * side repeats ("(GEF)" vs "(GEF) (Early Bird)") is still noise.
+ */
+function qualifiersContradict(a: Set<string>, b: Set<string>): boolean {
+  if (a.size === 0 || b.size === 0) return false;
+  const aInB = [...a].every((q) => b.has(q));
+  const bInA = [...b].every((q) => a.has(q));
+  return !aInB && !bInA;
+}
+
+/**
+ * Whether two names support auto-linking: the bracketed qualifiers do not contradict, the digit tokens
+ * match, AND the normalized names are equal or the (SQL trigram) similarity is >= `MID_PROMOTION_NAME_SIMILARITY`.
  *
  * The digit rule applies on BOTH paths and reads the names with bracketed text KEPT (years still
  * dropped), because the normalizer used for equality deletes brackets: it is what keeps a daily series
  * apart ("32 Days of C&F Biggest Sale" vs "... - Day 12", "Part 1" vs "Part 2") and a race category
  * apart ("Erafone Run Series (10K)" vs "Erafone Run Series", "(5K)" vs "(10K)"), which trigram
  * similarity or bracket-stripping alone would call the same. Found by running the rule on prod.
+ *
+ * Digits are not the only thing a bracket can distinguish: the qualifier check keeps "(Morning)" and
+ * "(Evening)" of one account and day apart too, which equality of the bracket-stripped names would
+ * otherwise link whatever the trigram score (found in the 2026-10-27 review of this rule).
  */
 export function areNamesAutoLinkable(newName: string, candidateName: string, nameSimilarity: number): boolean {
   const a = normalizeEventNameForMatch(newName);
   const b = normalizeEventNameForMatch(candidateName);
   if (a === '' || b === '') return false;
+  if (qualifiersContradict(bracketedQualifiers(newName), bracketedQualifiers(candidateName))) return false;
   const digitsA = digitTokens(normalizeEventNameStrict(newName));
   const digitsB = digitTokens(normalizeEventNameStrict(candidateName));
   if (digitsA.length !== digitsB.length || !digitsA.every((token, i) => token === digitsB[i])) return false;

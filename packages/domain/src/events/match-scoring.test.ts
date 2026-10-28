@@ -356,6 +356,17 @@ test('decideMatchTier: promotes a mid to high when every condition holds', async
     assert.strictEqual(result.promotedByRule, false);
   });
 
+  await t.test('different bracketed qualifiers ("(Morning)" vs "(Evening)") are not promoted, venue unknown or not', () => {
+    const result = decide({
+      newEventName: 'Baking Workshop (Morning)',
+      candidateEventName: 'Baking Workshop (Evening)',
+      nameSimilarity: 0.63, // the real trigram score of this pair on prod
+    });
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+
   await t.test('trigram similarity >= 0.85 with no differing digits is the same name', () => {
     const result = decide({
       newEventName: 'Mall Anniversary Sale Weekend',
@@ -499,6 +510,22 @@ test('areNamesAutoLinkable', async (t) => {
     assert.strictEqual(areNamesAutoLinkable('Erafone Run Series (5K)', 'Erafone Run Series (10K)', 1), false);
     assert.strictEqual(areNamesAutoLinkable('Global EduFair (GEF) 2026', 'Global EduFair 2026', 0.87), true, 'a bracketed abbreviation is still noise');
     assert.strictEqual(areNamesAutoLinkable('Perayaan Jumat Spooky (PJS)', 'Perayaan Jumat Spooky', 0.88), true);
+  });
+  await t.test('different bracketed qualifiers on both sides are different events, whatever the similarity', () => {
+    assert.strictEqual(areNamesAutoLinkable('Baking Workshop (Morning)', 'Baking Workshop (Evening)', 0.63), false);
+    assert.strictEqual(areNamesAutoLinkable('Badminton Open (Men)', 'Badminton Open (Women)', 1), false);
+    assert.strictEqual(areNamesAutoLinkable('Fun Run Series [Jakarta]', 'Fun Run Series {Bandung}', 0.9), false);
+    assert.strictEqual(areNamesAutoLinkable('Open (Morning) (Free)', 'Open (Evening) (Free)', 1), false, 'a shared qualifier does not hide a differing one');
+  });
+  await t.test('a qualifier on one side only, or one the other side repeats, stays noise', () => {
+    assert.strictEqual(areNamesAutoLinkable('Jazz Night (SOLD OUT)', 'Jazz Night', 0.5), true);
+    assert.strictEqual(areNamesAutoLinkable('Jazz Night', 'Jazz Night (SOLD OUT)', 0.5), true);
+    assert.strictEqual(areNamesAutoLinkable('Expo (GEF)', 'Expo (GEF) (Early Bird)', 1), true);
+    assert.strictEqual(areNamesAutoLinkable('Expo (GEF) (Early Bird)', 'Expo (GEF)', 1), true);
+    assert.strictEqual(areNamesAutoLinkable('Summit (GIFTS) 2026', 'Summit (GIFTS 2026)', 0.93), true, 'the same qualifier with a year inside is the same qualifier (prod pair)');
+  });
+  await t.test('a bracket that holds only a year is not a qualifier', () => {
+    assert.strictEqual(areNamesAutoLinkable('Jazz Night (2026)', 'Jazz Night (2025)', 1), true);
   });
   await t.test('similar names need >= 0.85 and the same digit tokens in order', () => {
     assert.strictEqual(areNamesAutoLinkable('Fun Run 5K Jakarta', 'Fun Run 5K Jakarta Edition', 0.86), true);
