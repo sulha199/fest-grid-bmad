@@ -57,6 +57,13 @@ Backlog IDEA-106 (detail in `implementation-artifacts/backlog/IDEA-106-event-rep
 - **Owner to do:** fill `post_kind` on every sheet (an older sheet is flagged "blank" until it is filled), including your 36 tuning posts. Consider adding about 40 posts from a results account (for example `badminton.ina`) as a separate stratum, labelled blind: the current POC set may hold few reports.
 - **Not done:** the production prompt, schema and ingestion path (report attach, report promote), the report-to-event matcher ("Day 2" must find the tournament), the one-off clean-up of the 119 existing stubs, and the production date cross-check. See IDEA-106 "Still open".
 
+## Events described by several posts (2026-10-29) — prototype on this branch, rules proposed
+
+Personalization plan Revision 11; backlog IDEA-111 (the Erafone Run 2026 Yogyakarta family, every event and post id recorded for a re-check after the race on 2026-10-31).
+
+- **Prototype:** `merge-event-insight.ts` (+ test, 9 cases): the insight of one event from the insights of its posts. Organizer posts count, curator reposts only when there is no organizer post (sensitive topic excepted), a `report` post adds nothing; tracks are a union by label, cost is the cheapest tier, interests and stated areas are unions, and a clash keeps the primary post's value and is reported. The rules are a PROPOSAL until the owner answers the four questions at the end of Revision 11.
+- **Not done:** the production version in `packages/domain`, storing each post's insight (Revision 11 #34), and a POC measurement of how often the posts of one event disagree (needs the owner's labels and the Erafone organizer posts as a labelled stratum).
+
 ## What the owner does next
 
 1. Open `local/label-sheet-owner-tuning-sample-v2.xlsx` (your 36 labels carried over; two new empty columns `is_event` and `cost_source`). Fill those two, and revisit `geo_scope`, `target_area_level`, `track_count` where the rules above change your answer. Convert back: `python scripts/poc-event-insight/sheet_xlsx.py to-csv local/<name>.xlsx local/<name>.csv` (needs `pip install openpyxl`; the CSV is what the tools read). Do not look at `label-sheet-claude-tuning*.csv` until done.

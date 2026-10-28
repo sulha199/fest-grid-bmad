@@ -70,6 +70,28 @@ Analysis and measurements are in [`proposal-discovery-ranking-and-scale.md`](./p
 30. **Category siblings are merged into one event, so personalization targets the track, not the event.** Event dedup (AD-30 Rule 7, PR #102) links posts about one event even when each post announces one category: the plain "Erafone Run 2026 Yogyakarta Series" and its "… - 5K" post are one event (owner: merging 5K and 10K is fine, the plan's personalization separates them later; one such pair in the 2026-10-28 prod evaluation). Nothing in this plan may assume one event = one category, one distance or one price. A person's fit (age, life stage, cost tier, distance) is read per track (§2.3), and the card shows the union.
 31. **What the build must do for that.** (a) When a post is linked to an existing event, `insight.tracks` is merged as a **union by track label and criteria**, never overwritten by the later post. Today's high-path link is last-writer-wins and prunes (AD-30 Rule 7), so a "10K" post linking after a "5K" post would erase the 5K track; the additive link (§3.4) is the model, and the union applies on both promotion rules. (b) Cost tier, age bands and distance are stored per track where the post states them and fall back to the event level only when it does not. (c) The golden set gets a merged-sibling case: a 5K post and a 10K post of one series give two tracks, and "for age 11" still finds the gap (§2.3). (d) The track label is what an affinity learned from favorites attaches to ("favours 5K"), so labels must be stable across posts ("5K" never "5 km" on one and "5K" on the next).
 
+### Revision 11 — an event described by several posts: per-field merge (PROPOSED 2026-10-29, not decided)
+
+Why now: the 2026-10-28 prod evaluation (backlog IDEA-111, the Erafone Run 2026 Yogyakarta family) has one event described by an organizer race post, one organizer post per category, programme posts and curator reposts. Revision 10 settled the tracks; this proposes the rest, so §6.2 #4 can be closed. The prototype is `scripts/poc-event-insight/merge-event-insight.ts` (9 tests); the rules below are what it does.
+
+32. **Whose word counts.** Posts by the event's organizer count; curator reposts count only when no organizer post exists, because their captions are cleared after extraction and they repeat or distort the organizer's. The one exception is the sensitive topic: any post, a curator's included, can raise it (a miss is the costly side). A post classified `report` (IDEA-106: results, a recap, news) announces nothing upcoming and adds no audience field.
+33. **Per field.**
+
+| Field | Rule |
+|---|---|
+| tracks | union by label ("5K" = "5 km"); an unlabelled single tier is dropped once a labelled track exists; on a clash the primary post's number is kept and the clash is logged |
+| cost tier | the cheapest tier a counted post states at event level (shown as "from"), and per track where a post gives one (Revision 10 b) |
+| eligibility | `restricted` if a counted post says so |
+| stated areas | union of the counted posts' stated areas; the venue, hashtag and account areas are derived by code from the event, not from its posts |
+| interests | union, most-mentioned first, at most 6 |
+| sensitive topic | any post (see #32) |
+| language, scope, country | the primary post |
+
+34. **Store the parts, derive the whole.** Keep each post's own insight (on its `event_posts` row, not read on the hot path) and compute the event's insight from them, writing the result to the `events` row as in §3.3. Reason: with only a merged value, deleting a post (account erasure, PRD 3.16) or changing the primary cannot remove what that post contributed, and a moderator merge or undo cannot be replayed. The merge function belongs in `packages/domain` (100% tested) and is called from the link path (`enrichAndPromoteEvent`), the moderator merge and its undo.
+35. **Worked example (Erafone).** The main post has one unlabelled tier, the 5K and 10K posts each add their track, a curator repost adds nothing: the event gets two tracks (5K, 10K), cost "from" the cheaper category, and the repost is not counted. The 5K that exists as two events 11 days apart (a registration date and the race day) is a dedup question first (IDEA-111), then the same union applies.
+
+Questions for the owner: (a) curator reposts ignored whenever an organizer post exists: right, or may a repost fill a field the organizer left empty (a price that is only in the picture)? (b) cheapest tier at event level: right, or the most common? (c) a `report` post adds nothing: right? (d) store the parts per post (#34), at the price of one more jsonb column?
+
 ## 1. Recommendation
 
 **Build it, in two gated phases.** The POC says Gemini can extract *who an event is for and where its audience is* well enough to rank on — for some fields. For others it can't, and the design below uses each field only as far as the evidence supports.
@@ -262,7 +284,7 @@ Two honest caveats. (1) The 27-event, 5-week demo pool is far denser per day tha
 1. ~~Declared audience facets~~ — **resolved (rev. 2): audience is extracted automatically; users declare nothing.** Age appears only as an ephemeral filter value.
 2. **Default sort** for signed-in users once flagged: RECOMMENDED (recommended, behind the A/B) vs SOONEST until the replay is convincing.
 3. **Anonymous visitors with granted browser location:** location-only personalisation (recommended) or none?
-4. **Events with several linked posts (AD-30):** insight follows the *primary* post and is replaced when primary changes *only if* the new primary produced one (recommended) — or merge insights across posts?
+4. **Events with several linked posts (AD-30):** ~~insight follows the *primary* post and is replaced when primary changes *only if* the new primary produced one (recommended) — or merge insights across posts?~~ **Tracks: merged as a union (Revision 10, owner 2026-10-28). Every other field: proposed in Revision 11 (organizer posts count, set-like fields are unions, the rest follow the primary post), waiting for your answers (a) to (d).**
 5. ~~Is an age-banded event `restricted` or `open_to_public`?~~ — **resolved by tracks (rev. 2):** age and gender are track criteria; `eligibility` means only membership-type limits. "Dibuka untuk UMUM, usia 7–16" = `open_to_public` + one `[7,16]` track. (The POC's flat guards "age band keeps restricted" and "gender ⇒ restricted" belong to the old schema and go away.)
 6. ~~Tier granularity~~ — **resolved (rev. 3): one merged local group, no own-district-first split.** Still open: a 30-day `horizon` (recommend: decide with the replay).
 7. ~~Where do online events go?~~ — **resolved (rev. 5): by their audience, like onsite events (§4.0, §10.3).**
