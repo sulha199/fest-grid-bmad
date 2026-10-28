@@ -44,6 +44,7 @@ graph TD
 
     subgraph "GitHub Actions"
         GHA_Backup["Production DB Backup: nightly and manual pg_dump"]
+        GHA_Restore["Production DB Restore Test: restores the newest dump after each backup"]
     end
 
     subgraph External Services
@@ -96,5 +97,7 @@ graph TD
 
     GHA_Backup -- pg_dump over the session pooler --> Supabase
     GHA_Backup -- uploads the dump --> S3_Backup
+    S3_Backup -- newest dump --> GHA_Restore
+    GHA_Restore -- read-only row and object counts --> Supabase
 ```
 
