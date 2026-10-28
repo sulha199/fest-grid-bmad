@@ -600,9 +600,9 @@ export const accountProfileRepairs = pgTable('account_profile_repairs', {
   id: uuid('id').defaultRandom().primaryKey(),
   profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
   repairKind: text('repair_kind').notNull(),
-  before: jsonb('before').$type<Record<string, unknown>>().notNull(),
-  after: jsonb('after').$type<Record<string, unknown>>().notNull(),
-  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull(),
+  before: customJsonb<Record<string, unknown>>('before').notNull(),
+  after: customJsonb<Record<string, unknown>>('after').notNull(),
+  evidence: customJsonb<Record<string, unknown>>('evidence').notNull(),
   performedBy: text('performed_by').notNull(),
   ...timestamps,
 }, (t) => ({
