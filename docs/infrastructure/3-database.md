@@ -12,6 +12,16 @@ The `postgres()` client in `apps/backend/src/db/client.ts` **must** be construct
 
 See [incident: connection pool exhaustion, 2026-08-27](./incidents/2026-08-27-connection-pool-exhaustion.md) for the investigation that surfaced this.
 
+## Row Level Security
+
+Every table in the `public` schema has row level security (RLS) enabled (migration `0084_enable_row_level_security.sql`). Supabase publishes `public` through an automatic REST API that the public anon key can call, so RLS is the lock that keeps that API from returning rows. The web app does not use that API for data (all data goes through the GraphQL backend), and the backend connects as the table owner, which bypasses RLS, so the app is unaffected.
+
+- A signed-in user can read their own `users` row, `user_settings`, `user_locations`, `subscriptions` and `calendar_additions`, and read and write their own `favorites` (`users.id` is the Supabase auth uid, so `auth.uid()` compares directly).
+- `api_keys`, `fcm_tokens`, `prompt_filter_rate_limits` and all scraper, moderation and catalog tables have no policy, so they are server-only.
+- `apps/backend/src/db/row-level-security.test.ts` fails CI if any table in `public` has RLS disabled. A migration that creates a table must also enable RLS on it.
+
+The manual Supabase and AWS steps for rolling this out are in [supabase-rls-and-kms-rollout.md](./supabase-rls-and-kms-rollout.md).
+
 ## Backups
 
 The Supabase free plan has **no managed backups** (daily backups and point-in-time recovery need Pro), so the only backup is the nightly `pg_dump` run by the [Production DB Backup](../../.github/workflows/prod-db-backup.yml) GitHub Actions workflow. It also runs on demand (Actions → Production DB Backup → Run workflow).
@@ -23,12 +33,12 @@ The Supabase free plan has **no managed backups** (daily backups and point-in-ti
 *   **Why a runner and not a laptop:** `pg_dump` needs one long, fast connection to the pooler. From a home connection the bulk `COPY` ran at about 15 KB/s and the SSL session dropped mid-dump (2026-10-28). A GitHub runner next to `us-east-1` finishes the ~60 MB database in a minute or two. The dump holds one session-mode slot (of the pool's 15) for that time.
 *   **Checks:** the workflow retries a failed dump three times, then fails unless the archive lists its table of contents, is at least 1 MiB, has data entries for `events`, `schedules` and `users`, and the uploaded object has the same size as the local file. A failed scheduled run e-mails whoever last edited the schedule.
 *   **Version pin:** `PG_MAJOR` in the workflow (17 today) must be at least the server's major version, or `pg_dump` refuses. Raise it when Supabase upgrades the project.
-*   **Restore:** the target must be PostgreSQL 17 or newer, with no `public` schema and with `pg_trgm` installed in a schema named `extensions`. The dump has no `CREATE EXTENSION` entries, and `public.events` has a trigram index on `extensions.gin_trgm_ops`, so without that prerequisite exactly that one index fails to build.
+*   **Restore:** the target must be PostgreSQL 17 or newer, with no `public` schema, with `pg_trgm` installed in a schema named `extensions`, and with the roles `anon` and `authenticated`. The dump has no `CREATE EXTENSION` entries, and `public.events` has a trigram index on `extensions.gin_trgm_ops`, so without that prerequisite exactly that one index fails to build. It also contains the row level security policies (`CREATE POLICY ... TO authenticated`), and `pg_dump` never dumps roles, so without the two roles `pg_restore` stops with `role "authenticated" does not exist` (Supabase provides them in production).
     ```
-    psql "$TARGET_URL" -c "DROP SCHEMA public" -c "CREATE SCHEMA extensions" -c "CREATE EXTENSION pg_trgm SCHEMA extensions"
+    psql "$TARGET_URL" -c "DROP SCHEMA public" -c "CREATE SCHEMA extensions" -c "CREATE EXTENSION pg_trgm SCHEMA extensions" -c "CREATE ROLE anon NOLOGIN" -c "CREATE ROLE authenticated NOLOGIN"
     pg_restore --no-owner --no-privileges --exit-on-error --dbname "$TARGET_URL" festgrid-prod-<timestamp>.dump
     ```
     `--no-owner` is needed because the `auth` objects belong to `supabase_admin` and `supabase_auth_admin`, which a plain PostgreSQL does not have.
 *   **Restore test:** the [Production DB Restore Test](../../.github/workflows/prod-db-restore-test.yml) workflow runs those two commands after every successful backup (and on demand) in a throwaway `postgres:17` container, then runs [`scripts/compare-restored-db.sh`](../../scripts/compare-restored-db.sh) against production. It fails if a table is missing, a table is empty that is not empty in production, a row count is off by more than max(25 rows, 5%), or an object count (columns, NOT NULL columns, indexes, constraints, sequences, functions) differs. A manual run may name an older dump; production has moved on since then, so the live comparison is skipped for it. It also fails if the newest dump is 36 hours old or more, which catches a nightly backup that silently stopped.
 *   **First rehearsal (2026-10-28, PostgreSQL 18.6 on a laptop):** restoring the first dump took 5 seconds. Into a bare empty database it reported exactly two errors, the harmless `schema "public" already exists` and the missing `extensions` schema above. With the prerequisite it restored with zero errors, and all 70 tables (25,457 rows), 125 `public` indexes, the foreign keys, sequences and functions matched production exactly.
-
+

@@ -11,7 +11,8 @@
 #   * it is empty there but not in the live database (a truncated dump), or
 #   * the counts differ by more than max(TOLERANCE_ROWS, TOLERANCE_PCT % of the live count).
 # Anything else that differs is printed as "drift". Object counts (columns, NOT NULL columns,
-# indexes, constraints, sequences, functions) must match exactly: a dump is a snapshot, so a
+# indexes, constraints, sequences, functions, row level security policies and tables with row level
+# security enabled) must match exactly: a dump is a snapshot, so a
 # difference there means the restore lost something, or a migration ran since the dump.
 # PostgreSQL 18 also lists NOT NULL constraints in pg_constraint, PostgreSQL 17 does not, so those
 # rows are left out and NOT NULL is compared on the columns instead.
@@ -46,6 +47,8 @@ SELECT k FROM (
   UNION ALL SELECT 'constraint:' || c.contype::text || '|' || n.nspname || '|' || count(*) FROM pg_constraint c JOIN pg_namespace n ON n.oid = c.connamespace WHERE n.nspname IN ($SCHEMA_LIST) AND c.contype <> 'n' GROUP BY c.contype, n.nspname
   UNION ALL SELECT 'sequence|' || schemaname || '|' || count(*) FROM pg_sequences WHERE schemaname IN ($SCHEMA_LIST) GROUP BY schemaname
   UNION ALL SELECT 'function|' || n.nspname || '|' || count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname IN ($SCHEMA_LIST) GROUP BY n.nspname
+  UNION ALL SELECT 'policy|' || schemaname || '|' || count(*) FROM pg_policies WHERE schemaname IN ($SCHEMA_LIST) GROUP BY schemaname
+  UNION ALL SELECT 'rls-enabled-table|' || n.nspname || '|' || count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname IN ($SCHEMA_LIST) AND c.relkind IN ('r', 'p') AND c.relrowsecurity GROUP BY n.nspname
   UNION ALL SELECT 'column|' || table_schema || '|' || count(*) FROM information_schema.columns WHERE table_schema IN ($SCHEMA_LIST) GROUP BY table_schema
   UNION ALL SELECT 'notnull-column|' || table_schema || '|' || count(*) FROM information_schema.columns WHERE table_schema IN ($SCHEMA_LIST) AND is_nullable = 'NO' GROUP BY table_schema
 ) t ORDER BY 1;"

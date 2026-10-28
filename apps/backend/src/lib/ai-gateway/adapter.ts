@@ -1,6 +1,6 @@
 import { selectApiKey, determineSelectionTier, computeBackoffDelayMs } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
-import { decryptApiKey } from './kms.js';
+import { decryptApiKey, KmsDecryptionError } from './kms.js';
 import {
   callGeminiGenerateContent,
   GeminiRateLimitedError,
@@ -148,6 +148,16 @@ export async function callGemini(
       // nothing about whether the *key* was bad, only that *this specific call* failed. No
       // dedicated instanceof branch is needed -- the generic re-throw below already does this,
       // exactly as GeminiUnknownError's catch-all always has.
+
+      // KmsDecryptionError means this key's stored value could not be decrypted (a KMS outage, a
+      // wrong key, or a row an older build stored as base64). That is not a vendor verdict on the
+      // key, so it is never recorded via recordInvalidAttempt; skip the key and try the next
+      // candidate. If none are left the call ends as AiGatewayExhaustedError.
+      if (error instanceof KmsDecryptionError) {
+        console.error(`[ai-gateway] Could not decrypt API key ${candidate.id}; skipping it:`, error.cause ?? error);
+        excludedKeys.add(candidate.id);
+        continue;
+      }
 
       // Re-throw unknown errors
       throw error;

@@ -9,6 +9,7 @@
   - [2. Backend](#2-backend)
   - [3. Database](#3-database)
     - [Connection Pooling](#connection-pooling)
+    - [Row Level Security](#row-level-security)
     - [Backups](#backups)
   - [4. Push Notifications](#4-push-notifications)
   - [5. Geolocation](#5-geolocation)

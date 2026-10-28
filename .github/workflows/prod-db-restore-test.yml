@@ -18,6 +18,11 @@ name: Production DB Restore Test
 # future migration needs another extension this job fails loudly at pg_restore (--exit-on-error):
 # add the extension to the "Prepare an empty target database" step and to the restore note in
 # docs/infrastructure/3-database.md.
+#
+# Second prerequisite, from migration 0084 (row level security): the dump contains CREATE POLICY ...
+# TO authenticated, and pg_dump never dumps roles, so the target needs the roles `anon` and
+# `authenticated` (Supabase provides them in production). Without them pg_restore stops with
+# `role "authenticated" does not exist`. They are created NOLOGIN in the same step.
 on:
   workflow_run:
     workflows: ['Production DB Backup']
@@ -154,7 +159,8 @@ jobs:
           psql "$RESTORE_URL" -X -v ON_ERROR_STOP=1 \
             -c "DROP SCHEMA public" \
             -c "CREATE SCHEMA extensions" \
-            -c "CREATE EXTENSION pg_trgm SCHEMA extensions"
+            -c "CREATE EXTENSION pg_trgm SCHEMA extensions" \
+            -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF; IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF; END \$\$"
 
       # --no-owner / --no-privileges: the dump's objects belong to Supabase roles that do not exist
       # here. --exit-on-error: any error means the backup is not fully restorable, so fail.

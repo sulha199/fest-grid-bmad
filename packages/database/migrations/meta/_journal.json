@@ -589,6 +589,13 @@
       "when": 1793014058371,
       "tag": "0083_bug_081_account_profile_repairs",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "6",
+      "when": 1793176792043,
+      "tag": "0084_enable_row_level_security",
+      "breakpoints": true
     }
   ]
 }

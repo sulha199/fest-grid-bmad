@@ -12,6 +12,11 @@ export interface BackendEnv {
   sesFromEmailAddress?: string;
   systemErrorAlertEmail?: string;
   byokKmsKeyId?: string;
+  // Rollout switch for the fail-closed KMS handling in ai-gateway/kms.ts: when true, a KMS decrypt
+  // failure falls back to decoding the stored value as legacy base64 instead of throwing. Off by
+  // default so production fails closed; turn it on only while migrating rows that an older
+  // fail-open build stored as base64 of the plaintext key.
+  byokAllowLegacyBase64Fallback: boolean;
   geminiModel: string;
   // Model for resolvePromptToEventFilter only. The shared GEMINI_MODEL (a lite tier, tuned for
   // post extraction) cannot reliably fill the tree-shaped filter schema: on vague prompts like
@@ -235,6 +240,7 @@ export function loadBackendEnv(): BackendEnv {
     systemErrorAlertEmail: process.env.SYSTEM_ERROR_ALERT_EMAIL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     byokKmsKeyId: process.env.BYOK_KMS_KEY_ID,
+    byokAllowLegacyBase64Fallback: process.env.BYOK_ALLOW_LEGACY_BASE64_FALLBACK === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     geminiModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
