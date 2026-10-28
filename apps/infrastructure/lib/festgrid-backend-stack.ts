@@ -225,6 +225,24 @@ export class FestgridBackendStack extends cdk.Stack {
       ],
     });
 
+    // DB Backup Bucket: private home for the nightly pg_dump of the production database, written by
+    // the "Production DB Backup" GitHub Actions workflow (.github/workflows/prod-db-backup.yml) with
+    // the same AWS credentials the other ops workflows use. The Supabase free plan has no managed
+    // backups, and the repo is public, so a GitHub artifact is not an option for this data.
+    // Blocks ALL public access and requires TLS. Dumps auto-expire after 30 days; the bucket is
+    // retained in prod, so a stray `cdk destroy` can't drop the only backups.
+    const dbBackupBucket = new s3.Bucket(this, `DbBackupBucket-${stageName}`, {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy,
+      lifecycleRules: [
+        {
+          expiration: cdk.Duration.days(30),
+        },
+      ],
+    });
+
     // 2.6 SES Domain Identity for outgoing emails (Reconciled from FestgridEmailStack)
     const domainName = process.env.SES_SENDING_DOMAIN || 'festdaily.app';
     const emailIdentity = new ses.EmailIdentity(this, `FestgridEmailIdentity-${stageName}`, {
@@ -911,6 +929,14 @@ export class FestgridBackendStack extends cdk.Stack {
       value: opsBackfillBucket.bucketName,
       description: 'S3 bucket for staging one-off ops/backfill input files',
       exportName: `festgrid-ops-backfill-bucket-${stageName}`,
+    });
+
+    // Output DB Backup Bucket name (referenced by the "Production DB Backup" GitHub Actions workflow,
+    // .github/workflows/prod-db-backup.yml, to resolve where the nightly pg_dump is uploaded).
+    new cdk.CfnOutput(this, `dbBackupBucketName`, {
+      value: dbBackupBucket.bucketName,
+      description: 'S3 bucket for the nightly production database pg_dump backups',
+      exportName: `festgrid-db-backup-bucket-${stageName}`,
     });
 
     // Outputs for the post-media bucket/CDN/distribution (Story 3.6q), so the
