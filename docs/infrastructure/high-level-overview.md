@@ -38,6 +38,12 @@ graph TD
         subgraph Cron
             EventBridge[EventBridge]
         end
+
+        S3_Backup["S3: nightly database dumps, 30-day retention"]
+    end
+
+    subgraph "GitHub Actions"
+        GHA_Backup["Production DB Backup: nightly and manual pg_dump"]
     end
 
     subgraph External Services
@@ -87,5 +93,8 @@ graph TD
     L_API -- resolves location via --> Geoapify
 
     U -- loads map tiles from --> Geoapify
+
+    GHA_Backup -- pg_dump over the session pooler --> Supabase
+    GHA_Backup -- uploads the dump --> S3_Backup
 ```
 
