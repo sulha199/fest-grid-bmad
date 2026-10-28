@@ -41,7 +41,7 @@ import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decideInitialOrIncrementalNewerThan } from '../lib/scraper/decide-initial-or-incremental-scrape.js';
-import { decryptApiKey, encryptApiKey } from '../lib/ai-gateway/kms.js';
+import { decryptApiKey, encryptApiKey, KmsDecryptionError, KmsEncryptionError } from '../lib/ai-gateway/kms.js';
 import { verifyGeminiApiKey } from '../lib/ai-gateway/gemini-client.js';
 import { VendorCallTimeoutError } from '../lib/vendor-gateway/guarded-call.js';
 import { compileValidator } from '../validation/validate.js';
@@ -542,7 +542,17 @@ export const resolvers: Resolvers = {
         ));
 
       for (const existingKey of activeKeys) {
-        const plaintext = await decryptApiKey(existingKey.keyEncrypted);
+        let plaintext: string;
+        try {
+          plaintext = await decryptApiKey(existingKey.keyEncrypted);
+        } catch (error) {
+          // An existing key that cannot be decrypted cannot be compared, so it cannot block this one.
+          if (error instanceof KmsDecryptionError) {
+            console.error(`[addApiKey] Could not decrypt existing key ${existingKey.id} for the duplicate check:`, error.cause ?? error);
+            continue;
+          }
+          throw error;
+        }
         if (plaintext.trim() === normalizedKey) {
           throw new GraphQLError('API key already exists', { extensions: { code: 'DUPLICATE_API_KEY' } });
         }
@@ -568,7 +578,19 @@ export const resolvers: Resolvers = {
         });
       }
 
-      const keyEncrypted = await encryptApiKey(normalizedKey);
+      let keyEncrypted: string;
+      try {
+        keyEncrypted = await encryptApiKey(normalizedKey);
+      } catch (error) {
+        // Fail closed: if KMS cannot encrypt the key it is not stored at all.
+        if (error instanceof KmsEncryptionError) {
+          console.error('[addApiKey] KMS could not encrypt the API key; nothing was stored:', error.cause ?? error);
+          throw new GraphQLError('Unable to store the API key securely. Please try again later.', {
+            extensions: { code: 'KEY_ENCRYPTION_FAILED' },
+          });
+        }
+        throw error;
+      }
       const keyLast4 = normalizedKey.slice(-4);
       const [inserted] = await db.insert(apiKeys).values({
         userId: authUser.userId,

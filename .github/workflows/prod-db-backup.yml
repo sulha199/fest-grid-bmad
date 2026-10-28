@@ -1,0 +1,170 @@
+name: Production DB Backup
+
+# Nightly pg_dump of the production Supabase database to a private S3 bucket (DbBackupBucket-prod,
+# CDK: apps/infrastructure/lib/festgrid-backend-stack.ts, output "dbBackupBucketName"). The
+# Supabase free plan has no managed backups, so this is the only one. It also runs on demand:
+# Actions -> Production DB Backup -> Run workflow.
+#
+# Why GitHub Actions: pg_dump needs a long, fast session-mode connection to Supabase's pooler
+# (aws-0-us-east-1.pooler.supabase.com:5432). From a home connection the bulk COPY crawled at
+# ~15 KB/s and the SSL session dropped mid-dump (2026-10-28); a runner next to us-east-1 does the
+# whole ~60 MB database in a minute or two.
+#
+# Why S3 and not an Actions artifact: this repository is public, so an artifact (users, fcm_tokens,
+# auth password hashes) would be downloadable by any logged-in GitHub user.
+#
+# Credential: PROD_BACKUP_DATABASE_URL (environment `production`) is the session-pooler URL of the
+# dedicated `backup_ro` role (BYPASSRLS + pg_read_all_data, no write grants). It is NOT the app's
+# DATABASE_URL, which uses the transaction pooler (port 6543) that pg_dump cannot use.
+#
+# What is dumped: schemas public (the app), drizzle (the migration journal) and auth (Supabase
+# Auth users). storage and vault are empty today and are left out; add them below if that changes.
+#
+# Restore (the dump is custom format, so roles and ownership are decided at restore time). The
+# target must be a PostgreSQL 17+ database with no `public` schema and with pg_trgm installed in a
+# schema named `extensions` (the dump has no CREATE EXTENSION entries, and an index on
+# public.events uses `extensions.gin_trgm_ops`):
+#   psql "$TARGET_URL" -c "DROP SCHEMA public" -c "CREATE SCHEMA extensions" \
+#        -c "CREATE EXTENSION pg_trgm SCHEMA extensions"
+#   pg_restore --no-owner --no-privileges --exit-on-error --dbname "$TARGET_URL" festgrid-prod-<timestamp>.dump
+# prod-db-restore-test.yml does exactly this after every backup and compares the result with prod.
+#
+# Retention: the bucket expires every object after 30 days (CDK lifecycle rule). A failed scheduled
+# run makes GitHub e-mail the person who last edited this workflow's schedule.
+on:
+  schedule:
+    - cron: '43 18 * * *' # nightly, 18:43 UTC = 01:43 WIB, off the :00 queue and off the 19:17 eval
+  workflow_dispatch: {}
+
+# The job never reads the repository; it only needs the secrets of its environment.
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Dump production database to S3
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    concurrency:
+      group: prod-db-backup
+      cancel-in-progress: false
+    env:
+      # pg_dump must be at least the server's major version. Supabase runs PostgreSQL 17 today
+      # (17.6 on 2026-10-28); raise this when the project is upgraded.
+      PG_MAJOR: '17'
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Resolve DB Backup Bucket name
+        id: bucket
+        run: |
+          NAME=$(aws cloudformation describe-stacks \
+            --stack-name FestgridBackendStack-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='dbBackupBucketName'].OutputValue" \
+            --output text)
+          if [ -z "$NAME" ] || [ "$NAME" = "None" ]; then
+            echo "::error::Could not resolve dbBackupBucketName from FestgridBackendStack-prod outputs. Has the CDK stack with DbBackupBucket been deployed (ci.yml on master)?"
+            exit 1
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      # The runner image ships an older postgresql-client; pg_dump refuses to dump a newer server.
+      # PGDG's apt repository is the documented source for a specific major version.
+      - name: Install PostgreSQL client
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends "postgresql-client-${PG_MAJOR}"
+          echo "/usr/lib/postgresql/${PG_MAJOR}/bin" >> "$GITHUB_PATH"
+          "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_dump" --version
+
+      # The pooler occasionally drops a long session, so a failed dump is retried from scratch
+      # (a custom-format file cannot be resumed) before the run is failed.
+      - name: Dump production database
+        env:
+          DB_URL: ${{ secrets.PROD_BACKUP_DATABASE_URL }}
+          PGCONNECT_TIMEOUT: '30'
+        run: |
+          set -euo pipefail
+          if [ -z "$DB_URL" ]; then
+            echo "::error::PROD_BACKUP_DATABASE_URL is not set in the 'production' environment."
+            exit 1
+          fi
+
+          mkdir -p "$RUNNER_TEMP/backup"
+          FILE="$RUNNER_TEMP/backup/festgrid-prod-$(date -u +%Y%m%dT%H%M%SZ).dump"
+
+          for attempt in 1 2 3; do
+            if pg_dump --dbname "$DB_URL" --format=custom --no-password \
+                 --schema=public --schema=drizzle --schema=auth --file "$FILE"; then
+              echo "DUMP_FILE=$FILE" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "::warning::pg_dump attempt $attempt of 3 failed."
+            rm -f "$FILE"
+            sleep $((attempt * 20))
+          done
+
+          echo "::error::pg_dump failed after 3 attempts."
+          exit 1
+
+      # pg_restore --list reads the archive's table of contents, which a truncated custom-format
+      # file does not have, so this fails for any incomplete dump. The size floor and the three
+      # core tables catch a dump that is readable but empty.
+      - name: Verify the archive
+        run: |
+          set -euo pipefail
+          SIZE=$(stat -c%s "$DUMP_FILE")
+          if [ "$SIZE" -lt 1048576 ]; then
+            echo "::error::Dump is only $SIZE bytes; the production database is ~60 MB, so this is not a real backup."
+            exit 1
+          fi
+
+          pg_restore --list "$DUMP_FILE" > "$RUNNER_TEMP/backup/toc.txt"
+          for table in events schedules users; do
+            if ! grep -q "TABLE DATA public ${table} " "$RUNNER_TEMP/backup/toc.txt"; then
+              echo "::error::Archive has no data entry for public.${table}."
+              exit 1
+            fi
+          done
+          echo "DUMP_SIZE=$SIZE" >> "$GITHUB_ENV"
+          echo "DUMP_TABLES=$(grep -c 'TABLE DATA' "$RUNNER_TEMP/backup/toc.txt")" >> "$GITHUB_ENV"
+
+      - name: Upload to S3
+        env:
+          BUCKET: ${{ steps.bucket.outputs.name }}
+        run: |
+          set -euo pipefail
+          KEY="prod/$(basename "$DUMP_FILE")"
+          aws s3 cp "$DUMP_FILE" "s3://${BUCKET}/${KEY}" --only-show-errors
+
+          REMOTE_SIZE=$(aws s3api head-object --bucket "$BUCKET" --key "$KEY" --query ContentLength --output text)
+          if [ "$REMOTE_SIZE" != "$DUMP_SIZE" ]; then
+            echo "::error::Uploaded object is $REMOTE_SIZE bytes but the dump is $DUMP_SIZE bytes."
+            exit 1
+          fi
+          echo "S3_KEY=$KEY" >> "$GITHUB_ENV"
+
+      - name: Publish the result to the job summary
+        run: |
+          {
+            echo '### Production DB Backup'
+            echo ''
+            echo "- object: \`${S3_KEY}\` in the DbBackupBucket-prod bucket (expires after 30 days)"
+            echo "- size: ${DUMP_SIZE} bytes"
+            echo "- tables with data: ${DUMP_TABLES}"
+            echo "- schemas: public, drizzle, auth"
+            echo "- trigger: \`${{ github.event_name }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

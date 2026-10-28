@@ -141,11 +141,12 @@ test('FestgridBackendStack provisions correct resources', () => {
     },
   });
 
-  // 11. Story 0.33 / Architecture Spine AD-12: exactly 2 private S3 buckets — post-media
-  // (public-facing via CloudFront/OAC) and the Ops Backfill staging bucket (2026-09-05
-  // scraper-audit-trail incident, docs/infrastructure/incidents/2026-09-05-scraper-audit-trail-gap.md) —
-  // both with public access fully blocked.
-  template.resourceCountIs('AWS::S3::Bucket', 2);
+  // 11. Story 0.33 / Architecture Spine AD-12: exactly 3 private S3 buckets — post-media
+  // (public-facing via CloudFront/OAC), the Ops Backfill staging bucket (2026-09-05
+  // scraper-audit-trail incident, docs/infrastructure/incidents/2026-09-05-scraper-audit-trail-gap.md)
+  // and the DB Backup bucket (nightly pg_dump, .github/workflows/prod-db-backup.yml) —
+  // all with public access fully blocked.
+  template.resourceCountIs('AWS::S3::Bucket', 3);
   template.hasResourceProperties('AWS::S3::Bucket', {
     PublicAccessBlockConfiguration: {
       BlockPublicAcls: true,
@@ -174,6 +175,20 @@ test('FestgridBackendStack provisions correct resources', () => {
       ]),
     },
   });
+
+  // 11c. DB Backup Bucket specifically: SSE-S3 encrypted, dumps kept for 30 days, and exposed to the
+  // backup workflow through the dbBackupBucketName output.
+  template.hasResourceProperties('AWS::S3::Bucket', {
+    LifecycleConfiguration: {
+      Rules: Match.arrayWith([
+        Match.objectLike({
+          Status: 'Enabled',
+          ExpirationInDays: 30,
+        }),
+      ]),
+    },
+  });
+  template.hasOutput('dbBackupBucketName', {});
 
   // 12. Exactly 1 CloudFront distribution and 1 Origin Access Control fronting the bucket.
   template.resourceCountIs('AWS::CloudFront::Distribution', 1);

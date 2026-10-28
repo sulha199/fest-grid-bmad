@@ -4,7 +4,7 @@ import { db } from '../../db/client.js';
 import { apiKeys, users, vendorCallLocks } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError, setSleepForTest, sleepSeam } from './adapter.js';
-import { setDecryptApiKey, decryptApiKey } from './kms.js';
+import { setDecryptApiKey, decryptApiKey, KmsDecryptionError } from './kms.js';
 import { setCallGeminiGenerateContent, GeminiRateLimitedError, GeminiInvalidKeyError, callGeminiGenerateContent } from './gemini-client.js';
 import { VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
 
@@ -470,6 +470,47 @@ test('AI Gateway Adapter - Tier 2 and Billing Cycle Reset', async (t) => {
 
     assert.equal(updatedKeyA.usageCount, 8);
     assert.equal(updatedKeyB.usageCount, 3);
+  });
+
+  await t.test('Task 1.4: a key whose KMS decrypt fails is skipped without touching invalidAttempts, and the next candidate is used', async () => {
+    const decryptAttempts: string[] = [];
+    setDecryptApiKey(async (ciphertextBase64) => {
+      decryptAttempts.push(ciphertextBase64);
+      if (ciphertextBase64 === dbKeyA.keyEncrypted) {
+        throw new KmsDecryptionError('Failed to decrypt the stored API key with KMS.', new Error('simulated KMS outage'));
+      }
+      return Buffer.from(ciphertextBase64, 'base64').toString('utf-8');
+    });
+
+    const invokedKeys: string[] = [];
+    setCallGeminiGenerateContent(async (apiKey) => {
+      invokedKeys.push(apiKey);
+      return { text: 'Key B success after KMS failure on A' };
+    });
+
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKeyA.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKeyB.id));
+
+    const consoleError = console.error;
+    console.error = () => {};
+    let result;
+    try {
+      result = await callGemini({ provider: 'gemini', subscriberUserIds: [userA.id, userB.id], contents: 'Hello KMS failure' });
+    } finally {
+      console.error = consoleError;
+      // Later subtests in this suite rely on the plain base64 decrypt seam, not this failing one.
+      setDecryptApiKey(async (ciphertextBase64) => Buffer.from(ciphertextBase64, 'base64').toString('utf-8'));
+    }
+
+    assert.equal(result.text, 'Key B success after KMS failure on A');
+    assert.deepEqual(invokedKeys, ['key-b-secret'], 'the undecryptable key is never sent to the vendor');
+    assert.ok(decryptAttempts.includes(dbKeyA.keyEncrypted));
+
+    // A KMS failure is not a vendor verdict on the key: no invalid attempt, still valid.
+    const [updatedKeyA] = await db.select().from(apiKeys).where(eq(apiKeys.id, dbKeyA.id));
+    assert.equal(updatedKeyA.invalidAttempts, 0);
+    assert.equal(updatedKeyA.isValid, true);
+    assert.equal(updatedKeyA.usageCount, 2);
   });
 
   await t.test('Task 2: Billing cycle reset - elapsed usageCycleResetAt resets usageCount', async () => {

@@ -1,0 +1,212 @@
+name: Production DB Restore Test
+
+# Proves the newest Production DB Backup dump actually restores. A backup nobody has restored is
+# only a hope: this restores the dump from the private S3 bucket into a throwaway PostgreSQL 17
+# container, then compares the result with live production (scripts/compare-restored-db.sh: row
+# count per table within a tolerance, object counts exact). Nothing here writes to production; the
+# only production access is read-only count queries with the backup_ro role.
+#
+# Runs after every successful Production DB Backup (so every night), and on demand: Actions ->
+# Production DB Backup... -> Production DB Restore Test -> Run workflow. A manual run may name an
+# older dump in `dump_key`; production has moved on since then, so the live comparison is skipped
+# and only "it restores and the core tables are not empty" is checked.
+#
+# Restore prerequisites, found by the first rehearsal on 2026-10-28: the dump has no CREATE
+# EXTENSION entries, but public.events has a trigram index on `extensions.gin_trgm_ops`, so the
+# target needs `pg_trgm` in a schema named `extensions` first (without it that one index fails to
+# build). The target's own empty `public` schema is dropped because the dump creates it. If a
+# future migration needs another extension this job fails loudly at pg_restore (--exit-on-error):
+# add the extension to the "Prepare an empty target database" step and to the restore note in
+# docs/infrastructure/3-database.md.
+#
+# Second prerequisite, from migration 0084 (row level security): the dump contains CREATE POLICY ...
+# TO authenticated, and pg_dump never dumps roles, so the target needs the roles `anon` and
+# `authenticated` (Supabase provides them in production). Without them pg_restore stops with
+# `role "authenticated" does not exist`. They are created NOLOGIN in the same step.
+on:
+  workflow_run:
+    workflows: ['Production DB Backup']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      dump_key:
+        description: >-
+          Optional. S3 key of the dump to restore, e.g. prod/festgrid-prod-20261028T113619Z.dump.
+          Empty = the newest dump (and it must be less than 36 hours old).
+        required: false
+        type: string
+        default: ''
+
+# The job checks out the repository (for the comparison script) and reads nothing else from GitHub.
+permissions:
+  contents: read
+
+jobs:
+  restore-test:
+    name: Restore the newest dump and compare it with production
+    # A failed backup produced no new dump to test (its own run already reports the failure). The
+    # branch check keeps this job to runs of the backup workflow on master.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'master')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    concurrency:
+      group: prod-db-restore-test
+      cancel-in-progress: false
+    services:
+      postgres:
+        # Same major version as production (Supabase PostgreSQL 17.x on 2026-10-28); it ships the
+        # contrib modules, including pg_trgm. Keep in step with PG_MAJOR below.
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: restore-test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # pg_restore must be at least the dump's server major version (see prod-db-backup.yml).
+      PG_MAJOR: '17'
+      RESTORE_ADMIN_URL: postgresql://postgres:restore-test@localhost:5432/postgres
+      RESTORE_URL: postgresql://postgres:restore-test@localhost:5432/restore_test
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Resolve DB Backup Bucket name
+        id: bucket
+        run: |
+          NAME=$(aws cloudformation describe-stacks \
+            --stack-name FestgridBackendStack-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='dbBackupBucketName'].OutputValue" \
+            --output text)
+          if [ -z "$NAME" ] || [ "$NAME" = "None" ]; then
+            echo "::error::Could not resolve dbBackupBucketName from FestgridBackendStack-prod outputs."
+            exit 1
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      # Passed through the environment, never interpolated into the shell command, and validated
+      # below, so the input cannot inject shell syntax or reach another object in the bucket.
+      - name: Download the dump
+        env:
+          BUCKET: ${{ steps.bucket.outputs.name }}
+          DUMP_KEY_INPUT: ${{ inputs.dump_key }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/restore"
+
+          if [ -n "$DUMP_KEY_INPUT" ]; then
+            if ! [[ "$DUMP_KEY_INPUT" =~ ^prod/festgrid-prod-[0-9]{8}T[0-9]{6}Z\.dump$ ]]; then
+              echo "::error::dump_key must look like prod/festgrid-prod-<YYYYMMDD>T<HHMMSS>Z.dump."
+              exit 1
+            fi
+            KEY="$DUMP_KEY_INPUT"
+            echo "COMPARE_LIVE=false" >> "$GITHUB_ENV"
+            echo "::notice::Restoring the named dump $KEY; the live comparison is skipped because production has changed since."
+          else
+            KEY=''; MODIFIED=''
+            read -r KEY MODIFIED < <(aws s3api list-objects-v2 --bucket "$BUCKET" --prefix prod/ \
+              --query 'sort_by(Contents, &LastModified)[-1].[Key, LastModified]' --output text) || true
+            if [ -z "$KEY" ] || [ "$KEY" = "None" ]; then
+              echo "::error::The backup bucket has no dump under prod/."
+              exit 1
+            fi
+            AGE_HOURS=$(( ( $(date +%s) - $(date -d "$MODIFIED" +%s) ) / 3600 ))
+            echo "Newest dump: $KEY (${AGE_HOURS}h old)"
+            if [ "$AGE_HOURS" -ge 36 ]; then
+              echo "::error::The newest dump is ${AGE_HOURS}h old. The nightly backup has stopped producing dumps."
+              exit 1
+            fi
+            echo "COMPARE_LIVE=true" >> "$GITHUB_ENV"
+          fi
+
+          aws s3 cp "s3://${BUCKET}/${KEY}" "$RUNNER_TEMP/restore/dump.dump" --only-show-errors
+          echo "DUMP_KEY=$KEY" >> "$GITHUB_ENV"
+          echo "DUMP_SIZE=$(stat -c%s "$RUNNER_TEMP/restore/dump.dump")" >> "$GITHUB_ENV"
+
+      # Same PGDG install as prod-db-backup.yml: the runner image's client is older than 17.
+      - name: Install PostgreSQL client
+        run: |
+          set -euo pipefail
+          . /etc/os-release
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends "postgresql-client-${PG_MAJOR}"
+          echo "/usr/lib/postgresql/${PG_MAJOR}/bin" >> "$GITHUB_PATH"
+          "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_restore" --version
+
+      - name: Prepare an empty target database
+        run: |
+          set -euo pipefail
+          psql "$RESTORE_ADMIN_URL" -X -v ON_ERROR_STOP=1 -c "CREATE DATABASE restore_test"
+          psql "$RESTORE_URL" -X -v ON_ERROR_STOP=1 \
+            -c "DROP SCHEMA public" \
+            -c "CREATE SCHEMA extensions" \
+            -c "CREATE EXTENSION pg_trgm SCHEMA extensions" \
+            -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF; IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF; END \$\$"
+
+      # --no-owner / --no-privileges: the dump's objects belong to Supabase roles that do not exist
+      # here. --exit-on-error: any error means the backup is not fully restorable, so fail.
+      - name: Restore the dump
+        run: |
+          set -euo pipefail
+          START=$(date +%s)
+          pg_restore --no-owner --no-privileges --exit-on-error --dbname "$RESTORE_URL" "$RUNNER_TEMP/restore/dump.dump"
+          echo "RESTORE_SECONDS=$(( $(date +%s) - START ))" >> "$GITHUB_ENV"
+
+      # The comparison below needs a live source, which a named older dump cannot be compared to,
+      # so every run also gets this floor: the core tables must hold data.
+      - name: Check the core tables are not empty
+        run: |
+          set -euo pipefail
+          for table in events schedules users posts; do
+            COUNT=$(psql "$RESTORE_URL" -X -At -c "SELECT count(*) FROM public.${table}")
+            echo "public.${table}: ${COUNT} rows"
+            if [ "$COUNT" -eq 0 ]; then
+              echo "::error::public.${table} is empty after the restore."
+              exit 1
+            fi
+          done
+
+      - name: Compare with production
+        if: env.COMPARE_LIVE == 'true'
+        env:
+          LIVE_URL: ${{ secrets.PROD_BACKUP_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          PGCONNECT_TIMEOUT=30 scripts/compare-restored-db.sh "$RESTORE_URL" "$LIVE_URL" | tee "$RUNNER_TEMP/restore/compare.txt"
+
+      - name: Publish the result to the job summary
+        if: always()
+        run: |
+          {
+            echo '### Production DB Restore Test'
+            echo ''
+            echo "- dump: \`${DUMP_KEY:-none downloaded}\` (${DUMP_SIZE:-0} bytes)"
+            echo "- pg_restore: ${RESTORE_SECONDS:-not reached} s, into postgres:17 with --exit-on-error"
+            echo "- live comparison: ${COMPARE_LIVE:-not reached}"
+            echo "- trigger: \`${{ github.event_name }}\`"
+            if [ -f "$RUNNER_TEMP/restore/compare.txt" ]; then
+              echo ''
+              echo '```'
+              cat "$RUNNER_TEMP/restore/compare.txt"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
