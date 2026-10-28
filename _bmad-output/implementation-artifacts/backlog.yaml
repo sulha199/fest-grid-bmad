@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-28"
+last_updated: "2026-10-29"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -3007,3 +3007,52 @@ items:
      ref: [apps/backend/src/lib/scraper/instagram-adapter.ts, packages/domain/src/scraper/apify-memory-limit-wait.ts],
      touches: [app:backend, pkg:domain],
      note: "Fixed in the PR that adds this row (bounded wait inside the call budget, no row for a run that never started); set done once merged. 2026-10-25 03:13 UTC: 31 SYNC rows FAILED, 34 later SUCCEEDED via redelivery."}
+
+  # ── 2026-10-28 (dedup leftovers after PR #102, and the Erafone case for the insight POC) ──
+  IDEA-107:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: internal, effort: s,
+     title: "Expire pending match suggestions whose events are both over or that point at a merged or deleted event",
+     ref: [apps/backend/src/lib/events/drain-match-backlog.ts, apps/backend/src/drain-event-match-backlog.ts],
+     touches: [app:backend, web:moderation],
+     note: "Prod 2026-10-28: of 283 pending suggestions 190 are for events already over and 8 point at a merged or deleted event; only 93 involve an upcoming event. PR #102 skips such rows but never closes them."}
+
+  IDEA-108:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: latent, effort: m,
+     title: "Use the additive link for the mid-to-high promotion, not overwrite-and-prune (AD-30 Rule 7)",
+     ref: [packages/domain/src/events/match-scoring.ts, apps/backend/src/lib/events/set-event-primary-post.ts, planning-artifacts/architecture/architecture-festgrid-2026-10-25-curator-dedup/ARCHITECTURE-SPINE.md],
+     touches: [app:backend, pkg:domain],
+     note: "PR #102 follow-up: a promoted pair still takes the last-writer-wins link that prunes schedules the new post omits; only the stub-repeat rule links additively. Also what lets insight.tracks survive a merge (personalization Revision 10)."}
+
+  IDEA-109:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: latent, effort: m,
+     title: "Write an undo-journal row (event_merges) for ingestion-time auto-links, so a wrong high-tier link can be undone",
+     ref: [apps/backend/src/lib/ingestor/process-ingestion-job.ts, apps/backend/src/lib/events/merge-events.ts],
+     touches: [app:backend],
+     note: "PR #102: the ingestion high path links a post to an existing event without an event_merges row, so unlike a drain or moderator merge it cannot be undone; the only trace is the event_dedup_decision log line."}
+
+  IDEA-110:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: internal, effort: s,
+     title: "Treat venue spelling variants as one venue in the stub-repeat rule (Polytron Kudus, Hylo Open)",
+     ref: [packages/domain/src/events/match-scoring.ts, apps/backend/src/lib/events/scan-stub-repeats.ts],
+     touches: [pkg:domain, app:backend],
+     note: "Stub scan 2026-10-28: 100 near-misses stay apart; on the first scan 77 of 103 were two tournaments whose venue text is spelled two ways. A normalised venue key or an alias list would merge them."}
+
+  FIND-109:
+    {type: finding, status: backlog, created: 2026-10-28,
+     impact: internal, effort: s,
+     title: "PRD 3.18 does not describe the 2026-10-25 dedup rules (mid-to-high promotion, stub repeat, backlog drain); it covers exact repeats of one account only",
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, planning-artifacts/festgrid-architecture-spine.md, docs/infrastructure/7-event-dedup.md],
+     touches: [cross:prd],
+     note: "AD-30 Rule 7 and 7-event-dedup.md are current; PRD 3.18 predates PR #102 (cross-account stub repeat, shared-date promotion, drain). Run through bmad-prd; the 2026-10-28 event-report bullet is already in 3.18."}
+
+  IDEA-111:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: user-visible, effort: m,
+     title: "Insight POC case: the Erafone Run 2026 Yogyakarta family (12 live events): which are series or programme members and which only complement the main event",
+     ref: [backlog/IDEA-111-erafone-series-and-complementary-posts.md, backlog/IDEA-111-erafone-snapshot-2026-10-28.json, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md],
+     touches: [cross:ai-extraction, app:backend, web:events],
+     note: "Snapshot 2026-10-28 with every event and post id in backlog/IDEA-111-*.md and .json, to re-check after the race (2026-10-31). Proposed roles: 1 main, 4 reposts, 2 categories, 2 programme items, 2 pre-event, 1 unclear."}

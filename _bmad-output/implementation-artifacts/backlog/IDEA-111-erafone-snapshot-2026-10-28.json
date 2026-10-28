@@ -1,0 +1,481 @@
+{
+  "captured": "2026-10-28",
+  "backlogId": "IDEA-111",
+  "source": "https://fest-grid.vercel.app/en?q=erafone ; public GraphQL events(filter:{keyword:\"erafone\"}) and eventBySlug(slug)",
+  "note": "Names, dates, accounts and ids only; no captions. Roles are a proposal from names, dates, accounts and categories.",
+  "liveEvents": [
+    {
+      "role": "MAIN",
+      "why": "The organizer's own race post (primary, organizer-authored, 3 posts across 2 accounts). Everything else hangs off it.",
+      "eventId": "193c3095-2b43-4df0-b109-a9b5fc8adf20",
+      "slug": "ig_p_Deges-ppkj_",
+      "name": "Erafone Run 2026 Yogyakarta Series",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-31",
+          "eventStartTime": null,
+          "eventEndDate": null,
+          "location": "Museum Gunungapi Merapi, Yogyakarta"
+        }
+      ],
+      "account": "erafone.run",
+      "posts": [
+        {
+          "platformPostId": "Deges-ppkj_",
+          "postId": "909d6569-13a4-4fa5-a27a-40a6a50b9309",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "DepKUx4mNbs",
+          "postId": "9fe0d3ef-d9a0-47d9-8c3e-41535d4b85e8",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "myrace.organizer"
+        },
+        {
+          "platformPostId": "De9ZQgHmGEb",
+          "postId": "de672307-653f-4f6b-bb2e-bf0ce24c3685",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "CATEGORY",
+      "why": "5K on race day (16:15). A category of the main event: by the 2026-10-28 owner decision it complements the main event as a track (5K), it is not a separate event.",
+      "eventId": "d840f229-293d-456f-8d70-75cc05d549c0",
+      "slug": "ig_p_DetI5f1mHw8",
+      "name": "Erafone Run 2026 - 5K Yogyakarta Series",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-31",
+          "eventStartTime": "16:15:00",
+          "eventEndDate": null,
+          "location": null
+        }
+      ],
+      "account": "erafone.run",
+      "posts": [
+        {
+          "platformPostId": "DetI5f1mHw8",
+          "postId": "3ba0e8b8-672c-4ead-8606-8e91acbd3459",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "erafone.run"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "CATEGORY",
+      "why": "10K on race day (16:00). Same as the 5K: a track of the main event.",
+      "eventId": "6f3befc9-2743-4d38-ad75-0b45c285c5aa",
+      "slug": "ig_p_Des6xstmDdE",
+      "name": "Erafone Run 2026 - Yogyakarta Series (10K)",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-31",
+          "eventStartTime": "16:00:00",
+          "eventEndDate": null,
+          "location": null
+        }
+      ],
+      "account": "erafone.run",
+      "posts": [
+        {
+          "platformPostId": "Des6xstmDdE",
+          "postId": "97b1b216-f002-4ebe-9e66-ef9ea34da3d8",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "erafone.run"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "PROGRAMME",
+      "why": "Zumba with a named instructor, 16:50 on race day; 7 posts from the organizer account. A different activity under the race umbrella.",
+      "eventId": "8d07edec-bba5-4858-a22d-566e8ef6430f",
+      "slug": "ig_p_DeZM9RjmFDR",
+      "name": "Zumba bersama Zin Elda at Erafone Run 2026 Yogyakarta Series",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-31",
+          "eventStartTime": "16:50:00",
+          "eventEndDate": null,
+          "location": "Museum Gunungapi Merapi Yogyakarta"
+        }
+      ],
+      "account": "erafone.run",
+      "posts": [
+        {
+          "platformPostId": "DeZM9RjmFDR",
+          "postId": "f36cf255-f362-4dd5-a4bd-2c5a3909afd4",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "DebmTdemD0T",
+          "postId": "c0448cc8-c8ef-4585-b0a8-ba9f59880335",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "DebHU6OmKBQ",
+          "postId": "2e2178fb-7788-4eea-9dff-d30c906a82f4",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "DebAidImM2n",
+          "postId": "9bbd7576-0a98-4505-a5b4-31fdde0f5ed3",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "DebVKyQmCck",
+          "postId": "cf484492-b038-43af-a05e-a662e1f82dd6",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "DebdpcHGDk2",
+          "postId": "857262fa-275c-462d-94ac-93d54332767b",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "De3p0RGGCW2",
+          "postId": "e41b67df-1693-4b62-a658-b6ad5d7b49fb",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "PROGRAMME",
+      "why": "Music Performance: a second event extracted from the SAME post as the main event; a different activity with its own audience, 16:20 on race day.",
+      "eventId": "9e17d813-633f-4c3f-96b8-bffdb97fabf0",
+      "slug": "ig_p_Deges-ppkj_~1",
+      "name": "erafone Run 2026 Yogyakarta Series - Music Performance",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-31",
+          "eventStartTime": "16:20:00",
+          "eventEndDate": null,
+          "location": "Museum Gunungapi Merapi, Yogyakarta"
+        }
+      ],
+      "account": "erafone.run",
+      "posts": [
+        {
+          "platformPostId": "Deges-ppkj_",
+          "postId": "909d6569-13a4-4fa5-a27a-40a6a50b9309",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "DeqqeVGmHkv",
+          "postId": "84c94fe8-526a-4e63-b53f-95993bfd186f",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "myrace.organizer"
+        },
+        {
+          "platformPostId": "De9E8KymKq9",
+          "postId": "7ea79d1d-1a99-440a-9fb7-55f752dff3e5",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "PRE-EVENT",
+      "why": "A video content challenge tied to the race pack collection (2026-10-28, no place). Another activity of the programme.",
+      "eventId": "be8f727d-6e17-4595-8e0f-c454236533fa",
+      "slug": "ig_p_DeyLr38mKW4",
+      "name": "Race Pack Collection Video Content Challenge - Erafone Run 2026 Yogyakarta Series",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-28",
+          "eventStartTime": null,
+          "eventEndDate": "2026-10-30",
+          "location": null
+        }
+      ],
+      "account": "erafone.run",
+      "posts": [
+        {
+          "platformPostId": "DeyLr38mKW4",
+          "postId": "2f293b18-6293-4fdb-83ce-9dbc8de06337",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "erafone.run"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "PRE-EVENT",
+      "why": "Race Pack Collection, 2026-10-28 12:00 at a mall, posted by the race organizer account. Presumably for registered runners; a different date and place, so it belongs to the programme, not to the race-day event.",
+      "eventId": "b24ccec4-c9ab-47a8-8ae2-be806afd592a",
+      "slug": "ig_p_Deq4tXAmKX4",
+      "name": "erafone Run 2026 Yogyakarta Series - Race Pack Collection",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-28",
+          "eventStartTime": "12:00:00",
+          "eventEndDate": "2026-10-30",
+          "location": "Plaza Ambarrukmo Mall Jogja, Mini Atrium - Hall A-B, Lantai 2"
+        }
+      ],
+      "account": "myrace.organizer",
+      "posts": [
+        {
+          "platformPostId": "Deq4tXAmKX4",
+          "postId": "536ba386-1775-43aa-8541-43badd2d96ef",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "myrace.organizer"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "UNCLEAR",
+      "why": "Same name as the main event but dated 2026-10-30 with a city-level place. Could be the day before the race (expo or pack collection day two). Open the post before deciding.",
+      "eventId": "1a756a6b-207d-471f-a1a4-c20446e8e41d",
+      "slug": "ig_p_De1V1jOoOUv",
+      "name": "Erafone Run 2026 Yogyakarta Series",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-30",
+          "eventStartTime": null,
+          "eventEndDate": null,
+          "location": null
+        }
+      ],
+      "account": "erafone.run",
+      "posts": [
+        {
+          "platformPostId": "De1V1jOoOUv",
+          "postId": "db4d7e16-6319-4fbc-bd15-14459cb674b8",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "erafone.run"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "REPOST",
+      "why": "Probably a repost (another account, name in capitals, race-day date and venue). Account type not checked.",
+      "eventId": "740e250b-5ab6-4e84-b116-ba0b08a133fe",
+      "slug": "ig_p_De5-FdRBKy6",
+      "name": "ERAFONE RUN 2026",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-31",
+          "eventStartTime": null,
+          "eventEndDate": null,
+          "location": "Museum Gn Merapi Yogyakarta"
+        }
+      ],
+      "account": "stefanieprior",
+      "posts": [
+        {
+          "platformPostId": "De5-FdRBKy6",
+          "postId": "6ec8b38c-8c19-4898-9d03-84b180067225",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "stefanieprior"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "REPOST",
+      "why": "A curator repost of the main event, different spelling of the name.",
+      "eventId": "ae380658-a391-4a96-a076-4c6bdff3c5b5",
+      "slug": "ig_p_DenwVJloExf",
+      "name": "erafone Run 2026",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-31",
+          "eventStartTime": null,
+          "eventEndDate": null,
+          "location": "Museum Gunungapi Merapi Yogyakarta"
+        }
+      ],
+      "account": "infoeventjogja",
+      "posts": [
+        {
+          "platformPostId": "DenwVJloExf",
+          "postId": "f8ad60e2-d132-4dfe-bf99-fde03a37bf2b",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "infoeventjogja"
+        }
+      ],
+      "inTodaysList": true
+    },
+    {
+      "role": "REPOST",
+      "why": "Legacy event from 2026-08-31 with no source post and a slug without the ig_ prefix; \"Chapter Yogyakarta\" is the only evidence of a series name above the Yogyakarta chapter.",
+      "eventId": "50614e70-9a87-4c4e-8fa7-4627a55f6cea",
+      "slug": "b4cf163405d7",
+      "name": "erafone Run 2026 Chapter Yogyakarta",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-31",
+          "eventStartTime": null,
+          "eventEndDate": null,
+          "location": "Museum Gunungapi Merapi, Yogyakarta"
+        }
+      ],
+      "account": "infoeventjogja",
+      "posts": [],
+      "inTodaysList": true
+    },
+    {
+      "role": "REPOST",
+      "why": "A curator repost of the main event (two accounts now: the second post was merged in by the 2026-10-28 drain). A duplicate across accounts, which the current dedup rules do not link.",
+      "eventId": "bae556ef-eb9e-4dff-9b8d-b8c66e8bb6cb",
+      "slug": "ig_p_DeeBrOrmHw7",
+      "name": "erafone Run 2026 Yogyakarta Series",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-31",
+          "eventStartTime": null,
+          "eventEndDate": null,
+          "location": "Museum Gunungapi Merapi Yogyakarta"
+        }
+      ],
+      "account": "laridijogja",
+      "posts": [
+        {
+          "platformPostId": "DeeBrOrmHw7",
+          "postId": "d37e1d22-da3a-4276-8afc-6991a4232b74",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "laridijogja"
+        },
+        {
+          "platformPostId": "DeeiPxlEv7u",
+          "postId": "7f4cd7f2-5e72-49fe-bc8e-247e39fbd32a",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "wisatasleman"
+        }
+      ],
+      "inTodaysList": true
+    }
+  ],
+  "pastEvents": [
+    {
+      "role": "PAST",
+      "why": "Past (2026-10-20): the 5K posts of the organizer account. Absorbed the plain \"Yogyakarta Series\" post (Det7EEsIRu7) in the 2026-10-28 drain. The 5K therefore exists as TWO events: this one dated 2026-10-20 (possibly a registration date) and the race-day 5K above. Only 11 days apart, so no rule links them.",
+      "eventId": "72f21a9b-6d1f-44c6-9ad8-09522aad89c2",
+      "slug": "ig_p_DetWr5oGOKq",
+      "name": "Erafone Run 2026 Yogyakarta Series - 5K",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-20",
+          "eventStartTime": null,
+          "location": null
+        }
+      ],
+      "posts": [
+        {
+          "platformPostId": "DetWr5oGOKq",
+          "postId": "c92305f1-7954-4b07-b78c-c0234d443d09",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "Det7EEsIRu7",
+          "postId": "adb9e4b1-6bbf-4437-b70d-94923b81a12e",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "Det8LyLIhn9",
+          "postId": "2a88d825-7b6e-473e-b03e-d59ac51cc1ab",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "Det77N1oh7e",
+          "postId": "e7368288-de3c-4237-97ec-cc64f63b73d5",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "Det7pDnoo_I",
+          "postId": "917c06c2-6401-4c40-882a-7d83e3309779",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "De5XupxEtLb",
+          "postId": "0f5d5c05-6f34-4eb3-851a-3c5ccf79a8f9",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        }
+      ],
+      "inTodaysList": false
+    },
+    {
+      "role": "PAST",
+      "why": "Past (2026-10-26): two organizer posts about the same \"Yogyakarta Series\" day at \"Kaki Merapi, Yogyakarta\"; merged by the 2026-10-28 drain.",
+      "eventId": "af59b27c-f7c5-43e3-b2cc-b9f188fdd7c2",
+      "slug": "ig_p_De8fZ4cmL-G",
+      "name": "erafone Run 2026 Yogyakarta Series",
+      "schedules": [
+        {
+          "eventStartDate": "2026-10-26",
+          "eventStartTime": null,
+          "location": null
+        }
+      ],
+      "posts": [
+        {
+          "platformPostId": "De8fZ4cmL-G",
+          "postId": "419fd523-a81d-4e95-bd8f-15699bce2efd",
+          "isPrimary": true,
+          "postType": "p",
+          "account": "erafone.run"
+        },
+        {
+          "platformPostId": "De9lhEomNse",
+          "postId": "6a193697-9c61-4fea-98d7-7e4cbdcbf049",
+          "isPrimary": false,
+          "postType": "p",
+          "account": "erafone.run"
+        }
+      ],
+      "inTodaysList": false
+    }
+  ]
+}
