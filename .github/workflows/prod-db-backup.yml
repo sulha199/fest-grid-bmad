@@ -20,8 +20,14 @@ name: Production DB Backup
 # What is dumped: schemas public (the app), drizzle (the migration journal) and auth (Supabase
 # Auth users). storage and vault are empty today and are left out; add them below if that changes.
 #
-# Restore (the dump is custom format, so roles and ownership are decided at restore time):
-#   pg_restore --no-owner --no-privileges --dbname "$TARGET_URL" festgrid-prod-<timestamp>.dump
+# Restore (the dump is custom format, so roles and ownership are decided at restore time). The
+# target must be a PostgreSQL 17+ database with no `public` schema and with pg_trgm installed in a
+# schema named `extensions` (the dump has no CREATE EXTENSION entries, and an index on
+# public.events uses `extensions.gin_trgm_ops`):
+#   psql "$TARGET_URL" -c "DROP SCHEMA public" -c "CREATE SCHEMA extensions" \
+#        -c "CREATE EXTENSION pg_trgm SCHEMA extensions"
+#   pg_restore --no-owner --no-privileges --exit-on-error --dbname "$TARGET_URL" festgrid-prod-<timestamp>.dump
+# prod-db-restore-test.yml does exactly this after every backup and compares the result with prod.
 #
 # Retention: the bucket expires every object after 30 days (CDK lifecycle rule). A failed scheduled
 # run makes GitHub e-mail the person who last edited this workflow's schedule.
