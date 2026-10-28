@@ -11,4 +11,15 @@
 The `postgres()` client in `apps/backend/src/db/client.ts` **must** be constructed with `prepare: false` whenever pointed at a transaction-mode pooler — prepared statements can't be reused across the backend connections the pooler rotates between queries.
 
 See [incident: connection pool exhaustion, 2026-08-27](./incidents/2026-08-27-connection-pool-exhaustion.md) for the investigation that surfaced this.
-
+
+## Row Level Security
+
+Every table in the `public` schema has row level security (RLS) enabled (migration `0084_enable_row_level_security.sql`). Supabase publishes `public` through an automatic REST API that the public anon key can call, so RLS is the lock that keeps that API from returning rows. The web app does not use that API for data (all data goes through the GraphQL backend), and the backend connects as the table owner, which bypasses RLS, so the app is unaffected.
+
+- A signed-in user can read their own `users` row, `user_settings`, `user_locations`, `subscriptions` and `calendar_additions`, and read and write their own `favorites` (`users.id` is the Supabase auth uid, so `auth.uid()` compares directly).
+- `api_keys`, `fcm_tokens`, `prompt_filter_rate_limits` and all scraper, moderation and catalog tables have no policy, so they are server-only.
+- `apps/backend/src/db/row-level-security.test.ts` fails CI if any table in `public` has RLS disabled. A migration that creates a table must also enable RLS on it.
+
+The manual Supabase and AWS steps for rolling this out are in [supabase-rls-and-kms-rollout.md](./supabase-rls-and-kms-rollout.md).
+
+---
