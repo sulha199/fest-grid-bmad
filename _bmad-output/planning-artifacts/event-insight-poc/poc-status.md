@@ -62,6 +62,7 @@ Backlog IDEA-106 (detail in `implementation-artifacts/backlog/IDEA-106-event-rep
 Personalization plan Revision 11; backlog IDEA-111 (the Erafone Run 2026 Yogyakarta family, every event and post id recorded for a re-check after the race on 2026-10-31).
 
 - **Prototype:** `merge-event-insight.ts` (+ test, 9 cases): the insight of one event from the insights of its posts. Organizer posts count, curator reposts only when there is no organizer post (sensitive topic excepted), a `report` post adds nothing; tracks are a union by label, cost is the cheapest tier, interests and stated areas are unions, and a clash keeps the primary post's value and is reported. The rules are a PROPOSAL until the owner answers the four questions at the end of Revision 11.
+- **Provisional:** the prototype merges a cost TIER (cheapest). Owner decision 2026-10-29 (plan Revision 12, IDEA-114): prices are stored as lines per track in the original currency and the bands are applied per country at read time, so the prototype's cost rule and the POC's `costTier` / `cost_tier` are to be replaced by price lines; the label sheet change (`price_min`, `price_max`, `price_currency`) is proposed, not made.
 - **Not done:** the production version in `packages/domain`, storing each post's insight (Revision 11 #34), and a POC measurement of how often the posts of one event disagree (needs the owner's labels and the Erafone organizer posts as a labelled stratum).
 
 ## What the owner does next

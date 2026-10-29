@@ -3071,6 +3071,15 @@ items:
     {type: idea, status: backlog, created: 2026-10-29,
      impact: latent, effort: m,
      title: "Per-account monthly intake limit: ring an alarm at a soft limit and stop scraping the account at a hard limit",
-     ref: [backlog/IDEA-113-per-account-monthly-intake-limit.md, backlog/IDEA-112-one-account-must-not-flood-discovery.md, apps/backend/src/lib/scraper/usage-store.ts, packages/domain/src/scraper/account-classification.ts, apps/infrastructure/lib/festgrid-backend-stack.ts],
+     ref: [planning-artifacts/open-core-split-plan-2026-10-21.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, apps/backend/src/lib/scraper/usage-store.ts, packages/domain/src/scraper/account-classification.ts, apps/infrastructure/lib/festgrid-backend-stack.ts, backlog/IDEA-112-one-account-must-not-flood-discovery.md, backlog/IDEA-113-per-account-monthly-intake-limit.md],
      touches: [app:backend, pkg:domain, app:infrastructure],
-     note: "Owner 2026-10-29: alarm when an account posts too much in a month; stop scraping it that month at a hard limit. Prod 30 days: median 1 post, p90 7, p99 96, max 318 (a mall, 162 events), so a limit needs headroom or an override. Data and options in the detail file."}
+     note: "Owner 2026-10-29: alarm at a soft limit, stop scraping at a hard limit. Part of personalisation and the BYOK to paid-product move (CC-032, IDEA-094): cost control now, a plan entitlement later. Prod 30 days: median 1 post, p99 96, max 318."}
+
+  # ── 2026-10-29 (owner: price per track in the original values; the app must scale to other countries) ──
+  IDEA-114:
+    {type: idea, status: backlog, created: 2026-10-29,
+     impact: user-visible, effort: m,
+     title: "Store price lines per track in the original currency and derive price bands per country at read time (cost as a list, not a stored tier)",
+     ref: [planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, apps/backend/scripts/poc-event-insight/audience-insight.ts, backlog/IDEA-114-price-lines-per-track-original-currency.md],
+     touches: [cross:ai-extraction, app:backend, pkg:domain, web:events],
+     note: "Owner 2026-10-29: price per track keeps the original amount and currency; the price filter bands are tuned per country at read time. Replaces a stored cost tier; also fixes the Rp cut-offs in the POC prompt and the isFree match on free/gratis only."}

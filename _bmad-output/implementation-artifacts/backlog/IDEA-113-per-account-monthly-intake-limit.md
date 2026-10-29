@@ -64,3 +64,19 @@ Proposal: no separate "repeat" flag. A repeat is already collapsed by dedup, and
 4. Count posts, or events produced? Posts measure the cost; events measure the user-facing flood. Proposal: posts for the stop, events for the display cap.
 
 Related: IDEA-112 (display cap and repeats), IDEA-085 (exact-repeat merge), IDEA-084 (event groups), PRD 3.18, 3.19 and 3.8, AD-34, AD-43.
+
+## Where this belongs: personalisation and the move from BYOK to a paid product (owner, 2026-10-29)
+
+The owner asked to document the limit as part of the personalisation track and of the migration from BYOK (subscribers' own Gemini keys) to a paid product.
+
+| Phase | Who pays for a scraped post | What the limit does |
+|---|---|---|
+| Today (BYOK) | scraping: the platform's provider budget; extraction: the subscribers' own Gemini keys | protects subscribers' key quota (rate and daily limits) from one noisy account, and the provider budget |
+| Paid product (CC-032, the cost-model decision: platform-paid, user-paid or hybrid) | the platform pays scraping, extraction and the insight backfill | the cost control per account: a hard limit bounds what one account can cost in a month; the limit values become plan entitlements (IDEA-094) |
+| Personalisation (plan Phase B) | n/a | the display cap (IDEA-112) is a bounded term in the default ordering, next to freshness and "already seen"; a flooding account would also distort the interest profile learned from favorites |
+
+Design consequence: the limits are DATA, not constants: a default, a value per plan, and a per-account override with who set it and when, so the paid product can sell and adjust them without a deploy.
+
+Open (for the cost-model decision, CC-032): what a subscriber on the free plan may follow, and how many posts a month that buys. The 30-day data above is the starting point for that sizing.
+
+Related: CC-032 (cost model), IDEA-094 (open-core split, entitlements), personalization plan (Revision 12).
