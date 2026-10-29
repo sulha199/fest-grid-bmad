@@ -3056,3 +3056,12 @@ items:
      ref: [backlog/IDEA-111-erafone-series-and-complementary-posts.md, backlog/IDEA-111-erafone-snapshot-2026-10-28.json, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md],
      touches: [cross:ai-extraction, app:backend, web:events],
      note: "Snapshot 2026-10-28 with every event and post id in backlog/IDEA-111-*.md and .json, to re-check after the race (2026-10-31). Proposed roles: 1 main, 4 reposts, 2 categories, 2 programme items, 2 pre-event, 1 unclear."}
+
+  # ── 2026-10-29 (owner: an account could abuse repeated posting) ──
+  IDEA-112:
+    {type: idea, status: backlog, created: 2026-10-29,
+     impact: user-visible, effort: m,
+     title: "Keep one account from flooding Discovery: collapse repeats and cap per-account volume in the default list (a risk; no abusive case seen yet)",
+     ref: [backlog/IDEA-112-one-account-must-not-flood-discovery.md, backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
+     touches: [app:backend, web:events, pkg:domain],
+     note: "Owner 2026-10-29: no spam example yet, but a travel agent could repost the same or similar tours. Already 41 same-account identical-name same-date groups (90 of 671 upcoming events) show twice; exact-repeat merge (IDEA-085) and series collapse (IDEA-084) are unbuilt; no per-account cap."}
