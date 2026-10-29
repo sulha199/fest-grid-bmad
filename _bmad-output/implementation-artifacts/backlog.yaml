@@ -3065,3 +3065,12 @@ items:
      ref: [backlog/IDEA-112-one-account-must-not-flood-discovery.md, backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
      touches: [app:backend, web:events, pkg:domain],
      note: "Owner 2026-10-29: no spam example yet, but a travel agent could repost the same or similar tours. Already 41 same-account identical-name same-date groups (90 of 671 upcoming events) show twice; exact-repeat merge (IDEA-085) and series collapse (IDEA-084) are unbuilt; no per-account cap."}
+
+  # ── 2026-10-29 (owner: limits also at scraping) ──
+  IDEA-113:
+    {type: idea, status: backlog, created: 2026-10-29,
+     impact: latent, effort: m,
+     title: "Per-account monthly intake limit: ring an alarm at a soft limit and stop scraping the account at a hard limit",
+     ref: [backlog/IDEA-113-per-account-monthly-intake-limit.md, backlog/IDEA-112-one-account-must-not-flood-discovery.md, apps/backend/src/lib/scraper/usage-store.ts, packages/domain/src/scraper/account-classification.ts, apps/infrastructure/lib/festgrid-backend-stack.ts],
+     touches: [app:backend, pkg:domain, app:infrastructure],
+     note: "Owner 2026-10-29: alarm when an account posts too much in a month; stop scraping it that month at a hard limit. Prod 30 days: median 1 post, p90 7, p99 96, max 318 (a mall, 162 events), so a limit needs headroom or an override. Data and options in the detail file."}
