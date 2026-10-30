@@ -788,3 +788,30 @@ Not implemented here per this investigation's explicit scope (investigation only
   summary: The fake-auth stub serves only the JWKS: it does not emulate `/auth/v1/user` or `/auth/v1/token`, so a future `auth.getUser()` or token refresh in the app would treat the fake session as signed out; the stub port (54321) is fixed and not configurable.
   evidence: Surfaced by Blind Hunter and Edge Case Hunter. The app today only calls `getSession()` (verified by grep) and the minted tokens last 30 days, so nothing breaks now; the port clash now fails with an explanatory message.
 
+
+## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: Piece B of the AI-assisted dedup review: the dark bridge -- domain contract (decision validator, cap, evidence hash), export and apply scripts, the two GitHub Actions workflows, a dedicated environment and moderator user, a deterministic floor and per-day cap, the new AD, the PRD amendment and docs.
+  evidence: Split from Piece A (shared `resolveSuggestedMatch`) after an architecture review and an adversarial code review both advised a split: A changes the live moderator mutation, B is the only DB-write bridge. All review requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 5. Depends on A.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: Piece C of the AI-assisted dedup review: the `festgrid-dedup-review` skill, escalation issues and labels, the rolling `dedup-insight` issue and shadow-mode acceptance; `review-insights` (C2) follows once labelled issues exist.
+  evidence: Split from the same spec: C cannot be accepted until B's workflows are on `master`, and it is prose rather than code. Requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 6. Depends on B.
+
+## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-pipeline (2026-10-30)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: The backlog drain (`drain-match-backlog.ts`) calls `mergeEvents(..., suggestionId)` directly, so it takes no suggestion row lock, and `mergeEvents` step 11 flips the suggestion to `accepted` with no `status = 'pending'` guard; a drain can overwrite a moderator's concurrent REJECT or double-merge against a concurrent accept.
+  evidence: Surfaced by Edge Case Hunter and Blind Hunter. Pre-existing (the drain and step 11 predate this change); the spec forbids new callers of `resolveSuggestedMatch` and changes to `mergeEvents`. Fix: route the drain through `resolveSuggestedMatch(executor, ...)` and add the pending guard to step 11.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: The suggestion row lock does not cover the two events: `assertMergeable` reads them unlocked, so two different pending suggestions that share an event (X into W1 and X into W2), resolved concurrently, can both pass the check and merge X twice or hit a unique violation.
+  evidence: Surfaced by Edge Case Hunter and Blind Hunter. Pre-existing inside `mergeEvents` (Ask First in the spec); the new function does not make it worse. Fix: lock both event rows in id order before the mergeable check.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: `trigger-brightdata-for-target.test.ts` "returns CAPACITY_EXHAUSTED when capacity unavailable" fails in the cloud sandbox (it gets `TRIGGER_ERROR`, so `isProviderCapacityAvailable('brightdata')` throws), and fails the same way on the pre-change source.
+  evidence: Found by the lint/build/test gate, not by review; reproduced at baseline commit 640aeed with this change's source reverted. Cause not investigated. Update 2026-10-30: CI passes this test on the PR head, so it is specific to the cloud sandbox (state or environment), not a defect on master. The rest of the backend suite passed (1,721 of 1,727, 4 skipped).
+
+## Deferred from: bmad-quick-dev gate after merging master into the shared accept/reject change (2026-10-30)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: Two `scraper.test.ts` tests fail on origin/master as merged (e0a0b10): "the batch row records why a cycle found no targets, and only then" and its parent "scraper lambda daily-batch branch: scheduled cycle vs manual invoke (2026-10-24)"; the logged cutoff is `1999-12-31T23:00:00.000Z` where the test expects `2000-01-01T00:00:00.000Z`, one hour earlier.
+  evidence: Found by the backend test gate; reproduced by running the file against master's own `apps/backend/src` (24 pass, 2 fail) with `TZ=UTC`. Not in the earlier run before master's scraper commit a5cfa20, so it first looked like a code-versus-test mismatch from that commit; update 2026-10-30: CI passes both tests on the PR head, so this is specific to the cloud sandbox and not a master defect. Cause not found.

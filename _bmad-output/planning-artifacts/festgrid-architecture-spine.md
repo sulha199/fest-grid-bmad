@@ -1898,6 +1898,29 @@ This document defines the core architectural invariants for the FestDaily applic
         **no server-side expiry** (it rejects only an unknown or already-undone journal row), so
         undo stays callable after the toast closes. This is the accepted behavior; adding a server
         expiry is a spine amendment.
+        **Amended 2026-10-30 (one accept/reject entry point; design record:
+        `_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece A).** A moderator's accept or reject of a pending
+        suggestion is `resolveSuggestedMatch()` (`apps/backend/src/lib/events/resolve-suggested-match.ts`);
+        `Mutation.resolveSuggestedEventMatch` calls it. It runs
+        in a **caller-owned transaction**, reads the suggestion `FOR UPDATE` and rechecks `pending`,
+        so a concurrent resolve **of the same row** (a second moderator, or a script) waits and then
+        sees the row is no longer pending. Before this, the pending check ran outside the transaction and neither the
+        accept flip nor REJECT guarded on `pending`, so a REJECT made between the check and the merge
+        was overwritten to `accepted`; REJECT now runs in the same transaction as ACCEPT, the one
+        intended behavior change. Errors are typed (`SuggestedMatchNotFoundError`,
+        `SuggestedMatchNotPendingError`, `SuggestedMatchInvalidActionError`; `EventMergeInvalidStateError`
+        passes through) and the resolver maps them to its unchanged GraphQL codes. **Enforced by**
+        `suggested-match-resolve-ratchet.test.ts`: only `merge-events.ts`, `resolve-suggested-match.ts` and the
+        expiry writer `expire-match-suggestions.ts` (IDEA-107; its UPDATE keeps its own `pending` guard, which
+        the ratchet pins) may update `event_match_candidates` (a regex scan of the non-test `.ts` files under `apps/backend/src`: drizzle update or upsert, an import, destructuring or assignment alias,
+        a namespace import or bracket access, or raw SQL), and `resolvers.ts` must call `resolveSuggestedMatch()` and
+        never `mergeEvents()` directly. **Known gaps, deferred (BUG-094):** the ratchet does not catch
+        another file calling `mergeEvents(..., suggestionId)`, and the backlog drain
+        (`drain-match-backlog.ts`) does, so it takes no suggestion lock and `mergeEvents` step 11 has no
+        `pending` guard (a drain can overwrite a concurrent REJECT); and the lock covers the suggestion
+        row only, not the two events, so two different suggestions that share an event, resolved at
+        the same time, can both pass the mergeable check. A second caller (an operator script or the
+        planned AI-assisted review) adopts the same function.
     10. **Notifications are per event, with one marker.** `events.notified_at` is set by one
         notify helper and nowhere else. An event notifies at ingestion iff its primary post's
         `grouping_reason` is not `roundup` and the post is not curator-sourced (AD-31 Rule 3

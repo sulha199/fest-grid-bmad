@@ -2605,3 +2605,44 @@ items:
      touches: [app:backend],
      note: "2026-10-29: 21 of 38 snapshots took 5-6 h. Options: longer expiry, or have the sweep wait for a snapshot Bright Data still reports as running."}
 
+  # ── 2026-10-30 (moderator dedup queue: AI-assisted review, pieces B and C of the split spec) ──
+  FIND-107:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: internal, effort: m, blocks: [FIND-104],
+     title: "AI dedup review piece B: export and apply workflows, domain contract, dedicated moderator, new AD and PRD amendment",
+     ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
+     touches: [app:backend, app:infrastructure, web:moderation, cross:architecture, cross:prd, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs Piece A (shared resolveSuggestedMatch) first; requirements in DESIGN.md section 5. 1 finding."}
+
+  FIND-104:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: user-visible, effort: s,
+     title: "AI dedup review piece C: daily festgrid-dedup-review skill, escalation issues and insight log",
+     ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
+     touches: [web:moderation, cross:process, cross:ai-extraction],
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs FIND-107 on master first; requirements in DESIGN.md section 6; review-insights follows later. 1 finding."}
+
+  # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
+  BUG-094:
+    {type: bug, status: backlog, created: 2026-10-30,
+     impact: latent, effort: s,
+     title: "Suggested-match merges outside resolveSuggestedMatch skip the row lock and pending guard, and event rows are never locked",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/events/drain-match-backlog.ts, apps/backend/src/lib/events/merge-events.ts],
+     touches: [app:backend, web:moderation, cross:architecture],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-pipeline (2026-10-30). Drain and mergeEvents step 11 first, then lock both events in assertMergeable. 2 findings."}
+
+  FIND-105:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: internal, effort: xs,
+     title: "trigger-brightdata-for-target capacity test fails in the cloud sandbox (passes in CI)",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/scraper/__tests__/trigger-brightdata-for-target.test.ts],
+     touches: [app:backend],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-pipeline (2026-10-30). Gets TRIGGER_ERROR in the sandbox only; CI passes it; cause not investigated. 1 finding."}
+
+  FIND-106:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: internal, effort: xs,
+     title: "scraper.test.ts daily-batch cutoff test fails in the cloud sandbox (passes in CI): cutoff one hour earlier than expected",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lambdas/scraper.test.ts],
+     touches: [app:backend],
+     note: "Deferred from: bmad-quick-dev gate after merging master into the shared accept/reject change (2026-10-30). Sandbox-only: CI passes it, master's source fails it here too; cause unknown. 1 finding."}

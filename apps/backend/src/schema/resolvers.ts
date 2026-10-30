@@ -55,7 +55,13 @@ import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
 import { applyDefaultLocationChange } from '../lib/accounts/apply-default-location-change.js';
 import { resolveFilterExpressionAccountIds } from '../lib/ai-event-filters/resolve-filter-expression-account-ids.js';
 import { buildFilterExtractionSystemInstruction, buildFilterExtractionResponseSchema } from '../lib/ai-event-filters/build-filter-extraction-request.js';
-import { mergeEvents, undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
+import { undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
+import {
+  resolveSuggestedMatch,
+  SuggestedMatchNotFoundError,
+  SuggestedMatchNotPendingError,
+  SuggestedMatchInvalidActionError,
+} from '../lib/events/resolve-suggested-match.js';
 
 // `post_account_associations.account_id` is a uuid column: comparing it against a non-UUID string
 // (e.g. an AI-filter `accountId` the model returned as a handle/name) makes Postgres throw
@@ -1882,42 +1888,30 @@ export const resolvers: Resolvers = {
 
       return (rows[0]) || null;
     },
-    // Story 3.6w (AC1, AC3) -- the suggested-match list's Accept/Reject action. ACCEPT merges
-    // the suggestion's eventId (the newly-ingested event, the loser) into its candidateEventId
-    // (the existing event, the winner) via mergeEvents, inside one transaction so the merge and
-    // the suggestion's own status flip commit together. REJECT needs no transaction -- it is a
-    // recorded dismissal with no merge side effects (AC3).
+    // Story 3.6w (AC1, AC3) -- the suggested-match list's Accept/Reject action. The accept/reject
+    // logic lives in `resolveSuggestedMatch` (AD-30 Rule 9), the one entry point every caller
+    // shares; this resolver only opens the transaction, maps its typed errors to GraphQL codes and
+    // shapes the response. ACCEPT merges the suggestion's eventId (the newly-ingested event, the
+    // loser) into its candidateEventId (the existing event, the winner); REJECT is a recorded
+    // dismissal with no merge side effects (AC3). Both run in one transaction with the suggestion
+    // row locked, so a concurrent resolve cannot overwrite this one.
     resolveSuggestedEventMatch: async (_, { id, action }, context, info) => {
       const moderator = requireModerator(context);
 
-      const [suggestion] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id));
-      if (!suggestion) {
-        throw new GraphQLError('Suggested event match not found', { extensions: { code: 'NOT_FOUND' } });
-      }
-      if (suggestion.status !== 'pending') {
-        throw new GraphQLError('This suggestion has already been resolved', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
-      }
-
-      let mergeId: string | null = null;
-      if (action === 'ACCEPT') {
-        try {
-          const { merge } = await db.transaction((tx) =>
-            mergeEvents(tx, suggestion.candidateEventId, suggestion.eventId, moderator.userId, suggestion.id)
-          );
-          mergeId = merge.id;
-        } catch (err) {
-          if (err instanceof EventMergeInvalidStateError) {
-            throw new GraphQLError(err.message, { extensions: { code: 'INVALID_STATE_TRANSITION' } });
-          }
-          throw err;
+      let mergeId: string | null;
+      try {
+        ({ mergeId } = await db.transaction((tx) => resolveSuggestedMatch(tx, { id, action, moderatorId: moderator.userId })));
+      } catch (err) {
+        if (err instanceof SuggestedMatchNotFoundError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'NOT_FOUND' } });
         }
-      } else if (action === 'REJECT') {
-        await db
-          .update(eventMatchCandidates)
-          .set({ status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: moderator.userId })
-          .where(eq(eventMatchCandidates.id, id));
-      } else {
-        throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
+        if (err instanceof SuggestedMatchNotPendingError || err instanceof EventMergeInvalidStateError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        if (err instanceof SuggestedMatchInvalidActionError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+        throw err;
       }
 
       const [updatedSuggestion] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id));
