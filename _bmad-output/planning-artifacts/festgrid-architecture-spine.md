@@ -1802,9 +1802,12 @@ This document defines the core architectural invariants for the FestDaily applic
             similarity. A qualifier on one side only ("(SOLD OUT)", "(GEF)") or one the other side
             repeats stays noise.
         *   **No venue conflict.** `hasVenueConflict`: a side with no venue never conflicts; equal or
-            containing venue texts, or coordinates within 5 km (`VENUE_COMPATIBLE_METERS`), are
-            compatible; both venues known and clearly different (a touring event) blocks. Only
-            schedule pairs inside the window are compared.
+            containing venue texts, one place spelled two ways (`venueTextsSamePlace`, amended
+            2026-10-30, IDEA-110: position words such as "ground floor"/"lantai 3" and abbreviations
+            are ignored, then equal place tokens, or at least three tokens inside a longer text),
+            or coordinates within 5 km (`VENUE_COMPATIBLE_METERS`), are compatible; both venues
+            known and clearly different (a touring event) blocks. Only schedule pairs inside the
+            window are compared.
         *   **Same account or shared link.** `organizerMatch || sharedLink`. Under the unchanged
             weights a `mid` is unreachable without one of the two, so this is implied today; it is
             explicit so a later weight change cannot silently drop it.
@@ -1833,8 +1836,9 @@ This document defines the core architectural invariants for the FestDaily applic
             names are equal and have at least two words (`normalizeEventNameStrict`: lowercase,
             punctuation and year tokens removed, **bracketed text kept**; no trigram path); and one
             schedule pair has the **same `eventStartDate`**, a **positive venue match on that same
-            pair** (equal trimmed lowercase text, or coordinates within 150 m; two absent venues are
-            not a match), and equal start times when both are set. The posting account, organizer,
+            pair** (equal trimmed lowercase text, the same place spelled two ways per
+            `venueTextsSamePlace` (amended 2026-10-30, IDEA-110), or coordinates within 150 m; two
+            absent venues are not a match), and equal start times when both are set. The posting account, organizer,
             links and score are not inputs, so a different curator's stub links on the same terms.
             Same name and date at a different or unknown venue are different events and never link.
         *   **Additive link** (`enrichAndPromoteEvent(..., { additive: true })`, set when
