@@ -106,6 +106,16 @@ test('resolveSuggestedMatch (AD-30 Rule 9)', async (t) => {
     assert.strictEqual(after.resolvedAt?.getTime(), before.resolvedAt?.getTime());
   });
 
+  await t.test('an expired suggestion (IDEA-107) is not pending: either action throws SuggestedMatchNotPendingError', async () => {
+    const { suggestion } = await makePair('Expired');
+    await db.update(eventMatchCandidates).set({ status: 'expired', resolvedAt: new Date() }).where(eq(eventMatchCandidates.id, suggestion.id));
+
+    await assert.rejects(resolve(suggestion.id, 'ACCEPT'), SuggestedMatchNotPendingError);
+    await assert.rejects(resolve(suggestion.id, 'REJECT'), SuggestedMatchNotPendingError);
+
+    assert.strictEqual((await statusOf(suggestion.id)).status, 'expired');
+  });
+
   await t.test('an invalid action throws SuggestedMatchInvalidActionError, but only after the pending check', async () => {
     const { suggestion } = await makePair('BadAction');
     const badAction = 'DISMISS' as SuggestedMatchAction;

@@ -3,11 +3,16 @@ import * as assert from 'node:assert';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative, resolve, sep } from 'path';
 
-// AD-30 Rule 9 drift guard. A pending `event_match_candidates` suggestion is resolved in exactly two
-// places: `merge-events.ts` (the ACCEPT flip inside `mergeEvents()`, and the undo back to pending) and
-// `resolve-suggested-match.ts` (the REJECT, and the row lock plus pending check in front of both).
-// `Mutation.resolveSuggestedEventMatch` must go through `resolveSuggestedMatch()`, never re-implement
-// the accept/reject path, so the moderator UI and any other caller cannot drift apart.
+// AD-30 Rule 9 drift guard. A pending `event_match_candidates` suggestion is accepted or rejected in
+// exactly two places: `merge-events.ts` (the ACCEPT flip inside `mergeEvents()`, and the undo back to
+// pending) and `resolve-suggested-match.ts` (the REJECT, and the row lock plus pending check in front
+// of both). `Mutation.resolveSuggestedEventMatch` must go through `resolveSuggestedMatch()`, never
+// re-implement the accept/reject path, so the moderator UI and any other caller cannot drift apart.
+//
+// One third writer is allowed: `expire-match-suggestions.ts` (IDEA-107) closes a pending suggestion
+// nobody can act on as `expired`. That is not an accept or a reject, and it is safe beside the row
+// lock only because its single UPDATE carries its own `status = 'pending'` guard, which the last test
+// below pins.
 //
 // What this does NOT catch, on purpose: another file calling `mergeEvents(..., suggestionId)`. The
 // backlog drain (`drain-match-backlog.ts`) does exactly that today, without the row lock or a pending
@@ -19,7 +24,8 @@ import { join, relative, resolve, sep } from 'path';
 // '**/*.ts' cannot swallow real code.
 
 const SRC_ROOT = resolve(process.cwd(), 'src');
-const ALLOWED_WRITERS = [join(SRC_ROOT, 'lib', 'events', 'merge-events.ts'), join(SRC_ROOT, 'lib', 'events', 'resolve-suggested-match.ts')];
+const EXPIRY_WRITER = join(SRC_ROOT, 'lib', 'events', 'expire-match-suggestions.ts');
+const ALLOWED_WRITERS = [join(SRC_ROOT, 'lib', 'events', 'merge-events.ts'), join(SRC_ROOT, 'lib', 'events', 'resolve-suggested-match.ts'), EXPIRY_WRITER];
 const RESOLVERS_FILE = join(SRC_ROOT, 'schema', 'resolvers.ts');
 
 function collectTsFiles(dir: string): string[] {
@@ -90,7 +96,7 @@ function writesSuggestionStatus(rawSource: string): boolean {
 
 const toRelative = (file: string) => relative(SRC_ROOT, file).split(sep).join('/');
 
-test('only merge-events.ts and resolve-suggested-match.ts update event_match_candidates', () => {
+test('only merge-events.ts, resolve-suggested-match.ts and the expiry writer update event_match_candidates', () => {
   const files = collectTsFiles(SRC_ROOT).filter((f) => !ALLOWED_WRITERS.includes(resolve(f)));
 
   const offenders = files.filter((f) => writesSuggestionStatus(readFileSync(f, 'utf8'))).map(toRelative);
@@ -98,7 +104,7 @@ test('only merge-events.ts and resolve-suggested-match.ts update event_match_can
   assert.deepStrictEqual(
     offenders,
     [],
-    `Found event_match_candidates update(s) outside lib/events/merge-events.ts and lib/events/resolve-suggested-match.ts (AD-30 Rule 9): ${offenders.join(', ')}. Resolve a suggestion through resolveSuggestedMatch().`
+    `Found event_match_candidates update(s) outside lib/events/merge-events.ts, lib/events/resolve-suggested-match.ts and lib/events/expire-match-suggestions.ts (AD-30 Rule 9): ${offenders.join(', ')}. Resolve a suggestion through resolveSuggestedMatch().`
   );
 });
 
@@ -107,6 +113,16 @@ test('the resolver resolves a suggestion through resolveSuggestedMatch() and doe
 
   assert.ok(/\bresolveSuggestedMatch\(/.test(source), 'resolvers.ts must call resolveSuggestedMatch(); an import alone does not count');
   assert.ok(!/\bmergeEvents\(/.test(source), 'resolvers.ts must not call mergeEvents() directly; accept goes through resolveSuggestedMatch()');
+});
+
+test('the expiry writer only closes rows that are still pending', () => {
+  const source = stripComments(readFileSync(EXPIRY_WRITER, 'utf8'));
+
+  assert.ok(writesSuggestionStatus(source), 'the expiry writer is expected to update the table; if it stopped, drop it from ALLOWED_WRITERS');
+  assert.ok(
+    /\.update\(\s*eventMatchCandidates\s*\)[^;]*?eq\(\s*eventMatchCandidates\.status\s*,\s*'pending'\s*\)/.test(source),
+    "its UPDATE must keep `eq(eventMatchCandidates.status, 'pending')`: without it an expiry run could overwrite a suggestion a moderator just accepted or rejected"
+  );
 });
 
 test('the write detector flags every way of updating the table, and nothing else (negative controls)', () => {

@@ -1910,8 +1910,9 @@ This document defines the core architectural invariants for the FestDaily applic
         intended behavior change. Errors are typed (`SuggestedMatchNotFoundError`,
         `SuggestedMatchNotPendingError`, `SuggestedMatchInvalidActionError`; `EventMergeInvalidStateError`
         passes through) and the resolver maps them to its unchanged GraphQL codes. **Enforced by**
-        `suggested-match-resolve-ratchet.test.ts`: only `merge-events.ts` and `resolve-suggested-match.ts`
-        may update `event_match_candidates` (drizzle update or upsert, an import or destructuring alias,
+        `suggested-match-resolve-ratchet.test.ts`: only `merge-events.ts`, `resolve-suggested-match.ts` and the
+        expiry writer `expire-match-suggestions.ts` (IDEA-107; its UPDATE keeps its own `pending` guard, which
+        the ratchet pins) may update `event_match_candidates` (drizzle update or upsert, an import or destructuring alias,
         a namespace import, or raw SQL), and `resolvers.ts` must call `resolveSuggestedMatch()` and
         never `mergeEvents()` directly. **Known gaps, deferred (BUG-091):** the ratchet does not catch
         another file calling `mergeEvents(..., suggestionId)`, and the backlog drain
