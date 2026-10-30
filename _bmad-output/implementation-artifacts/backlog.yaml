@@ -2592,3 +2592,11 @@ items:
      ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/scraper/__tests__/trigger-brightdata-for-target.test.ts],
      touches: [app:backend],
      note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-pipeline (2026-10-30). Gets TRIGGER_ERROR, not CAPACITY_EXHAUSTED; cause not investigated. 1 finding."}
+
+  FIND-106:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: internal, effort: xs,
+     title: "scraper.test.ts daily-batch cutoff test fails on master: logged cutoff is one hour earlier than the test expects",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lambdas/scraper.test.ts],
+     touches: [app:backend],
+     note: "Deferred from: bmad-quick-dev gate after merging master into the shared accept/reject change (2026-10-30). Fails on master's own source too; likely from commit a5cfa20. 1 finding."}

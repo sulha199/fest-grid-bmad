@@ -809,3 +809,9 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
   summary: `trigger-brightdata-for-target.test.ts` "returns CAPACITY_EXHAUSTED when capacity unavailable" fails in the cloud sandbox (it gets `TRIGGER_ERROR`, so `isProviderCapacityAvailable('brightdata')` throws), and fails the same way on the pre-change source.
   evidence: Found by the lint/build/test gate, not by review; reproduced at baseline commit 640aeed with this change's source reverted. Cause not investigated (sandbox database state or environment). The rest of the backend suite passed (1,721 of 1,727, 4 skipped).
+
+## Deferred from: bmad-quick-dev gate after merging master into the shared accept/reject change (2026-10-30)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: Two `scraper.test.ts` tests fail on origin/master as merged (e0a0b10): "the batch row records why a cycle found no targets, and only then" and its parent "scraper lambda daily-batch branch: scheduled cycle vs manual invoke (2026-10-24)"; the logged cutoff is `1999-12-31T23:00:00.000Z` where the test expects `2000-01-01T00:00:00.000Z`, one hour earlier.
+  evidence: Found by the backend test gate; reproduced by running the file against master's own `apps/backend/src` (24 pass, 2 fail) with `TZ=UTC`. Not in the earlier run before master's scraper commit a5cfa20, so likely a code-versus-test mismatch from that commit (a one-hour margin on the scrape cutoff); cause not confirmed.
