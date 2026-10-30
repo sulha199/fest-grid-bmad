@@ -788,3 +788,12 @@ Not implemented here per this investigation's explicit scope (investigation only
   summary: The fake-auth stub serves only the JWKS: it does not emulate `/auth/v1/user` or `/auth/v1/token`, so a future `auth.getUser()` or token refresh in the app would treat the fake session as signed out; the stub port (54321) is fixed and not configurable.
   evidence: Surfaced by Blind Hunter and Edge Case Hunter. The app today only calls `getSession()` (verified by grep) and the minted tokens last 30 days, so nothing breaks now; the port clash now fails with an explanatory message.
 
+
+## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: Piece B of the AI-assisted dedup review: the dark bridge -- domain contract (decision validator, cap, evidence hash), export and apply scripts, the two GitHub Actions workflows, a dedicated environment and moderator user, a deterministic floor and per-day cap, the new AD, the PRD amendment and docs.
+  evidence: Split from Piece A (shared `resolveSuggestedMatch`) after an architecture review and an adversarial code review both advised a split: A changes the live moderator mutation, B is the only DB-write bridge. All review requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 5. Depends on A.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: Piece C of the AI-assisted dedup review: the `festgrid-dedup-review` skill, escalation issues and labels, the rolling `dedup-insight` issue and shadow-mode acceptance; `review-insights` (C2) follows once labelled issues exist.
+  evidence: Split from the same spec: C cannot be accepted until B's workflows are on `master`, and it is prose rather than code. Requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 6. Depends on B.
