@@ -2,7 +2,7 @@
 title: 'Extract the shared suggested-match resolve function (Piece A of the AI dedup review)'
 type: 'refactor'
 created: '2026-10-30'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '640aeed8f7b7aeb382e742103eb24291f06c90cb'
 review_loop_iteration: 0
 context:
