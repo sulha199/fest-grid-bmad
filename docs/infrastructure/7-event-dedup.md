@@ -59,7 +59,7 @@ To see what the rule contributes overall, group by `promoted`; to find a bad aut
 
 ## Why a deadline post and a race-day post are different
 
-Registration windows are schedules of the event (spine Rule 5), so the post announcing the registration deadline carries *that* date, and the post about the race day carries another. They can be weeks apart. Before BUG-063 (2026-10-18) the ±2-day window hid them from each other; GembiRun Loka 2026 became three events that way. Dates alone cannot link them: the link, name, venue and account do.
+Registration windows are schedules of the event (spine Rule 5), so the post announcing the registration deadline carries *that* date, and the post about the race day carries another. They can be weeks apart. Before BUG-070 (2026-10-18) the ±2-day window hid them from each other; GembiRun Loka 2026 became three events that way. Dates alone cannot link them: the link, name, venue and account do.
 
 ## Finding duplicates on PROD (read-only)
 

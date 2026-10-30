@@ -1,5 +1,5 @@
 ---
-backlog_id: BUG-081
+backlog_id: BUG-086
 title: "Profile backfill overwrites a subscribed profile's username and display name with a non-owner post's, so the batch scrapes the wrong account"
 captured: 2026-10-26
 ---

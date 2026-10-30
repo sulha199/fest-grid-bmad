@@ -1,0 +1,2363 @@
+{
+ "model": "gemini-3.5-flash-lite",
+ "runs": 2,
+ "records": [
+  {
+   "id": "uss-market",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1100,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Plaza Ambarrukmo",
+      "kind": "mall",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo, Yogyakarta"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "uss-market",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1105,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Plaza Ambarrukmo, Yogyakarta",
+      "kind": "mall",
+      "setting": "indoor",
+      "scheduleLabel": "4–6 September 2026"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo, Yogyakarta",
+     "4–6 September 2026"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "tropical-playland",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 816,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Plaza Ambarrukmo, Hall Lantai 2",
+      "kind": "mall",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo, Hall Lantai 2",
+     "see you at Ambarukmo Tropical Playland"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "tropical-playland",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 852,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Plaza Ambarrukmo, Hall Lantai 2",
+      "kind": "mall",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo, Hall Lantai 2"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "swasana-budaya",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 835,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Ground Floor, Plaza Ambarrukmo",
+      "kind": "mall",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Ground Floor, Plaza Ambarrukmo",
+     "Mari hadirkan kembali pesona budaya Jawa"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "swasana-budaya",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 659,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Ground Floor, Plaza Ambarrukmo",
+      "kind": "mall",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Ground Floor, Plaza Ambarrukmo",
+     "Mari hadirkan kembali pesona budaya Jawa"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "gowes-merdeka",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1203,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Plaza Ambarrukmo",
+      "kind": "mall",
+      "setting": "indoor"
+     },
+     {
+      "name": "Candi Sari",
+      "kind": "nature",
+      "setting": "outdoor"
+     },
+     {
+      "name": "Kedulan",
+      "kind": "nature",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "gowes bareng di Plaza Ambarrukmo!",
+     "rute melewati Candi Sari dan Kedulan",
+     "📍 Plaza Ambarrukmo"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "gowes-merdeka",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 902,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Plaza Ambarrukmo",
+      "kind": "mall",
+      "setting": "unknown"
+     },
+     {
+      "name": "Candi Sari",
+      "kind": "other",
+      "setting": "unknown"
+     },
+     {
+      "name": "Kedulan",
+      "kind": "other",
+      "setting": "unknown"
+     }
+    ],
+    "evidence": [
+     "gowes bareng di Plaza Ambarrukmo!",
+     "rute melewati Candi Sari dan Kedulan",
+     "Plaza Ambarrukmo"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "Candi Sari: setting=unknown (accept outdoor|mixed) kind=other"
+    ]
+   }
+  },
+  {
+   "id": "cald-conference",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 831,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Royal Ambarrukmo, Yogyakarta",
+      "kind": "hotel",
+      "setting": "unknown"
+     }
+    ],
+    "evidence": [
+     "Royal Ambarrukmo, Yogyakarta"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "Royal Ambarrukmo, Yogyakarta: setting=unknown (accept indoor) kind=hotel"
+    ]
+   }
+  },
+  {
+   "id": "cald-conference",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 927,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Royal Ambarrukmo",
+      "kind": "hotel",
+      "setting": "unknown"
+     }
+    ],
+    "evidence": [
+     "Royal Ambarrukmo, Yogyakarta",
+     "The CALD Conference on Democratic Resilience & 9th CALD Party Management Workshop is coming to Yogyakarta!"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "Royal Ambarrukmo: setting=unknown (accept indoor) kind=hotel"
+    ]
+   }
+  },
+  {
+   "id": "porseni-stikes",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 944,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Sport Academy Yogyakarta",
+      "kind": "sports_venue",
+      "setting": "unknown",
+      "scheduleLabel": "17 Oktober 2026"
+     },
+     {
+      "name": "Lapangan Funminton",
+      "kind": "sports_venue",
+      "setting": "unknown",
+      "scheduleLabel": "24–25 Oktober 2026"
+     }
+    ],
+    "evidence": [
+     "📍 Sport Academy Yogyakarta",
+     "📍 Lapangan Funminton"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 2,
+    "total": 2,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "porseni-stikes",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 965,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Sport Academy Yogyakarta",
+      "kind": "sports_venue",
+      "setting": "unknown",
+      "scheduleLabel": "17 Oktober 2026"
+     },
+     {
+      "name": "Lapangan Funminton",
+      "kind": "sports_venue",
+      "setting": "unknown",
+      "scheduleLabel": "24–25 Oktober 2026"
+     }
+    ],
+    "evidence": [
+     "📍 Sport Academy Yogyakarta",
+     "📍 Lapangan Funminton"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 2,
+    "total": 2,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "volunteer-sosling",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 876,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "omah noto plankton",
+      "kind": "unknown",
+      "setting": "unknown"
+     }
+    ],
+    "evidence": [
+     "lokasi: omah noto plankton"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "omah noto plankton: setting=unknown (accept outdoor|mixed) kind=unknown"
+    ]
+   }
+  },
+  {
+   "id": "volunteer-sosling",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 855,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "omah noto plankton",
+      "kind": "unknown",
+      "setting": "unknown",
+      "scheduleLabel": "kegiatan"
+     }
+    ],
+    "evidence": [
+     "lokasi: omah noto plankton",
+     "kegiatan: 12 september 2026"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "omah noto plankton: setting=unknown (accept outdoor|mixed) kind=unknown"
+    ]
+   }
+  },
+  {
+   "id": "volunteer-pulangkesinii",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 809,
+   "out": {
+    "attendance": "unspecified",
+    "venues": [],
+    "evidence": [
+     "‼️OPEN VOLUNTEER PULANGKESINII BATCH 45‼️"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "volunteer-pulangkesinii",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 814,
+   "out": {
+    "attendance": "unspecified",
+    "venues": [],
+    "evidence": [
+     "https://s.id/VolunteerPulangkesiniiBatch45"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "futsal-mfc",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 714,
+   "out": {
+    "attendance": "onsite",
+    "venues": [],
+    "evidence": [
+     "di lapangan"
+    ]
+   },
+   "score": {
+    "attendance": false,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "attendance=onsite, accept unspecified"
+    ]
+   }
+  },
+  {
+   "id": "futsal-mfc",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 923,
+   "out": {
+    "attendance": "onsite",
+    "venues": [],
+    "evidence": [
+     "semangat sportivitas di lapangan",
+     "Pelaksanaan: 26–27 September 2026"
+    ]
+   },
+   "score": {
+    "attendance": false,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "attendance=onsite, accept unspecified"
+    ]
+   }
+  },
+  {
+   "id": "lomba-mewarnai",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 757,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Montero Jogja",
+      "kind": "other",
+      "setting": "unknown",
+      "scheduleLabel": "Sabtu, 12 September 2026"
+     }
+    ],
+    "evidence": [
+     "Ikuti Lomba Mewarnai di  Montero Jogja",
+     "Montero Jogja\nJln. Purworejo,Tanen,Pakem,Sleman Yogyakarta"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "lomba-mewarnai",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 835,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Montero Jogja",
+      "kind": "other",
+      "setting": "unknown",
+      "scheduleLabel": "Sabtu, 12 September 2026"
+     }
+    ],
+    "evidence": [
+     "Ikuti Lomba Mewarnai di  Montero Jogja",
+     "📍 Montero Jogja"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "apecx-talkshow",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 931,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Auditorium SGLC, Faculty of Engineering, Universitas Gadjah Mada",
+      "kind": "campus",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Auditorium SGLC, Faculty of Engineering, Universitas Gadjah Mada"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "apecx-talkshow",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 793,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Auditorium SGLC, Faculty of Engineering, Universitas Gadjah Mada",
+      "kind": "campus",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Auditorium SGLC, Faculty of Engineering, Universitas Gadjah Mada"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "erafone-run",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 951,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Museum Gunungapi Merapi",
+      "kind": "museum_gallery",
+      "setting": "unknown"
+     }
+    ],
+    "evidence": [
+     "Museum Gunungapi Merapi, Yogyakarta",
+     "erafone Run 2026 Chapter Yogyakarta"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "Museum Gunungapi Merapi: setting=unknown (accept outdoor|mixed) kind=museum_gallery"
+    ]
+   }
+  },
+  {
+   "id": "erafone-run",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 800,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Museum Gunungapi Merapi, Yogyakarta",
+      "kind": "museum_gallery",
+      "setting": "unknown"
+     }
+    ],
+    "evidence": [
+     "Museum Gunungapi Merapi, Yogyakarta",
+     "Ready to Run, Explore & Have Fun di Kaki Merapi!"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "Museum Gunungapi Merapi, Yogyakarta: setting=unknown (accept outdoor|mixed) kind=museum_gallery"
+    ]
+   }
+  },
+  {
+   "id": "fixture-sleman-city-hall",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 823,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Sleman City Hall",
+      "kind": "mall",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Atrium & Plaza Rama, Sleman City Hall"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "fixture-sleman-city-hall",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 898,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Atrium & Plaza Rama, Sleman City Hall",
+      "kind": "mall",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Atrium & Plaza Rama, Sleman City Hall"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "fixture-drum-contest",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 877,
+   "out": {
+    "attendance": "hybrid",
+    "venues": [
+     {
+      "name": "Hotel Kotta Go Yogyakarta",
+      "kind": "hotel",
+      "setting": "indoor",
+      "scheduleLabel": "Babak Penentuan"
+     }
+    ],
+    "evidence": [
+     "Audisi 100 peserta melalui online",
+     "tampil di Babak Penentuan pada 17 Oktober 2026 di Hotel Kotta Go Yogyakarta"
+    ],
+    "onlinePlatform": "Google Drive"
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "fixture-drum-contest",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 922,
+   "out": {
+    "attendance": "hybrid",
+    "venues": [
+     {
+      "name": "Hotel Kotta Go Yogyakarta",
+      "kind": "hotel",
+      "setting": "indoor",
+      "scheduleLabel": "Babak Penentuan"
+     }
+    ],
+    "evidence": [
+     "Audisi 100 peserta melalui online",
+     "tampil di Babak Penentuan pada 17 Oktober 2026 di Hotel Kotta Go Yogyakarta",
+     "Video penampilan diunggah melalui link Google Drive"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "fixture-vifation",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 773,
+   "out": {
+    "attendance": "onsite",
+    "venues": [],
+    "evidence": [
+     "See you on the field!"
+    ]
+   },
+   "score": {
+    "attendance": false,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "attendance=onsite, accept unspecified"
+    ]
+   }
+  },
+  {
+   "id": "fixture-vifation",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 899,
+   "out": {
+    "attendance": "onsite",
+    "venues": [],
+    "evidence": [
+     "Match Day: 26 September",
+     "Match Day: 10 Oktober",
+     "Match Day: 24–25 Oktober",
+     "See you on the field!"
+    ]
+   },
+   "score": {
+    "attendance": false,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "attendance=onsite, accept unspecified"
+    ]
+   }
+  },
+  {
+   "id": "syn-women-tech",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 894,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Hubs Co-working Space, Jl. Kaliurang, Sleman",
+      "kind": "community_space",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Hubs Co-working Space, Jl. Kaliurang, Sleman"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-women-tech",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 833,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Hubs Co-working Space",
+      "kind": "community_space",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Hubs Co-working Space, Jl. Kaliurang, Sleman",
+     "Ngobrol santai bareng para engineer, product manager & founder perempuan di Jogja"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-senam-lansia",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 942,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Lapangan Puskesmas Depok 1, Sleman",
+      "kind": "sports_venue",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Setiap Minggu pagi pukul 06.30 WIB di Lapangan Puskesmas Depok 1, Sleman."
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-senam-lansia",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 820,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Lapangan Puskesmas Depok 1, Sleman",
+      "kind": "sports_venue",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Setiap Minggu pagi pukul 06.30 WIB di Lapangan Puskesmas Depok 1, Sleman."
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-webinar-nasional",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 785,
+   "out": {
+    "attendance": "online",
+    "venues": [],
+    "evidence": [
+     "WEBINAR NASIONAL GRATIS",
+     "via Zoom"
+    ],
+    "onlinePlatform": "Zoom"
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-webinar-nasional",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 728,
+   "out": {
+    "attendance": "online",
+    "venues": [],
+    "evidence": [
+     "WEBINAR NASIONAL GRATIS",
+     "via Zoom"
+    ],
+    "onlinePlatform": "Zoom"
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-konser-jakarta",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 817,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Istora Senayan",
+      "kind": "sports_venue",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Istora Senayan, Jakarta"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-konser-jakarta",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 854,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Istora Senayan, Jakarta",
+      "kind": "sports_venue",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Istora Senayan, Jakarta"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-pameran-origin",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 760,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Galeri Nasional Indonesia",
+      "kind": "museum_gallery",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "dipamerkan di Galeri Nasional Indonesia, Jakarta"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-pameran-origin",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 793,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Galeri Nasional Indonesia, Jakarta",
+      "kind": "museum_gallery",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Karya 30 perupa Yogyakarta dipamerkan di Galeri Nasional Indonesia, Jakarta."
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-expat-bali",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1107,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Canggu, Bali",
+      "kind": "nature",
+      "setting": "outdoor"
+     },
+     {
+      "name": "beach",
+      "kind": "nature",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Every Friday in Canggu, Bali.",
+     "yoga session on the beach"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-expat-bali",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 830,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Canggu, Bali",
+      "kind": "nature",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Every Friday in Canggu, Bali.",
+     "yoga session on the beach"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-gala-dinner",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 840,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Hotel Tentrem Yogyakarta",
+      "kind": "hotel",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Hotel Tentrem Yogyakarta"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-gala-dinner",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 816,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Hotel Tentrem Yogyakarta",
+      "kind": "hotel",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Hotel Tentrem Yogyakarta"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-kota-lama",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 704,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Kota Lama Semarang",
+      "kind": "street_or_old_town",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Malam Minggu Seru di Kota Lama Semarang!"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-kota-lama",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1173,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Kota Lama Semarang",
+      "kind": "street_or_old_town",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Malam Minggu Seru di Kota Lama Semarang"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-pentas-bantul",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1132,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Alun-alun Bantul",
+      "kind": "park_open_space",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Alun-alun Bantul",
+     "PENTAS SENI RAKYAT BANTUL"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-pentas-bantul",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 803,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Alun-alun Bantul",
+      "kind": "park_open_space",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Alun-alun Bantul",
+     "Terbuka untuk umum!"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-coding-camp",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 783,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Co-Lab Space, Bandung",
+      "kind": "community_space",
+      "setting": "unknown"
+     }
+    ],
+    "evidence": [
+     "Co-Lab Space, Bandung",
+     "KIDS CODING CAMP"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "Co-Lab Space, Bandung: setting=unknown (accept indoor) kind=community_space"
+    ]
+   }
+  },
+  {
+   "id": "ho-coding-camp",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 696,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Co-Lab Space, Bandung",
+      "kind": "community_space",
+      "setting": "unknown"
+     }
+    ],
+    "evidence": [
+     "Co-Lab Space, Bandung"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "Co-Lab Space, Bandung: setting=unknown (accept indoor) kind=community_space"
+    ]
+   }
+  },
+  {
+   "id": "ho-srikandi-run",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1266,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Taman Bungkul, Surabaya",
+      "kind": "park_open_space",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "SRIKANDI RUN 5K",
+     "Minggu, 15 November 2026 — Taman Bungkul, Surabaya"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-srikandi-run",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 783,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Taman Bungkul, Surabaya",
+      "kind": "park_open_space",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "SRIKANDI RUN 5K",
+     "Minggu, 15 November 2026 — Taman Bungkul, Surabaya"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-esai-nasional",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1045,
+   "out": {
+    "attendance": "online",
+    "venues": [],
+    "evidence": [
+     "Pendaftaran dan pengumpulan karya 100% online."
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-esai-nasional",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 702,
+   "out": {
+    "attendance": "online",
+    "venues": [],
+    "evidence": [
+     "Pendaftaran dan pengumpulan karya 100% online."
+    ],
+    "onlinePlatform": ""
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-gathering-internal",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 728,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "The Alana Hotel, Yogyakarta",
+      "kind": "hotel",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Sabtu, 21 November 2026, The Alana Hotel, Yogyakarta."
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-gathering-internal",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 808,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "The Alana Hotel, Yogyakarta",
+      "kind": "hotel",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Sabtu, 21 November 2026, The Alana Hotel, Yogyakarta."
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-layang-layang",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 738,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Pantai Parangtritis, Bantul",
+      "kind": "nature",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Pantai Parangtritis, Bantul."
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-layang-layang",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 758,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Pantai Parangtritis, Bantul",
+      "kind": "nature",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Minggu, 22 November 2026 — Pantai Parangtritis, Bantul."
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-hybrid-seminar",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 823,
+   "out": {
+    "attendance": "hybrid",
+    "venues": [
+     {
+      "name": "Auditorium Fakultas Ekonomi UGM",
+      "kind": "campus",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Format HYBRID: tatap muka di Auditorium Fakultas Ekonomi UGM",
+     "live via Zoom"
+    ],
+    "onlinePlatform": "Zoom"
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-hybrid-seminar",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 776,
+   "out": {
+    "attendance": "hybrid",
+    "venues": [
+     {
+      "name": "Auditorium Fakultas Ekonomi UGM",
+      "kind": "campus",
+      "setting": "indoor"
+     }
+    ],
+    "evidence": [
+     "Format HYBRID: tatap muka di Auditorium Fakultas Ekonomi UGM",
+     "live via Zoom untuk peserta luar kota."
+    ],
+    "onlinePlatform": "Zoom"
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-multi-venue-festival",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1273,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Alun-alun Kidul",
+      "kind": "park_open_space",
+      "setting": "outdoor",
+      "scheduleLabel": "Jumat, 4 Desember"
+     },
+     {
+      "name": "Gedung Societet Militair, Taman Budaya Yogyakarta",
+      "kind": "hall",
+      "setting": "indoor",
+      "scheduleLabel": "Sabtu, 5 Desember"
+     },
+     {
+      "name": "Pantai Parangtritis",
+      "kind": "nature",
+      "setting": "outdoor",
+      "scheduleLabel": "Minggu, 6 Desember"
+     }
+    ],
+    "evidence": [
+     "Jumat, 4 Desember: Malam Rakyat di Alun-alun Kidul",
+     "Sabtu, 5 Desember: Pameran & pentas di Gedung Societet Militair, Taman Budaya Yogyakarta",
+     "Minggu, 6 Desember: Sunrise & lomba layang-layang di Pantai Parangtritis"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 3,
+    "total": 3,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-multi-venue-festival",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1194,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Alun-alun Kidul",
+      "kind": "park_open_space",
+      "setting": "outdoor",
+      "scheduleLabel": "Jumat, 4 Desember"
+     },
+     {
+      "name": "Gedung Societet Militair, Taman Budaya Yogyakarta",
+      "kind": "hall",
+      "setting": "indoor",
+      "scheduleLabel": "Sabtu, 5 Desember"
+     },
+     {
+      "name": "Pantai Parangtritis",
+      "kind": "nature",
+      "setting": "outdoor",
+      "scheduleLabel": "Minggu, 6 Desember"
+     }
+    ],
+    "evidence": [
+     "Malam Rakyat di Alun-alun Kidul",
+     "Pameran & pentas di Gedung Societet Militair, Taman Budaya Yogyakarta",
+     "Sunrise & lomba layang-layang di Pantai Parangtritis"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 3,
+    "total": 3,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-zoom-class",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1225,
+   "out": {
+    "attendance": "online",
+    "venues": [],
+    "evidence": [
+     "KELAS MEMASAK ONLINE",
+     "Sabtu, 14 November 2026, pukul 14.00 WIB via Zoom.",
+     "Link Zoom dikirim lewat e-mail"
+    ],
+    "onlinePlatform": "Zoom"
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-zoom-class",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1741,
+   "out": {
+    "attendance": "online",
+    "venues": [],
+    "evidence": [
+     "KELAS MEMASAK ONLINE",
+     "via Zoom"
+    ],
+    "onlinePlatform": "Zoom"
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-walk-route",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1600,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Tugu Yogyakarta",
+      "kind": "street_or_old_town",
+      "setting": "outdoor",
+      "scheduleLabel": "Start"
+     },
+     {
+      "name": "Jalan Malioboro",
+      "kind": "street_or_old_town",
+      "setting": "outdoor"
+     },
+     {
+      "name": "Titik Nol Kilometer",
+      "kind": "street_or_old_town",
+      "setting": "outdoor"
+     },
+     {
+      "name": "Alun-alun Utara",
+      "kind": "park_open_space",
+      "setting": "outdoor",
+      "scheduleLabel": "Finish"
+     }
+    ],
+    "evidence": [
+     "Start di Tugu Yogyakarta",
+     "melewati Jalan Malioboro dan Titik Nol Kilometer",
+     "finish di Alun-alun Utara"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-walk-route",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 999,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Tugu Yogyakarta",
+      "kind": "street_or_old_town",
+      "setting": "outdoor"
+     },
+     {
+      "name": "Jalan Malioboro",
+      "kind": "street_or_old_town",
+      "setting": "outdoor"
+     },
+     {
+      "name": "Titik Nol Kilometer",
+      "kind": "street_or_old_town",
+      "setting": "outdoor"
+     },
+     {
+      "name": "Alun-alun Utara",
+      "kind": "park_open_space",
+      "setting": "outdoor"
+     }
+    ],
+    "evidence": [
+     "Start di Tugu Yogyakarta, melewati Jalan Malioboro dan Titik Nol Kilometer, finish di Alun-alun Utara."
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 1,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-meet-discussion",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 837,
+   "out": {
+    "attendance": "online",
+    "venues": [],
+    "evidence": [
+     "via Google Meet"
+    ],
+    "onlinePlatform": "Google Meet"
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-meet-discussion",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 746,
+   "out": {
+    "attendance": "online",
+    "venues": [],
+    "evidence": [
+     "via Google Meet"
+    ],
+    "onlinePlatform": "Google Meet"
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 0,
+    "total": 0,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-two-sites-one-day",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 947,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Galeri Taman Budaya Yogyakarta",
+      "kind": "museum_gallery",
+      "setting": "indoor",
+      "scheduleLabel": "Sabtu, 21 November 2026, 10.00–17.00"
+     },
+     {
+      "name": "halaman Museum Sonobudoyo",
+      "kind": "museum_gallery",
+      "setting": "outdoor",
+      "scheduleLabel": "Sabtu, 21 November 2026, 13.00–16.00"
+     }
+    ],
+    "evidence": [
+     "Pameran di Galeri Taman Budaya Yogyakarta",
+     "Workshop membatik di halaman Museum Sonobudoyo"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 2,
+    "total": 2,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 0,
+    "wrongSetting": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ven-two-sites-one-day",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1102,
+   "out": {
+    "attendance": "onsite",
+    "venues": [
+     {
+      "name": "Galeri Taman Budaya Yogyakarta",
+      "kind": "museum_gallery",
+      "setting": "indoor",
+      "scheduleLabel": "Sabtu, 21 November 2026, 10.00–17.00"
+     },
+     {
+      "name": "Museum Sonobudoyo",
+      "kind": "museum_gallery",
+      "setting": "unknown",
+      "scheduleLabel": "Sabtu, 21 November 2026, 13.00–16.00"
+     }
+    ],
+    "evidence": [
+     "Pameran di Galeri Taman Budaya Yogyakarta",
+     "Workshop membatik di halaman Museum Sonobudoyo"
+    ]
+   },
+   "score": {
+    "attendance": true,
+    "count": true,
+    "met": 1,
+    "total": 2,
+    "invented": [],
+    "onlineAsVenue": [],
+    "abstained": 1,
+    "wrongSetting": [],
+    "pass": false,
+    "detail": [
+     "Museum Sonobudoyo: setting=unknown (accept outdoor|mixed) kind=museum_gallery"
+    ]
+   }
+  }
+ ]
+}

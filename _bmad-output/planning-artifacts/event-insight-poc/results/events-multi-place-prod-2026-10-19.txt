@@ -1,0 +1,34 @@
+BEGIN
+SET
+ grouping_reason  | detail_level |                                      shape                                      | events | events_with_an_open_schedule | schedules 
+------------------+--------------+---------------------------------------------------------------------------------+--------+------------------------------+-----------
+ (no post)        | stub         | 4 one schedule                                                                  |     15 |                            2 |        15
+ (no post)        | full         | 1 more than one place                                                           |      6 |                            1 |        33
+ (no post)        | full         | 3 several dates, one place                                                      |     19 |                            8 |        63
+ (no post)        | full         | 4 one schedule                                                                  |    457 |                           25 |       457
+ dependent-stages | stub         | 3 several dates, one place                                                      |     23 |                           21 |        67
+ dependent-stages | stub         | 4 one schedule                                                                  |      3 |                            1 |         3
+ dependent-stages | full         | 1 more than one place                                                           |      1 |                            1 |         2
+ dependent-stages | full         | 2 several schedules, no place at all (the place may sit in the schedule titles) |      3 |                            3 |         6
+ dependent-stages | full         | 3 several dates, one place                                                      |     21 |                           16 |        53
+ dependent-stages | full         | 4 one schedule                                                                  |      2 |                            1 |         2
+ program-lineup   | stub         | 1 more than one place                                                           |      3 |                            1 |        15
+ program-lineup   | stub         | 3 several dates, one place                                                      |      7 |                            5 |        22
+ program-lineup   | stub         | 4 one schedule                                                                  |      1 |                            0 |         1
+ program-lineup   | full         | 1 more than one place                                                           |      5 |                            2 |        26
+ program-lineup   | full         | 2 several schedules, no place at all (the place may sit in the schedule titles) |      2 |                            1 |         4
+ program-lineup   | full         | 3 several dates, one place                                                      |     25 |                           10 |        94
+ program-lineup   | full         | 4 one schedule                                                                  |      5 |                            1 |         5
+ roundup          | stub         | 4 one schedule                                                                  |     31 |                            8 |        31
+ separate-events  | stub         | 2 several schedules, no place at all (the place may sit in the schedule titles) |      2 |                            2 |        11
+ separate-events  | stub         | 3 several dates, one place                                                      |     10 |                            9 |        42
+ separate-events  | stub         | 4 one schedule                                                                  |     25 |                           20 |        25
+ separate-events  | full         | 3 several dates, one place                                                      |     12 |                           12 |        26
+ separate-events  | full         | 4 one schedule                                                                  |     53 |                           22 |        53
+ single-event     | stub         | 3 several dates, one place                                                      |      1 |                            1 |         2
+ single-event     | stub         | 4 one schedule                                                                  |    146 |                           54 |       146
+ single-event     | full         | 3 several dates, one place                                                      |      8 |                            4 |        16
+ single-event     | full         | 4 one schedule                                                                  |    545 |                          133 |       545
+(27 rows)
+
+ROLLBACK

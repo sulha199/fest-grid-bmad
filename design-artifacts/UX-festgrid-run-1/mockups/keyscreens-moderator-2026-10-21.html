@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Key screens: Moderator Items queue, review group, merge undo, audience area, badge (2026-10-21)</title>
+<!--
+  Key-screen mock for the 2026-10-21 UX update, moderator side (PRD 3.9.3, 3.18, 3.19, 3.20; FR122, FR126). Rules shown are the [ASSUMPTION] decisions logged in
+  .memlog.md entries 94-96. Page width 1024 (max-w-5xl, as the shipped Moderator Items page); sheet 420px; dialogs 448px.
+  Existing sections (reports, default location changes, account-type reviews, suggested matches) keep their shipped rows and are shown as collapsed stubs.
+-->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { theme: { extend: { colors: {
+    background: 'hsl(210 20% 98%)', foreground: 'hsl(221 39% 11%)', card: 'hsl(0 0% 100%)', primary: 'hsl(217 33% 17%)',
+    secondary: 'hsl(238 82% 67%)', 'secondary-foreground': 'hsl(210 40% 98%)', muted: 'hsl(210 40% 96.1%)', 'muted-foreground': 'hsl(215.4 16.3% 46.9%)',
+    destructive: 'hsl(0 84% 60%)', 'destructive-foreground': 'hsl(0 0% 98%)',
+  } } } }
+</script>
+<style>body{font-family:Inter,ui-sans-serif,system-ui,sans-serif;}</style>
+</head>
+<body class="bg-slate-100 text-foreground">
+<main class="p-6 flex flex-col gap-12 max-w-[1100px] mx-auto">
+<header><h1 class="text-2xl font-bold">Key screens: moderator queue</h1>
+<p class="text-sm text-slate-600 mt-1">Specimens. Labels in monospace are not part of the product.</p></header>
+
+<section id="m1" class="flex flex-col gap-3">
+  <h2 class="text-lg font-semibold">1. Moderator Items (1024px wide page)</h2>
+  <div id="page" class="bg-background rounded-lg border border-slate-200"></div>
+</section>
+
+<section id="m2" class="flex flex-wrap gap-10 items-start">
+  <div class="flex flex-col gap-2"><h2 class="text-lg font-semibold">2. Review group (side sheet, 420px)</h2><div id="sheet"></div></div>
+  <div class="flex flex-col gap-6"><h2 class="text-lg font-semibold">3. Confirmations and area picker (448px)</h2><div id="dialogs" class="flex flex-col gap-6"></div></div>
+</section>
+
+<section id="m3" class="flex flex-col gap-3">
+  <h2 class="text-lg font-semibold">4. Pending-item badge and its accessible names</h2>
+  <div id="badge" class="flex flex-wrap gap-10 items-start"></div>
+</section>
+</main>
+
+<script>
+const I = {
+  layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.91a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
+  help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  map: '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  chev: '<path d="m6 9 6 6 6-6"/>',
+  merge: '<path d="m8 6 4-4 4 4"/><path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/><path d="m20 22-5-5"/>',
+  user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+};
+const ic = (n, c = 'w-4 h-4') => `<svg class="${c} shrink-0" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">${I[n]}</svg>`;
+const btn = (t, k = 'secondary', extra = '') => `<button class="min-h-11 px-4 rounded-md text-sm font-medium inline-flex items-center gap-1.5 ${k === 'primary' ? 'bg-violet-600 text-white' : k === 'danger' ? 'border border-red-300 text-red-700 bg-white' : k === 'ghost' ? 'text-slate-700 underline' : 'border border-slate-300 bg-white'} ${extra}">${t}</button>`;
+const chip = (t, icon, dashed) => `<span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium bg-white text-slate-700 border ${dashed ? 'border-dashed border-slate-400' : 'border-slate-300'}">${icon ? ic(icon, 'w-3 h-3') : ''}${t}</span>`;
+const count = (n) => `<span class="ml-1 inline-flex items-center justify-center min-w-[1.4rem] h-[1.4rem] px-1 rounded-full bg-slate-200 text-slate-800 text-[11px] font-semibold">${n}</span>`;
+
+/* ---------- 1. page ---------- */
+const jump = [['Reports', 0], ['Default location changes', 2], ['Account-type reviews', 1], ['Suggested matches', 4], ['Groups to review', 3], ['Curators without an audience area', 2], ['Merged automatically', 69]];
+const stub = (t, n, note) => `<section class="rounded-lg border border-slate-200 bg-white p-4"><h2 class="text-xl font-semibold flex items-center">${t}${count(n)}</h2><p class="text-xs text-slate-500 mt-1">${note}</p></section>`;
+const groupRow = (name, kind, why, members) => `<li class="border border-slate-200 rounded-lg bg-white p-4 flex flex-wrap items-start justify-between gap-3">
+  <div class="min-w-0 flex-1 basis-80 flex flex-col gap-1.5">
+    <div class="flex items-center gap-2 flex-wrap"><span class="font-semibold">${name}</span>${chip(kind, 'layers')}</div>
+    <p class="text-xs text-slate-600">${why}</p>
+    <p class="text-sm text-slate-700">${members}</p>
+  </div>
+  <div class="flex items-center gap-2">${btn('Review group')}${btn('Looks right', 'ghost')}</div></li>`;
+const curRow = (handle, why) => `<li class="border border-slate-200 rounded-lg bg-white p-4 flex flex-wrap items-center justify-between gap-3">
+  <div class="flex items-center gap-3 min-w-0 flex-1 basis-80"><div class="w-10 h-10 rounded-full bg-slate-300 flex items-center justify-center text-slate-600">${ic('user')}</div>
+   <div class="min-w-0"><div class="font-semibold truncate">${handle} <span class="font-normal text-sm text-slate-600">Instagram · Curator</span></div><div class="flex items-center gap-2 mt-1 flex-wrap">${chip('Unresolved', 'help', true)}<span class="text-xs text-slate-600">${why}</span></div></div></div>
+  ${btn('Set area')}</li>`;
+const mergeRow = (title, n, src, time, undone) => `<li class="border border-slate-200 rounded-lg bg-white p-4 flex flex-wrap items-start justify-between gap-3">
+  <div class="min-w-0 flex-1 basis-80 flex flex-col gap-1.5">
+    <div class="flex items-center gap-2 flex-wrap"><a class="font-semibold underline" href="#">${title}</a><span class="text-sm text-slate-700">${n} merged in</span>${chip(src, 'merge')}</div>
+    <p class="text-xs text-slate-600">Same account, name, place and dates · ${time}</p>
+    ${undone ? `<p class="text-sm font-medium text-slate-800 flex items-center gap-1.5" tabindex="-1">${ic('undo')}Undone. Marked as not a duplicate.</p>` : ''}
+  </div>
+  <div class="flex items-center gap-2">${btn('View event', 'ghost')}${undone ? '' : btn('Undo merge')}</div></li>`;
+document.getElementById('page').innerHTML = `<div class="p-8 flex flex-col gap-6">
+  <h1 class="text-3xl font-bold">Moderator Items</h1>
+  <nav aria-label="Sections on this page"><ul class="flex flex-wrap gap-2">${jump.map(([t, n]) => `<li><a href="#" class="min-h-11 inline-flex items-center px-3 rounded-full border border-slate-300 bg-white text-sm">${t}${count(n)}</a></li>`).join('')}</ul>
+    <p class="text-xs text-slate-600 mt-2">The badge on your avatar counts everything waiting except “Merged automatically”.</p></nav>
+  ${stub('Reports', 0, 'Existing section, unchanged.')}
+  ${stub('Default location changes', 2, 'Existing section, unchanged.')}
+  ${stub('Account-type reviews', 1, 'Existing section, unchanged.')}
+  ${stub('Suggested matches', 4, 'Moved here from Moderator Tools (duplicate events tab); rows unchanged. Manual merge by search stays in Moderator Tools.')}
+  <section aria-labelledby="gr" class="flex flex-col gap-3">
+    <div class="flex items-center justify-between gap-3 flex-wrap"><h2 id="gr" class="text-2xl font-semibold flex items-center">Groups to review${count(3)}</h2>${btn('Create group')}</div>
+    <p class="text-sm text-slate-600">Groups the system made. They are already live; reviewing is a check, not an approval.</p>
+    <ul class="flex flex-col gap-3">
+      ${groupRow('Promo Sepatu Akhir Tahun', 'Series', 'Detected: same promo name across 2 accounts · created 20 Oct', '4 events: Hartono Mall (13 Oct), Jogja City Mall (14 Oct), Malioboro Mall (20 Oct) and 1 more')}
+      ${groupRow('Hartono Anniversary Week', 'Programme', 'Detected: titles of one account in the form “Umbrella: Activity” · created 20 Oct', '5 events: Circus Show (12 Oct), Fireworks (15 Oct), Kids Parade (19 Oct) and 2 more')}
+    </ul>
+  </section>
+  <section aria-labelledby="cu" class="flex flex-col gap-3">
+    <h2 id="cu" class="text-2xl font-semibold flex items-center">Curators without an audience area${count(2)}</h2>
+    <p class="text-sm text-slate-600">Events from these curators with no location of their own are shown with an unknown area until one is set.</p>
+    <ul class="flex flex-col gap-3">
+      ${curRow('@jogja.eventguide', 'The bio names no area and the first 5 posts name different areas.')}
+      ${curRow('@kulinerdiy', 'Fewer than 5 posts extracted so far.')}
+    </ul>
+  </section>
+  <section aria-labelledby="ma" class="flex flex-col gap-3">
+    <div class="flex items-center justify-between gap-3 flex-wrap"><h2 id="ma" class="text-2xl font-semibold flex items-center">Merged automatically${count(69)}<span class="ml-2 text-xs font-normal text-slate-600">not counted in the badge</span></h2>
+      <label class="text-sm flex items-center gap-2">Show <select class="min-h-11 rounded-md border border-slate-300 bg-white px-2"><option>Last 14 days</option><option>All</option></select></label></div>
+    <p class="text-sm text-slate-600">Done by the system, newest first. Undo any of them at any time.</p>
+    <ul class="flex flex-col gap-3">
+      ${mergeRow('Pasar Malam Ramadan', '2 events', 'One-time sweep', '12 Oct, 14:05')}
+      ${mergeRow('Kelas Yoga Pagi', '1 event', 'Live check', '12 Oct, 09:40')}
+      ${mergeRow('Bazaar Kuliner Akhir Pekan', '3 events', 'One-time sweep', '12 Oct, 14:05', true)}
+    </ul>
+    <button class="self-center min-h-11 px-4 text-sm underline">Show more (20 of 69)</button>
+  </section>
+</div>`;
+
+/* ---------- 2. sheet ---------- */
+const mem = (d, t, v) => `<li class="flex items-center gap-2 p-2 rounded-lg border border-violet-200 bg-violet-50/50"><div class="w-11 shrink-0 flex flex-col items-center justify-center rounded bg-slate-800 text-white leading-none py-1.5"><span class="text-[11px] font-bold uppercase">Oct</span><span class="text-lg font-extrabold">${d}</span></div><div class="min-w-0 flex-1"><div class="text-sm font-bold truncate">${t}</div><div class="text-xs text-slate-600 truncate">${v}</div></div><button class="min-h-11 px-3 rounded-md border border-slate-300 bg-white text-sm" aria-label="Detach ${t} at ${v}, ${d} Oct">Detach</button></li>`;
+document.getElementById('sheet').innerHTML = `<aside class="w-[420px] rounded-lg bg-white border border-slate-200 shadow-xl flex flex-col" role="dialog" aria-labelledby="sh">
+  <div class="flex items-start justify-between gap-3 p-4 border-b border-slate-200"><div class="min-w-0"><h3 id="sh" class="text-lg font-semibold">Review group</h3><p class="text-xs text-slate-600">Series · detected from the same promo name · 4 events</p></div><button class="min-h-11 min-w-11 flex items-center justify-center" aria-label="Close">${ic('x')}</button></div>
+  <div class="p-4 flex flex-col gap-4">
+    <div class="flex items-end gap-2"><label class="flex-1 text-sm font-medium">Group name<input class="mt-1 w-full min-h-11 rounded-md border border-slate-300 px-3 text-sm font-normal" value="Promo Sepatu Akhir Tahun"></label>${btn('Save name')}</div>
+    <div class="flex items-center justify-between gap-2"><span class="text-sm">Kind: <span class="font-semibold">Series</span></span>${btn('Change kind')}</div>
+    <div><h4 class="text-sm font-semibold mb-2">Events in this group</h4><ul class="flex flex-col gap-2">${mem(13, 'Promo Sepatu Akhir Tahun', 'Hartono Mall')}${mem(14, 'Promo Sepatu Akhir Tahun', 'Jogja City Mall')}${mem(20, 'Promo Sepatu Akhir Tahun', 'Malioboro Mall')}${mem(22, 'Promo Sepatu Akhir Tahun', 'Transmart Maguwo')}</ul></div>
+  </div>
+  <div class="p-4 border-t border-slate-200 flex items-center justify-between gap-2">${btn('Dissolve group', 'danger')}${btn('Done', 'primary')}</div>
+</aside>`;
+
+/* ---------- 3. dialogs ---------- */
+const dlg = (label, title, body, actions, extra = '') => `<div><div class="text-[11px] font-mono text-slate-500 mb-1">${label}</div><div role="alertdialog" aria-labelledby="t" class="w-[448px] rounded-lg bg-white border border-slate-200 shadow-xl p-5 flex flex-col gap-3"><h3 class="text-lg font-semibold">${title}</h3><p class="text-sm text-slate-700">${body}</p>${extra}<div class="flex justify-end gap-2 pt-1">${actions}</div></div></div>`;
+const prow = (t, s, sel, dis) => `<li><button ${dis ? 'disabled' : ''} class="w-full min-h-11 px-3 flex items-center justify-between gap-2 text-left text-sm ${sel ? 'bg-violet-50 font-semibold' : ''} ${dis ? 'text-slate-400' : ''}"><span class="truncate">${t} <span class="text-xs font-normal ${dis ? 'text-slate-400' : 'text-slate-600'}">${s}</span></span>${sel ? ic('check', 'w-4 h-4 text-violet-700') : ''}</button></li>`;
+document.getElementById('dialogs').innerHTML =
+  dlg('Undo merge: alertdialog, focus starts on Cancel', 'Undo this merge?', 'The 2 merged events come back and are recorded as <strong>not duplicates</strong>. The system will not merge them again.', btn('Cancel', 'secondary', 'ring-2 ring-violet-600 ring-offset-2') + btn('Undo merge', 'primary')) +
+  dlg('Dissolve group: alertdialog, focus starts on Cancel', 'Dissolve “Hartono Anniversary Week”?', 'All 5 events stay as ordinary events. Nothing is deleted. You can undo this for a few seconds afterwards.', btn('Cancel', 'secondary', 'ring-2 ring-violet-600 ring-offset-2') + btn('Dissolve group', 'danger')) +
+  `<div><div class="text-[11px] font-mono text-slate-500 mb-1">Set audience area: dialog with the same area picker as the Discovery filter</div><div role="dialog" aria-labelledby="t3" class="w-[448px] rounded-lg bg-white border border-slate-200 shadow-xl p-5 flex flex-col gap-3">
+    <h3 id="t3" class="text-lg font-semibold">Audience area for @jogja.eventguide</h3>
+    <p class="text-sm text-slate-700">The area this account serves. Its events with no location of their own take this area. The whole country can’t be chosen.</p>
+    <label class="relative block"><span class="sr-only">Search areas</span><span class="absolute left-2.5 top-3 text-slate-500">${ic('search')}</span><input class="w-full min-h-11 pl-8 pr-2 rounded-md border border-slate-300 text-sm" value="Sle"></label>
+    <ul class="border border-slate-200 rounded-md divide-y divide-slate-100">${prow('Sleman', 'Regency · DI Yogyakarta', true)}${prow('DI Yogyakarta', 'Province')}${prow('Slawi', 'City · Central Java')}${prow('Indonesia', 'Country · too wide', false, true)}</ul>
+    <div class="flex justify-end gap-2 pt-1">${btn('Cancel')}${btn('Save area', 'primary')}</div></div></div>
+  <div><div class="text-[11px] font-mono text-slate-500 mb-1">Toast after saving (notification.success style, 6000 ms)</div><div role="status" class="w-[448px] rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 p-3 text-sm flex items-start gap-2">${ic('check', 'w-4 h-4 mt-0.5')}<span>Audience area set to Sleman. 6 events with no known area will be re-checked.</span></div></div>`;
+
+/* ---------- 4. badge ---------- */
+const bd = (n) => `<span class="absolute -top-1 -end-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-semibold flex items-center justify-center leading-none">${n}</span>`;
+const avatar = (n, label) => `<div class="flex flex-col items-center gap-2"><div class="relative w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center text-sm font-semibold">SH${n ? bd(n) : ''}</div><p class="text-[11px] font-mono text-slate-500 max-w-[200px] text-center">${label}</p></div>`;
+document.getElementById('badge').innerHTML = avatar(12, 'menu closed, 12 waiting. Name: “Profile menu, 12 moderator items waiting”') + avatar('99+', 'menu closed, more than 99 waiting (cap 99+; the old cap 9+ hid all change)') + avatar(0, 'nothing waiting: no badge, plain name “Profile menu”') +
+  `<div class="flex flex-col gap-2"><div class="w-[260px] rounded-lg bg-white border border-slate-200 shadow-lg py-1 text-sm"><div class="px-4 py-2.5 text-slate-700">Settings</div><div class="px-4 py-2.5 flex items-center justify-between"><span>Moderator Items<span class="sr-only">, 12 waiting</span></span><span class="min-w-[1.25rem] h-5 px-1 rounded-full bg-red-500 text-white text-[11px] font-semibold flex items-center justify-center" aria-hidden="true">12</span></div><div class="border-t border-slate-200 my-1"></div><div class="px-4 py-2.5 text-slate-700">Log out</div></div><p class="text-[11px] font-mono text-slate-500 max-w-[260px]">menu open: the badge moves to the entry; the count is hidden from AT and spoken once through the visually hidden suffix</p></div>`;
+</script>
+</body>
+</html>

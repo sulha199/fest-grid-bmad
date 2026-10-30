@@ -1,0 +1,11 @@
+BEGIN
+SET
+                 newer_event                  | replay_tier | pairs | in_candidate_list | should_have_been_candidate_but_is_not | organizer_matched | shared_link | venue_matched | mean_score 
+----------------------------------------------+-------------+-------+-------------------+---------------------------------------+-------------------+-------------+---------------+------------
+ newer event is a full event                  | high        |     5 |                 1 |                                     4 |                 5 |           0 |             5 |      0.800
+ newer event is a full event                  | mid         |    42 |                17 |                                    25 |                42 |           0 |             5 |      0.654
+ newer event is a stub (organizer discounted) | low         |   123 |                 0 |                                     0 |                 0 |           0 |           111 |      0.384
+ newer event is a stub (organizer discounted) | mid         |    11 |                 7 |                                     4 |                 0 |          11 |             6 |      0.532
+(4 rows)
+
+ROLLBACK

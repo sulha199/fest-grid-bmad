@@ -1,0 +1,33 @@
+BEGIN
+SET
+                           proxy_class                            | groups | events 
+------------------------------------------------------------------+--------+--------
+ 1 every member: child text is inside its own place (series-like) |      1 |      2
+ 2 no member: child text is not its place (programme-like)        |     15 |     46
+ 3 some members (mixed: read these by hand)                       |      3 |      8
+(3 rows)
+
+                 umbrella                 | members | children | child_is_own_place |                                                                   children_at_places                                                                   
+------------------------------------------+---------+----------+--------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ victoria tournament                      |       6 |        6 |                  0 | beginner putra putri @ kenzo badminton hall m | md intermediate @ kenzo badminton hall m | md open @ kenzo badminton hall m | newbie putra putri @ ken
+ 1 dekade blc liga pelajar open nasional  |       5 |        5 |                  0 | ganda dewasa open @ daddies arena bsd tang | kategori usia anak @ daddies arena bsd tang | vvip gold @ daddies arena bsd tang | vvip mix @ daddies are
+ bwf world junior championships 2026      |       5 |        5 |                  0 | final @ denmark | men s singles final @ denmark | men s singles quarterf @ egypt | quarterfinals @ denmark | semi finals @ court 2
+ indonesia game experience igex 2026 band |       5 |        5 |                  0 | audition ayodance @ main atrium cihampelas | free fire @ main atrium cihampelas | mobile legends bang ba @ main atrium cihampelas | point blank @ main
+ bangun pagi bahagia                      |       4 |        4 |                  2 | kudus @ universitas muria kudu | solo @ rumah seni banjarsari | tegal @ teater arena taman bud | yogyakarta @ institute france indon
+ piala rektor universitas papua           |       4 |        4 |                  0 | esports 2026 efootball @ universitas papua | esports 2026 free fire @ universitas papua | esports 2026 mobile le @ universitas papua | esports 2026 pu
+ festisale 270th yogyakarta               |       3 |        3 |                  0 | balcony lunch set @ plaza ambarrukmo | ghin thai wonderful tr @ plaza ambarrukmo | re juve promo @ re juve ambarrukmo pla
+ 32 days of c f biggest sale              |       2 |        2 |                  0 | day 12 @ pakuwon mall jogja | day 8 @ pakuwon mall jogja
+ beauty in heritage                       |       2 |        2 |                  0 | 270 years of jogjakart @ plaza ambarrukmo lt 1  | batik national day pro @ plaza ambarrukmo lt 1 
+ bright gas cooking competition 2026      |       2 |        2 |                  1 | jogja @ jogja | semifinal yogyakarta @ atrium rama lantai gf 
+ commday 2026                             |       2 |        2 |                  0 | lomba desain infografi @ kota yogyakarta | lomba news anchor @ kota yogyakarta
+ denmark open 2026                        |       2 |        2 |                  0 | men s doubles final @ denmark ia united stat | quarter finals @ denmark
+ elination 8                              |       2 |        2 |                  0 | line follower competit @ location not specified | ui ux competition @ location not specified
+ erafone run 2026 yogyakarta series       |       2 |        2 |                  0 | race pack collection @ plaza ambarrukmo mall  | registration closing @ yogyakarta
+ hunger attack 24                         |       2 |        2 |                  1 | pepper lunch @ pakuwon mall jogja | yakiniku like @ yakiniku like pakuwon 
+ logolepsy 2026                           |       2 |        2 |                  0 | short story writing co @ museum perjuangan yogy | speech contest @ museum perjuangan yogy
+ ruang berpesta                           |       2 |        2 |                  2 | cirebon @ cirebon | garut @ garut
+ santri fest vol 2                        |       2 |        2 |                  0 | futsal @ menara allahabad india | mqk musabaqah qira ati @ menara allahabad india
+ ugm runfest 2026                         |       2 |        2 |                  0 | 3k fun run @ location not specified | 5k race @ location not specified
+(19 rows)
+
+ROLLBACK

@@ -1,0 +1,11 @@
+BEGIN
+SET
+ span_between_first_and_last | series_candidates | events_in_them | avg_members | max_members | identical_full_names 
+-----------------------------+-------------------+----------------+-------------+-------------+----------------------
+ 1 within one month          |                52 |            196 |         3.8 |          17 |                   35
+ 2 one to two months         |                 5 |             14 |         2.8 |           4 |                    5
+ 3 two to four months        |                 1 |              2 |         2.0 |           2 |                    1
+ 4 longer than four months   |                 1 |              2 |         2.0 |           2 |                    1
+(4 rows)
+
+ROLLBACK

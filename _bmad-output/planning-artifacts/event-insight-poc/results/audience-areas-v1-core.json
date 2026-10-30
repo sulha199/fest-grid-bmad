@@ -1,0 +1,1847 @@
+{
+ "model": "gemini-3.5-flash-lite",
+ "runs": 3,
+ "records": [
+  {
+   "id": "cald-conference",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "international",
+    "areas": [],
+    "evidence": [
+     "political leaders, policymakers, and democracy advocates from across Asia",
+     "cross-border dialogue on the future of democracy in Asia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "missing asia (stated); got []"
+    ]
+   }
+  },
+  {
+   "id": "cald-conference",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "international",
+    "areas": [],
+    "evidence": [
+     "political leaders, policymakers, and democracy advocates from across Asia",
+     "cross-border dialogue on the future of democracy in Asia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "missing asia (stated); got []"
+    ]
+   }
+  },
+  {
+   "id": "cald-conference",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "international",
+    "areas": [],
+    "evidence": [
+     "political leaders, policymakers, and democracy advocates from across Asia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "missing asia (stated); got []"
+    ]
+   }
+  },
+  {
+   "id": "futsal-mfc",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "DIY",
+      "level": "province",
+      "basis": "stated"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 2,
+    "expectationsTotal": 2,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "futsal-mfc",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "DIY",
+      "level": "province",
+      "basis": "stated"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 2,
+    "expectationsTotal": 2,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "futsal-mfc",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "DIY",
+      "level": "province",
+      "basis": "stated"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 2,
+    "expectationsTotal": 2,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-pameran-origin",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "terbuka untuk umum",
+     "Galeri Nasional Indonesia, Jakarta"
+    ]
+   },
+   "score": {
+    "scope": false,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "scope=national, accept city|venue_local",
+     "missing jakarta (stated|venue); got []"
+    ]
+   }
+  },
+  {
+   "id": "syn-pameran-origin",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "city",
+    "areas": [
+     {
+      "name": "Jakarta",
+      "level": "city",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Galeri Nasional Indonesia, Jakarta"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-pameran-origin",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "terbuka untuk umum",
+     "Galeri Nasional Indonesia, Jakarta"
+    ]
+   },
+   "score": {
+    "scope": false,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "scope=national, accept city|venue_local",
+     "missing jakarta (stated|venue); got []"
+    ]
+   }
+  },
+  {
+   "id": "syn-webinar-nasional",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "WEBINAR NASIONAL GRATIS",
+     "di seluruh Indonesia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-webinar-nasional",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "WEBINAR NASIONAL GRATIS",
+     "seluruh Indonesia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-webinar-nasional",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "WEBINAR NASIONAL GRATIS",
+     "seluruh Indonesia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-layang-layang",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jawa",
+      "level": "continent",
+      "basis": "stated"
+     },
+     {
+      "name": "Bali",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "FESTIVAL LAYANG-LAYANG SE-JAWA & BALI",
+     "Peserta dari seluruh Jawa dan Bali diundang bertanding!"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-layang-layang",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jawa",
+      "level": "continent",
+      "basis": "stated"
+     },
+     {
+      "name": "Bali",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "FESTIVAL LAYANG-LAYANG SE-JAWA & BALI",
+     "Peserta dari seluruh Jawa dan Bali diundang bertanding!"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-layang-layang",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jawa",
+      "level": "province",
+      "basis": "stated"
+     },
+     {
+      "name": "Bali",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "FESTIVAL LAYANG-LAYANG SE-JAWA & BALI",
+     "Peserta dari seluruh Jawa dan Bali diundang bertanding!"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "uss-market",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "city",
+    "areas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "YOGYAKARTA, WES SIAP?!",
+     "Yang ditunggu-tunggu akhirnya hadir di Jogja!"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "uss-market",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "city",
+    "areas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "YOGYAKARTA, WES SIAP?!",
+     "Yang ditunggu-tunggu akhirnya hadir di Jogja!"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "uss-market",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "city",
+    "areas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "YOGYAKARTA, WES SIAP?!",
+     "akhirnya hadir di Jogja!",
+     "Plaza Ambarrukmo, Yogyakarta"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-expat-bali",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Every Friday in Canggu, Bali."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-expat-bali",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Every Friday in Canggu, Bali."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-expat-bali",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Every Friday in Canggu, Bali."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "lomba-mewarnai",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jogja dan sekitarnya",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Halo adik adik di Jogja dan sekitarnya"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "lomba-mewarnai",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jogja dan sekitarnya",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Halo adik adik di Jogja dan sekitarnya"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "lomba-mewarnai",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jogja dan sekitarnya",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Halo adik adik di Jogja dan sekitarnya"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-nasional-ugm",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "KOMPETISI KARYA TULIS NASIONAL 2026",
+     "Terbuka untuk mahasiswa dari seluruh Indonesia."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-nasional-ugm",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "KOMPETISI KARYA TULIS NASIONAL 2026",
+     "Terbuka untuk mahasiswa dari seluruh Indonesia."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-nasional-ugm",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "KOMPETISI KARYA TULIS NASIONAL 2026",
+     "Terbuka untuk mahasiswa dari seluruh Indonesia."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-bus-surabaya",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Surabaya",
+      "level": "city",
+      "basis": "stated"
+     },
+     {
+      "name": "Sidoarjo",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Berangkat bareng warga Surabaya & Sidoarjo ke Jakarta!",
+     "khusus warga Surabaya dan Sidoarjo."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-bus-surabaya",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Surabaya",
+      "level": "city",
+      "basis": "stated"
+     },
+     {
+      "name": "Sidoarjo",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Berangkat bareng warga Surabaya & Sidoarjo ke Jakarta!",
+     "khusus warga Surabaya dan Sidoarjo."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-bus-surabaya",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Surabaya",
+      "level": "city",
+      "basis": "stated"
+     },
+     {
+      "name": "Sidoarjo",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Berangkat bareng warga Surabaya & Sidoarjo ke Jakarta!",
+     "khusus warga Surabaya dan Sidoarjo"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-guru-bantul",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Bantul",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "PELATIHAN GURU SE-KABUPATEN BANTUL",
+     "Hanya untuk guru SD/SMP di wilayah Kabupaten Bantul."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-guru-bantul",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Kabupaten Bantul",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "PELATIHAN GURU SE-KABUPATEN BANTUL",
+     "Hanya untuk guru SD/SMP di wilayah Kabupaten Bantul."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-guru-bantul",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Kabupaten Bantul",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "PELATIHAN GURU SE-KABUPATEN BANTUL",
+     "Hanya untuk guru SD/SMP di wilayah Kabupaten Bantul."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-zoom-diy",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "DIY",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Khusus mahasiswa se-DIY"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-zoom-diy",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "DIY",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Khusus mahasiswa se-DIY"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-zoom-diy",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "DIY",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Khusus mahasiswa se-DIY",
+     "via Zoom"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-zoom-global",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "international",
+    "areas": [],
+    "evidence": [
+     "Free worldwide webinar on Zoom",
+     "Open to everyone, any country."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-zoom-global",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "international",
+    "areas": [],
+    "evidence": [
+     "Free worldwide webinar on Zoom",
+     "Open to everyone, any country."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-zoom-global",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "international",
+    "areas": [],
+    "evidence": [
+     "Free worldwide webinar on Zoom",
+     "Open to everyone, any country"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-tour",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jakarta",
+      "level": "city",
+      "basis": "stated",
+      "scheduleLabel": "5 Des"
+     },
+     {
+      "name": "Bandung",
+      "level": "city",
+      "basis": "stated",
+      "scheduleLabel": "6 Des"
+     },
+     {
+      "name": "Yogyakarta",
+      "level": "city",
+      "basis": "stated",
+      "scheduleLabel": "8 Des"
+     }
+    ],
+    "evidence": [
+     "5 Des — Jakarta, Istora Senayan",
+     "6 Des — Bandung, Sabuga ITB",
+     "8 Des — Yogyakarta, Stadion Kridosono"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 3,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-tour",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jakarta",
+      "level": "city",
+      "basis": "stated",
+      "scheduleLabel": "5 Des"
+     },
+     {
+      "name": "Bandung",
+      "level": "city",
+      "basis": "stated",
+      "scheduleLabel": "6 Des"
+     },
+     {
+      "name": "Yogyakarta",
+      "level": "city",
+      "basis": "stated",
+      "scheduleLabel": "8 Des"
+     }
+    ],
+    "evidence": [
+     "TUR KONSER NUSANTARA",
+     "5 Des — Jakarta, Istora Senayan",
+     "6 Des — Bandung, Sabuga ITB",
+     "8 Des — Yogyakarta, Stadion Kridosono"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 3,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-tour",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jakarta",
+      "level": "city",
+      "basis": "stated",
+      "scheduleLabel": "5 Des"
+     },
+     {
+      "name": "Bandung",
+      "level": "city",
+      "basis": "stated",
+      "scheduleLabel": "6 Des"
+     },
+     {
+      "name": "Yogyakarta",
+      "level": "city",
+      "basis": "stated",
+      "scheduleLabel": "8 Des"
+     }
+    ],
+    "evidence": [
+     "TUR KONSER NUSANTARA",
+     "5 Des — Jakarta, Istora Senayan",
+     "6 Des — Bandung, Sabuga ITB",
+     "8 Des — Yogyakarta, Stadion Kridosono"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 3,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-melbourne",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Victoria",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "For the Indonesian community in Victoria."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-melbourne",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Victoria",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "For the Indonesian community in Victoria."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-melbourne",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Victoria",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "For the Indonesian community in Victoria."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-no-area-curator",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "LOMBA FOTOGRAFI",
+     "Pendaftaran dibuka sampai 30 November 2026"
+    ]
+   },
+   "score": {
+    "scope": false,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "scope=national, accept unspecified|online"
+    ]
+   }
+  },
+  {
+   "id": "ar-no-area-curator",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "Pendaftaran dibuka sampai 30 November 2026 melalui link di bio."
+    ]
+   },
+   "score": {
+    "scope": false,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "scope=national, accept unspecified|online"
+    ]
+   }
+  },
+  {
+   "id": "ar-no-area-curator",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "unspecified",
+    "areas": [],
+    "evidence": []
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-kotabaru",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Kotabaru",
+      "level": "neighborhood",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Jl. Suroto & Jl. Faridan M. Noto, Kotabaru, Gondokusuman"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "missing yogyakarta (venue); got [Kotabaru:venue]"
+    ]
+   }
+  },
+  {
+   "id": "ar-kotabaru",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Kotabaru",
+      "level": "neighborhood",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Jl. Suroto & Jl. Faridan M. Noto, Kotabaru, Gondokusuman"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "missing yogyakarta (venue); got [Kotabaru:venue]"
+    ]
+   }
+  },
+  {
+   "id": "ar-kotabaru",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Kotabaru",
+      "level": "neighborhood",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Jl. Suroto & Jl. Faridan M. Noto, Kotabaru, Gondokusuman."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": false,
+    "detail": [
+     "missing yogyakarta (venue); got [Kotabaru:venue]"
+    ]
+   }
+  },
+  {
+   "id": "ar-kulonprogo",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Kulon Progo",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "FESTIVAL PETANI SE-KULON PROGO",
+     "Untuk seluruh petani & kelompok tani se-Kabupaten Kulon Progo"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-kulonprogo",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Kulon Progo",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "FESTIVAL PETANI SE-KULON PROGO",
+     "seluruh petani & kelompok tani se-Kabupaten Kulon Progo"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-kulonprogo",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Kulon Progo",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "FESTIVAL PETANI SE-KULON PROGO",
+     "seluruh petani & kelompok tani se-Kabupaten Kulon Progo"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-jabodetabek",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jabodetabek",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk warga Jabodetabek"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-jabodetabek",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jabodetabek",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk warga Jabodetabek."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-jabodetabek",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jabodetabek",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk warga Jabodetabek"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-hybrid-jateng",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jawa Tengah",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "SEMINAR KEWIRAUSAHAAN UNTUK UMKM SE-JAWA TENGAH"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-hybrid-jateng",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jawa Tengah",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "SEMINAR KEWIRAUSAHAAN UNTUK UMKM SE-JAWA TENGAH"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ar-hybrid-jateng",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Jawa Tengah",
+      "level": "province",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "SEMINAR KEWIRAUSAHAAN UNTUK UMKM SE-JAWA TENGAH"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  }
+ ]
+}

@@ -1,0 +1,26 @@
+
+## @plazaambarrukmo — 4 post(s)
+  shopfest                   -> "Plaza Ambarrukmo, Yogyakarta"  conf=1.00  APPLIED
+  uss-market                 -> "Plaza Ambarrukmo, Yogyakarta"  conf=1.00  APPLIED
+  tropical-playland          -> "Plaza Ambarrukmo, Hall Lantai 2"  conf=1.00  APPLIED
+  swasana-budaya             -> "Ground Floor, Plaza Ambarrukmo, Yogyakarta"  conf=1.00  APPLIED
+  distinct place descriptions: 3 of 4
+
+## @infoeventjogja — 12 post(s)
+  gowes-merdeka              -> "Plaza Ambarrukmo"  conf=1.00  APPLIED
+  cald-conference            -> "Royal Ambarrukmo, Yogyakarta"  conf=1.00  APPLIED
+  porseni-stikes             -> "Sport Academy Yogyakarta and Lapangan Funminton, Yogyakarta"  conf=0.90  APPLIED
+  volunteer-sosling          -> "omah noto plankton"  conf=0.90  APPLIED
+  volunteer-pulangkesinii    -> "Jogja"  conf=0.70  APPLIED
+  futsal-mfc                 -> "DIY & Jawa Tengah"  conf=0.70  APPLIED
+  lomba-mewarnai             -> "Montero Jogja, Jln. Purworejo, Tanen, Pakem, Sleman Yogyakarta"  conf=1.00  APPLIED
+  apecx-talkshow             -> "Auditorium SGLC, Faculty of Engineering, Universitas Gadjah Mada"  conf=1.00  APPLIED
+  rsih-run                   -> "Yogyakarta"  conf=1.00  APPLIED
+  erafone-run                -> "Museum Gunungapi Merapi, Yogyakarta"  conf=1.00  APPLIED
+  fixture-drum-contest       -> "Hotel Kotta Go Yogyakarta"  conf=1.00  APPLIED
+  fixture-vifation           -> "DIY (Daerah Istimewa Yogyakarta) and Sleman, Indonesia"  conf=0.85  APPLIED
+  distinct place descriptions: 12 of 12
+
+## @slemancityhall — 1 post(s)
+  fixture-sleman-city-hall   -> "Sleman City Hall"  conf=1.00  APPLIED
+  distinct place descriptions: 1 of 1
