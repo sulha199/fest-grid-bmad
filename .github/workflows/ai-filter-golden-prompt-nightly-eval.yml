@@ -9,6 +9,11 @@ name: Golden-Prompt Live Gemini Eval (nightly)
 # GOLDEN_EVAL_DAILY_BUDGET-sized window of the suite and leaves the rest pending. A small ledger
 # (which fixture was evaluated when, and whether it drifted) carries across nights in the Actions
 # cache and decides the next window: new fixtures, then last night's drift, then the stalest.
+#
+# Drift shows up as `::warning::` annotations on the run and does NOT turn it red. A red run means the
+# eval itself broke: a crash, Gemini rejecting the request (e.g. 400 INVALID_ARGUMENT from an
+# over-complex response schema), or a quota stop before the first fixture was answered. To make drift
+# fail a manual run too, add GOLDEN_EVAL_FAIL_ON_DRIFT: 'true' to the run step's env.
 on:
   schedule:
     - cron: '17 19 * * *' # nightly, off-peak UTC
