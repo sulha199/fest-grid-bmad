@@ -2550,6 +2550,15 @@ items:
      touches: [app:backend, pkg:domain],
      note: "Fixed in the PR that adds this row (bounded wait inside the call budget, no row for a run that never started); set done once merged. 2026-10-25 03:13 UTC: 31 SYNC rows FAILED, 34 later SUCCEEDED via redelivery."}
 
+  # ── 2026-10-30 (public events list repeats and skips rows across pages) ──
+  BUG-090:
+    {type: bug, status: backlog, created: 2026-10-30,
+     impact: user-visible, effort: s,
+     title: "Discovery's default order has no tie-breaker, so paging repeats one event and skips another",
+     ref: [apps/backend/src/schema/resolvers.ts, apps/backend/src/schema/events-default-order-tiebreak.test.ts, backlog/BUG-090-discovery-order-no-tiebreaker.md],
+     touches: [app:backend, web:events],
+     note: "Fixed in the PR that adds this row (events.id as the last ORDER BY key); set done once merged. 2026-10-30: one pass of 664 rows held 614 distinct events. Duplicate counts taken from that list before the fix are inflated."}
+
   # ── 2026-10-30 (moderator dedup queue: AI-assisted review, pieces B and C of the split spec) ──
   FIND-103:
     {type: finding, status: backlog, created: 2026-10-30,

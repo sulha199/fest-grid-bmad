@@ -5,6 +5,8 @@
 // candidate row(s) and resolving the organizer-match boolean before calling in here; this file
 // never queries anything itself.
 
+import { venueTextsSamePlace } from './venue-text-match.js';
+
 export type MatchTier = 'high' | 'mid' | 'low';
 
 // Story 3.6v Dev Notes "Design decision 3" -- these are initial, documented *defaults*, not an
@@ -313,6 +315,8 @@ function venuePairCompatible(a: MatchVenueLike, b: MatchVenueLike): boolean {
   if (!bothHaveText && !bothHaveCoordinates) return true;
 
   if (bothHaveText && venueTextsOverlap(textA, textB)) return true;
+  // One place spelled two ways ("Ground Floor" / "Lantai GF", "Lap." / "Lapangan"): IDEA-110.
+  if (bothHaveText && venueTextsSamePlace(a.location, b.location)) return true;
   if (
     bothHaveCoordinates &&
     haversineDistanceMeters(a.latitude, a.longitude, b.latitude, b.longitude) <= VENUE_COMPATIBLE_METERS
@@ -395,11 +399,12 @@ function hasAnyVenueInfo(v: MatchVenueLike): boolean {
   return normalizeVenueText(v.location) !== '' || hasCoordinates(v);
 }
 
-// "match" is the same test as the score's venue signal (equal trimmed, lowercased text, or
-// coordinates within 150 m). "differs" needs both sides to state a comparable venue (text against
-// text, or coordinates against coordinates) and disagree; anything else cannot be compared.
+// "match" is the score's venue signal (equal trimmed, lowercased text, or coordinates within 150 m)
+// or the same place spelled two ways (`venueTextsSamePlace`, IDEA-110). "differs" needs both sides to
+// state a comparable venue (text against text, or coordinates against coordinates) and disagree;
+// anything else cannot be compared.
 function pairVenueState(a: MatchVenueLike, b: MatchVenueLike): PairVenueState {
-  if (hasVenueMatch([a], [b])) return 'match';
+  if (hasVenueMatch([a], [b]) || venueTextsSamePlace(a.location, b.location)) return 'match';
   const bothHaveText = normalizeVenueText(a.location) !== '' && normalizeVenueText(b.location) !== '';
   if (bothHaveText || (hasCoordinates(a) && hasCoordinates(b))) return 'differs';
   return hasAnyVenueInfo(a) || hasAnyVenueInfo(b) ? 'unknown-one-side' : 'unknown-both';
