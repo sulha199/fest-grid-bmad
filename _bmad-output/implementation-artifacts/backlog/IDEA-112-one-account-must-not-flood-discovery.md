@@ -52,3 +52,7 @@ Related: IDEA-085 (duplicate sweep, exact-repeat merge), IDEA-084 (event groups)
 - Limits also at scraping: an alarm when an account has too many posts in a month, and a stop for the rest of that month at a hard limit. This is its own mechanism: IDEA-113.
 - "Flag an account that repeats itself": the owner asked what the case exactly is. The answer (four cases, only one of them harmful to users, and that one a dedup defect) is in IDEA-113; the proposal is no separate repeat flag, the intake alarm reports posts per event instead. Still to confirm.
 - Part of personalisation (owner 2026-10-29): the per-account display cap is a bounded term in the default ordering (plan Phase B, Revision 12), and the intake side belongs with the BYOK to paid-product move (IDEA-113, CC-032).
+
+## Correction 2026-10-30
+
+The figures in "Evidence" (46 groups, 100 events; 41 groups, 90 events with a shared start date) were counted on the public events list, which repeats and skips rows between pages (BUG-090). On the production database the same-account, same-strict-name, same-start-date groups number **16, holding 37 of 663 upcoming events**. The exposure argument stands (no per-account cap, series not collapsed); the size of today's problem is about 6%, not 13 to 15%. Detail: IDEA-085.

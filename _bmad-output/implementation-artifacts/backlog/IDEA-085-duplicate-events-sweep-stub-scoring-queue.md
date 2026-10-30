@@ -42,3 +42,22 @@ Adopted by the owner, both paths: one predicate `isExactRepeat` (same poster, sa
 ## Evidence 2026-10-29 (after PR #102 and the 2026-10-28 drain)
 
 The exact-repeat merge adopted on 2026-10-20 (PRD 3.18, FR116) is still not built, and its absence is visible: of 671 upcoming events, 41 groups (90 events, 13%) are the same account, the identical name and a shared start date, still shown more than once. Causes seen in one group: a stub paired with a full event (the stub rule never does), a roundup-sourced stub with no organizer match, a venue spelled two ways (IDEA-110). These 41 groups are a ready test set for the live check and the sweep. Detail and the flooding risk this feeds: IDEA-112.
+
+## Correction 2026-10-30: the 41 groups were repeated list rows
+
+The public events list repeats and skips rows between pages (BUG-090: the default order ends in a date, not a unique key). The 2026-10-29 figures above (41 groups, 90 of 671 events) were counted on that list. A recount on the production database (read-only, distinct upcoming events: 663; same source account, same strict name, same main start date) finds **16 groups holding 37 events (5.6%)**, which the first count had put at 13%.
+
+| Of the 16 groups | Count |
+|---|--:|
+| all full events / a stub with a full event / all stubs | 11 / 3 / 2 |
+| venue text differs between the events | 12 |
+| same start time and end date, venue text differs (the IDEA-110 case) | 8 |
+| a pending suggestion exists (queued at mid, blocked by the venue-conflict test) | 11 |
+| a different end date or start time between the events (a promo window against a single day is a different event; a missing time on one side is not) | 5 |
+
+## What shrinks it, and what is left (evaluated read-only on production, 2026-10-30)
+
+- IDEA-110 (one place spelled two ways, built, not merged): the drain would auto-link 5 pairs instead of 1 (4 promoted by the rule), and the stub scan would merge 4 events in 3 clusters instead of none. All were read by hand and are genuine repeats.
+- Not covered by anything built: events created before the matcher existed (before 2026-10-12) that never got a suggestion row (full against full), and a stub paired with a full event. By hand count on the 2026-10-30 list that is a handful of events, not dozens.
+
+**Recommendation:** do not build the new exact-repeat predicate. The existing mid-to-high promotion already covers the live case once the venue spelling no longer blocks it. If the legacy pairs matter, generalise `--scan-stubs` to full events through `decideMatchTier` (one scan mode, no new rule). Track the measure instead: distinct upcoming events that sit in a same-account, same-name, same-date group (16 groups, 37 events today).

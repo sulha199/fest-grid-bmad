@@ -2496,7 +2496,7 @@ items:
      title: "Duplicate events: sweep the legacy pairs, let stub pairs reach the candidate threshold, work the moderator queue",
      ref: [backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
      touches: [app:backend, pkg:database, web:events, web:moderation],
-     note: "181 reachable pairs, 25 listed: 33 mid/high pairs are the sweep's job, 123 stub pairs score low (stub rule, AD-30 Rule 7). Exact-repeat merge adopted 2026-10-20, live and sweep: see the detail file."}
+     note: "181 reachable pairs, 25 listed: 33 mid/high pairs are the sweep's job, 123 stub pairs score low (stub rule, AD-30 Rule 7). Exact-repeat merge adopted 2026-10-20 but unbuilt; the 2026-10-30 recount shrank the problem to 16 groups / 37 events, mostly venue spelling (IDEA-110): see the detail file."}
 
   IDEA-084:
     {type: idea, status: backlog, created: 2026-10-19,
@@ -3015,7 +3015,7 @@ items:
      title: "Expire pending match suggestions whose events are both over or that point at a merged or deleted event",
      ref: [apps/backend/src/lib/events/drain-match-backlog.ts, apps/backend/src/drain-event-match-backlog.ts],
      touches: [app:backend, web:moderation],
-     note: "Prod 2026-10-28: of 283 pending suggestions 190 are for events already over and 8 point at a merged or deleted event; only 93 involve an upcoming event. PR #102 skips such rows but never closes them."}
+     note: "Built 2026-10-30 on branch claude/idea-107-expire-stale-match-suggestions (status expired, migration 0085); set done once merged and run. Prod evaluate 2026-10-30: 299 pending, 202 expire (194 both over, 8 deleted), 97 stay."}
 
   IDEA-108:
     {type: idea, status: backlog, created: 2026-10-28,
@@ -3039,7 +3039,7 @@ items:
      title: "Treat venue spelling variants as one venue in the stub-repeat rule (Polytron Kudus, Hylo Open)",
      ref: [packages/domain/src/events/match-scoring.ts, apps/backend/src/lib/events/scan-stub-repeats.ts],
      touches: [pkg:domain, app:backend],
-     note: "Stub scan 2026-10-28: 100 near-misses stay apart; on the first scan 77 of 103 were two tournaments whose venue text is spelled two ways. A normalised venue key or an alias list would merge them."}
+     note: "Built 2026-10-30 on branch claude/idea-110-tolerant-venue-match, also in the promotion's conflict test; set done once merged. Prod evaluate: drain 1 to 5 auto-link pairs, stub scan 0 to 3 clusters. Origin: 77 of 103 near-misses on 2026-10-28 were a venue spelled two ways."}
 
   FIND-109:
     {type: finding, status: backlog, created: 2026-10-28,
@@ -3064,7 +3064,7 @@ items:
      title: "Keep one account from flooding Discovery: collapse repeats and cap per-account volume in the default list (a risk; no abusive case seen yet)",
      ref: [backlog/IDEA-112-one-account-must-not-flood-discovery.md, backlog/IDEA-085-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
      touches: [app:backend, web:events, pkg:domain],
-     note: "Owner 2026-10-29: no spam example yet, but a travel agent could repost the same or similar tours. Already 41 same-account identical-name same-date groups (90 of 671 upcoming events) show twice; exact-repeat merge (IDEA-085) and series collapse (IDEA-084) are unbuilt; no per-account cap."}
+     note: "Owner 2026-10-29: no spam example yet, but a travel agent could repost the same or similar tours. 2026-10-30 recount: 16 groups (37 of 663 upcoming events) show twice, not 41/90 (repeated list rows, BUG-090). Series collapse (IDEA-084) and a per-account cap are unbuilt."}
 
   # ── 2026-10-29 (owner: limits also at scraping) ──
   IDEA-113:
