@@ -297,7 +297,7 @@ body { margin: 0; }
   <ul class="open">
     <li><strong>Both are stubs</strong> (the new item's <code>isStub</code>, the candidate's <code>detail_level</code>).</li>
     <li><strong>Strict names equal, at least two words</strong> (lowercase, punctuation and year removed; bracketed text kept, so "(Morning)" differs from "(Evening)").</li>
-    <li><strong>Same start date</strong> on one schedule pair, and on that pair a <strong>positive venue match</strong> (same text, or coordinates within 150 m; two absent venues do not match) and equal start times when both are set. Same name and date at a different or unknown venue are different events.</li>
+    <li><strong>Same start date</strong> on one schedule pair, and on that pair a <strong>positive venue match</strong> (same text, the same place spelled two ways, or coordinates within 150 m; two absent venues do not match) and equal start times when both are set. Same name and date at a different or unknown venue are different events.</li>
   </ul>
   <p>The link is <strong>additive</strong>: empty fields are filled, nothing is overwritten, and no schedule is deleted (an ordinary high link overwrites and prunes). The oldest matching event always absorbs the repost. The decision log line carries <code>promotionRule: "stub-repeat"</code>. A scan mode of the backlog script (<code>--scan-stubs</code>) merges existing clusters through the journaled merge and lists the near-misses it left apart.</p>
 
