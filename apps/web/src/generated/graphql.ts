@@ -1524,6 +1524,7 @@ export type SuggestedEventMatchResolution = {
 
 export enum SuggestedEventMatchStatus {
   Accepted = 'accepted',
+  Expired = 'expired',
   Pending = 'pending',
   Rejected = 'rejected'
 }

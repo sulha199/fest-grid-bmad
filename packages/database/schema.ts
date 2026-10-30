@@ -508,7 +508,9 @@ export const eventSlugAliases = pgTable('event_slug_aliases', {
 
 // Story 3.6w -- the suggestion's own review lifecycle. Closed vocabulary, declared once per the
 // correctionStatusEnum/reportStatusEnum convention.
-export const suggestedEventMatchStatusEnum = pgEnum('suggested_event_match_status', ['pending', 'accepted', 'rejected']);
+// `expired` (IDEA-107): closed by the system because an event of the pair is deleted or merged, or
+// both are over. It records no judgement -- unlike `rejected` it does not say "not a duplicate".
+export const suggestedEventMatchStatusEnum = pgEnum('suggested_event_match_status', ['pending', 'accepted', 'rejected', 'expired']);
 
 // Story 3.6v / AD-30 Rule 7 -- mid-confidence match suggestions queued for moderator review
 // (Story 3.6w's own scope to read/approve/reject). One row per (eventId, candidateEventId) pair,

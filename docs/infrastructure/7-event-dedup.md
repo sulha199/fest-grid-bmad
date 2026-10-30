@@ -112,6 +112,22 @@ DATABASE_URL=<write-capable url> pnpm tsx src/drain-event-match-backlog.ts --mod
 
 A pair is printed with its suggestion id, `promoted` or `scored-high`, score, name similarity, day difference, and which signals fired. **Spot-check the list before `--apply`**: there is almost no rejection ground truth (only a handful of moderator decisions exist, all accepts), so precision is unmeasured. `--exclude` leaves a suggestion in the queue. The tagged-organizer-handle leg of the organizer signal is not stored, so the drain can only under-link relative to ingestion, never over-link.
 
+## Closing suggestions nobody can act on
+
+`expire-stale-match-suggestions.ts` (IDEA-107) takes dead rows out of the moderator queue. A **pending** suggestion is closed with the status `expired` when an event of the pair was deleted or merged away since it was queued, or when **both events are over** (the last day any schedule covers is before the run's UTC date; a schedule that ended today stays). `expired` records no judgement: it is not `rejected`, which means "not a duplicate". Re-running is safe: a closed row is no longer pending, and a row a moderator resolves in the meantime is left as the moderator set it.
+
+```bash
+cd apps/backend
+# 1. Read-only: counts only, works with the read-only prod role.
+DATABASE_URL=<read-only url> pnpm tsx src/expire-stale-match-suggestions.ts --evaluate-only [--list]
+# 2. Dry run on a write-capable url: the real update, rolled back.
+DATABASE_URL=<write-capable url> pnpm tsx src/expire-stale-match-suggestions.ts [--list]
+# 3. Commit.
+DATABASE_URL=<write-capable url> pnpm tsx src/expire-stale-match-suggestions.ts --apply
+```
+
+It prints the pending count, how many it would close by reason (event deleted, event merged away, both over) and how many it keeps; `--list` adds every suggestion id. No moderator id is recorded: this is a system action. Nothing runs it on a schedule yet. A pair of finished events that the drain would still merge is expired too, not merged: run `drain-event-match-backlog.ts` first if such pairs should be merged for the archive.
+
 ## Repeated stub posts: the scan
 
 `drain-event-match-backlog.ts --scan-stubs` finds **active stub events that repeat one another** with the same predicate ingestion uses, merges each cluster into its **oldest** event through `mergeEvents()` (journaled, reversible with `undoEventMerge`), and prints a **near-miss list**. It covers duplicates created before the rule existed (they have no suggestion row, so the suggestion drain cannot see them) and two posts ingested in the same few seconds (no lock prevents that).
