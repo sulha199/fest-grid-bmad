@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-27"
+last_updated: "2026-10-30"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2558,3 +2558,50 @@ items:
      ref: [apps/backend/src/schema/resolvers.ts, apps/backend/src/schema/events-default-order-tiebreak.test.ts, backlog/BUG-090-discovery-order-no-tiebreaker.md],
      touches: [app:backend, web:events],
      note: "Fixed in the PR that adds this row (events.id as the last ORDER BY key); set done once merged. 2026-10-30: one pass of 664 rows held 614 distinct events. Duplicate counts taken from that list before the fix are inflated."}
+
+  # ── 2026-10-30 (Apify monthly cap, repeated posts, late Bright Data results) ──
+  BUG-091:
+    {type: bug, status: done, created: 2026-10-30,
+     title: "Scrape cursor ignored co-authored posts and re-fetched the boundary post, so 30% of billed Apify items were repeats",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend, pkg:domain],
+     note: "Fixed in PR #118 (cursor over owned or associated posts; Apify cursor newest + 1 s). 489 of 1,642 items repeated, 2026-10-23..29."}
+
+  BUG-092:
+    {type: bug, status: done, created: 2026-10-30,
+     title: "A Bright Data delivery that arrived after the job expired was dropped, losing 21 snapshots (~190 records)",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend],
+     note: "Fixed in PR #118 (webhook processes an expired job's delivery when it has records); the 2026-10-29 snapshots were replayed on prod, 88 new posts."}
+
+  BUG-093:
+    {type: bug, status: done, created: 2026-10-30,
+     title: "Apify's monthly usage cap was audited as FAILED runs, counted against its health and redelivered through SQS",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend],
+     note: "Fixed in PR #118 (ApifyMonthlyUsageLimitError: no audit row, no rethrow, CAPACITY_EXHAUSTED on the async trigger). 105 FAILED rows on 2026-10-30."}
+
+  FIND-103:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: user-visible, effort: xs,
+     title: "Prod's Apify account is on the FREE plan ($5/month) and cannot carry the daily scrape load (~$19/month)",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:infrastructure, cross:process],
+     note: "Owner decision: upgrade the plan, or keep Bright Data primary with Apify as a small fallback. Usage resets 2026-11-23 00:00 UTC."}
+
+  IDEA-101:
+    {type: idea, status: backlog, created: 2026-10-30,
+     impact: internal, effort: s,
+     title: "Remember an exhausted Apify monthly cap for the rest of the usage cycle instead of trying every target",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend],
+     note: "Today each target still makes one refused start per batch; the refusal is cheap but fills the logs and delays the fallback to the next provider."}
+
+  IDEA-102:
+    {type: idea, status: backlog, created: 2026-10-30,
+     impact: internal, effort: s,
+     title: "Bright Data snapshots can take hours; the 180-minute expiry sends them to a paid Apify fallback while the late result still arrives",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend],
+     note: "2026-10-29: 21 of 38 snapshots took 5-6 h. Options: longer expiry, or have the sweep wait for a snapshot Bright Data still reports as running."}
+
