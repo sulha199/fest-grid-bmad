@@ -2,7 +2,7 @@
 
 Status: design agreed 2026-10-30 (bmad-quick-dev session, owner: shulha). Split into three pieces after an
 architecture review and an adversarial code review of the first single-spec draft. This file is the shared
-context for the three specs. Piece A has a spec; B and C are deferred (`FIND-103`, `FIND-104` on the backlog).
+context for the three specs. Piece A has a spec; B and C are deferred (`FIND-107`, `FIND-104` on the backlog).
 
 ## 1. Goal
 

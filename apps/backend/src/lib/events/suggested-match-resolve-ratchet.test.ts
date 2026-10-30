@@ -17,7 +17,7 @@ import { join, relative, resolve, sep } from 'path';
 //
 // What this does NOT catch, on purpose: another file calling `mergeEvents(..., suggestionId)`. The
 // backlog drain (`drain-match-backlog.ts`) does exactly that today, without the row lock or a pending
-// guard; routing it through `resolveSuggestedMatch()` is a known, deferred gap (BUG-091).
+// guard; routing it through `resolveSuggestedMatch()` is a known, deferred gap (BUG-094).
 //
 // A pragmatic regex scan in the style of `schema/events-postid-write-ratchet.test.ts`, not an AST
 // parse. Every writer of the table lives under `apps/backend/src` (checked 2026-10-30); only non-test

@@ -1914,7 +1914,7 @@ This document defines the core architectural invariants for the FestDaily applic
         expiry writer `expire-match-suggestions.ts` (IDEA-107; its UPDATE keeps its own `pending` guard, which
         the ratchet pins) may update `event_match_candidates` (a regex scan of the non-test `.ts` files under `apps/backend/src`: drizzle update or upsert, an import, destructuring or assignment alias,
         a namespace import or bracket access, or raw SQL), and `resolvers.ts` must call `resolveSuggestedMatch()` and
-        never `mergeEvents()` directly. **Known gaps, deferred (BUG-091):** the ratchet does not catch
+        never `mergeEvents()` directly. **Known gaps, deferred (BUG-094):** the ratchet does not catch
         another file calling `mergeEvents(..., suggestionId)`, and the backlog drain
         (`drain-match-backlog.ts`) does, so it takes no suggestion lock and `mergeEvents` step 11 has no
         `pending` guard (a drain can overwrite a concurrent REJECT); and the lock covers the suggestion

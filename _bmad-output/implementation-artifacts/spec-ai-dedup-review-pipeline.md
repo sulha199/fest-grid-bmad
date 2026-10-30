@@ -81,7 +81,7 @@ Code review of PR #119 (Blind Hunter, Edge Case Hunter, Acceptance Auditor), tri
 - [x] [Review][Patch] Spec Code Map and Tasks, and `DESIGN.md` section 7, still said two writers and cited a deleted `resolvers.ts:1916` [spec, DESIGN.md]
 - [x] [Review][Patch] Docs called the expiry writer "the expiry tool" without naming the file that writes versus the CLI that runs it [7-event-dedup.md, project-context.md]
 - [x] [Review][Patch] Suggested Review Order anchors drifted after later edits [this spec]
-- [x] [Review][Defer] The drain calls `mergeEvents(..., suggestionId)` without the lock or a pending guard, and the lock covers the suggestion row, not the two events [drain-match-backlog.ts, merge-events.ts] -- deferred, pre-existing (BUG-091, already on the board)
+- [x] [Review][Defer] The drain calls `mergeEvents(..., suggestionId)` without the lock or a pending guard, and the lock covers the suggestion row, not the two events [drain-match-backlog.ts, merge-events.ts] -- deferred, pre-existing (BUG-094, already on the board)
 
 Dismissed as noise or handled elsewhere (13): row-lock wait has no timeout (the old code also waited on the same row lock); post-commit response re-select (pre-existing pattern); `expired` reported as "already resolved" (GraphQL-visible behaviour is meant to be unchanged); REJECT ignores the affected-row count (unreachable under the lock, which two tests pin); BAD_REQUEST mapping untested through GraphQL (the enum blocks bad values); expiry-pin regex brittleness (fails loudly, the other direction is far-fetched); race-test second connection and timing (the outcome assertion still fails without the lock); FIND-105 and FIND-106 attributed to this spec (the defer procedure attributes to the current spec); `DESIGN.md` names credentials and roles (all already in committed docs on master); the "one hour off" scraper cutoff as a production time bug (the test is documented as depending on shared dev DB state, and CI passes it); scope creep of design and backlog files (they are separate commits and the requested artifacts); diagram text overflow (checked by screenshot); Tasks list widened with two extra characterization tests (harmless).
 
@@ -91,7 +91,7 @@ Dismissed as noise or handled elsewhere (13): row-lock wait has no timeout (the 
 
 - **Why caller-owned transaction:** `DbExecutor` has no `transaction`, and Piece B's dry run needs an outer rolled-back transaction with a savepoint per decision; a function that opened its own would defeat that.
 - **How the lock is tested:** the shared `db` has `max: 1`, so two concurrent transactions cannot both run through it. The race test therefore opens a second `postgres` connection that holds the row `FOR UPDATE` while `resolveSuggestedMatch` runs on `db`; a SQL-shape assertion backs it. Both fail if the lock is removed (checked by hand).
-- **Scope:** Pieces B (bridge) and C (skill) are deferred as `FIND-103` and `FIND-104`; their requirements are in `DESIGN.md`. Nothing here depends on them.
+- **Scope:** Pieces B (bridge) and C (skill) are deferred as `FIND-107` and `FIND-104`; their requirements are in `DESIGN.md`. Nothing here depends on them.
 
 ## Verification
 
@@ -157,4 +157,4 @@ Dismissed as noise or handled elsewhere (13): row-lock wait has no timeout (the 
   [`event-dedup-flow.html:367`](../planning-artifacts/diagrams/event-dedup-flow.html#L367)
 
 - Pre-existing gaps and the sandbox test failure, deferred and on the board.
-  [`deferred-work.md:801`](deferred-work.md#L801) · [`backlog.yaml:2580`](backlog.yaml#L2580)
+  [`deferred-work.md:801`](deferred-work.md#L801) · [`backlog.yaml:2626`](backlog.yaml#L2626)
