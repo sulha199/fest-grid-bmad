@@ -31,16 +31,9 @@ export const handler = async (
       return { statusCode: 200, body: 'OK' }; // Don't retry
     }
 
-    if (pendingJob.status !== 'PENDING') {
-      console.warn(
-        `Job ${pendingJob.id} is no longer pending (status: ${pendingJob.status})`
-      );
-      return { statusCode: 200, body: 'OK' };
-    }
-
-    const now = new Date();
-    if (pendingJob.expiresAt < now) {
-      console.warn(`Job ${pendingJob.id} has already expired`);
+    // COMPLETED means this delivery (or the sweep) already processed the snapshot: a duplicate.
+    if (pendingJob.status === 'COMPLETED') {
+      console.warn(`Job ${pendingJob.id} is already completed`);
       return { statusCode: 200, body: 'OK' };
     }
 
@@ -49,6 +42,20 @@ export const handler = async (
     if (event.body) {
       const parsed: unknown = JSON.parse(event.body);
       records = Array.isArray(parsed) ? parsed : [];
+    }
+
+    // A snapshot can finish long after the job's expiry: on 2026-10-29 Bright Data delivered 21 snapshots
+    // 5-6 hours late, the sweep had already marked them EXPIRED and this handler dropped their ~190 records.
+    // Results that arrive for an expired job are still real posts, so they are processed (the persist step
+    // de-duplicates against the SQS fallback the expiry queued). An expired job with no records carries
+    // nothing to process and was already recorded as failed by the sweep.
+    const isLate = pendingJob.status === 'EXPIRED' || pendingJob.expiresAt < new Date();
+    if (pendingJob.status === 'EXPIRED' && records.length === 0) {
+      console.warn(`Job ${pendingJob.id} already expired and the delivery has no records`);
+      return { statusCode: 200, body: 'OK' };
+    }
+    if (isLate) {
+      console.warn(`Job ${pendingJob.id} delivered after its expiry (${pendingJob.expiresAt.toISOString()}); processing ${records.length} records`);
     }
 
     // A snapshot with no records is not necessarily a good run (BUG-074): tell an account with

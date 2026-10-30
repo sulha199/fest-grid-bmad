@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, posts, users, apiKeys, subscriptions, vendorCallLocks } from '@festgrid/database';
 import { registerScraperAdapter, ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult } from '@festgrid/domain';
+import { ApifyMonthlyUsageLimitError } from './instagram-adapter.js';
 import { processScrapeJob } from './process-scrape-job.js';
 import { eq, inArray } from 'drizzle-orm';
 import { setSendSqsMessage, sendSqsMessage } from '../aws/send-sqs-message.js';
@@ -199,7 +200,12 @@ test('process-scrape-job integration tests', async (t) => {
     await processScrapeJob(job);
 
     assert.ok(computedNewerThan);
-    assert.strictEqual(new Date(computedNewerThan).toISOString(), publishedAt.toISOString(), 'newerThan should equal existing post publishedAt');
+    // One second past the post: Apify's `onlyPostsNewerThan` includes the boundary (APIFY_CURSOR_ADVANCE_MS).
+    assert.strictEqual(
+      new Date(computedNewerThan).toISOString(),
+      new Date(publishedAt.getTime() + 1000).toISOString(),
+      'newerThan should be one second after the existing post publishedAt'
+    );
   });
 
   await t.test('retries with wider windows for a brand-new subscription when the adapter cannot filter by newerThan+limit in one call', async () => {
@@ -381,6 +387,40 @@ test('process-scrape-job integration tests', async (t) => {
     await assert.rejects(() => processScrapeJob(job, { rethrowOnFailure: true }), /Fake adapter failure/);
     const [afterRethrow] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     assert.strictEqual(afterRethrow.lastScrapedAt, null);
+  });
+
+  await t.test('an exhausted Apify monthly limit is not rethrown for redelivery and does not stamp lastScrapedAt', async () => {
+    const mockPlatform = 'test-fake-platform-monthly-limit' as any;
+    registerScraperAdapter(mockPlatform, {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        throw new ApifyMonthlyUsageLimitError('Monthly usage hard limit exceeded');
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    });
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-monthly-limit-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Monthly Limit',
+      username: 'fake_monthly_limit',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const job = { profileId: profile.id, platform: mockPlatform, accountId: profile.accountId, username: profile.username };
+
+    // Redelivery cannot help until Apify's usage cycle resets, so the queue worker must not retry it.
+    await assert.doesNotReject(() => processScrapeJob(job, { rethrowOnFailure: true }));
+    const [after] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    assert.strictEqual(after.lastScrapedAt, null, 'not a completed scrape: the next batch must still pick the profile up');
   });
 
   await t.test('a completed scrape stamps lastScrapedAt even when it found nothing new', async () => {

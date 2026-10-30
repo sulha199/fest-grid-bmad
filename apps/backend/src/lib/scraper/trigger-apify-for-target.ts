@@ -1,4 +1,4 @@
-import { callApifyClient, isApifyMemoryLimitError } from './instagram-adapter.js';
+import { callApifyClient, isApifyMemoryLimitError, isApifyMonthlyUsageLimitError } from './instagram-adapter.js';
 import { getScrapeCursor } from './get-scrape-cursor.js';
 import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
@@ -114,6 +114,10 @@ export let attemptApifyAsyncTrigger = async (
     }
     if (isApifyMemoryLimitError(error)) {
       console.warn(`Apify memory limit reached; ${target.username} falls back to the scraping queue`);
+      return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
+    }
+    if (isApifyMonthlyUsageLimitError(error)) {
+      console.warn(`Apify monthly usage limit reached; ${target.username} falls back to the scraping queue`);
       return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
     }
     console.error(`Failed to trigger Apify async job for ${target.username}:`, error);

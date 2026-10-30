@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { posts, scraperActorRuns, socialMediaAccountProfiles } from '@festgrid/database';
+import { postAccountAssociations, posts, scraperActorRuns, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { getScrapeCursor } from './get-scrape-cursor.js';
 
@@ -60,11 +60,11 @@ test('getScrapeCursor', async (t) => {
     assert.strictEqual(await getScrapeCursor('BRIGHTDATA', profileId, fallback), fallback);
   });
 
-  await t.test('Apify starts exactly at the newest stored post', async () => {
+  await t.test('Apify starts one second after the newest stored post (its filter includes the boundary)', async () => {
     await insertPost('https://www.instagram.com/p/older/', new Date('2026-10-10T08:00:00.000Z'));
     await insertPost('https://www.instagram.com/p/newest/', newestPostAt);
 
-    assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), '2026-10-20T15:30:00.000Z');
+    assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), '2026-10-20T15:30:01.000Z');
   });
 
   await t.test('Bright Data starts one day before the newest stored post (time-zone margin)', async () => {
@@ -89,7 +89,7 @@ test('getScrapeCursor', async (t) => {
 
     assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), before.apify);
     assert.strictEqual(await getScrapeCursor('BRIGHTDATA', profileId, fallback), before.brightData);
-    assert.strictEqual(before.apify, '2026-10-20T15:30:00.000Z');
+    assert.strictEqual(before.apify, '2026-10-20T15:30:01.000Z');
   });
 
   await t.test('a run alone never produces a cursor for a profile with no stored post', async () => {
@@ -115,6 +115,54 @@ test('getScrapeCursor', async (t) => {
     } finally {
       await db.delete(posts).where(eq(posts.accountId, other.id));
       await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, other.id));
+    }
+  });
+
+  // 2026-10-23..29: a post stored under its owner (or another co-author) never moved the cursor of the
+  // profile it was scraped from, so that profile re-fetched (and was billed for) the same posts daily.
+  await t.test('a post stored under another account but associated with this profile moves the cursor', async () => {
+    const [owner] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: 'cursor-test-owner-' + Date.now(), platform: 'instagram', username: 'cursor_owner', displayName: 'Owner' })
+      .returning({ id: socialMediaAccountProfiles.id });
+    try {
+      await insertPost('https://www.instagram.com/p/own-older/', new Date('2026-10-10T08:00:00.000Z'));
+      const [collab] = await db
+        .insert(posts)
+        .values({
+          accountId: owner.id,
+          platform: 'instagram',
+          postUrl: 'https://www.instagram.com/p/collab/',
+          publishedAt: new Date('2026-10-22T09:00:00.000Z'),
+        })
+        .returning({ id: posts.id });
+      await db.insert(postAccountAssociations).values({ postId: collab.id, accountId: profileId, role: 'COAUTHOR' });
+
+      assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), '2026-10-22T09:00:01.000Z');
+      assert.strictEqual(await getScrapeCursor('BRIGHTDATA', profileId, fallback), '2026-10-21T09:00:00.000Z');
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, owner.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, owner.id));
+    }
+  });
+
+  await t.test('the newest post wins whether it is owned or associated', async () => {
+    const [owner] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: 'cursor-test-owner2-' + Date.now(), platform: 'instagram', username: 'cursor_owner2', displayName: 'Owner 2' })
+      .returning({ id: socialMediaAccountProfiles.id });
+    try {
+      await insertPost('https://www.instagram.com/p/own-newest/', newestPostAt);
+      const [older] = await db
+        .insert(posts)
+        .values({ accountId: owner.id, platform: 'instagram', postUrl: 'https://www.instagram.com/p/assoc-older/', publishedAt: new Date('2026-10-12T00:00:00.000Z') })
+        .returning({ id: posts.id });
+      await db.insert(postAccountAssociations).values({ postId: older.id, accountId: profileId, role: 'SCRAPING_SOURCE' });
+
+      assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), '2026-10-20T15:30:01.000Z');
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, owner.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, owner.id));
     }
   });
 });

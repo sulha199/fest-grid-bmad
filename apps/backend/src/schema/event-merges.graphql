@@ -2,6 +2,8 @@ enum SuggestedEventMatchStatus {
   pending
   accepted
   rejected
+  # Closed by the system (IDEA-107): an event of the pair is deleted or merged, or both are over.
+  expired
 }
 
 enum SuggestedEventMatchAction {
