@@ -1,4 +1,4 @@
-import { EventType, EventCategory } from '@festgrid/shared-types';
+import { EventType } from '@festgrid/shared-types';
 import { DateAnchor, DateOffsetUnit, DayOfWeek, TemporalFilter } from '@festgrid/domain/events';
 import { FILTER_NODE_MAX_DEPTH, FILTER_NODE_MAX_NODES } from '@festgrid/domain/ai-event-filters';
 import { renderEventCategoryGlossary } from '../ai-gateway/render-event-category-glossary.js';
@@ -79,9 +79,14 @@ function buildLeafProperties(): Record<string, object> {
       type: 'ARRAY',
       items: { type: 'STRING', enum: Object.values(EventType) },
     },
+    // Deliberately NOT an `enum`: this leaf is unrolled into 7 node copies, and adding the 5 new
+    // categories of Story 0.52-0.54 (18 -> 23 values, 380 enum values in all) made Gemini answer
+    // every call with a bare 400 INVALID_ARGUMENT (nightly eval runs 12-16). The allowed names and
+    // their definitions are in the system instruction's glossary, and
+    // `transformGeminiResponseToFilterExpression` already drops an unknown value with a caveat.
     categories: {
       type: 'ARRAY',
-      items: { type: 'STRING', enum: Object.values(EventCategory) },
+      items: { type: 'STRING' },
     },
     keyword: { type: 'STRING' },
     dateRange: {

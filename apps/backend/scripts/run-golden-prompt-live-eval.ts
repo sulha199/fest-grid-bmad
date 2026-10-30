@@ -54,6 +54,7 @@ import { callGeminiGenerateContent } from '../src/lib/ai-gateway/gemini-client.j
 import { loadBackendEnv } from '../src/env.js';
 import { isEvalDailyQuotaError, nextEvalRetryDelayMs } from '../src/lib/ai-gateway/eval-retry-policy.js';
 import { truncateForLog } from '../src/lib/ai-gateway/eval-log-format.js';
+import { measureGeminiSchemaComplexity } from '../src/lib/ai-gateway/gemini-schema-complexity.js';
 
 // Free-tier keys cap requests/minute (15 on a lite model, fewer on flash -- the nightly workflow sets
 // 13s ~= 4.6/min for flash): space calls out instead of only reacting to 429s, since every retry
@@ -131,6 +132,7 @@ async function main(): Promise<void> {
   const onlyCategory = process.env.GOLDEN_EVAL_CATEGORY;
   const fixtures = onlyCategory ? GOLDEN_PROMPT_FIXTURES.filter((f) => f.category === onlyCategory) : GOLDEN_PROMPT_FIXTURES;
   console.log(`Golden-prompt live eval model: ${filterModel}; fixtures: ${fixtures.length}`);
+  console.log(`Response schema size: ${JSON.stringify(measureGeminiSchemaComplexity(responseSchema))} (the unit-test ceiling is the largest size Gemini has accepted).`);
   const results: Array<{ fixtureId: string; drifted: boolean; details: string; rawText?: string }> = [];
 
   // Same pipeline as `resolvePromptToEventFilter`: Gemini -> transform -> venueType guard.
@@ -234,5 +236,14 @@ async function main(): Promise<void> {
 
 main().catch((err) => {
   console.error(err);
+  // A 400 on the very first call is not quota or drift (those have their own messages): Gemini
+  // refused the request itself, and the response schema is the part that grows. Without this
+  // annotation five nightly runs in a row looked like the usual red.
+  if (String((err as Error)?.message).includes('INVALID_ARGUMENT')) {
+    console.log(
+      '::error::Gemini rejected the request as INVALID_ARGUMENT -- the filter response schema is probably too complex ' +
+        `(${JSON.stringify(measureGeminiSchemaComplexity(buildFilterExtractionResponseSchema()))}). Shrink it; see build-filter-extraction-request.test.ts.`
+    );
+  }
   process.exitCode = 1;
 });
