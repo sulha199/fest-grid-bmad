@@ -9,13 +9,21 @@ export type ScrapeCursorVendor = 'APIFY' | 'BRIGHTDATA';
 export const BRIGHT_DATA_CURSOR_MARGIN_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * Apify's `onlyPostsNewerThan` includes a post published exactly at the filter, so a cursor equal to the
+ * newest stored post fetches (and bills) that post again on every run. Instagram timestamps have
+ * one-second resolution, so stepping the cursor one second past it excludes exactly that post.
+ */
+export const APIFY_CURSOR_ADVANCE_MS = 1000;
+
+/**
  * The point in time a vendor scrape should start from, as an ISO timestamp (BUG-074, BUG-075).
  *
  * The cursor is where the stored posts end, never when a previous run finished: a run that fetched
  * nothing (an outage, a failure, a timeout) must not move it, or every post published in between is
  * silently never requested again.
  *
- * - the profile has stored posts: the newest `publishedAt` (Bright Data: minus a one-day margin);
+ * - the profile has stored posts: the newest `publishedAt` (Apify: plus one second; Bright Data: minus a
+ *   one-day margin);
  * - it has none: `fallbackNewerThan`, the caller's initial-lookback window, unchanged.
  *
  * A stored `publishedAt` later than `now` (a parse or time-zone slip on one row) is treated as `now`:
@@ -32,7 +40,9 @@ export function resolveScrapeCursor(input: {
   if (!newestPostPublishedAt) {
     return fallbackNewerThan;
   }
-  const margin = vendor === 'BRIGHTDATA' ? BRIGHT_DATA_CURSOR_MARGIN_MS : 0;
   const newest = Math.min(newestPostPublishedAt.getTime(), now.getTime());
-  return new Date(newest - margin).toISOString();
+  if (vendor === 'APIFY') {
+    return new Date(Math.min(newest + APIFY_CURSOR_ADVANCE_MS, now.getTime())).toISOString();
+  }
+  return new Date(newest - BRIGHT_DATA_CURSOR_MARGIN_MS).toISOString();
 }

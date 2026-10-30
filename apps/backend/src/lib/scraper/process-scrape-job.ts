@@ -1,12 +1,13 @@
 import { db } from '../../db/client.js';
-import { posts, socialMediaAccountProfiles } from '@festgrid/database';
+import { socialMediaAccountProfiles } from '@festgrid/database';
 import { getScraperAdapter, ScrapedPost } from '@festgrid/domain';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { autoEnqueueNewPostForExtraction } from '../posts/auto-enqueue-new-post.js';
 import { loadBackendEnv } from '../../env.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { getScrapeCursor } from './get-scrape-cursor.js';
 import { ScrapeTarget } from './get-scrape-targets.js';
-import { setApifyAuditContext, clearApifyAuditContext, apifyAuditContext } from './instagram-adapter.js';
+import { setApifyAuditContext, clearApifyAuditContext, apifyAuditContext, ApifyMonthlyUsageLimitError } from './instagram-adapter.js';
 import { backfillAccountProfileAndInferDefaultLocation } from '../accounts/backfill-account-profile-and-infer-location.js';
 
 export let backfillAccountProfileAndInferDefaultLocationSeam = backfillAccountProfileAndInferDefaultLocation;
@@ -79,15 +80,6 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
   }
 
   try {
-    const [newestPost] = await db
-      .select({
-        publishedAt: posts.publishedAt,
-      })
-      .from(posts)
-      .where(eq(posts.accountId, job.profileId))
-      .orderBy(desc(posts.publishedAt))
-      .limit(1);
-
     const adapter = getScraperAdapter(job.platform);
 
     if (job.isInitialNewSubscription) {
@@ -156,14 +148,11 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
       return;
     }
 
-    let newerThan: string;
-    if (newestPost) {
-      newerThan = newestPost.publishedAt.toISOString();
-    } else {
-      const lookbackDate = new Date();
-      lookbackDate.setDate(lookbackDate.getDate() - env.scrapeInitialLookbackDays);
-      newerThan = lookbackDate.toISOString();
-    }
+    // Same cursor rule as the daily batch triggers (posts owned or associated, one second past the newest for
+    // Apify), so this path neither re-fetches a co-authored post nor the boundary post.
+    const lookbackDate = new Date();
+    lookbackDate.setDate(lookbackDate.getDate() - env.scrapeInitialLookbackDays);
+    const newerThan = await getScrapeCursor('APIFY', job.profileId, lookbackDate.toISOString());
 
     setApifyAuditContext(job.profileId, 'SYNC', env.scrapeQueueApifyCallTimeoutMs);
     try {
@@ -181,6 +170,12 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
     await runBackfill();
     completed = true;
   } catch (err) {
+    if (err instanceof ApifyMonthlyUsageLimitError) {
+      // Redelivery cannot help until Apify's usage cycle resets, and each one only fills the queue and the
+      // DLQ with the same refusal (2026-10-30: 105 of them). One line; the next daily batch tries again.
+      console.warn(`Skipping scrape of ${job.username} (${job.profileId}): ${err.message}`);
+      return;
+    }
     console.error(`Error processing scrape job for account ${job.username} (${job.profileId}):`, err);
     // AC7: catch and log, but do not rethrow to prevent failing other jobs in SQS batch -- unless the
     // caller redelivers (options.rethrowOnFailure).

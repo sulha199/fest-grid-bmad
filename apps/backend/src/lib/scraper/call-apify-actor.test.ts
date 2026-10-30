@@ -8,6 +8,7 @@ import { registerScraperAdapter } from '@festgrid/domain';
 import {
   APIFY_CALL_TIMEOUT_MS,
   ApifyMemoryLimitExhaustedError,
+  ApifyMonthlyUsageLimitError,
   callApifyActor,
   clearApifyAuditContext,
   getApifyCallTimeoutMs,
@@ -210,6 +211,25 @@ test('callApifyActor: the queue path\'s budget, abort and audit trail', async (t
 
     assert.deepStrictEqual(sleeps, []);
     assert.strictEqual((await runs()).length, 0);
+  });
+
+  await t.test('a monthly usage hard limit (403 platform-feature-disabled) fails at once as ApifyMonthlyUsageLimitError, with no retry, wait or row', async () => {
+    const sleeps: number[] = [];
+    setSleepForApifyMemory(async (ms) => { sleeps.push(ms); });
+    let starts = 0;
+    setGetApifyClient(fakeClient({
+      start: async () => { starts += 1; throw apifyError(403, 'platform-feature-disabled', 'Monthly usage hard limit exceeded'); },
+    }));
+    setApifyAuditContext(profileId, 'SYNC', 120_000);
+
+    await quietly(() => assert.rejects(
+      () => callApifyActor('apify/instagram-post-scraper', { username: ['x'] } as never),
+      (err: unknown) => err instanceof ApifyMonthlyUsageLimitError && /Monthly usage hard limit exceeded/.test(err.message)
+    ));
+
+    assert.strictEqual(starts, 1);
+    assert.deepStrictEqual(sleeps, []);
+    assert.strictEqual((await runs()).length, 0, 'no FAILED row: it must not count against Apify provider health');
   });
 
   await t.test('other 402s and other start failures are not waited for and still leave a FAILED row', async () => {

@@ -214,7 +214,7 @@ test('trigger-apify-for-target tests', async (t) => {
 
       assert.strictEqual(result.success, true);
       assert.strictEqual(startInputs.length, 1);
-      assert.strictEqual(startInputs[0].onlyPostsNewerThan, '2026-10-20T15:30:00.000Z');
+      assert.strictEqual(startInputs[0].onlyPostsNewerThan, '2026-10-20T15:30:01.000Z');
     } finally {
       adapter.setGetApifyClient(savedGetApifyClient);
       // The pending job references the audit run, so it goes first.
@@ -378,6 +378,41 @@ test('trigger-apify-for-target tests', async (t) => {
     assert.strictEqual(errors.length, 0, 'no stack trace for an expected capacity refusal');
     assert.strictEqual(warnings.length, 1, 'one log line');
     assert.ok(!(warnings[0][0] as string).includes('\n'));
+    const jobs = await db.select().from(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
+    assert.strictEqual(jobs.length, 0);
+  });
+
+  // Prod 2026-10-29: the FREE plan's $5 monthly cap was spent; every start returned 403 `platform-feature-disabled`.
+  await t.test('a 403 platform-feature-disabled (monthly usage hard limit) is CAPACITY_EXHAUSTED, one log line, no job', async () => {
+    setAttemptApifyAsyncTrigger(originalAttemptApifyAsyncTrigger);
+
+    const adapter = await import('./instagram-adapter.js');
+    const savedGetApifyClient = adapter.getApifyClient;
+    adapter.setGetApifyClient((() => ({
+      actor: () => ({ start: async () => { throw apifyError(403, 'platform-feature-disabled'); } }),
+    })) as unknown as typeof savedGetApifyClient);
+
+    const errors: unknown[][] = [];
+    const warnings: unknown[][] = [];
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    console.error = (...args: unknown[]) => { errors.push(args); };
+    console.warn = (...args: unknown[]) => { warnings.push(args); };
+
+    try {
+      const result = await attemptApifyAsyncTrigger(
+        { profileId: testProfileId, username: 'test_user' },
+        '2026-10-13T00:00:00.000Z'
+      );
+      assert.deepStrictEqual(result, { success: false, failureReason: 'CAPACITY_EXHAUSTED' });
+    } finally {
+      console.error = originalError;
+      console.warn = originalWarn;
+      adapter.setGetApifyClient(savedGetApifyClient);
+    }
+
+    assert.strictEqual(errors.length, 0);
+    assert.strictEqual(warnings.length, 1);
     const jobs = await db.select().from(apifyPendingJobs).where(eq(apifyPendingJobs.profileId, testProfileId));
     assert.strictEqual(jobs.length, 0);
   });
