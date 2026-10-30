@@ -152,7 +152,9 @@ test('resolveSuggestedMatch (AD-30 Rule 9)', async (t) => {
   for (const action of ['ACCEPT', 'REJECT'] as const) {
     await t.test(`a concurrent ${action} waits for the row lock, then sees the row is no longer pending (two connections)`, async () => {
       const { candidate, newEvent, suggestion } = await makePair('Race-' + action);
-      const holder = postgres(loadBackendEnv().databaseUrl, { max: 1, prepare: false });
+      const databaseUrl = loadBackendEnv().databaseUrl;
+      assert.ok(databaseUrl, 'DATABASE_URL must be set for the race test');
+      const holder = postgres(databaseUrl, { max: 1, prepare: false });
       let racing: Promise<unknown> = Promise.resolve();
       try {
         await holder.begin(async (sql) => {
