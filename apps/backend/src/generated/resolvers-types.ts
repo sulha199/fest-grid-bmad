@@ -1498,6 +1498,7 @@ export type SuggestedEventMatchResolution = {
 
 export type SuggestedEventMatchStatus =
   | 'accepted'
+  | 'expired'
   | 'pending'
   | 'rejected';
 

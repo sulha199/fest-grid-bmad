@@ -28,6 +28,7 @@ export * from './sanitize-event-links.js';
 export * from './parse-platform-prefixed-event-slug.js';
 export * from './assign-extraction-ordinals.js';
 export * from './match-scoring.js';
+export * from './match-suggestion-expiry.js';
 export * from './unfilled.js';
 export * from './__fixtures__/ended-cases.js';
 
