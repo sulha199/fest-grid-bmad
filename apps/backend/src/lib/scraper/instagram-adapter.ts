@@ -157,7 +157,7 @@ function normalizeApifyError(err: unknown, context: string): Error {
   // Story 0.i2d (AC5) — a deliberate kill-switch rejection or the wrapper's own generic
   // timeout bound are not Apify-vendor-shaped errors to re-wrap; pass them through unchanged
   // so a future caller can still distinguish them via `instanceof`.
-  if (err instanceof VendorDpaNotConfirmedError || err instanceof VendorCallTimeoutError || err instanceof ApifyMemoryLimitExhaustedError) {
+  if (err instanceof VendorDpaNotConfirmedError || err instanceof VendorCallTimeoutError || err instanceof ApifyMemoryLimitExhaustedError || err instanceof ApifyMonthlyUsageLimitError) {
     return err;
   }
 
@@ -227,6 +227,25 @@ export class ApifyMemoryLimitExhaustedError extends Error {
   ) {
     super(`Apify account memory limit still reached after waiting ${waitedMs}ms over ${attempts} attempts (no run started): ${detail}`);
     this.name = 'ApifyMemoryLimitExhaustedError';
+  }
+}
+
+// The Apify account's monthly spend cap is reached (prod 2026-10-29: the FREE plan's $5): every start is
+// refused with 403 `platform-feature-disabled` until the usage cycle resets, whatever the retry. Like the
+// memory cap it is a condition of our own account, not the vendor failing.
+export function isApifyMonthlyUsageLimitError(error: unknown): boolean {
+  return error instanceof ApifyApiError && error.statusCode === 403 && error.type === 'platform-feature-disabled';
+}
+
+/**
+ * Apify refused to start the run because the account's monthly usage limit is exhausted. Nothing was started,
+ * so nothing is audited (it must not count against Apify's health) and redelivery cannot help: the queue
+ * worker does not rethrow it, and the next daily batch tries again.
+ */
+export class ApifyMonthlyUsageLimitError extends Error {
+  constructor(detail: string) {
+    super(`Apify monthly usage limit reached: ${detail}`);
+    this.name = 'ApifyMonthlyUsageLimitError';
   }
 }
 
@@ -345,13 +364,17 @@ export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorIn
         accountedMs = spentMs + waitMs;
       }
     }
-  } catch (err) {
+  } catch (rawErr) {
+    const err = isApifyMonthlyUsageLimitError(rawErr)
+      ? new ApifyMonthlyUsageLimitError(rawErr instanceof Error ? rawErr.message : String(rawErr))
+      : rawErr;
     // A failed or timed-out call used to leave no trace: no audit row, so provider health never saw it
     // (2026-10-23: 11 profiles dropped on a 26s timeout). Recorded OUTSIDE the guarded call, like the
     // success row below; the caller still gets the original error. Except the memory cap: that is a
     // capacity condition of our own account, not the vendor failing (2026-10-25: 31 such FAILED rows
-    // counted against Apify's health), and no run was started.
-    if (auditProfileId && !(err instanceof ApifyMemoryLimitExhaustedError)) {
+    // counted against Apify's health), and no run was started. The monthly usage limit is the same kind of
+    // condition (2026-10-30: 105 FAILED rows).
+    if (auditProfileId && !(err instanceof ApifyMemoryLimitExhaustedError) && !(err instanceof ApifyMonthlyUsageLimitError)) {
       await recordSyncActorRun({
         vendor: 'APIFY',
         profileId: auditProfileId,

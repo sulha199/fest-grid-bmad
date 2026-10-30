@@ -1,15 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BRIGHT_DATA_CURSOR_MARGIN_MS, resolveScrapeCursor } from "./resolve-scrape-cursor.js";
+import { APIFY_CURSOR_ADVANCE_MS, BRIGHT_DATA_CURSOR_MARGIN_MS, resolveScrapeCursor } from "./resolve-scrape-cursor.js";
 
 const newest = new Date("2026-10-20T15:30:00.000Z");
 const fallback = "2026-10-13T00:00:00.000Z";
 
-test("Apify starts exactly at the newest stored post", () => {
+test("Apify starts one second after the newest stored post, because its filter includes the boundary", () => {
+  // `onlyPostsNewerThan` returns a post published exactly at the filter (prod 2026-10-23..29: 133 items
+  // were the newest known post fetched again), so the cursor steps past it.
   assert.equal(
     resolveScrapeCursor({ vendor: "APIFY", newestPostPublishedAt: newest, fallbackNewerThan: fallback }),
-    "2026-10-20T15:30:00.000Z"
+    "2026-10-20T15:30:01.000Z"
   );
+  assert.equal(APIFY_CURSOR_ADVANCE_MS, 1000);
 });
 
 test("Bright Data starts one day before the newest stored post (time-zone margin)", () => {
@@ -50,6 +53,14 @@ test("a post published before now is used as it is", () => {
   const now = new Date("2026-10-22T12:00:00.000Z");
   assert.equal(
     resolveScrapeCursor({ vendor: "APIFY", newestPostPublishedAt: newest, fallbackNewerThan: fallback, now }),
-    "2026-10-20T15:30:00.000Z"
+    "2026-10-20T15:30:01.000Z"
+  );
+});
+
+test("Apify's one-second step never takes the cursor past now", () => {
+  const now = new Date("2026-10-22T12:00:00.000Z");
+  assert.equal(
+    resolveScrapeCursor({ vendor: "APIFY", newestPostPublishedAt: now, fallbackNewerThan: fallback, now }),
+    "2026-10-22T12:00:00.000Z"
   );
 });
