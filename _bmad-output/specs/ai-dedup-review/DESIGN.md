@@ -20,7 +20,13 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 - v1 auto-**ACCEPT** only. Never auto-reject. Everything else is escalated.
 - Shadow mode (apply as a dry run) is the default; `live` must be passed explicitly.
 - Merges are recorded under a **dedicated moderator user** (the owner creates it; a `users` row with
-  `role = moderator`). Its email is read from an environment variable, never hardcoded. This makes AI merges
+  `role = moderator`). Its email is read from the repository variable `DEDUP_REVIEW_MODERATOR_EMAIL` (owner-chosen
+  2026-10-30; the address is deliberately not written in this repo, which is public, and a workflow must never echo
+  it), never hardcoded. Create the account by signing in to the app once with that Google account, then promote it
+  (`UPDATE users SET role = 'moderator' WHERE email = ...`): `users.id` is the Supabase auth id
+  (`user-provisioning.ts`), so a hand-inserted row with a random id would collide on that account's first sign-in
+  (email is unique). Every `role = 'moderator'` user also receives the moderator alert emails
+  (`getModeratorEmails`: dangerous reports, scraper audit, provider down), so that inbox gets them. This makes AI merges
   identifiable in `event_merges.performed_by_moderator_id`, lets apply count a per-24h cap, and keeps
   `outcome:accepted` labels free of AI decisions.
 - Escalations are GitHub issues labelled `dedup-escalate`; status is open/closed. The LLM-written insight per pair
