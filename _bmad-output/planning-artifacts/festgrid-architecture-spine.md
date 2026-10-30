@@ -1899,7 +1899,7 @@ This document defines the core architectural invariants for the FestDaily applic
         undo stays callable after the toast closes. This is the accepted behavior; adding a server
         expiry is a spine amendment.
         **Amended 2026-10-30 (one accept/reject entry point; design record:
-        `_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece A).** Accepting or rejecting a pending
+        `_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece A).** A moderator's accept or reject of a pending
         suggestion is `resolveSuggestedMatch()` (`apps/backend/src/lib/events/resolve-suggested-match.ts`);
         `Mutation.resolveSuggestedEventMatch` calls it. It runs
         in a **caller-owned transaction**, reads the suggestion `FOR UPDATE` and rechecks `pending`,
@@ -1912,8 +1912,8 @@ This document defines the core architectural invariants for the FestDaily applic
         passes through) and the resolver maps them to its unchanged GraphQL codes. **Enforced by**
         `suggested-match-resolve-ratchet.test.ts`: only `merge-events.ts`, `resolve-suggested-match.ts` and the
         expiry writer `expire-match-suggestions.ts` (IDEA-107; its UPDATE keeps its own `pending` guard, which
-        the ratchet pins) may update `event_match_candidates` (drizzle update or upsert, an import or destructuring alias,
-        a namespace import, or raw SQL), and `resolvers.ts` must call `resolveSuggestedMatch()` and
+        the ratchet pins) may update `event_match_candidates` (a regex scan of the non-test `.ts` files under `apps/backend/src`: drizzle update or upsert, an import, destructuring or assignment alias,
+        a namespace import or bracket access, or raw SQL), and `resolvers.ts` must call `resolveSuggestedMatch()` and
         never `mergeEvents()` directly. **Known gaps, deferred (BUG-091):** the ratchet does not catch
         another file calling `mergeEvents(..., suggestionId)`, and the backlog drain
         (`drain-match-backlog.ts`) does, so it takes no suggestion lock and `mergeEvents` step 11 has no

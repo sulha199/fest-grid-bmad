@@ -127,11 +127,14 @@ A+B may share a PR if wanted; C must follow B's merge (the skill dispatches B's 
 
 ## 7. Facts verified while reviewing
 
-- Only `merge-events.ts` (accept flip :248, undo :344) and the resolver's REJECT (`resolvers.ts:1916`) write
+- Before Piece A, only `merge-events.ts` (accept flip :248, undo :344) and the resolver's REJECT wrote
   `event_match_candidates.status`; ingestion only inserts (`process-ingestion-job.ts:133`, `onConflictDoNothing`).
+  Piece A moved the REJECT into `resolve-suggested-match.ts`. Master's IDEA-107 added a third writer,
+  `lib/events/expire-match-suggestions.ts` (sets `expired`, guarded by `status = 'pending'`), allowed by the ratchet.
 - `DbExecutor` (`set-event-primary-post.ts:23`) has no `transaction`, so a shared function must run inside a
   caller-owned transaction.
-- `db/client.ts` uses `max: 1`, so two concurrent transactions cannot be tested through it.
+- `db/client.ts` uses `max: 1`, so two concurrent transactions cannot run through it; the race tests hold the row
+  from a second, separate connection.
 - A moderator's REJECT between the resolver's pending check and the merge is overwritten today (no pending guard).
 - The backend suite runs a row-count ratchet; new DB tests must clean up what they create.
 
