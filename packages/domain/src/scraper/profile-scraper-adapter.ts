@@ -84,14 +84,12 @@ export type ProfileAdapterAttempt =
   | { adapter: ProfileScraperAdapterName; outcome: 'not-found'; elapsedMs: number }
   | { adapter: ProfileScraperAdapterName; outcome: 'found'; elapsedMs: number };
 
+type SkippedProfileAdapterAttempt = Extract<ProfileAdapterAttempt, { outcome: 'skipped' }>;
+
 /** No adapter could be tried inside the budget, so nothing was asked of any vendor. */
 export class ProfileScraperBudgetError extends Error {
-  constructor(public readonly attempts: ProfileAdapterAttempt[], budgetMs: number) {
-    super(
-      `No profile scraper fits a ${budgetMs}ms budget (${attempts
-        .map((a) => `${a.adapter}: ${a.outcome === 'skipped' ? a.reason : a.outcome}`)
-        .join('; ')})`
-    );
+  constructor(public readonly attempts: SkippedProfileAdapterAttempt[], budgetMs: number) {
+    super(`No profile scraper fits a ${budgetMs}ms budget (${attempts.map((a) => `${a.adapter}: ${a.reason}`).join('; ')})`);
     this.name = 'ProfileScraperBudgetError';
   }
 }
@@ -153,5 +151,9 @@ export async function runProfileScraperChain(input: {
   if (firstError) {
     throw firstError.error;
   }
-  throw new ProfileScraperBudgetError(attempts, budgetMs);
+  // No adapter failed, so none was tried: every attempt is a skip.
+  throw new ProfileScraperBudgetError(
+    attempts.filter((a): a is SkippedProfileAdapterAttempt => a.outcome === 'skipped'),
+    budgetMs
+  );
 }
