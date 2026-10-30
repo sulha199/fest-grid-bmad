@@ -3937,6 +3937,10 @@ export const resolvers: Resolvers = {
               LIMIT 1) ASC
           `);
         } else {
+          // The key is a date, and hundreds of events share one, so it alone is not a total order:
+          // under LIMIT/OFFSET Postgres may break the ties differently per page, which repeated one
+          // card and skipped another while Discovery scrolled (2026-10-30: one pass over 664 rows held
+          // 614 distinct events). `events.id` as the last key makes the order total.
           itemsQuery.orderBy(sql`
             COALESCE(
               (SELECT s2.event_start_date FROM schedules s2
@@ -3952,7 +3956,8 @@ export const resolvers: Resolvers = {
                 WHERE s4.event_id = ${events.id}
                 ORDER BY s4.event_start_date ASC, s4.event_start_time ASC NULLS LAST
                 LIMIT 1)
-            ) ASC
+            ) ASC,
+            ${events.id} ASC
           `);
         }
       }
