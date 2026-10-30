@@ -1,7 +1,9 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
 import { eq, inArray, TransactionRollbackError } from 'drizzle-orm';
+import postgres from 'postgres';
 import { db, setSqlCaptureSink } from '../../db/client.js';
+import { loadBackendEnv } from '../../env.js';
 import { users, events, eventMatchCandidates, eventMerges, posts, socialMediaAccountProfiles } from '@festgrid/database';
 import { EventMergeInvalidStateError } from './merge-events.js';
 import {
@@ -129,7 +131,7 @@ test('resolveSuggestedMatch (AD-30 Rule 9)', async (t) => {
     assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, stale.id))).length, 0);
   });
 
-  await t.test('the suggestion row is read under FOR UPDATE, so a concurrent resolve waits instead of overwriting', async () => {
+  await t.test('the suggestion row is read with FOR UPDATE, as the first statement that touches it (SQL shape)', async () => {
     const { suggestion } = await makePair('Lock');
     const statements: string[] = [];
     setSqlCaptureSink((query) => statements.push(query));
@@ -144,6 +146,40 @@ test('resolveSuggestedMatch (AD-30 Rule 9)', async (t) => {
     const firstSuggestionStatement = statements.findIndex((q) => /event_match_candidates/i.test(q));
     assert.ok(/for update/i.test(statements[firstSuggestionStatement]), 'the lock is the first statement that touches the suggestion');
   });
+
+  // The shared `db` client has one connection, so the race needs a second, separate one: it holds the
+  // suggestion row locked while `resolveSuggestedMatch` (on `db`) tries to accept it.
+  for (const action of ['ACCEPT', 'REJECT'] as const) {
+    await t.test(`a concurrent ${action} waits for the row lock, then sees the row is no longer pending (two connections)`, async () => {
+      const { candidate, newEvent, suggestion } = await makePair('Race-' + action);
+      const holder = postgres(loadBackendEnv().databaseUrl, { max: 1, prepare: false });
+      let racing: Promise<unknown> = Promise.resolve();
+      try {
+        await holder.begin(async (sql) => {
+          await sql`select id from event_match_candidates where id = ${suggestion.id} for update`;
+          racing = resolve(suggestion.id, action).then(
+            () => 'resolved' as const,
+            (err: unknown) => err
+          );
+          const early = await Promise.race([racing, new Promise((done) => setTimeout(() => done('still waiting'), 400))]);
+          assert.strictEqual(early, 'still waiting', 'the resolve must block while another transaction holds the row');
+          await sql`update event_match_candidates set status = 'rejected', resolved_at = now(), resolved_by_moderator_id = ${moderator.id} where id = ${suggestion.id}`;
+        });
+        const outcome = await racing;
+        assert.ok(outcome instanceof SuggestedMatchNotPendingError, `expected SuggestedMatchNotPendingError, got ${String(outcome)}`);
+      } finally {
+        await holder.end();
+      }
+
+      const row = await statusOf(suggestion.id);
+      assert.strictEqual(row.status, 'rejected', "the other transaction's rejection must stand");
+      const [loser] = await db.select().from(events).where(eq(events.id, newEvent.id));
+      assert.strictEqual(loser.deletedAt, null, 'nothing was merged');
+      const [winner] = await db.select().from(events).where(eq(events.id, candidate.id));
+      assert.strictEqual(winner.deletedAt, null);
+      assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, suggestion.id))).length, 0);
+    });
+  }
 
   await t.test('the caller owns the transaction: rolling it back undoes an ACCEPT completely (dry run)', async () => {
     const { candidate, newEvent, suggestion } = await makePair('DryRun');

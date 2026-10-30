@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { eventMatchCandidates } from '@festgrid/database';
 import { mergeEvents } from './merge-events.js';
 import type { DbExecutor } from './set-event-primary-post.js';
@@ -64,7 +64,7 @@ export async function resolveSuggestedMatch(tx: DbExecutor, input: ResolveSugges
     await tx
       .update(eventMatchCandidates)
       .set({ status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: moderatorId })
-      .where(eq(eventMatchCandidates.id, id));
+      .where(and(eq(eventMatchCandidates.id, id), eq(eventMatchCandidates.status, 'pending')));
     return { mergeId: null };
   }
 

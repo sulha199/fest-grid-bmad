@@ -53,7 +53,7 @@ context:
 - `apps/backend/src/lib/events/set-event-primary-post.ts:23` -- `DbExecutor` (no `transaction`, hence caller-owned).
 - `apps/backend/src/schema/event-merges.test.ts:126-236` -- existing accept/reject/undo tests via GraphQL; covers no error path.
 - `apps/backend/src/schema/events-postid-write-ratchet.test.ts` -- source-scan ratchet precedent.
-- `apps/backend/src/db/client.ts` -- `max: 1` client with an SQL-capture sink; a real two-connection race test is not possible through it.
+- `apps/backend/src/db/client.ts` -- `max: 1` client with an SQL-capture sink; a race test needs a second, separate connection to hold the lock.
 
 ## Tasks & Acceptance
 
@@ -61,7 +61,7 @@ context:
 - [x] `apps/backend/src/schema/event-merges.test.ts` -- add characterization tests through GraphQL: unknown id, already-resolved, non-mergeable pair (suggestion stays pending, nothing written), REJECT writes no merge -- run green on the current code first, so the refactor has a net.
 - [x] `apps/backend/src/lib/events/resolve-suggested-match.ts` -- new `resolveSuggestedMatch(tx, { id, action, moderatorId })`: `SELECT ... FOR UPDATE` the suggestion, throw typed errors, ACCEPT calls `mergeEvents(tx, candidateEventId, eventId, moderatorId, id)`, REJECT updates status; returns `{ mergeId | null }`.
 - [x] `apps/backend/src/schema/resolvers.ts` -- resolver wraps the call in `db.transaction`, maps the typed errors to the existing codes, keeps response shaping; drop now-unused imports (`mergeEvents`, `EventMergeInvalidStateError` if unused).
-- [x] `apps/backend/src/lib/events/resolve-suggested-match.test.ts` -- cover each I/O row; assert via the SQL-capture sink that the suggestion select carries `for update`.
+- [x] `apps/backend/src/lib/events/resolve-suggested-match.test.ts` -- cover each I/O row; assert via the SQL-capture sink that the suggestion select carries `for update`, and prove the lock with a real race (a second connection holds the row while a resolve waits, then sees it no longer pending).
 - [x] `apps/backend/src/lib/events/suggested-match-resolve-ratchet.test.ts` -- only `merge-events.ts` and `resolve-suggested-match.ts` may `.update(eventMatchCandidates)` or run raw `UPDATE event_match_candidates`; `resolvers.ts` must contain a call `resolveSuggestedMatch(` (an import alone does not count).
 - [x] `docs/infrastructure/7-event-dedup.md`, `_bmad-output/planning-artifacts/diagrams/event-dedup-flow.html` (+ status section), `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-30 Rule 9 amendment), `_bmad-output/project-context.md` (dedup entry) -- name `resolveSuggestedMatch` as the one accept/reject entry point and record the row lock.
 
@@ -75,7 +75,7 @@ context:
 ## Design Notes
 
 - **Why caller-owned transaction:** `DbExecutor` has no `transaction`, and Piece B's dry run needs an outer rolled-back transaction with a savepoint per decision; a function that opened its own would defeat that.
-- **Why the lock is asserted by SQL, not by a race test:** the shared `db` has `max: 1`, so two concurrent transactions cannot run through it.
+- **How the lock is tested:** the shared `db` has `max: 1`, so two concurrent transactions cannot both run through it. The race test therefore opens a second `postgres` connection that holds the row `FOR UPDATE` while `resolveSuggestedMatch` runs on `db`; a SQL-shape assertion backs it. Both fail if the lock is removed (checked by hand).
 - **Scope:** Pieces B (bridge) and C (skill) are deferred as `FIND-103` and `FIND-104`; their requirements are in `DESIGN.md`. Nothing here depends on them.
 
 ## Verification
