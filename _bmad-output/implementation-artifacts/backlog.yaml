@@ -2558,3 +2558,21 @@ items:
      ref: [apps/backend/src/schema/resolvers.ts, apps/backend/src/schema/events-default-order-tiebreak.test.ts, backlog/BUG-090-discovery-order-no-tiebreaker.md],
      touches: [app:backend, web:events],
      note: "Fixed in the PR that adds this row (events.id as the last ORDER BY key); set done once merged. 2026-10-30: one pass of 664 rows held 614 distinct events. Duplicate counts taken from that list before the fix are inflated."}
+
+
+  # ── 2026-10-31 (prod: logged-in Discovery lists events up to 7 days after they ended) ──
+  BUG-094:
+    {type: bug, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
+     title: "Migration 0056 skipped on prod: logged-in users still get a 7-day past-event grace window",
+     ref: [packages/database/migrations/0086_bug_094_reapply_skipped_0056_past_events_default.sql, packages/database/migrations-journal-order.ratchet.test.ts, backlog/BUG-094-migration-0056-skipped-on-prod.md],
+     touches: [pkg:database, web:events, web:settings],
+     note: "Fixed in the PR that adds this row (0086 re-applies 0056, plus a journal-order ratchet); set done once merged and db-migrate has run on prod."}
+
+  BUG-095:
+    {type: bug, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
+     title: "Past-event cutoff uses the UTC date, so in Jakarta's first 7 hours the list still shows ended events",
+     ref: [packages/domain/src/events/computePastEventThreshold.ts, packages/ui/src/features/events/format-event-date.ts, backlog/BUG-095-past-event-cutoff-uses-utc-date.md],
+     touches: [pkg:domain, pkg:ui, app:backend, web:events],
+     note: "Not fixed, log only. 43 events that ended the day before were listed at 01:55 WIB on 2026-10-31. The shared ended-cases fixture is built around UTC, so a fix needs a timezone decision first."}
