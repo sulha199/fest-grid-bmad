@@ -2,7 +2,7 @@
 
 *   **What it does:** Stops one real-world event from becoming several `events` rows when it is posted more than once (a hype post, a registration reminder, a medal reveal, a roundup). Runs on the write path only, inside the ingestion Lambda, after extraction and before the insert.
 *   **Authority:** Architecture Spine **AD-30 Rule 7** (matching) and **Rule 9** (merge). The flow is drawn in `_bmad-output/planning-artifacts/diagrams/event-dedup-flow.html`. This page is the operator's summary; the spine wins on any disagreement.
-*   **Code:** `findMatchingEvent` (`apps/backend/src/lib/events/match-event-to-existing.ts`), scoring and thresholds (`packages/domain/src/events/match-scoring.ts`), merge and undo (`apps/backend/src/lib/events/merge-events.ts`), operator merge (`apps/backend/src/merge-events-by-slug.ts`), backlog drain and stub scan (`apps/backend/src/drain-event-match-backlog.ts`, `apps/backend/src/lib/events/scan-stub-repeats.ts`).
+*   **Code:** `findMatchingEvent` (`apps/backend/src/lib/events/match-event-to-existing.ts`), scoring and thresholds (`packages/domain/src/events/match-scoring.ts`), merge and undo (`apps/backend/src/lib/events/merge-events.ts`), moderator accept and reject (`apps/backend/src/lib/events/resolve-suggested-match.ts`), operator merge (`apps/backend/src/merge-events-by-slug.ts`), backlog drain and stub scan (`apps/backend/src/drain-event-match-backlog.ts`, `apps/backend/src/lib/events/scan-stub-repeats.ts`).
 
 ## How a new event is matched
 
@@ -84,7 +84,7 @@ Pending suggestions: `SELECT * FROM event_match_candidates WHERE status = 'pendi
 
 ## Merging duplicates that dedup missed
 
-1. **A pending suggestion exists:** a moderator accepts it (`resolveSuggestedEventMatch`).
+1. **A pending suggestion exists:** a moderator accepts it (`resolveSuggestedEventMatch`). Accept and reject both go through `resolveSuggestedMatch()`, the one function that resolves a suggestion: it runs in one transaction with the suggestion row locked (`FOR UPDATE`), so two people, or a person and a script, cannot both resolve the same pending row; the second gets "already resolved". A source-scan test (`suggested-match-resolve-ratchet.test.ts`) fails if any other file updates `event_match_candidates`. Any new caller (an operator script, an automated reviewer) uses the same function.
 2. **No suggestion exists:** run the operator script against the database to change. It calls the same `mergeEvents()`, so the result is journaled in `event_merges` and reversible with `undoEventMerge`. It is a dry run (rolled back) unless `--apply` is given.
 
     ```bash

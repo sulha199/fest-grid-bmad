@@ -1898,6 +1898,22 @@ This document defines the core architectural invariants for the FestDaily applic
         **no server-side expiry** (it rejects only an unknown or already-undone journal row), so
         undo stays callable after the toast closes. This is the accepted behavior; adding a server
         expiry is a spine amendment.
+        **Amended 2026-10-30 (one accept/reject entry point; design record:
+        `_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece A).** Accepting or rejecting a pending
+        suggestion is `resolveSuggestedMatch()` (`apps/backend/src/lib/events/resolve-suggested-match.ts`);
+        `Mutation.resolveSuggestedEventMatch` calls it and nothing else resolves a suggestion. It runs
+        in a **caller-owned transaction**, reads the suggestion `FOR UPDATE` and rechecks `pending`,
+        so a concurrent resolve (a second moderator, or a script) waits and then sees the row is no
+        longer pending. Before this, the pending check ran outside the transaction and neither the
+        accept flip nor REJECT guarded on `pending`, so a REJECT made between the check and the merge
+        was overwritten to `accepted`; REJECT now runs in the same transaction as ACCEPT, the one
+        intended behavior change. Errors are typed (`SuggestedMatchNotFoundError`,
+        `SuggestedMatchNotPendingError`, `SuggestedMatchInvalidActionError`; `EventMergeInvalidStateError`
+        passes through) and the resolver maps them to its unchanged GraphQL codes. **Enforced by**
+        `suggested-match-resolve-ratchet.test.ts`: only `merge-events.ts` and `resolve-suggested-match.ts`
+        may update `event_match_candidates` (drizzle, an import alias, or raw SQL), and `resolvers.ts`
+        must call `resolveSuggestedMatch()` and never `mergeEvents()` directly. A second caller (an
+        operator script or the planned AI-assisted review) adopts the same function.
     10. **Notifications are per event, with one marker.** `events.notified_at` is set by one
         notify helper and nowhere else. An event notifies at ingestion iff its primary post's
         `grouping_reason` is not `roundup` and the post is not curator-sourced (AD-31 Rule 3

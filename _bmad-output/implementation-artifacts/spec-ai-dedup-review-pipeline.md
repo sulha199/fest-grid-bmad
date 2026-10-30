@@ -58,12 +58,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `apps/backend/src/schema/event-merges.test.ts` -- add characterization tests through GraphQL: unknown id, already-resolved, non-mergeable pair (suggestion stays pending, nothing written), REJECT writes no merge -- run green on the current code first, so the refactor has a net.
-- [ ] `apps/backend/src/lib/events/resolve-suggested-match.ts` -- new `resolveSuggestedMatch(tx, { id, action, moderatorId })`: `SELECT ... FOR UPDATE` the suggestion, throw typed errors, ACCEPT calls `mergeEvents(tx, candidateEventId, eventId, moderatorId, id)`, REJECT updates status; returns `{ mergeId | null }`.
-- [ ] `apps/backend/src/schema/resolvers.ts` -- resolver wraps the call in `db.transaction`, maps the typed errors to the existing codes, keeps response shaping; drop now-unused imports (`mergeEvents`, `EventMergeInvalidStateError` if unused).
-- [ ] `apps/backend/src/lib/events/resolve-suggested-match.test.ts` -- cover each I/O row; assert via the SQL-capture sink that the suggestion select carries `for update`.
-- [ ] `apps/backend/src/lib/events/suggested-match-resolve-ratchet.test.ts` -- only `merge-events.ts` and `resolve-suggested-match.ts` may `.update(eventMatchCandidates)` or run raw `UPDATE event_match_candidates`; `resolvers.ts` must contain a call `resolveSuggestedMatch(` (an import alone does not count).
-- [ ] `docs/infrastructure/7-event-dedup.md`, `_bmad-output/planning-artifacts/diagrams/event-dedup-flow.html` (+ status section), `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-30 Rule 9 amendment), `_bmad-output/project-context.md` (dedup entry) -- name `resolveSuggestedMatch` as the one accept/reject entry point and record the row lock.
+- [x] `apps/backend/src/schema/event-merges.test.ts` -- add characterization tests through GraphQL: unknown id, already-resolved, non-mergeable pair (suggestion stays pending, nothing written), REJECT writes no merge -- run green on the current code first, so the refactor has a net.
+- [x] `apps/backend/src/lib/events/resolve-suggested-match.ts` -- new `resolveSuggestedMatch(tx, { id, action, moderatorId })`: `SELECT ... FOR UPDATE` the suggestion, throw typed errors, ACCEPT calls `mergeEvents(tx, candidateEventId, eventId, moderatorId, id)`, REJECT updates status; returns `{ mergeId | null }`.
+- [x] `apps/backend/src/schema/resolvers.ts` -- resolver wraps the call in `db.transaction`, maps the typed errors to the existing codes, keeps response shaping; drop now-unused imports (`mergeEvents`, `EventMergeInvalidStateError` if unused).
+- [x] `apps/backend/src/lib/events/resolve-suggested-match.test.ts` -- cover each I/O row; assert via the SQL-capture sink that the suggestion select carries `for update`.
+- [x] `apps/backend/src/lib/events/suggested-match-resolve-ratchet.test.ts` -- only `merge-events.ts` and `resolve-suggested-match.ts` may `.update(eventMatchCandidates)` or run raw `UPDATE event_match_candidates`; `resolvers.ts` must contain a call `resolveSuggestedMatch(` (an import alone does not count).
+- [x] `docs/infrastructure/7-event-dedup.md`, `_bmad-output/planning-artifacts/diagrams/event-dedup-flow.html` (+ status section), `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-30 Rule 9 amendment), `_bmad-output/project-context.md` (dedup entry) -- name `resolveSuggestedMatch` as the one accept/reject entry point and record the row lock.
 
 **Acceptance Criteria:**
 - Given the characterization tests, when run before and after the extraction, then they pass both times with no assertion changed.
