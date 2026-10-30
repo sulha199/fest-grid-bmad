@@ -239,3 +239,32 @@ test('decideMatchTier with stub-repeat inputs', async (t) => {
     assert.strictEqual(decide({ minDayDiff: Infinity }).tier, 'high');
   });
 });
+
+test('evaluateStubRepeat: one venue spelled two ways links (IDEA-110)', async (t) => {
+  const variant = (location: string): StubRepeatSchedule => ({ eventStartDate: '2026-10-20', location });
+  await t.test('floor wording and an abbreviation are one venue', () => {
+    assert.strictEqual(
+      evaluateStubRepeat(
+        repeatInput({
+          newSchedules: [variant('Atrium Rama, Ground Floor, X City Hall')],
+          candidateSchedules: [variant('Atrium Rama, Lantai GF, X City Hall')],
+        })
+      ),
+      'match'
+    );
+    assert.strictEqual(
+      evaluateStubRepeat(
+        repeatInput({ newSchedules: [variant('Lapangan Danyang Purwodadi')], candidateSchedules: [variant('Lap. Danyang, Purwodadi')] })
+      ),
+      'match'
+    );
+  });
+  await t.test('different venues of one building still differ', () => {
+    assert.strictEqual(
+      evaluateStubRepeat(
+        repeatInput({ newSchedules: [variant('Atrium Rama, X City Hall')], candidateSchedules: [variant('Ballroom, X City Hall')] })
+      ),
+      'venue-differs'
+    );
+  });
+});

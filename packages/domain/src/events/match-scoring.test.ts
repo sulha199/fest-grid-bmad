@@ -588,3 +588,64 @@ test('hasVenueConflict', async (t) => {
     );
   });
 });
+
+// --- One venue spelled two ways (IDEA-110) -----------------------------------------------------------
+
+test('hasVenueConflict: one place spelled two ways is not a conflict (IDEA-110)', async (t) => {
+  const day = '2026-10-10';
+  await t.test('floor wording and an abbreviation do not make a second venue', () => {
+    assert.strictEqual(
+      hasVenueConflict(
+        [{ eventStartDate: day, location: 'Atrium Rama, Ground Floor, X City Hall' }],
+        [{ eventStartDate: day, location: 'Atrium Rama, Lantai GF, X City Hall' }],
+        WINDOW_DAYS
+      ),
+      false
+    );
+    assert.strictEqual(
+      hasVenueConflict(
+        [{ eventStartDate: day, location: 'Lapangan Danyang Purwodadi' }],
+        [{ eventStartDate: day, location: 'Lap. Danyang, Purwodadi' }],
+        WINDOW_DAYS
+      ),
+      false
+    );
+  });
+  await t.test('two places that merely share a building or a mall still conflict', () => {
+    assert.strictEqual(
+      hasVenueConflict(
+        [{ eventStartDate: day, location: 'Atrium Rama, X City Hall' }],
+        [{ eventStartDate: day, location: 'Ballroom, X City Hall' }],
+        WINDOW_DAYS
+      ),
+      true
+    );
+  });
+});
+
+test('decideMatchTier: a venue spelled two ways no longer blocks the promotion (IDEA-110)', async (t) => {
+  const day = '2026-10-10';
+  const spellings = {
+    newVenues: [{ eventStartDate: day, location: 'Atrium Rama, Ground Floor, X City Hall' }],
+    candidateVenues: [{ eventStartDate: day, location: 'Atrium Rama, Lantai GF, X City Hall' }],
+  };
+
+  await t.test('same account, day and name: mid is promoted to high', () => {
+    const result = decide(spellings);
+    // The texts differ, so no venue signal: organizer 0.40 + date/name 0.25 = 0.65, mid.
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.venueConflict, false);
+    assert.strictEqual(result.tier, 'high');
+    assert.strictEqual(result.promotionRule, 'mid-to-high');
+  });
+
+  await t.test('two different venues of one building stay mid for a moderator', () => {
+    const result = decide({
+      newVenues: [{ eventStartDate: day, location: 'Atrium Rama, X City Hall' }],
+      candidateVenues: [{ eventStartDate: day, location: 'Ballroom, X City Hall' }],
+    });
+    assert.strictEqual(result.venueConflict, true);
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+});
