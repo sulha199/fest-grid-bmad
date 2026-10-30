@@ -35,6 +35,10 @@
  * `GOLDEN_EVAL_LEDGER_PATH=<file>` is where the "what was evaluated when, and did it drift" ledger
  * is read from and written to between runs (the nightly workflow caches it with actions/cache).
  * Without it every run starts from an empty ledger, so a windowed run always picks the same window.
+ *
+ * Exit code (see eval-exit-policy.ts): drift is reported as `::warning::` annotations and does NOT
+ * fail the run; a crash, a rejected request, or a run that stops before answering any fixture does.
+ * `GOLDEN_EVAL_FAIL_ON_DRIFT=true` makes drift fail the run too (e.g. for a manual before/after check).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -54,6 +58,7 @@ import { callGeminiGenerateContent } from '../src/lib/ai-gateway/gemini-client.j
 import { loadBackendEnv } from '../src/env.js';
 import { isEvalDailyQuotaError, nextEvalRetryDelayMs } from '../src/lib/ai-gateway/eval-retry-policy.js';
 import { truncateForLog } from '../src/lib/ai-gateway/eval-log-format.js';
+import { evalExitCode } from '../src/lib/ai-gateway/eval-exit-policy.js';
 import { measureGeminiSchemaComplexity } from '../src/lib/ai-gateway/gemini-schema-complexity.js';
 
 // Free-tier keys cap requests/minute (15 on a lite model, fewer on flash -- the nightly workflow sets
@@ -228,10 +233,19 @@ async function main(): Promise<void> {
   if (stoppedReason) {
     console.log(`::warning::Golden-prompt eval stopped early: ${stoppedReason}. The unevaluated fixtures keep their priority for the next run.`);
   }
-  // A quota stop after some evaluations is routine; one before the first result left no signal at all.
-  if (drifted.length > 0 || driftedVariants.length > 0 || (stoppedReason && results.length === 0)) {
-    process.exitCode = 1;
+  if (drifted.length > 0 || driftedVariants.length > 0) {
+    console.log(
+      `::warning::Golden-prompt drift: ${drifted.length} of ${results.length} fixtures and ${driftedVariants.length} of ${variantResults.length} variants drifted. ` +
+        'The run stays green (drift is a report, not a failure); set GOLDEN_EVAL_FAIL_ON_DRIFT=true to fail on it.'
+    );
   }
+  process.exitCode = evalExitCode({
+    evaluated: results.length,
+    driftedFixtures: drifted.length,
+    driftedVariants: driftedVariants.length,
+    stoppedReason,
+    failOnDrift: process.env.GOLDEN_EVAL_FAIL_ON_DRIFT === 'true',
+  });
 }
 
 main().catch((err) => {
