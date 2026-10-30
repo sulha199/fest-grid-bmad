@@ -2,7 +2,7 @@
 title: 'Extract the shared suggested-match resolve function (Piece A of the AI dedup review)'
 type: 'refactor'
 created: '2026-10-30'
-status: 'in-review'
+status: 'done'
 baseline_commit: '640aeed8f7b7aeb382e742103eb24291f06c90cb'
 review_loop_iteration: 0
 context:
@@ -83,3 +83,63 @@ context:
 **Commands:**
 - `pnpm --filter backend test` -- expected: all pass, including `event-merges.test.ts`, the new ratchet and the row-count ratchet.
 - `pnpm --filter backend lint && pnpm --filter backend exec tsc --noEmit` -- expected: clean.
+
+## Suggested Review Order
+
+**The shared function (start here)**
+
+- One entry point: lock the suggestion row, recheck pending, then merge or reject.
+  [`resolve-suggested-match.ts:47`](../../apps/backend/src/lib/events/resolve-suggested-match.ts#L47)
+
+- The `FOR UPDATE` read is what serialises two resolves of one row.
+  [`resolve-suggested-match.ts:50`](../../apps/backend/src/lib/events/resolve-suggested-match.ts#L50)
+
+- REJECT joins the transaction and refuses a row that is no longer pending.
+  [`resolve-suggested-match.ts:67`](../../apps/backend/src/lib/events/resolve-suggested-match.ts#L67)
+
+- Typed errors let each caller map failures to its own surface.
+  [`resolve-suggested-match.ts:39`](../../apps/backend/src/lib/events/resolve-suggested-match.ts#L39)
+
+**The resolver becomes a wrapper**
+
+- Opens the transaction, calls the function, response shaping unchanged.
+  [`resolvers.ts:1903`](../../apps/backend/src/schema/resolvers.ts#L1903)
+
+- Typed errors map to the same GraphQL codes as before.
+  [`resolvers.ts:1905`](../../apps/backend/src/schema/resolvers.ts#L1905)
+
+**Drift guard**
+
+- Only `merge-events.ts` and the function may update the table; resolver may not merge.
+  [`suggested-match-resolve-ratchet.test.ts:93`](../../apps/backend/src/lib/events/suggested-match-resolve-ratchet.test.ts#L93)
+
+- String-aware comment stripping, so a quoted glob cannot hide a write.
+  [`suggested-match-resolve-ratchet.test.ts:44`](../../apps/backend/src/lib/events/suggested-match-resolve-ratchet.test.ts#L44)
+
+- Negative controls prove each way of writing the table is caught.
+  [`suggested-match-resolve-ratchet.test.ts:112`](../../apps/backend/src/lib/events/suggested-match-resolve-ratchet.test.ts#L112)
+
+**Proof the lock works and behaviour is unchanged**
+
+- Real two-connection race: a held row makes a resolve wait, then fail as not pending.
+  [`resolve-suggested-match.test.ts:153`](../../apps/backend/src/lib/events/resolve-suggested-match.test.ts#L153)
+
+- Caller-owned transaction: a rolled-back ACCEPT leaves nothing behind (Piece B's dry run).
+  [`resolve-suggested-match.test.ts:186`](../../apps/backend/src/lib/events/resolve-suggested-match.test.ts#L186)
+
+- Characterization tests written against the old inline code before extraction.
+  [`event-merges.test.ts:178`](../../apps/backend/src/schema/event-merges.test.ts#L178)
+
+**Decisions and known gaps**
+
+- AD-30 Rule 9 amendment, including the two deferred gaps.
+  [`festgrid-architecture-spine.md:1901`](../planning-artifacts/festgrid-architecture-spine.md#L1901)
+
+- Operator runbook note: do not run the drain while a moderator works the queue.
+  [`7-event-dedup.md:85`](../../docs/infrastructure/7-event-dedup.md#L85)
+
+- Flow diagram status entry for the single entry point.
+  [`event-dedup-flow.html:367`](../planning-artifacts/diagrams/event-dedup-flow.html#L367)
+
+- Pre-existing gaps and the sandbox test failure, deferred and on the board.
+  [`deferred-work.md:801`](deferred-work.md#L801) · [`backlog.yaml:2580`](backlog.yaml#L2580)
