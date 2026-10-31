@@ -2,7 +2,7 @@
 title: 'AI dedup review piece B2a: record whether a dedup was resolved manually or by the skill'
 type: 'feature'
 created: '2026-10-31'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 0
 baseline_commit: '20ad4fab81f7afb3cba331819084fde5bf312dbc'
 context:
@@ -79,3 +79,46 @@ Two values only: `drain` and `scan-stub-repeats` are operator-run scripts, so th
 - `pnpm --filter backend test` -- expected: pass (row-count ratchet clean)
 - `pnpm --filter backend build && pnpm lint` -- expected: no errors
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: exits clean
+
+## Suggested Review Order
+
+**The flag and who may set it**
+
+- Entry point: `via` defaults to `moderator`, is checked at runtime, and is written to the suggestion on REJECT.
+  [`resolve-suggested-match.ts:54`](../../apps/backend/src/lib/events/resolve-suggested-match.ts#L54)
+
+- One enum, two columns; NULL on the suggestion means nobody resolved it.
+  [`schema.ts:518`](../../packages/database/schema.ts#L518)
+
+- Journal row and the accepted suggestion both take `via`; undo clears the suggestion's flag.
+  [`merge-events.ts:251`](../../apps/backend/src/lib/events/merge-events.ts#L251)
+
+- Runtime guard: TypeScript alone would let null or a stray string reach the database.
+  [`merge-events.ts:22`](../../apps/backend/src/lib/events/merge-events.ts#L22)
+
+- Keeps a GraphQL client from ever claiming `ai_skill`.
+  [`suggested-match-resolve-ratchet.test.ts:139`](../../apps/backend/src/lib/events/suggested-match-resolve-ratchet.test.ts#L139)
+
+**Migration**
+
+- Additive; backfills accepted and rejected rows as `moderator`; pending and expired stay NULL.
+  [`0087_dedup_resolution_source.sql:1`](../../packages/database/migrations/0087_dedup_resolution_source.sql#L1)
+
+**Export reads the flag, the email variable is gone**
+
+- Label comes from `resolved_via` alone; an unknown value is `unknown`, not a person.
+  [`dedup-review-evidence.ts:142`](../../packages/domain/src/events/dedup-review-evidence.ts#L142)
+
+- The query selects the flag instead of resolving a reviewer user.
+  [`dedup-review-export.ts:265`](../../apps/backend/src/lib/events/dedup-review-export.ts#L265)
+
+- No repository variable or account identity left in the workflow.
+  [`dedup-review-export.yml:101`](../../.github/workflows/dedup-review-export.yml#L101)
+
+**Tests**
+
+- Flag recorded for ACCEPT and REJECT; undo keeps the journal flag; bad `via` refused.
+  [`resolve-suggested-match.test.ts:95`](../../apps/backend/src/lib/events/resolve-suggested-match.test.ts#L95)
+
+- Moderator ids swapped on purpose so the label cannot come from the user.
+  [`dedup-review-export.test.ts:291`](../../apps/backend/src/lib/events/dedup-review-export.test.ts#L291)
