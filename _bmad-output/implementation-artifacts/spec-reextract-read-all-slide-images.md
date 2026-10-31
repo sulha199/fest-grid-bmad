@@ -2,7 +2,7 @@
 title: 'Re-extract reads every slide of a carousel post'
 type: 'bugfix'
 created: '2026-10-31'
-status: 'in-review'
+status: 'done'
 baseline_commit: '515b3bac6728089e3ddfce4526f2003fbafc1fa6'
 review_loop_iteration: 0
 context:
@@ -83,3 +83,60 @@ Ingestion shares `build-gemini-request.ts`, so the cover-failure fix also helps 
 - `pnpm --filter backend test`, `pnpm --filter @festgrid/domain test` -- expected: pass, row-count ratchet clean
 - `pnpm --filter web test` and `pnpm --filter web exec tsc --noEmit` -- expected: pass
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: clean
+
+## Suggested Review Order
+
+**When a stored post needs fresh images (start here)**
+
+- One pure rule: expired cover or slide link triggers a refresh; text-only posts never do.
+  [`post-images-need-refresh.ts:29`](../../packages/domain/src/posts/post-images-need-refresh.ts#L29)
+
+- Stale images with a stored caption make the scrape optional, so failure still previews.
+  [`start-post-reextraction-preview.ts:141`](../../apps/backend/src/lib/extraction/start-post-reextraction-preview.ts#L141)
+
+- Cooldown now also hands back the fresh links of the last rescrape, so a second click is not worse.
+  [`start-post-reextraction-preview.ts:52`](../../apps/backend/src/lib/extraction/start-post-reextraction-preview.ts#L52)
+
+- Scraped cover and slides win over the stored ones; the stored caption is kept.
+  [`start-post-reextraction-preview.ts:233`](../../apps/backend/src/lib/extraction/start-post-reextraction-preview.ts#L233)
+
+**Reading every slide**
+
+- The slide loop, now a function so a dead cover can reuse it unchanged.
+  [`build-gemini-request.ts:337`](../../apps/backend/src/lib/ai-processor/build-gemini-request.ts#L337)
+
+- Slides-only fallback for a dead or missing cover; blur failures stay text-only and fail-closed.
+  [`build-gemini-request.ts:394`](../../apps/backend/src/lib/ai-processor/build-gemini-request.ts#L394)
+
+- Counts of images listed versus actually sent come back with the request.
+  [`build-gemini-request.ts:494`](../../apps/backend/src/lib/ai-processor/build-gemini-request.ts#L494)
+
+- Only preview jobs get the 10-slide cap and the fallback; correction jobs are unchanged.
+  [`process-manual-extraction-job.ts:77`](../../apps/backend/src/lib/ai-processor/process-manual-extraction-job.ts#L77)
+
+- The 10-slide moderator cap lives in the domain package next to the cooldown.
+  [`types.ts:119`](../../packages/domain/src/posts/types.ts#L119)
+
+- Correction of an unknown URL now forwards the scraper's slides too.
+  [`resolvers.ts:1683`](../../apps/backend/src/schema/resolvers.ts#L1683)
+
+**Making a shortfall visible**
+
+- Moderator sees "Only N of M images could be read" instead of a quietly partial preview.
+  [`reextract-preview-result.tsx:46`](../../apps/web/src/features/moderation/reextract-preview-result.tsx#L46)
+
+**Records**
+
+- AD-40 Rule 5 amended: rescrape on expired images, sizes, and the cover-blur exception.
+  [`festgrid-architecture-spine.md:2390`](../planning-artifacts/festgrid-architecture-spine.md#L2390)
+
+**Tests**
+
+- Cover failure with and without blur, caps, counts, and the no-cover post.
+  [`build-gemini-request.test.ts`](../../apps/backend/src/lib/ai-processor/build-gemini-request.test.ts)
+
+- Refresh, fallback, cooldown reuse, and "no scrape when links are valid".
+  [`start-post-reextraction-preview.test.ts`](../../apps/backend/src/lib/extraction/start-post-reextraction-preview.test.ts)
+
+- Job with a dead cover and 12 slides reports 10 of 13 and writes nothing.
+  [`process-reextraction-preview.test.ts`](../../apps/backend/src/lib/ai-processor/process-reextraction-preview.test.ts)
