@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { IMAGE_URL_EXPIRY_MARGIN_MS, postImagesNeedRefresh } from './post-images-need-refresh.js';
+import { IMAGE_URL_EXPIRY_MARGIN_MS, isImageUrlExpired, postImagesNeedRefresh } from './post-images-need-refresh.js';
 
 const NOW = new Date('2026-10-31T10:00:00.000Z');
 const hexOf = (d: Date) => Math.floor(d.getTime() / 1000).toString(16);
@@ -44,5 +44,16 @@ describe('postImagesNeedRefresh', () => {
     const justOutside = new Date(NOW.getTime() + IMAGE_URL_EXPIRY_MARGIN_MS + 5000);
     assert.equal(postImagesNeedRefresh({ imageUrl: url(justInside) }, NOW), true);
     assert.equal(postImagesNeedRefresh({ imageUrl: url(justOutside) }, NOW), false);
+  });
+});
+
+describe('isImageUrlExpired', () => {
+  it('judges one link: expired, valid, inside the margin, and no readable expiry', () => {
+    assert.equal(isImageUrlExpired(url(inDays(-1)), NOW), true);
+    assert.equal(isImageUrlExpired(url(inDays(2)), NOW), false);
+    assert.equal(isImageUrlExpired(url(new Date(NOW.getTime() + IMAGE_URL_EXPIRY_MARGIN_MS - 1000)), NOW), true);
+    assert.equal(isImageUrlExpired(url(null), NOW), false);
+    assert.equal(isImageUrlExpired(null, NOW), false);
+    assert.equal(isImageUrlExpired(undefined, NOW), false);
   });
 });

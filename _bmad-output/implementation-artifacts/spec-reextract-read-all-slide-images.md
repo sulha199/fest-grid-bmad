@@ -122,7 +122,7 @@ Ingestion shares `build-gemini-request.ts`, so the cover-failure fix also helps 
 
 **Making a shortfall visible**
 
-- Moderator sees "Only N of M images could be read" instead of a quietly partial preview.
+- Moderator sees "Only N of M images were read" instead of a quietly partial preview.
   [`reextract-preview-result.tsx:46`](../../apps/web/src/features/moderation/reextract-preview-result.tsx#L46)
 
 **Records**

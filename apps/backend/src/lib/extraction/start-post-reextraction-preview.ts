@@ -5,6 +5,7 @@ import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { detectPlatformFromUrl, getScraperAdapter } from '@festgrid/domain/scraper';
 import {
   REEXTRACT_RESCRAPE_COOLDOWN_MS,
+  isImageUrlExpired,
   postImagesNeedRefresh,
   type ManualExtractionRequestPayload,
 } from '@festgrid/domain/posts';
@@ -67,21 +68,22 @@ async function rescrapeCooldown(url: string, now: Date): Promise<RescrapeCooldow
   const [recent] = recentRows;
   if (!recent) return { minutesLeft: 0, recentImages: null };
   const msLeft = REEXTRACT_RESCRAPE_COOLDOWN_MS - (now.getTime() - recent.createdAt.getTime());
-  // Newest window row whose links are actually usable now: a row that only carries the dead stored
-  // links (the scrape found nothing new) must not be handed back as "fresh", and a recorded failed
-  // scrape carries none. `?.` because the cooldown must degrade gracefully, never throw, on a row
-  // written by something other than this function.
-  const usable = recentRows
-    .map((row) => (row.requestPayload as ManualExtractionRequestPayload | null)?.message)
-    .find(
-      (message) =>
-        (message?.imageUrl || message?.additionalImageUrls?.length) &&
-        !postImagesNeedRefresh({ imageUrl: message.imageUrl, additionalImageUrls: message.additionalImageUrls }, now)
-    );
-  return {
-    minutesLeft: Math.max(1, Math.ceil(msLeft / 60_000)),
-    recentImages: usable ? { imageUrl: usable.imageUrl, additionalImageUrls: usable.additionalImageUrls } : null,
-  };
+  // Newest window row with at least one link usable now, judged PER LINK: a fresh cover must not be
+  // thrown away because a dead stored slide rode along in the same payload, and a row that only
+  // carries dead links (the scrape found nothing new) yields nothing. `?.` because the cooldown must
+  // degrade gracefully, never throw, on a row written by something other than this function.
+  for (const row of recentRows) {
+    const message = (row.requestPayload as ManualExtractionRequestPayload | null)?.message;
+    const imageUrl = message?.imageUrl && !isImageUrlExpired(message.imageUrl, now) ? message.imageUrl : undefined;
+    const additionalImageUrls = (message?.additionalImageUrls ?? []).filter((url) => !isImageUrlExpired(url, now));
+    if (imageUrl || additionalImageUrls.length > 0) {
+      return {
+        minutesLeft: Math.max(1, Math.ceil(msLeft / 60_000)),
+        recentImages: { imageUrl, additionalImageUrls: additionalImageUrls.length > 0 ? additionalImageUrls : undefined },
+      };
+    }
+  }
+  return { minutesLeft: Math.max(1, Math.ceil(msLeft / 60_000)), recentImages: null };
 }
 
 const SCRAPE_FAILED = {

@@ -27,6 +27,11 @@ function isExpired(expiresAt: Date | null, nowMs: number): boolean {
   return expiresAt !== null && expiresAt.getTime() <= nowMs + IMAGE_URL_EXPIRY_MARGIN_MS;
 }
 
+/** True when this one image link has expired (or expires within the safety margin); false when it carries no readable expiry. */
+export function isImageUrlExpired(url: string | null | undefined, now: Date): boolean {
+  return isExpired(parseImageUrlExpiry(url), now.getTime());
+}
+
 /** True when the cover or any stored slide link has expired, or slides are listed with no cover. */
 export function postImagesNeedRefresh(post: StoredPostImages, now: Date): boolean {
   if (!post.imageUrl) return (post.additionalImageUrls?.length ?? 0) > 0;

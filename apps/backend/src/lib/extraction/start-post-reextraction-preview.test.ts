@@ -156,8 +156,11 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
 
   // ── BUG-097: expired image links, rescrape for fresh slides ─────────────────────────────────
   const hexOf = (d: Date) => Math.floor(d.getTime() / 1000).toString(16);
-  const expiredUrl = (n: number) => `https://cdn.example.com/s${n}.jpg?oe=${hexOf(new Date(Date.now() - 3 * 86_400_000))}`;
-  const freshUrl = (n: number) => `https://cdn.example.com/fresh${n}.jpg?oe=${hexOf(new Date(Date.now() + 3 * 86_400_000))}`;
+  // Memoized: the URL built for an assertion must equal the one stored earlier, whatever second it is.
+  const urlCache = new Map<string, string>();
+  const memo = (key: string, build: () => string) => urlCache.get(key) ?? (urlCache.set(key, build()), urlCache.get(key)!);
+  const expiredUrl = (n: number) => memo(`e${n}`, () => `https://cdn.example.com/s${n}.jpg?oe=${hexOf(new Date(Date.now() - 3 * 86_400_000))}`);
+  const freshUrl = (n: number) => memo(`f${n}`, () => `https://cdn.example.com/fresh${n}.jpg?oe=${hexOf(new Date(Date.now() + 3 * 86_400_000))}`);
 
   async function makeCarouselPost(content: string | null, urls: { cover: string; slides: string[] }) {
     const [post] = await db
@@ -320,7 +323,7 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.strictEqual(stored.imageUrl, expiredUrl(0), 'still never written to posts');
   });
 
-  await t.test('the scraper finds a cover but an empty slide list: stored slides stay, so a dead one shows as a shortfall', async () => {
+  await t.test('the scraper finds a cover but an empty slide list: the stored slides stay in the payload, so the preview counts them and reports a shortfall', async () => {
     const post = await makeCarouselPost('Stored caption E', { cover: expiredUrl(0), slides: [expiredUrl(1), expiredUrl(2)] });
     fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: freshUrl(0), additionalImageUrls: [] }));
     try {
@@ -348,12 +351,33 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.strictEqual(second.message.imageUrl, expiredUrl(0), 'the stored link, not the first run\'s equally dead one');
   });
 
-  await t.test('a malformed recent job row never makes the cooldown throw', async () => {
+  await t.test('a cover found next to dead stored slides is reused inside the cooldown (judged per link, not per row)', async () => {
+    const post = await makeCarouselPost('Stored caption H', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
+    fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: freshUrl(5), additionalImageUrls: [] }));
+    try {
+      await startPostReextractionPreview(user.id, { postId: post.id });
+      await startPostReextractionPreview(user.id, { postId: post.id });
+    } finally {
+      clearRegisteredAdapters();
+    }
+    const payloads = await payloadsFor(post.postUrl);
+    const second = payloads.find((p) => p.rescraped === false);
+    assert.ok(second);
+    assert.strictEqual(second.message.imageUrl, freshUrl(5), 'the fresh cover survives the dead slide beside it');
+    assert.deepStrictEqual(second.message.additionalImageUrls, [expiredUrl(1)], 'the dead slide stays, so it shows as a shortfall');
+  });
+
+  await t.test('a malformed recent job row is ignored by the image reuse and still counts as a cooldown (no scrape, no throw)', async () => {
     const post = await makeCarouselPost('Stored caption G', { cover: expiredUrl(0), slides: [] });
     await db.insert(manualExtractionJobs).values({
       requestedByUserId: user.id,
       sourceUrl: post.postUrl,
       requestPayload: { mode: 'REEXTRACT_PREVIEW', rescraped: true } as unknown as ManualExtractionRequestPayload,
+    });
+    let scrapes = 0;
+    fakeAdapter(async () => {
+      scrapes++;
+      return null;
     });
     let startResult;
     try {
@@ -361,7 +385,10 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     } finally {
       clearRegisteredAdapters();
     }
-    assert.ok(startResult, 'returned instead of throwing');
-    await payloadsFor(post.postUrl);
+    assert.strictEqual(scrapes, 0, 'the malformed row still blocked the scrape');
+    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'a stored-caption job was created and failed to start under test');
+    const started = (await payloadsFor(post.postUrl)).find((p) => p.mode === 'REEXTRACT_PREVIEW' && p.rescraped === false);
+    assert.ok(started);
+    assert.strictEqual(started.message.imageUrl, expiredUrl(0), 'nothing usable in the malformed row, so the stored link is used');
   });
 });
