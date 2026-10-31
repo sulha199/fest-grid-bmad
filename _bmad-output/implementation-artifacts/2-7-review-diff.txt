@@ -1,0 +1,629 @@
+commit 247fde2edcdd28c3f8495772356e06aed27eb57a
+Author: Shulha Yahya <sulha199@gmail.com>
+Date:   Fri Aug 7 07:42:28 2026 +0700
+
+    feat: Implement default event visibility filtering to hide past events
+    
+    - Extended the `overlaps` operator in `@festgrid/graphql-select` to accept a nullable `to` parameter, treating `null` as an open-ended upper bound.
+    - Created a new function `buildDefaultEventVisibilityConditions` in `@festgrid/domain` to compute visibility conditions based on user settings for hiding past events.
+    - Integrated the default visibility condition into the `Query.events` resolver, ensuring past events are filtered out for both anonymous and authenticated users.
+    - Added comprehensive unit tests for the new functionality and integration tests to validate behavior across different scenarios.
+    - Updated documentation to reflect changes in the query DSL for event visibility.
+    - Enforced linting rules to prevent direct usage of `isNull` on specific columns, promoting the use of `activeOnly` helper instead.
+
+diff --git a/apps/backend/eslint.config.mjs b/apps/backend/eslint.config.mjs
+index b2b294d..48ea9b1 100644
+--- a/apps/backend/eslint.config.mjs
++++ b/apps/backend/eslint.config.mjs
+@@ -6,4 +6,17 @@ export default [
+   {
+     ignores: ["dist/", "src/generated/"],
+   },
++  {
++    files: ["src/**/*.ts"],
++    rules: {
++      "no-restricted-syntax": [
++        "error",
++        {
++          selector: "CallExpression[callee.name='isNull'] Identifier[name='deletedAt']",
++          message:
++            "Do not hand-write isNull(table.deletedAt) — import activeOnly(table) from '@festgrid/graphql-select' instead (AD-8 rule 2).",
++        },
++      ],
++    },
++  },
+ ];
+diff --git a/apps/backend/package.json b/apps/backend/package.json
+index fd2876e..307bfbe 100644
+--- a/apps/backend/package.json
++++ b/apps/backend/package.json
+@@ -28,6 +28,7 @@
+     "postgres": "^3.4.4"
+   },
+   "devDependencies": {
++    "eslint": "^9.9.0",
+     "@festgrid/eslint-config": "workspace:*",
+     "@festgrid/typescript-config": "workspace:*",
+     "@graphql-codegen/add": "^5.0.3",
+diff --git a/apps/backend/src/eslint-enforcement.test.ts b/apps/backend/src/eslint-enforcement.test.ts
+new file mode 100644
+index 0000000..c937490
+--- /dev/null
++++ b/apps/backend/src/eslint-enforcement.test.ts
+@@ -0,0 +1,37 @@
++import test from 'node:test';
++import * as assert from 'node:assert';
++import { ESLint } from 'eslint';
++import * as path from 'node:path';
++
++test('AD-8 rule 2 lint enforcement (Story 0.22)', async (t) => {
++  const eslint = new ESLint({
++    overrideConfigFile: path.resolve(process.cwd(), 'eslint.config.mjs'),
++  });
++
++  await t.test('flags a hand-written isNull(table.deletedAt) call', async () => {
++    const results = await eslint.lintText(
++      `import { isNull } from 'drizzle-orm';\nimport { favorites } from '@festgrid/database';\nconst w = isNull(favorites.deletedAt);\n`,
++      { filePath: path.resolve(process.cwd(), 'src/schema/__lint_fixture__.ts') }
++    );
++    const violations = results[0].messages.filter(m => m.ruleId === 'no-restricted-syntax');
++    assert.strictEqual(violations.length, 1);
++  });
++
++  await t.test('does not flag activeOnly(table) usage', async () => {
++    const results = await eslint.lintText(
++      `import { activeOnly } from '@festgrid/graphql-select';\nimport { favorites } from '@festgrid/database';\nconst w = activeOnly(favorites);\n`,
++      { filePath: path.resolve(process.cwd(), 'src/schema/__lint_fixture__.ts') }
++    );
++    const violations = results[0].messages.filter(m => m.ruleId === 'no-restricted-syntax');
++    assert.strictEqual(violations.length, 0);
++  });
++
++  await t.test('does not flag isNull on an unrelated column', async () => {
++    const results = await eslint.lintText(
++      `import { isNull } from 'drizzle-orm';\nimport { favorites } from '@festgrid/database';\nconst w = isNull(favorites.eventId);\n`,
++      { filePath: path.resolve(process.cwd(), 'src/schema/__lint_fixture__.ts') }
++    );
++    const violations = results[0].messages.filter(m => m.ruleId === 'no-restricted-syntax');
++    assert.strictEqual(violations.length, 0);
++  });
++});
+diff --git a/apps/backend/src/schema/resolvers.test.ts b/apps/backend/src/schema/resolvers.test.ts
+index 3c8773a..7fffffe 100644
+--- a/apps/backend/src/schema/resolvers.test.ts
++++ b/apps/backend/src/schema/resolvers.test.ts
+@@ -841,4 +841,207 @@ test('events resolver integration via Yoga', async (t) => {
+       assert.strictEqual(result.errors[0].extensions?.code, 'UNAUTHENTICATED');
+     });
+   });
++
++  await t.test('events - default past-event visibility filter (Story 2.7)', async (t) => {
++    const createdEventIds: string[] = [];
++    const createdScheduleIds: string[] = [];
++    
++    const daysAgo = (n: number) => {
++      const d = new Date();
++      d.setUTCDate(d.getUTCDate() - n);
++      return d.toISOString().split('T')[0];
++    };
++    const daysAhead = (n: number) => {
++      const d = new Date();
++      d.setUTCDate(d.getUTCDate() + n);
++      return d.toISOString().split('T')[0];
++    };
++
++    const email = `visibility-test-${Math.random()}@example.com`;
++    const [testUser] = await db.insert(users).values({
++      email,
++      name: 'Visibility Test User',
++      role: 'user'
++    }).returning();
++
++    async function createTestEvent(opts: {
++      eventName: string;
++      startDate: string;
++      endDate?: string | null;
++      types?: string[];
++      subSchedules?: { startDate: string; endDate?: string | null }[];
++    }) {
++      const [event] = await db.insert(events).values({
++        eventName: opts.eventName,
++        location: 'Test City',
++        types: opts.types ?? null,
++      }).returning();
++      createdEventIds.push(event.id);
++
++      const [sched] = await db.insert(schedules).values({
++        eventId: event.id,
++        eventStartDate: opts.startDate,
++        eventEndDate: opts.endDate ?? null,
++        isMainSchedule: true,
++      }).returning();
++      createdScheduleIds.push(sched.id);
++
++      if (opts.subSchedules) {
++        for (const sub of opts.subSchedules) {
++          const [subSched] = await db.insert(schedules).values({
++            eventId: event.id,
++            eventStartDate: sub.startDate,
++            eventEndDate: sub.endDate ?? null,
++            isMainSchedule: false,
++          }).returning();
++          createdScheduleIds.push(subSched.id);
++        }
++      }
++      return event;
++    }
++
++    const eventA = await createTestEvent({
++      eventName: 'Past Event A (Ended 10 Days Ago)',
++      startDate: daysAgo(12),
++      endDate: daysAgo(10),
++    });
++
++    const eventB = await createTestEvent({
++      eventName: 'Recent Event B (Ended 3 Days Ago)',
++      startDate: daysAgo(4),
++      endDate: daysAgo(3),
++      types: ['FESTIVAL'],
++    });
++
++    const eventC = await createTestEvent({
++      eventName: 'Active Event C (Main ended, sub-schedule active)',
++      startDate: daysAgo(12),
++      endDate: daysAgo(10),
++      subSchedules: [
++        { startDate: daysAhead(1), endDate: daysAhead(2) }
++      ]
++    });
++
++    t.after(async () => {
++      if (createdScheduleIds.length > 0) {
++        await db.delete(schedules).where(inArray(schedules.id, createdScheduleIds));
++      }
++      if (createdEventIds.length > 0) {
++        await db.delete(events).where(inArray(events.id, createdEventIds));
++      }
++      await db.delete(userSettings).where(eq(userSettings.userId, testUser.id));
++      await db.delete(users).where(eq(users.id, testUser.id));
++    });
++
++    await t.test('anonymous caller uses fixed default N=7 (AC1, AC3, AC4)', async () => {
++      mockUser = null;
++      const response = await yoga.fetch('http://yoga/graphql', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({
++          query: `
++            query {
++              events(query: null, limit: 1000) {
++                items { id eventName }
++              }
++            }
++          `
++        })
++      });
++      const result = await response.json();
++      assert.ok(!result.errors, 'GraphQL errors returned');
++      const items = result.data.events.items;
++      const ids = new Set(items.map((i: any) => i.id));
++
++      assert.ok(!ids.has(eventA.id), 'Event A (ended 10 days ago) should be hidden');
++      assert.ok(ids.has(eventB.id), 'Event B (ended 3 days ago) should be visible');
++      assert.ok(ids.has(eventC.id), 'Event C with active sub-schedule should be visible');
++    });
++
++    await t.test('authenticated caller uses custom settings N (AC1, AC2, AC4)', async () => {
++      mockUser = { userId: testUser.id, role: testUser.role };
++
++      await yoga.fetch('http://yoga/graphql', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({
++          query: `
++            mutation {
++              updateUserSettings(input: { hidePastEventsAfterDays: 1 }) {
++                hidePastEventsAfterDays
++              }
++            }
++          `
++        })
++      });
++
++      const response = await yoga.fetch('http://yoga/graphql', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({
++          query: `
++            query {
++              events(query: null, limit: 1000) {
++                items { id eventName }
++              }
++            }
++          `
++        })
++      });
++      const result = await response.json();
++      assert.ok(!result.errors, 'GraphQL errors returned');
++      const items = result.data.events.items;
++      const ids = new Set(items.map((i: any) => i.id));
++
++      assert.ok(!ids.has(eventA.id), 'Event A should be hidden');
++      assert.ok(!ids.has(eventB.id), 'Event B (ended 3 days ago) should now be hidden under custom N=1 setting');
++      assert.ok(ids.has(eventC.id), 'Event C should still be visible due to active sub-schedule');
++    });
++
++    await t.test('past-event filter combines correctly with existing caller query (AC5)', async () => {
++      mockUser = null;
++      const response = await yoga.fetch('http://yoga/graphql', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({
++          query: `
++            query {
++              events(query: { field: "types", operator: "contains", value: "FESTIVAL" }, limit: 1000) {
++                items { id eventName }
++              }
++            }
++          `
++        })
++      });
++      const result = await response.json();
++      assert.ok(!result.errors, 'GraphQL errors returned');
++      const items = result.data.events.items;
++      const ids = new Set(items.map((i: any) => i.id));
++
++      assert.ok(ids.has(eventB.id), 'Event B should match (type is FESTIVAL and ended 3 days ago)');
++      assert.ok(!ids.has(eventC.id), 'Event C should not match (type is not FESTIVAL)');
++    });
++
++    await t.test('Query.event lookup by ID bypasses visibility filter (AC8)', async () => {
++      mockUser = null;
++      const response = await yoga.fetch('http://yoga/graphql', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({
++          query: `
++            query GetEvent($id: ID!) {
++              event(id: $id) {
++                id
++                eventName
++              }
++            }
++          `,
++          variables: { id: eventA.id }
++        })
++      });
++      const result = await response.json();
++      assert.ok(!result.errors, 'GraphQL errors returned');
++      assert.strictEqual(result.data.event.id, eventA.id, 'Query.event should retrieve past event A directly');
++    });
++  });
+ });
+diff --git a/apps/backend/src/schema/resolvers.ts b/apps/backend/src/schema/resolvers.ts
+index 3d13018..40bace9 100644
+--- a/apps/backend/src/schema/resolvers.ts
++++ b/apps/backend/src/schema/resolvers.ts
+@@ -1,9 +1,9 @@
+ import { Resolvers } from '../generated/resolvers-types.js';
+ import { db } from '../db/client.js';
+ import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens } from '@festgrid/database';
+-import { buildOptimizedDrizzleSelect, buildDrizzleWhere } from '@festgrid/graphql-select';
++import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly } from '@festgrid/graphql-select';
+ import { requireAuth } from '../lib/auth/context.js';
+-import { eq, count, sql, asc, and, exists, isNull, desc } from 'drizzle-orm';
++import { eq, count, sql, asc, and, exists, desc } from 'drizzle-orm';
+ import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
+ import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
+ import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
+@@ -11,6 +11,7 @@ import { getOrCreateUserSettings } from '../lib/user-settings/get-or-create-user
+ import { resolveLocation, getAddressPredictions } from '../lib/geolocation/adapter.js';
+ import { GraphQLJSON } from 'graphql-scalars';
+ import { GraphQLError } from 'graphql';
++import { buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS } from '@festgrid/domain/events';
+ 
+ function formatLocationDetails(details: any): any {
+   if (!details) return null;
+@@ -346,7 +347,7 @@ export const resolvers: Resolvers = {
+     myLocations: async (_: any, __: any, context: any) => {
+       const authUser = requireAuth(context);
+       const rows = await db.select().from(userLocations)
+-        .where(and(eq(userLocations.userId, authUser.userId), isNull(userLocations.deletedAt)))
++        .where(and(eq(userLocations.userId, authUser.userId), activeOnly(userLocations)))
+         .orderBy(asc(userLocations.createdAt));
+ 
+       return rows.map(row => ({
+@@ -396,6 +397,14 @@ export const resolvers: Resolvers = {
+         // Not authenticated
+       }
+ 
++      let hidePastEventsAfterDays = DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS;
++      if (userId) {
++        const settings = await getOrCreateUserSettings(userId);
++        hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
++      }
++
++      const defaultVisibilityConditions = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays });
++
+       if (hasWithinRadiusCondition(query as QueryCondition | undefined) && userId === null) {
+         requireAuth(context);
+       }
+@@ -448,7 +457,7 @@ export const resolvers: Resolvers = {
+             .where(and(
+               eq(favorites.userId, userId),
+               eq(favorites.eventId, events.id),
+-              isNull(favorites.deletedAt)
++              activeOnly(favorites)
+             ))
+         ) : sql`false`,
+         isAddedToCalendar: userId ? exists(
+@@ -457,12 +466,19 @@ export const resolvers: Resolvers = {
+             .where(and(
+               eq(calendarAdditions.userId, userId),
+               eq(calendarAdditions.eventId, events.id),
+-              isNull(calendarAdditions.deletedAt)
++              activeOnly(calendarAdditions)
+             ))
+         ) : sql`false`
+       };
+ 
+-      const whereClause = buildDrizzleWhere(resolvedQuery as QueryCondition, fieldMap);
++      const finalCondition: QueryCondition = {
++        operator: 'and',
++        conditions: [
++          ...(resolvedQuery ? [resolvedQuery as QueryCondition] : []),
++          ...defaultVisibilityConditions,
++        ],
++      };
++      const whereClause = buildDrizzleWhere(finalCondition, fieldMap);
+       
+       const qLimit = Math.min(limit ?? 1000, 1000);
+       const qOffset = offset ?? 0;
+@@ -500,7 +516,7 @@ export const resolvers: Resolvers = {
+           and(
+             eq(favorites.userId, userId),
+             eq(favorites.eventId, events.id),
+-            isNull(favorites.deletedAt)
++            activeOnly(favorites)
+           )
+         );
+       }
+@@ -587,7 +603,7 @@ export const resolvers: Resolvers = {
+           .where(and(
+             eq(favorites.userId, authUser.userId),
+             eq(favorites.eventId, parent.id),
+-            isNull(favorites.deletedAt)
++            activeOnly(favorites)
+           ));
+         return rows.length > 0;
+       } catch {
+@@ -602,7 +618,7 @@ export const resolvers: Resolvers = {
+           .where(and(
+             eq(calendarAdditions.userId, authUser.userId),
+             eq(calendarAdditions.eventId, parent.id),
+-            isNull(calendarAdditions.deletedAt)
++            activeOnly(calendarAdditions)
+           ));
+         return rows.length > 0;
+       } catch {
+@@ -619,7 +635,7 @@ export const resolvers: Resolvers = {
+           .where(and(
+             eq(calendarAdditions.userId, authUser.userId),
+             eq(calendarAdditions.scheduleId, parent.id),
+-            isNull(calendarAdditions.deletedAt)
++            activeOnly(calendarAdditions)
+           ));
+         return rows.length > 0;
+       } catch {
+diff --git a/packages/domain/src/events/buildDefaultEventVisibilityConditions.test.ts b/packages/domain/src/events/buildDefaultEventVisibilityConditions.test.ts
+new file mode 100644
+index 0000000..7f89512
+--- /dev/null
++++ b/packages/domain/src/events/buildDefaultEventVisibilityConditions.test.ts
+@@ -0,0 +1,61 @@
++import test from 'node:test';
++import * as assert from 'node:assert';
++import {
++  buildDefaultEventVisibilityConditions,
++  DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS,
++} from './buildDefaultEventVisibilityConditions.js';
++import { TerminalCondition } from '../query/queryDsl.js';
++
++test('buildDefaultEventVisibilityConditions', async (t) => {
++  await t.test('uses default threshold math with N=7 against injected fixed now', () => {
++    // 2026-08-15 UTC midnight -> threshold should be 2026-08-08
++    const now = new Date(Date.UTC(2026, 7, 15, 12, 34, 56)); // Aug is 7 in JS Date (0-indexed)
++    const res = buildDefaultEventVisibilityConditions({
++      hidePastEventsAfterDays: DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS,
++      now,
++    });
++
++    assert.strictEqual(res.length, 1);
++    const cond = res[0] as TerminalCondition;
++    assert.strictEqual(cond.field, 'scheduleDateRange');
++    assert.strictEqual(cond.operator, 'overlaps');
++    assert.deepStrictEqual(cond.value, { from: '2026-08-08', to: null });
++  });
++
++  await t.test('uses custom N threshold math (e.g. N=14) against injected fixed now', () => {
++    const now = new Date(Date.UTC(2026, 7, 15, 0, 0, 0));
++    const res = buildDefaultEventVisibilityConditions({
++      hidePastEventsAfterDays: 14,
++      now,
++    });
++
++    assert.strictEqual(res.length, 1);
++    const cond = res[0] as TerminalCondition;
++    assert.deepStrictEqual(cond.value, { from: '2026-08-01', to: null });
++  });
++
++  await t.test('handles boundary N=0 correctly (threshold is UTC-today)', () => {
++    const now = new Date(Date.UTC(2026, 7, 15, 23, 59, 59));
++    const res = buildDefaultEventVisibilityConditions({
++      hidePastEventsAfterDays: 0,
++      now,
++    });
++
++    assert.strictEqual(res.length, 1);
++    const cond = res[0] as TerminalCondition;
++    assert.deepStrictEqual(cond.value, { from: '2026-08-15', to: null });
++  });
++
++  await t.test('uses system current date if now is omitted', () => {
++    const res = buildDefaultEventVisibilityConditions({
++      hidePastEventsAfterDays: 7,
++    });
++    assert.strictEqual(res.length, 1);
++    const cond = res[0] as TerminalCondition;
++    assert.strictEqual(cond.field, 'scheduleDateRange');
++    assert.strictEqual(cond.operator, 'overlaps');
++    assert.strictEqual(cond.value.to, null);
++    assert.ok(typeof cond.value.from === 'string');
++    assert.match(cond.value.from, /^\d{4}-\d{2}-\d{2}$/);
++  });
++});
+diff --git a/packages/domain/src/events/buildDefaultEventVisibilityConditions.ts b/packages/domain/src/events/buildDefaultEventVisibilityConditions.ts
+new file mode 100644
+index 0000000..8db5783
+--- /dev/null
++++ b/packages/domain/src/events/buildDefaultEventVisibilityConditions.ts
+@@ -0,0 +1,33 @@
++import { QueryCondition } from '../query/queryDsl.js';
++
++export const DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS = 7;
++
++export interface BuildDefaultEventVisibilityConditionsInput {
++  hidePastEventsAfterDays: number;
++  now?: Date;
++}
++
++export function buildDefaultEventVisibilityConditions({
++  hidePastEventsAfterDays,
++  now = new Date(),
++}: BuildDefaultEventVisibilityConditionsInput): QueryCondition[] {
++  const utcYear = now.getUTCFullYear();
++  const utcMonth = now.getUTCMonth();
++  const utcDate = now.getUTCDate();
++
++  const utcMidnight = new Date(Date.UTC(utcYear, utcMonth, utcDate));
++  utcMidnight.setUTCDate(utcMidnight.getUTCDate() - hidePastEventsAfterDays);
++
++  const year = utcMidnight.getUTCFullYear();
++  const month = String(utcMidnight.getUTCMonth() + 1).padStart(2, '0');
++  const day = String(utcMidnight.getUTCDate()).padStart(2, '0');
++  const threshold = `${year}-${month}-${day}`;
++
++  return [
++    {
++      field: 'scheduleDateRange',
++      operator: 'overlaps',
++      value: { from: threshold, to: null },
++    },
++  ];
++}
+diff --git a/packages/domain/src/events/index.ts b/packages/domain/src/events/index.ts
+index 167a280..ad986b0 100644
+--- a/packages/domain/src/events/index.ts
++++ b/packages/domain/src/events/index.ts
+@@ -1,3 +1,4 @@
+ export * from './buildEventsQueryCondition.js';
+ export * from './buildWeeklyCalendarQueryCondition.js';
+ export * from './buildMyCalendarQueryCondition.js';
++export * from './buildDefaultEventVisibilityConditions.js';
+diff --git a/packages/graphql-select/active-only.test.ts b/packages/graphql-select/active-only.test.ts
+new file mode 100644
+index 0000000..fe695ca
+--- /dev/null
++++ b/packages/graphql-select/active-only.test.ts
+@@ -0,0 +1,23 @@
++import test from 'node:test';
++import * as assert from 'node:assert';
++import { activeOnly } from './active-only.js';
++import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
++import { and, eq } from 'drizzle-orm';
++
++const testTableWithDeletedAt = pgTable('test_table_deleted_at', {
++  id: uuid('id'),
++  name: text('name'),
++  deletedAt: timestamp('deleted_at'),
++});
++
++test('activeOnly', async (t) => {
++  await t.test('builds a valid SQL where-fragment', () => {
++    const fragment = activeOnly(testTableWithDeletedAt);
++    assert.ok(fragment);
++  });
++
++  await t.test('composes correctly inside and()', () => {
++    const condition = and(activeOnly(testTableWithDeletedAt), eq(testTableWithDeletedAt.id, '123'));
++    assert.ok(condition);
++  });
++});
+diff --git a/packages/graphql-select/active-only.ts b/packages/graphql-select/active-only.ts
+new file mode 100644
+index 0000000..9f98d8e
+--- /dev/null
++++ b/packages/graphql-select/active-only.ts
+@@ -0,0 +1,6 @@
++import { isNull, SQL } from "drizzle-orm";
++import { PgColumn, PgTable } from "drizzle-orm/pg-core";
++
++export function activeOnly<T extends PgTable & { deletedAt: PgColumn }>(table: T): SQL {
++  return isNull(table.deletedAt);
++}
+diff --git a/packages/graphql-select/drizzle-where.test.ts b/packages/graphql-select/drizzle-where.test.ts
+index e1b3a3c..8f19567 100644
+--- a/packages/graphql-select/drizzle-where.test.ts
++++ b/packages/graphql-select/drizzle-where.test.ts
+@@ -225,6 +225,16 @@ test('buildDrizzleWhere', async (t) => {
+     assert.ok(res !== undefined);
+   });
+ 
++  await t.test('handles overlaps operator on scheduleDateRange field with to: null', () => {
++    const condition: QueryCondition = {
++      field: 'scheduleDateRange',
++      operator: 'overlaps',
++      value: { from: '2026-08-01', to: null }
++    };
++    const res = buildDrizzleWhere(condition, fieldMap);
++    assert.ok(res !== undefined);
++  });
++
+   await t.test('handles withinRadius operator on scheduleCoordinates field', () => {
+     const condition: QueryCondition = {
+       field: 'scheduleCoordinates',
+diff --git a/packages/graphql-select/drizzle-where.ts b/packages/graphql-select/drizzle-where.ts
+index 6e1960c..8227bd1 100644
+--- a/packages/graphql-select/drizzle-where.ts
++++ b/packages/graphql-select/drizzle-where.ts
+@@ -78,7 +78,7 @@ export function buildDrizzleWhere(
+       }
+       return notInArray(column, value);
+     case "overlaps": {
+-      const { from, to } = value as { from: string; to: string };
++      const { from, to } = value as { from: string; to: string | null };
+       const { table, eventIdCol, correlateCol, startCol, endCol } = column as {
+         table: PgTable;
+         eventIdCol: PgColumn;
+@@ -86,11 +86,12 @@ export function buildDrizzleWhere(
+         startCol: PgColumn;
+         endCol: PgColumn;
+       };
++      const toSql = to === null ? sql`NULL` : sql`${to}::date`;
+       return sql`EXISTS (
+         SELECT 1 FROM ${table}
+         WHERE ${eventIdCol} = ${correlateCol}
+           AND daterange(${startCol}, COALESCE(${endCol}, ${startCol}), '[]')
+-              && daterange(${from}::date, ${to}::date, '[]')
++              && daterange(${from}::date, ${toSql}, '[]')
+       )`;
+     }
+     case "withinRadius": {
+diff --git a/packages/graphql-select/index.ts b/packages/graphql-select/index.ts
+index 7dd3baa..cae0cca 100644
+--- a/packages/graphql-select/index.ts
++++ b/packages/graphql-select/index.ts
+@@ -1,2 +1,3 @@
+ export * from './optimized-select.js';
+ export * from './drizzle-where.js';
++export * from './active-only.js';
