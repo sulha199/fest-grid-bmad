@@ -1,5 +1,5 @@
 {
-  "id": "6d202555-7195-4f55-9e6c-0d26ca0c408b",
+  "id": "d8a05afa-d1a2-4cd7-86be-f6458ae8ab89",
   "prevId": "ef48843c-5d4b-4c37-98ab-c9e36a5a9a3e",
   "version": "6",
   "dialect": "postgresql",
@@ -1287,6 +1287,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "resolved_via": {
+          "name": "resolved_via",
+          "type": "resolution_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1418,6 +1425,14 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "performed_via": {
+          "name": "performed_via",
+          "type": "resolution_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'moderator'"
         },
         "loser_prior_slug": {
           "name": "loser_prior_slug",
@@ -3762,12 +3777,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "history_seeded_at": {
-          "name": "history_seeded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "scrape_triggered_at": {
           "name": "scrape_triggered_at",
           "type": "timestamp with time zone",
@@ -4617,6 +4626,14 @@
         "pending",
         "upheld",
         "dismissed"
+      ]
+    },
+    "public.resolution_source": {
+      "name": "resolution_source",
+      "schema": "public",
+      "values": [
+        "moderator",
+        "ai_skill"
       ]
     },
     "public.schedule_timezone_status": {

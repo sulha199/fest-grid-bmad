@@ -135,21 +135,22 @@ export interface DedupReviewExportReport {
 }
 
 /**
- * Who closed a suggestion. `reviewer` needs the reviewer's user id; without it a moderator's
- * resolution cannot be told from the reviewer's and is `unknown`. An expiry is the system's.
+ * Who closed a suggestion, read from the `resolved_via` flag the shared resolve path writes:
+ * `ai_skill` is the `reviewer`, `moderator` is a `human`. An expiry is the system's. An accepted or
+ * rejected row without the flag predates it and cannot be told apart, so it is `unknown`.
  */
 export function classifyDedupReviewResolvedBy(input: {
   status: 'accepted' | 'rejected' | 'expired';
-  resolvedByModeratorId: string | null;
-  reviewerUserId: string | null;
+  resolvedVia: 'moderator' | 'ai_skill' | null;
 }): DedupReviewResolvedBy {
-  if (input.resolvedByModeratorId === null) {
-    return input.status === 'expired' ? 'system' : 'unknown';
+  if (input.status === 'expired') {
+    return 'system';
   }
-  if (input.reviewerUserId === null) {
-    return 'unknown';
+  if (input.resolvedVia === 'ai_skill') {
+    return 'reviewer';
   }
-  return input.resolvedByModeratorId === input.reviewerUserId ? 'reviewer' : 'human';
+  // Anything else, including a source added later that this version does not know, is not guessed at.
+  return input.resolvedVia === 'moderator' ? 'human' : 'unknown';
 }
 
 function compareJson(a: unknown, b: unknown): number {

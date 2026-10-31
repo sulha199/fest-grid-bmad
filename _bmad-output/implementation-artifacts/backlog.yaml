@@ -2620,12 +2620,12 @@ items:
      title: "AI dedup review piece B2: apply workflow, decision validator and floor, dedicated environment, new AD and PRD amendment",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
      touches: [app:backend, app:infrastructure, pkg:domain, web:moderation, cross:architecture, cross:prd, cross:process],
-     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31). Needs FIND-107 (export) first; requirements in DESIGN.md section 5. 1 finding."}
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31); re-scoped at bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31). Needs the resolved_via flag (B2a) first; see DESIGN.md section 5."}
 
   FIND-104:
     {type: finding, status: backlog, created: 2026-10-30,
      impact: user-visible, effort: s,
-     title: "AI dedup review piece C: daily festgrid-dedup-review skill, escalation issues and insight log",
+     title: "AI dedup review piece C: daily moderator-dedup-review skill, escalation issues and insight log",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
      touches: [web:moderation, cross:process, cross:ai-extraction],
      note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs FIND-107 on master first; requirements in DESIGN.md section 6; review-insights follows later. 1 finding."}
@@ -2684,9 +2684,9 @@ items:
     {type: bug, status: done, created: 2026-10-31,
      impact: user-visible, effort: m,
      title: "A new subscription scrapes the last 7 days, and a profile known only as a co-author skips its history",
-     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md, packages/database/migrations/0087_history_seeded_at.sql, packages/domain/src/scraper/resolve-scrape-cursor.ts],
+     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md, packages/database/migrations/0088_history_seeded_at.sql, packages/domain/src/scraper/resolve-scrape-cursor.ts],
      touches: [pkg:domain, pkg:database, app:backend],
-     note: "Found 2026-10-31: the first scrape was a 7-day window (biliardindonesia, 3,073 posts, gave 1), and 1,020 unsubscribed profiles hold co-authored posts that would have moved their cursor past their own history. Fixed: seeding scrape = newest 30 posts, none older than 30 days, until history_seeded_at is set; migration 0087 backfills it from last_scraped_at."}
+     note: "Found 2026-10-31: the first scrape was a 7-day window (biliardindonesia, 3,073 posts, gave 1), and 1,020 unsubscribed profiles hold co-authored posts that would have moved their cursor past their own history. Fixed: seeding scrape = newest 30 posts, none older than 30 days, until history_seeded_at is set; migration 0088 backfills it from last_scraped_at."}
 
   IDEA-104:
     {type: idea, status: backlog, created: 2026-10-31,
