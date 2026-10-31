@@ -14,64 +14,76 @@ context:
 
 ## Intent
 
-**Problem:** The export lets a reviewer see pending dedup suggestions, but nothing can act on its decisions safely: no check that the pair is unchanged since it was reviewed, no floor that stops a manipulated or mistaken decision, no caps, and no way to attribute the merge to the invoking moderator.
+**Problem:** The export lets a reviewer see pending dedup suggestions, but nothing can act on its decisions safely: no check that the pair is unchanged since it was reviewed, no floor that bounds a mistaken or prompt-injected decision, no caps, and no attribution of the merge to the invoking moderator.
 
-**Approach:** A pure validator in `packages/domain` turns decisions plus freshly recomputed evidence into an eligible or skipped verdict per suggestion. An apply script in `apps/backend` runs it in one transaction and merges each eligible pair through `resolveSuggestedMatch(..., via: 'ai_skill')`. Dark: no workflow yet (B2b-2).
+**Approach:** A pure judge in `packages/domain` gives each decision a verdict from freshly recomputed evidence. An apply script in `apps/backend` locks and re-checks each pair, then merges it through `resolveSuggestedMatch(..., via: 'ai_skill')`. Dark: no workflow, secret or variable exists yet (B2b-2), so nothing can run it in production.
 
 ## Boundaries & Constraints
 
-**Always:** ACCEPT only; escalations never reach apply. Decisions are `{suggestionId, evidenceHash, reasons[]}`, hand-validated (no extra keys, uuid ids, no duplicates, hash is 64 lowercase hex, at most 50 decisions, at most 5 reasons of at most 200 characters). The pair is recomputed with the export's own builder and hashed with `hashDedupReviewEvidence`; a missing, no longer pending or changed pair is skipped. The floor reads its thresholds from domain constants and is evaluated in this order: not already `high` tier (the drain owns it), `undoneMergeCount` is 0, an anchor (same account, shared link or venue match), `minDayDiff` within the window, and name similarity at or above a minimum unless a link is shared. Two decisions touching one event: the first wins. Caps: per run 10; per 24 hours counted from `event_merges.performed_via = 'ai_skill'` rows including undone ones plus `ai_skill` rejections on `event_match_candidates`. Kill switch (environment variable) makes the script exit without opening the database. Invoker: SHA-256 hex of the lowercased, trimmed Claude account email, matched in SQL to `lower(btrim(users.email))`, exactly one active moderator or refuse; the hash and address are never printed. Modes: `validate` runs every check in a `READ ONLY` transaction and merges nothing; `apply` is a dry run (rolled back) unless `--live` is passed. Output is one JSON line between `DEDUP_REVIEW_APPLY_BEGIN` and `DEDUP_REVIEW_APPLY_END` holding ids, outcomes and fixed reason codes, never event text. A live run uses `REPEATABLE READ`; a concurrent change makes that decision skip.
+**Always:**
+- **Decisions file:** `{"schemaVersion":1,"decisions":[{suggestionId, evidenceHash, reasons[]}]}`, at most 65,535 bytes before parsing, hand-validated, no extra keys, lower-cased uuids, no duplicates, hash is 64 lowercase hex, at most 50 decisions (empty is a no-op), at most 5 reasons of at most 200 characters. `reasons` is validated and then discarded: never stored, printed or put in an error. Any parse or validation failure prints a fixed message.
+- **Order:** file order; one verdict sequence per decision: unknown or no-longer-pending or stale pair → `evidenceHash` differs → floor → event already claimed → per-run cap → per-day cap. Only an eligible decision claims its two events and consumes a cap; a skipped one does neither. Per-day remaining is the cap minus the 24 h count minus merges already made in this run.
+- **Floor** (all must hold, values from domain constants): tier is `mid`; `undoneMergeCount` is 0; anchor is `organizerMatch`, or `sharedLink` together with `venueMatch` (never `sameAccount`, which ignores the stub and curator discount); no venue conflict; the day gap (null counts as outside) is at most 90 when a link is shared, otherwise 0 (`MID_PROMOTION_MAX_DAY_DIFF`); every schedule of the new event has a candidate schedule inside that window; the names do not contradict (differing numbers or bracket qualifiers). Gaps of 1 to 2 days stay with a moderator.
+- **Live run:** `READ COMMITTED` like the moderator path; one `pg_advisory_xact_lock` first, then the 24 h count; per decision a savepoint that locks the suggestion row, then both event rows in id order, rebuilds the pair, re-checks hash and floor under those locks, then calls `resolveSuggestedMatch`. Any error in a decision becomes a fixed code and later decisions continue. Output is printed only after commit. `validate`: one `REPEATABLE READ, READ ONLY` snapshot, `eligible` is a pre-merge verdict (no row lock is possible there). `apply` rolls back structurally unless `--live`; `--live` with `validate` is refused.
+- **Caps:** per run 10, per 24 h 25 (injectable), counted with the database clock from `event_merges.performed_via = 'ai_skill'` (including undone) plus `event_match_candidates` rows rejected with `resolved_via = 'ai_skill'`.
+- **Invoker:** the hash arrives in `DEDUP_REVIEW_INVOKER_HASH`, never as an argument. SQL counts all users where `encode(sha256(convert_to(lower(btrim(email)),'UTF8')),'hex')` equals it; exactly one, with `role = 'moderator'` and `deleted_at IS NULL`, or one identical refusal for zero, two or a non-moderator. The hash and address are never printed.
+- **Kill switch:** `DEDUP_REVIEW_APPLY_DISABLED` equal to `1` or `true` is on; it is checked first, before the file is read or the database client is imported, and exits 0 with `killSwitch: true`.
+- **Output:** one JSON line between `DEDUP_REVIEW_APPLY_BEGIN` and `DEDUP_REVIEW_APPLY_END`: ids, outcomes, fixed reason codes, `mergeId` only on a committed live merge, never event text.
 
-**Ask First:** The floor's values: window 90 days (the shared-link window), minimum name similarity 0.3, per-day cap 25. Counting `organizerMatch` as an anchor.
+**Ask First:** The floor's strictness (window 0 or 90 days, `organizerMatch` or link plus venue); the per-day cap; whether `validate` or a dry run is the skill's shadow mode (this spec: `validate`).
 
-**Never:** A workflow, secret, repository variable, AD or PRD edit (B2b-2); the skill (piece C); rejecting; calling `mergeEvents` or updating `event_match_candidates` from the apply code; printing the invoker hash, an email or a database error's text.
+**Never:** A workflow, secret, repository variable, AD or PRD edit (B2b-2); the skill (piece C); rejecting; `mergeEvents` or a direct `event_match_candidates` update from apply code; printing the hash, an email, `reasons` or a database error's text; importing `db` inside the library (it takes an executor).
 
 ## I/O & Edge-Case Matrix
 
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
-| Happy path, live | fresh hash, floor passes, caps free | merged, `mergeId`, rows say `ai_skill` and the invoker's id | N/A |
-| Dry run or validate | same | outcome `eligible`, nothing persists, no `mergeId` | N/A |
-| Changed pair | hash differs, or not pending | skipped `stale-evidence` / `not-pending` | N/A |
-| Floor miss | no anchor, outside window, high tier, undone before, low name similarity | skipped with that reason | N/A |
-| Caps | 11th decision; per-day total reached | skipped `per-run-cap` / `per-day-cap` | N/A |
-| Same event twice | two decisions share an event | second skipped `event-already-in-run` | N/A |
-| Kill switch on | variable set | `killSwitch: true`, nothing read or written | exit 0 |
-| Invoker | zero or two matching moderators, or a non-moderator | refused | exit 1, fixed message |
-| Bad decisions | extra key, duplicate id, over limits | refused before any connection | exit 1, fixed message |
+| Live, passes | fresh hash, floor ok, caps free | `merged` with `mergeId`; rows say `ai_skill` and the invoker | N/A |
+| Dry run, validate | same | `eligible`, nothing persists, no `mergeId` | N/A |
+| Gone or changed | unknown id, not pending, stale event, hash differs | `unknown-suggestion`, `not-pending`, `stale-pair`, `stale-evidence` | N/A |
+| Floor miss | `already-high`, `low-tier`, `undone-before`, `no-anchor`, `venue-conflict`, `outside-window`, `schedule-uncovered`, `name-mismatch` | skipped with that code | N/A |
+| Shared event / caps | event claimed earlier; 11th eligible; day total reached | `event-already-in-run`, `per-run-cap`, `per-day-cap` | N/A |
+| Concurrent change, merge error | lock then recheck differs; `mergeEvents` throws | `concurrent-change`, `merge-failed`; earlier merges stand | savepoint rolled back |
+| Kill switch | variable on | `killSwitch: true`, nothing read or written | exit 0 |
+| Invoker | zero, two or non-moderator match | refused, one message | exit 1 |
+| Bad input | extra key, duplicate id, over size, `--live` with `validate` | refused before any connection | exit 1, fixed message |
 
 </frozen-after-approval>
 
 ## Code Map
 
-- `packages/domain/src/events/dedup-review-apply.ts` (+ test, `index.ts` export) -- decisions parser, options parser, floor, planner, output format; 100% coverage
-- `apps/backend/src/lib/events/dedup-review-apply.ts` (+ test) -- invoker match, 24 h count, fresh pairs, run orchestration
-- `apps/backend/src/dedup-review-apply.ts` (+ test) -- CLI: `--mode`, `--live`, `--invoker-hash`, `--run-tag`, `--decisions-file`; kill switch; safe failures
-- `apps/backend/src/lib/events/dedup-review-export.ts` -- `onlySuggestionIds` stops being test-only
-- `apps/backend/src/lib/events/match-event-to-existing.ts` -- export `SHARED_LINK_DATE_WINDOW_DAYS`
-- `suggested-match-resolve-ratchet.test.ts` -- the apply code calls `resolveSuggestedMatch(`, never `mergeEvents` or a raw update
-- docs: `7-event-dedup.md`, `project-context.md`, `DESIGN.md`, `FIND-108`
+- `packages/domain/src/events/dedup-review-apply.ts` (+ test, `index.ts`) -- parsers, `judgeDedupReviewDecision`, formats; 100% coverage, no Node modules
+- `packages/domain/src/events/match-scoring.ts` -- export `namesContradict` (the contradiction half of `areNamesAutoLinkable`); move `DATE_WINDOW_DAYS` and the 90-day window here, re-export from the backend
+- `apps/backend/src/lib/events/dedup-review-apply.ts` (+ test) -- invoker match, 24 h count, run orchestration
+- `apps/backend/src/lib/events/dedup-review-export.ts` -- extract `buildDedupReviewPair` (returns pair, both event ids, `venueConflict`); a write-capable transaction wrapper that also sets `search_path TO public, extensions`
+- `apps/backend/src/dedup-review-apply.ts` (+ test) -- CLI, dynamic import after the kill switch, fixed hints
+- `suggested-match-resolve-ratchet.test.ts` -- apply files call `resolveSuggestedMatch(`, never `mergeEvents` or a raw update
+- docs: `7-event-dedup.md`, `project-context.md`, `DESIGN.md`, `planning-artifacts/diagrams/event-dedup-flow.html`
 
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Domain module and tests -- pure validator, floor, planner, formats -- thresholds injected, so the backend passes the real constants
-- [ ] Backend lib and CLI -- the run, in the transaction modes above -- same save path as the moderator UI
-- [ ] Export builder and window constant -- small exports the apply reuses
-- [ ] Ratchet extension and tests for every Matrix row (live, rolled back, validate, caps, invoker, stale) -- clean up rows
-- [ ] Docs and backlog -- dark status, `FIND-108` done
+- [ ] Domain module, `namesContradict`, constants -- one table-driven test per rule and per precedence step
+- [ ] Export refactor (`buildDedupReviewPair`, wrapper, `assertRoleBypassesRls` first) -- existing export tests stay green
+- [ ] Backend lib and CLI -- the modes above; hints for 25006, 42501, 40001
+- [ ] Tests on a real database: live merge, rollback, validate read-only (`SHOW transaction_read_only`), stale after an edit, each floor code, caps with injected values, invoker (including two users differing only by case), one lock test on a second connection; clean up merges, aliases, copied schedules and users (row-count ratchet)
+- [ ] Ratchet, docs, backlog -- PRD and AD amendment explicitly deferred to B2b-2: nothing can run this in production until then
 
 **Acceptance Criteria:**
-- Given a decision with a stale hash, when apply runs live, then nothing merges.
-- Given `validate`, when it runs, then no row changes and the transaction is read only.
-- Given the live path, when a pair merges, then `resolved_via` and `performed_via` are `ai_skill`.
+- Given a stale hash or a pair changed after the snapshot, when apply runs live, then nothing merges and the code is reported.
+- Given `validate` or a dry run, when it finishes, then no row changed and no `mergeId` is printed.
+- Given a live merge, when it commits, then `resolved_via` and `performed_via` are `ai_skill` under the invoker's id.
+- Given a pair with a shared link only, a curator account, a venue conflict or one unmatched new schedule, when judged, then it is skipped.
+- Given the kill switch, two matching moderators, or an 11th decision, when apply runs, then the Matrix outcome occurs.
 - Given the apply code, when the ratchet runs, then it fails on a direct write or a `mergeEvents` call.
 
 ## Spec Change Log
 
+- 2026-10-31, architecture and code review before implementation: floor tightened (tier `mid`, organizer or link plus venue, window 0 or 90, schedule coverage, venue conflict, name contradiction) because the 0.3 name check equals the ingestion admission floor and `sameAccount` ignores the curator discount; live isolation changed from `REPEATABLE READ` to `READ COMMITTED` with row locks and a per-decision savepoint; invoker hash moved from argument to environment; precedence, reason codes and kill-switch semantics pinned. KEEP: ACCEPT-only, `validate` as shadow mode, no workflow in this piece.
+
 ## Design Notes
 
-The planner takes the fresh pairs and the day count as arguments, so it stays pure and the caps and floor are testable without a database. Outside the 90-day window the pair is skipped even for a shared link.
+The judge is called once per decision with a small state (claimed events, run count, 24 h count), so caps and the floor stay pure. The backend calls it twice per decision: once on the snapshot to plan, once under the row locks to decide. Known gap, left for B2b-2 and a backlog row: `undoEventMerge` does not refuse when a later merge touched the winner.
 
 ## Verification
 

@@ -837,5 +837,11 @@ Not implemented here per this investigation's explicit scope (investigation only
 ## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-apply-engine (2026-10-31)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-apply-engine.md`
-  summary: Piece B2b-2 of the AI-assisted dedup review: the `dedup-review-apply` workflow with `validate` and `apply` modes, the write secret in the `dedup-review` environment (its name is the owner's to confirm), the kill-switch repository variable and the decisions input, plus the new AD, the PRD amendment, `3-database.md`, `7-event-dedup.md`, the runbook, both architecture diagrams and `project-context.md`.
+  summary: Piece B2b-2 of the AI-assisted dedup review: the `dedup-review-apply` workflow with `validate` and `apply` modes, the write secret in the `dedup-review` environment (its name is the owner's to confirm), the kill-switch repository variable and the decisions input, plus the new AD, the PRD amendment (PRD 3.7 and 3.9.3 say a moderator approves mid pairs), `3-database.md`, `7-event-dedup.md`, the runbook, both architecture diagrams and `project-context.md`. The review of B2b-1 also made these B2b-2's: a workflow `concurrency:` group so two apply runs cannot overlap, an environment approval gate in addition to `--live`, passing the invoker hash through the environment, a way for moderators to list the `ai_skill` merges (the `mergeId` list in the log is otherwise the only handle), and which credential each mode uses.
   evidence: Split from B2b-1 (the decision validator, floor, caps and apply script, which ship dark and can be reviewed and tested alone) at the multi-goal check, so the engine's review is not mixed with a workflow, a credential decision and an AD/PRD edit. Needs B2b-1 on `master` first (the workflow calls the script); the skill (`FIND-104`) needs this.
+
+## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-engine (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-apply-engine.md`
+  summary: `undoEventMerge` does not refuse when the winner or the loser has a later live merge, so undoing an earlier merge after the winner was itself merged away leaves an inconsistent state (an alias chain pointing at a merged event).
+  evidence: Found by the architecture review of the apply engine; it is pre-existing and reachable by a moderator today, but the apply path makes it likelier (an automated run can merge a winner shortly before a human undoes an older merge). Not caused by B2b-1.

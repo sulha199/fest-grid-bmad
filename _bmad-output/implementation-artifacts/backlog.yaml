@@ -2630,6 +2630,14 @@ items:
      touches: [app:infrastructure, cross:architecture, cross:prd, cross:process],
      note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-apply-engine (2026-10-31). Needs the apply script (FIND-108) on master; the write secret name is the owner's call."}
 
+  FIND-111:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
+     title: "undoEventMerge does not refuse when the winner or loser has a later live merge",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/events/merge-events.ts],
+     touches: [app:backend, web:moderation],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-engine (2026-10-31). Pre-existing; an automated apply makes it likelier. 1 finding."}
+
   FIND-104:
     {type: finding, status: backlog, created: 2026-10-30,
      impact: user-visible, effort: s,
