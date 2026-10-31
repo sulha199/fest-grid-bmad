@@ -384,6 +384,16 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   rawInput: jsonb('raw_input').notNull(),
   rawOutput: jsonb('raw_output'),
   itemCount: integer('item_count'),
+  // What the vendor itself reported for a finished Bright Data snapshot (its free progress report), kept apart
+  // from item_count (what reached us): records delivered, error records, and the error-code counts
+  // (`{"dead_page":1}`). Null when the report was not read. The success rate is records / (records + errors).
+  recordsReported: integer('records_reported'),
+  errorsReported: integer('errors_reported'),
+  errorCodes: jsonb('error_codes').$type<Record<string, number>>(),
+  // Posts this run delivered that did not exist before (item_count minus re-deliveries of known posts).
+  // Null when the run was not processed by an async result handler. A run that delivered posts but no new
+  // one is an "empty" run for the scrape backoff.
+  newPosts: integer('new_posts'),
   errorMessage: text('error_message'),
   pendingJobId: uuid('pending_job_id'),
   startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),

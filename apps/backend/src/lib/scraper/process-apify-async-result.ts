@@ -7,12 +7,16 @@ import { markPendingJobCompleted } from './apify-pending-jobs-store.js';
 import { mapApifyItemToScrapedPost } from './instagram-adapter.js';
 import type { ApifyPendingJob } from './apify-pending-jobs-store.js';
 import { markHistorySeeded } from './history-seeded-store.js';
+import { recordRunNewPosts } from './run-yield-store.js';
 
 export async function processApifyAsyncResult(
   pendingJob: ApifyPendingJob,
   items: any[],
   scraperActorRunId?: string
-): Promise<void> {
+): Promise<{ newPosts: number }> {
+  // Posts this delivery added that were not stored before (a re-delivery of a known post is not new).
+  let newPosts = 0;
+
   // Map Apify items to ScrapedPost format and persist each
   for (const item of items) {
     try {
@@ -41,6 +45,8 @@ export async function processApifyAsyncResult(
         discoverySourceVendor: 'apify',
       });
 
+      if (!persistResult.alreadyExisted) newPosts += 1;
+
       // Story 3.6z (AC1) -- auto-enqueue a genuinely new post for extraction. This async path
       // was missed when 3.6z wired only processScrapeJob, so posts persisted via the Apify
       // webhook (and the stale-job sweep, which reuses this function) were never extracted.
@@ -63,6 +69,9 @@ export async function processApifyAsyncResult(
     .set({ lastScrapedAt: new Date() })
     .where(eq(socialMediaAccountProfiles.id, pendingJob.profileId));
 
+  await recordRunNewPosts(scraperActorRunId, newPosts);
+
   // Mark job completed
   await markPendingJobCompleted(pendingJob.id);
+  return { newPosts };
 }

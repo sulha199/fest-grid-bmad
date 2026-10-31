@@ -8,6 +8,7 @@ import { enqueueFallbackScrape } from './enqueue-fallback-scrape.js';
 import { recordActorRunResult } from './record-actor-run.js';
 import { classifyBrightDataRun, describeBrightDataVendorFailure } from './classify-brightdata-run.js';
 import { handleBrightDataFailedRun } from './handle-brightdata-failed-run.js';
+import { reportBrightDataYield } from './run-yield-store.js';
 
 export async function runStaleJobSweep(): Promise<void> {
   // Process Bright Data jobs
@@ -57,6 +58,7 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
         itemCount: output.items.length,
       });
       await processBrightDataResult(job, output.items, job.scraperActorRunId);
+      await reportBrightDataYield(job.snapshotId, output.items.length, output.progress);
     } else {
       // Job failed or still not ready - record, mark as expired and fall back to the SQS queue
       // A snapshot that is still in flight when its job expires never delivered: TIMED_OUT, so

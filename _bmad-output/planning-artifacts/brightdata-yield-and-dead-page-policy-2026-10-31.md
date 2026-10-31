@@ -27,6 +27,8 @@ Three findings change the question.
 
 ## 2. Decisions
 
+> Status 2026-10-31: D1 and D2 are built (IDEA-104, PR #130, migration 0089), with one addition: a fourth column `new_posts`, recorded for Bright Data and Apify async deliveries, which the cadence backoff needs. D3 stays unbuilt on purpose. D4 is refined by the seeding and backoff document.
+
 ### D1. Classify yield as a second dimension, leave `ScrapeResultClass` alone
 `classifyBrightDataResult` (BUG-074) answers "is the vendor up?" from zero-record snapshots, and provider health depends on it. Folding partial success into it would risk demoting a healthy provider. Add a separate pure function in `@festgrid/domain` (100% branch coverage applies):
 
