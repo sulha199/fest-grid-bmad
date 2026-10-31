@@ -6,6 +6,7 @@ import { autoEnqueueNewPostForExtraction } from '../posts/auto-enqueue-new-post.
 import { markPendingJobCompleted } from './brightdata-pending-jobs-store.js';
 import type { BrightdataPendingJob } from './brightdata-pending-jobs-store.js';
 import { mapBrightDataRecordToScrapedPost } from './brightdata-record-mapper.js';
+import { markHistorySeeded } from './history-seeded-store.js';
 
 export async function processBrightDataResult(
   pendingJob: BrightdataPendingJob,
@@ -44,6 +45,11 @@ export async function processBrightDataResult(
       console.error(`Failed to persist post from Bright Data: ${candidate.postUrl}`, error);
       // Continue processing other records
     }
+  }
+
+  // A delivered post means this scrape reached the profile's own timeline (a no-op once it is seeded).
+  if (records.length > 0) {
+    await markHistorySeeded(pendingJob.profileId);
   }
 
   // Stamp lastScrapedAt

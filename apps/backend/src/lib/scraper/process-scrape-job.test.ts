@@ -75,7 +75,7 @@ test('process-scrape-job integration tests', async (t) => {
     }
   });
 
-  await t.test('processes scrape job correctly, computes lookback default, persists posts and stamps lastScrapedAt', async () => {
+  await t.test('processes scrape job correctly, uses the 30-day seeding window for an unseeded profile, persists posts and stamps lastScrapedAt', async () => {
     // Register a mock platform for the test
     const mockPlatform = 'test-fake-platform' as any;
     const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -125,12 +125,12 @@ test('process-scrape-job integration tests', async (t) => {
     // Run the job
     await processScrapeJob(job);
 
-    // 1. Assert computedNewerThan is lookback default (approx 7 days ago)
+    // 1. Assert computedNewerThan is the seeding window (30 days ago) -- the profile's history is not seeded yet
     assert.ok(computedNewerThan);
     const newerThanDate = new Date(computedNewerThan);
     const now = new Date();
     const diffDays = (now.getTime() - newerThanDate.getTime()) / (1000 * 60 * 60 * 24);
-    assert.ok(diffDays >= 6.9 && diffDays <= 7.1, 'newerThan should default to ~7 days ago');
+    assert.ok(diffDays >= 29.9 && diffDays <= 30.1, 'newerThan should be the 30-day seeding window');
 
     // 2. Assert post persisted
     const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
@@ -173,6 +173,8 @@ test('process-scrape-job integration tests', async (t) => {
       platform: mockPlatform,
       displayName: 'Fake Account 2',
       username: 'fake_acc_2',
+      // Only a seeded profile's cursor follows its stored posts (an unseeded one starts 30 days back).
+      historySeededAt: new Date(),
     }).returning();
     createdProfiles.push(profile.id);
 
@@ -999,5 +1001,43 @@ test('process-scrape-job integration tests', async (t) => {
     createdPosts.push(...dbPosts.map((p) => p.id));
 
     assert.strictEqual(sendCallCount, 2, 'auto-enqueue should still be attempted for the second post after the first one threw');
+  });
+
+  await t.test('a completed scrape seeds the history only when it stored a post', async () => {
+    const mockPlatform = 'test-fake-platform-seed' as any;
+    let posted: ScrapedPost[] = [];
+    registerScraperAdapter(mockPlatform, {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return posted;
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    });
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-seed-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account Seed',
+      username: 'fake_acc_seed',
+    }).returning();
+    createdProfiles.push(profile.id);
+    const job = { profileId: profile.id, platform: mockPlatform, accountId: profile.accountId, username: profile.username };
+    const seededAt = async () => (await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id)))[0].historySeededAt;
+
+    await processScrapeJob(job, { rethrowOnFailure: true });
+    assert.strictEqual(await seededAt(), null);
+
+    posted = [{ content: 'Seed post', postUrl: `https://fake.com/seed-${Date.now()}/p1`, publishedAt: new Date(Date.now() - 3600_000).toISOString() }];
+    await processScrapeJob(job, { rethrowOnFailure: true });
+    assert.ok(await seededAt());
+    const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
+    createdPosts.push(...dbPosts.map((post) => post.id));
   });
 });

@@ -638,4 +638,22 @@ test('process-brightdata-result tests', async (t) => {
       await cleanupSeed();
     }
   });
+
+  // A delivered post means the scrape reached the profile's own timeline, which seeds its history (so later
+  // runs use the stored posts as the cursor); a delivery with no post must not, or an outage would seed it.
+  await t.test('marks the history seeded when records are delivered, not when none are', async () => {
+    const makeJob = async (snapshotId: string): Promise<BrightdataPendingJob> => {
+      const { id, webhookToken } = await createPendingJob({ profileId: testProfileId, snapshotId, webhookToken: randomBytes(24).toString('hex') });
+      return { id, profileId: testProfileId, snapshotId, webhookToken, status: 'PENDING', expiresAt: new Date(Date.now() + 3600000), createdAt: new Date(), updatedAt: new Date() };
+    };
+    const seededAt = async () => (await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId)))[0].historySeededAt;
+
+    await processBrightDataResult(await makeJob('snapshot-seed-empty-' + Date.now()), []);
+    assert.strictEqual(await seededAt(), null);
+
+    await processBrightDataResult(await makeJob('snapshot-seed-full-' + Date.now()), [
+      { url: 'https://www.instagram.com/p/seed1/', description: 'Seed post', date_posted: '2026-10-20T00:00:00Z', photos: ['https://example.com/s.jpg'] },
+    ]);
+    assert.ok(await seededAt());
+  });
 });

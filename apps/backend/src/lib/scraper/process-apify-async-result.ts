@@ -6,6 +6,7 @@ import { autoEnqueueNewPostForExtraction } from '../posts/auto-enqueue-new-post.
 import { markPendingJobCompleted } from './apify-pending-jobs-store.js';
 import { mapApifyItemToScrapedPost } from './instagram-adapter.js';
 import type { ApifyPendingJob } from './apify-pending-jobs-store.js';
+import { markHistorySeeded } from './history-seeded-store.js';
 
 export async function processApifyAsyncResult(
   pendingJob: ApifyPendingJob,
@@ -49,6 +50,11 @@ export async function processApifyAsyncResult(
       console.error(`Failed to persist post from Apify item: ${item?.postUrl || item?.url}`, error);
       // Continue processing other items
     }
+  }
+
+  // A delivered post means this scrape reached the profile's own timeline (a no-op once it is seeded).
+  if (items.length > 0) {
+    await markHistorySeeded(pendingJob.profileId);
   }
 
   // Stamp lastScrapedAt
