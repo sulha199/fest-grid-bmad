@@ -17,7 +17,7 @@ export function ReextractContent() {
   const t = useTranslations("ReextractPreview")
   const { status: authStatus } = useRequireModerator()
   const [url, setUrl] = useState("")
-  const { start, phase, preview, errorMessage } = usePostReextractionPreview()
+  const { start, phase, preview, errorMessage, applyState } = usePostReextractionPreview()
 
   if (authStatus === "loading" || authStatus === "unauthenticated" || authStatus === "unauthorized") return <RouteLoader />
 
@@ -58,7 +58,7 @@ export function ReextractContent() {
           {errorMessage || t("genericError")}
         </p>
       )}
-      {phase === "done" && preview && <ReextractPreviewResult preview={preview} />}
+      {phase === "done" && preview && <ReextractPreviewResult preview={preview} apply={applyState} />}
     </div>
   )
 }

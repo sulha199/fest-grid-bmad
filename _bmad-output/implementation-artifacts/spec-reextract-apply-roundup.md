@@ -2,7 +2,7 @@
 title: 'Moderator Apply for re-extract: turn a post into a roundup'
 type: 'feature'
 created: '2026-10-31'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '102eb47a92f5401d89896c497384e0496857749d'
 review_loop_iteration: 0
 context:
@@ -61,11 +61,11 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `process-ingestion-job.ts`, `process-ai-job.ts` -- extract shared write function and message builder, existing tests untouched -- one decision, two callers
-- [ ] preview job -- store `extracted`; `apply-post-reextraction.ts` + domain pairing -- transactional, once-only apply
-- [ ] GraphQL, resolver, web dialog, locales (en, id) -- moderator UI
-- [ ] AD-40 amendment, runbook, diagram, project-context, PRD 3.9.3 amendment (the PRD does not mention re-extract at all), backlog -- records
-- [ ] Tests: matrix rows, ordinal swap under both uniques, favorites/slug survive, no notification, row-count ratchet clean
+- [x] `process-ingestion-job.ts`, `process-ai-job.ts` -- extract shared write function and message builder, existing tests untouched -- one decision, two callers
+- [x] preview job -- store `extracted`; `apply-post-reextraction.ts` + domain pairing -- transactional, once-only apply
+- [x] GraphQL, resolver, web dialog, locales (en, id) -- moderator UI
+- [x] AD-40 amendment, runbook, diagram, project-context, PRD 3.9.3 amendment (the PRD does not mention re-extract at all), backlog -- records
+- [x] Tests: matrix rows, ordinal swap under both uniques, favorites/slug survive, no notification, row-count ratchet clean
 
 **Acceptance Criteria:**
 - Given a post stored as one event, when a moderator applies a roundup preview, then the original event keeps its id, slug, favorites and calendar entries, new items become linked stub events, and `posts.grouping_reason` is `roundup`.

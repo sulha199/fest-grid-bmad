@@ -12,6 +12,10 @@ query PostReextractionPreview($id: ID!) {
     errorCode
     errorMessage
     preview {
+      applicable
+      applied {
+        ...ApplyReextractionSummaryFields
+      }
       groupingReason
       postStored
       rescraped
@@ -39,6 +43,40 @@ query PostReextractionPreview($id: ID!) {
           candidateName
         }
       }
+    }
+  }
+}
+
+fragment ApplyReextractionSummaryFields on ApplyReextractionSummary {
+  groupingReason
+  reused {
+    slug
+    eventName
+    ordinal
+  }
+  created {
+    slug
+    eventName
+    ordinal
+  }
+  linkedToExisting {
+    slug
+    eventName
+  }
+  queuedForReview
+  skippedDeleted
+  orphans {
+    slug
+    eventName
+  }
+}
+
+mutation ApplyPostReextraction($jobId: ID!) {
+  applyPostReextraction(jobId: $jobId) {
+    errorCode
+    errorMessage
+    summary {
+      ...ApplyReextractionSummaryFields
     }
   }
 }

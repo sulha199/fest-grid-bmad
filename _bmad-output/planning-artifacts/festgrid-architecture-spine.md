@@ -2377,12 +2377,13 @@ This document defines the core architectural invariants for the FestDaily applic
     moderator's edits; a post caption (especially a curator caption, deliberately null in `posts`
     since Story 3.4o) outliving its use; a rescrape loop spending scraper credit.
 *   **Rule:**
-    1.  **Preview only.** The operation writes nothing to `events`, `schedules`, `event_posts`,
-        `event_match_candidates`, `posts` or `extraction_audit_logs`, and enqueues nothing. Its
-        only writes are the job row and its result. There is **no apply step**: ingestion
-        idempotency on `(post, extraction_ordinal)` (AD-30 Rule 3) skips every item the post
-        already produced, so applying a re-run could only add items with a new ordinal. A write
-        mode is a spine amendment.
+    1.  **Preview is write-free; Apply is the one write (amended 2026-10-31, IDEA-103).** Previewing
+        writes nothing to `events`, `schedules`, `event_posts`, `event_match_candidates`, `posts` or
+        `extraction_audit_logs`, and enqueues nothing. Its only writes are the job row and its result.
+        Ingestion idempotency on `(post, extraction_ordinal)` (AD-30 Rule 3) skips every item the post
+        already produced, so re-running ingestion can never change an existing event. The one way to
+        change them is **Apply** (Rule 8): an explicit, confirmed moderator action on a finished
+        preview. Any other write mode is a spine amendment.
     2.  **One decision, two callers.** `evaluateIngestionMatch(tx, message, sourcePost)` owns the
         stub rule (AD-30 Rule 10), the roundup/curator organizer discount (BUG-058, IDEA-068) and
         `findMatchingEvent`. `processIngestionJob` acts on its result; the preview reports it. The
@@ -2435,13 +2436,40 @@ This document defines the core architectural invariants for the FestDaily applic
         inserted but never claimed and never polled, is deferred (FIND-086). (c) A stored caption of a
         non-curator post is untouched.
     7.  **Moderator only.** Both operations call `requireModerator`.
+    8.  **Apply (added 2026-10-31).** `Mutation.applyPostReextraction(jobId)`, moderator only, owner-
+        scoped, applies the exact extraction the moderator previewed, not a new Gemini call. The
+        preview job keeps `result_data.extracted` (validated events, grouping, post title, and the
+        children's-data filter's verdict, the one caption-derived fact the event builder needs; never
+        the caption) and Apply nulls it. It applies once (`appliedAt`; a second call returns the first
+        result), within 30 minutes of the preview finishing, only for a stored post, in ONE
+        transaction (a failure rolls everything back, `APPLY_FAILED`) with the job row locked
+        `FOR UPDATE`. Steps: (a) the post's `grouping_reason` and `title` are rewritten; (b) the post's
+        existing events are paired to the items by name and date (`pairPostEventsToItems`,
+        `packages/domain`), never by ordinal, since ordinals sort by earliest date then name and shift
+        when the set grows; (c) a paired event is **reused**: same id, slug, favorites, calendar
+        entries, aliases; it takes the item's data through `enrichAndPromoteEvent` (an applied
+        correction's fields keep their value) and is demoted to `detail_level = 'stub'` only when this
+        post is its **primary** post and `resolveStubSource` says the post is a roundup or curator post;
+        (d) every other item goes through the ingestion decision and write
+        (`evaluateIngestionMatch`, `writeIngestionDecision`), so a high match links to an existing
+        event and a mid match queues a suggestion; (e) a live event no item matched is left as it is
+        and reported. It **never deletes** an event and **never recreates** one a moderator deleted or
+        merged away (PRD 3.7 "No Duplicate Re-Extraction"): an item matching one is skipped, and that
+        event keeps its ordinal. No notification is sent. Events are built as extraction builds them,
+        with real locations and timezones (`buildExtractedEventMessage`, shared with `processAiJob`).
+        Ordinals: `(post, extraction_ordinal)` is unique on both `events` and `event_posts`, and
+        `events` forbids a NULL ordinal on a primary post, so moving events are first parked at
+        `PARKED_ORDINAL_BASE + n` (30000+), then given their final ordinal (`assignApplyOrdinals`),
+        which skips slots still held by events that do not move and, for a new item, any ordinal whose
+        derived slug a reused event keeps (`events.slug` is unique). There is no undo; a
+        `reextract_apply` JSON log line records the event ids touched.
 *   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
     written from a JS object as a jsonb **string** holding the JSON (`events.links`,
     `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it
     (`col #>> '{}'`) first; `jsonb_set` and `->>` on the raw column fail or return NULL. Read and
     write through Drizzle, which unwraps and re-encodes consistently.
-*   **Considered and rejected:** an apply/replace mode (soft-deleting a post's events risks
-    favorites, calendar entries and slugs); writing the rescraped caption to `posts.content` and
+*   **Considered and rejected:** an apply mode that replaces events (soft-deleting a post's events and
+    recreating them risks favorites, calendar entries and slugs; Rule 8's Apply reuses them instead); writing the rescraped caption to `posts.content` and
     purging it afterward (a crash between the two leaves a curator caption stored; holding it only
     in the job payload leaves nothing to purge); a new table for previews (the job table already
     carries owner scope, status and result); a cooldown on every preview (a moderator re-checking

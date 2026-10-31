@@ -2693,9 +2693,9 @@ items:
     {type: idea, status: backlog, created: 2026-10-31,
      impact: user-visible, effort: m,
      title: "Moderator Apply for re-extract: turn a post stored as one event into a roundup linked to several events",
-     ref: [implementation-artifacts/deferred-work.md, specs/reextract-apply-roundup/DESIGN.md],
-     touches: [app:backend, pkg:domain, web:moderation, cross:architecture],
-     note: "Deferred from: bmad-quick-dev split of spec-reextract-read-all-slide-images (2026-10-31). Needs BUG-097 first; amends AD-40 Rule 1 (preview-only). 1 finding."}
+     ref: [implementation-artifacts/spec-reextract-apply-roundup.md, apps/backend/src/lib/extraction/apply-post-reextraction.ts, specs/reextract-apply-roundup/DESIGN.md],
+     touches: [app:backend, pkg:domain, web:moderation, cross:architecture, cross:prd],
+     note: "Built on branch ccr-56bef1e2-pmkhv6, not yet merged (AD-40 Rule 8, PRD 3.9.3 amended). Not exercised on prod: after deploy, apply one real roundup post and check the result list."}
 
   FIND-110:
     {type: finding, status: done, created: 2026-10-31,

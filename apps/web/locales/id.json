@@ -95,7 +95,21 @@
     "alreadyRepresented": "Ingesti akan melewati ini: sudah diwakili oleh",
     "matchesCandidate": "Acara terdekat yang sudah ada:",
     "noDate": "tanpa tanggal",
-    "previewOnlyNote": "Hanya pratinjau. Pencocokan lokasi hanya memakai teks lokasi (tanpa geocoding). Ingesti melewati item yang pasangan postingan dan posisinya sudah punya acara, sehingga menjalankan ulang tidak mengubah acara yang ada."
+    "applyExplainer": "Terapkan membuat postingan ini sesuai pratinjau: acara yang sudah ada tetap memakai tautan, favorit, dan entri kalendernya serta ditampilkan sebagai stub rangkuman, sedangkan item lainnya menjadi acara stub baru yang tertaut. Tidak ada yang dihapus.",
+    "applyButton": "Terapkan sebagai rangkuman",
+    "applyConfirmTitle": "Terapkan pratinjau ini?",
+    "applyConfirmDescription": "Pengelompokan postingan ditulis ulang dan acaranya diperbarui sesuai pratinjau ini. Tidak ada yang dihapus dan tidak ada yang diberi notifikasi, tetapi ini tidak bisa dibatalkan dari sini.",
+    "applyConfirmConfirm": "Terapkan",
+    "applyConfirmCancel": "Batal",
+    "applyFailed": "Pratinjau tidak dapat diterapkan dan tidak ada yang diubah. Silakan coba lagi.",
+    "applySuccessTitle": "Diterapkan",
+    "appliedReused": "{count, plural, other {# acara yang sudah ada dipertahankan (tautan, favorit, dan entri kalender sama)}}",
+    "appliedCreated": "{count, plural, other {# acara baru dibuat}}",
+    "appliedLinked": "{count, plural, other {# item digabung ke acara yang sudah ada}}",
+    "appliedQueued": "{count, plural, other {# kemungkinan duplikat masuk antrean tinjauan}}",
+    "appliedSkippedDeleted": "{count, plural, other {# item dilewati: acaranya sudah dihapus moderator}}",
+    "appliedOrphans": "Acara-acara postingan ini tidak cocok dengan ekstraksi ini dan dibiarkan apa adanya:",
+    "previewOnlyNote": "Pencocokan lokasi di pratinjau ini hanya memakai teks lokasi (tanpa geocoding). Ingesti melewati item yang pasangan postingan dan posisinya sudah punya acara, sehingga menjalankan ulang tidak mengubah acara yang ada; hanya Terapkan yang mengubahnya."
   },
   "DuplicateEventsPage": {
     "pageDescription": "Tinjau saran acara duplikat dan gabungkan, sambil tetap menyimpan favorit dan entri kalender pengguna serta mengalihkan tautan lama ke acara yang dipertahankan.",
