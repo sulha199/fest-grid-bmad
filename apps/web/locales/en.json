@@ -77,6 +77,7 @@
     "running": "Extracting. This can take up to a minute.",
     "retry": "Try again",
     "genericError": "The preview could not be completed. Please try again.",
+    "imagesShortfall": "Only {sent} of {available} images were read, so events listed on the other images may be missing from this preview.",
     "noEvents": "The post was not recognized as describing an event.",
     "groupingUnknown": "Grouping: not reported",
     "groupingSingleEvent": "Grouping: single event",
@@ -94,7 +95,23 @@
     "alreadyRepresented": "Ingestion would skip this: already represented by",
     "matchesCandidate": "Closest existing event:",
     "noDate": "no date",
-    "previewOnlyNote": "Preview only. Venue matching uses the location text only (no geocoding). Ingestion skips an item whose post and position already have an event, so a re-run does not change existing events."
+    "applyExplainer": "Apply makes the post's events match this preview: its existing events keep their link, favorites and calendar entries and take this preview's details, and the other items become new linked events. No event is deleted. A schedule this preview no longer lists is removed from a kept event unless someone's calendar uses it, and fields a moderator corrected are kept. An event whose first post is another post is left as it is and only gains this post's link.",
+    "applyButton": "Apply this preview",
+    "applyExplainerRoundup": "Apply makes the post look like this preview: its existing events keep their link, favorites and calendar entries, take this preview's details and show as roundup stubs, and the other items become new linked stub events. No event is deleted. A schedule this preview no longer lists is removed from a kept event unless someone's calendar uses it, and fields a moderator corrected are kept. An event whose first post is another post is left as it is and only gains this post's link.",
+    "applyButtonRoundup": "Apply as roundup",
+    "applyConfirmTitle": "Apply this preview?",
+    "applyConfirmDescription": "The post's grouping is rewritten and its events are updated to match this preview. No event is deleted and no one is notified, but this cannot be undone from here. Duplicate matching now also uses venue coordinates, so an item shown here as a new event may be merged into an existing one.",
+    "applyConfirmConfirm": "Apply",
+    "applyConfirmCancel": "Cancel",
+    "applyFailed": "The preview could not be applied, and nothing was changed. Please try again.",
+    "applySuccessTitle": "Applied",
+    "appliedReused": "{count, plural, one {# existing event kept (same link, favorites and calendar entries)} other {# existing events kept (same links, favorites and calendar entries)}}",
+    "appliedCreated": "{count, plural, one {# new event created} other {# new events created}}",
+    "appliedLinked": "{count, plural, one {# item merged into an existing event} other {# items merged into existing events}}",
+    "appliedQueued": "{count, plural, one {# possible duplicate queued for review} other {# possible duplicates queued for review}}",
+    "appliedSkippedDeleted": "{count, plural, one {# item skipped: its event was deleted by a moderator} other {# items skipped: their events were deleted by a moderator}}",
+    "appliedOrphans": "These events of the post matched nothing in this extraction and were left as they are:",
+    "previewOnlyNote": "Venue matching in this preview uses the location text only (no geocoding). Ingestion skips an item whose post and position already have an event, so a re-run does not change existing events; only Apply does."
   },
   "DuplicateEventsPage": {
     "pageDescription": "Review suggested duplicate events and merge them, keeping users' favorites and calendar entries and redirecting old links to the survivor.",
@@ -876,7 +893,9 @@
     "errorNoApiKey": "No API key configured. Please set one in <link>API Keys settings</link>.",
     "errorScrapeFailed": "Failed to scrape the social media post. Please try again.",
     "errorExtractionFailed": "AI failed to extract any events from this post.",
-    "errorQuotaExhausted": "Your API key quota has been exhausted."
+    "errorQuotaExhausted": "Your API key quota has been exhausted.",
+    "errorAccountNotScrapable": "This post belongs to an account FestDaily does not scrape (a personal account, or one still waiting for a moderator to classify it), so it cannot be fetched.",
+    "errorScrapeInProgress": "This post is being fetched right now. Try again in a moment."
   },
   "DefaultLocationChangeStatus": {
     "PENDING_REVIEW": "Pending Review",

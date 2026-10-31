@@ -22,7 +22,7 @@ import { ExtractedEventMessage } from './types.js';
  * re-extraction that returns a different set of events (e.g. truncation keeping a different
  * model-order prefix) can still re-pair an old ordinal with a semantically different event.
  */
-export function assignExtractionOrdinals(eventMessages: ExtractedEventMessage[]): ExtractedEventMessage[] {
+export function assignExtractionOrdinals<T extends ExtractedEventMessage>(eventMessages: T[]): Array<T & { extractionOrdinal: number }> {
   const withOriginalIndex = eventMessages.map((message, originalIndex) => ({ message, originalIndex }));
 
   withOriginalIndex.sort((a, b) => {

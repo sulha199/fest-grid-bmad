@@ -2688,6 +2688,39 @@ items:
      touches: [app:infrastructure, cross:process],
      note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Install with --ignore-scripts where possible and pin actions by SHA. 1 finding."}
 
+  # ── 2026-10-31 (bmad-quick-dev: re-extract preview of a carousel roundup showed only the first image's events) ──
+  BUG-099:
+    {type: bug, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
+     title: "Moderator re-extract preview drops carousel slides: expired image URLs, cover failure skips slides, scraped slides discarded",
+     ref: [implementation-artifacts/spec-reextract-read-all-slide-images.md, apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/backend/src/lib/ai-processor/build-gemini-request.ts],
+     touches: [app:backend, pkg:domain, web:moderation, cross:ai-extraction],
+     note: "Built on branch ccr-56bef1e2-pmkhv6, not yet merged. Cause on the prod post unconfirmed (no prod read access); after deploy, re-run the preview and check the images-read line."}
+
+  IDEA-103:
+    {type: idea, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: m,
+     title: "Moderator Apply for re-extract: turn a post stored as one event into a roundup linked to several events",
+     ref: [implementation-artifacts/spec-reextract-apply-roundup.md, apps/backend/src/lib/extraction/apply-post-reextraction.ts, specs/reextract-apply-roundup/DESIGN.md],
+     touches: [app:backend, pkg:domain, web:moderation, cross:architecture, cross:prd],
+     note: "Built on branch ccr-56bef1e2-pmkhv6, not yet merged (AD-40 Rule 8, PRD 3.9.3 amended). Not exercised on prod: after deploy, apply one real roundup post and check the result list."}
+
+  FIND-110:
+    {type: finding, status: done, created: 2026-10-31,
+     impact: internal, effort: s,
+     title: "Re-extract rescrape: concurrent previews double the scraper spend, and single-post scrapes bypass the AD-34 gate rule without being listed as exempt",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-reextract-scrape-gate-and-single-flight.md],
+     touches: [app:backend, cross:architecture],
+     note: "Deferred from: bmad-quick-dev review of spec-reextract-read-all-slide-images (2026-10-31). 2 findings. Fixed on branch ccr-56bef1e2-pmkhv6: per-URL lease and AD-34 Rule 7 gate."}
+
+  FIND-111:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: internal, effort: s,
+     title: "Re-extract Apply: unapplied previews keep their extraction on the job row, and Apply has no drift check or stub-to-full path",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:architecture],
+     note: "Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31). 2 findings. Retention fix belongs with FIND-086's job sweep."}
+
   BUG-098:
     {type: bug, status: done, created: 2026-10-31,
      impact: user-visible, effort: m,

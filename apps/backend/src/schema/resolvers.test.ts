@@ -4781,6 +4781,35 @@ test('setImageStorageOptIn and queryModeratorAccountProfiles integration tests',
     assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
   });
 
+  await t.test('applyPostReextraction mutation - FORBIDDEN for non-moderator (AD-40 Apply)', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'user' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { applyPostReextraction(jobId: "00000000-0000-4000-8000-0000000000dd") { errorCode errorMessage summary { queuedForReview } } }`
+      })
+    });
+    const result = await response.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
+  });
+
+  await t.test('applyPostReextraction mutation - a moderator\'s unknown job id is a typed NOT_FOUND, not a thrown error (AD-40 Apply)', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'moderator' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { applyPostReextraction(jobId: "00000000-0000-4000-8000-0000000000dd") { errorCode errorMessage summary { queuedForReview } } }`
+      })
+    });
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.applyPostReextraction.errorCode, 'NOT_FOUND');
+    assert.strictEqual(result.data.applyPostReextraction.summary, null);
+  });
+
   await t.test('previewPostReextraction mutation - BAD_REQUEST unless exactly one of postId/url (AD-40)', async () => {
     mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'moderator' };
     const response = await yoga.fetch('http://yoga/graphql', {

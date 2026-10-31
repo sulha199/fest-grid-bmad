@@ -1,12 +1,12 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { schedules, posts, eventPosts, eventMatchCandidates } from '@festgrid/database';
+import { posts, eventPosts } from '@festgrid/database';
 import { ExtractedEventMessage } from '@festgrid/domain';
 import { parsePlatformPostIdentity } from '@festgrid/domain/scraper';
-import { insertEventWithPrimaryPost, enrichAndPromoteEvent } from '../events/set-event-primary-post.js';
 import { notifyNewEvent } from '../events/notify-new-event.js';
 import { evaluateIngestionMatch } from './evaluate-ingestion-match.js';
-import { buildDedupDecisionLog, type DedupDecisionLog } from './build-dedup-decision-log.js';
+import { type DedupDecisionLog } from './build-dedup-decision-log.js';
+import { writeIngestionDecision } from './write-ingestion-decision.js';
 
 export async function processIngestionJob(message: ExtractedEventMessage): Promise<{ inserted: boolean }> {
   let insertedEvent: any = null;
@@ -78,69 +78,17 @@ export async function processIngestionJob(message: ExtractedEventMessage): Promi
 
     // Stub rule, organizer discount and candidate search live in evaluateIngestionMatch -- the one
     // place the decision is made, shared with the moderator re-extract preview (AD-40).
-    const { event, scheduleValues, isStub, match } = await evaluateIngestionMatch(tx, message, sourcePost ?? null);
+    const evaluation = await evaluateIngestionMatch(tx, message, sourcePost ?? null);
 
-    if (match && match.tier === 'high') {
-      // Story 3.6v (AC1, AC2, AC4, AC5, AC7) — enrich the matched event in place and promote the
-      // new post to primary if it wins AD-30 Rule 7's ordering; no new `events` row.
-      const { event: enrichedEvent, becameOrganizerAuthored } = await enrichAndPromoteEvent(
-        tx,
-        match.candidate,
-        event,
-        scheduleValues,
-        message.postId,
-        extractionOrdinal,
-        // A stub repeat (AD-30 Rule 7, 2026-10-25) only adds to the existing event: a thin curator
-        // repost must not overwrite its fields or delete its schedules.
-        { additive: match.signals.stubRepeat }
-      );
-
-      insertedEvent = enrichedEvent;
-      shouldNotify = becameOrganizerAuthored;
-      dedupDecisionLog = buildDedupDecisionLog(match, null, message.postId);
-
-      return { inserted: true };
-    }
-
-    // Story 3.6r / AD-30 Rule 2 — the only two call sites allowed to write `events.postId` are
-    // insertEventWithPrimaryPost and setEventPrimaryPost (set-event-primary-post.ts), enforced by
-    // events-postid-write-ratchet.test.ts. The conflict target is now the composite
-    // (postId, extractionOrdinal) unique rather than postId alone (AD-30 Rule 1/3); extractionOrdinal
-    // defaults to 0 at the helper's DB-write boundary when the message carries none (AC2).
-    const insertedRow = await insertEventWithPrimaryPost(tx, event);
-
-    if (!insertedRow) {
-      console.log(`Skipped duplicate ingestion for postId: ${message.postId}, extractionOrdinal: ${extractionOrdinal}`);
+    // The write half (enrich on a high match; otherwise insert + schedules + queue a mid match) is
+    // shared with the moderator re-extract Apply (AD-40): one function, two callers.
+    const written = await writeIngestionDecision(tx, message, extractionOrdinal, evaluation);
+    if (!written.inserted) {
       return { inserted: false };
     }
-
-    insertedEvent = insertedRow;
-    shouldNotify = !isStub;
-
-    if (scheduleValues.length > 0) {
-      const schedulesToInsert = scheduleValues.map((s) => ({
-        ...s,
-        eventId: insertedEvent.id,
-      }));
-
-      await tx.insert(schedules).values(schedulesToInsert);
-    }
-
-    if (match && match.tier === 'mid') {
-      // Story 3.6v (AC1, AC8) — queue a suggested-match record for moderator review (Story
-      // 3.6w's own scope to read it); idempotent on (eventId, candidateEventId) re-run.
-      await tx
-        .insert(eventMatchCandidates)
-        .values({
-          eventId: insertedEvent.id,
-          candidateEventId: match.candidate.id,
-          score: match.score,
-          postId: message.postId,
-        })
-        .onConflictDoNothing({ target: [eventMatchCandidates.eventId, eventMatchCandidates.candidateEventId] });
-    }
-
-    dedupDecisionLog = buildDedupDecisionLog(match, insertedEvent.id, message.postId);
+    insertedEvent = written.event;
+    shouldNotify = written.shouldNotify;
+    dedupDecisionLog = written.dedupDecisionLog;
 
     return { inserted: true };
   });

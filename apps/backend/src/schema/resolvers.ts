@@ -10,6 +10,9 @@ import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
+import { applyPostReextraction, toGraphQLApplySummary } from '../lib/extraction/apply-post-reextraction.js';
+import { ACCOUNT_NOT_SCRAPABLE_MESSAGE, SCRAPE_IN_PROGRESS_MESSAGE, isOwnerAccountScrapable } from '../lib/scraper/post-scrape-gate.js';
+import { claimPostUrlScrape } from '../lib/scraper/post-url-scrape-lease.js';
 import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
 import { resolveProfileByUsername } from '../lib/accounts/resolve-profile-by-username.js';
@@ -36,7 +39,7 @@ import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import type { EventFilterInput } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText, resolveScrapeHandle } from '@festgrid/domain';
-import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, type ReextractionPreviewResult } from '@festgrid/domain/posts';
+import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, REEXTRACT_APPLY_WINDOW_MS, type ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
@@ -1660,34 +1663,61 @@ export const resolvers: Resolvers = {
         };
       }
 
-      const adapter = getScraperAdapter(platform);
-      let scrapedPost;
+      // FIND-110 -- one scrape of this URL at a time (shared with the moderator re-extract). A busy
+      // lease means another request is fetching it right now; this one does not scrape again.
+      const lease = await claimPostUrlScrape(url);
+      if (!lease) {
+        return {
+          errorCode: 'SCRAPE_IN_PROGRESS',
+          errorMessage: SCRAPE_IN_PROGRESS_MESSAGE,
+        };
+      }
+
       try {
-        scrapedPost = await adapter.getPostByUrl(url);
-        if (!scrapedPost) {
+        const adapter = getScraperAdapter(platform);
+        let scrapedPost;
+        try {
+          scrapedPost = await adapter.getPostByUrl(url);
+          if (!scrapedPost) {
+            return {
+              errorCode: 'SCRAPE_FAILED',
+              errorMessage: 'Could not retrieve content from the provided URL.',
+            };
+          }
+        } catch (err) {
+          console.error(`Failed to scrape post from URL ${url}:`, err);
           return {
             errorCode: 'SCRAPE_FAILED',
             errorMessage: 'Could not retrieve content from the provided URL.',
           };
         }
-      } catch (err) {
-        console.error(`Failed to scrape post from URL ${url}:`, err);
-        return {
-          errorCode: 'SCRAPE_FAILED',
-          errorMessage: 'Could not retrieve content from the provided URL.',
-        };
-      }
 
-      return startManualExtractionJob(authUser.userId, url, {
-        message: {
-          postId: randomUUID(),
-          accountId: '',
-          content: scrapedPost.content,
-          imageUrl: scrapedPost.imageUrl ?? undefined,
-          postUrl: scrapedPost.postUrl,
-          publishedAt: scrapedPost.publishedAt,
-        },
-      });
+        // AD-34 -- an unknown URL cannot be gated before the scrape, so the account it returned is
+        // looked up now. A known personal / awaiting-classification account refuses the post: no
+        // job is started and nothing the scrape returned is kept.
+        if (!(await isOwnerAccountScrapable(platform, { username: scrapedPost.ownerUsername, ownerId: scrapedPost.ownerId }))) {
+          return {
+            errorCode: 'ACCOUNT_NOT_SCRAPABLE',
+            errorMessage: ACCOUNT_NOT_SCRAPABLE_MESSAGE,
+          };
+        }
+
+        return await startManualExtractionJob(authUser.userId, url, {
+          message: {
+            postId: randomUUID(),
+            accountId: '',
+            content: scrapedPost.content,
+            imageUrl: scrapedPost.imageUrl ?? undefined,
+            postUrl: scrapedPost.postUrl,
+            publishedAt: scrapedPost.publishedAt,
+            // BUG-099 -- the carousel slides after the cover; they were dropped here, so a correction
+            // of a multi-slide post read the first image only.
+            additionalImageUrls: scrapedPost.additionalImageUrls,
+          },
+        });
+      } finally {
+        await lease.release();
+      }
     },
     previewPostReextraction: async (_, { postId, url }, context): Promise<any> => {
       const moderator = requireModerator(context);
@@ -1695,6 +1725,12 @@ export const resolvers: Resolvers = {
         throw new GraphQLError('Provide exactly one of postId or url', { extensions: { code: 'BAD_REQUEST' } });
       }
       return startPostReextractionPreview(moderator.userId, { postId, url });
+    },
+    applyPostReextraction: async (_, { jobId }, context): Promise<any> => {
+      const moderator = requireModerator(context);
+      const applied = await applyPostReextraction(moderator.userId, jobId);
+      if ('errorCode' in applied) return applied;
+      return { summary: toGraphQLApplySummary(applied.summary) };
     },
     submitReport: async (_, { eventId, reason, details }, context): Promise<any> => {
       const authUser = requireAuth(context);
@@ -2960,6 +2996,18 @@ export const resolvers: Resolvers = {
         preview: result
           ? {
               ...result,
+              // A job finished before BUG-099 shipped has no image counts: 0 of 0 shows no warning.
+              imagesAvailable: result.imagesAvailable ?? 0,
+              imagesSent: result.imagesSent ?? 0,
+              // AD-40 Apply: offered while the extraction is still kept, unapplied, and young enough.
+              applicable:
+                job.status === 'SUCCEEDED' &&
+                result.postStored &&
+                Boolean(result.extracted) &&
+                result.extracted!.events.length > 0 &&
+                !result.applied &&
+                Date.now() - (job.completedAt?.getTime() ?? 0) <= REEXTRACT_APPLY_WINDOW_MS,
+              applied: result.applied ? toGraphQLApplySummary(result.applied) : null,
               groupingReason:
                 result.groupingReason && isPostGroupingReason(result.groupingReason)
                   ? postGroupingReasonToGraphQL(result.groupingReason)

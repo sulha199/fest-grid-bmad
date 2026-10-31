@@ -2302,6 +2302,18 @@ This document defines the core architectural invariants for the FestDaily applic
         `isScrapableAccountType` takes a required third argument for this, and Rule 3's SQL form and
         its test gain the same dimension. The classification worker and the moderator-resolve path
         (AD-41 Rule 7) join the entry points that adopt the gate.
+    7.  **Amended 2026-10-31 (FIND-110): the two paths that fetch ONE post by URL adopt the gate.**
+        The moderator re-extract rescrape (`startPostReextractionPreview`) and
+        `extractEventDataFromUrl` start a scrape although they scrape no account, and PRD 3.16 says a
+        personal or awaiting-approval account is never scraped. Both call `isScrapableAccountType()`
+        through `apps/backend/src/lib/scraper/post-scrape-gate.ts`: a stored post is gated on its
+        owning account **before** the scrape; an unknown URL has no account to look up first, so the
+        account the scrape returns (`ownerUsername`) is looked up **after** it, and a known
+        non-scrapable account refuses the result (no job, no caption copy; the refused scrape is
+        recorded against the re-extract cooldown). A stored post with a caption still previews
+        without a scrape; with none, the caller gets `ACCOUNT_NOT_SCRAPABLE`. An unknown owner
+        is allowed: nothing marks it as off limits. `post-scrape-gate.test.ts` covers every
+        type x status combination through both lookups.
 *   **Enforced by:** the unit tests in Rule 1 and the lockstep tests in Rule 3. No lint or source-scan
     ratchet yet; see Deferred.
 *   **Deferred:** a source-scan ratchet forbidding a raw `accountTypeStatus === ` comparison outside
@@ -2378,12 +2390,13 @@ This document defines the core architectural invariants for the FestDaily applic
     moderator's edits; a post caption (especially a curator caption, deliberately null in `posts`
     since Story 3.4o) outliving its use; a rescrape loop spending scraper credit.
 *   **Rule:**
-    1.  **Preview only.** The operation writes nothing to `events`, `schedules`, `event_posts`,
-        `event_match_candidates`, `posts` or `extraction_audit_logs`, and enqueues nothing. Its
-        only writes are the job row and its result. There is **no apply step**: ingestion
-        idempotency on `(post, extraction_ordinal)` (AD-30 Rule 3) skips every item the post
-        already produced, so applying a re-run could only add items with a new ordinal. A write
-        mode is a spine amendment.
+    1.  **Preview is write-free; Apply is the one write (amended 2026-10-31, IDEA-103).** Previewing
+        writes nothing to `events`, `schedules`, `event_posts`, `event_match_candidates`, `posts` or
+        `extraction_audit_logs`, and enqueues nothing. Its only writes are the job row and its result.
+        Ingestion idempotency on `(post, extraction_ordinal)` (AD-30 Rule 3) skips every item the post
+        already produced, so re-running ingestion can never change an existing event. The one way to
+        change them is **Apply** (Rule 8): an explicit, confirmed moderator action on a finished
+        preview. Any other write mode is a spine amendment.
     2.  **One decision, two callers.** `evaluateIngestionMatch(tx, message, sourcePost)` owns the
         stub rule (AD-30 Rule 10), the roundup/curator organizer discount (BUG-058, IDEA-068) and
         `findMatchingEvent`. `processIngestionJob` acts on its result; the preview reports it. The
@@ -2400,10 +2413,29 @@ This document defines the core architectural invariants for the FestDaily applic
     4.  **No geocoder or timezone calls.** The preview builds messages with empty resolved
         locations, so the venue signal is the location string only; a match that relies on
         coordinates within 150 m will score lower in the preview than in ingestion.
-    5.  **Rescrape only when the caption is missing**, via `getScraperAdapter(platform).getPostByUrl`.
-        A stored caption is never refetched. A rescrape of one URL is limited to once per 10
+    5.  **Rescrape when the caption is missing or the stored image links have expired**, via
+        `getScraperAdapter(platform).getPostByUrl`. (Amended 2026-10-31, BUG-099: the rule used to be
+        "only when the caption is missing"; the cover and slide URLs are hotlinks that expire, so a
+        stored caption with dead links previewed a carousel from its first image at best.) A stored
+        caption is never replaced by the rescraped one: an image refresh supplies only the scraper's
+        fresh `imageUrl` and `additionalImageUrls`, and a blocked or failed refresh falls back to
+        the stored data. `postImagesNeedRefresh` (`packages/domain/src/posts/`) decides; a post with
+        no images is text-only and never triggers a scrape. The preview sends up to
+        `REEXTRACT_MAX_CAROUSEL_IMAGES` (10) slides, keeps trying them when the cover link cannot be
+        fetched (a cover *blur* failure stays text-only and fail-closed), and reports
+        `imagesAvailable` / `imagesSent` so a shortfall is shown, never silent. A rescrape of one URL
+        is limited to once per 10
         minutes (`REEXTRACT_RESCRAPE_COOLDOWN_MS`), checked against recent preview jobs; it does not
-        limit previews of stored captions. A scrape that throws or returns nothing is recorded as an
+        limit previews of a stored caption whose image links are still valid. Inside the window a
+        blocked rescrape reuses the usable (not expired) links the last rescrape found, taken from
+        that job's payload, never from `posts`. (Amended 2026-10-31, FIND-110: one scrape of a
+        URL at a time. A per-URL lease `post-url-scrape:<hash>` in `vendor_call_locks`
+        (`tryClaimInFlight`, `guarded-call.ts`, TTL 60 s) covers the cooldown re-check, the scrape
+        and the job-row insert, so a second request either sees the lease busy or the first one's
+        row. A busy lease means no second scrape: a stored caption previews on the first run's fresh
+        links, or on stored data; a post with no caption gets `SCRAPE_IN_PROGRESS`, because a caption
+        is never stored and so cannot be handed to another request. `extractEventDataFromUrl` takes
+        the same lease. The stored-post and by-owner scrape gate of AD-34 Rule 7 also applies.) A scrape that throws or returns nothing is recorded as an
         already-FAILED job so it counts too (a post that never scrapes cannot be retried without
         limit). An image-only post (empty caption) is not a failure. A URL that is not in the
         database is scraped, previewed without an account signal (`postStored: false`, authorship
@@ -2417,13 +2449,51 @@ This document defines the core architectural invariants for the FestDaily applic
         inserted but never claimed and never polled, is deferred (FIND-086). (c) A stored caption of a
         non-curator post is untouched.
     7.  **Moderator only.** Both operations call `requireModerator`.
+    8.  **Apply (added 2026-10-31).** `Mutation.applyPostReextraction(jobId)`, moderator only, owner-
+        scoped, applies the exact extraction the moderator previewed, not a new Gemini call. The
+        preview job keeps `result_data.extracted` (validated events, grouping, post title, and the
+        children's-data filter's verdict, the one caption-derived fact the event builder needs; never
+        the caption) and Apply nulls it. It applies once (`appliedAt`; a second call returns the first
+        result), within 30 minutes of the preview finishing, only for a stored post, in ONE
+        transaction (a failure rolls everything back, `APPLY_FAILED`) with the job row locked
+        `FOR UPDATE`. Steps: (a) the post's `grouping_reason` and `title` are rewritten; (b) the post's
+        existing events are paired to the items by name and date (`pairPostEventsToItems`,
+        `packages/domain`: score at least 0.5 AND name similarity at least 0.4, so a shared date alone
+        never pairs; on a tie a live event beats a deleted twin), never by ordinal, since ordinals
+        sort by earliest date then name and shift when the set grows; (c) a paired event is **reused**: same id, slug, favorites, calendar
+        entries, aliases; it takes the item's data through `enrichAndPromoteEvent` (an applied
+        correction's fields keep their value; a schedule the new extraction no longer lists is removed
+        unless a calendar entry uses it; the slug is stripped from what is passed in, so a reused
+        event is never re-slugged) and is demoted to `detail_level = 'stub'` only when this post is its
+        **primary** post and `resolveStubSource` says the post is a roundup or curator post. An event
+        whose primary post is **another** post (typically the organizer's) is not enriched at all:
+        it keeps its data, schedules and detail level and only moves this post's link to the new
+        ordinal;
+        (d) every other item goes through the ingestion decision and write
+        (`evaluateIngestionMatch`, `writeIngestionDecision`), so a high match links to an existing
+        event and a mid match queues a suggestion; (e) a live event no item matched is left as it is
+        and reported. It **never deletes** an event and **never recreates** one a moderator deleted or
+        merged away (PRD 3.7 "No Duplicate Re-Extraction"): an item matching one is skipped, and that
+        event keeps its ordinal. No notification is sent. Events are built as extraction builds them,
+        with real locations and timezones (`buildExtractedEventMessage`, shared with `processAiJob`).
+        Ordinals: `(post, extraction_ordinal)` is unique on both `events` and `event_posts`, and
+        `events` forbids a NULL ordinal on a primary post, so moving events are first parked at
+        `PARKED_ORDINAL_BASE + n` (30000+), then given their final ordinal (`assignApplyOrdinals`),
+        which skips slots still held by events that do not move and, for a new item, any ordinal whose
+        derived slug a reused event, an orphan or a deleted event keeps (`events.slug` is unique).
+        Applies of one post are serialized by a `FOR UPDATE` lock on the post row (taken before the
+        job row's). A preview that found no events is refused (`NOTHING_TO_APPLY`): applying it would
+        blank the post's title and orphan every event. The kept extraction has the privacy discards
+        already applied (no private contact, no child performer names), because an unapplied preview
+        keeps it on the job row until a sweep exists (see the deferred retention row). There is no
+        undo; a `reextract_apply` JSON log line records the event ids touched.
 *   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
     written from a JS object as a jsonb **string** holding the JSON (`events.links`,
     `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it
     (`col #>> '{}'`) first; `jsonb_set` and `->>` on the raw column fail or return NULL. Read and
     write through Drizzle, which unwraps and re-encodes consistently.
-*   **Considered and rejected:** an apply/replace mode (soft-deleting a post's events risks
-    favorites, calendar entries and slugs); writing the rescraped caption to `posts.content` and
+*   **Considered and rejected:** an apply mode that replaces events (soft-deleting a post's events and
+    recreating them risks favorites, calendar entries and slugs; Rule 8's Apply reuses them instead); writing the rescraped caption to `posts.content` and
     purging it afterward (a crash between the two leaves a curator caption stored; holding it only
     in the job payload leaves nothing to purge); a new table for previews (the job table already
     carries owner scope, status and result); a cooldown on every preview (a moderator re-checking

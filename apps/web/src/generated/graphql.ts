@@ -127,6 +127,37 @@ export type ApiKey = {
   updatedAt: Scalars['String']['output'];
 };
 
+export type ApplyPostReextractionResult = {
+  __typename?: 'ApplyPostReextractionResult';
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  summary?: Maybe<ApplyReextractionSummary>;
+};
+
+export type ApplyReextractionEventRef = {
+  __typename?: 'ApplyReextractionEventRef';
+  eventName: Scalars['String']['output'];
+  slug: Scalars['String']['output'];
+};
+
+export type ApplyReextractionPlacedEvent = {
+  __typename?: 'ApplyReextractionPlacedEvent';
+  eventName: Scalars['String']['output'];
+  ordinal: Scalars['Int']['output'];
+  slug: Scalars['String']['output'];
+};
+
+export type ApplyReextractionSummary = {
+  __typename?: 'ApplyReextractionSummary';
+  created: Array<ApplyReextractionPlacedEvent>;
+  groupingReason?: Maybe<PostGroupingReason>;
+  linkedToExisting: Array<ApplyReextractionEventRef>;
+  orphans: Array<ApplyReextractionEventRef>;
+  queuedForReview: Scalars['Int']['output'];
+  reused: Array<ApplyReextractionPlacedEvent>;
+  skippedDeleted: Scalars['Int']['output'];
+};
+
 export type CastVoteInput = {
   accountId?: InputMaybe<Scalars['ID']['input']>;
   handleOrUrl?: InputMaybe<Scalars['String']['input']>;
@@ -427,12 +458,18 @@ export type ExtractEventDataFromUrlResult = {
 };
 
 export enum ExtractionErrorCode {
+  AccountNotScrapable = 'ACCOUNT_NOT_SCRAPABLE',
+  ApplyFailed = 'APPLY_FAILED',
+  Expired = 'EXPIRED',
   ExtractionFailed = 'EXTRACTION_FAILED',
+  NothingToApply = 'NOTHING_TO_APPLY',
   NotFound = 'NOT_FOUND',
+  NotStored = 'NOT_STORED',
   NoApiKey = 'NO_API_KEY',
   QuotaExhausted = 'QUOTA_EXHAUSTED',
   RateLimited = 'RATE_LIMITED',
   ScrapeFailed = 'SCRAPE_FAILED',
+  ScrapeInProgress = 'SCRAPE_IN_PROGRESS',
   UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
 }
 
@@ -545,6 +582,7 @@ export type ModeratorAccountProfileFilters = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  applyPostReextraction: ApplyPostReextractionResult;
   castVote: AccountVote;
   clearAccountDefaultLocation: SocialMediaAccountProfile;
   createApiKey: ApiKey;
@@ -604,6 +642,11 @@ export type Mutation = {
   updateUserTimezone: Scalars['Boolean']['output'];
   updateWidget: Widget;
   withdrawVote: AccountVote;
+};
+
+
+export type MutationApplyPostReextractionArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -947,8 +990,12 @@ export enum PostGroupingReason {
 
 export type PostReextractionPreview = {
   __typename?: 'PostReextractionPreview';
+  applicable: Scalars['Boolean']['output'];
+  applied?: Maybe<ApplyReextractionSummary>;
   events: Array<ReextractionPreviewEvent>;
   groupingReason?: Maybe<PostGroupingReason>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesSent: Scalars['Int']['output'];
   postStored: Scalars['Boolean']['output'];
   rescraped: Scalars['Boolean']['output'];
 };
@@ -2125,7 +2172,16 @@ export type PostReextractionPreviewQueryVariables = Exact<{
 }>;
 
 
-export type PostReextractionPreviewQuery = { postReextractionPreview: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, preview: { groupingReason: PostGroupingReason | null, postStored: boolean, rescraped: boolean, events: Array<{ extractionOrdinal: number, eventName: string, alreadyRepresentedBySlug: string | null, isStub: boolean, links: Array<{ url: string, label: string | null }>, schedules: Array<{ title: string | null, startDate: string | null, endDate: string | null, isMain: boolean }>, dedup: { tier: ReextractionDedupTier, score: number | null, candidateSlug: string | null, candidateName: string | null } }> } | null } };
+export type PostReextractionPreviewQuery = { postReextractionPreview: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, preview: { applicable: boolean, groupingReason: PostGroupingReason | null, postStored: boolean, rescraped: boolean, imagesAvailable: number, imagesSent: number, applied: { groupingReason: PostGroupingReason | null, queuedForReview: number, skippedDeleted: number, reused: Array<{ slug: string, eventName: string, ordinal: number }>, created: Array<{ slug: string, eventName: string, ordinal: number }>, linkedToExisting: Array<{ slug: string, eventName: string }>, orphans: Array<{ slug: string, eventName: string }> } | null, events: Array<{ extractionOrdinal: number, eventName: string, alreadyRepresentedBySlug: string | null, isStub: boolean, links: Array<{ url: string, label: string | null }>, schedules: Array<{ title: string | null, startDate: string | null, endDate: string | null, isMain: boolean }>, dedup: { tier: ReextractionDedupTier, score: number | null, candidateSlug: string | null, candidateName: string | null } }> } | null } };
+
+export type ApplyReextractionSummaryFieldsFragment = { groupingReason: PostGroupingReason | null, queuedForReview: number, skippedDeleted: number, reused: Array<{ slug: string, eventName: string, ordinal: number }>, created: Array<{ slug: string, eventName: string, ordinal: number }>, linkedToExisting: Array<{ slug: string, eventName: string }>, orphans: Array<{ slug: string, eventName: string }> };
+
+export type ApplyPostReextractionMutationVariables = Exact<{
+  jobId: string | number;
+}>;
+
+
+export type ApplyPostReextractionMutation = { applyPostReextraction: { errorCode: ExtractionErrorCode | null, errorMessage: string | null, summary: { groupingReason: PostGroupingReason | null, queuedForReview: number, skippedDeleted: number, reused: Array<{ slug: string, eventName: string, ordinal: number }>, created: Array<{ slug: string, eventName: string, ordinal: number }>, linkedToExisting: Array<{ slug: string, eventName: string }>, orphans: Array<{ slug: string, eventName: string }> } | null } };
 
 export type CreateApiKeyMutationVariables = Exact<{
   input: CreateApiKeyInput;
@@ -2367,7 +2423,31 @@ export class TypedDocumentString<TResult, TVariables>
     return this.value;
   }
 }
-
+export const ApplyReextractionSummaryFieldsFragmentDoc = new TypedDocumentString(`
+    fragment ApplyReextractionSummaryFields on ApplyReextractionSummary {
+  groupingReason
+  reused {
+    slug
+    eventName
+    ordinal
+  }
+  created {
+    slug
+    eventName
+    ordinal
+  }
+  linkedToExisting {
+    slug
+    eventName
+  }
+  queuedForReview
+  skippedDeleted
+  orphans {
+    slug
+    eventName
+  }
+}
+    `, {"fragmentName":"ApplyReextractionSummaryFields"});
 export const QueryActorRunsDocument = new TypedDocumentString(`
     query queryActorRuns($filters: ActorRunFilters, $first: Int, $after: String) {
   queryActorRuns(filters: $filters, first: $first, after: $after) {
@@ -4458,9 +4538,15 @@ export const PostReextractionPreviewDocument = new TypedDocumentString(`
     errorCode
     errorMessage
     preview {
+      applicable
+      applied {
+        ...ApplyReextractionSummaryFields
+      }
       groupingReason
       postStored
       rescraped
+      imagesAvailable
+      imagesSent
       events {
         extractionOrdinal
         eventName
@@ -4486,7 +4572,29 @@ export const PostReextractionPreviewDocument = new TypedDocumentString(`
     }
   }
 }
-    `);
+    fragment ApplyReextractionSummaryFields on ApplyReextractionSummary {
+  groupingReason
+  reused {
+    slug
+    eventName
+    ordinal
+  }
+  created {
+    slug
+    eventName
+    ordinal
+  }
+  linkedToExisting {
+    slug
+    eventName
+  }
+  queuedForReview
+  skippedDeleted
+  orphans {
+    slug
+    eventName
+  }
+}`);
 
 export const usePostReextractionPreviewQuery = <
       TData = PostReextractionPreviewQuery,
@@ -4502,6 +4610,57 @@ export const usePostReextractionPreviewQuery = <
       {
     queryKey: ['PostReextractionPreview', variables],
     queryFn: fetcher<PostReextractionPreviewQuery, PostReextractionPreviewQueryVariables>(client, PostReextractionPreviewDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ApplyPostReextractionDocument = new TypedDocumentString(`
+    mutation ApplyPostReextraction($jobId: ID!) {
+  applyPostReextraction(jobId: $jobId) {
+    errorCode
+    errorMessage
+    summary {
+      ...ApplyReextractionSummaryFields
+    }
+  }
+}
+    fragment ApplyReextractionSummaryFields on ApplyReextractionSummary {
+  groupingReason
+  reused {
+    slug
+    eventName
+    ordinal
+  }
+  created {
+    slug
+    eventName
+    ordinal
+  }
+  linkedToExisting {
+    slug
+    eventName
+  }
+  queuedForReview
+  skippedDeleted
+  orphans {
+    slug
+    eventName
+  }
+}`);
+
+export const useApplyPostReextractionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ApplyPostReextractionMutation, TError, ApplyPostReextractionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ApplyPostReextractionMutation, TError, ApplyPostReextractionMutationVariables, TContext>(
+      {
+    mutationKey: ['ApplyPostReextraction'],
+    mutationFn: (variables?: ApplyPostReextractionMutationVariables) => fetcher<ApplyPostReextractionMutation, ApplyPostReextractionMutationVariables>(client, ApplyPostReextractionDocument, variables, headers)(),
     ...options
   }
     )};

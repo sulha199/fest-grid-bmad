@@ -68,6 +68,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
     scrapeTriggerConcurrency: 3,
     scrapeQueueApifyCallTimeoutMs: 120_000,
     maxCarouselImages: 5,
+    maxReextractCarouselImages: 10,
     maxExtractedEventsPerPost: 10,
     geminiMaxOutputTokens: 8192,
     geminiExtractionTimeoutMs: 120000,

@@ -1,9 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { BlockingLoader, ConfirmActionDialog } from '@festgrid/ui';
 import { Link } from '@/i18n/navigation';
-import { ReextractionDedupTier } from '@/generated/graphql';
-import type { ReextractionPreview } from './use-post-reextraction-preview';
+import { Button } from '@/components/ui/button';
+import { PostGroupingReason, ReextractionDedupTier } from '@/generated/graphql';
+import type { ReextractionApplyState, ReextractionApplySummary, ReextractionPreview } from './use-post-reextraction-preview';
 
 const TIER_CLASS: Record<ReextractionDedupTier, string> = {
   [ReextractionDedupTier.High]: 'bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200',
@@ -29,11 +32,56 @@ const GROUPING_LABEL_KEY = {
 
 interface ReextractPreviewResultProps {
   preview: ReextractionPreview;
+  /** AD-40 Apply. Omit to show the preview read-only. */
+  apply?: ReextractionApplyState;
 }
 
-/** AD-40 -- what the current extraction and dedup logic would do with a post. Read-only. */
-export function ReextractPreviewResult({ preview }: ReextractPreviewResultProps) {
+function EventLinks({ events }: { events: Array<{ slug: string; eventName: string }> }) {
+  // One link per event: an event can appear in two lists (reused and folded into by another item).
+  const unique = [...new Map(events.map((event) => [event.slug, event])).values()];
+  return (
+    <ul className="list-disc pl-5 text-sm">
+      {unique.map((event) => (
+        <li key={event.slug}>
+          <Link className="underline" href={`/events/${event.slug}`}>
+            {event.eventName}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** What an apply did: counts first, then the events it touched, then anything it left alone. */
+function ReextractApplySummary({ summary }: { summary: ReextractionApplySummary }) {
   const t = useTranslations('ReextractPreview');
+  return (
+    <div className="space-y-3 rounded-lg border border-green-300 bg-green-50 p-3 dark:border-green-800 dark:bg-green-950" role="status" data-testid="reextract-apply-summary">
+      <p className="font-medium">{t('applySuccessTitle')}</p>
+      <ul className="space-y-1 text-sm">
+        <li>{t('appliedReused', { count: summary.reused.length })}</li>
+        <li>{t('appliedCreated', { count: summary.created.length })}</li>
+        {summary.linkedToExisting.length > 0 && <li>{t('appliedLinked', { count: summary.linkedToExisting.length })}</li>}
+        {summary.queuedForReview > 0 && <li>{t('appliedQueued', { count: summary.queuedForReview })}</li>}
+        {summary.skippedDeleted > 0 && <li>{t('appliedSkippedDeleted', { count: summary.skippedDeleted })}</li>}
+      </ul>
+      <EventLinks events={[...summary.reused, ...summary.created, ...summary.linkedToExisting]} />
+      {summary.orphans.length > 0 && (
+        <div className="space-y-1" data-testid="reextract-apply-orphans">
+          <p className="text-sm font-medium">{t('appliedOrphans')}</p>
+          <EventLinks events={summary.orphans} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** AD-40 -- what the current extraction and dedup logic would do with a post; with `apply`, a confirmed way to make it so. */
+export function ReextractPreviewResult({ preview, apply }: ReextractPreviewResultProps) {
+  const t = useTranslations('ReextractPreview');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Only a roundup preview turns events into roundup stubs; any other grouping gets neutral wording.
+  const isRoundup = preview.groupingReason === PostGroupingReason.Roundup;
 
   return (
     <div className="space-y-4" data-testid="reextract-preview-result">
@@ -42,6 +90,16 @@ export function ReextractPreviewResult({ preview }: ReextractPreviewResultProps)
         {preview.rescraped ? ` · ${t('rescrapedNote')}` : ''}
         {!preview.postStored ? ` · ${t('notStoredNote')}` : ''}
       </p>
+
+      {preview.imagesSent < preview.imagesAvailable && (
+        <p
+          className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+          role="status"
+          data-testid="reextract-images-warning"
+        >
+          {t('imagesShortfall', { sent: preview.imagesSent, available: preview.imagesAvailable })}
+        </p>
+      )}
 
       {preview.events.length === 0 ? (
         <p className="text-sm">{t('noEvents')}</p>
@@ -97,6 +155,44 @@ export function ReextractPreviewResult({ preview }: ReextractPreviewResultProps)
           ))}
         </ul>
       )}
+
+      {apply && apply.phase === 'done' && apply.summary && <ReextractApplySummary summary={apply.summary} />}
+
+      {apply && apply.phase !== 'done' && preview.applicable && preview.events.length > 0 && (
+        <div className="space-y-2 rounded-lg border p-3" data-testid="reextract-apply-panel">
+          <p className="text-sm">{isRoundup ? t('applyExplainerRoundup') : t('applyExplainer')}</p>
+          {apply.phase === 'failed' && (
+            <p role="alert" className="text-sm text-destructive">
+              {apply.errorMessage || t('applyFailed')}
+            </p>
+          )}
+          {/* A refusal a second click cannot fix (too old, nothing to apply) leaves only the message. */}
+          {(apply.phase !== 'failed' || apply.retryable) && (
+            <Button disabled={apply.phase === 'applying'} onClick={() => setConfirmOpen(true)}>
+              {isRoundup ? t('applyButtonRoundup') : t('applyButton')}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {apply && (
+        <>
+          <ConfirmActionDialog
+            open={confirmOpen}
+            title={t('applyConfirmTitle')}
+            description={t('applyConfirmDescription')}
+            confirmLabel={t('applyConfirmConfirm')}
+            cancelLabel={t('applyConfirmCancel')}
+            onConfirm={async () => {
+              setConfirmOpen(false);
+              await apply.apply();
+            }}
+            onCancel={() => setConfirmOpen(false)}
+          />
+          <BlockingLoader active={apply.phase === 'applying'} />
+        </>
+      )}
+
       <p className="text-xs text-muted-foreground">{t('previewOnlyNote')}</p>
     </div>
   );
