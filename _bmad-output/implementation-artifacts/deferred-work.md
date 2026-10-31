@@ -827,3 +827,9 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-export.md`
   summary: Every workflow that holds a database or cloud secret runs `pnpm install --frozen-lockfile` (dependency lifecycle scripts) and third-party actions pinned by tag before the step that uses the secret, so install-time code could read or misuse it.
   evidence: Surfaced by Blind Hunter on the new export workflow, which follows the same pattern as `merge-twin-profiles.yml` and the backfill workflows (the older ones hold the full-privilege `DATABASE_URL`). Fix across all workflows: `pnpm install --ignore-scripts` where the build allows it, pin actions by commit SHA, and keep secrets out of any step that runs before the install.
+
+## Deferred from: bmad-quick-dev split of spec-reextract-read-all-slide-images (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
+  summary: Moderator Apply for re-extract: apply the previewed extraction in one transaction so a post first stored as one event becomes a roundup linked to several events, reusing the post's existing events (id, slug, favorites, calendar entries survive) as stubs and ingesting the rest as new stub events.
+  evidence: Split from the slide-image fix at the multi-goal check: the fix is shippable alone, and Apply is only reliable once every slide is read, while Apply is the only write path (AD-40 amendment, shared ingestion write function, `(post, ordinal)` unique handling, an undo question). The design draft is `_bmad-output/specs/reextract-apply-roundup/DESIGN.md`.

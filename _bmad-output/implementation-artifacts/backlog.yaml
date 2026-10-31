@@ -2679,3 +2679,20 @@ items:
      ref: [implementation-artifacts/deferred-work.md, .github/workflows/merge-twin-profiles.yml],
      touches: [app:infrastructure, cross:process],
      note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Install with --ignore-scripts where possible and pin actions by SHA. 1 finding."}
+
+  # ── 2026-10-31 (bmad-quick-dev: re-extract preview of a carousel roundup showed only the first image's events) ──
+  BUG-097:
+    {type: bug, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
+     title: "Moderator re-extract preview drops carousel slides: expired image URLs, cover failure skips slides, scraped slides discarded",
+     ref: [implementation-artifacts/spec-reextract-read-all-slide-images.md, apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/backend/src/lib/ai-processor/build-gemini-request.ts],
+     touches: [app:backend, pkg:domain, web:moderation, cross:ai-extraction],
+     note: "Found 2026-10-31 on a prod roundup whose later-slide events were missing from the preview. Spec drafted, not built; the cause on that exact post is unconfirmed (no prod read access in the session)."}
+
+  IDEA-103:
+    {type: idea, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: m,
+     title: "Moderator Apply for re-extract: turn a post stored as one event into a roundup linked to several events",
+     ref: [implementation-artifacts/deferred-work.md, specs/reextract-apply-roundup/DESIGN.md],
+     touches: [app:backend, pkg:domain, web:moderation, cross:architecture],
+     note: "Deferred from: bmad-quick-dev split of spec-reextract-read-all-slide-images (2026-10-31). Needs BUG-097 first; amends AD-40 Rule 1 (preview-only). 1 finding."}

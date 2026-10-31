@@ -1,15 +1,10 @@
----
-title: 'Re-extract: read every slide, and a moderator Apply that turns a post into a roundup'
-type: 'feature'
-created: '2026-10-31'
-status: 'draft'
-review_loop_iteration: 0
-context:
-  - '{project-root}/_bmad-output/project-context.md'
-  - '{project-root}/_bmad-output/implementation-artifacts/spec-moderator-reextract-post-preview.md'
----
+# Design seed: moderator Apply for re-extract (turn a post into a roundup)
 
-<frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
+Status: deferred (split from `implementation-artifacts/spec-reextract-read-all-slide-images.md` on 2026-10-31).
+Not approved, not frozen: a starting draft for a future `bmad-quick-dev` run, to be re-validated against the code then.
+Depends on the slide-image fix landing first (Apply is only reliable once every slide is read).
+The slide-image parts of the draft below are now specified in that spec; read them as context only.
+
 
 ## Intent
 
@@ -44,7 +39,6 @@ context:
 | Re-apply | job already applied | returns the stored summary, writes nothing | N/A |
 | Stale or foreign | job > 30 min, not owner's, preview failed, post not stored | no writes | `NOT_FOUND` / `EXPIRED` / `NOT_STORED` |
 
-</frozen-after-approval>
 
 ## Code Map
 
