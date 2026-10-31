@@ -2608,11 +2608,19 @@ items:
   # ── 2026-10-30 (moderator dedup queue: AI-assisted review, pieces B and C of the split spec) ──
   FIND-107:
     {type: finding, status: backlog, created: 2026-10-30,
-     impact: internal, effort: m, blocks: [FIND-104],
-     title: "AI dedup review piece B: export and apply workflows, domain contract, dedicated moderator, new AD and PRD amendment",
+     impact: internal, effort: m, blocks: [FIND-108],
+     title: "AI dedup review piece B1: read-only export workflow, evidence contract and evidence hash",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
-     touches: [app:backend, app:infrastructure, web:moderation, cross:architecture, cross:prd, cross:process],
+     touches: [app:backend, app:infrastructure, pkg:domain, cross:process],
      note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs Piece A (shared resolveSuggestedMatch) first; requirements in DESIGN.md section 5. 1 finding."}
+
+  FIND-108:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: internal, effort: m, blocks: [FIND-104],
+     title: "AI dedup review piece B2: apply workflow, decision validator and floor, dedicated environment, new AD and PRD amendment",
+     ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
+     touches: [app:backend, app:infrastructure, pkg:domain, web:moderation, cross:architecture, cross:prd, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31). Needs FIND-107 (export) first; requirements in DESIGN.md section 5. 1 finding."}
 
   FIND-104:
     {type: finding, status: backlog, created: 2026-10-30,
