@@ -1,0 +1,17 @@
+/bmad-prd
+
+Background: a production investigation on 2026-10-19 found that named programmes (for example Sleman City Hall "8th Anniversary: REBORN") are stored three inconsistent ways and cannot be grouped, and that the existing duplicate matcher has about 5% recall. This is a planning ritual in a three-step sequence (architecture, then epic formation, then PRD update); you are running one step of it.
+
+Read first, in this order:
+1. _bmad-output/planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md -- the evidence. Its section 7 (options A/B/C) is a proposal, NOT a decision.
+2. Backlog rows IDEA-084 (Event groups), IDEA-085 (Raise the duplicate matcher's recall), BUG-068 (location_details stored as a JSON string) and FIND-091 (production snapshot) in _bmad-output/implementation-artifacts/backlog.yaml. Related rows: BUG-066, BUG-063, BUG-064, IDEA-073, IDEA-081, IDEA-074.
+3. _bmad-output/project-context.md and the PRD (_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, section 3.7, especially the Multi-Event Posts bullet, FR113).
+
+Rules for this run:
+- Planning isolation: write only under _bmad-output/. Do not modify application source code, migrations or tests.
+- Do not connect to production or any database. Every number you need is in the write-up; if you need a fact it does not contain, mark it as unverified rather than guessing or querying. The mechanism behind BUG-068's double-encoding is an unverified hypothesis; treat it as a constraint to verify, not as a fact.
+- Do not commit or push. Leave the working tree for the user to review.
+- Real design decisions belong to the user: ask them with AskUserQuestion (batch related questions, give a recommendation first). Do not decide silently, and do not re-ask what the write-up or the existing spine already settles.
+- Pair every story, backlog or AD ID you write with a short title, because the user reads on mobile.
+
+Your step (3 of 3): use the update intent on the existing PRD to add the event-group concept, reconciling it with the architecture decision AD-36 in _bmad-output/planning-artifacts/festgrid-architecture-spine.md and the epic produced by the formation step (read _bmad-output/planning-artifacts/epic-formation/ for the newest formation document). The Multi-Event Posts bullet in section 3.7 (FR113) currently says a post may advertise several distinct events; it does not say that distinct events may belong to a named programme, that groups are suggested and confirmed, or how groups relate to duplicates (a merge) and schedules. Add that at requirements level only (no implementation detail), with the next free FR number and the PRD's own dated "(added 2026-10-19; ...)" convention. If AD-36 or the formation document is missing, stop and say so. Do not edit any file other than the PRD (and its validation artifacts only if the skill requires them).

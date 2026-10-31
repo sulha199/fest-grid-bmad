@@ -3,7 +3,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import { Resolvers, type EventFilter, type FilterNode, type UnprocessedPayloadSource } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts, eventSlugAliases, eventMatchCandidates, eventMerges } from '@festgrid/database';
-import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
+import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames, buildPastCutoffDateSql } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator, type GraphQLContext } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt, gte, lte, isNull, isNotNull, ilike, type SQL } from 'drizzle-orm';
@@ -30,7 +30,7 @@ import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../l
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError, type GraphQLResolveInfo } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
 import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression, expressionFromFlatFilter, isFilterGroupNode } from '@festgrid/domain/ai-event-filters';
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import type { EventFilterInput } from '@festgrid/domain/events';
@@ -110,6 +110,14 @@ function assertValidFlatFilter(filter: unknown): void {
  * error and assert it propagates. Follows the repo's setter-based seam
  * convention (e.g. `setSendSqsMessage`). Defaults to the real `requireAuth`.
  */
+// The request's "now". Tests pin it through `context.now` (honored only when NODE_ENV === 'test',
+// never exposed as GraphQL input, so a real client cannot influence it) so a time-of-day boundary --
+// the TODAY `!ended` rule, the BUG-096 past-event cutoff -- can be asserted deterministically.
+function resolveRequestNow(context: GraphQLContext): Date {
+  const pinned = (context as GraphQLContext & { now?: Date })?.now;
+  return process.env.NODE_ENV === 'test' && pinned instanceof Date ? pinned : new Date();
+}
+
 export let eventsAuthProbe = requireAuth;
 export function setEventsAuthProbe(fn: typeof requireAuth): void {
   eventsAuthProbe = fn;
@@ -3374,17 +3382,15 @@ export const resolvers: Resolvers = {
         hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
       }
 
-      // Compute threshold precisely matching buildDefaultEventVisibilityConditions --
-      // both now use the shared computePastEventThreshold helper (Story 0.36 AC6).
+      // The one captured `now` for this request. `buildDefaultEventVisibilityConditions` and the
+      // `isPastEvent` expression below both take their cutoff from this instant, in each
+      // schedule's own timezone (BUG-096, `buildPastCutoffDateSql`), so they stay complements.
       // Story 0.i5d Task 3: allow tests to pin `now` via `context.now` so the TODAY
       // temporal-filter's `!ended` boundary can be asserted deterministically against the
       // shared `ended-cases` fixture. Only honored in test builds -- never exposed as GraphQL
       // input, so this cannot be influenced by a real client request.
-      const now =
-        process.env.NODE_ENV === 'test' && (context as GraphQLContext & { now?: Date })?.now instanceof Date
-          ? (context as GraphQLContext & { now: Date }).now
-          : new Date();
-      const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
+      const now = resolveRequestNow(context);
+      const pastCutoff = { instant: now.toISOString(), hidePastEventsAfterDays };
 
       // Story 2.7 — the display/sort key uses the next-upcoming schedule,
       // defined as one whose (end ?? start) date is today or later (UTC),
@@ -3500,6 +3506,9 @@ export const resolvers: Resolvers = {
           startCol: schedules.eventStartDate,
           endCol: schedules.eventEndDate,
           applicableDaysOfWeekCol: schedules.applicableDaysOfWeek,
+          // BUG-096: lets the default-visibility `overlaps` cutoff read each schedule's own zone.
+          timezoneCol: schedules.timezone,
+          timezoneStatusCol: schedules.timezoneStatus,
         },
         // Story 0.i5d (AD-20 Rule 2/4) -- the TODAY temporal-filter bucket's `!ended` boundary.
         // Extends the same fieldMap-descriptor-to-EXISTS-subquery pattern `scheduleDateRange`
@@ -3559,7 +3568,7 @@ export const resolvers: Resolvers = {
               eq(reports.eventId, events.id)
             ))
         ) : sql`false`,
-        isPastEvent: sql`NOT EXISTS (SELECT 1 FROM ${schedules} WHERE ${schedules.eventId} = ${events.id} AND daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${threshold}::date, NULL, '[]'))`,
+        isPastEvent: sql`NOT EXISTS (SELECT 1 FROM ${schedules} WHERE ${schedules.eventId} = ${events.id} AND daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${buildPastCutoffDateSql(pastCutoff, schedules.timezone, schedules.timezoneStatus)}, NULL, '[]'))`,
         isHiddenByModeration: sql`(${events.deletedAt} IS NOT NULL)`
       };
 
@@ -5016,15 +5025,15 @@ export const resolvers: Resolvers = {
 
         // Own independent `now()` capture — this is a separate resolver invocation/request,
         // not sharing Query.events' request lifecycle (Story 0.36 AC7 Dev Notes).
-        const now = new Date();
-        const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
+        const now = resolveRequestNow(context);
+        const pastCutoff = { instant: now.toISOString(), hidePastEventsAfterDays };
 
         // Negated past-event overlaps check
         const rows = await db.select({ id: schedules.id })
           .from(schedules)
           .where(and(
             eq(schedules.eventId, parent.id),
-            sql`daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${threshold}::date, NULL, '[]')`
+            sql`daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${buildPastCutoffDateSql(pastCutoff, schedules.timezone, schedules.timezoneStatus)}, NULL, '[]')`
           ));
         return rows.length === 0;
       } catch {

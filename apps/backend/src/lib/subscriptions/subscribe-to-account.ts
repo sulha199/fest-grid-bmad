@@ -2,7 +2,7 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
 import { and, eq, isNull, lt, or } from 'drizzle-orm';
 import { activeOnly } from '@festgrid/graphql-select';
-import { ScraperCapacityExceededError, ScrapablePlatform, isScrapableAccountType, resolveScrapeHandle } from '@festgrid/domain';
+import { HISTORY_SEED_LOOKBACK_DAYS, ScraperCapacityExceededError, ScrapablePlatform, isScrapableAccountType, resolveScrapeHandle } from '@festgrid/domain';
 import { verifyAccountProfileForDiscovery } from '../accounts/verify-account-profile-for-discovery.js';
 import { computeClaimCutoff } from '@festgrid/domain/shared';
 import { loadBackendEnv } from '../../env.js';
@@ -172,7 +172,7 @@ export async function subscribeToAccount({
             isInitialNewSubscription: true,
           };
 
-          const newerThan = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const newerThan = new Date(Date.now() - HISTORY_SEED_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
           await triggerScrapeForAccount(scrapeTarget, newerThan);
         }
       }

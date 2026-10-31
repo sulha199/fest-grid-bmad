@@ -1,5 +1,5 @@
 {
-  "id": "b5e6135f-0eff-4907-a6b9-c84e86ba6697",
+  "id": "d8a05afa-d1a2-4cd7-86be-f6458ae8ab89",
   "prevId": "ef48843c-5d4b-4c37-98ab-c9e36a5a9a3e",
   "version": "6",
   "dialect": "postgresql",
@@ -1287,6 +1287,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "resolved_via": {
+          "name": "resolved_via",
+          "type": "resolution_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1418,6 +1425,14 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "performed_via": {
+          "name": "performed_via",
+          "type": "resolution_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'moderator'"
         },
         "loser_prior_slug": {
           "name": "loser_prior_slug",
@@ -2947,98 +2962,6 @@
           ]
         }
       }
-    },
-    "public.profile_lookup_attempts": {
-      "name": "profile_lookup_attempts",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "purpose": {
-          "name": "purpose",
-          "type": "profile_lookup_purpose",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "handle": {
-          "name": "handle",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "vendor": {
-          "name": "vendor",
-          "type": "scraper_run_vendor",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "profile_lookup_outcome",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "budget_ms": {
-          "name": "budget_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "duration_ms": {
-          "name": "duration_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "error_message": {
-          "name": "error_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_profile_lookup_attempts_created_at": {
-          "name": "idx_profile_lookup_attempts_created_at",
-          "columns": [
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "idx_profile_lookup_attempts_vendor_outcome": {
-          "name": "idx_profile_lookup_attempts_vendor_outcome",
-          "columns": [
-            "vendor",
-            "outcome"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
     },
     "public.prompt_filter_rate_limits": {
       "name": "prompt_filter_rate_limits",
@@ -4687,25 +4610,6 @@
         "roundup"
       ]
     },
-    "public.profile_lookup_outcome": {
-      "name": "profile_lookup_outcome",
-      "schema": "public",
-      "values": [
-        "FOUND",
-        "NOT_FOUND",
-        "FAILED",
-        "TIMED_OUT",
-        "SKIPPED"
-      ]
-    },
-    "public.profile_lookup_purpose": {
-      "name": "profile_lookup_purpose",
-      "schema": "public",
-      "values": [
-        "LOOKUP",
-        "CLASSIFICATION"
-      ]
-    },
     "public.report_reason": {
       "name": "report_reason",
       "schema": "public",
@@ -4722,6 +4626,14 @@
         "pending",
         "upheld",
         "dismissed"
+      ]
+    },
+    "public.resolution_source": {
+      "name": "resolution_source",
+      "schema": "public",
+      "values": [
+        "moderator",
+        "ai_skill"
       ]
     },
     "public.schedule_timezone_status": {
