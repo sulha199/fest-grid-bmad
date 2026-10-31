@@ -134,6 +134,22 @@ test('the resolver resolves a suggestion through resolveSuggestedMatch() and doe
   assert.ok(!/\bmergeEvents\b/.test(source), 'resolvers.ts must not reference mergeEvents (not even an aliased import); accept goes through resolveSuggestedMatch()');
 });
 
+// `resolved_via` / `performed_via` say whether a person or the AI reviewer decided. Only server code (the apply script)
+// may pass `via`; the moderator mutation must leave it at the default, so no GraphQL client can claim `ai_skill`.
+const VIA_MARKERS = /\bvia\s*[:,}]|\[\s*['"`]via['"`]\s*\]|\bai_skill\b|\bresolvedVia\b|\bperformedVia\b|\bresolved_via\b|\bperformed_via\b/;
+
+test('the GraphQL resolvers never pass or write the dedup `via` flag', () => {
+  const source = stripComments(readFileSync(RESOLVERS_FILE, 'utf8'));
+
+  assert.ok(!VIA_MARKERS.test(source), 'resolvers.ts must not pass via, ai_skill, resolvedVia or performedVia: the flag is set by server-side callers of resolveSuggestedMatch() only');
+  assert.ok(VIA_MARKERS.test('resolveSuggestedMatch(tx, { id, action, moderatorId, via: input.via })'), 'a via argument is caught');
+  assert.ok(VIA_MARKERS.test("set({ resolvedVia: 'ai_skill' })"), 'a direct write is caught');
+  assert.ok(VIA_MARKERS.test('resolveSuggestedMatch(tx, { id, action, moderatorId, via })'), 'the shorthand property is caught');
+  assert.ok(VIA_MARKERS.test("resolveSuggestedMatch(tx, { id, action, moderatorId, ['via']: x })"), 'a computed key is caught');
+  assert.ok(VIA_MARKERS.test('await tx.execute(sql`update event_merges set performed_via = 1`)'), 'raw SQL naming the column is caught');
+  assert.ok(!VIA_MARKERS.test('resolveSuggestedMatch(tx, { id, action, moderatorId: moderator.userId })'), 'the mutation as written passes');
+});
+
 test('the expiry writer only closes rows that are still pending', () => {
   const source = stripComments(readFileSync(EXPIRY_WRITER, 'utf8'));
 

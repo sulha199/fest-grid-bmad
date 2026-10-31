@@ -1,6 +1,6 @@
 {
-  "id": "18eea494-652b-4b1c-8f89-549f6bc064ad",
-  "prevId": "6d202555-7195-4f55-9e6c-0d26ca0c408b",
+  "id": "b5f2a3ac-55e8-49b2-a0f6-6e44e8c17636",
+  "prevId": "d8a05afa-d1a2-4cd7-86be-f6458ae8ab89",
   "version": "6",
   "dialect": "postgresql",
   "tables": {
@@ -1287,6 +1287,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "resolved_via": {
+          "name": "resolved_via",
+          "type": "resolution_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1418,6 +1425,14 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "performed_via": {
+          "name": "performed_via",
+          "type": "resolution_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'moderator'"
         },
         "loser_prior_slug": {
           "name": "loser_prior_slug",
@@ -3397,30 +3412,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "records_reported": {
-          "name": "records_reported",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "errors_reported": {
-          "name": "errors_reported",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "error_codes": {
-          "name": "error_codes",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "new_posts": {
-          "name": "new_posts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "error_message": {
           "name": "error_message",
           "type": "text",
@@ -4641,6 +4632,14 @@
         "pending",
         "upheld",
         "dismissed"
+      ]
+    },
+    "public.resolution_source": {
+      "name": "resolution_source",
+      "schema": "public",
+      "values": [
+        "moderator",
+        "ai_skill"
       ]
     },
     "public.schedule_timezone_status": {
