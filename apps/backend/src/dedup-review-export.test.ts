@@ -36,7 +36,7 @@ test('dedup-review-export CLI arguments', async (t) => {
     const dbError = Object.assign(new Error('password authentication failed for user "secret_role" at db.private-host.example'), { code: '28P01' });
     const text = describeFailure(dbError);
     assert.match(text, /^Export failed: Error \(28P01\)\./);
-    assert.match(text, /Likely cause: authentication failed; check the DEDUP_REVIEW_READONLY_DATABASE_URL secret/);
+    assert.match(text, /Likely cause: authentication failed; check the database secret this run uses/);
     assert.ok(!text.includes('secret_role') && !text.includes('private-host'), 'the error message is not printed');
     assert.match(describeFailure('a plain string'), /^Export failed: Error\./);
     assert.match(describeFailure(null), /^Export failed: Error\./);

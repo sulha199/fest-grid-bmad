@@ -46,7 +46,7 @@ export interface BuildDedupReviewExportOptions {
   scanCap?: number;
   /** Tests only: how many resolved suggestions to list (default `DEDUP_REVIEW_RECENT_LIMIT`). */
   recentLimit?: number;
-  /** Tests only: restricts the scan to these suggestions (the shared dev DB holds others). */
+  /** Restricts the scan to these suggestions (tests: the shared dev DB holds others). */
   onlySuggestionIds?: string[];
 }
 
@@ -68,6 +68,26 @@ export async function runInReadOnlyTransaction<T>(database: Pick<typeof appDb, '
     await tx.execute(sql`SET LOCAL search_path TO public, extensions`);
     return work(tx);
   });
+}
+
+/**
+ * Runs `work` in a transaction that may write (the apply script's `apply` mode), at the isolation
+ * level the moderator's own mutation uses, `READ COMMITTED`: a merge reads and repoints rows that other
+ * writers keep changing, and a long snapshot would hide their newest rows from it (see the apply
+ * spec). It sets the same search path as the read-only wrapper, for the same reason.
+ */
+export async function runInWriteTransaction<T>(database: Pick<typeof appDb, 'transaction'>, work: (tx: Parameters<Parameters<typeof appDb.transaction>[0]>[0]) => Promise<T>): Promise<T> {
+  return database.transaction(
+    async (tx) => {
+      await tx.execute(sql`SET LOCAL search_path TO public, extensions`);
+      // A run that waits on a stuck moderator transaction or on another apply run must fail, not hang
+      // holding locks until the job's own timeout.
+      await tx.execute(sql`SET LOCAL lock_timeout = '15s'`);
+      await tx.execute(sql`SET LOCAL statement_timeout = '120s'`);
+      return work(tx);
+    },
+    { isolationLevel: 'read committed' }
+  );
 }
 
 /**
@@ -149,7 +169,15 @@ async function loadEventEvidence(executor: DbExecutor, eventId: string): Promise
   };
 }
 
-async function buildPair(executor: DbExecutor, evaluation: BacklogEvaluation): Promise<DedupReviewExportPair> {
+/**
+ * One pair's evidence as the export prints it, plus what the apply side needs and the evidence does
+ * not carry: both event ids (to claim them for one run) and the live scoring's venue conflict (the
+ * evidence has no coordinates, so it cannot be derived from it).
+ */
+export async function buildDedupReviewPair(
+  executor: DbExecutor,
+  evaluation: BacklogEvaluation
+): Promise<{ pair: DedupReviewExportPair; candidateEventId: string; newEventId: string; venueConflict: boolean }> {
   const candidate = await loadEventEvidence(executor, evaluation.candidate.id);
   const newEvent = await loadEventEvidence(executor, evaluation.newEvent.id);
   const [{ undone }] = await executor
@@ -181,7 +209,12 @@ async function buildPair(executor: DbExecutor, evaluation: BacklogEvaluation): P
     newEvent: newEvent.evidence,
   };
 
-  return { ...evidence, evidenceHash: hashDedupReviewEvidence(evidence) };
+  return {
+    pair: { ...evidence, evidenceHash: hashDedupReviewEvidence(evidence) },
+    candidateEventId: evaluation.candidate.id,
+    newEventId: evaluation.newEvent.id,
+    venueConflict: d.venueConflict,
+  };
 }
 
 /**
@@ -247,7 +280,7 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
         staleCount++;
         continue;
       }
-      pairs.push(await buildPair(executor, evaluation));
+      pairs.push((await buildDedupReviewPair(executor, evaluation)).pair);
     }
   }
 

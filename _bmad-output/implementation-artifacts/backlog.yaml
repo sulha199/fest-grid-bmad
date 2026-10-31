@@ -2616,11 +2616,27 @@ items:
 
   FIND-108:
     {type: finding, status: backlog, created: 2026-10-31,
-     impact: internal, effort: m, blocks: [FIND-104],
-     title: "AI dedup review piece B2: apply workflow, decision validator and floor, dedicated environment, new AD and PRD amendment",
+     impact: internal, effort: m, blocks: [FIND-112],
+     title: "AI dedup review piece B2b-1: decision validator, floor and caps in packages/domain, and the apply script",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
-     touches: [app:backend, app:infrastructure, pkg:domain, web:moderation, cross:architecture, cross:prd, cross:process],
-     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31); re-scoped at bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31). Needs the resolved_via flag (B2a) first; see DESIGN.md section 5."}
+     touches: [app:backend, pkg:domain, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31); re-scoped at bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31). The resolved_via flag (B2a) is done; this is the engine."}
+
+  FIND-112:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: internal, effort: m, blocks: [FIND-104],
+     title: "AI dedup review piece B2b-2: apply workflow, credentials, kill switch, new AD, PRD amendment and runbook",
+     ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
+     touches: [app:infrastructure, cross:architecture, cross:prd, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-apply-engine (2026-10-31). Needs the apply script (FIND-108) on master; the write secret name is the owner's call."}
+
+  FIND-113:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
+     title: "undoEventMerge does not refuse when the winner or loser has a later live merge",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/events/merge-events.ts],
+     touches: [app:backend, web:moderation],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-engine (2026-10-31). Pre-existing; an automated apply makes it likelier. 1 finding."}
 
   FIND-104:
     {type: finding, status: backlog, created: 2026-10-30,
