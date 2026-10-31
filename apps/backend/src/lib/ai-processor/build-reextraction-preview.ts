@@ -3,6 +3,7 @@ import { eventPosts, events, posts, socialMediaAccountProfiles } from '@festgrid
 import { assignExtractionOrdinals } from '@festgrid/domain';
 import type { GeminiEventPayload } from '@festgrid/domain/events';
 import { transformGeminiResponseToEventInfo } from '@festgrid/domain/events';
+import { matchesChildrensDataKeywordFilter } from '@festgrid/domain/events';
 import { parsePlatformPostIdentity } from '@festgrid/domain/scraper';
 import type { ProcessingJobMessage, ReextractionPreviewResult } from '@festgrid/domain/posts';
 import type { DbExecutor } from '../events/set-event-primary-post.js';
@@ -16,6 +17,8 @@ import { evaluateIngestionMatch, type IngestionSourcePost } from '../ingestor/ev
 export interface ReextractionPayload {
   events: GeminiEventPayload[];
   groupingReason?: string | null;
+  /** The post-level headline the model reported (`posts.title`), kept for Apply. */
+  postTitle?: string | null;
 }
 
 export interface BuildReextractionPreviewInput {
@@ -30,7 +33,8 @@ export interface BuildReextractionPreviewInput {
   imagesSent: number;
 }
 
-async function loadSourcePost(executor: DbExecutor, postId: string): Promise<IngestionSourcePost | null> {
+/** The post as ingestion sees it (with the in-memory platform-identity healing, minus the write). Shared with Apply. */
+export async function loadSourcePost(executor: DbExecutor, postId: string): Promise<IngestionSourcePost | null> {
   const [row] = await executor
     .select({
       accountId: posts.accountId,
@@ -129,5 +133,13 @@ export async function buildReextractionPreview(input: BuildReextractionPreviewIn
     imagesAvailable: input.imagesAvailable,
     imagesSent: input.imagesSent,
     events: previewEvents,
+    // AD-40 (Apply): what a later Apply needs, with the one caption-derived fact computed now, while
+    // the caption exists. The caption itself is never kept.
+    extracted: {
+      events: keptEvents,
+      groupingReason: payload.groupingReason ?? null,
+      postTitle: payload.postTitle?.trim().slice(0, 200) || null,
+      childrensDataMatch: matchesChildrensDataKeywordFilter(message.content),
+    },
   };
 }

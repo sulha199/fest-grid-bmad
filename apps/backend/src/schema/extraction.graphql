@@ -8,6 +8,9 @@ enum ExtractionErrorCode {
   RATE_LIMITED # a rescrape of this post URL was done in the last 10 minutes (AD-40)
   ACCOUNT_NOT_SCRAPABLE # the post's account is personal or still awaiting classification (AD-34)
   SCRAPE_IN_PROGRESS # another request is fetching this post URL right now (FIND-110)
+  EXPIRED # a preview is too old to apply (AD-40 Apply)
+  NOT_STORED # a preview of a post that is not in the database cannot be applied (AD-40 Apply)
+  APPLY_FAILED # the apply was rolled back; nothing changed (AD-40 Apply)
 }
 
 type ProposedScheduleCorrectionData {
@@ -136,7 +139,44 @@ type ReextractionPreviewEvent {
   dedup: ReextractionPreviewDedup!
 }
 
+# AD-40 (Apply) -- what an apply did. Every list names events by slug.
+type ApplyReextractionEventRef {
+  slug: String!
+  eventName: String!
+}
+
+type ApplyReextractionPlacedEvent {
+  slug: String!
+  eventName: String!
+  ordinal: Int!
+}
+
+type ApplyReextractionSummary {
+  groupingReason: PostGroupingReason
+  # Events the post already had, now continuing an extracted item (same id and slug).
+  reused: [ApplyReextractionPlacedEvent!]!
+  # New stub events linked to the post.
+  created: [ApplyReextractionPlacedEvent!]!
+  # Items a high-confidence dedup match folded into an event of another post.
+  linkedToExisting: [ApplyReextractionEventRef!]!
+  queuedForReview: Int!
+  # Items that matched an event a moderator deleted: not recreated.
+  skippedDeleted: Int!
+  # Live events of the post that no item matched: untouched.
+  orphans: [ApplyReextractionEventRef!]!
+}
+
+type ApplyPostReextractionResult {
+  summary: ApplyReextractionSummary
+  errorCode: ExtractionErrorCode
+  errorMessage: String
+}
+
 type PostReextractionPreview {
+  # True while a moderator can still apply this preview (stored post, extraction kept, not applied, not too old).
+  applicable: Boolean!
+  # Set once this preview has been applied.
+  applied: ApplyReextractionSummary
   groupingReason: PostGroupingReason
   # False for a URL that is not in our database: the dedup outcome then has no account signal.
   postStored: Boolean!
@@ -175,4 +215,8 @@ extend type Mutation {
   # AD-40 -- moderator only, preview only (writes nothing to events/schedules/posts). Give exactly
   # one of postId or url. Rescrapes when the post's caption is not stored or its image links have expired.
   previewPostReextraction(postId: ID, url: String): StartPostReextractionPreviewResult!
+  # AD-40 (Apply) -- moderator only. Applies the exact previewed extraction in one transaction: the
+  # post's grouping is rewritten, its existing events are reused (same id and slug) as stubs, the other
+  # items become new stub events. Once per preview; a second call returns the first result.
+  applyPostReextraction(jobId: ID!): ApplyPostReextractionResult!
 }

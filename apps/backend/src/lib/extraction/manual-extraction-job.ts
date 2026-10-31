@@ -61,6 +61,8 @@ export interface ManualExtractionJobStatusResult {
   data: unknown | null;
   errorCode: string | null;
   errorMessage: string | null;
+  /** When the job ended (AD-40 Apply reads it for the 30-minute apply window). */
+  completedAt: Date | null;
 }
 
 /**
@@ -101,7 +103,7 @@ export async function getManualExtractionJobStatus(
       .returning({ id: manualExtractionJobs.id });
     if (updated.length > 0) {
       await blankManualJobPayloadContent(jobId);
-      return { mode: jobMode(job), status: 'FAILED', data: null, errorCode: 'EXTRACTION_FAILED', errorMessage };
+      return { mode: jobMode(job), status: 'FAILED', data: null, errorCode: 'EXTRACTION_FAILED', errorMessage, completedAt: now };
     }
     return getManualExtractionJobStatus(jobId, userId, now);
   }
@@ -112,5 +114,6 @@ export async function getManualExtractionJobStatus(
     data: job.status === 'SUCCEEDED' ? (job.resultData ?? null) : null,
     errorCode: job.errorCode,
     errorMessage: job.errorMessage,
+    completedAt: job.completedAt ?? null,
   };
 }

@@ -156,6 +156,12 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
     assert.strictEqual(preview.events[0].dedup.tier, 'mid');
     assert.strictEqual(preview.events[0].dedup.candidateSlug, candidate.slug);
     assert.strictEqual(preview.events[0].alreadyRepresentedBySlug, null);
+    // What a later Apply needs is kept on the job; the caption is not.
+    assert.ok(preview.extracted, 'the extraction is kept for Apply');
+    assert.strictEqual(preview.extracted.events.length, 1);
+    assert.strictEqual(preview.extracted.groupingReason, 'single-event');
+    assert.strictEqual(preview.extracted.childrensDataMatch, false);
+    assert.ok(!JSON.stringify(row.resultData).includes('The caption to extract'), 'the caption is never stored in the result');
     assert.deepStrictEqual(await fixtureCounts(), before, 'preview must not write events/schedules/event_posts');
     const [stored] = await db.select({ content: posts.content }).from(posts).where(eq(posts.id, post.id));
     assert.strictEqual(stored.content, 'The caption to extract', 'a non-curator post keeps its stored content');

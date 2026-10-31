@@ -110,6 +110,37 @@ export async function setEventPrimaryPost(executor: DbExecutor, params: SetEvent
 }
 
 /**
+ * Parking ordinals for a re-numbering (the moderator re-extract Apply, AD-40). `events` has a CHECK
+ * (`events_post_id_extraction_ordinal_check`): a non-null `post_id` needs a non-null ordinal, so an
+ * event cannot be parked at `NULL`; it is parked at one of these instead. Far above any real ordinal
+ * (a post is capped at ~10 events) and inside `smallint`.
+ */
+export const PARKED_ORDINAL_BASE = 30_000;
+
+/**
+ * Moves one event's `(post, extraction_ordinal)` slot: the `event_posts` row and, when this post is
+ * the event's primary, `events.extraction_ordinal`, in one call, so the two tables stay consistent
+ * (the check below). Both are unique on `(post_id, extraction_ordinal)`, so a re-numbering that could
+ * collide with a sibling's slot first parks each moving event at a distinct `PARKED_ORDINAL_BASE + n`
+ * and then sets the real ordinals.
+ */
+export async function setEventPostOrdinal(
+  executor: DbExecutor,
+  params: { eventId: string; postId: string; extractionOrdinal: number }
+): Promise<void> {
+  await executor
+    .update(eventPosts)
+    .set({ extractionOrdinal: params.extractionOrdinal })
+    .where(and(eq(eventPosts.eventId, params.eventId), eq(eventPosts.postId, params.postId)));
+
+  // Only the primary post's ordinal lives on the event row itself.
+  await executor
+    .update(events)
+    .set({ extractionOrdinal: params.extractionOrdinal })
+    .where(and(eq(events.id, params.eventId), eq(events.postId, params.postId)));
+}
+
+/**
  * AD-30 Rule 2's consistency check: every non-null `events.postId` must have a matching
  * `event_posts` row with an equal `extractionOrdinal`. Returns the list of offending event ids
  * (empty when consistent) -- a direct query, not a DB-level constraint, since Drizzle cannot

@@ -13,7 +13,7 @@ import {
   isThumbnailStillRelevant,
 } from '@festgrid/domain';
 import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
-import { resolveScheduleTimezones } from './resolve-schedule-timezones.js';
+import { buildExtractedEventMessage } from './build-extracted-event-message.js';
 import { markPostExtracted as defaultMarkPostExtracted } from '../posts/mark-post-extracted.js';
 import { sendSqsMessageWithRetry } from '../aws/send-sqs-message-with-retry.js';
 import { processIngestionJob } from '../ingestor/process-ingestion-job.js';
@@ -255,19 +255,6 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
 
-    const {
-      sourceSocialMediaAccountId,
-      defaultLocation,
-      resolvedScheduleLocations
-    } = await resolveAccountAndLocations(message.accountId, event.schedules, event.location);
-
-    const scheduleTimezoneResolutions = await resolveScheduleTimezones(
-      event.schedules,
-      resolvedScheduleLocations,
-      subscriberUserIds,
-      defaultLocation?.timezone
-    );
-
     // Story 0.52 (AD-44 Rule 10), extended by Story 0.54 (AD-44 Rule 2/10): inspect the RAW
     // (pre-transform) category list -- already AJV-enum-validated by this point (see this file's
     // own isValid check above), so the only way it's empty is a genuinely empty model response,
@@ -292,12 +279,12 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       }
     }
 
-    const eventMessage = transformGeminiResponseToEventInfo(event, {
+    // Location + timezone resolution and the transform live in buildExtractedEventMessage, shared
+    // with the moderator re-extract Apply (AD-40).
+    const { eventMessage, defaultLocation } = await buildExtractedEventMessage(event, {
       postId: message.postId,
-      sourceSocialMediaAccountId,
-      defaultLocation,
-      resolvedScheduleLocations,
-      scheduleTimezoneResolutions,
+      accountId: message.accountId,
+      subscriberUserIds,
       sourcePostText: message.content
     });
     eventMessages.push(eventMessage);

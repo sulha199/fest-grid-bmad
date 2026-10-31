@@ -143,7 +143,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
       const previewEvents = payload.isEvent === false || !Array.isArray(payload.events) ? [] : payload.events;
       const preview = await buildReextractionPreview({
         executor: db,
-        payload: { events: previewEvents, groupingReason: payload.groupingReason },
+        payload: { events: previewEvents, groupingReason: payload.groupingReason, postTitle: payload.postTitle },
         message,
         postStored: job.requestPayload.postStored ?? Boolean(existingPostAccountId),
         rescraped: job.requestPayload.rescraped ?? false,

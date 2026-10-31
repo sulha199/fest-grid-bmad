@@ -114,6 +114,37 @@ export type ApiKey = {
   updatedAt: Scalars['String']['output'];
 };
 
+export type ApplyPostReextractionResult = {
+  __typename?: 'ApplyPostReextractionResult';
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  summary?: Maybe<ApplyReextractionSummary>;
+};
+
+export type ApplyReextractionEventRef = {
+  __typename?: 'ApplyReextractionEventRef';
+  eventName: Scalars['String']['output'];
+  slug: Scalars['String']['output'];
+};
+
+export type ApplyReextractionPlacedEvent = {
+  __typename?: 'ApplyReextractionPlacedEvent';
+  eventName: Scalars['String']['output'];
+  ordinal: Scalars['Int']['output'];
+  slug: Scalars['String']['output'];
+};
+
+export type ApplyReextractionSummary = {
+  __typename?: 'ApplyReextractionSummary';
+  created: Array<ApplyReextractionPlacedEvent>;
+  groupingReason?: Maybe<PostGroupingReason>;
+  linkedToExisting: Array<ApplyReextractionEventRef>;
+  orphans: Array<ApplyReextractionEventRef>;
+  queuedForReview: Scalars['Int']['output'];
+  reused: Array<ApplyReextractionPlacedEvent>;
+  skippedDeleted: Scalars['Int']['output'];
+};
+
 export type CastVoteInput = {
   accountId?: InputMaybe<Scalars['ID']['input']>;
   handleOrUrl?: InputMaybe<Scalars['String']['input']>;
@@ -411,8 +442,11 @@ export type ExtractEventDataFromUrlResult = {
 
 export type ExtractionErrorCode =
   | 'ACCOUNT_NOT_SCRAPABLE'
+  | 'APPLY_FAILED'
+  | 'EXPIRED'
   | 'EXTRACTION_FAILED'
   | 'NOT_FOUND'
+  | 'NOT_STORED'
   | 'NO_API_KEY'
   | 'QUOTA_EXHAUSTED'
   | 'RATE_LIMITED'
@@ -531,6 +565,7 @@ export type ModeratorAccountProfileFilters = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  applyPostReextraction: ApplyPostReextractionResult;
   castVote: AccountVote;
   clearAccountDefaultLocation: SocialMediaAccountProfile;
   createApiKey: ApiKey;
@@ -590,6 +625,11 @@ export type Mutation = {
   updateUserTimezone: Scalars['Boolean']['output'];
   updateWidget: Widget;
   withdrawVote: AccountVote;
+};
+
+
+export type MutationApplyPostReextractionArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -931,6 +971,8 @@ export type PostGroupingReason =
 
 export type PostReextractionPreview = {
   __typename?: 'PostReextractionPreview';
+  applicable: Scalars['Boolean']['output'];
+  applied?: Maybe<ApplyReextractionSummary>;
   events: Array<ReextractionPreviewEvent>;
   groupingReason?: Maybe<PostGroupingReason>;
   imagesAvailable: Scalars['Int']['output'];
@@ -1724,6 +1766,10 @@ export type ResolversTypes = ResolversObject<{
   ActorRunVendor: ActorRunVendor;
   AddressSuggestion: ResolverTypeWrapper<AddressSuggestion>;
   ApiKey: ResolverTypeWrapper<ApiKey>;
+  ApplyPostReextractionResult: ResolverTypeWrapper<ApplyPostReextractionResult>;
+  ApplyReextractionEventRef: ResolverTypeWrapper<ApplyReextractionEventRef>;
+  ApplyReextractionPlacedEvent: ResolverTypeWrapper<ApplyReextractionPlacedEvent>;
+  ApplyReextractionSummary: ResolverTypeWrapper<ApplyReextractionSummary>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   CastVoteInput: CastVoteInput;
   Coordinates: ResolverTypeWrapper<CoordinatesParent>;
@@ -1860,6 +1906,10 @@ export type ResolversParentTypes = ResolversObject<{
   ActorRunFilters: ActorRunFilters;
   AddressSuggestion: AddressSuggestion;
   ApiKey: ApiKey;
+  ApplyPostReextractionResult: ApplyPostReextractionResult;
+  ApplyReextractionEventRef: ApplyReextractionEventRef;
+  ApplyReextractionPlacedEvent: ApplyReextractionPlacedEvent;
+  ApplyReextractionSummary: ApplyReextractionSummary;
   Boolean: Scalars['Boolean']['output'];
   CastVoteInput: CastVoteInput;
   Coordinates: CoordinatesParent;
@@ -2016,6 +2066,37 @@ export type ApiKeyResolvers<ContextType = GraphQLContext, ParentType extends Res
   maskedKey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   provider?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   updatedAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ApplyPostReextractionResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ApplyPostReextractionResult'] = ResolversParentTypes['ApplyPostReextractionResult']> = ResolversObject<{
+  errorCode?: Resolver<Maybe<ResolversTypes['ExtractionErrorCode']>, ParentType, ContextType>;
+  errorMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  summary?: Resolver<Maybe<ResolversTypes['ApplyReextractionSummary']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ApplyReextractionEventRefResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ApplyReextractionEventRef'] = ResolversParentTypes['ApplyReextractionEventRef']> = ResolversObject<{
+  eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  slug?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ApplyReextractionPlacedEventResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ApplyReextractionPlacedEvent'] = ResolversParentTypes['ApplyReextractionPlacedEvent']> = ResolversObject<{
+  eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ordinal?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  slug?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ApplyReextractionSummaryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ApplyReextractionSummary'] = ResolversParentTypes['ApplyReextractionSummary']> = ResolversObject<{
+  created?: Resolver<Array<ResolversTypes['ApplyReextractionPlacedEvent']>, ParentType, ContextType>;
+  groupingReason?: Resolver<Maybe<ResolversTypes['PostGroupingReason']>, ParentType, ContextType>;
+  linkedToExisting?: Resolver<Array<ResolversTypes['ApplyReextractionEventRef']>, ParentType, ContextType>;
+  orphans?: Resolver<Array<ResolversTypes['ApplyReextractionEventRef']>, ParentType, ContextType>;
+  queuedForReview?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  reused?: Resolver<Array<ResolversTypes['ApplyReextractionPlacedEvent']>, ParentType, ContextType>;
+  skippedDeleted?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -2240,6 +2321,7 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
 }>;
 
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
+  applyPostReextraction?: Resolver<ResolversTypes['ApplyPostReextractionResult'], ParentType, ContextType, RequireFields<MutationApplyPostReextractionArgs, 'jobId'>>;
   castVote?: Resolver<ResolversTypes['AccountVote'], ParentType, ContextType, RequireFields<MutationCastVoteArgs, 'input'>>;
   clearAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationClearAccountDefaultLocationArgs, 'accountId'>>;
   createApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationCreateApiKeyArgs, 'input'>>;
@@ -2339,6 +2421,8 @@ export type PostConnectionResolvers<ContextType = GraphQLContext, ParentType ext
 }>;
 
 export type PostReextractionPreviewResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PostReextractionPreview'] = ResolversParentTypes['PostReextractionPreview']> = ResolversObject<{
+  applicable?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  applied?: Resolver<Maybe<ResolversTypes['ApplyReextractionSummary']>, ParentType, ContextType>;
   events?: Resolver<Array<ResolversTypes['ReextractionPreviewEvent']>, ParentType, ContextType>;
   groupingReason?: Resolver<Maybe<ResolversTypes['PostGroupingReason']>, ParentType, ContextType>;
   imagesAvailable?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -2744,6 +2828,10 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ActorRunEdge?: ActorRunEdgeResolvers<ContextType>;
   AddressSuggestion?: AddressSuggestionResolvers<ContextType>;
   ApiKey?: ApiKeyResolvers<ContextType>;
+  ApplyPostReextractionResult?: ApplyPostReextractionResultResolvers<ContextType>;
+  ApplyReextractionEventRef?: ApplyReextractionEventRefResolvers<ContextType>;
+  ApplyReextractionPlacedEvent?: ApplyReextractionPlacedEventResolvers<ContextType>;
+  ApplyReextractionSummary?: ApplyReextractionSummaryResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
   Correction?: CorrectionResolvers<ContextType>;
   DateRangeFilter?: DateRangeFilterResolvers<ContextType>;

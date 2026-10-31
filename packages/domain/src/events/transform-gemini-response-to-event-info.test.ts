@@ -490,6 +490,19 @@ describe('transformGeminiResponseToEventInfo', () => {
       assert.deepStrictEqual(result.schedules[1].performers, ['Citra']);
     });
 
+    it('uses a precomputed childrensDataMatch verdict over sourcePostText, so a caller without the caption keeps the suppression (re-extract Apply)', () => {
+      const suppressed = transformGeminiResponseToEventInfo(multiScheduleMatchedPayload, { ...dummyContext, childrensDataMatch: true });
+      assert.strictEqual(suppressed.schedules[0].performers, undefined);
+      assert.strictEqual(suppressed.schedules[1].performers, undefined);
+
+      const kept = transformGeminiResponseToEventInfo(multiScheduleMatchedPayload, {
+        ...dummyContext,
+        childrensDataMatch: false,
+        sourcePostText: 'Ayo daftar Lomba Tari Anak Sanggar Melati untuk siswa SD!'
+      });
+      assert.deepStrictEqual(kept.schedules[0].performers, ['Aisyah', 'Budi'], 'an explicit false wins over a matching text');
+    });
+
     it('behaves exactly as before (no suppression) when sourcePostText is absent, for backward compatibility', () => {
       const result = transformGeminiResponseToEventInfo(multiScheduleMatchedPayload, dummyContext);
 

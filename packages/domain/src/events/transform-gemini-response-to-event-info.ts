@@ -17,6 +17,12 @@ export function transformGeminiResponseToEventInfo(
     resolvedScheduleLocations: Map<number, LocationDetails>;
     scheduleTimezoneResolutions?: Map<number, ScheduleTimezoneResolution>;
     sourcePostText?: string;
+    /**
+     * The children's-data keyword filter's verdict for the whole post, when the caller no longer has
+     * the caption (the moderator re-extract Apply runs after the caption was blanked, so the preview
+     * records the verdict while it still had it). Wins over `sourcePostText` when present.
+     */
+    childrensDataMatch?: boolean;
   }
 ): ExtractedEventMessage {
   // 1. Filter valid types and categories, fallback to OTHER if empty
@@ -56,7 +62,7 @@ export function transformGeminiResponseToEventInfo(
   // entirely for every schedule of the resulting event -- the pipeline itself never
   // writes individual performer names for a matched post, independent of whatever
   // Gemini extracted.
-  const childrensDataMatch = matchesChildrensDataKeywordFilter(context.sourcePostText);
+  const childrensDataMatch = context.childrensDataMatch ?? matchesChildrensDataKeywordFilter(context.sourcePostText);
   const schedules: ExtractedScheduleMessage[] = payload.schedules.map((sch, i) => {
     const locationDetails = context.resolvedScheduleLocations.get(i);
     const timezoneResolution = context.scheduleTimezoneResolutions?.get(i);

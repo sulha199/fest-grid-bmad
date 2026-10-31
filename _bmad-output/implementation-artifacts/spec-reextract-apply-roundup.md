@@ -75,6 +75,8 @@ context:
 
 ## Design Notes
 
+Database constraint found while building (deviation from the frozen "null, then set" wording, same intent): `events` has a CHECK that a non-null `post_id` needs a non-null `extraction_ordinal`, so a moving event is parked at a distinct temporary ordinal (`PARKED_ORDINAL_BASE + n`, 30000+) rather than `NULL`, then set to its real one. Also: a reused event keeps its slug when it moves, so a NEW item is never given an ordinal whose derived slug (`ig_p_X`, `ig_p_X~n`) a reused event already holds (`events.slug` is unique).
+
 PRD constraints found while building (3.7 "No Duplicate Re-Extraction", "Roundup Posts", 3.16), applied inside the frozen Boundaries, not changing them: (1) a re-run never recreates an event a moderator soft-deleted: ordinals held by soft-deleted or merged events of the post stay reserved (new ordinals start above the post's maximum), those events are never paired, and an item that matches one of them is skipped, not recreated; (2) an event is demoted to `stub` only when this post is its **primary** post (`events.post_id`), since a stub means "the roundup post is all we have"; an event whose primary post is the organizer's keeps its detail level and only gains this post's ordinal link; (3) roundup items without a readable date and location are already skipped by the extraction prompt, so Apply needs no filter of its own.
 
 Stub status is derived from `posts.grouping_reason` plus `events.detail_level`, which is why Apply writes both. Reusing `enrichAndPromoteEvent` with the same post keeps slug aliasing and protected-field handling in the one place that already owns them.

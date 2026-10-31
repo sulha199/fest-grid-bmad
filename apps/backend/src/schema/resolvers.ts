@@ -10,6 +10,7 @@ import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
+import { applyPostReextraction, toGraphQLApplySummary } from '../lib/extraction/apply-post-reextraction.js';
 import { ACCOUNT_NOT_SCRAPABLE_MESSAGE, SCRAPE_IN_PROGRESS_MESSAGE, isOwnerAccountScrapable } from '../lib/scraper/post-scrape-gate.js';
 import { claimPostUrlScrape } from '../lib/scraper/post-url-scrape-lease.js';
 import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
@@ -38,7 +39,7 @@ import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import type { EventFilterInput } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText, resolveScrapeHandle } from '@festgrid/domain';
-import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, type ReextractionPreviewResult } from '@festgrid/domain/posts';
+import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, REEXTRACT_APPLY_WINDOW_MS, type ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
@@ -1717,6 +1718,12 @@ export const resolvers: Resolvers = {
       }
       return startPostReextractionPreview(moderator.userId, { postId, url });
     },
+    applyPostReextraction: async (_, { jobId }, context): Promise<any> => {
+      const moderator = requireModerator(context);
+      const applied = await applyPostReextraction(moderator.userId, jobId);
+      if ('errorCode' in applied) return applied;
+      return { summary: toGraphQLApplySummary(applied.summary) };
+    },
     submitReport: async (_, { eventId, reason, details }, context): Promise<any> => {
       const authUser = requireAuth(context);
       const [existingEvent] = await db.select().from(events).where(eq(events.id, eventId));
@@ -2984,6 +2991,14 @@ export const resolvers: Resolvers = {
               // A job finished before BUG-097 shipped has no image counts: 0 of 0 shows no warning.
               imagesAvailable: result.imagesAvailable ?? 0,
               imagesSent: result.imagesSent ?? 0,
+              // AD-40 Apply: offered while the extraction is still kept, unapplied, and young enough.
+              applicable:
+                job.status === 'SUCCEEDED' &&
+                result.postStored &&
+                Boolean(result.extracted) &&
+                !result.applied &&
+                Date.now() - (job.completedAt?.getTime() ?? 0) <= REEXTRACT_APPLY_WINDOW_MS,
+              applied: result.applied ? toGraphQLApplySummary(result.applied) : null,
               groupingReason:
                 result.groupingReason && isPostGroupingReason(result.groupingReason)
                   ? postGroupingReasonToGraphQL(result.groupingReason)
