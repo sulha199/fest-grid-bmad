@@ -32,6 +32,8 @@ The trade is poor in money terms: the whole Bright Data bill was about $1.91 in 
 
 ## 2. Decisions
 
+> Status 2026-10-31: E1 and E2 built (BUG-098, PR #129). E3 and E4 built (IDEA-105, PR stacked on #130) as designed: cap 3 days, multiplier 1, `SCRAPE_BACKOFF_MAX_DAYS=1` turns it off, scheduled cycles only. The cadence is derived per batch, nothing is stored. The real-run check (prod runs 10-29 and 10-31) found 26% of runs with no new post, which bounds what the backoff can ever skip.
+
 ### E1. Initial scrape means "latest 30 posts, no older than 30 days", one rule for every path
 **Decided 2026-10-31 (shulha):** the seeding request is bounded by both limits, whichever is smaller: at most 30 posts (`SCRAPE_RESULTS_LIMIT`, default 30) and nothing older than 30 days (`onlyPostsNewerThan` / `start_date` = now minus 30 days). Posts older than that are assumed to announce events that have already ended, so they are never ingested and never reach AI extraction (this also closes the extraction-cost question: a seeding run adds at most 30 posts of the last month). It replaces the 7-day window on the subscription trigger, the on-demand trigger, the daily batch and the SQS path (the SQS window ladder already stopped at 30 days). Cost: up to 30 records per new profile, about $0.045 on Bright Data.
 
