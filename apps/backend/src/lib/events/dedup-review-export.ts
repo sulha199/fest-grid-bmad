@@ -57,10 +57,17 @@ export interface BuildDedupReviewExportOptions {
  * even a write-capable credential changes nothing if the secret is ever pointed at one by mistake;
  * repeatable read means the whole export, its paging included, sees one consistent state while
  * moderators and ingestion keep working.
+ *
+ * It also puts `extensions` on the search path. On Supabase `pg_trgm` is installed in the
+ * `extensions` schema, and a role that is not the app's own (the read-only role the export runs as)
+ * does not necessarily have that schema on its path, so the unqualified `similarity()` the evidence
+ * query uses fails with SQLSTATE 42883 ("function does not exist"), which is what the first run did.
+ * A schema that does not exist (a local database with `pg_trgm` in `public`) is ignored by Postgres.
  */
 export async function runInReadOnlyTransaction<T>(database: Pick<typeof appDb, 'transaction'>, work: (executor: DbExecutor) => Promise<T>): Promise<T> {
   return database.transaction(async (tx) => {
     await tx.execute(sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY`);
+    await tx.execute(sql`SET LOCAL search_path TO public, extensions`);
     return work(tx);
   });
 }

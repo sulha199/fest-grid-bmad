@@ -37,9 +37,24 @@ test('dedup-review-export CLI arguments', async (t) => {
     const dbError = Object.assign(new Error('password authentication failed for user "secret_role" at db.private-host.example'), { code: '28P01' });
     const text = describeFailure(dbError);
     assert.match(text, /^Export failed: Error \(28P01\)\./);
+    assert.match(text, /Likely cause: authentication failed; check the DEDUP_REVIEW_READONLY_DATABASE_URL secret/);
     assert.ok(!text.includes('secret_role') && !text.includes('private-host'), 'the error message is not printed');
     assert.match(describeFailure('a plain string'), /^Export failed: Error\./);
     assert.match(describeFailure(null), /^Export failed: Error\./);
+  });
+
+  await t.test('describeFailure gives a fixed hint for the known database codes and none for an unknown one', () => {
+    const withCode = (code: string, message: string) => Object.assign(new Error(message), { code, name: 'PostgresError' });
+    const missingFunction = describeFailure(withCode('42883', 'function similarity(text, text) does not exist'));
+    assert.match(missingFunction, /^Export failed: PostgresError \(42883\)\. Likely cause: a database function was not found.*pg_trgm similarity\(\)/);
+    assert.ok(!missingFunction.includes('does not exist'), "the database's own message is not printed");
+    for (const code of ['42501', '42P01', '28000', '25006']) {
+      assert.match(describeFailure(withCode(code, 'private detail')), new RegExp(`\\(${code}\\)\\. Likely cause: `));
+    }
+    const unknown = describeFailure(withCode('99999', 'private detail'));
+    assert.match(unknown, /^Export failed: PostgresError \(99999\)\. The error's own text/);
+    assert.ok(!unknown.includes('Likely cause'));
+    assert.match(describeFailure(withCode('constructor', 'x')), /^Export failed: PostgresError \(constructor\)\. The error's own text/, 'an object key such as "constructor" is not mistaken for a code');
   });
 
   await t.test('a bad value exits 1 before any database connection is opened', () => {

@@ -331,10 +331,18 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     const mode = await runInReadOnlyTransaction(db, async (tx) => {
       const [row] = (await tx.execute(sql`SHOW transaction_read_only`)) as unknown as Array<{ transaction_read_only: string }>;
       const [iso] = (await tx.execute(sql`SHOW transaction_isolation`)) as unknown as Array<{ transaction_isolation: string }>;
+      const [path] = (await tx.execute(sql`SHOW search_path`)) as unknown as Array<{ search_path: string }>;
       await buildDedupReviewExport(tx, { ...base, limit: 1 });
-      return `${row.transaction_read_only}/${iso.transaction_isolation}`;
+      return `${row.transaction_read_only}/${iso.transaction_isolation}/${path.search_path}`;
     });
-    assert.strictEqual(mode, 'on/repeatable read', 'read only, and one snapshot for the whole export');
+    assert.strictEqual(
+      mode,
+      'on/repeatable read/public, extensions',
+      'read only, one snapshot for the whole export, and the extensions schema (where Supabase keeps pg_trgm) on the path'
+    );
+
+    const outside = (await db.execute(sql`SHOW search_path`)) as unknown as Array<{ search_path: string }>;
+    assert.notStrictEqual(outside[0].search_path, 'public, extensions', 'the search path change is local to the export transaction');
 
     await assert.rejects(
       runInReadOnlyTransaction(db, async (tx) => {
