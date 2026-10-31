@@ -14,12 +14,11 @@ import {
   users,
 } from '@festgrid/database';
 import type { DedupReviewPairEvidence } from '@festgrid/domain/events';
-import { DedupReviewReviewerError, DedupReviewRoleError } from './dedup-review-errors.js';
+import { DedupReviewRoleError } from './dedup-review-errors.js';
 import {
   assertRoleBypassesRls,
   buildDedupReviewExport,
   hashDedupReviewEvidence,
-  resolveReviewerUserId,
   runInReadOnlyTransaction,
 } from './dedup-review-export.js';
 import type { DbExecutor } from './set-event-primary-post.js';
@@ -137,7 +136,7 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
   });
 
   const pendingIds = [high.suggestion.id, stranger.suggestion.id, stale.suggestion.id, undone.suggestion.id];
-  const base = { limit: 30, skipIds: [] as string[], runTag: 'test-run', reviewerUserId: reviewer.id, onlySuggestionIds: pendingIds };
+  const base = { limit: 30, skipIds: [] as string[], runTag: 'test-run', onlySuggestionIds: pendingIds };
 
   await t.test('exports evidence and a hash for each evaluable pair, oldest first, and counts the stale one', async () => {
     const report = await buildDedupReviewExport(db, base);
@@ -295,11 +294,12 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     const expiredPair = await makePair('Expired Pair', '2026-12-22');
     const oldPair = await makePair('Resolved Long Ago', '2026-12-23');
     const set = (id: string, values: Partial<typeof eventMatchCandidates.$inferInsert>) => db.update(eventMatchCandidates).set(values).where(eq(eventMatchCandidates.id, id));
-    await set(reviewerPair.suggestion.id, { status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: reviewer.id });
-    await set(humanPair.suggestion.id, { status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: human.id });
+    await set(reviewerPair.suggestion.id, { status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: human.id, resolvedVia: 'ai_skill' });
+    await set(humanPair.suggestion.id, { status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: reviewer.id, resolvedVia: 'moderator' });
     await set(expiredPair.suggestion.id, { status: 'expired', resolvedAt: new Date() });
     await set(oldPair.suggestion.id, { status: 'rejected', resolvedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), resolvedByModeratorId: human.id });
 
+    // The moderator ids above are swapped on purpose: the label comes from resolved_via alone, never from who the user is.
     const report = await buildDedupReviewExport(db, base);
     const resolved = new Map(report.recentlyResolved.map((r) => [r.suggestionId, r]));
     assert.strictEqual(resolved.get(reviewerPair.suggestion.id)?.resolvedBy, 'reviewer');
@@ -314,8 +314,10 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.strictEqual(truncated.recentlyResolved.length, 2);
     assert.strictEqual(truncated.recentlyResolvedTruncated, true, 'more were resolved than the list holds, and the report says so');
 
-    const withoutReviewer = await buildDedupReviewExport(db, { ...base, reviewerUserId: null });
-    assert.strictEqual(withoutReviewer.recentlyResolved.find((r) => r.suggestionId === reviewerPair.suggestion.id)?.resolvedBy, 'unknown');
+    // A resolution from before the flag existed (no `resolved_via`) is not guessed at.
+    await set(humanPair.suggestion.id, { resolvedVia: null });
+    const legacy = await buildDedupReviewExport(db, base);
+    assert.strictEqual(legacy.recentlyResolved.find((r) => r.suggestionId === humanPair.suggestion.id)?.resolvedBy, 'unknown');
   });
 
   await t.test('the output holds no account username or id, caption, link query token or email; event text is passed through as stored', async () => {
@@ -331,10 +333,18 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     const mode = await runInReadOnlyTransaction(db, async (tx) => {
       const [row] = (await tx.execute(sql`SHOW transaction_read_only`)) as unknown as Array<{ transaction_read_only: string }>;
       const [iso] = (await tx.execute(sql`SHOW transaction_isolation`)) as unknown as Array<{ transaction_isolation: string }>;
+      const [path] = (await tx.execute(sql`SHOW search_path`)) as unknown as Array<{ search_path: string }>;
       await buildDedupReviewExport(tx, { ...base, limit: 1 });
-      return `${row.transaction_read_only}/${iso.transaction_isolation}`;
+      return `${row.transaction_read_only}/${iso.transaction_isolation}/${path.search_path}`;
     });
-    assert.strictEqual(mode, 'on/repeatable read', 'read only, and one snapshot for the whole export');
+    assert.strictEqual(
+      mode,
+      'on/repeatable read/public, extensions',
+      'read only, one snapshot for the whole export, and the extensions schema (where Supabase keeps pg_trgm) on the path'
+    );
+
+    const outside = (await db.execute(sql`SHOW search_path`)) as unknown as Array<{ search_path: string }>;
+    assert.notStrictEqual(outside[0].search_path, 'public, extensions', 'the search path change is local to the export transaction');
 
     await assert.rejects(
       runInReadOnlyTransaction(db, async (tx) => {
@@ -358,23 +368,5 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
         return true;
       });
     }
-  });
-
-  await t.test('resolveReviewerUserId matches case-insensitively, wants an active moderator, and never prints the email', async () => {
-    assert.strictEqual(await resolveReviewerUserId(db, REVIEWER_EMAIL), reviewer.id);
-    assert.strictEqual(await resolveReviewerUserId(db, REVIEWER_EMAIL.toUpperCase()), reviewer.id, 'a differently cased variable still finds it');
-
-    for (const email of [`ddrx-plain-${suffix}@example.com`, `ddrx-nobody-${suffix}@example.com`]) {
-      await assert.rejects(resolveReviewerUserId(db, email), (err: unknown) => {
-        assert.ok(err instanceof DedupReviewReviewerError);
-        assert.ok(!(err as Error).message.includes(email));
-        assert.match((err as Error).message, /reviewer account was not found among active moderators/);
-        return true;
-      });
-    }
-
-    await db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, human.id));
-    await assert.rejects(resolveReviewerUserId(db, HUMAN_EMAIL), DedupReviewReviewerError);
-    await db.update(users).set({ deletedAt: null }).where(eq(users.id, human.id));
   });
 });

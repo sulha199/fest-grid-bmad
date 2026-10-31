@@ -20,16 +20,23 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 - Decider is the cloud Claude session; Actions never runs an LLM (a later option: `claude-code-action`).
 - v1 auto-**ACCEPT** only. Never auto-reject. Everything else is escalated.
 - Shadow mode (apply as a dry run) is the default; `live` must be passed explicitly.
-- Merges are recorded under a **dedicated moderator user** (the owner creates it; a `users` row with
-  `role = moderator`). Its email is read from the repository variable `DEDUP_REVIEW_MODERATOR_EMAIL` (owner-chosen
-  2026-10-30; the address is deliberately not written in this repo, which is public, and a workflow must never echo
-  it), never hardcoded. Create the account by signing in to the app once with that Google account, then promote it
-  (`UPDATE users SET role = 'moderator' WHERE email = ...`): `users.id` is the Supabase auth id
-  (`user-provisioning.ts`), so a hand-inserted row with a random id would collide on that account's first sign-in
-  (email is unique). Every `role = 'moderator'` user also receives the moderator alert emails
-  (`getModeratorEmails`: dangerous reports, scraper audit, provider down), so that inbox gets them. This makes AI merges
-  identifiable in `event_merges.performed_by_moderator_id`, lets apply count a per-24h cap, and keeps
-  `outcome:accepted` labels free of AI decisions.
+- Merges are recorded under the **moderator who invoked the skill** (decision 2026-10-31, replacing the earlier
+  dedicated moderator user and the `DEDUP_REVIEW_MODERATOR_EMAIL` variable). The skill reads the Claude account email
+  from its session context and passes its SHA-256 (lowercased, trimmed) as a workflow input, never the address: the
+  repo is public and workflow inputs show in run pages and logs. Apply compares it with `sha256(lower(users.email))`
+  in SQL, requires an active `role = 'moderator'` user, and stops if there is none. This is transparency, not
+  authentication: anyone who can dispatch the workflow can supply any hash, so the real guards stay the
+  `dedup-review` environment (`master` only), the deterministic floor and the caps. `users.id` is the Supabase auth
+  id (`user-provisioning.ts`), so never insert a user with a random id.
+  Known limits and rules for B2b (from the B2a review): the hash of an email is unsalted and low-entropy, so it hides
+  the address from a casual reader of the log but not from someone who already guesses it; the match trims in SQL
+  (`lower(btrim(users.email))`) and refuses unless **exactly one** active moderator matches; the Claude account email
+  may differ from the app's Google login, so `validate` mode must run the same match and report "no moderator for this
+  invoker" before any `apply` is attempted; anyone who can dispatch can attribute AI merges to any moderator, which
+  the audit trail cannot tell from the real one except by `performed_via`.
+- Whether a decision was a person's or the AI's is a flag, not an identity: `event_match_candidates.resolved_via`
+  and `event_merges.performed_via` (`moderator` | `ai_skill`), written only by the shared resolve path (B2a). Caps
+  count `ai_skill` rows. The export's `recentlyResolved` reads the same flag.
 - Escalations are GitHub issues labelled `dedup-escalate`; status is open/closed. The LLM-written insight per pair
   feeds a rolling `dedup-insight` issue.
 - The skill reads AD-30 Rules 7 and 9, AD-40, `docs/infrastructure/7-event-dedup.md` and `project-context.md`
@@ -55,7 +62,7 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 | **A** | Extract `resolveSuggestedMatch`, row lock, characterization tests, ratchet | Behaviour-preserving change to the live moderator mutation; fixes a latent race | none |
 | **B1** | Evidence contract and hash in `packages/domain`, the read-only export script and workflow, docs (`FIND-107`) | Dark: a human dispatches the export and reads the JSON. **Built 2026-10-31.** | A |
 | **B2** | Decision validator, floor and caps, apply script and workflow, environment and moderator wiring, new AD, PRD amendment (`FIND-108`) | Dark: a human dispatches it, `validate` before `apply` | B1 |
-| **C** | `SKILL.md`, labels, `dedup-insight` issue, shadow-mode acceptance | The daily skill | B on `master` |
+| **C** | `moderator-dedup-review` skill (`SKILL.md`), labels, `dedup-insight` issue, shadow-mode acceptance | The daily skill | B on `master` |
 | C2 (later) | `review-insights` mode | Reads closed, labelled issues | weeks of C data |
 
 B was split into B1 and B2 on 2026-10-31 so the read-only half could be run against prod first. C must follow B2's
@@ -89,7 +96,7 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 6. **Dry-run fidelity**: one outer transaction for the whole run with a savepoint per decision, rolled back at the end
    unless `--apply`. Reject two decisions touching the same event, or process sequentially. Dry-run output sets
    `dryRun: true` and omits `mergeId`.
-7. **Caps**: per-dispatch cap (10) plus a per-24h cap counted from the dedicated moderator's merges; a kill-switch
+7. **Caps**: per-dispatch cap (10) plus a per-24h cap counted from `event_merges.performed_via = 'ai_skill'` rows **including undone ones** (the journal keeps the flag after an undo; counting only live merges would let a re-merge after an undo bypass the cap) plus `ai_skill` rejections on `event_match_candidates` (a reject writes no journal row, and undo clears the suggestion's flag); a kill-switch
    variable that makes apply exit without writing.
 8. **Workflows**: export sets `DATABASE_URL` and `BACKEND_PORT: '4001'` (`env.ts` requires it); the workflow writes the
    decisions input to `$RUNNER_TEMP/decisions.json`; a `run_tag` input is echoed in `run-name` and the log so the
@@ -154,6 +161,17 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 
 ## 8. Not verified
 
-Whether the cloud session's token can dispatch workflows and read job logs (listing works); GitHub environment
-branch rules and required reviewers; whether `readonly_2` can run the evidence path after RLS; whether dispatch
-returns a run id in the current API; `get_job_logs` truncation on large logs.
+Verified 2026-10-31 (first run of the export): the cloud session can dispatch a workflow from `master` and read its
+job log, and a `run_tag` in `run-name` is enough to find the run (dispatch returns no run id, so the tag is how a
+caller finds its run); the `dedup-review` environment let a `master` run start; the secret was present. That run
+failed with SQLSTATE 42883 (`similarity()` not resolvable for the role). After the search-path fix (PR 128) the
+re-run (tag `verify-trgm-1`) succeeded: 134 pending, 30 pairs exported, no email and no URL query string in the
+output, `scanLimited` false. The role therefore bypasses RLS and resolves `pg_trgm`.
+
+Findings from that run: the one log line is about 98k characters for 30 pairs, so `get_job_logs` with
+`return_content` spills to a file the session must slice (the skill must read it from the saved file, not inline);
+all 200 `recentlyResolved` rows were system expiries, so the cap hides human decisions (a follow-up should leave
+`expired` rows out or count them separately).
+
+Still not verified: whether `readonly_2` can run the evidence path after RLS (expected not to); the size of a
+50-pair export; the pending count against the moderator page (compare by eye).
