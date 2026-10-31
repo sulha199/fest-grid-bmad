@@ -2,7 +2,7 @@
 title: 'Re-extract reads every slide of a carousel post'
 type: 'bugfix'
 created: '2026-10-31'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '515b3bac6728089e3ddfce4526f2003fbafc1fa6'
 review_loop_iteration: 0
 context:
@@ -73,7 +73,7 @@ context:
 
 ## Design Notes
 
-Implementation deviations from the frozen text, each narrower than the spec and found while building: (1) A post with no cover **and** no slides is text-only and never triggers a rescrape (`postImagesNeedRefresh`); the spec's "cover is missing" would have spent scraper credit on every text-only post. Slides listed with no cover still refresh. (2) The cover-fetch-failure fallback is an option (`slidesWhenCoverFails`) set only by moderator preview jobs, not a change to the shared builder: with a slides-only request `aiImageInput` would read `blurred` with no cover bytes for `processAiJob`'s thumbnail and blur bookkeeping to use, so ingestion keeps its exact request shape. A cover *blur* failure stays text-only in both.
+Implementation deviations from the frozen text, each narrower than the spec and found while building: (1) A post with no cover **and** no slides is text-only and never triggers a rescrape (`postImagesNeedRefresh`); the spec's "cover is missing" would have spent scraper credit on every text-only post. Slides listed with no cover still refresh. (2) The cover-fetch-failure fallback is an option (`slidesWhenCoverFails`) set only by moderator preview jobs, not a change to the shared builder: with a slides-only request `aiImageInput` would read `blurred` with no cover bytes for `processAiJob`'s thumbnail and blur bookkeeping to use, so ingestion keeps its exact request shape. A cover *blur* failure stays text-only in both. (3) When the cooldown blocks a rescrape, the preview reuses the fresh links the last rescrape inside the window found (from that job's payload; the caption is still blanked and nothing is written to `posts`) instead of the dead stored ones, so a quick second click is not worse than the first. A post with slides but no cover also sends its slides in a preview.
 
 Ingestion shares `build-gemini-request.ts`, so the cover-failure fix also helps normal extraction; its outcomes only improve (slides sent where the request used to go text-only). The 10-slide cap is scoped to moderator previews because each slide costs Gemini image tokens on a manual, on-demand call.
 

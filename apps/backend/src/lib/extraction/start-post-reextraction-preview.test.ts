@@ -283,4 +283,34 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     const [payload] = await payloadsFor(post.postUrl);
     assert.strictEqual(payload.rescraped, false);
   });
+
+  await t.test('re-previewing inside the cooldown reuses the fresh links the first run found, not the dead stored ones', async () => {
+    const post = await makeCarouselPost('Stored caption D', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
+    fakeAdapter(async () => ({
+      content: 'x',
+      postUrl: post.postUrl,
+      publishedAt: '2026-10-01T00:00:00Z',
+      imageUrl: freshUrl(0),
+      additionalImageUrls: [freshUrl(1), freshUrl(2)],
+    }));
+    try {
+      await startPostReextractionPreview(user.id, { postId: post.id });
+      let scrapes = 0;
+      fakeAdapter(async () => {
+        scrapes++;
+        return null;
+      });
+      await startPostReextractionPreview(user.id, { postId: post.id });
+      assert.strictEqual(scrapes, 0, 'the cooldown blocked a second scrape');
+    } finally {
+      clearRegisteredAdapters();
+    }
+    const payloads = await payloadsFor(post.postUrl);
+    const second = payloads.find((p) => p.rescraped === false);
+    assert.ok(second, 'the second run is a stored-caption job');
+    assert.strictEqual(second.message.imageUrl, freshUrl(0));
+    assert.deepStrictEqual(second.message.additionalImageUrls, [freshUrl(1), freshUrl(2)]);
+    const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(stored.imageUrl, expiredUrl(0), 'still never written to posts');
+  });
 });

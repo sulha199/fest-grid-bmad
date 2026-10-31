@@ -338,6 +338,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     if (!message.additionalImageUrls?.length) return;
     const slidesToFetch = message.additionalImageUrls.slice(0, options?.maxCarouselImages ?? env.maxCarouselImages);
     for (const [slideIndex, slideUrl] of slidesToFetch.entries()) {
+      let blurAttempted = false;
       try {
         const slideResponse = await fetch(slideUrl);
         if (!slideResponse.ok) {
@@ -358,6 +359,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
         // fail-closed outcome as the seam itself throwing, no separate pre-check needed.
         let slideDataForRequest = slideBuffer.toString('base64');
         if (shouldBlur) {
+          blurAttempted = true;
           const blurResult = await blurImageForRequest(slideBuffer, slideContentType);
           slideDataForRequest = blurResult.data;
           // Story 3.21 (AC3, Task 2.3, AD-29 Rule 7) -- add this slide's own faceCount into
@@ -380,9 +382,22 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
       } catch (error) {
         // Best-effort: skip only this slide (whether the failure was the fetch or the blur);
         // the cover and all other successfully-processed slides remain in the request (AC2/AC3).
-        slideFailedClosed = shouldBlur;
+        // Only a failed BLUR is fail-closed; a fetch error is just a missing slide.
+        if (blurAttempted) slideFailedClosed = true;
         console.error(`Carousel slide-fetch/blur failed for post ${message.postId} (image index ${slideIndex + 1}); skipping slide`, slideUrl, error);
       }
+    }
+  }
+
+  // BUG-097 (moderator re-extract only) -- no usable cover: try the slides alone. With none inlined
+  // the request stays text-only exactly as without this option.
+  async function sendSlidesWithoutCover(): Promise<void> {
+    if (!options?.slidesWhenCoverFails || !message.additionalImageUrls?.length) return;
+    contents = [{ text: captionWithAccountContext }];
+    await appendSlideImages();
+    if (contents.length === 1) {
+      contents = captionWithAccountContext;
+      if (slideFailedClosed) aiImageInput = 'text_only_fail_closed';
     }
   }
 
@@ -451,16 +466,12 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
       // BUG-097 (moderator re-extract only) -- an expired cover hotlink says nothing about the
       // slides, which are separate URLs. `aiImageInput === 'no_image_sent'` identifies a cover
       // FETCH failure (a blur failure is tagged 'text_only_fail_closed' before it throws and stays
-      // text-only, fail-closed). Try the slides; with none inlined the request stays text-only.
-      if (options?.slidesWhenCoverFails && aiImageInput === 'no_image_sent' && message.additionalImageUrls?.length) {
-        contents = [{ text: captionWithAccountContext }];
-        await appendSlideImages();
-        if (contents.length === 1) {
-          contents = captionWithAccountContext;
-          if (slideFailedClosed) aiImageInput = 'text_only_fail_closed';
-        }
-      }
+      // text-only, fail-closed).
+      if (aiImageInput === 'no_image_sent') await sendSlidesWithoutCover();
     }
+  } else {
+    // A post that lists slides but no cover (BUG-097, moderator re-extract only).
+    await sendSlidesWithoutCover();
   }
 
   const request: GeminiCallRequest = {

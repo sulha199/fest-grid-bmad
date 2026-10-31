@@ -38,11 +38,21 @@ export interface StartPostReextractionPreviewInput {
 // double-encoding), so `->>` on the raw column yields NULL; unwrap it first (as for `events.links`).
 const payloadObject = sql`(CASE WHEN jsonb_typeof(${manualExtractionJobs.requestPayload}) = 'string' THEN (${manualExtractionJobs.requestPayload} #>> '{}')::jsonb ELSE ${manualExtractionJobs.requestPayload} END)`;
 
-/** Minutes left on the rescrape cooldown for `url`, or 0 when a rescrape is allowed. */
-async function rescrapeCooldownMinutesLeft(url: string, now: Date): Promise<number> {
+interface RescrapeCooldown {
+  /** Minutes left on the cooldown, or 0 when a rescrape is allowed. */
+  minutesLeft: number;
+  /**
+   * The fresh image links the last rescrape inside the window found, if it got any. A moderator who
+   * re-runs the preview a minute later is blocked from scraping again, and must not fall back to the
+   * dead stored links the first run had to replace. Only links: the caption was blanked with the job.
+   */
+  recentImages: { imageUrl?: string; additionalImageUrls?: string[] } | null;
+}
+
+async function rescrapeCooldown(url: string, now: Date): Promise<RescrapeCooldown> {
   const since = new Date(now.getTime() - REEXTRACT_RESCRAPE_COOLDOWN_MS);
-  const [recent] = await db
-    .select({ createdAt: manualExtractionJobs.createdAt })
+  const recentRows = await db
+    .select({ createdAt: manualExtractionJobs.createdAt, requestPayload: manualExtractionJobs.requestPayload })
     .from(manualExtractionJobs)
     .where(
       and(
@@ -53,10 +63,18 @@ async function rescrapeCooldownMinutesLeft(url: string, now: Date): Promise<numb
       )
     )
     .orderBy(desc(manualExtractionJobs.createdAt))
-    .limit(1);
-  if (!recent) return 0;
+    .limit(5);
+  const [recent] = recentRows;
+  if (!recent) return { minutesLeft: 0, recentImages: null };
   const msLeft = REEXTRACT_RESCRAPE_COOLDOWN_MS - (now.getTime() - recent.createdAt.getTime());
-  return Math.max(1, Math.ceil(msLeft / 60_000));
+  // Newest window row that actually carries links (a recorded failed scrape carries none).
+  const withImages = recentRows
+    .map((row) => (row.requestPayload as ManualExtractionRequestPayload).message)
+    .find((message) => message.imageUrl || message.additionalImageUrls?.length);
+  return {
+    minutesLeft: Math.max(1, Math.ceil(msLeft / 60_000)),
+    recentImages: withImages ? { imageUrl: withImages.imageUrl, additionalImageUrls: withImages.additionalImageUrls } : null,
+  };
 }
 
 const SCRAPE_FAILED = {
@@ -139,9 +157,13 @@ export async function startPostReextractionPreview(
     additionalImageUrls: storedPost.additionalImageUrls ?? undefined,
   });
 
-  const startStored = (storedPost: NonNullable<typeof post>) =>
+  const startStored = (storedPost: NonNullable<typeof post>, freshImages: RescrapeCooldown['recentImages'] = null) =>
     startManualExtractionJob(userId, url, {
-      message: storedMessage(storedPost),
+      message: {
+        ...storedMessage(storedPost),
+        ...(freshImages?.imageUrl ? { imageUrl: freshImages.imageUrl } : {}),
+        ...(freshImages?.additionalImageUrls?.length ? { additionalImageUrls: freshImages.additionalImageUrls } : {}),
+      },
       existingPostAccountId: storedPost.accountId,
       mode: 'REEXTRACT_PREVIEW',
       postStored: true,
@@ -171,9 +193,9 @@ export async function startPostReextractionPreview(
     }
   }
 
-  const minutesLeft = await rescrapeCooldownMinutesLeft(url, now);
+  const { minutesLeft, recentImages } = await rescrapeCooldown(url, now);
   if (minutesLeft > 0) {
-    if (scrapeIsOptional) return startStored(post!);
+    if (scrapeIsOptional) return startStored(post!, recentImages);
     return {
       errorCode: 'RATE_LIMITED',
       errorMessage: `This post was rescraped recently. Try again in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`,

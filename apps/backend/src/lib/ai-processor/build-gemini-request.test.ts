@@ -877,4 +877,30 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.request.contents, msg.content);
     assert.strictEqual(result.aiImageInput, 'text_only_fail_closed');
   });
+
+  await t.test('BUG-097 J: a post with slides but no cover sends the slides when slidesWhenCoverFails is on, and stays text-only when it is off', async () => {
+    const noCover = (): ProcessingJobMessage => ({ ...multiImageMessage([slide1Url, slide2Url]), imageUrl: undefined });
+    installOrderedFetchMock();
+    const on = await buildGeminiExtractionRequest(noCover(), { slidesWhenCoverFails: true });
+    assert.ok(Array.isArray(on.request.contents));
+    assert.strictEqual(on.request.contents.length, 3);
+    assert.strictEqual(on.imagesSent, 2);
+    assert.strictEqual(on.imagesAvailable, 2);
+
+    const callCount = installOrderedFetchMock();
+    const msg = noCover();
+    const off = await buildGeminiExtractionRequest(msg);
+    assert.strictEqual(off.request.contents, msg.content);
+    assert.strictEqual(callCount(), 0);
+  });
+
+  await t.test('BUG-097 K: a thrown slide FETCH (not a blur) with blur on is not labelled fail-closed', async () => {
+    globalThis.fetch = async () => {
+      throw new Error('network down');
+    };
+    const msg = multiImageMessage([slide1Url]);
+    const result = await buildGeminiExtractionRequest(msg, { blurFacesBeforeAi: { isOwnerOptedIn: false }, slidesWhenCoverFails: true });
+    assert.strictEqual(result.request.contents, msg.content);
+    assert.strictEqual(result.aiImageInput, 'no_image_sent');
+  });
 });
