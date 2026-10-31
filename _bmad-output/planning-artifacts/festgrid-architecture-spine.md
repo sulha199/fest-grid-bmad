@@ -2414,7 +2414,7 @@ This document defines the core architectural invariants for the FestDaily applic
         locations, so the venue signal is the location string only; a match that relies on
         coordinates within 150 m will score lower in the preview than in ingestion.
     5.  **Rescrape when the caption is missing or the stored image links have expired**, via
-        `getScraperAdapter(platform).getPostByUrl`. (Amended 2026-10-31, BUG-097: the rule used to be
+        `getScraperAdapter(platform).getPostByUrl`. (Amended 2026-10-31, BUG-099: the rule used to be
         "only when the caption is missing"; the cover and slide URLs are hotlinks that expire, so a
         stored caption with dead links previewed a carousel from its first image at best.) A stored
         caption is never replaced by the rescraped one: an image refresh supplies only the scraper's

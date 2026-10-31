@@ -139,7 +139,7 @@ describe('ReextractPreviewResult (AD-40)', () => {
     });
   });
 
-  it('warns when fewer images were read than the post lists, and stays quiet otherwise (BUG-097)', () => {
+  it('warns when fewer images were read than the post lists, and stays quiet otherwise (BUG-099)', () => {
     const { unmount } = render(wrap(<ReextractPreviewResult preview={makePreview({ imagesAvailable: 6, imagesSent: 4 })} />));
     expect(screen.getByTestId('reextract-images-warning')).toHaveTextContent('Only 4 of 6 images were read');
     unmount();

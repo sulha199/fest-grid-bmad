@@ -182,7 +182,7 @@ type PostReextractionPreview {
   # False for a URL that is not in our database: the dedup outcome then has no account signal.
   postStored: Boolean!
   rescraped: Boolean!
-  # BUG-097 -- images the post lists (cover + slides) and images the extraction actually read. Fewer
+  # BUG-099 -- images the post lists (cover + slides) and images the extraction actually read. Fewer
   # read than listed means the moderator is looking at an incomplete preview.
   imagesAvailable: Int!
   imagesSent: Int!

@@ -2689,7 +2689,7 @@ items:
      note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Install with --ignore-scripts where possible and pin actions by SHA. 1 finding."}
 
   # ── 2026-10-31 (bmad-quick-dev: re-extract preview of a carousel roundup showed only the first image's events) ──
-  BUG-097:
+  BUG-099:
     {type: bug, status: backlog, created: 2026-10-31,
      impact: user-visible, effort: s,
      title: "Moderator re-extract preview drops carousel slides: expired image URLs, cover failure skips slides, scraped slides discarded",

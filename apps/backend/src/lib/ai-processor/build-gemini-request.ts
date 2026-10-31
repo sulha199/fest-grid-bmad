@@ -178,7 +178,7 @@ export interface BuildGeminiExtractionRequestResult {
   // detectAndBlurFacesSeam's own faceCount across every image actually sent (cover + every
   // surviving slide) -- never just the cover alone, and never 0 when detection didn't run.
   totalFaceDetectionCount?: number;
-  // AD-40 amendment (BUG-097) -- images the post lists (cover plus every slide, before the cap) and
+  // AD-40 amendment (BUG-099) -- images the post lists (cover plus every slide, before the cap) and
   // images actually inlined into the request, so a caller can report a shortfall instead of
   // silently reading fewer images than the post has.
   imagesAvailable: number;
@@ -200,10 +200,10 @@ export interface BuildGeminiExtractionRequestOptions {
     // is treated as unlimited remaining time (Infinity), never as "time's up".
     getRemainingTimeInMillis?: () => number;
   };
-  // AD-40 amendment (BUG-097) -- moderator re-extract only. Overrides env.maxCarouselImages (the
+  // AD-40 amendment (BUG-099) -- moderator re-extract only. Overrides env.maxCarouselImages (the
   // ingestion cap) for this one request.
   maxCarouselImages?: number;
-  // AD-40 amendment (BUG-097) -- moderator re-extract only. When the cover cannot be FETCHED (an
+  // AD-40 amendment (BUG-099) -- moderator re-extract only. When the cover cannot be FETCHED (an
   // expired hotlink), still try the carousel slides instead of going text-only. Off by default so
   // ingestion's request shape, aiImageInput and thumbnail/blur bookkeeping stay exactly as before:
   // a slides-only request would carry aiImageInput 'blurred' with no cover bytes for them to read.
@@ -332,7 +332,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   // batched not sequential -- a carousel post still costs exactly one Gemini call. Each slide is
   // fetched inside its OWN try/catch so a single slide failure can never trigger the outer
   // cover-failure fallback below (which would otherwise wipe out the already-succeeded cover image
-  // and switch to text-only). Extracted into a function (BUG-097) so the cover-fetch-failed path of
+  // and switch to text-only). Extracted into a function (BUG-099) so the cover-fetch-failed path of
   // a moderator re-extract can run the same loop; every line of the per-slide behavior is unchanged.
   async function appendSlideImages(): Promise<void> {
     if (!message.additionalImageUrls?.length) return;
@@ -365,7 +365,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
           // Story 3.21 (AC3, Task 2.3, AD-29 Rule 7) -- add this slide's own faceCount into
           // the running total. On the normal path the cover already succeeded, so aiImageInput is
           // already 'blurred' and the total already seeded; on the cover-fetch-failed path
-          // (BUG-097) this is the first image, so both are set here.
+          // (BUG-099) this is the first image, so both are set here.
           aiImageInput = 'blurred';
           totalFaceDetectionCount = (totalFaceDetectionCount ?? 0) + blurResult.faceCount;
         } else if (aiImageInput === 'no_image_sent') {
@@ -389,7 +389,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     }
   }
 
-  // BUG-097 (moderator re-extract only) -- no usable cover: try the slides alone. With none inlined
+  // BUG-099 (moderator re-extract only) -- no usable cover: try the slides alone. With none inlined
   // the request stays text-only exactly as without this option.
   async function sendSlidesWithoutCover(): Promise<void> {
     if (!options?.slidesWhenCoverFails || !message.additionalImageUrls?.length) return;
@@ -463,14 +463,14 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
       // (AC3) -- `contents` is reset to the caption text only.
       contents = captionWithAccountContext;
 
-      // BUG-097 (moderator re-extract only) -- an expired cover hotlink says nothing about the
+      // BUG-099 (moderator re-extract only) -- an expired cover hotlink says nothing about the
       // slides, which are separate URLs. `aiImageInput === 'no_image_sent'` identifies a cover
       // FETCH failure (a blur failure is tagged 'text_only_fail_closed' before it throws and stays
       // text-only, fail-closed).
       if (aiImageInput === 'no_image_sent') await sendSlidesWithoutCover();
     }
   } else {
-    // A post that lists slides but no cover (BUG-097, moderator re-extract only).
+    // A post that lists slides but no cover (BUG-099, moderator re-extract only).
     await sendSlidesWithoutCover();
   }
 

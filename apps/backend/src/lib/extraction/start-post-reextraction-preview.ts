@@ -167,7 +167,7 @@ export async function startPostReextractionPreview(
   const url = post ? post.postUrl : input.url!;
   const platform = detectPlatformFromUrl(url);
 
-  // BUG-097 -- a stored caption does not mean usable images: the cover and slide URLs are hotlinks
+  // BUG-099 -- a stored caption does not mean usable images: the cover and slide URLs are hotlinks
   // that expire, and a request built from expired ones reads no slide (the later events of a
   // carousel roundup went missing from the preview). Such a post is rescraped for fresh image URLs.
   const imagesStale = post

@@ -334,7 +334,7 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
     assert.deepStrictEqual((row.resultData as ReextractionPreviewResult).events, []);
   });
 
-  await t.test('BUG-097: a carousel with an expired cover reads up to the preview cap of slides and reports the shortfall', async () => {
+  await t.test('BUG-099: a carousel with an expired cover reads up to the preview cap of slides and reports the shortfall', async () => {
     const post = await makePost('Roundup caption, schedules on later slides');
     const originalFetch = globalThis.fetch;
     let fetched = 0;

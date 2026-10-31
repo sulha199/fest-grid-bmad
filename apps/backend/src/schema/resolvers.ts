@@ -1710,7 +1710,7 @@ export const resolvers: Resolvers = {
             imageUrl: scrapedPost.imageUrl ?? undefined,
             postUrl: scrapedPost.postUrl,
             publishedAt: scrapedPost.publishedAt,
-            // BUG-097 -- the carousel slides after the cover; they were dropped here, so a correction
+            // BUG-099 -- the carousel slides after the cover; they were dropped here, so a correction
             // of a multi-slide post read the first image only.
             additionalImageUrls: scrapedPost.additionalImageUrls,
           },
@@ -2996,7 +2996,7 @@ export const resolvers: Resolvers = {
         preview: result
           ? {
               ...result,
-              // A job finished before BUG-097 shipped has no image counts: 0 of 0 shows no warning.
+              // A job finished before BUG-099 shipped has no image counts: 0 of 0 shows no warning.
               imagesAvailable: result.imagesAvailable ?? 0,
               imagesSent: result.imagesSent ?? 0,
               // AD-40 Apply: offered while the extraction is still kept, unapplied, and young enough.

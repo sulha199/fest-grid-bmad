@@ -83,7 +83,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
             },
           }
         : {}),
-      // BUG-097 -- a re-extract preview reads more slides than ingestion and keeps trying them when
+      // BUG-099 -- a re-extract preview reads more slides than ingestion and keeps trying them when
       // the cover hotlink has expired. Correction jobs keep the ingestion behavior.
       ...(isPreview ? { maxCarouselImages: env.maxReextractCarouselImages, slidesWhenCoverFails: true } : {}),
     };

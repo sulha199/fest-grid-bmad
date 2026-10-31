@@ -36,7 +36,7 @@ export interface BackendEnv {
   // single extraction request, beyond the cover image (Story 3.6l). Keeps the AI Processor
   // Lambda inside its fixed 300s timeout (AD-13) and bounds per-request token usage.
   maxCarouselImages: number;
-  // Slides a moderator re-extract preview sends (AD-40 amendment, BUG-097). Separate from the
+  // Slides a moderator re-extract preview sends (AD-40 amendment, BUG-099). Separate from the
   // ingestion cap above; default REEXTRACT_MAX_CAROUSEL_IMAGES (10).
   maxReextractCarouselImages: number;
   // Story 3.6s (AD-30 Rule 5) — roundup per-post event cap, default 10, configurable. Used both

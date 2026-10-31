@@ -774,8 +774,8 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.coverFaceCount, 3);
   });
 
-  // ── BUG-097: moderator re-extract reads every slide ─────────────────────────────────────────
-  await t.test('BUG-097 A: imagesAvailable counts cover + every listed slide before the cap, imagesSent counts what was inlined', async () => {
+  // ── BUG-099: moderator re-extract reads every slide ─────────────────────────────────────────
+  await t.test('BUG-099 A: imagesAvailable counts cover + every listed slide before the cap, imagesSent counts what was inlined', async () => {
     const originalMax = process.env.MAX_CAROUSEL_IMAGES;
     process.env.MAX_CAROUSEL_IMAGES = '2';
     try {
@@ -789,7 +789,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     }
   });
 
-  await t.test('BUG-097 B: options.maxCarouselImages overrides the ingestion cap for one request', async () => {
+  await t.test('BUG-099 B: options.maxCarouselImages overrides the ingestion cap for one request', async () => {
     const originalMax = process.env.MAX_CAROUSEL_IMAGES;
     process.env.MAX_CAROUSEL_IMAGES = '2';
     try {
@@ -803,14 +803,14 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     }
   });
 
-  await t.test('BUG-097 C: a dropped slide shows as a shortfall (imagesSent < imagesAvailable)', async () => {
+  await t.test('BUG-099 C: a dropped slide shows as a shortfall (imagesSent < imagesAvailable)', async () => {
     installOrderedFetchMock({ failIndex: 2 });
     const result = await buildGeminiExtractionRequest(multiImageMessage([slide1Url, slide2Url, slide3Url]));
     assert.strictEqual(result.imagesAvailable, 4);
     assert.strictEqual(result.imagesSent, 3);
   });
 
-  await t.test('BUG-097 D: cover fetch fails, slidesWhenCoverFails off (ingestion) -> still text-only, slides never fetched', async () => {
+  await t.test('BUG-099 D: cover fetch fails, slidesWhenCoverFails off (ingestion) -> still text-only, slides never fetched', async () => {
     const callCount = installOrderedFetchMock({ failIndex: 0 });
     const msg = multiImageMessage([slide1Url, slide2Url]);
     const result = await buildGeminiExtractionRequest(msg);
@@ -821,7 +821,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.imagesAvailable, 3);
   });
 
-  await t.test('BUG-097 E: cover fetch fails, slidesWhenCoverFails on -> the slides are sent, no cover bytes reported', async () => {
+  await t.test('BUG-099 E: cover fetch fails, slidesWhenCoverFails on -> the slides are sent, no cover bytes reported', async () => {
     installOrderedFetchMock({ failIndex: 0 });
     const msg = multiImageMessage([slide1Url, slide2Url]);
     const result = await buildGeminiExtractionRequest(msg, { slidesWhenCoverFails: true });
@@ -835,7 +835,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.imagesAvailable, 3);
   });
 
-  await t.test('BUG-097 F: cover fetch fails and every slide fails too -> text-only, as before', async () => {
+  await t.test('BUG-099 F: cover fetch fails and every slide fails too -> text-only, as before', async () => {
     globalThis.fetch = async () => ({ ok: false, status: 403 }) as any;
     const msg = multiImageMessage([slide1Url, slide2Url]);
     const result = await buildGeminiExtractionRequest(msg, { slidesWhenCoverFails: true });
@@ -844,7 +844,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.imagesSent, 0);
   });
 
-  await t.test('BUG-097 G: cover fetch fails with blur on -> slides are blurred, label blurred, face counts sum the slides', async () => {
+  await t.test('BUG-099 G: cover fetch fails with blur on -> slides are blurred, label blurred, face counts sum the slides', async () => {
     installOrderedFetchMock({ failIndex: 0 });
     setDetectAndBlurFacesSeam(async (buffer: Buffer) => ({ buffer: Buffer.from(`blurred-${buffer.toString()}`), faceCount: 2 }));
     const msg = multiImageMessage([slide1Url, slide2Url]);
@@ -855,7 +855,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.totalFaceDetectionCount, 4);
   });
 
-  await t.test('BUG-097 H: cover fetch fails, blur on, every slide blur fails -> text-only and fail-closed, never an unblurred slide', async () => {
+  await t.test('BUG-099 H: cover fetch fails, blur on, every slide blur fails -> text-only and fail-closed, never an unblurred slide', async () => {
     installOrderedFetchMock({ failIndex: 0 });
     setDetectAndBlurFacesSeam(async () => {
       throw new Error('blur failed');
@@ -867,7 +867,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.imagesSent, 0);
   });
 
-  await t.test('BUG-097 I: cover BLUR failure stays text-only even with slidesWhenCoverFails (fail-closed is not a fetch failure)', async () => {
+  await t.test('BUG-099 I: cover BLUR failure stays text-only even with slidesWhenCoverFails (fail-closed is not a fetch failure)', async () => {
     installOrderedFetchMock();
     setDetectAndBlurFacesSeam(async () => {
       throw new Error('blur failed');
@@ -878,7 +878,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.aiImageInput, 'text_only_fail_closed');
   });
 
-  await t.test('BUG-097 J: a post with slides but no cover sends the slides when slidesWhenCoverFails is on, and stays text-only when it is off', async () => {
+  await t.test('BUG-099 J: a post with slides but no cover sends the slides when slidesWhenCoverFails is on, and stays text-only when it is off', async () => {
     const noCover = (): ProcessingJobMessage => ({ ...multiImageMessage([slide1Url, slide2Url]), imageUrl: undefined });
     installOrderedFetchMock();
     const on = await buildGeminiExtractionRequest(noCover(), { slidesWhenCoverFails: true });
@@ -894,7 +894,7 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(callCount(), 0);
   });
 
-  await t.test('BUG-097 K: a thrown slide FETCH (not a blur) with blur on is not labelled fail-closed', async () => {
+  await t.test('BUG-099 K: a thrown slide FETCH (not a blur) with blur on is not labelled fail-closed', async () => {
     globalThis.fetch = async () => {
       throw new Error('network down');
     };

@@ -1,7 +1,7 @@
 import { parseImageUrlExpiry } from '../scraper/parse-image-url-expiry.js';
 
 /**
- * AD-40 amendment (BUG-097) -- a stored post's image URLs are hotlinks that expire (Instagram's
+ * AD-40 amendment (BUG-099) -- a stored post's image URLs are hotlinks that expire (Instagram's
  * `oe` hex-timestamp parameter, mirrored for the cover in `posts.image_url_expires_at`). Decides
  * whether the moderator re-extract must rescrape to get fresh ones before it builds the Gemini
  * request: a request built from expired links reads no slide, and for an expired cover reads

@@ -155,7 +155,7 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.notStrictEqual(result.errorCode, 'RATE_LIMITED');
   });
 
-  // ── BUG-097: expired image links, rescrape for fresh slides ─────────────────────────────────
+  // ── BUG-099: expired image links, rescrape for fresh slides ─────────────────────────────────
   const hexOf = (d: Date) => Math.floor(d.getTime() / 1000).toString(16);
   // Memoized: the URL built for an assertion must equal the one stored earlier, whatever second it is.
   const urlCache = new Map<string, string>();

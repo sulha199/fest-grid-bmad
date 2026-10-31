@@ -28,7 +28,7 @@ export interface BuildReextractionPreviewInput {
   postStored: boolean;
   rescraped: boolean;
   maxEvents: number;
-  /** BUG-097 -- from the Gemini request builder: images the post lists / images actually sent. */
+  /** BUG-099 -- from the Gemini request builder: images the post lists / images actually sent. */
   imagesAvailable: number;
   imagesSent: number;
 }

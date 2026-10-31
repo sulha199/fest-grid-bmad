@@ -139,7 +139,7 @@ export interface ReextractionPreviewResult {
   groupingReason: string | null;
   postStored: boolean;
   rescraped: boolean;
-  /** BUG-097 -- images the post lists (cover + slides) and images actually read by the extraction. */
+  /** BUG-099 -- images the post lists (cover + slides) and images actually read by the extraction. */
   imagesAvailable: number;
   imagesSent: number;
   events: ReextractionPreviewEvent[];
@@ -157,7 +157,7 @@ export const REEXTRACT_APPLY_WINDOW_MS = 30 * 60 * 1000;
 export const REEXTRACT_RESCRAPE_COOLDOWN_MS = 10 * 60 * 1000;
 
 /**
- * BUG-097 -- slides (beyond the cover) a moderator re-extract sends to Gemini. Ingestion keeps its
+ * BUG-099 -- slides (beyond the cover) a moderator re-extract sends to Gemini. Ingestion keeps its
  * own `MAX_CAROUSEL_IMAGES`; this one is higher because a roundup spreads its events across slides
  * and a moderator preview is a manual, on-demand call.
  */

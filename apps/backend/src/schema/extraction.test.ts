@@ -374,7 +374,7 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     assert.strictEqual(done.data.extractionJob.data.eventName, 'New Pasted Event');
   });
 
-  await t.test('extractEventDataFromUrl - new post path forwards the carousel slides the scraper returned (BUG-097)', async () => {
+  await t.test('extractEventDataFromUrl - new post path forwards the carousel slides the scraper returned (BUG-099)', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 
     setCallApifyActor(async () => [

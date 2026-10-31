@@ -841,7 +841,7 @@ Not implemented here per this investigation's explicit scope (investigation only
   evidence: Surfaced by Edge Case Hunter. Pre-existing for posts with no stored caption; more reachable now that a stored-caption post with expired image links also rescrapes. Fix: record the cooldown row before the scrape, or take a short per-URL lease.
 - source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
   summary: The moderator re-extract rescrape and `extractEventDataFromUrl` call `getScraperAdapter(platform).getPostByUrl` without `isScrapableAccountType()`, which `project-context.md` says every code path that starts a scrape must call; neither is on the AD-34 entry-point list.
-  evidence: Surfaced by Blind Hunter. Pre-existing (a single post URL fetch, not an account scrape), widened a little by BUG-097. Needs a decision: either record these two paths as exempt in AD-34, or gate stored posts on the owning account's type.
+  evidence: Surfaced by Blind Hunter. Pre-existing (a single post URL fetch, not an account scrape), widened a little by BUG-099. Needs a decision: either record these two paths as exempt in AD-34, or gate stored posts on the owning account's type.
 
 ## Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31)
 
