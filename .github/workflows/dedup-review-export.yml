@@ -15,9 +15,10 @@ run-name: Dedup Review Export ${{ inputs.run_tag }}
 # default. The export reads no account username, account id, caption or email. It does pass event text
 # through as stored (names, locations, schedule titles, link paths), which is already public on the
 # event pages; links lose their query string. An unexpected error prints only its class and code. The
-# job summary holds counts only. Repository variables are NOT masked, so if the reviewer address in
-# DEDUP_REVIEW_MODERATOR_EMAIL must never appear in a log, store it as a secret instead and change the
-# `vars.` reference below to `secrets.` (re-running with step debug logging would print a variable).
+# job summary holds counts only. Repository variables are NOT masked: the `env:` block this workflow's
+# Export step prints in every run shows DEDUP_REVIEW_MODERATOR_EMAIL in the clear (the first run did).
+# That address is already public in packages/database/seed.ts; if the reviewer address must never
+# appear in a log, store it as a secret instead and change the `vars.` reference below to `secrets.`.
 #
 # One-time setup (the owner does this in GitHub; nothing here can create it):
 #   1. Settings -> Environments -> New environment `dedup-review`, with Deployment branches limited
@@ -32,7 +33,8 @@ run-name: Dedup Review Export ${{ inputs.run_tag }}
 #      moderator). With it, `recentlyResolved` can tell the reviewer's resolutions from a human's. The
 #      address is never printed.
 #   4. Run this workflow once from the Actions tab and check the line parses, holds no private data,
-#      and that the evidence query (pg_trgm similarity()) works under the role you chose. Compare
+#      and that the evidence query (pg_trgm similarity()) works under the role you chose. A failure
+#      prints the error class, its SQLSTATE code and a fixed hint (never the error text). Compare
 #      `pending suggestions` in the summary with the moderator page.
 # The job only runs from `master`; that is a convenience against an accidental dispatch from another ref,
 # not a security control (a branch can edit this file). The environment's branch rule in step 1 is.

@@ -154,6 +154,11 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 
 ## 8. Not verified
 
-Whether the cloud session's token can dispatch workflows and read job logs (listing works); GitHub environment
-branch rules and required reviewers; whether `readonly_2` can run the evidence path after RLS; whether dispatch
-returns a run id in the current API; `get_job_logs` truncation on large logs.
+Verified 2026-10-31 (first run of the export): the cloud session can dispatch a workflow from `master` and read its
+job log, and a `run_tag` in `run-name` is enough to find the run (dispatch returns no run id, so the tag is how a
+caller finds its run); the `dedup-review` environment let a `master` run start; the secret was present. That run
+failed with SQLSTATE 42883 (`similarity()` not resolvable for the role); the fix puts `extensions` on the search
+path, and a re-run is still needed to confirm it and to see real evidence.
+
+Still not verified: which role the secret holds and whether it works (the re-run settles it); whether `readonly_2`
+can run the evidence path after RLS (expected not to); `get_job_logs` truncation on a large export (50 pairs).

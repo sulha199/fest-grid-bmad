@@ -40,13 +40,29 @@ export function parseCliArgs(argv: string[]): DedupReviewOptions {
   return parseDedupReviewOptions(raw);
 }
 
-/** What to print when the export fails: the typed errors' fixed messages, and for anything else only the class and code. */
+/**
+ * Fixed hints for the database error codes this export can plausibly hit. They are keyed by the
+ * SQLSTATE code only, so they never carry the error's own text (which can hold a host, a user name
+ * or a bound parameter) into a public log.
+ */
+const DATABASE_ERROR_HINTS: Record<string, string> = {
+  '42883': 'a database function was not found; the usual cause is pg_trgm similarity() not being resolvable for this role (the export puts the `extensions` schema on the search path, so check pg_trgm is installed and the role may use it)',
+  '42501': 'the role lacks a privilege on a table or function the export reads; use a read-only role with BYPASSRLS and pg_read_all_data (docs/infrastructure/3-database.md)',
+  '42P01': 'a table was not found; check DEDUP_REVIEW_READONLY_DATABASE_URL points at the production database',
+  '28P01': 'authentication failed; check the DEDUP_REVIEW_READONLY_DATABASE_URL secret',
+  '28000': 'the role was refused; check the DEDUP_REVIEW_READONLY_DATABASE_URL secret',
+  '25006': 'the database refused a write in a read-only transaction; the export must not write, so this is a bug in the export',
+};
+
+/** What to print when the export fails: the typed errors' fixed messages, and for anything else only the class, the code and a fixed hint for that code. */
 export function describeFailure(err: unknown): string {
   if (err instanceof DedupReviewOptionsError) return `Invalid input: ${err.message}`;
   if (err instanceof DedupReviewRoleError || err instanceof DedupReviewReviewerError) return `Export refused: ${err.message}`;
   const name = err instanceof Error ? err.name : 'Error';
-  const code = typeof (err as { code?: unknown } | null)?.code === 'string' ? ` (${(err as { code: string }).code})` : '';
-  return `Export failed: ${name}${code}. The details are not printed because this log is public; run the same command locally to see them.`;
+  const rawCode = (err as { code?: unknown } | null)?.code;
+  const code = typeof rawCode === 'string' ? rawCode : null;
+  const hint = code !== null && Object.hasOwn(DATABASE_ERROR_HINTS, code) ? ` Likely cause: ${DATABASE_ERROR_HINTS[code]}.` : '';
+  return `Export failed: ${name}${code ? ` (${code})` : ''}.${hint} The error's own text is not printed because this log is public; run the same command locally to see it.`;
 }
 
 async function main(): Promise<void> {
