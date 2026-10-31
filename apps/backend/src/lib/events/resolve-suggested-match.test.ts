@@ -5,7 +5,7 @@ import postgres from 'postgres';
 import { db, setSqlCaptureSink } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { users, events, eventMatchCandidates, eventMerges, posts, socialMediaAccountProfiles } from '@festgrid/database';
-import { EventMergeInvalidStateError, undoEventMerge } from './merge-events.js';
+import { EventMergeInvalidStateError, InvalidResolutionSourceError, undoEventMerge } from './merge-events.js';
 import {
   resolveSuggestedMatch,
   SuggestedMatchInvalidActionError,
@@ -111,6 +111,25 @@ test('resolveSuggestedMatch (AD-30 Rule 9)', async (t) => {
     assert.strictEqual(reopened.status, 'pending');
     assert.strictEqual(reopened.resolvedVia, null);
     assert.strictEqual(reopened.resolvedByModeratorId, null);
+    // The journal row keeps who made the merge, marked undone: a later per-day cap must decide whether an undone merge still counts.
+    const [journal] = await db.select().from(eventMerges).where(eq(eventMerges.id, mergeId));
+    assert.strictEqual(journal.performedVia, 'ai_skill');
+    assert.ok(journal.undoneAt instanceof Date);
+  });
+
+  await t.test('a via that is not a resolution source is refused before anything is read or written', async () => {
+    const { suggestion } = await makePair('Bad Via');
+    for (const bad of [null, 'robot', '']) {
+      for (const action of ['ACCEPT', 'REJECT'] as const) {
+        await assert.rejects(
+          db.transaction((tx) => resolveSuggestedMatch(tx, { id: suggestion.id, action, moderatorId: moderator.id, via: bad as never })),
+          InvalidResolutionSourceError
+        );
+      }
+    }
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'pending');
+    assert.strictEqual(row.resolvedVia, null);
   });
 
   await t.test('a pending suggestion has no resolved_via', async () => {

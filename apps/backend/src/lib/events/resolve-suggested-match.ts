@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { eventMatchCandidates } from '@festgrid/database';
-import { mergeEvents, type ResolutionSource } from './merge-events.js';
+import { assertResolutionSource, mergeEvents, type ResolutionSource } from './merge-events.js';
 import type { DbExecutor } from './set-event-primary-post.js';
 
 /**
@@ -51,6 +51,7 @@ export class SuggestedMatchInvalidActionError extends Error {}
 
 export async function resolveSuggestedMatch(tx: DbExecutor, input: ResolveSuggestedMatchInput): Promise<ResolveSuggestedMatchResult> {
   const { id, action, moderatorId, via = 'moderator' } = input;
+  assertResolutionSource(via);
 
   const [suggestion] = await tx.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id)).for('update');
   if (!suggestion) {

@@ -294,11 +294,12 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     const expiredPair = await makePair('Expired Pair', '2026-12-22');
     const oldPair = await makePair('Resolved Long Ago', '2026-12-23');
     const set = (id: string, values: Partial<typeof eventMatchCandidates.$inferInsert>) => db.update(eventMatchCandidates).set(values).where(eq(eventMatchCandidates.id, id));
-    await set(reviewerPair.suggestion.id, { status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: reviewer.id, resolvedVia: 'ai_skill' });
-    await set(humanPair.suggestion.id, { status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: human.id, resolvedVia: 'moderator' });
+    await set(reviewerPair.suggestion.id, { status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: human.id, resolvedVia: 'ai_skill' });
+    await set(humanPair.suggestion.id, { status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: reviewer.id, resolvedVia: 'moderator' });
     await set(expiredPair.suggestion.id, { status: 'expired', resolvedAt: new Date() });
     await set(oldPair.suggestion.id, { status: 'rejected', resolvedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), resolvedByModeratorId: human.id });
 
+    // The moderator ids above are swapped on purpose: the label comes from resolved_via alone, never from who the user is.
     const report = await buildDedupReviewExport(db, base);
     const resolved = new Map(report.recentlyResolved.map((r) => [r.suggestionId, r]));
     assert.strictEqual(resolved.get(reviewerPair.suggestion.id)?.resolvedBy, 'reviewer');

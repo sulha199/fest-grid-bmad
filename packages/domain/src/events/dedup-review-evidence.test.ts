@@ -100,6 +100,7 @@ test('classifyDedupReviewResolvedBy - expiry is the system; the flag tells the r
   assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'rejected', resolvedVia: 'ai_skill' }), 'reviewer');
   assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'accepted', resolvedVia: 'moderator' }), 'human');
   assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'rejected', resolvedVia: 'moderator' }), 'human');
+  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'accepted', resolvedVia: 'a_future_source' as unknown as 'moderator' }), 'unknown', 'a value this version does not know is not read as a person');
 });
 
 test('canonicalizeDedupEvidence - identical evidence gives an identical string', () => {

@@ -18,6 +18,16 @@ import { findScheduleByStartDate } from './schedule-date-match.js';
 /** Who decided a dedup: `moderator` (a person) or `ai_skill` (the AI reviewer). */
 export type ResolutionSource = (typeof resolutionSourceEnum.enumValues)[number];
 
+/** `via` is not one of the `resolution_source` values (a caller passed null or a stray string). */
+export class InvalidResolutionSourceError extends Error {}
+
+/** TypeScript checks `via` only at compile time; a decisions file or script can still hand over anything, and the database would fail late and unclearly. */
+export function assertResolutionSource(via: unknown): asserts via is ResolutionSource {
+  if (!(resolutionSourceEnum.enumValues as readonly unknown[]).includes(via)) {
+    throw new InvalidResolutionSourceError('via must be "moderator" or "ai_skill"');
+  }
+}
+
 type EventRow = typeof events.$inferSelect;
 type ScheduleRow = typeof schedules.$inferSelect;
 type EventMergeRow = typeof eventMerges.$inferSelect;
@@ -89,6 +99,7 @@ export async function mergeEvents(
   suggestionId: string | null,
   via: ResolutionSource = 'moderator'
 ): Promise<MergeEventsResult> {
+  assertResolutionSource(via);
   const { winner, loser } = await assertMergeable(executor, winnerId, loserId);
 
   // Step 1: both events' current schedules (loser's never deleted by this function -- a merge

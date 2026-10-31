@@ -28,6 +28,12 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
   authentication: anyone who can dispatch the workflow can supply any hash, so the real guards stay the
   `dedup-review` environment (`master` only), the deterministic floor and the caps. `users.id` is the Supabase auth
   id (`user-provisioning.ts`), so never insert a user with a random id.
+  Known limits and rules for B2b (from the B2a review): the hash of an email is unsalted and low-entropy, so it hides
+  the address from a casual reader of the log but not from someone who already guesses it; the match trims in SQL
+  (`lower(btrim(users.email))`) and refuses unless **exactly one** active moderator matches; the Claude account email
+  may differ from the app's Google login, so `validate` mode must run the same match and report "no moderator for this
+  invoker" before any `apply` is attempted; anyone who can dispatch can attribute AI merges to any moderator, which
+  the audit trail cannot tell from the real one except by `performed_via`.
 - Whether a decision was a person's or the AI's is a flag, not an identity: `event_match_candidates.resolved_via`
   and `event_merges.performed_via` (`moderator` | `ai_skill`), written only by the shared resolve path (B2a). Caps
   count `ai_skill` rows. The export's `recentlyResolved` reads the same flag.
@@ -56,7 +62,7 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 | **A** | Extract `resolveSuggestedMatch`, row lock, characterization tests, ratchet | Behaviour-preserving change to the live moderator mutation; fixes a latent race | none |
 | **B1** | Evidence contract and hash in `packages/domain`, the read-only export script and workflow, docs (`FIND-107`) | Dark: a human dispatches the export and reads the JSON. **Built 2026-10-31.** | A |
 | **B2** | Decision validator, floor and caps, apply script and workflow, environment and moderator wiring, new AD, PRD amendment (`FIND-108`) | Dark: a human dispatches it, `validate` before `apply` | B1 |
-| **C** | `SKILL.md`, labels, `dedup-insight` issue, shadow-mode acceptance | The daily skill | B on `master` |
+| **C** | `moderator-dedup-review` skill (`SKILL.md`), labels, `dedup-insight` issue, shadow-mode acceptance | The daily skill | B on `master` |
 | C2 (later) | `review-insights` mode | Reads closed, labelled issues | weeks of C data |
 
 B was split into B1 and B2 on 2026-10-31 so the read-only half could be run against prod first. C must follow B2's
@@ -90,7 +96,7 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 6. **Dry-run fidelity**: one outer transaction for the whole run with a savepoint per decision, rolled back at the end
    unless `--apply`. Reject two decisions touching the same event, or process sequentially. Dry-run output sets
    `dryRun: true` and omits `mergeId`.
-7. **Caps**: per-dispatch cap (10) plus a per-24h cap counted from the `ai_skill` merges (`event_merges.performed_via`); a kill-switch
+7. **Caps**: per-dispatch cap (10) plus a per-24h cap counted from `event_merges.performed_via = 'ai_skill'` rows **including undone ones** (the journal keeps the flag after an undo; counting only live merges would let a re-merge after an undo bypass the cap) plus `ai_skill` rejections on `event_match_candidates` (a reject writes no journal row, and undo clears the suggestion's flag); a kill-switch
    variable that makes apply exit without writing.
 8. **Workflows**: export sets `DATABASE_URL` and `BACKEND_PORT: '4001'` (`env.ts` requires it); the workflow writes the
    decisions input to `$RUNNER_TEMP/decisions.json`; a `run_tag` input is echoed in `run-name` and the log so the

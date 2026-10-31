@@ -146,10 +146,11 @@ export function classifyDedupReviewResolvedBy(input: {
   if (input.status === 'expired') {
     return 'system';
   }
-  if (input.resolvedVia === null) {
-    return 'unknown';
+  if (input.resolvedVia === 'ai_skill') {
+    return 'reviewer';
   }
-  return input.resolvedVia === 'ai_skill' ? 'reviewer' : 'human';
+  // Anything else, including a source added later that this version does not know, is not guessed at.
+  return input.resolvedVia === 'moderator' ? 'human' : 'unknown';
 }
 
 function compareJson(a: unknown, b: unknown): number {

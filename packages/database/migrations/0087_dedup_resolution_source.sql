@@ -4,8 +4,8 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 --> statement-breakpoint
-ALTER TABLE "event_match_candidates" ADD COLUMN "resolved_via" "resolution_source";--> statement-breakpoint
-ALTER TABLE "event_merges" ADD COLUMN "performed_via" "resolution_source" DEFAULT 'moderator' NOT NULL;
+ALTER TABLE "event_match_candidates" ADD COLUMN IF NOT EXISTS "resolved_via" "resolution_source";--> statement-breakpoint
+ALTER TABLE "event_merges" ADD COLUMN IF NOT EXISTS "performed_via" "resolution_source" DEFAULT 'moderator' NOT NULL;
 --> statement-breakpoint
 -- Every suggestion resolved before this column existed was resolved by a person (the moderator UI, or
 -- a script an operator ran): the AI reviewer's apply path does not exist yet. Pending and expired rows
