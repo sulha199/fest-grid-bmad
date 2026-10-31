@@ -109,7 +109,7 @@ export function pairPostEventsToItems(existing: readonly PairableExistingEvent[]
       if (score >= PAIRING_MIN_SCORE) candidates.push({ item, event, score });
     }
   }
-  candidates.sort((a, b) => b.score - a.score || a.item.index - b.item.index || (a.event.id < b.event.id ? -1 : a.event.id > b.event.id ? 1 : 0));
+  candidates.sort((a, b) => b.score - a.score || a.item.index - b.item.index || a.event.id.localeCompare(b.event.id));
 
   const usedEvents = new Set<string>();
   const pairingByIndex = new Map<number, ItemPairing>();
