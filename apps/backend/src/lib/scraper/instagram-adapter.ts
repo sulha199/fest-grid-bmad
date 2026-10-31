@@ -5,11 +5,15 @@ import {
   ScraperAccountRef,
   ScrapedPost,
   AccountProfileLookupResult,
+  ProfileScrapeOptions,
+  ProfileScraperAdapter,
+  ScrapedProfile,
   ApifyRequestTimeoutError,
   nextApifyMemoryLimitWaitMs,
   resolveApifyMemoryLimitMaxWaitMs,
 } from '@festgrid/domain';
 import { assertProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
+import { fetchScrapedProfile, registerProfileScraperAdapter } from './profile-scraper.js';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
 import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
@@ -61,6 +65,8 @@ interface ClassifyAccountProfileActorInput {
 // ============================================================================
 
 interface ApifyClassifyProfileItem {
+  id?: string;
+  profilePicUrl?: string;
   biography?: string;
   fullName?: string;
   username?: string;
@@ -594,6 +600,99 @@ function isNotFoundItem(item: any, kind: 'post' | 'profile'): boolean {
   return false;
 }
 
+// ============================================================================
+// APIFY PROFILE ADAPTER -- the Apify side of the profile-scraper chain (profile-scraper.ts)
+// ============================================================================
+
+async function apifyLookupProfile(handleOrUrl: string, budgetMs: number): Promise<ScrapedProfile | null> {
+  await assertProviderCapacityAvailable('apify', `profile ${handleOrUrl}`);
+
+  const runLookup = async (): Promise<ScrapedProfile | null> => {
+    try {
+      const url = handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.instagram.com/${handleOrUrl}/`;
+      const input: LookupAccountProfileActorInput = {
+        directUrls: [url],
+        resultsType: 'details',
+        resultsLimit: 1,
+      };
+      const items = (await callApifyActor(LOOKUP_ACCOUNT_PROFILE_ACTOR, input)) as LookupAccountProfileActorOutput;
+
+      if (!items || items.length === 0) {
+        return null;
+      }
+
+      const item = items[0];
+      if (isNotFoundItem(item, 'profile')) {
+        return null;
+      }
+      const result: ScrapedProfile = {
+        accountId: item.id || item.username || '',
+        displayName: item.fullName || item.displayName || item.name || item.username || '',
+        username: item.username || '',
+        profileImageUrl: item.profilePicUrl || item.profileImageUrl || undefined,
+      };
+
+      await recordProviderUsage('apify', 1);
+
+      return result;
+    } catch (err) {
+      console.error(`Instagram Scraper Adapter error looking up profile for ${handleOrUrl}:`, err);
+      throw normalizeApifyError(err, `looking up profile ${handleOrUrl}`);
+    }
+  };
+
+  return withTimeoutOrThrow(runLookup(), Math.min(budgetMs, PROFILE_LOOKUP_TIMEOUT_MS), 'Account profile lookup timed out');
+}
+
+async function apifyClassificationProfile(username: string, budgetMs: number): Promise<ScrapedProfile | null> {
+  await assertProviderCapacityAvailable('apify', `profile-classify ${username}`);
+
+  const runLookup = async (): Promise<ScrapedProfile | null> => {
+    try {
+      const input: ClassifyAccountProfileActorInput = {
+        usernames: [username],
+        includeAboutSection: false,
+      };
+      const items = (await callApifyActor(CLASSIFY_ACCOUNT_PROFILE_ACTOR, input)) as ClassifyAccountProfileActorOutput;
+
+      if (!items || items.length === 0) {
+        return null;
+      }
+
+      const item = items[0];
+      if (item.error === 'not_found' || !item.username || !item.fullName || !item.biography) {
+        return null;
+      }
+
+      await recordProviderUsage('apify', 1);
+
+      return {
+        accountId: item.id || item.username,
+        username: item.username,
+        displayName: item.fullName,
+        profileImageUrl: item.profilePicUrl || undefined,
+        biography: item.biography,
+        businessCategoryName: item.businessCategoryName || null,
+      };
+    } catch (err) {
+      console.error(`Instagram Scraper Adapter error during account classification profile lookup for ${username}:`, err);
+      throw normalizeApifyError(err, `looking up profile for classification ${username}`);
+    }
+  };
+
+  return withTimeoutOrThrow(runLookup(), Math.min(budgetMs, PROFILE_LOOKUP_TIMEOUT_MS), 'Account profile lookup for classification timed out');
+}
+
+export const apifyProfileAdapter: ProfileScraperAdapter = {
+  name: 'apify',
+  // An Apify profile run answers in seconds, so any budget is worth trying.
+  minBudgetMs: 0,
+  fetchProfile: (handle, { purpose, budgetMs }) =>
+    purpose === 'lookup' ? apifyLookupProfile(handle, budgetMs) : apifyClassificationProfile(handle, budgetMs),
+};
+
+registerProfileScraperAdapter(apifyProfileAdapter);
+
 export const instagramScraperAdapter: ScraperAdapter = {
   // apify/instagram-post-scraper filters server-side on both onlyPostsNewerThan and
   // resultsLimit, so the new-subscribe path can fetch once instead of retrying windows.
@@ -661,80 +760,29 @@ export const instagramScraperAdapter: ScraperAdapter = {
     }
   },
 
-  async lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
-    await assertProviderCapacityAvailable('apify', `profile ${handleOrUrl}`);
-
-    const runLookup = async (): Promise<AccountProfileLookupResult | null> => {
-      try {
-        const url = handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.instagram.com/${handleOrUrl}/`;
-        const input: LookupAccountProfileActorInput = {
-          directUrls: [url],
-          resultsType: 'details',
-          resultsLimit: 1,
-        };
-        const items = (await callApifyActor(LOOKUP_ACCOUNT_PROFILE_ACTOR, input)) as LookupAccountProfileActorOutput;
-
-        if (!items || items.length === 0) {
-          return null;
-        }
-
-        const item = items[0];
-        if (isNotFoundItem(item, 'profile')) {
-          return null;
-        }
-        const result: AccountProfileLookupResult = {
-          accountId: item.id || item.username || '',
-          displayName: item.fullName || item.displayName || item.name || item.username || '',
-          username: item.username || '',
-          profileImageUrl: item.profilePicUrl || item.profileImageUrl || undefined,
-        };
-
-        await recordProviderUsage('apify', 1);
-
-        return result;
-      } catch (err) {
-        console.error(`Instagram Scraper Adapter error looking up profile for ${handleOrUrl}:`, err);
-        throw normalizeApifyError(err, `looking up profile ${handleOrUrl}`);
-      }
+  async lookupAccountProfile(handleOrUrl: string, options?: ProfileScrapeOptions): Promise<AccountProfileLookupResult | null> {
+    const profile = await fetchScrapedProfile(handleOrUrl, 'lookup', options?.budgetMs ?? PROFILE_LOOKUP_TIMEOUT_MS);
+    if (!profile) {
+      return null;
+    }
+    return {
+      accountId: profile.accountId,
+      displayName: profile.displayName,
+      username: profile.username,
+      profileImageUrl: profile.profileImageUrl,
     };
-
-    return withTimeoutOrThrow(runLookup(), PROFILE_LOOKUP_TIMEOUT_MS, 'Account profile lookup timed out');
   },
 
-  async getAccountClassificationProfile(username: string): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> {
-    await assertProviderCapacityAvailable('apify', `profile-classify ${username}`);
-
-    const runLookup = async (): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> => {
-      try {
-        const input: ClassifyAccountProfileActorInput = {
-          usernames: [username],
-          includeAboutSection: false,
-        };
-        const items = (await callApifyActor(CLASSIFY_ACCOUNT_PROFILE_ACTOR, input)) as ClassifyAccountProfileActorOutput;
-
-        if (!items || items.length === 0) {
-          return null;
-        }
-
-        const item = items[0];
-        if (item.error === 'not_found' || !item.username || !item.fullName || !item.biography) {
-          return null;
-        }
-
-        await recordProviderUsage('apify', 1);
-
-        return {
-          biography: item.biography || '',
-          username: item.username || '',
-          displayName: item.fullName || '',
-          businessCategoryName: item.businessCategoryName || null,
-        };
-      } catch (err) {
-        console.error(`Instagram Scraper Adapter error during account classification profile lookup for ${username}:`, err);
-        throw normalizeApifyError(err, `looking up profile for classification ${username}`);
-      }
+  async getAccountClassificationProfile(username: string, options?: ProfileScrapeOptions): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> {
+    const profile = await fetchScrapedProfile(username, 'classification', options?.budgetMs ?? PROFILE_LOOKUP_TIMEOUT_MS);
+    if (!profile) {
+      return null;
+    }
+    return {
+      biography: profile.biography ?? '',
+      username: profile.username,
+      displayName: profile.displayName,
+      businessCategoryName: profile.businessCategoryName ?? null,
     };
-
-    return withTimeoutOrThrow(runLookup(), PROFILE_LOOKUP_TIMEOUT_MS, 'Account profile lookup for classification timed out');
   },
 };
