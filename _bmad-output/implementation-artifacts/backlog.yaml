@@ -2662,7 +2662,7 @@ items:
      title: "Past-event cutoff uses the UTC date, so in Jakarta's first 7 hours the list still shows ended events",
      ref: [packages/database/migrations/0087_bug_096_schedule_past_cutoff_date.sql, packages/graphql-select/past-cutoff-sql.ts, apps/backend/src/schema/events-past-cutoff-timezone.test.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
      touches: [pkg:database, pkg:domain, pkg:graphql-select, app:backend, web:events, cross:architecture],
-     note: "Fixed in PR #PRNUM (option A of an architect review): the list's cutoff is now the date of the request's one `now` in each schedule's own timezone (RESOLVED only, else UTC), from one SQL function shared by default visibility, isPastEvent and isExpiredForCurrentUser. Verify after deploy in the 00:00-07:00 WIB window: no event that ended on the previous Jakarta day should be listed. The TODAY/UPCOMING toggles still use the UTC date (BUG-097)."}
+     note: "Fixed in PR #126 (option A of an architect review): the list's cutoff is now the date of the request's one `now` in each schedule's own timezone (RESOLVED only, else UTC), from one SQL function shared by default visibility, isPastEvent and isExpiredForCurrentUser. Verify after deploy in the 00:00-07:00 WIB window: no event that ended on the previous Jakarta day should be listed. The TODAY/UPCOMING toggles still use the UTC date (BUG-097)."}
 
   BUG-097:
     {type: bug, status: backlog, created: 2026-10-31,
