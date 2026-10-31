@@ -2646,3 +2646,20 @@ items:
      ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lambdas/scraper.test.ts],
      touches: [app:backend],
      note: "Deferred from: bmad-quick-dev gate after merging master into the shared accept/reject change (2026-10-30). Sandbox-only: CI passes it, master's source fails it here too; cause unknown. 1 finding."}
+
+  # ── 2026-10-31 (prod: logged-in Discovery lists events up to 7 days after they ended) ──
+  BUG-095:
+    {type: bug, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
+     title: "Migration 0056 skipped on prod: logged-in users still get a 7-day past-event grace window",
+     ref: [packages/database/migrations/0086_bug_095_reapply_skipped_0056_past_events_default.sql, packages/database/migrations-journal-order.ratchet.test.ts, backlog/BUG-095-migration-0056-skipped-on-prod.md],
+     touches: [pkg:database, web:events, web:settings],
+     note: "Fixed in the PR that adds this row (0086 re-applies 0056, plus a journal-order ratchet); set done once merged and db-migrate has run on prod."}
+
+  BUG-096:
+    {type: bug, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
+     title: "Past-event cutoff uses the UTC date, so in Jakarta's first 7 hours the list still shows ended events",
+     ref: [packages/domain/src/events/computePastEventThreshold.ts, packages/ui/src/features/events/format-event-date.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
+     touches: [pkg:domain, pkg:ui, app:backend, web:events],
+     note: "Not fixed, log only. 43 events that ended the day before were listed at 01:55 WIB on 2026-10-31. The shared ended-cases fixture is built around UTC, so a fix needs a timezone decision first."}
