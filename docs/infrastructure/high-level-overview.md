@@ -45,6 +45,7 @@ graph TD
     subgraph "GitHub Actions"
         GHA_Backup["Production DB Backup: nightly and manual pg_dump"]
         GHA_Restore["Production DB Restore Test: restores the newest dump after each backup"]
+        GHA_DedupExport["Dedup Review Export: manual, read-only evidence JSON for the AI reviewer"]
     end
 
     subgraph External Services
@@ -99,5 +100,6 @@ graph TD
     GHA_Backup -- uploads the dump --> S3_Backup
     S3_Backup -- newest dump --> GHA_Restore
     GHA_Restore -- read-only row and object counts --> Supabase
+    GHA_DedupExport -- read-only evidence queries, READ ONLY transaction --> Supabase
 ```
 

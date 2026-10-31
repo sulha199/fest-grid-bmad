@@ -22,6 +22,14 @@ Every table in the `public` schema has row level security (RLS) enabled (migrati
 
 The manual Supabase and AWS steps for rolling this out are in [supabase-rls-and-kms-rollout.md](./supabase-rls-and-kms-rollout.md).
 
+## Read-only access for the dedup review export
+
+The [Dedup Review Export](../../.github/workflows/dedup-review-export.yml) workflow (`7-event-dedup.md`) reads the moderator queue for the AI reviewer. It reads `DEDUP_REVIEW_READONLY_DATABASE_URL` from the `dedup-review` environment, which must hold the URL of a **read-only role that bypasses RLS**: every table it reads has row level security, so a role without `BYPASSRLS` sees no rows. The export checks for this and refuses such a role instead of reporting an empty queue.
+
+*   **Which role:** `backup_ro` (below) is expected to fit, and `readonly_2` is expected not to since migration 0084; neither has been verified, so the first manual run settles it. `backup_ro`'s URL is the session-mode pooler (port `5432`) one; the role is shared with the nightly backup, so rotating it means updating both secrets. Check too that `similarity()` (pg_trgm, installed in the `extensions` schema) resolves for the role.
+*   **What that means for privacy:** `backup_ro` can read every table, including `users` and the key and token tables. The export's privacy rests on its code (it reads no account username or caption), not on the role's grants.
+*   **Writes:** the script runs in a `REPEATABLE READ, READ ONLY` transaction, so even a write-capable URL in the secret cannot write. Do not put the owner role (the one the migration job uses) in this secret anyway: its name says read-only.
+
 ## Backups
 
 The Supabase free plan has **no managed backups** (daily backups and point-in-time recovery need Pro), so the only backup is the nightly `pg_dump` run by the [Production DB Backup](../../.github/workflows/prod-db-backup.yml) GitHub Actions workflow. It also runs on demand (Actions → Production DB Backup → Run workflow).

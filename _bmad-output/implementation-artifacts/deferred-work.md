@@ -815,3 +815,15 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
   summary: Two `scraper.test.ts` tests fail on origin/master as merged (e0a0b10): "the batch row records why a cycle found no targets, and only then" and its parent "scraper lambda daily-batch branch: scheduled cycle vs manual invoke (2026-10-24)"; the logged cutoff is `1999-12-31T23:00:00.000Z` where the test expects `2000-01-01T00:00:00.000Z`, one hour earlier.
   evidence: Found by the backend test gate; reproduced by running the file against master's own `apps/backend/src` (24 pass, 2 fail) with `TZ=UTC`. Not in the earlier run before master's scraper commit a5cfa20, so it first looked like a code-versus-test mismatch from that commit; update 2026-10-30: CI passes both tests on the PR head, so this is specific to the cloud sandbox and not a master defect. Cause not found.
+
+## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31)
+
+- source_spec: none
+  summary: Piece B2 of the AI-assisted dedup review: the apply side -- the decision validator, per-run and per-day caps and deterministic floor (in `packages/domain`), the apply script and its `validate`/`apply` workflow, the dedicated `dedup-review` environment and moderator account wiring, the new AD, the PRD amendment, `3-database.md` and the runbook.
+  evidence: Split from Piece B1 (the read-only export side) at the multi-goal check: B1 is shippable and verifiable alone by running it once on prod, which also settles the read-only role and `similarity()` question, while B2 is the only write path. Requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 5 (items 1, 3 and 5 to 11). Depends on B1's evidence hash and contract.
+
+## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-export.md`
+  summary: Every workflow that holds a database or cloud secret runs `pnpm install --frozen-lockfile` (dependency lifecycle scripts) and third-party actions pinned by tag before the step that uses the secret, so install-time code could read or misuse it.
+  evidence: Surfaced by Blind Hunter on the new export workflow, which follows the same pattern as `merge-twin-profiles.yml` and the backfill workflows (the older ones hold the full-privilege `DATABASE_URL`). Fix across all workflows: `pnpm install --ignore-scripts` where the build allows it, pin actions by commit SHA, and keep secrets out of any step that runs before the install.

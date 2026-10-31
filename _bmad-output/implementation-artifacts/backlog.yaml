@@ -2608,11 +2608,19 @@ items:
   # ── 2026-10-30 (moderator dedup queue: AI-assisted review, pieces B and C of the split spec) ──
   FIND-107:
     {type: finding, status: backlog, created: 2026-10-30,
-     impact: internal, effort: m, blocks: [FIND-104],
-     title: "AI dedup review piece B: export and apply workflows, domain contract, dedicated moderator, new AD and PRD amendment",
+     impact: internal, effort: m, blocks: [FIND-108],
+     title: "AI dedup review piece B1: read-only export workflow, evidence contract and evidence hash",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
-     touches: [app:backend, app:infrastructure, web:moderation, cross:architecture, cross:prd, cross:process],
+     touches: [app:backend, app:infrastructure, pkg:domain, cross:process],
      note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs Piece A (shared resolveSuggestedMatch) first; requirements in DESIGN.md section 5. 1 finding."}
+
+  FIND-108:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: internal, effort: m, blocks: [FIND-104],
+     title: "AI dedup review piece B2: apply workflow, decision validator and floor, dedicated environment, new AD and PRD amendment",
+     ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
+     touches: [app:backend, app:infrastructure, pkg:domain, web:moderation, cross:architecture, cross:prd, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31). Needs FIND-107 (export) first; requirements in DESIGN.md section 5. 1 finding."}
 
   FIND-104:
     {type: finding, status: backlog, created: 2026-10-30,
@@ -2663,3 +2671,11 @@ items:
      ref: [packages/domain/src/events/computePastEventThreshold.ts, packages/ui/src/features/events/format-event-date.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
      touches: [pkg:domain, pkg:ui, app:backend, web:events],
      note: "Not fixed, log only. 43 events that ended the day before were listed at 01:55 WIB on 2026-10-31. The shared ended-cases fixture is built around UTC, so a fix needs a timezone decision first."}
+
+  FIND-109:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: compliance, effort: s,
+     title: "Workflows with database or cloud secrets run dependency install scripts and tag-pinned third-party actions before the secret step",
+     ref: [implementation-artifacts/deferred-work.md, .github/workflows/merge-twin-profiles.yml],
+     touches: [app:infrastructure, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Install with --ignore-scripts where possible and pin actions by SHA. 1 finding."}
