@@ -119,6 +119,47 @@ async function releaseLock(lockKey: string, token: string): Promise<void> {
     );
 }
 
+/**
+ * A claimed single-flight lease: the caller owns `lockKey` until it calls `release()` or the TTL
+ * lapses (a crashed Lambda cannot hold it forever).
+ */
+export interface InFlightLease {
+  /** Releases the lease now. Never throws: a failed release only means the TTL has to run out. */
+  release(): Promise<void>;
+}
+
+/**
+ * Single-flight guard for work that must not run twice at once and is not a vendor call this
+ * wrapper already protects -- today, a scrape of one post URL (`post-url-scrape:<hash>`, started
+ * by a moderator re-extract or `extractEventDataFromUrl`). Same table, same atomic claim and
+ * token-checked release as `callVendor`'s per-key lease; this module stays the only writer of
+ * `vendor_call_locks`. Returns `null` when another live lease holds the key -- the caller then
+ * reuses or reports what the holder is producing instead of doing the work again.
+ */
+export async function tryClaimInFlight(lockKey: string, ttlMs: number): Promise<InFlightLease | null> {
+  const token = await claimLock(lockKey, ttlMs);
+  if (token === null) return null;
+  return {
+    release: async () => {
+      try {
+        // Deleted, not just expired like a credential lease: the keys here are per URL, so
+        // leaving every released row behind would grow the table with each URL ever previewed.
+        // Token-checked, so a stale owner whose lease lapsed cannot delete the new owner's row.
+        await db
+          .delete(vendorCallLocks)
+          .where(
+            and(
+              eq(vendorCallLocks.lockKey, lockKey),
+              sql`extract(epoch from ${vendorCallLocks.lockedUntil})::text = ${token}`
+            )
+          );
+      } catch (error) {
+        console.error(`[tryClaimInFlight] could not release lease "${lockKey}"; it expires by TTL:`, error);
+      }
+    },
+  };
+}
+
 // Races `call(signal)` against a `timeoutMs` timer. On expiry, aborts `signal` and throws
 // VendorCallTimeoutError -- a generic bound independent of whatever cancellation support (or
 // lack of it) the thunk itself has.

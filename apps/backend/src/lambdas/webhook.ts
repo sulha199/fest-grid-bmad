@@ -8,6 +8,7 @@ import { processBrightDataResult } from '../lib/scraper/process-brightdata-resul
 import { recordActorRunResult } from '../lib/scraper/record-actor-run.js';
 import { classifyBrightDataRun, describeBrightDataVendorFailure } from '../lib/scraper/classify-brightdata-run.js';
 import { handleBrightDataFailedRun } from '../lib/scraper/handle-brightdata-failed-run.js';
+import { reportBrightDataYield } from '../lib/scraper/run-yield-store.js';
 
 export const handler = async (
   event: APIGatewayProxyEvent,
@@ -89,6 +90,10 @@ export const handler = async (
 
     // Process results with the audit run ID
     await processBrightDataResult(pendingJob, records, pendingJob.scraperActorRunId ?? undefined);
+
+    // What Bright Data itself reported for the snapshot (records, errors, error codes), after the posts are stored
+    // so a slow or failed lookup costs nothing but the columns.
+    await reportBrightDataYield(pendingJob.snapshotId, records.length, progress);
 
     return {
       statusCode: 200,

@@ -10,9 +10,9 @@
 // Deliberately does NOT reseed, truncate, or otherwise touch the database itself (see the story's
 // Dev Notes "Why not force a reseed") -- this only ever reads COUNT(*), before and after.
 import { spawn } from 'node:child_process';
-import { inArray, sql } from 'drizzle-orm';
+import { gte, inArray, sql } from 'drizzle-orm';
 import { getTableConfig } from 'drizzle-orm/pg-core';
-import { getTablesInDeleteOrder, vendorCallLocks } from '@festgrid/database';
+import { getTablesInDeleteOrder, profileLookupAttempts, vendorCallLocks } from '@festgrid/database';
 import { db } from '../src/db/client.js';
 
 async function snapshotCounts(): Promise<Map<string, number>> {
@@ -42,6 +42,17 @@ async function sweepLeasesCreatedSince(before: Set<string>): Promise<void> {
   if (created.length === 0) return;
   await db.delete(vendorCallLocks).where(inArray(vendorCallLocks.lockKey, created));
   console.log(`\nRow-count ratchet: swept ${created.length} vendor_call_locks lease row(s) created during the run: ${created.join(', ')}`);
+}
+
+// `profile_lookup_attempts` is an audit trail, not test data: the profile scraper chain writes one row per adapter it
+// considers (2026-10-31), so any test that reaches `instagramScraperAdapter`'s profile methods without mocking the
+// chain leaves rows behind, including from calls that settle after the test's own cleanup. The audit test file
+// removes its own rows; this sweeps the incidental ones created since the run began, by timestamp, and reports the
+// count. Every other table stays strictly ratcheted.
+async function sweepProfileLookupAttemptsCreatedSince(startedAt: Date): Promise<void> {
+  const swept = await db.delete(profileLookupAttempts).where(gte(profileLookupAttempts.createdAt, startedAt)).returning({ id: profileLookupAttempts.id });
+  if (swept.length === 0) return;
+  console.log(`\nRow-count ratchet: swept ${swept.length} profile_lookup_attempts audit row(s) created during the run`);
 }
 
 function runRealTests(): Promise<number> {
@@ -77,8 +88,10 @@ function runRealTests(): Promise<number> {
 async function main() {
   const before = await snapshotCounts();
   const leaseKeysBefore = await snapshotLeaseKeys();
+  const runStartedAt = new Date();
   const testExitCode = await runRealTests();
   await sweepLeasesCreatedSince(leaseKeysBefore);
+  await sweepProfileLookupAttemptsCreatedSince(runStartedAt);
   const after = await snapshotCounts();
 
   const leaks: Array<{ table: string; before: number; after: number }> = [];

@@ -1,0 +1,36 @@
+{
+  "createdAt": "2026-10-04T00:00:00.000Z",
+  "mode": "stories",
+  "modeValue": [
+    "3.20",
+    "3.21"
+  ],
+  "epicsFile": "C:/projects/portfolio/festgrid/bmad/_bmad-output/planning-artifacts/epics.md",
+  "implementationArtifacts": "C:/projects/portfolio/festgrid/bmad/_bmad-output/implementation-artifacts",
+  "order": [
+    "3.20",
+    "3.21"
+  ],
+  "config": "all-claude-medium",
+  "scope": "bmad-create-story only (no dev-story); sequential, 3.21 depends on 3.20",
+  "context": {
+    "3.20": {
+      "bmad-create-story": "CC-028 (blur faces before images are sent to the AI), Story 3.20. The batch readiness sweep already ran Gate 1 and Gate 3 for this story: read _bmad-output/planning-artifacts/epic-readiness/batch-cc-028-blur-before-ai-readiness.md and cite it instead of re-running them; run Gate 2 only (this story has no UI, so Gate 2 should be a quick no-UI confirmation). Also read the approved proposal _bmad-output/planning-artifacts/sprint-change-proposal-2026-10-04-blur-faces-before-ai.md, Architecture Spine AD-28 Rule 10 and AD-29 Rule 7, and the Amendment under Story 3.20 in epics.md (the sweep's AC corrections are already applied there). The sweep reserved one decision for the user: FIND-068 (manual extractEventDataFromUrl in the API Lambda also sends the cover unblurred; options a/b/c in the sweep report, Finding 1). Ask the user that via AskUserQuestion during this create-story run, with a recommendation. Do not run bmad-dev-story; stop at ready-for-dev.",
+      "bmad-dev-story": "CC-028, Story 3.20. Read _bmad-output/project-context.md and the PRD first (CLAUDE.md rule), then the story file in full, including its Pre-Coding Approval Gate, and the readiness report _bmad-output/planning-artifacts/epic-readiness/batch-cc-028-blur-before-ai-readiness.md. Work in the main checkout only; never call EnterWorktree. Do not touch apps/ux-rework2.md. Do not push. Backend DB tests use the native Windows Postgres from .env DATABASE_URL (service postgresql-x64-18 if unreachable) and TZ=UTC. Run the story tests; lint and build are deferred to the batch-end pass. Task 9 (the six-post extraction parity check) needs a real Gemini key, fresh re-scrapes, and the user: relay any sign-off or material difference via AskUserQuestion, never decide it silently, and never commit a post image. Stop at review status."
+    },
+    "3.21": {
+      "bmad-create-story": "CC-028, Story 3.21 (depends on Story 3.20, now created). Readiness already swept: cite _bmad-output/planning-artifacts/epic-readiness/batch-cc-028-blur-before-ai-readiness.md and run Gate 2 only (no UI, quick confirmation). Read the Amendment under Story 3.21 in epics.md (sweep corrections already applied: fifth ai_image_input value no_image_sent, three writeExtractionAuditLog sites, sum-across-images count semantics, no retry on cover failure, migration shape) and AD-29 Rule 7. Also read the just-created Story 3.20 story file so the two stay consistent, including whatever the user decided on FIND-068. Do not run bmad-dev-story; stop at ready-for-dev. Story 3.20 chose FIND-068 option (c): a new Story 4.2b routes manual extraction through the AI Lambda; check whether 3.21 needs to mention or depend on it (likely not; do not add scope).",
+      "bmad-dev-story": "CC-028, Story 3.21. Story 3.20 must be implemented first (check git log and its status). Read project-context.md and the PRD, then the story file in full including its Pre-Coding Approval Gate. Main checkout only, no EnterWorktree, do not touch apps/ux-rework2.md, do not push. Backend DB tests: native Windows Postgres via .env DATABASE_URL, TZ=UTC. Run the story tests; lint and build are deferred. Stop at review status."
+    }
+  },
+  "progress": {
+    "3.20": {
+      "bmad-create-story": "done (86286f0b, ready-for-dev). FIND-068 = (c): new prerequisite Story 4.2b (backlog) added by the child; Stories 4.2/4.2a amended.",
+      "bmad-dev-story": "PAUSED: usage limit hit (resets 9:40am Asia/Jakarta). Code and tests written but UNCOMMITTED, story still in-progress; the first resume (create-story-logs/3.20-cc028-dev-story-resume1.log) died at the limit before doing anything. To continue: run-ritual.ts --resume-label '3.20/bmad-dev-story' with the resume prompt in tmp/resume320.sh, then run-check.ts --kind test, then verify-story.ts. Earlier note: user approved the Pre-Coding gate. The harness reaped the wrapper shell under memory pressure, but the run-act-with-checks node tree (orchestrator pid 3724) kept running and writing code; NOT restarted. Log create-story-logs/3.20-cc028-dev-story.log"
+    },
+    "3.21": {
+      "bmad-create-story": "done (75911c86, ready-for-dev). No relayed questions. Caveat in story: dev-story on 3.21 must wait until 3.20 is actually implemented.",
+      "bmad-dev-story": "pending (after 3.20)"
+    }
+  }
+}

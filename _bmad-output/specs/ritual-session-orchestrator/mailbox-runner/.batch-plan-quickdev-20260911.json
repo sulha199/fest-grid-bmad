@@ -1,0 +1,24 @@
+{
+  "_note": "Hand-authored plan for the 12 standalone `quick-dev` (xs/s effort, no epic membership) rows from _bmad-output/planning-artifacts/epic-formation/formation-2026-09-11.md §5 -- NOT produced by resolve-targets.ts (these are raw backlog.yaml rows, not sprint-status.yaml stories, so resolve-targets.ts/resume-batch.ts's dependency-graph machinery doesn't apply). To resume: check backlog.yaml's status for each row below and re-dispatch from the first one still \"pending\".",
+  "config": "all-claude-deepseek-medium (bmad-quick-dev routes to cline/DeepInfra DeepSeek-V4-Flash-0731)",
+  "cwd": "c:/projects/portfolio/festgrid/bmad",
+  "mailbox": "../mailbox",
+  "hilPolicy": "Per user instruction (2026-09-14): only escalate a child's AskUserQuestion to the real user for major/architecture-level issues; for minor issues, the orchestrating session decides itself and relays that answer without blocking.",
+  "createdAt": "2026-09-14T00:00:00Z",
+  "lastUpdated": "2026-09-14T09:16:00Z",
+  "batchComplete": true,
+  "steps": [
+    { "skill": "bmad-quick-dev", "story": "BUG-001", "status": "done", "note": "Logo.tsx FestDaily rename finished. Commits 831800c/adda366. lint/build/test all green (11/11)." },
+    { "skill": "bmad-quick-dev", "story": "BUG-010", "status": "done", "note": "App-wide timezone wired into ScopedLocaleProvider at layout root. Commits e138964/13cb61c. lint/build/test all green (11/11)." },
+    { "skill": "bmad-quick-dev", "story": "BUG-013", "status": "done", "note": "Guarded EventCard against NaN date propagation. Commits d9630b8/6b444e5. lint/build/test all green (11/11)." },
+    { "skill": "bmad-quick-dev", "story": "FIND-014", "status": "done", "note": "Surface ALL GraphQL errors in api-key dialogs, static sonner import, regression tests added. Commits 89c6b4e/0276e48. lint/build/test all green (11/11)." },
+    { "skill": "bmad-quick-dev", "story": "FIND-007", "status": "documented", "note": "No known root cause for DW-004/DW-002 recurrences -- consolidated into one incident record per explicit no-speculative-fix scope constraint, did not touch mailbox-runner tooling. Commits 2c0aa58/f22fe38. Docs-only; lint passed, build/test skipped (justified: only backlog.yaml + a new incident markdown changed)." },
+    { "skill": "bmad-quick-dev", "story": "FIND-009", "status": "done", "note": "Pinned wall clock (vi.useFakeTimers/setSystemTime) in EventCard/WeeklyCalendarView date tests. Commits 71e690b/4ccafa9. lint/build/test all green (11/11)." },
+    { "skill": "bmad-quick-dev", "story": "FIND-013", "status": "done", "note": "Removed dead ViewModeToggle leftovers (wrapper divs, layoutSwitcher* i18n keys, stale ?layout= param). Commits c55b5e4/cc1c737. lint/build/test all green (11/11)." },
+    { "skill": "bmad-quick-dev", "story": "FIND-019", "status": "done", "note": "Added Accounts-tab coverage + fixed inaccurate test name in ModeratorToolsContent tests. Commits 3af8d50/aa8bad5. lint/build/test all green (11/11)." },
+    { "skill": "bmad-quick-dev", "story": "IDEA-013", "status": "done", "note": "New scraper_batch_runs table (migration 0053) + wiring in scraper.ts EventBridge branch, with test. Commits d5ceb38/56f857c. lint/build green; first test run had 13 unrelated files crash with Windows STATUS_DLL_INIT_FAILED after ~93 sequential node-process spawns (new scraper test itself passed) -- rerun came back clean 11/11 (530s), confirmed a transient environment flake, not caused by this change." },
+    { "skill": "bmad-quick-dev", "story": "IDEA-018", "status": "done", "note": "Extracted shared crypto-secure generateWebhookToken() (crypto.randomBytes) used by both trigger-apify-for-target.ts and trigger-brightdata-for-target.ts, replacing apify's Math.random()-based one. Commits 8f5e819/fc99bfe. lint/build/test all green (11/11, 541s)." },
+    { "skill": "bmad-quick-dev", "story": "IDEA-021", "status": "done", "note": "Added &omitscript=true to the Instagram oEmbed request URL (adapter.ts). Commits 406147a/032dc7e. lint/build/test all green (11/11, 528s)." },
+    { "skill": "bmad-quick-dev", "story": "BUG-024", "status": "done (needs visual confirmation)", "note": "Toggled collapsed-state sticky header to solid bg-background (was bg-background/95) via the existing isCollapsed boolean, keeping backdrop-blur-sm/border. Commit 7289539 (fix+backlog in one). Full lint/build/test all green (11/11, 122s) in addition to the targeted EventDiscoveryPanel suite; a human should still eyeball the collapsed header against scrolled-under content per the row's own live-rendering caveat." }
+  ]
+}

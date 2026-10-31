@@ -9,6 +9,7 @@ import {
 } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
 import { brightDataProfileAdapter } from './brightdata-profile-adapter.js';
+import { recordProfileLookupAttempt } from './profile-lookup-attempts-store.js';
 
 /**
  * The profile-scraper registry and the one entry point callers use. The vendors are adapters
@@ -63,7 +64,14 @@ export async function fetchScrapedProfile(
   purpose: ProfileScrapePurpose,
   budgetMs: number
 ): Promise<ScrapedProfile | null> {
-  const input = { adapters: getProfileScraperAdapters(), handle, purpose, budgetMs };
+  const input = {
+    adapters: getProfileScraperAdapters(),
+    handle,
+    purpose,
+    budgetMs,
+    // One audit row per adapter considered, written as each outcome is known (also for the ones that fail).
+    onAttempt: (attempt: ProfileAdapterAttempt) => recordProfileLookupAttempt({ purpose, handle, attempt }),
+  };
   try {
     const result = await runProfileScraperChain(input);
     if (result.attempts.length > 1) {

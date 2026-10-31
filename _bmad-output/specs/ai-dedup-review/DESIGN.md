@@ -3,7 +3,7 @@
 Status: design agreed 2026-10-30 (bmad-quick-dev session, owner: shulha). Split into three pieces after an
 architecture review and an adversarial code review of the first single-spec draft. This file is the shared
 context for the specs. Piece A is built and merged (PR 119); B1, the read-only export, is built and verified on prod (`FIND-107`); B2a (the `resolved_via` flag)
-is merged; B2b-1, the apply engine, is built (`FIND-108`); B2b-2, the workflow and paper trail (`FIND-110`), and C, the
+is merged; B2b-1, the apply engine, is built (`FIND-108`); B2b-2, the workflow and paper trail (`FIND-112`), and C, the
 skill (`FIND-104`), are deferred.
 
 ## 1. Goal
@@ -64,7 +64,7 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 | **B1** | Evidence contract and hash in `packages/domain`, the read-only export script and workflow, docs (`FIND-107`) | Dark: a human dispatches the export and reads the JSON. **Built 2026-10-31.** | A |
 | **B2a** | `resolved_via` / `performed_via` flag (merged, PR 131) | Behaviour-preserving; marks every resolution as a person's or the AI's | B1 |
 | **B2b-1** | Decision judge, floor and caps in `packages/domain`; apply script (`FIND-108`). **Built 2026-10-31.** | Dark: code and tests, nothing can run it | B2a |
-| **B2b-2** | `dedup-review-apply` workflow, write secret, kill-switch variable, new AD, PRD amendment, runbook (`FIND-110`) | Dark: a human dispatches it, `validate` before `apply` | B2b-1 |
+| **B2b-2** | `dedup-review-apply` workflow, write secret, kill-switch variable, new AD, PRD amendment, runbook (`FIND-112`) | Dark: a human dispatches it, `validate` before `apply` | B2b-1 |
 | **C** | `moderator-dedup-review` skill (`SKILL.md`), labels, `dedup-insight` issue, shadow-mode acceptance | The daily skill | B on `master` |
 | C2 (later) | `review-insights` mode | Reads closed, labelled issues | weeks of C data |
 

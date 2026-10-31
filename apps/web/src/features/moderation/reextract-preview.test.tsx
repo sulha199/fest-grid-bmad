@@ -31,6 +31,10 @@ function makePreview(overrides: Partial<ReextractionPreview> = {}): Reextraction
     groupingReason: PostGroupingReason.SingleEvent,
     postStored: true,
     rescraped: false,
+    imagesAvailable: 1,
+    imagesSent: 1,
+    applicable: false,
+    applied: null,
     events: [
       {
         extractionOrdinal: 0,
@@ -51,6 +55,98 @@ const idle = { start: vi.fn(), reset: vi.fn(), phase: 'idle', preview: null, err
 describe('ReextractPreviewResult (AD-40)', () => {
   afterEach(cleanup);
 
+  describe('Apply (AD-40)', () => {
+    const summary = {
+      groupingReason: PostGroupingReason.Roundup,
+      reused: [{ slug: 'ig_p_AAA', eventName: 'Kulon Progo Half Marathon', ordinal: 1 }],
+      created: [{ slug: 'ig_p_AAA~2', eventName: 'Merapi Trail Run', ordinal: 2 }],
+      linkedToExisting: [],
+      queuedForReview: 1,
+      skippedDeleted: 0,
+      orphans: [{ slug: 'old-orphan', eventName: 'Left Alone Gala' }],
+    };
+    const applyState = (overrides: Record<string, unknown> = {}) =>
+      ({ apply: vi.fn().mockResolvedValue(undefined), phase: 'idle', summary: null, errorMessage: null, retryable: true, ...overrides }) as any;
+
+    it('offers Apply only when the server says the preview is applicable and an apply handler is given', () => {
+      const { unmount } = render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={applyState()} />));
+      expect(screen.getByRole('button', { name: 'Apply as roundup' })).toBeInTheDocument();
+      unmount();
+      const { unmount: unmount2 } = render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: false, groupingReason: PostGroupingReason.Roundup })} apply={applyState()} />));
+      expect(screen.queryByRole('button', { name: 'Apply as roundup' })).not.toBeInTheDocument();
+      unmount2();
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} />));
+      expect(screen.queryByTestId('reextract-apply-panel')).not.toBeInTheDocument();
+    });
+
+    it('uses neutral wording, with no roundup claim, when the preview is not a roundup', () => {
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.SingleEvent })} apply={applyState()} />));
+      expect(screen.getByRole('button', { name: 'Apply this preview' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Apply as roundup' })).not.toBeInTheDocument();
+      expect(screen.getByTestId('reextract-apply-panel')).not.toHaveTextContent('roundup stubs');
+    });
+
+    it('tells the moderator truthfully what apply changes: nothing deleted, but stale schedules are removed', () => {
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={applyState()} />));
+      const panel = screen.getByTestId('reextract-apply-panel');
+      expect(panel).toHaveTextContent('No event is deleted');
+      expect(panel).toHaveTextContent('removed from a kept event unless someone\'s calendar uses it');
+    });
+
+    it('hides the button after a refusal no retry can fix (too old), keeping the message', () => {
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={applyState({ phase: 'failed', retryable: false, errorMessage: 'This preview can no longer be applied.' })} />));
+      expect(screen.getByRole('alert')).toHaveTextContent('can no longer be applied');
+      expect(screen.queryByRole('button', { name: 'Apply as roundup' })).not.toBeInTheDocument();
+    });
+
+    it('lists an event once even when two lists of the summary name it', () => {
+      const dup = { ...summary, linkedToExisting: [{ slug: 'ig_p_AAA', eventName: 'Kulon Progo Half Marathon' }] };
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: false })} apply={applyState({ phase: 'done', summary: dup })} />));
+      expect(screen.getAllByRole('link', { name: 'Kulon Progo Half Marathon' })).toHaveLength(1);
+    });
+
+    it('asks for confirmation first: cancel changes nothing, confirm applies once', async () => {
+      const user = userEvent.setup();
+      const state = applyState();
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={state} />));
+
+      await user.click(screen.getByRole('button', { name: 'Apply as roundup' }));
+      expect(await screen.findByText('Apply this preview?')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(state.apply).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole('button', { name: 'Apply as roundup' }));
+      await user.click(await screen.findByRole('button', { name: 'Apply' }));
+      expect(state.apply).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows what was applied, links the events, and lists the events it left alone', () => {
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: false, groupingReason: PostGroupingReason.Roundup })} apply={applyState({ phase: 'done', summary })} />));
+      const box = screen.getByTestId('reextract-apply-summary');
+      expect(box).toHaveTextContent('1 existing event kept');
+      expect(box).toHaveTextContent('1 new event created');
+      expect(box).toHaveTextContent('1 possible duplicate queued for review');
+      expect(screen.getByRole('link', { name: 'Kulon Progo Half Marathon' })).toHaveAttribute('href', '/events/ig_p_AAA');
+      expect(screen.getByRole('link', { name: 'Merapi Trail Run' })).toHaveAttribute('href', '/events/ig_p_AAA~2');
+      expect(screen.getByTestId('reextract-apply-orphans')).toHaveTextContent('Left Alone Gala');
+      expect(screen.queryByRole('button', { name: 'Apply as roundup' })).not.toBeInTheDocument();
+    });
+
+    it('shows the failure and lets the moderator try again', () => {
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={applyState({ phase: 'failed', errorMessage: 'This preview is too old to apply. Run the preview again.' })} />));
+      expect(screen.getByRole('alert')).toHaveTextContent('too old to apply');
+      expect(screen.getByRole('button', { name: 'Apply as roundup' })).toBeEnabled();
+    });
+  });
+
+  it('warns when fewer images were read than the post lists, and stays quiet otherwise (BUG-099)', () => {
+    const { unmount } = render(wrap(<ReextractPreviewResult preview={makePreview({ imagesAvailable: 6, imagesSent: 4 })} />));
+    expect(screen.getByTestId('reextract-images-warning')).toHaveTextContent('Only 4 of 6 images were read');
+    unmount();
+    render(wrap(<ReextractPreviewResult preview={makePreview({ imagesAvailable: 6, imagesSent: 6 })} />));
+    expect(screen.queryByTestId('reextract-images-warning')).not.toBeInTheDocument();
+  });
+
   it('shows grouping, the event, its dedup tier with score, and a link to the closest event', () => {
     render(wrap(<ReextractPreviewResult preview={makePreview()} />));
     expect(screen.getByText(/Grouping: single event/)).toBeInTheDocument();
@@ -58,7 +154,7 @@ describe('ReextractPreviewResult (AD-40)', () => {
     expect(screen.getByTestId('reextract-tier')).toHaveTextContent('Would queue for review 0.87');
     expect(screen.getByRole('link', { name: 'GembiRun Loka 2026 (race day)' })).toHaveAttribute('href', '/events/ig_p_DeZE84tha0E');
     expect(screen.getByText(/★ Race day: 2026-11-08/)).toBeInTheDocument();
-    expect(screen.getByText(/Preview only/)).toBeInTheDocument();
+    expect(screen.getByText(/Venue matching in this preview uses the location text only/)).toBeInTheDocument();
   });
 
   it('flags an item whose (post, ordinal) slot is already taken, and a stub', () => {

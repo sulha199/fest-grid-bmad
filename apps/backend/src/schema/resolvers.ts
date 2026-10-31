@@ -3,13 +3,16 @@ import { alias } from 'drizzle-orm/pg-core';
 import { Resolvers, type EventFilter, type FilterNode, type UnprocessedPayloadSource } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts, eventSlugAliases, eventMatchCandidates, eventMerges } from '@festgrid/database';
-import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
+import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames, buildPastCutoffDateSql } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator, type GraphQLContext } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt, gte, lte, isNull, isNotNull, ilike, type SQL } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
+import { applyPostReextraction, toGraphQLApplySummary } from '../lib/extraction/apply-post-reextraction.js';
+import { ACCOUNT_NOT_SCRAPABLE_MESSAGE, SCRAPE_IN_PROGRESS_MESSAGE, isOwnerAccountScrapable } from '../lib/scraper/post-scrape-gate.js';
+import { claimPostUrlScrape } from '../lib/scraper/post-url-scrape-lease.js';
 import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
 import { resolveProfileByUsername } from '../lib/accounts/resolve-profile-by-username.js';
@@ -30,13 +33,13 @@ import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../l
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError, type GraphQLResolveInfo } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
 import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression, expressionFromFlatFilter, isFilterGroupNode } from '@festgrid/domain/ai-event-filters';
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import type { EventFilterInput } from '@festgrid/domain/events';
 import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText, resolveScrapeHandle } from '@festgrid/domain';
-import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, type ReextractionPreviewResult } from '@festgrid/domain/posts';
+import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, REEXTRACT_APPLY_WINDOW_MS, type ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
@@ -110,6 +113,14 @@ function assertValidFlatFilter(filter: unknown): void {
  * error and assert it propagates. Follows the repo's setter-based seam
  * convention (e.g. `setSendSqsMessage`). Defaults to the real `requireAuth`.
  */
+// The request's "now". Tests pin it through `context.now` (honored only when NODE_ENV === 'test',
+// never exposed as GraphQL input, so a real client cannot influence it) so a time-of-day boundary --
+// the TODAY `!ended` rule, the BUG-096 past-event cutoff -- can be asserted deterministically.
+function resolveRequestNow(context: GraphQLContext): Date {
+  const pinned = (context as GraphQLContext & { now?: Date })?.now;
+  return process.env.NODE_ENV === 'test' && pinned instanceof Date ? pinned : new Date();
+}
+
 export let eventsAuthProbe = requireAuth;
 export function setEventsAuthProbe(fn: typeof requireAuth): void {
   eventsAuthProbe = fn;
@@ -1652,34 +1663,61 @@ export const resolvers: Resolvers = {
         };
       }
 
-      const adapter = getScraperAdapter(platform);
-      let scrapedPost;
+      // FIND-110 -- one scrape of this URL at a time (shared with the moderator re-extract). A busy
+      // lease means another request is fetching it right now; this one does not scrape again.
+      const lease = await claimPostUrlScrape(url);
+      if (!lease) {
+        return {
+          errorCode: 'SCRAPE_IN_PROGRESS',
+          errorMessage: SCRAPE_IN_PROGRESS_MESSAGE,
+        };
+      }
+
       try {
-        scrapedPost = await adapter.getPostByUrl(url);
-        if (!scrapedPost) {
+        const adapter = getScraperAdapter(platform);
+        let scrapedPost;
+        try {
+          scrapedPost = await adapter.getPostByUrl(url);
+          if (!scrapedPost) {
+            return {
+              errorCode: 'SCRAPE_FAILED',
+              errorMessage: 'Could not retrieve content from the provided URL.',
+            };
+          }
+        } catch (err) {
+          console.error(`Failed to scrape post from URL ${url}:`, err);
           return {
             errorCode: 'SCRAPE_FAILED',
             errorMessage: 'Could not retrieve content from the provided URL.',
           };
         }
-      } catch (err) {
-        console.error(`Failed to scrape post from URL ${url}:`, err);
-        return {
-          errorCode: 'SCRAPE_FAILED',
-          errorMessage: 'Could not retrieve content from the provided URL.',
-        };
-      }
 
-      return startManualExtractionJob(authUser.userId, url, {
-        message: {
-          postId: randomUUID(),
-          accountId: '',
-          content: scrapedPost.content,
-          imageUrl: scrapedPost.imageUrl ?? undefined,
-          postUrl: scrapedPost.postUrl,
-          publishedAt: scrapedPost.publishedAt,
-        },
-      });
+        // AD-34 -- an unknown URL cannot be gated before the scrape, so the account it returned is
+        // looked up now. A known personal / awaiting-classification account refuses the post: no
+        // job is started and nothing the scrape returned is kept.
+        if (!(await isOwnerAccountScrapable(platform, { username: scrapedPost.ownerUsername, ownerId: scrapedPost.ownerId }))) {
+          return {
+            errorCode: 'ACCOUNT_NOT_SCRAPABLE',
+            errorMessage: ACCOUNT_NOT_SCRAPABLE_MESSAGE,
+          };
+        }
+
+        return await startManualExtractionJob(authUser.userId, url, {
+          message: {
+            postId: randomUUID(),
+            accountId: '',
+            content: scrapedPost.content,
+            imageUrl: scrapedPost.imageUrl ?? undefined,
+            postUrl: scrapedPost.postUrl,
+            publishedAt: scrapedPost.publishedAt,
+            // BUG-099 -- the carousel slides after the cover; they were dropped here, so a correction
+            // of a multi-slide post read the first image only.
+            additionalImageUrls: scrapedPost.additionalImageUrls,
+          },
+        });
+      } finally {
+        await lease.release();
+      }
     },
     previewPostReextraction: async (_, { postId, url }, context): Promise<any> => {
       const moderator = requireModerator(context);
@@ -1687,6 +1725,12 @@ export const resolvers: Resolvers = {
         throw new GraphQLError('Provide exactly one of postId or url', { extensions: { code: 'BAD_REQUEST' } });
       }
       return startPostReextractionPreview(moderator.userId, { postId, url });
+    },
+    applyPostReextraction: async (_, { jobId }, context): Promise<any> => {
+      const moderator = requireModerator(context);
+      const applied = await applyPostReextraction(moderator.userId, jobId);
+      if ('errorCode' in applied) return applied;
+      return { summary: toGraphQLApplySummary(applied.summary) };
     },
     submitReport: async (_, { eventId, reason, details }, context): Promise<any> => {
       const authUser = requireAuth(context);
@@ -2952,6 +2996,18 @@ export const resolvers: Resolvers = {
         preview: result
           ? {
               ...result,
+              // A job finished before BUG-099 shipped has no image counts: 0 of 0 shows no warning.
+              imagesAvailable: result.imagesAvailable ?? 0,
+              imagesSent: result.imagesSent ?? 0,
+              // AD-40 Apply: offered while the extraction is still kept, unapplied, and young enough.
+              applicable:
+                job.status === 'SUCCEEDED' &&
+                result.postStored &&
+                Boolean(result.extracted) &&
+                result.extracted!.events.length > 0 &&
+                !result.applied &&
+                Date.now() - (job.completedAt?.getTime() ?? 0) <= REEXTRACT_APPLY_WINDOW_MS,
+              applied: result.applied ? toGraphQLApplySummary(result.applied) : null,
               groupingReason:
                 result.groupingReason && isPostGroupingReason(result.groupingReason)
                   ? postGroupingReasonToGraphQL(result.groupingReason)
@@ -3374,17 +3430,15 @@ export const resolvers: Resolvers = {
         hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
       }
 
-      // Compute threshold precisely matching buildDefaultEventVisibilityConditions --
-      // both now use the shared computePastEventThreshold helper (Story 0.36 AC6).
+      // The one captured `now` for this request. `buildDefaultEventVisibilityConditions` and the
+      // `isPastEvent` expression below both take their cutoff from this instant, in each
+      // schedule's own timezone (BUG-096, `buildPastCutoffDateSql`), so they stay complements.
       // Story 0.i5d Task 3: allow tests to pin `now` via `context.now` so the TODAY
       // temporal-filter's `!ended` boundary can be asserted deterministically against the
       // shared `ended-cases` fixture. Only honored in test builds -- never exposed as GraphQL
       // input, so this cannot be influenced by a real client request.
-      const now =
-        process.env.NODE_ENV === 'test' && (context as GraphQLContext & { now?: Date })?.now instanceof Date
-          ? (context as GraphQLContext & { now: Date }).now
-          : new Date();
-      const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
+      const now = resolveRequestNow(context);
+      const pastCutoff = { instant: now.toISOString(), hidePastEventsAfterDays };
 
       // Story 2.7 — the display/sort key uses the next-upcoming schedule,
       // defined as one whose (end ?? start) date is today or later (UTC),
@@ -3500,6 +3554,9 @@ export const resolvers: Resolvers = {
           startCol: schedules.eventStartDate,
           endCol: schedules.eventEndDate,
           applicableDaysOfWeekCol: schedules.applicableDaysOfWeek,
+          // BUG-096: lets the default-visibility `overlaps` cutoff read each schedule's own zone.
+          timezoneCol: schedules.timezone,
+          timezoneStatusCol: schedules.timezoneStatus,
         },
         // Story 0.i5d (AD-20 Rule 2/4) -- the TODAY temporal-filter bucket's `!ended` boundary.
         // Extends the same fieldMap-descriptor-to-EXISTS-subquery pattern `scheduleDateRange`
@@ -3559,7 +3616,7 @@ export const resolvers: Resolvers = {
               eq(reports.eventId, events.id)
             ))
         ) : sql`false`,
-        isPastEvent: sql`NOT EXISTS (SELECT 1 FROM ${schedules} WHERE ${schedules.eventId} = ${events.id} AND daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${threshold}::date, NULL, '[]'))`,
+        isPastEvent: sql`NOT EXISTS (SELECT 1 FROM ${schedules} WHERE ${schedules.eventId} = ${events.id} AND daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${buildPastCutoffDateSql(pastCutoff, schedules.timezone, schedules.timezoneStatus)}, NULL, '[]'))`,
         isHiddenByModeration: sql`(${events.deletedAt} IS NOT NULL)`
       };
 
@@ -5016,15 +5073,15 @@ export const resolvers: Resolvers = {
 
         // Own independent `now()` capture — this is a separate resolver invocation/request,
         // not sharing Query.events' request lifecycle (Story 0.36 AC7 Dev Notes).
-        const now = new Date();
-        const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
+        const now = resolveRequestNow(context);
+        const pastCutoff = { instant: now.toISOString(), hidePastEventsAfterDays };
 
         // Negated past-event overlaps check
         const rows = await db.select({ id: schedules.id })
           .from(schedules)
           .where(and(
             eq(schedules.eventId, parent.id),
-            sql`daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${threshold}::date, NULL, '[]')`
+            sql`daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${buildPastCutoffDateSql(pastCutoff, schedules.timezone, schedules.timezoneStatus)}, NULL, '[]')`
           ));
         return rows.length === 0;
       } catch {

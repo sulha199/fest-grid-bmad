@@ -828,6 +828,30 @@ Not implemented here per this investigation's explicit scope (investigation only
   summary: Every workflow that holds a database or cloud secret runs `pnpm install --frozen-lockfile` (dependency lifecycle scripts) and third-party actions pinned by tag before the step that uses the secret, so install-time code could read or misuse it.
   evidence: Surfaced by Blind Hunter on the new export workflow, which follows the same pattern as `merge-twin-profiles.yml` and the backfill workflows (the older ones hold the full-privilege `DATABASE_URL`). Fix across all workflows: `pnpm install --ignore-scripts` where the build allows it, pin actions by commit SHA, and keep secrets out of any step that runs before the install.
 
+## Deferred from: bmad-quick-dev split of spec-reextract-read-all-slide-images (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
+  summary: Moderator Apply for re-extract: apply the previewed extraction in one transaction so a post first stored as one event becomes a roundup linked to several events, reusing the post's existing events (id, slug, favorites, calendar entries survive) as stubs and ingesting the rest as new stub events.
+  evidence: Split from the slide-image fix at the multi-goal check: the fix is shippable alone, and Apply is only reliable once every slide is read, while Apply is the only write path (AD-40 amendment, shared ingestion write function, `(post, ordinal)` unique handling, an undo question). The design draft is `_bmad-output/specs/reextract-apply-roundup/DESIGN.md`.
+
+## Deferred from: bmad-quick-dev review of spec-reextract-read-all-slide-images (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
+  summary: Two moderators, or a double click, on the same stale post inside a few seconds both pass the rescrape cooldown (the check runs before the scrape, and the job row is inserted after it) and both call `getPostByUrl`, doubling the scraper credit.
+  evidence: Surfaced by Edge Case Hunter. Pre-existing for posts with no stored caption; more reachable now that a stored-caption post with expired image links also rescrapes. Fix: record the cooldown row before the scrape, or take a short per-URL lease.
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
+  summary: The moderator re-extract rescrape and `extractEventDataFromUrl` call `getScraperAdapter(platform).getPostByUrl` without `isScrapableAccountType()`, which `project-context.md` says every code path that starts a scrape must call; neither is on the AD-34 entry-point list.
+  evidence: Surfaced by Blind Hunter. Pre-existing (a single post URL fetch, not an account scrape), widened a little by BUG-099. Needs a decision: either record these two paths as exempt in AD-34, or gate stored posts on the owning account's type.
+
+## Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-apply-roundup.md`
+  summary: A re-extract preview keeps its validated extraction (`result_data.extracted`: event text, links, schedules) on its `manual_extraction_jobs` row until it is applied; a preview that is never applied, or has expired, keeps it indefinitely, and nothing sweeps the table.
+  evidence: Surfaced by two reviewers. The privacy discards (private contact, child performer names) are applied before it is stored, and the caption is never kept, so what remains is event text that is public once an event exists; it is still more retention than needed. Fix: null `extracted` in the stale-job sweep FIND-086 already asks for (any job older than the 30-minute apply window).
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-apply-roundup.md`
+  summary: Apply never turns an existing stub back into a full event, and never reconciles a post whose events changed between the preview and the apply (only the post row and the job row are locked).
+  evidence: Surfaced by two reviewers. Stub-to-full happens through an organizer post being linked (PRD 3.7), and a drift within 30 minutes costs at worst a mis-pairing the moderator can edit; a drift check (hash of the post's event links in the job) is the fix if it is ever seen.
+
 ## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-via-flag.md`

@@ -16,7 +16,7 @@ interface ReextractPostDialogProps {
 /** AD-40 -- runs the re-extract preview for one stored post when opened. Moderator-only caller. */
 export function ReextractPostDialog({ isOpen, onClose, postId }: ReextractPostDialogProps) {
   const t = useTranslations('ReextractPreview');
-  const { start, reset, phase, preview, errorMessage } = usePostReextractionPreview();
+  const { start, reset, phase, preview, errorMessage, applyState } = usePostReextractionPreview();
 
   useEffect(() => {
     if (isOpen) {
@@ -51,7 +51,7 @@ export function ReextractPostDialog({ isOpen, onClose, postId }: ReextractPostDi
           </div>
         )}
 
-        {phase === 'done' && preview && <ReextractPreviewResult preview={preview} />}
+        {phase === 'done' && preview && <ReextractPreviewResult preview={preview} apply={applyState} />}
       </DialogContent>
     </Dialog>
   );

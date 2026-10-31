@@ -156,6 +156,12 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
     assert.strictEqual(preview.events[0].dedup.tier, 'mid');
     assert.strictEqual(preview.events[0].dedup.candidateSlug, candidate.slug);
     assert.strictEqual(preview.events[0].alreadyRepresentedBySlug, null);
+    // What a later Apply needs is kept on the job; the caption is not.
+    assert.ok(preview.extracted, 'the extraction is kept for Apply');
+    assert.strictEqual(preview.extracted.events.length, 1);
+    assert.strictEqual(preview.extracted.groupingReason, 'single-event');
+    assert.strictEqual(preview.extracted.childrensDataMatch, false);
+    assert.ok(!JSON.stringify(row.resultData).includes('The caption to extract'), 'the caption is never stored in the result');
     assert.deepStrictEqual(await fixtureCounts(), before, 'preview must not write events/schedules/event_posts');
     const [stored] = await db.select({ content: posts.content }).from(posts).where(eq(posts.id, post.id));
     assert.strictEqual(stored.content, 'The caption to extract', 'a non-curator post keeps its stored content');
@@ -326,5 +332,74 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
     const row = await readJob(id);
     assert.strictEqual(row.status, 'SUCCEEDED');
     assert.deepStrictEqual((row.resultData as ReextractionPreviewResult).events, []);
+  });
+
+  await t.test('BUG-099: a carousel with an expired cover reads up to the preview cap of slides and reports the shortfall', async () => {
+    const post = await makePost('Roundup caption, schedules on later slides');
+    const originalFetch = globalThis.fetch;
+    let fetched = 0;
+    // Cover (first call) is an expired hotlink; every slide fetch succeeds.
+    globalThis.fetch = (async () => {
+      fetched++;
+      if (fetched === 1) return { ok: false, status: 403 } as any;
+      return {
+        ok: true,
+        headers: { get: (n: string) => (n.toLowerCase() === 'content-type' ? 'image/jpeg' : null) },
+        arrayBuffer: async () => Buffer.from(`slide-${fetched}`),
+      } as any;
+    }) as typeof fetch;
+
+    let sentContents: any;
+    setCallGeminiForManualExtractionSeam(async (req: any) => {
+      sentContents = req.contents;
+      return { text: JSON.stringify({ isEvent: true, groupingReason: 'roundup', events: [previewEvent('2026-11-08', name + ' slide')] }) } as any;
+    });
+
+    const slides = Array.from({ length: 12 }, (_, i) => `https://cdn.example.com/slide-${i}.jpg`);
+    try {
+      const id = await insertJob({
+        message: { ...message(post, 'Roundup caption, schedules on later slides'), imageUrl: 'https://cdn.example.com/cover.jpg', additionalImageUrls: slides },
+        existingPostAccountId: account.id,
+        mode: 'REEXTRACT_PREVIEW',
+        postStored: true,
+        rescraped: true,
+      });
+      await processManualExtractionJob(id);
+
+      const row = await readJob(id);
+      assert.strictEqual(row.status, 'SUCCEEDED');
+      const preview = row.resultData as ReextractionPreviewResult;
+      assert.strictEqual(preview.imagesAvailable, 13, 'cover + 12 slides listed');
+      assert.strictEqual(preview.imagesSent, 10, 'capped at REEXTRACT_MAX_CAROUSEL_IMAGES; the cover was lost but slides were still sent');
+      assert.ok(Array.isArray(sentContents));
+      assert.strictEqual(sentContents.length, 11, 'text + 10 slides');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await t.test('the extraction kept for Apply has the privacy discards already applied: no private contact, no child performers', async () => {
+    const caption = 'Ayo daftar Lomba Tari Anak Sanggar Melati untuk siswa SD!';
+    const post = await makePost(caption);
+    gemini([
+      {
+        ...previewEvent('2026-11-20', `Kids Dance ${suffix}`),
+        hasPrivateContact: true,
+        contactInfo: '+62 812 0000 0000',
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-20', title: 'Show', location: 'Reex Zoo', performers: ['Aisyah', 'Budi'] }],
+      },
+    ]);
+    const id = await insertJob({ message: message(post, caption), existingPostAccountId: account.id, mode: 'REEXTRACT_PREVIEW', postStored: true, rescraped: false });
+    await processManualExtractionJob(id);
+
+    const row = await readJob(id);
+    const preview = row.resultData as ReextractionPreviewResult;
+    assert.ok(preview.extracted);
+    assert.strictEqual(preview.extracted.childrensDataMatch, true);
+    const [kept] = preview.extracted.events;
+    assert.strictEqual(kept.contactInfo, undefined, 'a private contact is not stored');
+    assert.strictEqual(kept.schedules[0].performers, undefined, 'a child performer\'s name is not stored');
+    const stored = JSON.stringify(row.resultData);
+    assert.ok(!stored.includes('+62 812 0000 0000') && !stored.includes('Aisyah') && !stored.includes('Budi'));
   });
 });

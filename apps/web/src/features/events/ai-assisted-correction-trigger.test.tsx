@@ -20,6 +20,8 @@ const mockLabels: AiAssistedCorrectionTriggerLabels = {
   errorScrapeFailed: "Error: Scrape Failed",
   errorExtractionFailed: "Error: Extraction Failed",
   errorQuotaExhausted: "Error: Quota Exhausted",
+  errorAccountNotScrapable: "Error: Account Not Scrapable",
+  errorScrapeInProgress: "Error: Scrape In Progress",
 };
 
 const EXTRACTED_DATA = {
@@ -194,6 +196,8 @@ describe("AiAssistedCorrectionTrigger", () => {
       { code: ExtractionErrorCode.ScrapeFailed, labelKey: "Error: Scrape Failed" },
       { code: ExtractionErrorCode.ExtractionFailed, labelKey: "Error: Extraction Failed" },
       { code: ExtractionErrorCode.QuotaExhausted, labelKey: "Error: Quota Exhausted" },
+      { code: ExtractionErrorCode.AccountNotScrapable, labelKey: "Error: Account Not Scrapable" },
+      { code: ExtractionErrorCode.ScrapeInProgress, labelKey: "Error: Scrape In Progress" },
     ];
 
     for (const { code, labelKey } of errorCodes) {

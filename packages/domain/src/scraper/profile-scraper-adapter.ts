@@ -79,10 +79,10 @@ export function parseProfileScraperOrder(value: string | undefined | null): {
 }
 
 export type ProfileAdapterAttempt =
-  | { adapter: ProfileScraperAdapterName; outcome: 'skipped'; reason: string }
-  | { adapter: ProfileScraperAdapterName; outcome: 'failed'; error: unknown; elapsedMs: number }
-  | { adapter: ProfileScraperAdapterName; outcome: 'not-found'; elapsedMs: number }
-  | { adapter: ProfileScraperAdapterName; outcome: 'found'; elapsedMs: number };
+  | { adapter: ProfileScraperAdapterName; outcome: 'skipped'; reason: string; budgetMs: number }
+  | { adapter: ProfileScraperAdapterName; outcome: 'failed'; error: unknown; elapsedMs: number; budgetMs: number }
+  | { adapter: ProfileScraperAdapterName; outcome: 'not-found'; elapsedMs: number; budgetMs: number }
+  | { adapter: ProfileScraperAdapterName; outcome: 'found'; elapsedMs: number; budgetMs: number };
 
 type SkippedProfileAdapterAttempt = Extract<ProfileAdapterAttempt, { outcome: 'skipped' }>;
 
@@ -115,19 +115,35 @@ export async function runProfileScraperChain(input: {
   purpose: ProfileScrapePurpose;
   budgetMs: number;
   now?: () => number;
+  /**
+   * Called once per adapter considered, as soon as its outcome is known (also when the chain then throws), so a
+   * caller can keep an audit trail of failures too. A hook that throws or rejects is ignored: the audit trail must
+   * never change what a lookup returns.
+   */
+  onAttempt?: (attempt: ProfileAdapterAttempt) => void | Promise<void>;
 }): Promise<ProfileChainResult> {
-  const { adapters, handle, purpose, budgetMs, now = Date.now } = input;
+  const { adapters, handle, purpose, budgetMs, now = Date.now, onAttempt } = input;
   const deadline = now() + budgetMs;
   const attempts: ProfileAdapterAttempt[] = [];
   let firstError: { error: unknown } | undefined;
 
+  const record = async (attempt: ProfileAdapterAttempt): Promise<void> => {
+    attempts.push(attempt);
+    try {
+      await onAttempt?.(attempt);
+    } catch {
+      // see `onAttempt`
+    }
+  };
+
   for (const adapter of adapters) {
     const remainingMs = deadline - now();
     if (remainingMs < adapter.minBudgetMs) {
-      attempts.push({
+      await record({
         adapter: adapter.name,
         outcome: 'skipped',
         reason: `needs ${adapter.minBudgetMs}ms, ${Math.max(0, remainingMs)}ms left`,
+        budgetMs: Math.max(0, remainingMs),
       });
       continue;
     }
@@ -137,13 +153,13 @@ export async function runProfileScraperChain(input: {
       const profile = await adapter.fetchProfile(handle, { purpose, budgetMs: remainingMs });
       const elapsedMs = now() - startedAt;
       if (profile === null) {
-        attempts.push({ adapter: adapter.name, outcome: 'not-found', elapsedMs });
+        await record({ adapter: adapter.name, outcome: 'not-found', elapsedMs, budgetMs: remainingMs });
         return { profile: null, attempts };
       }
-      attempts.push({ adapter: adapter.name, outcome: 'found', elapsedMs });
+      await record({ adapter: adapter.name, outcome: 'found', elapsedMs, budgetMs: remainingMs });
       return { profile, attempts };
     } catch (error) {
-      attempts.push({ adapter: adapter.name, outcome: 'failed', error, elapsedMs: now() - startedAt });
+      await record({ adapter: adapter.name, outcome: 'failed', error, elapsedMs: now() - startedAt, budgetMs: remainingMs });
       firstError ??= { error };
     }
   }

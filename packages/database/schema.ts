@@ -73,6 +73,8 @@ export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['APIFY', 'BRIG
 export const scraperRunTriggerModeEnum = pgEnum('scraper_run_trigger_mode', ['SYNC', 'ASYNC']);
 
 export const parserVersionSourceEnum = pgEnum('parser_version_source', ['APIFY', 'BRIGHTDATA', 'GEMINI']);
+export const profileLookupPurposeEnum = pgEnum('profile_lookup_purpose', ['LOOKUP', 'CLASSIFICATION']);
+export const profileLookupOutcomeEnum = pgEnum('profile_lookup_outcome', ['FOUND', 'NOT_FOUND', 'FAILED', 'TIMED_OUT', 'SKIPPED']);
 export const scraperRunStatusEnum = pgEnum('scraper_run_status', ['PENDING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED']);
 
 // Story 4.2b -- values come from the closed domain vocabulary (same pattern as ai_image_input).
@@ -170,6 +172,11 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   description: text('description'),
   lastPostDate: timestamp('last_post_date', { withTimezone: true }),
   lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
+  // Set once a scrape of this profile's own timeline has delivered a post (the "seeding" scrape: newest 30
+  // posts, none older than 30 days). Null means the profile is only known from other accounts' scrapes
+  // (co-author links), so its scrape cursor must not start after those posts -- see resolveScrapeCursor.
+  // Migration 0088 backfills it from last_scraped_at for profiles already being scraped.
+  historySeededAt: timestamp('history_seeded_at', { withTimezone: true }),
   scrapeTriggeredAt: timestamp('scrape_triggered_at', { withTimezone: true }),
   defaultLocation: jsonb('default_location').$type<LocationDetails>(),
   accountType: accountTypeEnum('account_type'),
@@ -379,6 +386,16 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   rawInput: jsonb('raw_input').notNull(),
   rawOutput: jsonb('raw_output'),
   itemCount: integer('item_count'),
+  // What the vendor itself reported for a finished Bright Data snapshot (its free progress report), kept apart
+  // from item_count (what reached us): records delivered, error records, and the error-code counts
+  // (`{"dead_page":1}`). Null when the report was not read. The success rate is records / (records + errors).
+  recordsReported: integer('records_reported'),
+  errorsReported: integer('errors_reported'),
+  errorCodes: jsonb('error_codes').$type<Record<string, number>>(),
+  // Posts this run delivered that did not exist before (item_count minus re-deliveries of known posts).
+  // Null when the run was not processed by an async result handler. A run that delivered posts but no new
+  // one is an "empty" run for the scrape backoff.
+  newPosts: integer('new_posts'),
   errorMessage: text('error_message'),
   pendingJobId: uuid('pending_job_id'),
   startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
@@ -389,6 +406,27 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   profileIdIdx: index('idx_scraper_actor_runs_profile_id').on(t.profileId),
   vendorStatusIdx: index('idx_scraper_actor_runs_vendor_status').on(t.vendor, t.status),
   createdAtIdx: index('idx_scraper_actor_runs_created_at').on(t.createdAt),
+}));
+
+// One row per adapter the profile scraper chain considered for one profile fetch (2026-10-31). A profile lookup
+// happens before any profile row exists and leaves no scraper_actor_runs row, so a failed or slow lookup used to
+// leave no trace: nothing could say how often Apify's profile lookup times out (the claim "30%" could only be
+// estimated from classification review rows). `handle` is the public platform handle asked for, never a user id.
+export const profileLookupAttempts = pgTable('profile_lookup_attempts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  purpose: profileLookupPurposeEnum('purpose').notNull(),
+  handle: text('handle').notNull(),
+  vendor: scraperRunVendorEnum('vendor').notNull(),
+  outcome: profileLookupOutcomeEnum('outcome').notNull(),
+  // The time this adapter was allowed (what was left of the caller's budget when it started).
+  budgetMs: integer('budget_ms').notNull(),
+  // Null for SKIPPED: the adapter was never started.
+  durationMs: integer('duration_ms'),
+  errorMessage: text('error_message'),
+  ...timestamps,
+}, (t) => ({
+  createdAtIdx: index('idx_profile_lookup_attempts_created_at').on(t.createdAt),
+  vendorOutcomeIdx: index('idx_profile_lookup_attempts_vendor_outcome').on(t.vendor, t.outcome),
 }));
 
 export const postAccountAssociations = pgTable('post_account_associations', {
