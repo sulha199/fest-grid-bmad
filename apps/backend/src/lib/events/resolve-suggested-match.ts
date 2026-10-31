@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { eventMatchCandidates } from '@festgrid/database';
-import { mergeEvents } from './merge-events.js';
+import { assertResolutionSource, mergeEvents, type ResolutionSource } from './merge-events.js';
 import type { DbExecutor } from './set-event-primary-post.js';
 
 /**
@@ -28,6 +28,11 @@ export interface ResolveSuggestedMatchInput {
   action: SuggestedMatchAction;
   /** `users.id` recorded as the resolver on the suggestion and on the `event_merges` journal row. */
   moderatorId: string;
+  /**
+   * Who decided: `moderator` (default) or `ai_skill`. Recorded as `resolved_via` on the suggestion and
+   * `performed_via` on the journal row. Only server code passes it: the GraphQL resolver never does.
+   */
+  via?: ResolutionSource;
 }
 
 export interface ResolveSuggestedMatchResult {
@@ -45,7 +50,8 @@ export class SuggestedMatchNotPendingError extends Error {}
 export class SuggestedMatchInvalidActionError extends Error {}
 
 export async function resolveSuggestedMatch(tx: DbExecutor, input: ResolveSuggestedMatchInput): Promise<ResolveSuggestedMatchResult> {
-  const { id, action, moderatorId } = input;
+  const { id, action, moderatorId, via = 'moderator' } = input;
+  assertResolutionSource(via);
 
   const [suggestion] = await tx.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id)).for('update');
   if (!suggestion) {
@@ -56,14 +62,14 @@ export async function resolveSuggestedMatch(tx: DbExecutor, input: ResolveSugges
   }
 
   if (action === 'ACCEPT') {
-    const { merge } = await mergeEvents(tx, suggestion.candidateEventId, suggestion.eventId, moderatorId, suggestion.id);
+    const { merge } = await mergeEvents(tx, suggestion.candidateEventId, suggestion.eventId, moderatorId, suggestion.id, via);
     return { mergeId: merge.id };
   }
 
   if (action === 'REJECT') {
     await tx
       .update(eventMatchCandidates)
-      .set({ status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: moderatorId })
+      .set({ status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: moderatorId, resolvedVia: via })
       .where(and(eq(eventMatchCandidates.id, id), eq(eventMatchCandidates.status, 'pending')));
     return { mergeId: null };
   }
