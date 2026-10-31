@@ -452,4 +452,20 @@ test('process-apify-async-result tests', async (t) => {
       await cleanupSeed();
     }
   });
+
+  await t.test('marks the history seeded when items are delivered, not when none are', async () => {
+    const makeJob = async (runId: string) => {
+      const { id, webhookToken } = await createPendingJob({ profileId: testProfileId, runId, webhookToken: randomBytes(24).toString('hex') });
+      return { id, profileId: testProfileId, runId, webhookToken, status: 'PENDING' as const, expiresAt: new Date(Date.now() + 3600000), createdAt: new Date(), updatedAt: new Date() };
+    };
+    const seededAt = async () => (await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId)))[0].historySeededAt;
+
+    await processApifyAsyncResult(await makeJob('run-seed-empty-' + Date.now()), []);
+    assert.strictEqual(await seededAt(), null);
+
+    await processApifyAsyncResult(await makeJob('run-seed-full-' + Date.now()), [
+      { url: 'https://www.instagram.com/p/seed1/', caption: 'Seed post', timestamp: '2026-10-20T00:00:00Z', displayUrl: 'https://example.com/s.jpg' },
+    ]);
+    assert.ok(await seededAt());
+  });
 });

@@ -1,11 +1,12 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
-import { getScraperAdapter, ScrapedPost } from '@festgrid/domain';
+import { getScraperAdapter, HISTORY_SEED_LOOKBACK_DAYS, ScrapedPost } from '@festgrid/domain';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { autoEnqueueNewPostForExtraction } from '../posts/auto-enqueue-new-post.js';
 import { loadBackendEnv } from '../../env.js';
 import { eq } from 'drizzle-orm';
 import { getScrapeCursor } from './get-scrape-cursor.js';
+import { markHistorySeeded } from './history-seeded-store.js';
 import { ScrapeTarget } from './get-scrape-targets.js';
 import { setApifyAuditContext, clearApifyAuditContext, apifyAuditContext, ApifyMonthlyUsageLimitError } from './instagram-adapter.js';
 import { backfillAccountProfileAndInferDefaultLocation } from '../accounts/backfill-account-profile-and-infer-location.js';
@@ -85,11 +86,10 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
     if (job.isInitialNewSubscription) {
       if (adapter.supportsNewerThanAndLimitFiltering) {
         // Actor filters by newerThan and result count server-side, so one call with the
-        // widest lookback window returns everything the retry loop would otherwise need
-        // multiple actor runs to accumulate.
-        const widestWindowDays = Math.max(...NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS);
+        // seeding window (newest posts, none older than HISTORY_SEED_LOOKBACK_DAYS) returns everything the
+        // retry loop would otherwise need multiple actor runs to accumulate.
         const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - widestWindowDays);
+        cutoffDate.setDate(cutoffDate.getDate() - HISTORY_SEED_LOOKBACK_DAYS);
         const newerThan = cutoffDate.toISOString();
 
         setApifyAuditContext(job.profileId, 'SYNC', env.scrapeQueueApifyCallTimeoutMs);
@@ -194,6 +194,9 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
           .where(eq(socialMediaAccountProfiles.id, job.profileId));
       } catch (updateErr) {
         console.error(`Failed to stamp lastScrapedAt for profile ${job.profileId}:`, updateErr);
+      }
+      if (allScrapedPostsThisJob.length > 0) {
+        await markHistorySeeded(job.profileId);
       }
     }
   }

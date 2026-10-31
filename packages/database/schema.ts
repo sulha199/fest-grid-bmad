@@ -170,6 +170,11 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   description: text('description'),
   lastPostDate: timestamp('last_post_date', { withTimezone: true }),
   lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
+  // Set once a scrape of this profile's own timeline has delivered a post (the "seeding" scrape: newest 30
+  // posts, none older than 30 days). Null means the profile is only known from other accounts' scrapes
+  // (co-author links), so its scrape cursor must not start after those posts -- see resolveScrapeCursor.
+  // Migration 0087 backfills it from last_scraped_at for profiles already being scraped.
+  historySeededAt: timestamp('history_seeded_at', { withTimezone: true }),
   scrapeTriggeredAt: timestamp('scrape_triggered_at', { withTimezone: true }),
   defaultLocation: jsonb('default_location').$type<LocationDetails>(),
   accountType: accountTypeEnum('account_type'),

@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-30"
+last_updated: "2026-10-31"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2679,3 +2679,28 @@ items:
      ref: [implementation-artifacts/deferred-work.md, .github/workflows/merge-twin-profiles.yml],
      touches: [app:infrastructure, cross:process],
      note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Install with --ignore-scripts where possible and pin actions by SHA. 1 finding."}
+
+  BUG-098:
+    {type: bug, status: done, created: 2026-10-31,
+     impact: user-visible, effort: m,
+     title: "A new subscription scrapes the last 7 days, and a profile known only as a co-author skips its history",
+     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md, packages/database/migrations/0087_history_seeded_at.sql, packages/domain/src/scraper/resolve-scrape-cursor.ts],
+     touches: [pkg:domain, pkg:database, app:backend],
+     note: "Found 2026-10-31: the first scrape was a 7-day window (biliardindonesia, 3,073 posts, gave 1), and 1,020 unsubscribed profiles hold co-authored posts that would have moved their cursor past their own history. Fixed: seeding scrape = newest 30 posts, none older than 30 days, until history_seeded_at is set; migration 0087 backfills it from last_scraped_at."}
+
+  IDEA-104:
+    {type: idea, status: backlog, created: 2026-10-31,
+     impact: operational, effort: s,
+     title: "Store each Bright Data run's records, errors, error codes and new-post count, and classify its success rate",
+     ref: [planning-artifacts/brightdata-yield-and-dead-page-policy-2026-10-31.md],
+     touches: [pkg:domain, pkg:database, app:backend],
+     note: "D1-D3 of the yield design: a separate classifyBrightDataYield (complete / partial-expected / partial-retryable / partial-unknown), read the free progress call after the posts are saved. No retry mechanism until a transient error code is observed (371 snapshots: only dead_page, 44 of 44)."}
+
+  IDEA-105:
+    {type: idea, status: backlog, created: 2026-10-31,
+     impact: operational, effort: m,
+     title: "Back off a profile's scrape after an empty run using its posting cadence (median gap between posting days)",
+     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md],
+     touches: [pkg:domain, app:backend],
+     note: "E3-E4 of the seeding design, depends on BUG-098 and IDEA-104 (needs new_posts per run). Interval after an empty run = clamp(ceil(typical gap), 1, 3) days, never off, daily when confidence is insufficient. Backtest: 4% fewer scrapes, 1.3% of posts one day late; savings are cents, so repeat the backtest on 30 days of real data first."}
+

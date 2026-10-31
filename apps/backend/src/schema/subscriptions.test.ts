@@ -1075,6 +1075,12 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
         .set({ scrapeTriggeredAt: null })
         .where(eq(socialMediaAccountProfiles.id, testProfile.id));
 
+      // A profile whose own timeline was scraped (history seeded) with a post is incremental; stored posts alone
+      // do not make it so (a co-author-only profile holds posts too), which the next test covers.
+      await db.update(socialMediaAccountProfiles)
+        .set({ historySeededAt: new Date() })
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
       // Insert a post so it's not zero-posts
       const [post] = await db.insert(posts).values({
         accountId: testProfile.id,
@@ -1109,6 +1115,37 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       assert.equal(body.data.triggerAccountScrape.isInitialScrape, false);
 
       // Clean up
+      await db.delete(posts).where(eq(posts.accountId, testProfile.id));
+    });
+
+    await t.test('triggerAccountScrape - an unseeded account is initial even when it holds a post (co-author only)', async () => {
+      mockUser = { userId: testUser.id, role: testUser.role };
+
+      await db.update(socialMediaAccountProfiles)
+        .set({ scrapeTriggeredAt: null, historySeededAt: null })
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+      await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/coauthored_post',
+        content: 'Co-authored Post',
+        isExtracted: false,
+        publishedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      });
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation TriggerAccountScrape($accountId: ID!) { triggerAccountScrape(accountId: $accountId) { triggered isInitialScrape } }`,
+          variables: { accountId: testProfile.id }
+        })
+      });
+
+      const body = await response.json();
+      assert.ok(!body.errors, 'Should not have errors: ' + JSON.stringify(body.errors));
+      assert.equal(body.data.triggerAccountScrape.isInitialScrape, true);
+
       await db.delete(posts).where(eq(posts.accountId, testProfile.id));
     });
 
