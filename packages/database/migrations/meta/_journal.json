@@ -617,6 +617,13 @@
       "when": 1793434687822,
       "tag": "0087_history_seeded_at",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "6",
+      "when": 1793437792666,
+      "tag": "0088_scraper_run_yield",
+      "breakpoints": true
     }
   ]
 }

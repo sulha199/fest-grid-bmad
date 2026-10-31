@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, brightdataPendingJobs, posts, unprocessedScraperPayloads } from '@festgrid/database';
+import { socialMediaAccountProfiles, brightdataPendingJobs, posts, scraperActorRuns, unprocessedScraperPayloads } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { processBrightDataResult } from './process-brightdata-result.js';
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import type { BrightdataPendingJob } from './brightdata-pending-jobs-store.js';
 import { seedSubscriberWithGeminiKey, captureAiQueueSends } from '../posts/auto-enqueue-test-helpers.js';
 import { setSendSqsMessage } from '../aws/send-sqs-message.js';
+import { recordActorRunStart } from './record-actor-run.js';
 
 test('process-brightdata-result tests', async (t) => {
   let testProfileId: string;
@@ -655,5 +656,39 @@ test('process-brightdata-result tests', async (t) => {
       { url: 'https://www.instagram.com/p/seed1/', description: 'Seed post', date_posted: '2026-10-20T00:00:00Z', photos: ['https://example.com/s.jpg'] },
     ]);
     assert.ok(await seededAt());
+  });
+
+  // A run that re-delivers only posts we already hold is as empty as one that delivered none, which is what a
+  // scrape backoff needs to read from the run row.
+  await t.test('counts only genuinely new posts on the run row; a re-delivery counts none', async () => {
+    const runIds: string[] = [];
+    try {
+      const deliver = async (label: string) => {
+        const snapshotId = `snapshot-newposts-${label}-${Date.now()}`;
+        const auditRunId = await recordActorRunStart({ vendor: 'BRIGHTDATA', triggerMode: 'ASYNC', profileId: testProfileId, runId: snapshotId, rawInput: {}, status: 'PENDING' });
+        assert.ok(auditRunId);
+        runIds.push(auditRunId);
+        const { id, webhookToken } = await createPendingJob({ profileId: testProfileId, snapshotId, webhookToken: randomBytes(24).toString('hex') });
+        const job: BrightdataPendingJob = { id, profileId: testProfileId, snapshotId, webhookToken, status: 'PENDING', expiresAt: new Date(Date.now() + 3600000), createdAt: new Date(), updatedAt: new Date() };
+        const result = await processBrightDataResult(job, [
+          { url: 'https://www.instagram.com/p/np1/', description: 'One', date_posted: '2026-10-20T00:00:00Z', photos: ['https://example.com/1.jpg'] },
+          { url: 'https://www.instagram.com/p/np2/', description: 'Two', date_posted: '2026-10-21T00:00:00Z', photos: ['https://example.com/2.jpg'] },
+        ], auditRunId);
+        const [run] = await db.select().from(scraperActorRuns).where(eq(scraperActorRuns.id, auditRunId));
+        return { result, run };
+      };
+
+      const first = await deliver('first');
+      assert.strictEqual(first.result.newPosts, 2);
+      assert.strictEqual(first.run.newPosts, 2);
+
+      const second = await deliver('second');
+      assert.strictEqual(second.result.newPosts, 0);
+      assert.strictEqual(second.run.newPosts, 0);
+    } finally {
+      // The posts reference their run, so they go first.
+      await db.delete(posts).where(inArray(posts.postUrl, ['https://www.instagram.com/p/np1/', 'https://www.instagram.com/p/np2/']));
+      if (runIds.length > 0) await db.delete(scraperActorRuns).where(inArray(scraperActorRuns.id, runIds));
+    }
   });
 });
