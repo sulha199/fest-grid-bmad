@@ -833,3 +833,12 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
   summary: Moderator Apply for re-extract: apply the previewed extraction in one transaction so a post first stored as one event becomes a roundup linked to several events, reusing the post's existing events (id, slug, favorites, calendar entries survive) as stubs and ingesting the rest as new stub events.
   evidence: Split from the slide-image fix at the multi-goal check: the fix is shippable alone, and Apply is only reliable once every slide is read, while Apply is the only write path (AD-40 amendment, shared ingestion write function, `(post, ordinal)` unique handling, an undo question). The design draft is `_bmad-output/specs/reextract-apply-roundup/DESIGN.md`.
+
+## Deferred from: bmad-quick-dev review of spec-reextract-read-all-slide-images (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
+  summary: Two moderators, or a double click, on the same stale post inside a few seconds both pass the rescrape cooldown (the check runs before the scrape, and the job row is inserted after it) and both call `getPostByUrl`, doubling the scraper credit.
+  evidence: Surfaced by Edge Case Hunter. Pre-existing for posts with no stored caption; more reachable now that a stored-caption post with expired image links also rescrapes. Fix: record the cooldown row before the scrape, or take a short per-URL lease.
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
+  summary: The moderator re-extract rescrape and `extractEventDataFromUrl` call `getScraperAdapter(platform).getPostByUrl` without `isScrapableAccountType()`, which `project-context.md` says every code path that starts a scrape must call; neither is on the AD-34 entry-point list.
+  evidence: Surfaced by Blind Hunter. Pre-existing (a single post URL fetch, not an account scrape), widened a little by BUG-097. Needs a decision: either record these two paths as exempt in AD-34, or gate stored posts on the owning account's type.

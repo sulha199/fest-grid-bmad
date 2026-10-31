@@ -7,6 +7,8 @@ import { parseImageUrlExpiry } from '../scraper/parse-image-url-expiry.js';
  * request: a request built from expired links reads no slide, and for an expired cover reads
  * nothing at all.
  *
+ * The cover's own `oe` parameter is read first; `posts.image_url_expires_at` is only a fallback for a
+ * cover URL that carries none (the column is written once, so it can outlive a replaced URL).
  * A URL with no readable expiry is trusted: the platform gave no signal to act on. A post with no
  * cover and no slides is a text-only post, which has nothing to refresh (rescraping it would spend
  * scraper credit for nothing).
@@ -29,6 +31,6 @@ function isExpired(expiresAt: Date | null, nowMs: number): boolean {
 export function postImagesNeedRefresh(post: StoredPostImages, now: Date): boolean {
   if (!post.imageUrl) return (post.additionalImageUrls?.length ?? 0) > 0;
   const nowMs = now.getTime();
-  if (isExpired(post.imageUrlExpiresAt ?? parseImageUrlExpiry(post.imageUrl), nowMs)) return true;
+  if (isExpired(parseImageUrlExpiry(post.imageUrl) ?? post.imageUrlExpiresAt ?? null, nowMs)) return true;
   return (post.additionalImageUrls ?? []).some((url) => isExpired(parseImageUrlExpiry(url), nowMs));
 }

@@ -77,7 +77,7 @@
     "running": "Extracting. This can take up to a minute.",
     "retry": "Try again",
     "genericError": "The preview could not be completed. Please try again.",
-    "imagesShortfall": "Only {sent} of {available} images could be read, so events listed on the other images may be missing from this preview.",
+    "imagesShortfall": "Only {sent} of {available} images were read, so events listed on the other images may be missing from this preview.",
     "noEvents": "The post was not recognized as describing an event.",
     "groupingUnknown": "Grouping: not reported",
     "groupingSingleEvent": "Grouping: single event",

@@ -2400,7 +2400,9 @@ This document defines the core architectural invariants for the FestDaily applic
         `imagesAvailable` / `imagesSent` so a shortfall is shown, never silent. A rescrape of one URL
         is limited to once per 10
         minutes (`REEXTRACT_RESCRAPE_COOLDOWN_MS`), checked against recent preview jobs; it does not
-        limit previews of stored captions. A scrape that throws or returns nothing is recorded as an
+        limit previews of a stored caption whose image links are still valid. Inside the window a
+        blocked rescrape reuses the usable (not expired) links the last rescrape found, taken from
+        that job's payload, never from `posts`. A scrape that throws or returns nothing is recorded as an
         already-FAILED job so it counts too (a post that never scrapes cannot be retried without
         limit). An image-only post (empty caption) is not a failure. A URL that is not in the
         database is scraped, previewed without an account signal (`postStored: false`, authorship

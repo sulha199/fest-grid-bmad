@@ -373,6 +373,44 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     assert.strictEqual(done.data.extractionJob.data.eventName, 'New Pasted Event');
   });
 
+  await t.test('extractEventDataFromUrl - new post path forwards the carousel slides the scraper returned (BUG-097)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    setCallApifyActor(async () => [
+      {
+        type: 'Sidecar',
+        timestamp: '2026-08-11T00:00:00Z',
+        url: 'https://instagram.com/p/new_carousel_123',
+        caption: 'Carousel roundup with schedules on later slides',
+        displayUrl: 'https://cdn.example.com/cover.jpg',
+        childPosts: [
+          { displayUrl: 'https://cdn.example.com/cover.jpg' },
+          { displayUrl: 'https://cdn.example.com/slide-2.jpg' },
+          { displayUrl: 'https://cdn.example.com/slide-3.jpg' },
+        ],
+      },
+    ]);
+
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation ($url: String!) { extractEventDataFromUrl(url: $url) { jobId errorCode errorMessage } }`,
+        variables: { url: 'https://instagram.com/p/new_carousel_123' },
+      }),
+    });
+    const result = await response.json();
+    assert.ok(!result.errors, 'should not have errors');
+    const started = result.data.extractEventDataFromUrl;
+    assert.ok(started.jobId, `mutation should return a jobId (got ${started.errorCode}: ${started.errorMessage})`);
+    const [jobRow] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.id, started.jobId));
+    assert.deepStrictEqual(jobRow.requestPayload.message.additionalImageUrls, [
+      'https://cdn.example.com/cover.jpg',
+      'https://cdn.example.com/slide-2.jpg',
+      'https://cdn.example.com/slide-3.jpg',
+    ]);
+  });
+
   await t.test('extractEventDataFromUrl - isEvent false returns EXTRACTION_FAILED', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
 

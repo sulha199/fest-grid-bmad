@@ -2696,3 +2696,12 @@ items:
      ref: [implementation-artifacts/deferred-work.md, specs/reextract-apply-roundup/DESIGN.md],
      touches: [app:backend, pkg:domain, web:moderation, cross:architecture],
      note: "Deferred from: bmad-quick-dev split of spec-reextract-read-all-slide-images (2026-10-31). Needs BUG-097 first; amends AD-40 Rule 1 (preview-only). 1 finding."}
+
+  FIND-110:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: internal, effort: s,
+     title: "Re-extract rescrape: concurrent previews double the scraper spend, and single-post scrapes bypass the AD-34 gate rule without being listed as exempt",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:architecture],
+     note: "Deferred from: bmad-quick-dev review of spec-reextract-read-all-slide-images (2026-10-31). 2 findings."}
+

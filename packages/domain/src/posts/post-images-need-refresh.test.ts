@@ -28,9 +28,11 @@ describe('postImagesNeedRefresh', () => {
     assert.equal(postImagesNeedRefresh({ imageUrl: url(inDays(-1)) }, NOW), true);
   });
 
-  it('prefers the stored cover expiry column over parsing the URL', () => {
-    assert.equal(postImagesNeedRefresh({ imageUrl: url(inDays(3)), imageUrlExpiresAt: inDays(-1) }, NOW), true);
-    assert.equal(postImagesNeedRefresh({ imageUrl: url(inDays(-1)), imageUrlExpiresAt: inDays(3) }, NOW), false);
+  it("reads the cover URL's own expiry first, and falls back to the stored column only when the URL carries none", () => {
+    assert.equal(postImagesNeedRefresh({ imageUrl: url(inDays(3)), imageUrlExpiresAt: inDays(-1) }, NOW), false, 'a stale column does not outvote the live URL');
+    assert.equal(postImagesNeedRefresh({ imageUrl: url(inDays(-1)), imageUrlExpiresAt: inDays(3) }, NOW), true);
+    assert.equal(postImagesNeedRefresh({ imageUrl: url(null), imageUrlExpiresAt: inDays(-1) }, NOW), true, 'no oe in the URL: the column decides');
+    assert.equal(postImagesNeedRefresh({ imageUrl: url(null), imageUrlExpiresAt: inDays(3) }, NOW), false);
   });
 
   it('needs one when only a later slide has expired', () => {

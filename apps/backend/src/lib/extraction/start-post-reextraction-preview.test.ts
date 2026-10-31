@@ -194,11 +194,13 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
       imageUrl: freshUrl(0),
       additionalImageUrls: [freshUrl(1), freshUrl(2), freshUrl(3)],
     }));
+    let startResult;
     try {
-      await startPostReextractionPreview(user.id, { postId: post.id }); // fails to start under test, row still created
+      startResult = await startPostReextractionPreview(user.id, { postId: post.id }); // fails to start under test, row still created
     } finally {
       clearRegisteredAdapters();
     }
+    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'the job was created and then failed to start (no AI Lambda under test)');
     const [payload] = await payloadsFor(post.postUrl);
     assert.strictEqual(payload.rescraped, true);
     assert.strictEqual(payload.postStored, true);
@@ -257,11 +259,13 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
       imageUrl: freshUrl(0),
       additionalImageUrls: [freshUrl(1), freshUrl(2)],
     }));
+    let startResult;
     try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
+      startResult = await startPostReextractionPreview(user.id, { postId: post.id });
     } finally {
       clearRegisteredAdapters();
     }
+    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'the job was created and then failed to start (no AI Lambda under test)');
     const [payload] = await payloadsFor(post.postUrl);
     assert.strictEqual(payload.message.imageUrl, freshUrl(0));
     assert.deepStrictEqual(payload.message.additionalImageUrls, [freshUrl(1), freshUrl(2)]);
@@ -274,11 +278,13 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
       scrapes++;
       return null;
     });
+    let startResult;
     try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
+      startResult = await startPostReextractionPreview(user.id, { postId: post.id });
     } finally {
       clearRegisteredAdapters();
     }
+    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'the job was created and then failed to start (no AI Lambda under test)');
     assert.strictEqual(scrapes, 0);
     const [payload] = await payloadsFor(post.postUrl);
     assert.strictEqual(payload.rescraped, false);
@@ -312,5 +318,50 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.deepStrictEqual(second.message.additionalImageUrls, [freshUrl(1), freshUrl(2)]);
     const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
     assert.strictEqual(stored.imageUrl, expiredUrl(0), 'still never written to posts');
+  });
+
+  await t.test('the scraper finds a cover but an empty slide list: stored slides stay, so a dead one shows as a shortfall', async () => {
+    const post = await makeCarouselPost('Stored caption E', { cover: expiredUrl(0), slides: [expiredUrl(1), expiredUrl(2)] });
+    fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: freshUrl(0), additionalImageUrls: [] }));
+    try {
+      await startPostReextractionPreview(user.id, { postId: post.id });
+    } finally {
+      clearRegisteredAdapters();
+    }
+    const [payload] = await payloadsFor(post.postUrl);
+    assert.strictEqual(payload.message.imageUrl, freshUrl(0));
+    assert.deepStrictEqual(payload.message.additionalImageUrls, [expiredUrl(1), expiredUrl(2)]);
+  });
+
+  await t.test('inside the cooldown, a rescrape that only returned a dead link is not reused as "fresh"', async () => {
+    const post = await makeCarouselPost('Stored caption F', { cover: expiredUrl(0), slides: [] });
+    fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: expiredUrl(9) }));
+    try {
+      await startPostReextractionPreview(user.id, { postId: post.id });
+      await startPostReextractionPreview(user.id, { postId: post.id });
+    } finally {
+      clearRegisteredAdapters();
+    }
+    const payloads = await payloadsFor(post.postUrl);
+    const second = payloads.find((p) => p.rescraped === false);
+    assert.ok(second);
+    assert.strictEqual(second.message.imageUrl, expiredUrl(0), 'the stored link, not the first run\'s equally dead one');
+  });
+
+  await t.test('a malformed recent job row never makes the cooldown throw', async () => {
+    const post = await makeCarouselPost('Stored caption G', { cover: expiredUrl(0), slides: [] });
+    await db.insert(manualExtractionJobs).values({
+      requestedByUserId: user.id,
+      sourceUrl: post.postUrl,
+      requestPayload: { mode: 'REEXTRACT_PREVIEW', rescraped: true } as unknown as ManualExtractionRequestPayload,
+    });
+    let startResult;
+    try {
+      startResult = await startPostReextractionPreview(user.id, { postId: post.id });
+    } finally {
+      clearRegisteredAdapters();
+    }
+    assert.ok(startResult, 'returned instead of throwing');
+    await payloadsFor(post.postUrl);
   });
 });

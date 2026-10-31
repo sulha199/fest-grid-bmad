@@ -67,13 +67,20 @@ async function rescrapeCooldown(url: string, now: Date): Promise<RescrapeCooldow
   const [recent] = recentRows;
   if (!recent) return { minutesLeft: 0, recentImages: null };
   const msLeft = REEXTRACT_RESCRAPE_COOLDOWN_MS - (now.getTime() - recent.createdAt.getTime());
-  // Newest window row that actually carries links (a recorded failed scrape carries none).
-  const withImages = recentRows
-    .map((row) => (row.requestPayload as ManualExtractionRequestPayload).message)
-    .find((message) => message.imageUrl || message.additionalImageUrls?.length);
+  // Newest window row whose links are actually usable now: a row that only carries the dead stored
+  // links (the scrape found nothing new) must not be handed back as "fresh", and a recorded failed
+  // scrape carries none. `?.` because the cooldown must degrade gracefully, never throw, on a row
+  // written by something other than this function.
+  const usable = recentRows
+    .map((row) => (row.requestPayload as ManualExtractionRequestPayload | null)?.message)
+    .find(
+      (message) =>
+        (message?.imageUrl || message?.additionalImageUrls?.length) &&
+        !postImagesNeedRefresh({ imageUrl: message.imageUrl, additionalImageUrls: message.additionalImageUrls }, now)
+    );
   return {
     minutesLeft: Math.max(1, Math.ceil(msLeft / 60_000)),
-    recentImages: withImages ? { imageUrl: withImages.imageUrl, additionalImageUrls: withImages.additionalImageUrls } : null,
+    recentImages: usable ? { imageUrl: usable.imageUrl, additionalImageUrls: usable.additionalImageUrls } : null,
   };
 }
 
@@ -230,7 +237,9 @@ export async function startPostReextractionPreview(
       publishedAt: post?.publishedAt.toISOString() ?? scraped.publishedAt,
       ownerDisplayName: post?.ownerDisplayName ?? scraped.ownerDisplayName,
       ownerUsername: post?.ownerUsername ?? scraped.ownerUsername,
-      additionalImageUrls: scraped.additionalImageUrls ?? post?.additionalImageUrls ?? undefined,
+      // An empty list from the scraper is "no slides found", not "no slides": fall back to the stored
+      // ones, so a dead stored slide still shows up as a shortfall instead of vanishing silently.
+      additionalImageUrls: scraped.additionalImageUrls?.length ? scraped.additionalImageUrls : (post?.additionalImageUrls ?? undefined),
     },
     existingPostAccountId: post?.accountId,
     mode: 'REEXTRACT_PREVIEW',
