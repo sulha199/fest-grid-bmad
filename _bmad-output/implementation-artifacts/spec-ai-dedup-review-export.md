@@ -2,7 +2,7 @@
 title: 'AI dedup review, piece B1: read-only export of pending suggestions as evidence JSON'
 type: 'feature'
 created: '2026-10-31'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'bb7a4fc509e4c13d4854c31e8931af41c8fcf7b3'
 review_loop_iteration: 0
 context:
