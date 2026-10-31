@@ -827,3 +827,9 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-export.md`
   summary: Every workflow that holds a database or cloud secret runs `pnpm install --frozen-lockfile` (dependency lifecycle scripts) and third-party actions pinned by tag before the step that uses the secret, so install-time code could read or misuse it.
   evidence: Surfaced by Blind Hunter on the new export workflow, which follows the same pattern as `merge-twin-profiles.yml` and the backfill workflows (the older ones hold the full-privilege `DATABASE_URL`). Fix across all workflows: `pnpm install --ignore-scripts` where the build allows it, pin actions by commit SHA, and keep secrets out of any step that runs before the install.
+
+## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-via-flag.md`
+  summary: Piece B2b of the AI-assisted dedup review (still `FIND-108`): the apply workflow and script -- hashed Claude-account-email invoker check against an active moderator, `evidenceHash` re-verification (stale = skip), deterministic floor, per-run cap 10 and per-day cap counted from `ai_skill` rows, kill-switch variable, `validate` mode on the read-only secret, the new AD, the PRD amendment, `3-database.md` and the runbook.
+  evidence: Split from B2a (the `resolved_via`/`performed_via` flag, which changes no behavior and ships alone) at the multi-goal check, so the schema migration is not bundled with the only write path. Decisions: invoker identity is the SHA-256 of the lowercased Claude account email (a public log must not show it), no dedicated moderator user and no email repository variable; the skill is named `moderator-dedup-review`. Needs B2a first.
