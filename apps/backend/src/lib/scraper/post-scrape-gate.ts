@@ -9,6 +9,10 @@ import { db } from '../../db/client.js';
 // one whose classification still awaits a moderator, is never scraped. The rule itself stays in
 // `isScrapableAccountType()`; this file only finds the account row to ask it about.
 
+export const ACCOUNT_NOT_SCRAPABLE_MESSAGE =
+  'This post belongs to an account FestDaily does not scrape (a personal account, or one still waiting for a moderator to classify it), so it cannot be fetched.';
+export const SCRAPE_IN_PROGRESS_MESSAGE = 'This post is being fetched right now. Try again in a moment.';
+
 type AccountTypeRow = { accountType: 'ORGANIZER_VENUE_EVENT' | 'PERSONAL' | 'CURATOR_GUIDE' | null; accountTypeStatus: 'CONFIRMED' | 'AWAITING_APPROVAL' | null };
 
 function gate(row: AccountTypeRow | undefined): boolean {
@@ -27,23 +31,26 @@ export async function isStoredPostAccountScrapable(accountProfileId: string): Pr
 }
 
 /**
- * An unknown URL has no account to look up before the scrape, so the scrape's own `ownerUsername`
- * is looked up afterwards. A username we do not know is allowed (nothing marks it as off limits);
- * a known account is judged by the same rule as everywhere else. Matches a profile keyed by the
- * handle too (`account_id` = handle), case-insensitively.
+ * An unknown URL has no account to look up before the scrape, so what the scrape returned about the
+ * post's owner is looked up afterwards: the handle (case-insensitive, against `username` and a
+ * handle-keyed `account_id`) and the platform's numeric owner id (against a numeric-keyed
+ * `account_id`, which survives a username change). Nothing to match on, or no profile of ours, is
+ * allowed: nothing marks it as off limits. Every matching profile must pass.
  */
-export async function isOwnerAccountScrapable(platform: string, ownerUsername: string | null | undefined): Promise<boolean> {
-  const handle = ownerUsername?.trim().toLowerCase();
-  if (!handle) return true;
+export async function isOwnerAccountScrapable(
+  platform: string,
+  owner: { username?: string | null; ownerId?: string | null }
+): Promise<boolean> {
+  const handle = owner.username?.trim().toLowerCase();
+  const ownerId = owner.ownerId?.trim();
+  const matchers = [
+    ...(handle ? [sql`lower(${socialMediaAccountProfiles.username}) = ${handle}`, sql`lower(${socialMediaAccountProfiles.accountId}) = ${handle}`] : []),
+    ...(ownerId ? [eq(socialMediaAccountProfiles.accountId, ownerId)] : []),
+  ];
+  if (matchers.length === 0) return true;
   const rows = await db
     .select({ accountType: socialMediaAccountProfiles.accountType, accountTypeStatus: socialMediaAccountProfiles.accountTypeStatus })
     .from(socialMediaAccountProfiles)
-    .where(
-      and(
-        eq(socialMediaAccountProfiles.platform, platform),
-        or(sql`lower(${socialMediaAccountProfiles.username}) = ${handle}`, sql`lower(${socialMediaAccountProfiles.accountId}) = ${handle}`)
-      )
-    );
-  // Every matching profile must pass: one non-scrapable account of that handle refuses the post.
+    .where(and(eq(socialMediaAccountProfiles.platform, platform), or(...matchers)));
   return rows.every((row) => gate(row));
 }

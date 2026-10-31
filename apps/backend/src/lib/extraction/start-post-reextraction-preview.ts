@@ -12,7 +12,12 @@ import {
 import { db } from '../../db/client.js';
 import { fetchCandidateKeys } from '../ai-gateway/usage-store.js';
 import { startManualExtractionJob } from './manual-extraction-job.js';
-import { isOwnerAccountScrapable, isStoredPostAccountScrapable } from '../scraper/post-scrape-gate.js';
+import {
+  ACCOUNT_NOT_SCRAPABLE_MESSAGE,
+  SCRAPE_IN_PROGRESS_MESSAGE,
+  isOwnerAccountScrapable,
+  isStoredPostAccountScrapable,
+} from '../scraper/post-scrape-gate.js';
 import { claimPostUrlScrape } from '../scraper/post-url-scrape-lease.js';
 
 // AD-40 -- starts a moderator re-extract preview. The caller (the resolver) has already enforced
@@ -52,12 +57,14 @@ interface RescrapeCooldown {
    * dead stored links the first run had to replace. Only links: the caption was blanked with the job.
    */
   recentImages: { imageUrl?: string; additionalImageUrls?: string[] } | null;
+  /** The newest in-window attempt was refused by the account gate: say that, not "rescraped recently". */
+  refusedByGate: boolean;
 }
 
 async function rescrapeCooldown(url: string, now: Date): Promise<RescrapeCooldown> {
   const since = new Date(now.getTime() - REEXTRACT_RESCRAPE_COOLDOWN_MS);
   const recentRows = await db
-    .select({ createdAt: manualExtractionJobs.createdAt, requestPayload: manualExtractionJobs.requestPayload })
+    .select({ createdAt: manualExtractionJobs.createdAt, requestPayload: manualExtractionJobs.requestPayload, errorCode: manualExtractionJobs.errorCode })
     .from(manualExtractionJobs)
     .where(
       and(
@@ -70,7 +77,8 @@ async function rescrapeCooldown(url: string, now: Date): Promise<RescrapeCooldow
     .orderBy(desc(manualExtractionJobs.createdAt))
     .limit(5);
   const [recent] = recentRows;
-  if (!recent) return { minutesLeft: 0, recentImages: null };
+  if (!recent) return { minutesLeft: 0, recentImages: null, refusedByGate: false };
+  const refusedByGate = recent.errorCode === 'ACCOUNT_NOT_SCRAPABLE';
   const msLeft = REEXTRACT_RESCRAPE_COOLDOWN_MS - (now.getTime() - recent.createdAt.getTime());
   // Newest window row with at least one link usable now, judged PER LINK: a fresh cover must not be
   // thrown away because a dead stored slide rode along in the same payload, and a row that only
@@ -84,21 +92,16 @@ async function rescrapeCooldown(url: string, now: Date): Promise<RescrapeCooldow
       return {
         minutesLeft: Math.max(1, Math.ceil(msLeft / 60_000)),
         recentImages: { imageUrl, additionalImageUrls: additionalImageUrls.length > 0 ? additionalImageUrls : undefined },
+        refusedByGate,
       };
     }
   }
-  return { minutesLeft: Math.max(1, Math.ceil(msLeft / 60_000)), recentImages: null };
+  return { minutesLeft: Math.max(1, Math.ceil(msLeft / 60_000)), recentImages: null, refusedByGate };
 }
 
-const ACCOUNT_NOT_SCRAPABLE = {
-  errorCode: 'ACCOUNT_NOT_SCRAPABLE',
-  errorMessage: 'This post belongs to an account FestDaily does not scrape (a personal account, or one still waiting for a moderator to classify it), so it cannot be fetched.',
-} as const;
+const ACCOUNT_NOT_SCRAPABLE = { errorCode: 'ACCOUNT_NOT_SCRAPABLE', errorMessage: ACCOUNT_NOT_SCRAPABLE_MESSAGE } as const;
 
-const SCRAPE_IN_PROGRESS = {
-  errorCode: 'SCRAPE_IN_PROGRESS',
-  errorMessage: 'This post is being fetched right now. Try again in a moment.',
-} as const;
+const SCRAPE_IN_PROGRESS = { errorCode: 'SCRAPE_IN_PROGRESS', errorMessage: SCRAPE_IN_PROGRESS_MESSAGE } as const;
 
 const SCRAPE_FAILED = {
   errorCode: 'SCRAPE_FAILED',
@@ -112,7 +115,13 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
  * per-URL cooldown (which reads recent preview jobs): record it as an already-FAILED job. The
  * caption is empty by construction -- nothing was obtained.
  */
-async function recordFailedRescrape(userId: string, url: string, postId: string | null, accountId: string | null): Promise<void> {
+async function recordFailedRescrape(
+  userId: string,
+  url: string,
+  postId: string | null,
+  accountId: string | null,
+  errorCode: 'EXTRACTION_FAILED' | 'ACCOUNT_NOT_SCRAPABLE' = 'EXTRACTION_FAILED'
+): Promise<void> {
   try {
     await db.insert(manualExtractionJobs).values({
       requestedByUserId: userId,
@@ -124,8 +133,8 @@ async function recordFailedRescrape(userId: string, url: string, postId: string 
         rescraped: true,
       },
       status: 'FAILED',
-      errorCode: 'EXTRACTION_FAILED',
-      errorMessage: 'The post could not be rescraped.',
+      errorCode,
+      errorMessage: errorCode === 'ACCOUNT_NOT_SCRAPABLE' ? ACCOUNT_NOT_SCRAPABLE_MESSAGE : 'The post could not be rescraped.',
       completedAt: new Date(),
     });
   } catch (err) {
@@ -237,9 +246,10 @@ export async function startPostReextractionPreview(
   try {
     // Checked inside the lease, so a run that just finished (row written, lease released) blocks
     // this one instead of being scraped again.
-    const { minutesLeft, recentImages } = await rescrapeCooldown(url, now);
+    const { minutesLeft, recentImages, refusedByGate } = await rescrapeCooldown(url, now);
     if (minutesLeft > 0) {
       if (scrapeIsOptional) return startStored(post!, recentImages);
+      if (refusedByGate) return ACCOUNT_NOT_SCRAPABLE;
       return {
         errorCode: 'RATE_LIMITED',
         errorMessage: `This post was rescraped recently. Try again in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`,
@@ -264,8 +274,8 @@ export async function startPostReextractionPreview(
     // AD-34 -- an unknown URL could not be gated before the scrape; the account it returned is
     // looked up now. A refusal still costs a scrape, so it is recorded against the cooldown and no
     // job (and no caption copy) is created.
-    if (!post && !(await isOwnerAccountScrapable(platform, scraped.ownerUsername))) {
-      await recordFailedRescrape(userId, url, null, null);
+    if (!post && !(await isOwnerAccountScrapable(platform, { username: scraped.ownerUsername, ownerId: scraped.ownerId }))) {
+      await recordFailedRescrape(userId, url, null, null, 'ACCOUNT_NOT_SCRAPABLE');
       return ACCOUNT_NOT_SCRAPABLE;
     }
 

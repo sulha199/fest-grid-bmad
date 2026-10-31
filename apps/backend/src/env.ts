@@ -306,7 +306,7 @@ export function loadBackendEnv(): BackendEnv {
     scrapeQueueApifyCallTimeoutMs: Math.max(1_000, parseInt(process.env.SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS || '120000', 10) || 120_000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxCarouselImages: parseInt(process.env.MAX_CAROUSEL_IMAGES || '5', 10),
-    maxReextractCarouselImages: parseInt(process.env.MAX_REEXTRACT_CAROUSEL_IMAGES || String(REEXTRACT_MAX_CAROUSEL_IMAGES), 10),
+    maxReextractCarouselImages: parsePositiveInt(process.env.MAX_REEXTRACT_CAROUSEL_IMAGES, 'MAX_REEXTRACT_CAROUSEL_IMAGES', REEXTRACT_MAX_CAROUSEL_IMAGES),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxExtractedEventsPerPost: parseInt(process.env.MAX_EXTRACTED_EVENTS_PER_POST || '10', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

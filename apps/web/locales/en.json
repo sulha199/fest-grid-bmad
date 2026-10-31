@@ -877,7 +877,9 @@
     "errorNoApiKey": "No API key configured. Please set one in <link>API Keys settings</link>.",
     "errorScrapeFailed": "Failed to scrape the social media post. Please try again.",
     "errorExtractionFailed": "AI failed to extract any events from this post.",
-    "errorQuotaExhausted": "Your API key quota has been exhausted."
+    "errorQuotaExhausted": "Your API key quota has been exhausted.",
+    "errorAccountNotScrapable": "This post belongs to an account FestDaily does not scrape (a personal account, or one still waiting for a moderator to classify it), so it cannot be fetched.",
+    "errorScrapeInProgress": "This post is being fetched right now. Try again in a moment."
   },
   "DefaultLocationChangeStatus": {
     "PENDING_REVIEW": "Pending Review",

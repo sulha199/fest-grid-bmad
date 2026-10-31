@@ -10,7 +10,7 @@ import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
-import { isOwnerAccountScrapable } from '../lib/scraper/post-scrape-gate.js';
+import { ACCOUNT_NOT_SCRAPABLE_MESSAGE, SCRAPE_IN_PROGRESS_MESSAGE, isOwnerAccountScrapable } from '../lib/scraper/post-scrape-gate.js';
 import { claimPostUrlScrape } from '../lib/scraper/post-url-scrape-lease.js';
 import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
@@ -1660,7 +1660,7 @@ export const resolvers: Resolvers = {
       if (!lease) {
         return {
           errorCode: 'SCRAPE_IN_PROGRESS',
-          errorMessage: 'This post is being fetched right now. Try again in a moment.',
+          errorMessage: SCRAPE_IN_PROGRESS_MESSAGE,
         };
       }
 
@@ -1686,11 +1686,10 @@ export const resolvers: Resolvers = {
         // AD-34 -- an unknown URL cannot be gated before the scrape, so the account it returned is
         // looked up now. A known personal / awaiting-classification account refuses the post: no
         // job is started and nothing the scrape returned is kept.
-        if (!(await isOwnerAccountScrapable(platform, scrapedPost.ownerUsername))) {
+        if (!(await isOwnerAccountScrapable(platform, { username: scrapedPost.ownerUsername, ownerId: scrapedPost.ownerId }))) {
           return {
             errorCode: 'ACCOUNT_NOT_SCRAPABLE',
-            errorMessage:
-              'This post belongs to an account FestDaily does not scrape (a personal account, or one still waiting for a moderator to classify it), so it cannot be fetched.',
+            errorMessage: ACCOUNT_NOT_SCRAPABLE_MESSAGE,
           };
         }
 

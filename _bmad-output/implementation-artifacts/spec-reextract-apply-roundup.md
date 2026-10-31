@@ -2,7 +2,8 @@
 title: 'Moderator Apply for re-extract: turn a post into a roundup'
 type: 'feature'
 created: '2026-10-31'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '102eb47a92f5401d89896c497384e0496857749d'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/project-context.md'
@@ -63,7 +64,7 @@ context:
 - [ ] `process-ingestion-job.ts`, `process-ai-job.ts` -- extract shared write function and message builder, existing tests untouched -- one decision, two callers
 - [ ] preview job -- store `extracted`; `apply-post-reextraction.ts` + domain pairing -- transactional, once-only apply
 - [ ] GraphQL, resolver, web dialog, locales (en, id) -- moderator UI
-- [ ] AD-40 amendment, runbook, diagram, project-context, backlog -- records
+- [ ] AD-40 amendment, runbook, diagram, project-context, PRD 3.9.3 amendment (the PRD does not mention re-extract at all), backlog -- records
 - [ ] Tests: matrix rows, ordinal swap under both uniques, favorites/slug survive, no notification, row-count ratchet clean
 
 **Acceptance Criteria:**
@@ -73,6 +74,8 @@ context:
 ## Spec Change Log
 
 ## Design Notes
+
+PRD constraints found while building (3.7 "No Duplicate Re-Extraction", "Roundup Posts", 3.16), applied inside the frozen Boundaries, not changing them: (1) a re-run never recreates an event a moderator soft-deleted: ordinals held by soft-deleted or merged events of the post stay reserved (new ordinals start above the post's maximum), those events are never paired, and an item that matches one of them is skipped, not recreated; (2) an event is demoted to `stub` only when this post is its **primary** post (`events.post_id`), since a stub means "the roundup post is all we have"; an event whose primary post is the organizer's keeps its detail level and only gains this post's ordinal link; (3) roundup items without a readable date and location are already skipped by the extraction prompt, so Apply needs no filter of its own.
 
 Stub status is derived from `posts.grouping_reason` plus `events.detail_level`, which is why Apply writes both. Reusing `enrichAndPromoteEvent` with the same post keeps slug aliasing and protected-field handling in the one place that already owns them.
 

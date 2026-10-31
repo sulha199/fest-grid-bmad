@@ -483,7 +483,7 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     }
     assert.ok('errorCode' in first && first.errorCode === 'ACCOUNT_NOT_SCRAPABLE');
     assert.strictEqual(scrapes, 1, 'scraped once; the refusal was recorded against the cooldown');
-    assert.ok('errorCode' in second && second.errorCode === 'RATE_LIMITED');
+    assert.ok('errorCode' in second && second.errorCode === 'ACCOUNT_NOT_SCRAPABLE', 'the cooldown repeats the real reason, not "rescraped recently"');
     const rows = await payloadsFor(url);
     assert.strictEqual(rows.length, 1, 'only the recorded failed-scrape row, no preview job');
     assert.strictEqual(rows[0].message.content, '');
@@ -506,6 +506,7 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.ok('errorCode' in result && result.errorCode === 'EXTRACTION_FAILED');
     const [payload] = await payloadsFor(post.postUrl);
     assert.strictEqual(payload.rescraped, false);
+    assert.strictEqual(payload.message.imageUrl, expiredUrl(0), 'no fresh links exist while the first scrape is still running: stored data, and the preview reports the shortfall');
   });
 
   await t.test('single-flight: while another request holds the lease, a post with no caption gets SCRAPE_IN_PROGRESS and nothing is scraped', async () => {
@@ -541,6 +542,12 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.strictEqual(scrapes, 1, 'the second request reused the first instead of scraping');
     const payloads = await payloadsFor(post.postUrl);
     assert.strictEqual(payloads.length, 2, 'both requests still produced a preview job');
+    const rescraped = payloads.filter((p) => p.rescraped === true);
+    const stored = payloads.filter((p) => p.rescraped === false);
+    assert.strictEqual(rescraped.length, 1, 'exactly one request did the scrape');
+    assert.strictEqual(rescraped[0].message.imageUrl, freshUrl(0));
+    assert.strictEqual(stored.length, 1, 'the other previewed on stored data (the first run had not finished, so its links did not exist yet)');
+    assert.strictEqual(stored[0].message.imageUrl, expiredUrl(0));
   });
 
   await t.test('single-flight: the lease is released after a scrape that throws, so the URL is not stuck', async () => {
@@ -556,6 +563,5 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     const lease = await claimPostUrlScrape(post.postUrl);
     assert.ok(lease, 'claimable again right after the failure');
     await lease.release();
-    await payloadsFor(post.postUrl);
   });
 });

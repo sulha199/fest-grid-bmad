@@ -23,6 +23,8 @@ export interface AiAssistedCorrectionTriggerLabels {
   errorScrapeFailed: React.ReactNode;
   errorExtractionFailed: React.ReactNode;
   errorQuotaExhausted: React.ReactNode;
+  errorAccountNotScrapable: React.ReactNode;
+  errorScrapeInProgress: React.ReactNode;
 }
 
 const POLL_INTERVAL_MS = 2000;
@@ -141,6 +143,12 @@ export function AiAssistedCorrectionTrigger({
         break;
       case "QUOTA_EXHAUSTED":
         errorContent = labels.errorQuotaExhausted;
+        break;
+      case "ACCOUNT_NOT_SCRAPABLE":
+        errorContent = labels.errorAccountNotScrapable;
+        break;
+      case "SCRAPE_IN_PROGRESS":
+        errorContent = labels.errorScrapeInProgress;
         break;
       default:
         errorContent = labels.errorExtractionFailed;

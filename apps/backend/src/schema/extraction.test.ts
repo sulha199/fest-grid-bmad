@@ -14,7 +14,7 @@ import { callApifyActor, setCallApifyActor } from '../lib/scraper/instagram-adap
 import { sendSqsMessage, setSendSqsMessage } from '../lib/aws/send-sqs-message.js';
 import { invokeAiProcessor, setInvokeAiProcessor } from '../lib/aws/invoke-ai-processor.js';
 import { processManualExtractionJob } from '../lib/ai-processor/process-manual-extraction-job.js';
-import { claimPostUrlScrape } from '../lib/scraper/post-url-scrape-lease.js';
+import { claimPostUrlScrape, postUrlScrapeLockKey } from '../lib/scraper/post-url-scrape-lease.js';
 import { clearApifyProviderUsage } from '../lib/scraper/usage-store-test-helpers.js';
 
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -415,6 +415,8 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
   await t.test('extractEventDataFromUrl - a busy post-URL lease returns SCRAPE_IN_PROGRESS without scraping (FIND-110)', async () => {
     mockUser = { userId: testUser.id, role: testUser.role };
     const url = 'https://instagram.com/p/inflight_123';
+    // A fixed URL: clear any lease row a crashed earlier run left behind so this cannot be flaky.
+    await db.delete(vendorCallLocks).where(eq(vendorCallLocks.lockKey, postUrlScrapeLockKey(url)));
     const lease = await claimPostUrlScrape(url);
     assert.ok(lease);
     let scrapes = 0;

@@ -877,7 +877,9 @@
     "errorNoApiKey": "Kunci API tidak dikonfigurasi. Silakan atur di <link>Pengaturan Kunci API</link>.",
     "errorScrapeFailed": "Gagal mengambil data dari postingan media sosial. Silakan coba lagi.",
     "errorExtractionFailed": "AI gagal mengekstrak acara dari postingan ini.",
-    "errorQuotaExhausted": "Kuota kunci API Anda telah habis."
+    "errorQuotaExhausted": "Kuota kunci API Anda telah habis.",
+    "errorAccountNotScrapable": "Postingan ini milik akun yang tidak diambil datanya oleh FestDaily (akun pribadi, atau akun yang masih menunggu klasifikasi moderator), sehingga tidak dapat diambil.",
+    "errorScrapeInProgress": "Postingan ini sedang diambil saat ini. Coba lagi sebentar lagi."
   },
   "DefaultLocationChangeStatus": {
     "PENDING_REVIEW": "Menunggu Tinjauan",
