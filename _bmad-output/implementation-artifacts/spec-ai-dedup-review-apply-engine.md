@@ -2,7 +2,7 @@
 title: 'AI dedup review piece B2b-1: decision validator, floor, caps and the apply script'
 type: 'feature'
 created: '2026-10-31'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 0
 baseline_commit: 'd0517f4daeaa03791d9958b2b2d9e4c57e7d3059'
 context:
@@ -95,3 +95,64 @@ The judge is called once per decision with a small state (claimed events, run co
 - `pnpm --filter backend test` -- expected: new tests pass; sandbox-only failures as before
 - `pnpm lint && pnpm build` -- expected: no errors
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: exits as on `master` (72)
+
+## Suggested Review Order
+
+**The verdict: what may merge**
+
+- Entry point: one decision's verdict in a fixed order, from pair state to hash to floor to claims and caps.
+  [`dedup-review-apply.ts:236`](../../packages/domain/src/events/dedup-review-apply.ts#L236)
+
+- The floor: tier mid, an anchor a public post cannot fake, a 0 or 90 day window, schedule coverage, names.
+  [`dedup-review-apply.ts:194`](../../packages/domain/src/events/dedup-review-apply.ts#L194)
+
+- Contradiction half of the existing name check, so bilingual names pass and numbered series do not.
+  [`match-scoring.ts:304`](../../packages/domain/src/events/match-scoring.ts#L304)
+
+- Decisions file: fixed messages, no echo, reasons dropped.
+  [`dedup-review-apply.ts:53`](../../packages/domain/src/events/dedup-review-apply.ts#L53)
+
+- Kill switch fails closed on any value except unset, empty, 0 and false.
+  [`dedup-review-apply.ts:138`](../../packages/domain/src/events/dedup-review-apply.ts#L138)
+
+**The run: locks, savepoints, modes**
+
+- The three modes and the structural rollback of a dry run.
+  [`dedup-review-apply.ts:248`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L248)
+
+- Per decision: lock suggestion and events, re-read, judge again, then the shared merge in a savepoint.
+  [`dedup-review-apply.ts:165`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L165)
+
+- Which database errors stop the whole run instead of becoming `merge-failed`.
+  [`dedup-review-apply.ts:145`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L145)
+
+- Judge in file order; only an eligible decision claims events and uses a cap.
+  [`dedup-review-apply.ts:208`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L208)
+
+- Invoker: exactly one non-deleted moderator, one refusal for everything else.
+  [`dedup-review-apply.ts:55`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L55)
+
+- The 24 hour count: merges including undone, plus rejections.
+  [`dedup-review-apply.ts:73`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L73)
+
+- Write transaction: read committed, lock and statement timeouts.
+  [`dedup-review-export.ts:79`](../../apps/backend/src/lib/events/dedup-review-export.ts#L79)
+
+- The pair plus both event ids and the venue conflict, which the evidence cannot carry.
+  [`dedup-review-export.ts:177`](../../apps/backend/src/lib/events/dedup-review-export.ts#L177)
+
+**The command line**
+
+- Kill switch first, then arguments, file, hash, and only then the database.
+  [`dedup-review-apply.ts:108`](../../apps/backend/src/dedup-review-apply.ts#L108)
+
+- Repeated flags are refused, so `--mode validate --mode apply` cannot flip the mode.
+  [`dedup-review-apply.ts:48`](../../apps/backend/src/dedup-review-apply.ts#L48)
+
+**Guard rails and tests**
+
+- Apply code may merge only through the shared function with `ai_skill`, and writes nothing itself.
+  [`suggested-match-resolve-ratchet.test.ts:223`](../../apps/backend/src/lib/events/suggested-match-resolve-ratchet.test.ts#L223)
+
+- A moderator resolving the suggestion while apply waits for its lock becomes `concurrent-change`.
+  [`dedup-review-apply.test.ts:341`](../../apps/backend/src/lib/events/dedup-review-apply.test.ts#L341)
