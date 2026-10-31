@@ -8,8 +8,8 @@
  *   tsx src/dedup-review-export.ts [--limit <1-50>] [--skip-ids <uuid,uuid,...>] [--run-tag <tag>]
  *
  * `--skip-ids` leaves out suggestions the reviewer already escalated, so the same stuck pairs do not
- * fill the limit every day. `DEDUP_REVIEW_MODERATOR_EMAIL` (optional) lets `recentlyResolved` tell
- * the reviewer's resolutions from a human moderator's; the address is never printed.
+ * fill the limit every day. `recentlyResolved` tells the reviewer's resolutions from a moderator's by
+ * the `resolved_via` flag the shared resolve path writes, so no account or email is involved.
  *
  * Point DATABASE_URL at a READ-ONLY role that bypasses row level security (the `dedup-review-export`
  * workflow reads the secret `DEDUP_REVIEW_READONLY_DATABASE_URL`); the export refuses a role that
@@ -20,7 +20,7 @@
  * message (a database error can carry a host, a user name or a bound parameter).
  */
 import { DedupReviewOptionsError, formatDedupReviewExport, parseDedupReviewOptions, type DedupReviewOptions } from '@festgrid/domain/events';
-import { DedupReviewReviewerError, DedupReviewRoleError } from './lib/events/dedup-review-errors.js';
+import { DedupReviewRoleError } from './lib/events/dedup-review-errors.js';
 
 export function parseCliArgs(argv: string[]): DedupReviewOptions {
   const raw: { limit?: string; skipIds?: string; runTag?: string } = {};
@@ -57,7 +57,7 @@ const DATABASE_ERROR_HINTS: Record<string, string> = {
 /** What to print when the export fails: the typed errors' fixed messages, and for anything else only the class, the code and a fixed hint for that code. */
 export function describeFailure(err: unknown): string {
   if (err instanceof DedupReviewOptionsError) return `Invalid input: ${err.message}`;
-  if (err instanceof DedupReviewRoleError || err instanceof DedupReviewReviewerError) return `Export refused: ${err.message}`;
+  if (err instanceof DedupReviewRoleError) return `Export refused: ${err.message}`;
   const name = err instanceof Error ? err.name : 'Error';
   const rawCode = (err as { code?: unknown } | null)?.code;
   const code = typeof rawCode === 'string' ? rawCode : null;
@@ -69,13 +69,9 @@ async function main(): Promise<void> {
   const options = parseCliArgs(process.argv.slice(2));
 
   const { db } = await import('./db/client.js');
-  const { buildDedupReviewExport, resolveReviewerUserId, runInReadOnlyTransaction } = await import('./lib/events/dedup-review-export.js');
+  const { buildDedupReviewExport, runInReadOnlyTransaction } = await import('./lib/events/dedup-review-export.js');
 
-  const reviewerEmail = process.env.DEDUP_REVIEW_MODERATOR_EMAIL?.trim();
-  const report = await runInReadOnlyTransaction(db, async (tx) => {
-    const reviewerUserId = reviewerEmail ? await resolveReviewerUserId(tx, reviewerEmail) : null;
-    return buildDedupReviewExport(tx, { ...options, reviewerUserId });
-  });
+  const report = await runInReadOnlyTransaction(db, (tx) => buildDedupReviewExport(tx, options));
 
   // One write, and wait for it: exiting right after a large write to a pipe can cut the line short.
   const output = formatDedupReviewExport(report).join('\n') + '\n';

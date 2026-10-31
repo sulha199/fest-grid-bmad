@@ -2,8 +2,9 @@
 title: 'AI dedup review piece B2a: record whether a dedup was resolved manually or by the skill'
 type: 'feature'
 created: '2026-10-31'
-status: 'draft'
+status: 'in-review'
 review_loop_iteration: 0
+baseline_commit: '20ad4fab81f7afb3cba331819084fde5bf312dbc'
 context:
   - '{project-root}/_bmad-output/project-context.md'
   - '{project-root}/_bmad-output/specs/ai-dedup-review/DESIGN.md'
@@ -53,12 +54,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `packages/database/schema.ts` and migration 0087 -- enum `resolution_source`, columns, backfill UPDATE -- generate with drizzle-kit, then add the backfill by hand
-- [ ] `merge-events.ts`, `resolve-suggested-match.ts` -- optional `via` (default `moderator`), written to both rows; undo clears -- one shared path stays the only writer
-- [ ] Ratchet test -- the resolver wrapper source has no `via` -- keeps the flag server-only
-- [ ] Domain classifier, export builder, CLI, workflow, errors file -- read the flag, delete the email lookup, `DedupReviewReviewerError` and `DEDUP_REVIEW_MODERATOR_EMAIL` -- tests updated, 100% domain coverage
-- [ ] Tests (resolve, merges, undo, export) -- every Matrix row, clean up created rows (row-count ratchet)
-- [ ] Docs and backlog -- identity decision (hashed Claude account email, B2b), flag, `FIND-108` note, `FIND-104` renamed `moderator-dedup-review`, repo variable can be deleted
+- [x] `packages/database/schema.ts` and migration 0087 -- enum `resolution_source`, columns, backfill UPDATE -- generate with drizzle-kit, then add the backfill by hand
+- [x] `merge-events.ts`, `resolve-suggested-match.ts` -- optional `via` (default `moderator`), written to both rows; undo clears -- one shared path stays the only writer
+- [x] Ratchet test -- the resolver wrapper source has no `via` -- keeps the flag server-only
+- [x] Domain classifier, export builder, CLI, workflow, errors file -- read the flag, delete the email lookup, `DedupReviewReviewerError` and `DEDUP_REVIEW_MODERATOR_EMAIL` -- tests updated, 100% domain coverage
+- [x] Tests (resolve, merges, undo, export) -- every Matrix row, clean up created rows (row-count ratchet)
+- [x] Docs and backlog -- identity decision (hashed Claude account email, B2b), flag, `FIND-108` note, `FIND-104` renamed `moderator-dedup-review`, repo variable can be deleted
 
 **Acceptance Criteria:**
 - Given the moderator UI mutation, when a suggestion is accepted or rejected, then both rows say `moderator`.

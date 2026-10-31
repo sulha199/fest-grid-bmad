@@ -20,16 +20,17 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 - Decider is the cloud Claude session; Actions never runs an LLM (a later option: `claude-code-action`).
 - v1 auto-**ACCEPT** only. Never auto-reject. Everything else is escalated.
 - Shadow mode (apply as a dry run) is the default; `live` must be passed explicitly.
-- Merges are recorded under a **dedicated moderator user** (the owner creates it; a `users` row with
-  `role = moderator`). Its email is read from the repository variable `DEDUP_REVIEW_MODERATOR_EMAIL` (owner-chosen
-  2026-10-30; the address is deliberately not written in this repo, which is public, and a workflow must never echo
-  it), never hardcoded. Create the account by signing in to the app once with that Google account, then promote it
-  (`UPDATE users SET role = 'moderator' WHERE email = ...`): `users.id` is the Supabase auth id
-  (`user-provisioning.ts`), so a hand-inserted row with a random id would collide on that account's first sign-in
-  (email is unique). Every `role = 'moderator'` user also receives the moderator alert emails
-  (`getModeratorEmails`: dangerous reports, scraper audit, provider down), so that inbox gets them. This makes AI merges
-  identifiable in `event_merges.performed_by_moderator_id`, lets apply count a per-24h cap, and keeps
-  `outcome:accepted` labels free of AI decisions.
+- Merges are recorded under the **moderator who invoked the skill** (decision 2026-10-31, replacing the earlier
+  dedicated moderator user and the `DEDUP_REVIEW_MODERATOR_EMAIL` variable). The skill reads the Claude account email
+  from its session context and passes its SHA-256 (lowercased, trimmed) as a workflow input, never the address: the
+  repo is public and workflow inputs show in run pages and logs. Apply compares it with `sha256(lower(users.email))`
+  in SQL, requires an active `role = 'moderator'` user, and stops if there is none. This is transparency, not
+  authentication: anyone who can dispatch the workflow can supply any hash, so the real guards stay the
+  `dedup-review` environment (`master` only), the deterministic floor and the caps. `users.id` is the Supabase auth
+  id (`user-provisioning.ts`), so never insert a user with a random id.
+- Whether a decision was a person's or the AI's is a flag, not an identity: `event_match_candidates.resolved_via`
+  and `event_merges.performed_via` (`moderator` | `ai_skill`), written only by the shared resolve path (B2a). Caps
+  count `ai_skill` rows. The export's `recentlyResolved` reads the same flag.
 - Escalations are GitHub issues labelled `dedup-escalate`; status is open/closed. The LLM-written insight per pair
   feeds a rolling `dedup-insight` issue.
 - The skill reads AD-30 Rules 7 and 9, AD-40, `docs/infrastructure/7-event-dedup.md` and `project-context.md`
@@ -89,7 +90,7 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 6. **Dry-run fidelity**: one outer transaction for the whole run with a savepoint per decision, rolled back at the end
    unless `--apply`. Reject two decisions touching the same event, or process sequentially. Dry-run output sets
    `dryRun: true` and omits `mergeId`.
-7. **Caps**: per-dispatch cap (10) plus a per-24h cap counted from the dedicated moderator's merges; a kill-switch
+7. **Caps**: per-dispatch cap (10) plus a per-24h cap counted from the `ai_skill` merges (`event_merges.performed_via`); a kill-switch
    variable that makes apply exit without writing.
 8. **Workflows**: export sets `DATABASE_URL` and `BACKEND_PORT: '4001'` (`env.ts` requires it); the workflow writes the
    decisions input to `$RUNNER_TEMP/decisions.json`; a `run_tag` input is echoed in `run-name` and the log so the

@@ -9,10 +9,14 @@ import {
   eventSlugAliases,
   eventMatchCandidates,
   eventMerges,
+  resolutionSourceEnum,
 } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
 import type { DbExecutor } from './set-event-primary-post.js';
 import { findScheduleByStartDate } from './schedule-date-match.js';
+
+/** Who decided a dedup: `moderator` (a person) or `ai_skill` (the AI reviewer). */
+export type ResolutionSource = (typeof resolutionSourceEnum.enumValues)[number];
 
 type EventRow = typeof events.$inferSelect;
 type ScheduleRow = typeof schedules.$inferSelect;
@@ -72,13 +76,18 @@ export interface MergeEventsResult {
  * `db.transaction(...)` (same injected-`executor` composition pattern as
  * `enrichAndPromoteEvent`/`setEventPrimaryPost`) -- this function never opens its own
  * transaction.
+ *
+ * `via` records who decided the merge, on the journal row and on the suggestion it resolves:
+ * `moderator` (the default; a person, in the UI or through an operator script) or `ai_skill` (the AI
+ * reviewer). Only `resolveSuggestedMatch` passes it.
  */
 export async function mergeEvents(
   executor: DbExecutor,
   winnerId: string,
   loserId: string,
   moderatorId: string,
-  suggestionId: string | null
+  suggestionId: string | null,
+  via: ResolutionSource = 'moderator'
 ): Promise<MergeEventsResult> {
   const { winner, loser } = await assertMergeable(executor, winnerId, loserId);
 
@@ -228,6 +237,7 @@ export async function mergeEvents(
       loserEventId: loserId,
       suggestionId,
       performedByModeratorId: moderatorId,
+      performedVia: via,
       loserPriorSlug: loser.slug,
       winnerNotifiedAtChanged,
       winnerPriorNotifiedAt,
@@ -246,7 +256,7 @@ export async function mergeEvents(
   if (suggestionId !== null) {
     await executor
       .update(eventMatchCandidates)
-      .set({ status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: moderatorId })
+      .set({ status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: moderatorId, resolvedVia: via })
       .where(eq(eventMatchCandidates.id, suggestionId));
   }
 
@@ -342,7 +352,7 @@ export async function undoEventMerge(executor: DbExecutor, mergeId: string, _mod
   if (merge.suggestionId !== null) {
     await executor
       .update(eventMatchCandidates)
-      .set({ status: 'pending', resolvedAt: null, resolvedByModeratorId: null })
+      .set({ status: 'pending', resolvedAt: null, resolvedByModeratorId: null, resolvedVia: null })
       .where(eq(eventMatchCandidates.id, merge.suggestionId));
   }
 

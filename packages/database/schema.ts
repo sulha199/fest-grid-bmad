@@ -512,6 +512,10 @@ export const eventSlugAliases = pgTable('event_slug_aliases', {
 // `expired` (IDEA-107): closed by the system because an event of the pair is deleted or merged, or
 // both are over. It records no judgement -- unlike `rejected` it does not say "not a duplicate".
 export const suggestedEventMatchStatusEnum = pgEnum('suggested_event_match_status', ['pending', 'accepted', 'rejected', 'expired']);
+// Who made a dedup decision: a human (the moderator UI, or a script an operator runs) or the AI reviewer
+// skill (AD-30 Rule 9's AI path, `_bmad-output/specs/ai-dedup-review/DESIGN.md`). Only the shared
+// resolve/merge functions write it, and a GraphQL client can never set it.
+export const resolutionSourceEnum = pgEnum('resolution_source', ['moderator', 'ai_skill']);
 
 // Story 3.6v / AD-30 Rule 7 -- mid-confidence match suggestions queued for moderator review
 // (Story 3.6w's own scope to read/approve/reject). One row per (eventId, candidateEventId) pair,
@@ -532,6 +536,8 @@ export const eventMatchCandidates = pgTable('event_match_candidates', {
   status: suggestedEventMatchStatusEnum('status').default('pending').notNull(),
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   resolvedByModeratorId: uuid('resolved_by_moderator_id').references(() => users.id),
+  // NULL while pending or expired (no one resolved it); set whenever a person or the AI reviewer accepts or rejects.
+  resolvedVia: resolutionSourceEnum('resolved_via'),
   ...timestamps,
 }, (t) => ({
   // AC8 -- idempotent re-run (SQS redelivery) never duplicates a suggestion row.
@@ -555,6 +561,7 @@ export const eventMerges = pgTable('event_merges', {
   loserEventId: uuid('loser_event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
   suggestionId: uuid('suggestion_id').references(() => eventMatchCandidates.id, { onDelete: 'set null' }),
   performedByModeratorId: uuid('performed_by_moderator_id').references(() => users.id).notNull(),
+  performedVia: resolutionSourceEnum('performed_via').default('moderator').notNull(),
   loserPriorSlug: text('loser_prior_slug').notNull(),
   winnerNotifiedAtChanged: boolean('winner_notified_at_changed').default(false).notNull(),
   winnerPriorNotifiedAt: timestamp('winner_prior_notified_at', { withTimezone: true }),

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { describeFailure, parseCliArgs } from './dedup-review-export.js';
 import { DedupReviewOptionsError } from '@festgrid/domain/events';
-import { DedupReviewReviewerError, DedupReviewRoleError } from './lib/events/dedup-review-errors.js';
+import { DedupReviewRoleError } from './lib/events/dedup-review-errors.js';
 
 test('dedup-review-export CLI arguments', async (t) => {
   await t.test('defaults when no flags are given', () => {
@@ -32,7 +32,6 @@ test('dedup-review-export CLI arguments', async (t) => {
   await t.test('describeFailure prints the typed errors, and for anything else only the class and code, never the message', () => {
     assert.match(describeFailure(new DedupReviewOptionsError('limit must be an integer from 1 to 50')), /^Invalid input: limit must be/);
     assert.match(describeFailure(new DedupReviewRoleError('cannot bypass row level security')), /^Export refused: cannot bypass/);
-    assert.match(describeFailure(new DedupReviewReviewerError('reviewer account was not found')), /^Export refused: /);
 
     const dbError = Object.assign(new Error('password authentication failed for user "secret_role" at db.private-host.example'), { code: '28P01' });
     const text = describeFailure(dbError);

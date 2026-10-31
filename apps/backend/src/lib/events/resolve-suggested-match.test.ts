@@ -5,7 +5,7 @@ import postgres from 'postgres';
 import { db, setSqlCaptureSink } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { users, events, eventMatchCandidates, eventMerges, posts, socialMediaAccountProfiles } from '@festgrid/database';
-import { EventMergeInvalidStateError } from './merge-events.js';
+import { EventMergeInvalidStateError, undoEventMerge } from './merge-events.js';
 import {
   resolveSuggestedMatch,
   SuggestedMatchInvalidActionError,
@@ -67,9 +67,11 @@ test('resolveSuggestedMatch (AD-30 Rule 9)', async (t) => {
     assert.strictEqual(journal.loserEventId, newEvent.id);
     assert.strictEqual(journal.suggestionId, suggestion.id);
     assert.strictEqual(journal.performedByModeratorId, moderator.id);
+    assert.strictEqual(journal.performedVia, 'moderator', 'no via argument means a person decided');
     const row = await statusOf(suggestion.id);
     assert.strictEqual(row.status, 'accepted');
     assert.strictEqual(row.resolvedByModeratorId, moderator.id);
+    assert.strictEqual(row.resolvedVia, 'moderator');
     const [loser] = await db.select().from(events).where(eq(events.id, newEvent.id));
     assert.strictEqual(loser.mergedIntoEventId, candidate.id);
   });
@@ -83,10 +85,37 @@ test('resolveSuggestedMatch (AD-30 Rule 9)', async (t) => {
     const row = await statusOf(suggestion.id);
     assert.strictEqual(row.status, 'rejected');
     assert.strictEqual(row.resolvedByModeratorId, moderator.id);
+    assert.strictEqual(row.resolvedVia, 'moderator');
     assert.ok(row.resolvedAt instanceof Date);
     const [loser] = await db.select().from(events).where(eq(events.id, newEvent.id));
     assert.strictEqual(loser.deletedAt, null);
     assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, suggestion.id))).length, 0);
+  });
+
+  await t.test('via: ai_skill is recorded on the suggestion and the journal for ACCEPT, and on the suggestion for REJECT', async () => {
+    const accepted = await makePair('Via Accept');
+    const { mergeId } = await db.transaction((tx) => resolveSuggestedMatch(tx, { id: accepted.suggestion.id, action: 'ACCEPT', moderatorId: moderator.id, via: 'ai_skill' }));
+    assert.ok(mergeId);
+    assert.strictEqual((await statusOf(accepted.suggestion.id)).resolvedVia, 'ai_skill');
+    assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.id, mergeId)))[0].performedVia, 'ai_skill');
+
+    const rejected = await makePair('Via Reject');
+    await db.transaction((tx) => resolveSuggestedMatch(tx, { id: rejected.suggestion.id, action: 'REJECT', moderatorId: moderator.id, via: 'ai_skill' }));
+    const row = await statusOf(rejected.suggestion.id);
+    assert.strictEqual(row.status, 'rejected');
+    assert.strictEqual(row.resolvedVia, 'ai_skill');
+
+    // Undoing the AI's merge makes the suggestion reviewable again, with no one recorded as its resolver.
+    await undoEventMerge(db, mergeId, moderator.id);
+    const reopened = await statusOf(accepted.suggestion.id);
+    assert.strictEqual(reopened.status, 'pending');
+    assert.strictEqual(reopened.resolvedVia, null);
+    assert.strictEqual(reopened.resolvedByModeratorId, null);
+  });
+
+  await t.test('a pending suggestion has no resolved_via', async () => {
+    const { suggestion } = await makePair('Pending Via');
+    assert.strictEqual((await statusOf(suggestion.id)).resolvedVia, null);
   });
 
   await t.test('an unknown id throws SuggestedMatchNotFoundError', async () => {
