@@ -36,3 +36,4 @@ export * from './__fixtures__/ended-cases.js';
 export const DEFAULT_CANCELLED_REPORT_THRESHOLD = 3;
 export const DEFAULT_CANCELLED_REPORT_WINDOW_DAYS = 7;
 export * from './dedup-review-evidence.js';
+export * from './dedup-review-apply.js';

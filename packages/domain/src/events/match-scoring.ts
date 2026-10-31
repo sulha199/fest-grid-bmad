@@ -199,6 +199,20 @@ export function capTierWhenOutsideDateWindow(tier: MatchTier, minDayDiff: number
 export const MID_PROMOTION_NAME_SIMILARITY = 0.85;
 
 /**
+ * AC1 -- ingestion admits a candidate whose schedule is within this many days of one of the new
+ * item's schedules. Shared by ingestion, the drain script and the AI reviewer's floor.
+ */
+export const DATE_WINDOW_DAYS = 2;
+
+/**
+ * BUG-063 -- a candidate that shares a normalized event link with the new item is also admitted when
+ * a schedule is within +/-90 days: a registration-deadline post and the race-day post of one event
+ * sit weeks apart. It stays well short of a yearly re-run of the same event. Such a candidate is
+ * capped at `mid` (see `capTierWhenOutsideDateWindow`), never auto-linked.
+ */
+export const SHARED_LINK_DATE_WINDOW_DAYS = 90;
+
+/**
  * Largest day gap between the nearest schedules of two events for the promotion: 0, so the two must
  * share a start date. A pair a day or two apart is far more often the next instance of a recurring
  * event (a weekly show, a numbered league night, consecutive pop-up days) than a repost, and an
@@ -273,15 +287,24 @@ function qualifiersContradict(a: Set<string>, b: Set<string>): boolean {
  * otherwise link whatever the trigram score (found in the 2026-10-27 review of this rule).
  */
 export function areNamesAutoLinkable(newName: string, candidateName: string, nameSimilarity: number): boolean {
-  const a = normalizeEventNameForMatch(newName);
-  const b = normalizeEventNameForMatch(candidateName);
-  if (a === '' || b === '') return false;
-  if (qualifiersContradict(bracketedQualifiers(newName), bracketedQualifiers(candidateName))) return false;
+  if (namesContradict(newName, candidateName)) return false;
+  if (normalizeEventNameForMatch(newName) === normalizeEventNameForMatch(candidateName)) return true;
+  return nameSimilarity >= MID_PROMOTION_NAME_SIMILARITY;
+}
+
+/**
+ * True when two names cannot be one event: either normalizes to nothing, the bracketed qualifiers
+ * contradict ("(Morning)" vs "(Evening)"), or the digit tokens differ ("Part 1" vs "Part 2"). This is
+ * the contradiction half of `areNamesAutoLinkable`, without its similarity requirement, so the AI
+ * reviewer's floor can accept names a trigram cannot match (bilingual, abbreviated) while still
+ * refusing a series or a race category.
+ */
+export function namesContradict(newName: string, candidateName: string): boolean {
+  if (normalizeEventNameForMatch(newName) === '' || normalizeEventNameForMatch(candidateName) === '') return true;
+  if (qualifiersContradict(bracketedQualifiers(newName), bracketedQualifiers(candidateName))) return true;
   const digitsA = digitTokens(normalizeEventNameStrict(newName));
   const digitsB = digitTokens(normalizeEventNameStrict(candidateName));
-  if (digitsA.length !== digitsB.length || !digitsA.every((token, i) => token === digitsB[i])) return false;
-  if (a === b) return true;
-  return nameSimilarity >= MID_PROMOTION_NAME_SIMILARITY;
+  return digitsA.length !== digitsB.length || !digitsA.every((token, i) => token === digitsB[i]);
 }
 
 function normalizeVenueText(location: string | null | undefined): string {

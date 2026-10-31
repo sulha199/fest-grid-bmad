@@ -2,8 +2,9 @@
 title: 'AI dedup review piece B2b-1: decision validator, floor, caps and the apply script'
 type: 'feature'
 created: '2026-10-31'
-status: 'draft'
+status: 'in-progress'
 review_loop_iteration: 0
+baseline_commit: 'd0517f4daeaa03791d9958b2b2d9e4c57e7d3059'
 context:
   - '{project-root}/_bmad-output/project-context.md'
   - '{project-root}/_bmad-output/specs/ai-dedup-review/DESIGN.md'
@@ -63,11 +64,11 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Domain module, `namesContradict`, constants -- one table-driven test per rule and per precedence step
-- [ ] Export refactor (`buildDedupReviewPair`, wrapper, `assertRoleBypassesRls` first) -- existing export tests stay green
-- [ ] Backend lib and CLI -- the modes above; hints for 25006, 42501, 40001
-- [ ] Tests on a real database: live merge, rollback, validate read-only (`SHOW transaction_read_only`), stale after an edit, each floor code, caps with injected values, invoker (including two users differing only by case), one lock test on a second connection; clean up merges, aliases, copied schedules and users (row-count ratchet)
-- [ ] Ratchet, docs, backlog -- PRD and AD amendment explicitly deferred to B2b-2: nothing can run this in production until then
+- [x] Domain module, `namesContradict`, constants -- one table-driven test per rule and per precedence step
+- [x] Export refactor (`buildDedupReviewPair`, wrapper, `assertRoleBypassesRls` first) -- existing export tests stay green
+- [x] Backend lib and CLI -- the modes above; hints for 25006, 42501, 40001
+- [x] Tests on a real database: live merge, rollback, validate read-only (`SHOW transaction_read_only`), stale after an edit, each floor code, caps with injected values, invoker (including two users differing only by case), one lock test on a second connection; clean up merges, aliases, copied schedules and users (row-count ratchet)
+- [x] Ratchet, docs, backlog -- PRD and AD amendment explicitly deferred to B2b-2: nothing can run this in production until then
 
 **Acceptance Criteria:**
 - Given a stale hash or a pair changed after the snapshot, when apply runs live, then nothing merges and the code is reported.

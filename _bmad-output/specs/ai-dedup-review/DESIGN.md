@@ -2,8 +2,9 @@
 
 Status: design agreed 2026-10-30 (bmad-quick-dev session, owner: shulha). Split into three pieces after an
 architecture review and an adversarial code review of the first single-spec draft. This file is the shared
-context for the specs. Piece A is built and merged (PR 119); B1, the read-only export, is built (`FIND-107`); B2, the
-apply side, and C, the skill, are deferred (`FIND-108`, `FIND-104` on the backlog).
+context for the specs. Piece A is built and merged (PR 119); B1, the read-only export, is built and verified on prod (`FIND-107`); B2a (the `resolved_via` flag)
+is merged; B2b-1, the apply engine, is built (`FIND-108`); B2b-2, the workflow and paper trail (`FIND-110`), and C, the
+skill (`FIND-104`), are deferred.
 
 ## 1. Goal
 
@@ -61,7 +62,9 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 |---|---|---|---|
 | **A** | Extract `resolveSuggestedMatch`, row lock, characterization tests, ratchet | Behaviour-preserving change to the live moderator mutation; fixes a latent race | none |
 | **B1** | Evidence contract and hash in `packages/domain`, the read-only export script and workflow, docs (`FIND-107`) | Dark: a human dispatches the export and reads the JSON. **Built 2026-10-31.** | A |
-| **B2** | Decision validator, floor and caps, apply script and workflow, environment and moderator wiring, new AD, PRD amendment (`FIND-108`) | Dark: a human dispatches it, `validate` before `apply` | B1 |
+| **B2a** | `resolved_via` / `performed_via` flag (merged, PR 131) | Behaviour-preserving; marks every resolution as a person's or the AI's | B1 |
+| **B2b-1** | Decision judge, floor and caps in `packages/domain`; apply script (`FIND-108`). **Built 2026-10-31.** | Dark: code and tests, nothing can run it | B2a |
+| **B2b-2** | `dedup-review-apply` workflow, write secret, kill-switch variable, new AD, PRD amendment, runbook (`FIND-110`) | Dark: a human dispatches it, `validate` before `apply` | B2b-1 |
 | **C** | `moderator-dedup-review` skill (`SKILL.md`), labels, `dedup-insight` issue, shadow-mode acceptance | The daily skill | B on `master` |
 | C2 (later) | `review-insights` mode | Reads closed, labelled issues | weeks of C data |
 
@@ -88,6 +91,11 @@ merge (the skill dispatches both workflows, which must exist on `master`).
    Candidate: at least one hard anchor (same account, shared link, or venue match) AND a schedule date inside the
    existing ±90-day window AND not already a high-tier pair (the drain script owns that case). Threshold values must
    be read from the domain constants, not copied.
+   *As built in B2b-1 (2026-10-31, after an architecture and code review of the spec):* tier `mid`; no earlier undo; anchor `organizerMatch`
+   or a shared link plus a venue match (not `sameAccount`); no venue conflict; day gap 0, or up to 90 with a shared link; every
+   schedule of the new event covered inside that window; names do not contradict (`namesContradict`). The 0.3 name floor of
+   the first draft was dropped: it equals the ingestion admission floor, so it rejected nothing. Live runs are `READ COMMITTED`
+   with row locks and a savepoint per decision, not `REPEATABLE READ` (a long snapshot hides rows other writers add to a loser).
 4. **Starvation**: export drops `kind: 'stale'` rows before applying its limit, takes a `skip_ids` input fed from open
    `dedup-escalate` issues, and emits `totalPending` and `skippedCount`.
 5. **Undo loop**: `undoEventMerge` returns a suggestion to `pending` with `resolvedAt` null. Export carries

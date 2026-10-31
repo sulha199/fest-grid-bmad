@@ -6,3 +6,6 @@
 
 /** The database role cannot see every row, so the export would pass for an empty queue. */
 export class DedupReviewRoleError extends Error {}
+
+/** The invoker hash matches no single active moderator. One message for zero, two or a non-moderator, so a public log cannot be used to probe who is a moderator. */
+export class DedupReviewInvokerError extends Error {}

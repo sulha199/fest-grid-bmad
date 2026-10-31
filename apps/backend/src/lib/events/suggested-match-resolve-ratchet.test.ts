@@ -204,3 +204,24 @@ test('the write detector flags every way of updating the table, and nothing else
   assert.ok(MUTATION_CALLS_SHARED_FN.test(insideBody), 'the call inside the mutation body is accepted');
   assert.ok(!MUTATION_CALLS_SHARED_FN.test(inlineThenElsewhere), 'a call in a different resolver does not count for the mutation');
 });
+
+// The AI reviewer's apply script (B2b-1) may change a suggestion only by calling `resolveSuggestedMatch()` with
+// `via: 'ai_skill'`: the one path that takes the row lock, checks the status and writes the journal. An unused
+// import does not count, and neither `mergeEvents` (the lower-level merge) nor a direct update of the table may appear.
+const APPLY_FILES = [join(SRC_ROOT, 'lib', 'events', 'dedup-review-apply.ts'), join(SRC_ROOT, 'dedup-review-apply.ts')];
+const CALLS_RESOLVE_AS_AI = /\bresolveSuggestedMatch\(\s*\w+\s*,\s*\{[^}]*\bvia:\s*'ai_skill'/;
+
+test('the apply script merges only through resolveSuggestedMatch() with via ai_skill', () => {
+  const [lib, cli] = APPLY_FILES.map((file) => stripComments(readFileSync(file, 'utf8')));
+
+  assert.ok(CALLS_RESOLVE_AS_AI.test(lib), "dedup-review-apply must call resolveSuggestedMatch(tx, { ..., via: 'ai_skill' }); an import alone does not count");
+  for (const [name, source] of [['lib', lib], ['cli', cli]] as const) {
+    assert.ok(!/\bmergeEvents\b/.test(source), `the apply ${name} must not reference mergeEvents (not even an aliased import)`);
+    assert.ok(!writesSuggestionStatus(source), `the apply ${name} must not update event_match_candidates itself`);
+  }
+
+  assert.ok(!CALLS_RESOLVE_AS_AI.test("import { resolveSuggestedMatch } from './x';"), 'an import alone is not a call');
+  assert.ok(!CALLS_RESOLVE_AS_AI.test('resolveSuggestedMatch(tx, { id, action, moderatorId })'), 'a call without via is not enough');
+  assert.ok(!CALLS_RESOLVE_AS_AI.test("resolveSuggestedMatch(tx, { id, action, moderatorId, via: 'moderator' })"), 'the wrong via is not enough');
+  assert.ok(CALLS_RESOLVE_AS_AI.test("resolveSuggestedMatch(sp, { id: decision.suggestionId, action: 'ACCEPT', moderatorId, via: 'ai_skill' })"), 'the call as written passes');
+});
