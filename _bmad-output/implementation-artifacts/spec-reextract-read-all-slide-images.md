@@ -2,7 +2,8 @@
 title: 'Re-extract reads every slide of a carousel post'
 type: 'bugfix'
 created: '2026-10-31'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '515b3bac6728089e3ddfce4526f2003fbafc1fa6'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/project-context.md'
@@ -57,11 +58,11 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `start-post-reextraction-preview.ts`, `extractEventDataFromUrl` -- refresh expired images, forward scraped slides, degrade gracefully -- slides were being lost
-- [ ] `build-gemini-request.ts` -- cover failure keeps slides, cap option, counts -- complete, visible reading
-- [ ] domain constant and types, manual job, preview builder, GraphQL, web, locales -- carry counts to the dialog warning
-- [ ] AD-40 Rule 5 and runbook amendment
-- [ ] Tests: matrix rows, existing blur tests untouched, no `posts` writes, row-count ratchet clean
+- [x] `start-post-reextraction-preview.ts`, `extractEventDataFromUrl` -- refresh expired images, forward scraped slides, degrade gracefully -- slides were being lost
+- [x] `build-gemini-request.ts` -- cover failure keeps slides, cap option, counts -- complete, visible reading
+- [x] domain constant and types, manual job, preview builder, GraphQL, web, locales -- carry counts to the dialog warning
+- [x] AD-40 Rule 5 and runbook amendment
+- [x] Tests: matrix rows, existing blur tests untouched, no `posts` writes, row-count ratchet clean
 
 **Acceptance Criteria:**
 - Given a stored carousel post whose image URLs have expired, when a moderator previews, then a rescrape supplies fresh images and events from later slides appear in the preview.
@@ -71,6 +72,8 @@ context:
 ## Spec Change Log
 
 ## Design Notes
+
+Implementation deviations from the frozen text, each narrower than the spec and found while building: (1) A post with no cover **and** no slides is text-only and never triggers a rescrape (`postImagesNeedRefresh`); the spec's "cover is missing" would have spent scraper credit on every text-only post. Slides listed with no cover still refresh. (2) The cover-fetch-failure fallback is an option (`slidesWhenCoverFails`) set only by moderator preview jobs, not a change to the shared builder: with a slides-only request `aiImageInput` would read `blurred` with no cover bytes for `processAiJob`'s thumbnail and blur bookkeeping to use, so ingestion keeps its exact request shape. A cover *blur* failure stays text-only in both.
 
 Ingestion shares `build-gemini-request.ts`, so the cover-failure fix also helps normal extraction; its outcomes only improve (slides sent where the request used to go text-only). The 10-slide cap is scoped to moderator previews because each slide costs Gemini image tokens on a manual, on-demand call.
 

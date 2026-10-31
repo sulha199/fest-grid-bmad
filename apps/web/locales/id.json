@@ -77,6 +77,7 @@
     "running": "Sedang mengekstrak. Ini bisa memakan waktu hingga satu menit.",
     "retry": "Coba lagi",
     "genericError": "Pratinjau tidak dapat diselesaikan. Silakan coba lagi.",
+    "imagesShortfall": "Hanya {sent} dari {available} gambar yang bisa dibaca, sehingga acara yang tercantum di gambar lainnya mungkin belum muncul di pratinjau ini.",
     "noEvents": "Postingan ini tidak dikenali sebagai acara.",
     "groupingUnknown": "Pengelompokan: tidak dilaporkan",
     "groupingSingleEvent": "Pengelompokan: satu acara",

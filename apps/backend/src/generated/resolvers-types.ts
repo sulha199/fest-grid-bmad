@@ -931,6 +931,8 @@ export type PostReextractionPreview = {
   __typename?: 'PostReextractionPreview';
   events: Array<ReextractionPreviewEvent>;
   groupingReason?: Maybe<PostGroupingReason>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesSent: Scalars['Int']['output'];
   postStored: Scalars['Boolean']['output'];
   rescraped: Scalars['Boolean']['output'];
 };
@@ -2337,6 +2339,8 @@ export type PostConnectionResolvers<ContextType = GraphQLContext, ParentType ext
 export type PostReextractionPreviewResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PostReextractionPreview'] = ResolversParentTypes['PostReextractionPreview']> = ResolversObject<{
   events?: Resolver<Array<ResolversTypes['ReextractionPreviewEvent']>, ParentType, ContextType>;
   groupingReason?: Resolver<Maybe<ResolversTypes['PostGroupingReason']>, ParentType, ContextType>;
+  imagesAvailable?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  imagesSent?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   postStored?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   rescraped?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;

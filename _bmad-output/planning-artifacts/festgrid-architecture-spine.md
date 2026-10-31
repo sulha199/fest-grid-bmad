@@ -2387,8 +2387,18 @@ This document defines the core architectural invariants for the FestDaily applic
     4.  **No geocoder or timezone calls.** The preview builds messages with empty resolved
         locations, so the venue signal is the location string only; a match that relies on
         coordinates within 150 m will score lower in the preview than in ingestion.
-    5.  **Rescrape only when the caption is missing**, via `getScraperAdapter(platform).getPostByUrl`.
-        A stored caption is never refetched. A rescrape of one URL is limited to once per 10
+    5.  **Rescrape when the caption is missing or the stored image links have expired**, via
+        `getScraperAdapter(platform).getPostByUrl`. (Amended 2026-10-31, BUG-097: the rule used to be
+        "only when the caption is missing"; the cover and slide URLs are hotlinks that expire, so a
+        stored caption with dead links previewed a carousel from its first image at best.) A stored
+        caption is never replaced by the rescraped one: an image refresh supplies only the scraper's
+        fresh `imageUrl` and `additionalImageUrls`, and a blocked or failed refresh falls back to
+        the stored data. `postImagesNeedRefresh` (`packages/domain/src/posts/`) decides; a post with
+        no images is text-only and never triggers a scrape. The preview sends up to
+        `REEXTRACT_MAX_CAROUSEL_IMAGES` (10) slides, keeps trying them when the cover link cannot be
+        fetched (a cover *blur* failure stays text-only and fail-closed), and reports
+        `imagesAvailable` / `imagesSent` so a shortfall is shown, never silent. A rescrape of one URL
+        is limited to once per 10
         minutes (`REEXTRACT_RESCRAPE_COOLDOWN_MS`), checked against recent preview jobs; it does not
         limit previews of stored captions. A scrape that throws or returns nothing is recorded as an
         already-FAILED job so it counts too (a post that never scrapes cannot be retried without

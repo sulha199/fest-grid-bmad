@@ -327,4 +327,48 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
     assert.strictEqual(row.status, 'SUCCEEDED');
     assert.deepStrictEqual((row.resultData as ReextractionPreviewResult).events, []);
   });
+
+  await t.test('BUG-097: a carousel with an expired cover reads up to the preview cap of slides and reports the shortfall', async () => {
+    const post = await makePost('Roundup caption, schedules on later slides');
+    const originalFetch = globalThis.fetch;
+    let fetched = 0;
+    // Cover (first call) is an expired hotlink; every slide fetch succeeds.
+    globalThis.fetch = (async () => {
+      fetched++;
+      if (fetched === 1) return { ok: false, status: 403 } as any;
+      return {
+        ok: true,
+        headers: { get: (n: string) => (n.toLowerCase() === 'content-type' ? 'image/jpeg' : null) },
+        arrayBuffer: async () => Buffer.from(`slide-${fetched}`),
+      } as any;
+    }) as typeof fetch;
+
+    let sentContents: any;
+    setCallGeminiForManualExtractionSeam(async (req: any) => {
+      sentContents = req.contents;
+      return { text: JSON.stringify({ isEvent: true, groupingReason: 'roundup', events: [previewEvent('2026-11-08', name + ' slide')] }) } as any;
+    });
+
+    const slides = Array.from({ length: 12 }, (_, i) => `https://cdn.example.com/slide-${i}.jpg`);
+    try {
+      const id = await insertJob({
+        message: { ...message(post, 'Roundup caption, schedules on later slides'), imageUrl: 'https://cdn.example.com/cover.jpg', additionalImageUrls: slides },
+        existingPostAccountId: account.id,
+        mode: 'REEXTRACT_PREVIEW',
+        postStored: true,
+        rescraped: true,
+      });
+      await processManualExtractionJob(id);
+
+      const row = await readJob(id);
+      assert.strictEqual(row.status, 'SUCCEEDED');
+      const preview = row.resultData as ReextractionPreviewResult;
+      assert.strictEqual(preview.imagesAvailable, 13, 'cover + 12 slides listed');
+      assert.strictEqual(preview.imagesSent, 10, 'capped at REEXTRACT_MAX_CAROUSEL_IMAGES; the cover was lost but slides were still sent');
+      assert.ok(Array.isArray(sentContents));
+      assert.strictEqual(sentContents.length, 11, 'text + 10 slides');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

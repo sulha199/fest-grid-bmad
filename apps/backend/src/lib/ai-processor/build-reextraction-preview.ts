@@ -25,6 +25,9 @@ export interface BuildReextractionPreviewInput {
   postStored: boolean;
   rescraped: boolean;
   maxEvents: number;
+  /** BUG-097 -- from the Gemini request builder: images the post lists / images actually sent. */
+  imagesAvailable: number;
+  imagesSent: number;
 }
 
 async function loadSourcePost(executor: DbExecutor, postId: string): Promise<IngestionSourcePost | null> {
@@ -123,6 +126,8 @@ export async function buildReextractionPreview(input: BuildReextractionPreviewIn
     groupingReason: payload.groupingReason ?? null,
     postStored,
     rescraped,
+    imagesAvailable: input.imagesAvailable,
+    imagesSent: input.imagesSent,
     events: previewEvents,
   };
 }

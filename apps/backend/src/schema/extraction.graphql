@@ -139,6 +139,10 @@ type PostReextractionPreview {
   # False for a URL that is not in our database: the dedup outcome then has no account signal.
   postStored: Boolean!
   rescraped: Boolean!
+  # BUG-097 -- images the post lists (cover + slides) and images the extraction actually read. Fewer
+  # read than listed means the moderator is looking at an incomplete preview.
+  imagesAvailable: Int!
+  imagesSent: Int!
   events: [ReextractionPreviewEvent!]!
 }
 
@@ -167,6 +171,6 @@ extend type Mutation {
   extractEventDataFromUrl(url: String!): ExtractEventDataFromUrlResult!
   selectPostsForExtraction(postIds: [ID!]!): [Post!]!
   # AD-40 -- moderator only, preview only (writes nothing to events/schedules/posts). Give exactly
-  # one of postId or url. Rescrapes only when the post's caption is not stored.
+  # one of postId or url. Rescrapes when the post's caption is not stored or its image links have expired.
   previewPostReextraction(postId: ID, url: String): StartPostReextractionPreviewResult!
 }

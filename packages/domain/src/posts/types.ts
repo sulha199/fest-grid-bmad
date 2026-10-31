@@ -102,11 +102,21 @@ export interface ReextractionPreviewResult {
   groupingReason: string | null;
   postStored: boolean;
   rescraped: boolean;
+  /** BUG-097 -- images the post lists (cover + slides) and images actually read by the extraction. */
+  imagesAvailable: number;
+  imagesSent: number;
   events: ReextractionPreviewEvent[];
 }
 
 /** AD-40 -- the rescrape of a post URL is rate-limited per URL (scraper credit). */
 export const REEXTRACT_RESCRAPE_COOLDOWN_MS = 10 * 60 * 1000;
+
+/**
+ * BUG-097 -- slides (beyond the cover) a moderator re-extract sends to Gemini. Ingestion keeps its
+ * own `MAX_CAROUSEL_IMAGES`; this one is higher because a roundup spreads its events across slides
+ * and a moderator preview is a manual, on-demand call.
+ */
+export const REEXTRACT_MAX_CAROUSEL_IMAGES = 10;
 
 /**
  * GraphQL-safe representation of `PostGroupingReason` (Story 3.6u, AD-30 Rule 11). The DB enum's

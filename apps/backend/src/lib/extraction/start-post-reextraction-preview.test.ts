@@ -4,6 +4,8 @@ import { eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { manualExtractionJobs, posts, socialMediaAccountProfiles, users } from '@festgrid/database';
 import type { ManualExtractionRequestPayload } from '@festgrid/domain/posts';
+import { clearRegisteredAdapters, registerScraperAdapter } from '@festgrid/domain/scraper';
+import type { ScrapedPost } from '@festgrid/domain/scraper';
 import { startPostReextractionPreview } from './start-post-reextraction-preview.js';
 import { getManualExtractionJobStatus } from './manual-extraction-job.js';
 
@@ -150,5 +152,135 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     const result = await startPostReextractionPreview(user.id, { postId: post.id, now: new Date(Date.now() + 11 * 60_000) });
     assert.ok('errorCode' in result);
     assert.notStrictEqual(result.errorCode, 'RATE_LIMITED');
+  });
+
+  // ── BUG-097: expired image links, rescrape for fresh slides ─────────────────────────────────
+  const hexOf = (d: Date) => Math.floor(d.getTime() / 1000).toString(16);
+  const expiredUrl = (n: number) => `https://cdn.example.com/s${n}.jpg?oe=${hexOf(new Date(Date.now() - 3 * 86_400_000))}`;
+  const freshUrl = (n: number) => `https://cdn.example.com/fresh${n}.jpg?oe=${hexOf(new Date(Date.now() + 3 * 86_400_000))}`;
+
+  async function makeCarouselPost(content: string | null, urls: { cover: string; slides: string[] }) {
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: account.id,
+        platform: 'instagram',
+        postUrl: `https://www.instagram.com/p/carousel-${postIds.length}-${suffix}/`,
+        publishedAt: new Date('2026-10-01T00:00:00Z'),
+        content,
+        imageUrl: urls.cover,
+        additionalImageUrls: urls.slides,
+      })
+      .returning();
+    postIds.push(post.id);
+    return post;
+  }
+
+  const fakeAdapter = (getPostByUrl: (url: string) => Promise<ScrapedPost | null>) =>
+    registerScraperAdapter('instagram', { getPostByUrl } as any);
+
+  async function payloadsFor(url: string) {
+    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, url));
+    for (const r of rows) jobIds.push(r.id);
+    return rows.map((r) => r.requestPayload as ManualExtractionRequestPayload);
+  }
+
+  await t.test('stored caption but expired image links: rescrape for fresh slides, keep the stored caption, posts untouched', async () => {
+    const post = await makeCarouselPost('Stored roundup caption', { cover: expiredUrl(0), slides: [expiredUrl(1), expiredUrl(2)] });
+    fakeAdapter(async () => ({
+      content: 'Rescraped caption that must not replace the stored one',
+      postUrl: post.postUrl,
+      publishedAt: '2026-10-01T00:00:00Z',
+      imageUrl: freshUrl(0),
+      additionalImageUrls: [freshUrl(1), freshUrl(2), freshUrl(3)],
+    }));
+    try {
+      await startPostReextractionPreview(user.id, { postId: post.id }); // fails to start under test, row still created
+    } finally {
+      clearRegisteredAdapters();
+    }
+    const [payload] = await payloadsFor(post.postUrl);
+    assert.strictEqual(payload.rescraped, true);
+    assert.strictEqual(payload.postStored, true);
+    assert.strictEqual(payload.message.imageUrl, freshUrl(0));
+    assert.deepStrictEqual(payload.message.additionalImageUrls, [freshUrl(1), freshUrl(2), freshUrl(3)]);
+    const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(stored.content, 'Stored roundup caption');
+    assert.strictEqual(stored.imageUrl, expiredUrl(0), 'fresh links are never written to posts');
+    assert.deepStrictEqual(stored.additionalImageUrls, [expiredUrl(1), expiredUrl(2)]);
+  });
+
+  await t.test('stored caption, expired links, scrape fails: previews with the stored data, and the failed scrape counts toward the cooldown', async () => {
+    const post = await makeCarouselPost('Stored caption B', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
+    fakeAdapter(async () => {
+      throw new Error('scraper down');
+    });
+    try {
+      await startPostReextractionPreview(user.id, { postId: post.id });
+      // The recorded failure is inside the cooldown, so the second call does not scrape at all.
+      let scrapes = 0;
+      fakeAdapter(async () => {
+        scrapes++;
+        return null;
+      });
+      await startPostReextractionPreview(user.id, { postId: post.id });
+      assert.strictEqual(scrapes, 0);
+    } finally {
+      clearRegisteredAdapters();
+    }
+    const payloads = await payloadsFor(post.postUrl);
+    const started = payloads.filter((p) => p.rescraped === false);
+    assert.strictEqual(started.length, 2, 'both calls fell back to a stored preview job');
+    for (const p of started) assert.strictEqual(p.message.imageUrl, expiredUrl(0));
+    assert.strictEqual(payloads.filter((p) => p.rescraped === true).length, 1, 'one FAILED rescrape row');
+  });
+
+  await t.test('a post with no caption is still an error when its scrape fails (images cannot stand in for a caption)', async () => {
+    const post = await makeCarouselPost(null, { cover: expiredUrl(0), slides: [expiredUrl(1)] });
+    fakeAdapter(async () => null);
+    try {
+      const result = await startPostReextractionPreview(user.id, { postId: post.id });
+      assert.ok('errorCode' in result);
+      assert.strictEqual(result.errorCode, 'SCRAPE_FAILED');
+    } finally {
+      clearRegisteredAdapters();
+    }
+    await payloadsFor(post.postUrl);
+  });
+
+  await t.test('no caption: the scraped cover and slides win over the stored (expired) ones', async () => {
+    const post = await makeCarouselPost(null, { cover: expiredUrl(0), slides: [expiredUrl(1)] });
+    fakeAdapter(async () => ({
+      content: 'Scraped caption',
+      postUrl: post.postUrl,
+      publishedAt: '2026-10-01T00:00:00Z',
+      imageUrl: freshUrl(0),
+      additionalImageUrls: [freshUrl(1), freshUrl(2)],
+    }));
+    try {
+      await startPostReextractionPreview(user.id, { postId: post.id });
+    } finally {
+      clearRegisteredAdapters();
+    }
+    const [payload] = await payloadsFor(post.postUrl);
+    assert.strictEqual(payload.message.imageUrl, freshUrl(0));
+    assert.deepStrictEqual(payload.message.additionalImageUrls, [freshUrl(1), freshUrl(2)]);
+  });
+
+  await t.test('stored caption and still-valid image links: no rescrape (no scraper credit spent)', async () => {
+    const post = await makeCarouselPost('Stored caption C', { cover: freshUrl(0), slides: [freshUrl(1)] });
+    let scrapes = 0;
+    fakeAdapter(async () => {
+      scrapes++;
+      return null;
+    });
+    try {
+      await startPostReextractionPreview(user.id, { postId: post.id });
+    } finally {
+      clearRegisteredAdapters();
+    }
+    assert.strictEqual(scrapes, 0);
+    const [payload] = await payloadsFor(post.postUrl);
+    assert.strictEqual(payload.rescraped, false);
   });
 });

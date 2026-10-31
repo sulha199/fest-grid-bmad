@@ -949,6 +949,8 @@ export type PostReextractionPreview = {
   __typename?: 'PostReextractionPreview';
   events: Array<ReextractionPreviewEvent>;
   groupingReason?: Maybe<PostGroupingReason>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesSent: Scalars['Int']['output'];
   postStored: Scalars['Boolean']['output'];
   rescraped: Scalars['Boolean']['output'];
 };
@@ -2125,7 +2127,7 @@ export type PostReextractionPreviewQueryVariables = Exact<{
 }>;
 
 
-export type PostReextractionPreviewQuery = { postReextractionPreview: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, preview: { groupingReason: PostGroupingReason | null, postStored: boolean, rescraped: boolean, events: Array<{ extractionOrdinal: number, eventName: string, alreadyRepresentedBySlug: string | null, isStub: boolean, links: Array<{ url: string, label: string | null }>, schedules: Array<{ title: string | null, startDate: string | null, endDate: string | null, isMain: boolean }>, dedup: { tier: ReextractionDedupTier, score: number | null, candidateSlug: string | null, candidateName: string | null } }> } | null } };
+export type PostReextractionPreviewQuery = { postReextractionPreview: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, preview: { groupingReason: PostGroupingReason | null, postStored: boolean, rescraped: boolean, imagesAvailable: number, imagesSent: number, events: Array<{ extractionOrdinal: number, eventName: string, alreadyRepresentedBySlug: string | null, isStub: boolean, links: Array<{ url: string, label: string | null }>, schedules: Array<{ title: string | null, startDate: string | null, endDate: string | null, isMain: boolean }>, dedup: { tier: ReextractionDedupTier, score: number | null, candidateSlug: string | null, candidateName: string | null } }> } | null } };
 
 export type CreateApiKeyMutationVariables = Exact<{
   input: CreateApiKeyInput;
@@ -4461,6 +4463,8 @@ export const PostReextractionPreviewDocument = new TypedDocumentString(`
       groupingReason
       postStored
       rescraped
+      imagesAvailable
+      imagesSent
       events {
         extractionOrdinal
         eventName

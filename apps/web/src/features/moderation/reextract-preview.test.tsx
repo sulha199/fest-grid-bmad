@@ -31,6 +31,8 @@ function makePreview(overrides: Partial<ReextractionPreview> = {}): Reextraction
     groupingReason: PostGroupingReason.SingleEvent,
     postStored: true,
     rescraped: false,
+    imagesAvailable: 1,
+    imagesSent: 1,
     events: [
       {
         extractionOrdinal: 0,
@@ -50,6 +52,14 @@ const idle = { start: vi.fn(), reset: vi.fn(), phase: 'idle', preview: null, err
 
 describe('ReextractPreviewResult (AD-40)', () => {
   afterEach(cleanup);
+
+  it('warns when fewer images were read than the post lists, and stays quiet otherwise (BUG-097)', () => {
+    const { unmount } = render(wrap(<ReextractPreviewResult preview={makePreview({ imagesAvailable: 6, imagesSent: 4 })} />));
+    expect(screen.getByTestId('reextract-images-warning')).toHaveTextContent('Only 4 of 6 images could be read');
+    unmount();
+    render(wrap(<ReextractPreviewResult preview={makePreview({ imagesAvailable: 6, imagesSent: 6 })} />));
+    expect(screen.queryByTestId('reextract-images-warning')).not.toBeInTheDocument();
+  });
 
   it('shows grouping, the event, its dedup tier with score, and a link to the closest event', () => {
     render(wrap(<ReextractPreviewResult preview={makePreview()} />));

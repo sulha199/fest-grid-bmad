@@ -178,6 +178,11 @@ export interface BuildGeminiExtractionRequestResult {
   // detectAndBlurFacesSeam's own faceCount across every image actually sent (cover + every
   // surviving slide) -- never just the cover alone, and never 0 when detection didn't run.
   totalFaceDetectionCount?: number;
+  // AD-40 amendment (BUG-097) -- images the post lists (cover plus every slide, before the cap) and
+  // images actually inlined into the request, so a caller can report a shortfall instead of
+  // silently reading fewer images than the post has.
+  imagesAvailable: number;
+  imagesSent: number;
 }
 
 export interface BuildGeminiExtractionRequestOptions {
@@ -195,6 +200,14 @@ export interface BuildGeminiExtractionRequestOptions {
     // is treated as unlimited remaining time (Infinity), never as "time's up".
     getRemainingTimeInMillis?: () => number;
   };
+  // AD-40 amendment (BUG-097) -- moderator re-extract only. Overrides env.maxCarouselImages (the
+  // ingestion cap) for this one request.
+  maxCarouselImages?: number;
+  // AD-40 amendment (BUG-097) -- moderator re-extract only. When the cover cannot be FETCHED (an
+  // expired hotlink), still try the carousel slides instead of going text-only. Off by default so
+  // ingestion's request shape, aiImageInput and thumbnail/blur bookkeeping stay exactly as before:
+  // a slides-only request would carry aiImageInput 'blurred' with no cover bytes for them to read.
+  slidesWhenCoverFails?: boolean;
 }
 
 export async function buildGeminiExtractionRequest(
@@ -312,6 +325,67 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     return { data: result.buffer.toString('base64'), blurred: result.buffer, faceCount: result.faceCount };
   }
 
+  let slideFailedClosed = false;
+
+  // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request,
+  // in slide order, stopping at the cap (MAX_CAROUSEL_IMAGES, or the caller's override). AD-13:
+  // batched not sequential -- a carousel post still costs exactly one Gemini call. Each slide is
+  // fetched inside its OWN try/catch so a single slide failure can never trigger the outer
+  // cover-failure fallback below (which would otherwise wipe out the already-succeeded cover image
+  // and switch to text-only). Extracted into a function (BUG-097) so the cover-fetch-failed path of
+  // a moderator re-extract can run the same loop; every line of the per-slide behavior is unchanged.
+  async function appendSlideImages(): Promise<void> {
+    if (!message.additionalImageUrls?.length) return;
+    const slidesToFetch = message.additionalImageUrls.slice(0, options?.maxCarouselImages ?? env.maxCarouselImages);
+    for (const [slideIndex, slideUrl] of slidesToFetch.entries()) {
+      try {
+        const slideResponse = await fetch(slideUrl);
+        if (!slideResponse.ok) {
+          console.error(`Carousel slide-fetch failed for post ${message.postId} (image index ${slideIndex + 1}, status ${slideResponse.status}); skipping slide`, slideUrl);
+          continue;
+        }
+        const slideContentType = slideResponse.headers.get('content-type') || 'image/jpeg';
+        if (!slideContentType.startsWith('image/')) {
+          console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId} (image index ${slideIndex + 1})`, slideUrl);
+          continue;
+        }
+        const slideArrayBuffer = await slideResponse.arrayBuffer();
+        const slideBuffer = Buffer.from(slideArrayBuffer);
+
+        // Story 3.20 (Task 3.3/7.2) -- blurImageForRequest's own time-budget check (above)
+        // throws BEFORE ever calling detectAndBlurFacesSeam when the floor isn't met, so the
+        // catch below drops this slide without having invoked the seam for it -- the same
+        // fail-closed outcome as the seam itself throwing, no separate pre-check needed.
+        let slideDataForRequest = slideBuffer.toString('base64');
+        if (shouldBlur) {
+          const blurResult = await blurImageForRequest(slideBuffer, slideContentType);
+          slideDataForRequest = blurResult.data;
+          // Story 3.21 (AC3, Task 2.3, AD-29 Rule 7) -- add this slide's own faceCount into
+          // the running total. On the normal path the cover already succeeded, so aiImageInput is
+          // already 'blurred' and the total already seeded; on the cover-fetch-failed path
+          // (BUG-097) this is the first image, so both are set here.
+          aiImageInput = 'blurred';
+          totalFaceDetectionCount = (totalFaceDetectionCount ?? 0) + blurResult.faceCount;
+        } else if (aiImageInput === 'no_image_sent') {
+          // Only reachable on the cover-fetch-failed path: no cover ever set the label.
+          aiImageInput = blurGate === undefined ? 'original_mode_off' : 'original_owner_opted_in';
+        }
+
+        contents.push({
+          inlineData: {
+            mimeType: slideContentType,
+            data: slideDataForRequest
+          }
+        });
+      } catch (error) {
+        // Best-effort: skip only this slide (whether the failure was the fetch or the blur);
+        // the cover and all other successfully-processed slides remain in the request (AC2/AC3).
+        slideFailedClosed = shouldBlur;
+        console.error(`Carousel slide-fetch/blur failed for post ${message.postId} (image index ${slideIndex + 1}); skipping slide`, slideUrl, error);
+      }
+    }
+  }
+
   if (message.imageUrl) {
     try {
       const response = await fetch(message.imageUrl);
@@ -365,62 +439,27 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
         }
       ];
 
-      // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request,
-      // in slide order, stopping at MAX_CAROUSEL_IMAGES. AD-13: batched not sequential — a carousel
-      // post still costs exactly one Gemini call. Each slide is fetched inside its OWN try/catch so
-      // a single slide failure can never trigger the outer cover-failure fallback below (which would
-      // otherwise wipe out the already-succeeded cover image and switch to text-only).
-      if (message.additionalImageUrls?.length) {
-        const slidesToFetch = message.additionalImageUrls.slice(0, env.maxCarouselImages);
-        for (const [slideIndex, slideUrl] of slidesToFetch.entries()) {
-          try {
-            const slideResponse = await fetch(slideUrl);
-            if (!slideResponse.ok) {
-              console.error(`Carousel slide-fetch failed for post ${message.postId} (image index ${slideIndex + 1}, status ${slideResponse.status}); skipping slide`, slideUrl);
-              continue;
-            }
-            const slideContentType = slideResponse.headers.get('content-type') || 'image/jpeg';
-            if (!slideContentType.startsWith('image/')) {
-              console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId} (image index ${slideIndex + 1})`, slideUrl);
-              continue;
-            }
-            const slideArrayBuffer = await slideResponse.arrayBuffer();
-            const slideBuffer = Buffer.from(slideArrayBuffer);
-
-            // Story 3.20 (Task 3.3/7.2) -- blurImageForRequest's own time-budget check (above)
-            // throws BEFORE ever calling detectAndBlurFacesSeam when the floor isn't met, so the
-            // catch below drops this slide without having invoked the seam for it -- the same
-            // fail-closed outcome as the seam itself throwing, no separate pre-check needed.
-            let slideDataForRequest = slideBuffer.toString('base64');
-            if (shouldBlur) {
-              const blurResult = await blurImageForRequest(slideBuffer, slideContentType);
-              slideDataForRequest = blurResult.data;
-              // Story 3.21 (AC3, Task 2.3, AD-29 Rule 7) -- add this slide's own faceCount into
-              // the running total. Reached only when the cover already succeeded (a cover
-              // failure jumps straight to the outer catch before this loop ever runs), so
-              // aiImageInput is already 'blurred' and totalFaceDetectionCount already seeded
-              // from the cover by this point.
-              totalFaceDetectionCount = (totalFaceDetectionCount ?? 0) + blurResult.faceCount;
-            }
-
-            contents.push({
-              inlineData: {
-                mimeType: slideContentType,
-                data: slideDataForRequest
-              }
-            });
-          } catch (error) {
-            // Best-effort: skip only this slide (whether the failure was the fetch or the blur);
-            // the cover and all other successfully-processed slides remain in the request (AC2/AC3).
-            console.error(`Carousel slide-fetch/blur failed for post ${message.postId} (image index ${slideIndex + 1}); skipping slide`, slideUrl, error);
-          }
-        }
-      }
+      // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request
+      // (see appendSlideImages above).
+      await appendSlideImages();
     } catch (error) {
       console.error(`Multimodal extraction image processing failed for post ${message.postId} (image index 0, cover):`, error);
       // Fallback to text-only caption extraction. Never the original, unblurred cover bytes
       // (AC3) -- `contents` is reset to the caption text only.
       contents = captionWithAccountContext;
+
+      // BUG-097 (moderator re-extract only) -- an expired cover hotlink says nothing about the
+      // slides, which are separate URLs. `aiImageInput === 'no_image_sent'` identifies a cover
+      // FETCH failure (a blur failure is tagged 'text_only_fail_closed' before it throws and stays
+      // text-only, fail-closed). Try the slides; with none inlined the request stays text-only.
+      if (options?.slidesWhenCoverFails && aiImageInput === 'no_image_sent' && message.additionalImageUrls?.length) {
+        contents = [{ text: captionWithAccountContext }];
+        await appendSlideImages();
+        if (contents.length === 1) {
+          contents = captionWithAccountContext;
+          if (slideFailedClosed) aiImageInput = 'text_only_fail_closed';
+        }
+      }
     }
   }
 
@@ -440,6 +479,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     blurredCoverImageBytes,
     coverFaceCount,
     aiImageInput,
-    totalFaceDetectionCount
+    totalFaceDetectionCount,
+    imagesAvailable: (message.imageUrl ? 1 : 0) + (message.additionalImageUrls?.length ?? 0),
+    imagesSent: Array.isArray(contents) ? contents.length - 1 : 0
   };
 }

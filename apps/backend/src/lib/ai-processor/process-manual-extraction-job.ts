@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { manualExtractionJobs } from '@festgrid/database';
 import { mapExtractionPayloadToProposedCorrection } from '@festgrid/domain/events';
+import { REEXTRACT_MAX_CAROUSEL_IMAGES } from '@festgrid/domain/posts';
 import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
@@ -73,16 +74,23 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
     // Always blurred -- there is deliberately NO publisher opt-in path for manual extraction
     // (user decision, Story 4.2b). The global BLUR_FACES_BEFORE_AI switch is respected exactly as
     // processAiJob does; fail-closed behavior is inherited from the builder (Story 3.20).
-    const { request } = await buildGeminiExtractionRequest(
-      message,
-      env.blurFacesBeforeAi
+    const isPreview = job.requestPayload.mode === 'REEXTRACT_PREVIEW';
+    const requestOptions = {
+      ...(env.blurFacesBeforeAi
         ? {
             blurFacesBeforeAi: {
               isOwnerOptedIn: false,
               getRemainingTimeInMillis: deps?.getRemainingTimeInMillis,
             },
           }
-        : undefined
+        : {}),
+      // BUG-097 -- a re-extract preview reads more slides than ingestion and keeps trying them when
+      // the cover hotlink has expired. Correction jobs keep the ingestion behavior.
+      ...(isPreview ? { maxCarouselImages: REEXTRACT_MAX_CAROUSEL_IMAGES, slidesWhenCoverFails: true } : {}),
+    };
+    const { request, imagesAvailable, imagesSent } = await buildGeminiExtractionRequest(
+      message,
+      Object.keys(requestOptions).length > 0 ? requestOptions : undefined
     );
 
     let resultText: string;
@@ -141,6 +149,8 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
         postStored: job.requestPayload.postStored ?? Boolean(existingPostAccountId),
         rescraped: job.requestPayload.rescraped ?? false,
         maxEvents: env.maxExtractedEventsPerPost,
+        imagesAvailable,
+        imagesSent,
       });
       await db
         .update(manualExtractionJobs)
