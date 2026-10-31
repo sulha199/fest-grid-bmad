@@ -6,7 +6,7 @@ import { fetchScrapedProfile, getProfileScraperAdapters, registerProfileScraperA
 import { apifyProfileAdapter, instagramScraperAdapter, setCallApifyActor, callApifyActor } from './instagram-adapter.js';
 import { brightDataProfileAdapter } from './brightdata-profile-adapter.js';
 import { scrapeBrightDataProfile, setScrapeBrightDataProfile } from './brightdata-client.js';
-import { clearApifyProviderUsage } from './usage-store-test-helpers.js';
+import { clearApifyProviderUsage, clearBrightDataProviderUsage } from './usage-store-test-helpers.js';
 
 const profile: ScrapedProfile = { accountId: '1', username: 'someone', displayName: 'Some One', biography: 'bio', businessCategoryName: null };
 
@@ -91,10 +91,15 @@ test('the Instagram adapter reaches the profile chain through both profile metho
 
   t.beforeEach(async () => {
     await clearApifyProviderUsage();
+    await clearBrightDataProviderUsage();
   });
   t.afterEach(() => {
     setCallApifyActor(originalApify);
     setScrapeBrightDataProfile(originalBrightData);
+  });
+  t.after(async () => {
+    await clearApifyProviderUsage();
+    await clearBrightDataProviderUsage();
   });
 
   const apifyMonthlyCap = () => new ApifyApiError(

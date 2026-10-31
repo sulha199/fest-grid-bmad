@@ -7,6 +7,7 @@ import {
   mapBrightDataProfileRecord,
 } from './brightdata-profile-adapter.js';
 import { scrapeBrightDataProfile, setScrapeBrightDataProfile, type BrightDataProfileScrape } from './brightdata-client.js';
+import { clearBrightDataProviderUsage } from './usage-store-test-helpers.js';
 
 // Record fields as returned by Bright Data's Instagram Profiles dataset on 2026-10-31. A non-business account has
 // no `category_name` / `business_category_name` at all.
@@ -75,7 +76,8 @@ test('brightDataProfileAdapter', async (t) => {
   let requested: { url: string; budgetMs: number }[];
   let reply: BrightDataProfileScrape | Error;
 
-  t.beforeEach(() => {
+  t.beforeEach(async () => {
+    await clearBrightDataProviderUsage();
     requested = [];
     reply = { kind: 'records', records: [record] };
     setScrapeBrightDataProfile(async (url, budgetMs) => {
@@ -84,7 +86,10 @@ test('brightDataProfileAdapter', async (t) => {
       return reply;
     });
   });
-  t.after(() => setScrapeBrightDataProfile(original));
+  t.after(async () => {
+    setScrapeBrightDataProfile(original);
+    await clearBrightDataProviderUsage();
+  });
 
   await t.test('is the slow adapter: it needs more time than the API Lambda has', () => {
     assert.strictEqual(brightDataProfileAdapter.name, 'brightdata');
