@@ -15,10 +15,7 @@ run-name: Dedup Review Export ${{ inputs.run_tag }}
 # default. The export reads no account username, account id, caption or email. It does pass event text
 # through as stored (names, locations, schedule titles, link paths), which is already public on the
 # event pages; links lose their query string. An unexpected error prints only its class and code. The
-# job summary holds counts only. Repository variables are NOT masked: the `env:` block this workflow's
-# Export step prints in every run shows DEDUP_REVIEW_MODERATOR_EMAIL in the clear (the first run did).
-# That address is already public in packages/database/seed.ts; if the reviewer address must never
-# appear in a log, store it as a secret instead and change the `vars.` reference below to `secrets.`.
+# job summary holds counts only. The workflow reads no repository variable and no account identity.
 #
 # One-time setup (the owner does this in GitHub; nothing here can create it):
 #   1. Settings -> Environments -> New environment `dedup-review`, with Deployment branches limited
@@ -29,10 +26,7 @@ run-name: Dedup Review Export ${{ inputs.run_tag }}
 #      for an empty queue. `backup_ro` is expected to fit (docs/infrastructure/3-database.md);
 #      `readonly_2` is expected not to since migration 0084. Never the owner role: this secret's name is
 #      a promise.
-#   3. Optional: the repository variable DEDUP_REVIEW_MODERATOR_EMAIL (the dedicated reviewer
-#      moderator). With it, `recentlyResolved` can tell the reviewer's resolutions from a human's. The
-#      address is never printed.
-#   4. Run this workflow once from the Actions tab and check the line parses, holds no private data,
+#   3. Run this workflow once from the Actions tab and check the line parses, holds no private data,
 #      and that the evidence query (pg_trgm similarity()) works under the role you chose. A failure
 #      prints the error class, its SQLSTATE code and a fixed hint (never the error text). Compare
 #      `pending suggestions` in the summary with the moderator page.
@@ -110,7 +104,6 @@ jobs:
           # binds a port, so any valid number works.
           BACKEND_PORT: '4001'
           DATABASE_URL: ${{ secrets.DEDUP_REVIEW_READONLY_DATABASE_URL }}
-          DEDUP_REVIEW_MODERATOR_EMAIL: ${{ vars.DEDUP_REVIEW_MODERATOR_EMAIL }}
           # Inputs reach the script through the environment, never interpolated into the shell text;
           # the script validates every one of them before it opens a database connection.
           LIMIT: ${{ inputs.limit }}

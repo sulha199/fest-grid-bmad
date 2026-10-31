@@ -170,6 +170,11 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   description: text('description'),
   lastPostDate: timestamp('last_post_date', { withTimezone: true }),
   lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
+  // Set once a scrape of this profile's own timeline has delivered a post (the "seeding" scrape: newest 30
+  // posts, none older than 30 days). Null means the profile is only known from other accounts' scrapes
+  // (co-author links), so its scrape cursor must not start after those posts -- see resolveScrapeCursor.
+  // Migration 0088 backfills it from last_scraped_at for profiles already being scraped.
+  historySeededAt: timestamp('history_seeded_at', { withTimezone: true }),
   scrapeTriggeredAt: timestamp('scrape_triggered_at', { withTimezone: true }),
   defaultLocation: jsonb('default_location').$type<LocationDetails>(),
   accountType: accountTypeEnum('account_type'),
@@ -379,6 +384,16 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   rawInput: jsonb('raw_input').notNull(),
   rawOutput: jsonb('raw_output'),
   itemCount: integer('item_count'),
+  // What the vendor itself reported for a finished Bright Data snapshot (its free progress report), kept apart
+  // from item_count (what reached us): records delivered, error records, and the error-code counts
+  // (`{"dead_page":1}`). Null when the report was not read. The success rate is records / (records + errors).
+  recordsReported: integer('records_reported'),
+  errorsReported: integer('errors_reported'),
+  errorCodes: jsonb('error_codes').$type<Record<string, number>>(),
+  // Posts this run delivered that did not exist before (item_count minus re-deliveries of known posts).
+  // Null when the run was not processed by an async result handler. A run that delivered posts but no new
+  // one is an "empty" run for the scrape backoff.
+  newPosts: integer('new_posts'),
   errorMessage: text('error_message'),
   pendingJobId: uuid('pending_job_id'),
   startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
@@ -512,6 +527,10 @@ export const eventSlugAliases = pgTable('event_slug_aliases', {
 // `expired` (IDEA-107): closed by the system because an event of the pair is deleted or merged, or
 // both are over. It records no judgement -- unlike `rejected` it does not say "not a duplicate".
 export const suggestedEventMatchStatusEnum = pgEnum('suggested_event_match_status', ['pending', 'accepted', 'rejected', 'expired']);
+// Who made a dedup decision: a human (the moderator UI, or a script an operator runs) or the AI reviewer
+// skill (AD-30 Rule 9's AI path, `_bmad-output/specs/ai-dedup-review/DESIGN.md`). Only the shared
+// resolve/merge functions write it, and a GraphQL client can never set it.
+export const resolutionSourceEnum = pgEnum('resolution_source', ['moderator', 'ai_skill']);
 
 // Story 3.6v / AD-30 Rule 7 -- mid-confidence match suggestions queued for moderator review
 // (Story 3.6w's own scope to read/approve/reject). One row per (eventId, candidateEventId) pair,
@@ -532,6 +551,8 @@ export const eventMatchCandidates = pgTable('event_match_candidates', {
   status: suggestedEventMatchStatusEnum('status').default('pending').notNull(),
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   resolvedByModeratorId: uuid('resolved_by_moderator_id').references(() => users.id),
+  // NULL while pending or expired (no one resolved it); set whenever a person or the AI reviewer accepts or rejects.
+  resolvedVia: resolutionSourceEnum('resolved_via'),
   ...timestamps,
 }, (t) => ({
   // AC8 -- idempotent re-run (SQS redelivery) never duplicates a suggestion row.
@@ -555,6 +576,7 @@ export const eventMerges = pgTable('event_merges', {
   loserEventId: uuid('loser_event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
   suggestionId: uuid('suggestion_id').references(() => eventMatchCandidates.id, { onDelete: 'set null' }),
   performedByModeratorId: uuid('performed_by_moderator_id').references(() => users.id).notNull(),
+  performedVia: resolutionSourceEnum('performed_via').default('moderator').notNull(),
   loserPriorSlug: text('loser_prior_slug').notNull(),
   winnerNotifiedAtChanged: boolean('winner_notified_at_changed').default(false).notNull(),
   winnerPriorNotifiedAt: timestamp('winner_prior_notified_at', { withTimezone: true }),

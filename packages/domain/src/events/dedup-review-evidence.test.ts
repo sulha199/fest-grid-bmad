@@ -92,13 +92,15 @@ test('toDedupReviewDayDiff - finite numbers pass through and Infinity becomes nu
   assert.strictEqual(toDedupReviewDayDiff(Infinity), null);
 });
 
-test('classifyDedupReviewResolvedBy - expiry is the system, and a moderator needs the reviewer id to be told apart', () => {
-  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'expired', resolvedByModeratorId: null, reviewerUserId: null }), 'system');
-  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'expired', resolvedByModeratorId: null, reviewerUserId: ID_A }), 'system');
-  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'accepted', resolvedByModeratorId: null, reviewerUserId: ID_A }), 'unknown');
-  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'accepted', resolvedByModeratorId: ID_A, reviewerUserId: null }), 'unknown');
-  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'accepted', resolvedByModeratorId: ID_A, reviewerUserId: ID_A }), 'reviewer');
-  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'rejected', resolvedByModeratorId: ID_B, reviewerUserId: ID_A }), 'human');
+test('classifyDedupReviewResolvedBy - expiry is the system; the flag tells the reviewer from a human; no flag is unknown', () => {
+  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'expired', resolvedVia: null }), 'system');
+  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'accepted', resolvedVia: null }), 'unknown');
+  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'rejected', resolvedVia: null }), 'unknown');
+  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'accepted', resolvedVia: 'ai_skill' }), 'reviewer');
+  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'rejected', resolvedVia: 'ai_skill' }), 'reviewer');
+  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'accepted', resolvedVia: 'moderator' }), 'human');
+  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'rejected', resolvedVia: 'moderator' }), 'human');
+  assert.strictEqual(classifyDedupReviewResolvedBy({ status: 'accepted', resolvedVia: 'a_future_source' as unknown as 'moderator' }), 'unknown', 'a value this version does not know is not read as a person');
 });
 
 test('canonicalizeDedupEvidence - identical evidence gives an identical string', () => {

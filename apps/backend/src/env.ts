@@ -85,6 +85,11 @@ export interface BackendEnv {
   scrapeQueueApifyCallTimeoutMs: number;
   scrapeInitialLookbackDays: number;
   scrapeSkipRecentHours: number;
+  // Cadence backoff (IDEA-105): after a run that found no new post, a profile whose posting rhythm is known waits
+  // its typical gap (times the multiplier, rounded up) before the next scheduled scrape, never more than max days.
+  // SCRAPE_BACKOFF_MAX_DAYS=1 turns it off.
+  scrapeBackoffGapMultiplier: number;
+  scrapeBackoffMaxDays: number;
   scraperMonthlyBudgetUsd: number;
   scraperPricePerThousandItemsUsd: number;
   scraperCapacityThresholdRatio: number;
@@ -319,6 +324,10 @@ export function loadBackendEnv(): BackendEnv {
     scrapeInitialLookbackDays: parseInt(process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeSkipRecentHours: parseInt(process.env.SCRAPE_SKIP_RECENT_HOURS || '12', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeBackoffGapMultiplier: parseFloat(process.env.SCRAPE_BACKOFF_GAP_MULTIPLIER || '1'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeBackoffMaxDays: parseInt(process.env.SCRAPE_BACKOFF_MAX_DAYS || '3', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scraperMonthlyBudgetUsd: parseFloat(process.env.SCRAPER_MONTHLY_BUDGET_USD || '5.00'),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

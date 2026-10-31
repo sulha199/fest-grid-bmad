@@ -22,6 +22,8 @@ test('trigger-apify-for-target tests', async (t) => {
         platform: 'instagram',
         username: 'test_user',
         displayName: 'Test User',
+        // The start-date rules below are those of a seeded profile; the cursor tests cover the unseeded one.
+        historySeededAt: new Date(),
       })
       .returning({ id: socialMediaAccountProfiles.id });
     testProfileId = profile.id;

@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-30"
+last_updated: "2026-10-31"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2620,12 +2620,12 @@ items:
      title: "AI dedup review piece B2: apply workflow, decision validator and floor, dedicated environment, new AD and PRD amendment",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
      touches: [app:backend, app:infrastructure, pkg:domain, web:moderation, cross:architecture, cross:prd, cross:process],
-     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31). Needs FIND-107 (export) first; requirements in DESIGN.md section 5. 1 finding."}
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31); re-scoped at bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31). Needs the resolved_via flag (B2a) first; see DESIGN.md section 5."}
 
   FIND-104:
     {type: finding, status: backlog, created: 2026-10-30,
      impact: user-visible, effort: s,
-     title: "AI dedup review piece C: daily festgrid-dedup-review skill, escalation issues and insight log",
+     title: "AI dedup review piece C: daily moderator-dedup-review skill, escalation issues and insight log",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
      touches: [web:moderation, cross:process, cross:ai-extraction],
      note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs FIND-107 on master first; requirements in DESIGN.md section 6; review-insights follows later. 1 finding."}
@@ -2665,12 +2665,20 @@ items:
      note: "Fixed in PR #123 (0086 re-applies 0056, plus a journal-order ratchet). db-migrate ran green on prod 2026-10-31 and the column default then read 0; the 7 -> 0 row backfill could not be read back (readonly_2 is blind under RLS), so confirm by reloading logged-in Discovery."}
 
   BUG-096:
-    {type: bug, status: backlog, created: 2026-10-31,
-     impact: user-visible, effort: s,
+    {type: bug, status: done, created: 2026-10-31,
+     impact: user-visible, effort: m,
      title: "Past-event cutoff uses the UTC date, so in Jakarta's first 7 hours the list still shows ended events",
-     ref: [packages/domain/src/events/computePastEventThreshold.ts, packages/ui/src/features/events/format-event-date.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
-     touches: [pkg:domain, pkg:ui, app:backend, web:events],
-     note: "Not fixed, log only. 43 events that ended the day before were listed at 01:55 WIB on 2026-10-31. The shared ended-cases fixture is built around UTC, so a fix needs a timezone decision first."}
+     ref: [packages/database/migrations/0090_bug_096_schedule_past_cutoff_date.sql, packages/graphql-select/past-cutoff-sql.ts, apps/backend/src/schema/events-past-cutoff-timezone.test.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
+     touches: [pkg:database, pkg:domain, pkg:graphql-select, app:backend, web:events, cross:architecture],
+     note: "Fixed in PR #126 (option A of an architect review): the list's cutoff is now the date of the request's one `now` in each schedule's own timezone (RESOLVED only, else UTC), from one SQL function shared by default visibility, isPastEvent and isExpiredForCurrentUser. Verify after deploy in the 00:00-07:00 WIB window: no event that ended on the previous Jakarta day should be listed. The TODAY/UPCOMING toggles still use the UTC date (BUG-097)."}
+
+  BUG-097:
+    {type: bug, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: m,
+     title: "TODAY/UPCOMING toggles and the next-upcoming sort key still use the UTC date, so 'Today' is UTC's yesterday for Jakarta's first 7 hours",
+     ref: [packages/domain/src/events/buildEventsQueryCondition.ts, packages/graphql-select/drizzle-where.ts, packages/domain/src/events/__fixtures__/ended-cases.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
+     touches: [pkg:domain, pkg:graphql-select, pkg:ui, app:backend, web:events, cross:architecture],
+     note: "Follow-up of BUG-096, split out on purpose. `resolveTodayISO` falls back to the UTC date and no caller passes the `timezone` option DW-074 added; `notEnded` has no timezone conversion and the shared ended-cases fixture is pinned to UTC (AD-20 Rule 4, FIND-062); Query.events' `today` (sort key) is the UTC date. Needs the same per-schedule zone rule as BUG-096 plus a decision for the logged-out viewer's zone. Found by code reading, not reproduced live."}
 
   FIND-109:
     {type: finding, status: backlog, created: 2026-10-31,
@@ -2712,4 +2720,28 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, cross:architecture],
      note: "Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31). 2 findings. Retention fix belongs with FIND-086's job sweep."}
+
+  BUG-098:
+    {type: bug, status: done, created: 2026-10-31,
+     impact: user-visible, effort: m,
+     title: "A new subscription scrapes the last 7 days, and a profile known only as a co-author skips its history",
+     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md, packages/database/migrations/0088_history_seeded_at.sql, packages/domain/src/scraper/resolve-scrape-cursor.ts],
+     touches: [pkg:domain, pkg:database, app:backend],
+     note: "Found 2026-10-31: the first scrape was a 7-day window (biliardindonesia, 3,073 posts, gave 1), and 1,020 unsubscribed profiles hold co-authored posts that would have moved their cursor past their own history. Fixed: seeding scrape = newest 30 posts, none older than 30 days, until history_seeded_at is set; migration 0088 backfills it from last_scraped_at."}
+
+  IDEA-104:
+    {type: idea, status: done, created: 2026-10-31,
+     impact: operational, effort: s,
+     title: "Store each Bright Data run's records, errors, error codes and new-post count, and classify its success rate",
+     ref: [planning-artifacts/brightdata-yield-and-dead-page-policy-2026-10-31.md],
+     touches: [pkg:domain, pkg:database, app:backend],
+     note: "D1-D3 of the yield design: a separate classifyBrightDataYield (complete / partial-expected / partial-retryable / partial-unknown), read the free progress call after the posts are saved. No retry mechanism until a transient error code is observed (371 snapshots: only dead_page, 44 of 44). Built in PR #130 (stacked on #129): classifyBrightDataYield, scraper_actor_runs.records_reported / errors_reported / error_codes / new_posts (migration 0089), reportBrightDataYield in the webhook and the sweep, new_posts for Bright Data and Apify async deliveries. The SQS path does not record new_posts yet."}
+
+  IDEA-105:
+    {type: idea, status: done, created: 2026-10-31,
+     impact: operational, effort: m,
+     title: "Back off a profile's scrape after an empty run using its posting cadence (median gap between posting days)",
+     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md],
+     touches: [pkg:domain, app:backend],
+     note: "E3-E4 of the seeding design, depends on BUG-098 and IDEA-104 (needs new_posts per run). Interval after an empty run = clamp(ceil(typical gap), 1, 3) days, never off, daily when confidence is insufficient. Backtest: 4% fewer scrapes, 1.3% of posts one day late; savings are cents, so repeat the backtest on 30 days of real data first. Built in the PR stacked on #130 (decision: cap 3 days, multiplier 1, SCRAPE_BACKOFF_MAX_DAYS=1 disables). Real-run check before building: on 10-29 and 10-31, 26% of Bright Data runs (10 of 38) found no new post (6 re-delivered only known posts, 3-4 delivered nothing). Not recorded for the SQS path, so a profile whose last run was a queue run stays daily."}
 

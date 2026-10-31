@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, ne, notInArray, sql } from 'drizzle-orm';
-import { eventMatchCandidates, eventMerges, eventPosts, events, posts, schedules, socialMediaAccountProfiles, users } from '@festgrid/database';
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm';
+import { eventMatchCandidates, eventMerges, eventPosts, events, posts, schedules, socialMediaAccountProfiles } from '@festgrid/database';
 import {
   DEDUP_REVIEW_RECENT_DAYS,
   DEDUP_REVIEW_RECENT_LIMIT,
@@ -16,7 +16,7 @@ import {
   type DedupReviewPairEvidence,
 } from '@festgrid/domain/events';
 import type { db as appDb } from '../../db/client.js';
-import { DedupReviewReviewerError, DedupReviewRoleError } from './dedup-review-errors.js';
+import { DedupReviewRoleError } from './dedup-review-errors.js';
 import { evaluateBacklogRow, type BacklogEvaluation } from './drain-match-backlog.js';
 import type { DbExecutor } from './set-event-primary-post.js';
 
@@ -41,8 +41,6 @@ export interface BuildDedupReviewExportOptions {
   limit: number;
   skipIds: string[];
   runTag: string | null;
-  /** `users.id` of the dedicated reviewer moderator, so its resolutions are told apart from a human's. */
-  reviewerUserId: string | null;
   now?: Date;
   /** Tests only: how many pending rows one export may look at (default `DEDUP_REVIEW_SCAN_CAP`). */
   scanCap?: number;
@@ -85,21 +83,6 @@ export async function assertRoleBypassesRls(executor: DbExecutor): Promise<void>
       'The database role cannot bypass row level security, so every table would look empty and the export would pass for an empty queue. Put the URL of a read-only role with BYPASSRLS in DEDUP_REVIEW_READONLY_DATABASE_URL (docs/infrastructure/3-database.md).'
     );
   }
-}
-
-/** Resolves the reviewer's `users.id` from its email (case-insensitive, active moderators only); the email itself is never printed. */
-export async function resolveReviewerUserId(executor: DbExecutor, email: string): Promise<string> {
-  const [reviewer] = await executor
-    .select({ id: users.id })
-    .from(users)
-    .where(and(sql`lower(${users.email}) = ${email.toLowerCase()}`, eq(users.role, 'moderator'), isNull(users.deletedAt)))
-    .limit(1);
-  if (!reviewer) {
-    throw new DedupReviewReviewerError(
-      'The dedup reviewer account was not found among active moderators. Check the DEDUP_REVIEW_MODERATOR_EMAIL repository variable.'
-    );
-  }
-  return reviewer.id;
 }
 
 /** The hash the apply side recomputes: SHA-256 (hex) of the canonical evidence string built in `packages/domain`. */
@@ -279,7 +262,7 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
       id: eventMatchCandidates.id,
       status: eventMatchCandidates.status,
       resolvedAt: eventMatchCandidates.resolvedAt,
-      resolvedByModeratorId: eventMatchCandidates.resolvedByModeratorId,
+      resolvedVia: eventMatchCandidates.resolvedVia,
     })
     .from(eventMatchCandidates)
     .where(and(ne(eventMatchCandidates.status, 'pending'), isNotNull(eventMatchCandidates.resolvedAt), gte(eventMatchCandidates.resolvedAt, cutoff)))
@@ -306,8 +289,7 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
               resolvedAt: row.resolvedAt.toISOString(),
               resolvedBy: classifyDedupReviewResolvedBy({
                 status: row.status,
-                resolvedByModeratorId: row.resolvedByModeratorId,
-                reviewerUserId: options.reviewerUserId,
+                resolvedVia: row.resolvedVia,
               }),
             },
           ]

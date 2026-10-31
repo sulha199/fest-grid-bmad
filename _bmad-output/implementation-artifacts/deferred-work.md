@@ -795,7 +795,7 @@ Not implemented here per this investigation's explicit scope (investigation only
   summary: Piece B of the AI-assisted dedup review: the dark bridge -- domain contract (decision validator, cap, evidence hash), export and apply scripts, the two GitHub Actions workflows, a dedicated environment and moderator user, a deterministic floor and per-day cap, the new AD, the PRD amendment and docs.
   evidence: Split from Piece A (shared `resolveSuggestedMatch`) after an architecture review and an adversarial code review both advised a split: A changes the live moderator mutation, B is the only DB-write bridge. All review requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 5. Depends on A.
 - source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
-  summary: Piece C of the AI-assisted dedup review: the `festgrid-dedup-review` skill, escalation issues and labels, the rolling `dedup-insight` issue and shadow-mode acceptance; `review-insights` (C2) follows once labelled issues exist.
+  summary: Piece C of the AI-assisted dedup review: the `moderator-dedup-review` skill, escalation issues and labels, the rolling `dedup-insight` issue and shadow-mode acceptance; `review-insights` (C2) follows once labelled issues exist.
   evidence: Split from the same spec: C cannot be accepted until B's workflows are on `master`, and it is prose rather than code. Requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 6. Depends on B.
 
 ## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-pipeline (2026-10-30)
@@ -852,3 +852,8 @@ Not implemented here per this investigation's explicit scope (investigation only
   summary: Apply never turns an existing stub back into a full event, and never reconciles a post whose events changed between the preview and the apply (only the post row and the job row are locked).
   evidence: Surfaced by two reviewers. Stub-to-full happens through an organizer post being linked (PRD 3.7), and a drift within 30 minutes costs at worst a mis-pairing the moderator can edit; a drift check (hash of the post's event links in the job) is the fix if it is ever seen.
 
+## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-via-flag.md`
+  summary: Piece B2b of the AI-assisted dedup review (still `FIND-108`): the apply workflow and script -- hashed Claude-account-email invoker check against an active moderator, `evidenceHash` re-verification (stale = skip), deterministic floor, per-run cap 10 and per-day cap counted from `ai_skill` rows, kill-switch variable, `validate` mode on the read-only secret, the new AD, the PRD amendment, `3-database.md` and the runbook.
+  evidence: Split from B2a (the `resolved_via`/`performed_via` flag, which changes no behavior and ships alone) at the multi-goal check, so the schema migration is not bundled with the only write path. Decisions: invoker identity is the SHA-256 of the lowercased Claude account email (a public log must not show it), no dedicated moderator user and no email repository variable; the skill is named `moderator-dedup-review`. Needs B2a first.

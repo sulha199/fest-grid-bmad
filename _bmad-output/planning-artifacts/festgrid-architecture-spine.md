@@ -898,6 +898,19 @@ This document defines the core architectural invariants for the FestDaily applic
     the new-mechanism surface below (Rules 2–4 originally covered both a start-boundary and an
     end-boundary clock-time check; only the end-boundary check survives). AD ID and Binds/Prevents
     below are otherwise unchanged from the original pass; only the Rule is amended.
+*   **Amended 2026-10-31 (BUG-096), user-directed (option A of an architect review):** the list's
+    *past-event cutoff* — `buildDefaultEventVisibilityConditions`' `scheduleDateRange.overlaps`,
+    `Query.events`' `isPastEvent` and `Event.isExpiredForCurrentUser` — no longer uses the UTC date.
+    It is the date of the request's one captured `now` in each schedule's own timezone, counted back
+    `hidePastEventsAfterDays`, taking the schedule's zone only when `timezoneStatus = RESOLVED` (the
+    card's wall-clock rule, `resolveScheduleTimezone`) and UTC otherwise, computed by one SQL
+    function, `schedule_past_cutoff_date` (migration 0090, built into SQL by `buildPastCutoffDateSql`).
+    That is a separate mechanism from this AD's `notEnded`, which is **unchanged**: Rule 2's `notEnded`
+    and Rules 2–3's `todayISO`/`tomorrowISO` still read the UTC date, and the `ended-cases` fixture
+    (Rule 4) stays UTC-pinned, so the "Today" toggle can still disagree with a card for a few hours
+    around local midnight (tracked as BUG-097). **Prevents** a second, independent definition of the
+    cutoff, and `AT TIME ZONE` applied to an unvalidated stored string (an unrecognised zone name
+    raises and would fail the whole list; the function falls back to UTC instead).
 *   **Binds:** IDEA-019's card-view temporal filter (`EXPERIENCE.md` § "Temporal Filter: Today /
     Upcoming / All"), `EventFilterInput` (`apps/backend/src/schema/events.graphql`),
     `buildEventsQueryCondition.ts` (client-invoked per `home-content.tsx:178-183`), and

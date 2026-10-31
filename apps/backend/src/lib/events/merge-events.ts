@@ -9,10 +9,24 @@ import {
   eventSlugAliases,
   eventMatchCandidates,
   eventMerges,
+  resolutionSourceEnum,
 } from '@festgrid/database';
 import { activeOnly } from '@festgrid/graphql-select';
 import type { DbExecutor } from './set-event-primary-post.js';
 import { findScheduleByStartDate } from './schedule-date-match.js';
+
+/** Who decided a dedup: `moderator` (a person) or `ai_skill` (the AI reviewer). */
+export type ResolutionSource = (typeof resolutionSourceEnum.enumValues)[number];
+
+/** `via` is not one of the `resolution_source` values (a caller passed null or a stray string). */
+export class InvalidResolutionSourceError extends Error {}
+
+/** TypeScript checks `via` only at compile time; a decisions file or script can still hand over anything, and the database would fail late and unclearly. */
+export function assertResolutionSource(via: unknown): asserts via is ResolutionSource {
+  if (!(resolutionSourceEnum.enumValues as readonly unknown[]).includes(via)) {
+    throw new InvalidResolutionSourceError('via must be "moderator" or "ai_skill"');
+  }
+}
 
 type EventRow = typeof events.$inferSelect;
 type ScheduleRow = typeof schedules.$inferSelect;
@@ -72,14 +86,20 @@ export interface MergeEventsResult {
  * `db.transaction(...)` (same injected-`executor` composition pattern as
  * `enrichAndPromoteEvent`/`setEventPrimaryPost`) -- this function never opens its own
  * transaction.
+ *
+ * `via` records who decided the merge, on the journal row and on the suggestion it resolves:
+ * `moderator` (the default; a person, in the UI or through an operator script) or `ai_skill` (the AI
+ * reviewer). Only `resolveSuggestedMatch` passes it.
  */
 export async function mergeEvents(
   executor: DbExecutor,
   winnerId: string,
   loserId: string,
   moderatorId: string,
-  suggestionId: string | null
+  suggestionId: string | null,
+  via: ResolutionSource = 'moderator'
 ): Promise<MergeEventsResult> {
+  assertResolutionSource(via);
   const { winner, loser } = await assertMergeable(executor, winnerId, loserId);
 
   // Step 1: both events' current schedules (loser's never deleted by this function -- a merge
@@ -228,6 +248,7 @@ export async function mergeEvents(
       loserEventId: loserId,
       suggestionId,
       performedByModeratorId: moderatorId,
+      performedVia: via,
       loserPriorSlug: loser.slug,
       winnerNotifiedAtChanged,
       winnerPriorNotifiedAt,
@@ -246,7 +267,7 @@ export async function mergeEvents(
   if (suggestionId !== null) {
     await executor
       .update(eventMatchCandidates)
-      .set({ status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: moderatorId })
+      .set({ status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: moderatorId, resolvedVia: via })
       .where(eq(eventMatchCandidates.id, suggestionId));
   }
 
@@ -342,7 +363,7 @@ export async function undoEventMerge(executor: DbExecutor, mergeId: string, _mod
   if (merge.suggestionId !== null) {
     await executor
       .update(eventMatchCandidates)
-      .set({ status: 'pending', resolvedAt: null, resolvedByModeratorId: null })
+      .set({ status: 'pending', resolvedAt: null, resolvedByModeratorId: null, resolvedVia: null })
       .where(eq(eventMatchCandidates.id, merge.suggestionId));
   }
 

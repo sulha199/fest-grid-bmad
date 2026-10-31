@@ -75,6 +75,8 @@ test('rehostPostImage integration/unit tests', async (t) => {
     geminiVerificationTimeoutMs: 10000,
     scrapeInitialLookbackDays: 7,
     scrapeSkipRecentHours: 20,
+    scrapeBackoffGapMultiplier: 1,
+    scrapeBackoffMaxDays: 3,
     scraperMonthlyBudgetUsd: 5.0,
     scraperPricePerThousandItemsUsd: 2.7,
     scraperCapacityThresholdRatio: 0.9,
