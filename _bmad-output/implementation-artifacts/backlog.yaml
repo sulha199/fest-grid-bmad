@@ -2657,9 +2657,25 @@ items:
      note: "Fixed in PR #123 (0086 re-applies 0056, plus a journal-order ratchet). db-migrate ran green on prod 2026-10-31 and the column default then read 0; the 7 -> 0 row backfill could not be read back (readonly_2 is blind under RLS), so confirm by reloading logged-in Discovery."}
 
   BUG-096:
-    {type: bug, status: backlog, created: 2026-10-31,
-     impact: user-visible, effort: s,
+    {type: bug, status: done, created: 2026-10-31,
+     impact: user-visible, effort: m,
      title: "Past-event cutoff uses the UTC date, so in Jakarta's first 7 hours the list still shows ended events",
-     ref: [packages/domain/src/events/computePastEventThreshold.ts, packages/ui/src/features/events/format-event-date.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
-     touches: [pkg:domain, pkg:ui, app:backend, web:events],
-     note: "Not fixed, log only. 43 events that ended the day before were listed at 01:55 WIB on 2026-10-31. The shared ended-cases fixture is built around UTC, so a fix needs a timezone decision first."}
+     ref: [packages/database/migrations/0087_bug_096_schedule_past_cutoff_date.sql, packages/graphql-select/past-cutoff-sql.ts, apps/backend/src/schema/events-past-cutoff-timezone.test.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
+     touches: [pkg:database, pkg:domain, pkg:graphql-select, app:backend, web:events, cross:architecture],
+     note: "Fixed in PR #PRNUM (option A of an architect review): the list's cutoff is now the date of the request's one `now` in each schedule's own timezone (RESOLVED only, else UTC), from one SQL function shared by default visibility, isPastEvent and isExpiredForCurrentUser. Verify after deploy in the 00:00-07:00 WIB window: no event that ended on the previous Jakarta day should be listed. The TODAY/UPCOMING toggles still use the UTC date (BUG-097)."}
+
+  BUG-097:
+    {type: bug, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: m,
+     title: "TODAY/UPCOMING toggles and the next-upcoming sort key still use the UTC date, so 'Today' is UTC's yesterday for Jakarta's first 7 hours",
+     ref: [packages/domain/src/events/buildEventsQueryCondition.ts, packages/graphql-select/drizzle-where.ts, packages/domain/src/events/__fixtures__/ended-cases.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
+     touches: [pkg:domain, pkg:graphql-select, pkg:ui, app:backend, web:events, cross:architecture],
+     note: "Follow-up of BUG-096, split out on purpose. `resolveTodayISO` falls back to the UTC date and no caller passes the `timezone` option DW-074 added; `notEnded` has no timezone conversion and the shared ended-cases fixture is pinned to UTC (AD-20 Rule 4, FIND-062); Query.events' `today` (sort key) is the UTC date. Needs the same per-schedule zone rule as BUG-096 plus a decision for the logged-out viewer's zone. Found by code reading, not reproduced live."}
+
+  FIND-108:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
+     title: "isPastEvent and isExpiredForCurrentUser ignore applicableDaysOfWeek, so a weekday-narrowed event whose last occurrence has passed is in neither the list nor the Archive",
+     ref: [apps/backend/src/schema/resolvers.ts, packages/graphql-select/drizzle-where.ts, apps/backend/src/schema/events-past-cutoff-timezone.test.ts],
+     touches: [app:backend, web:events],
+     note: "Found while writing the BUG-096 complement test. The default visibility filter goes through the `overlaps` operator, which has the AD-19 weekday guard; `isPastEvent` and `isExpiredForCurrentUser` use their own raw daterange SQL with no guard. For a schedule narrowed to e.g. THU whose date range runs past its last Thursday, the list hides it and the Archive does not call it past, so it is in neither. By code reading plus the BUG-096 test's need to exclude weekday cases from the complement assertion; not reproduced on real data."}
