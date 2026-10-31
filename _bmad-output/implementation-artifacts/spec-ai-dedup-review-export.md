@@ -2,7 +2,7 @@
 title: 'AI dedup review, piece B1: read-only export of pending suggestions as evidence JSON'
 type: 'feature'
 created: '2026-10-31'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'bb7a4fc509e4c13d4854c31e8931af41c8fcf7b3'
 review_loop_iteration: 0
 context:
@@ -64,11 +64,11 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `packages/domain/src/events/dedup-review-evidence.ts` (+ test, `index.ts` export) -- evidence types, constants (limit 30, max 50, 14 days, markers), `canonicalizeDedupEvidence`, `parseDedupReviewOptions`, `formatDedupReviewExportLine`; 100% coverage.
-- [ ] `apps/backend/src/lib/events/dedup-review-export.ts` (+ DB test) -- `buildDedupReviewExport(executor, options)`: scan oldest-first in batches (bounded), `evaluateBacklogRow`, extra reads, hash, `recentlyResolved`; tests clean up their rows.
-- [ ] `apps/backend/src/dedup-review-export.ts` -- CLI: validate, open the `READ ONLY` transaction, print the marker line.
-- [ ] `.github/workflows/dedup-review-export.yml` -- `workflow_dispatch` with `skip_ids`, `limit`, `run_tag`; concurrency lock; counts-only summary.
-- [ ] `docs/infrastructure/7-event-dedup.md`, `docs/infrastructure/3-database.md`, `docs/infrastructure/architecture-diagram.md`, `docs/infrastructure/high-level-overview.md`, `_bmad-output/project-context.md`, `_bmad-output/specs/ai-dedup-review/DESIGN.md` -- the export, the read-only secret, owner setup steps; B1 recorded as built.
+- [x] `packages/domain/src/events/dedup-review-evidence.ts` (+ test, `index.ts` export) -- evidence types, constants (limit 30, max 50, 14 days, markers), `canonicalizeDedupEvidence`, `parseDedupReviewOptions`, `formatDedupReviewExportLine`; 100% coverage.
+- [x] `apps/backend/src/lib/events/dedup-review-export.ts` (+ DB test) -- `buildDedupReviewExport(executor, options)`: scan oldest-first in batches (bounded), `evaluateBacklogRow`, extra reads, hash, `recentlyResolved`; tests clean up their rows.
+- [x] `apps/backend/src/dedup-review-export.ts` -- CLI: validate, open the `READ ONLY` transaction, print the marker line.
+- [x] `.github/workflows/dedup-review-export.yml` -- `workflow_dispatch` with `skip_ids`, `limit`, `run_tag`; concurrency lock; counts-only summary.
+- [x] `docs/infrastructure/7-event-dedup.md`, `docs/infrastructure/3-database.md`, `docs/infrastructure/architecture-diagram.md`, `docs/infrastructure/high-level-overview.md`, `_bmad-output/project-context.md`, `_bmad-output/specs/ai-dedup-review/DESIGN.md` -- the export, the read-only secret, owner setup steps; B1 recorded as built.
 
 **Acceptance Criteria:**
 - Given a seeded queue, when the builder runs, then pairs carry evidence and a hash, stale pairs are dropped, `skip_ids` is honoured, the limit holds and the totals are right.
