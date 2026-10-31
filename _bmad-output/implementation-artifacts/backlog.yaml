@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-30"
+last_updated: "2026-10-31"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2663,3 +2663,12 @@ items:
      ref: [packages/domain/src/events/computePastEventThreshold.ts, packages/ui/src/features/events/format-event-date.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
      touches: [pkg:domain, pkg:ui, app:backend, web:events],
      note: "Not fixed, log only. 43 events that ended the day before were listed at 01:55 WIB on 2026-10-31. The shared ended-cases fixture is built around UTC, so a fix needs a timezone decision first."}
+
+  IDEA-103:
+    {type: idea, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: m,
+     title: "Profile lookup falls back to a background phase on timeout, with a UX flow that tells the user what is happening",
+     ref: [planning-artifacts/profile-lookup-fallback-and-ux-2026-10-31.md],
+     touches: [app:backend, web:votes, web:subscriptions, cross:ux-tokens, cross:architecture],
+     note: "Proposal, four decisions open (D1-D4). Builds on AD-41 (async subscribe, not yet built); the vote form shows one generic toast for every error."}
+

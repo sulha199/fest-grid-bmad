@@ -142,3 +142,52 @@ test("when nothing fits the budget at all, it throws ProfileScraperBudgetError a
   );
   assert.equal(brightdata.calls.length, 0);
 });
+
+test("onAttempt is called once per adapter considered, in order, with the budget each had, and also when the chain then throws", async () => {
+  let clock = 0;
+  const seen: Array<[string, string, number]> = [];
+  const slow = adapter("brightdata", 90_000, async () => profile);
+  const first = adapter("apify", 0, async () => { clock += 5_000; throw new Error("blocked"); });
+
+  await assert.rejects(
+    () =>
+      runProfileScraperChain({
+        adapters: [first, slow],
+        handle: "x",
+        purpose: "lookup",
+        budgetMs: 25_000,
+        now: () => clock,
+        onAttempt: (attempt) => { seen.push([attempt.adapter, attempt.outcome, attempt.budgetMs]); },
+      }),
+    /blocked/
+  );
+
+  // Apify had the whole 25 s; Bright Data was skipped with the 20 s that were left.
+  assert.deepEqual(seen, [["apify", "failed", 25_000], ["brightdata", "skipped", 20_000]]);
+});
+
+test("onAttempt sees found and not-found answers too", async () => {
+  const seen: string[] = [];
+  const hook = (attempt: { outcome: string }) => { seen.push(attempt.outcome); };
+
+  await runProfileScraperChain({ adapters: [adapter("apify", 0, async () => profile)], handle: "a", purpose: "lookup", budgetMs: 1_000, onAttempt: hook });
+  await runProfileScraperChain({ adapters: [adapter("apify", 0, async () => null)], handle: "b", purpose: "lookup", budgetMs: 1_000, onAttempt: hook });
+
+  assert.deepEqual(seen, ["found", "not-found"]);
+});
+
+test("a hook that throws or rejects never changes the lookup's result", async () => {
+  const throwing = () => { throw new Error("audit write failed"); };
+  const rejecting = async () => { throw new Error("audit write rejected"); };
+
+  for (const onAttempt of [throwing, rejecting]) {
+    const result = await runProfileScraperChain({
+      adapters: [adapter("apify", 0, async () => profile)],
+      handle: "x",
+      purpose: "lookup",
+      budgetMs: 1_000,
+      onAttempt,
+    });
+    assert.equal(result.profile, profile);
+  }
+});
