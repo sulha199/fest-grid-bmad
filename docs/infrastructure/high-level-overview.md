@@ -45,6 +45,7 @@ graph TD
     subgraph "GitHub Actions"
         GHA_Backup["Production DB Backup: nightly and manual pg_dump"]
         GHA_Restore["Production DB Restore Test: restores the newest dump after each backup"]
+        GHA_DedupExport["Dedup Review Export: manual, read-only evidence JSON for the AI reviewer"]
     end
 
     subgraph External Services

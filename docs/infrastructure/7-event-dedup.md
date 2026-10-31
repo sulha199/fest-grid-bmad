@@ -144,6 +144,23 @@ DATABASE_URL=<write-capable url> pnpm tsx src/drain-event-match-backlog.ts --mod
 
 Each cluster prints its winner and losers (name, slug, id, created time). The **near-misses** are stub pairs with the same strict name and start date that were *not* merged, with the reason: `venue-differs`, `venue-unknown-one-side`, `venue-unknown-both`, `times-differ`, `name-too-short`. Read it for lookalikes the rule deliberately left apart (several "Christmas Market" listings in different places). A generic two-word name at the same venue and day from two curators still links, so spot-check the clusters before `--apply`.
 
+## AI-assisted review: the evidence export
+
+The daily AI review (design: `_bmad-output/specs/ai-dedup-review/DESIGN.md`) runs in a cloud session that has no database credentials. The **export** is how it sees the pending queue: a manual workflow prints, for the oldest pending suggestions, the evidence the deterministic rules computed plus the facts a reader needs. It only reads. The apply side (the only writer) is not built yet (`FIND-108`).
+
+*   **Code:** the contract and pure helpers (`packages/domain/src/events/dedup-review-evidence.ts`), the builder (`buildDedupReviewExport`, `apps/backend/src/lib/events/dedup-review-export.ts`, which reuses `evaluateBacklogRow` so the signals are exactly what ingestion decides), the CLI (`apps/backend/src/dedup-review-export.ts`) and the workflow (`.github/workflows/dedup-review-export.yml`).
+*   **Run it:** Actions, "Dedup Review Export", Run workflow. Inputs: `run_tag` (a label echoed in the run name and the output, so a caller can find its own run), `skip_ids` (suggestions already escalated, so the same stuck pairs do not fill the limit every day) and `limit` (1 to 50, default 30). From a shell, with a read-only URL:
+
+    ```bash
+    cd apps/backend
+    DATABASE_URL=<read-only url> BACKEND_PORT=4001 pnpm tsx src/dedup-review-export.ts --limit 30 [--skip-ids <uuid,uuid>] [--run-tag <tag>]
+    ```
+*   **Output:** one JSON line between `DEDUP_REVIEW_EXPORT_BEGIN` and `DEDUP_REVIEW_EXPORT_END`. `pairs` holds, per pending suggestion: the tier signals (`tier`, `scoredTier`, `score`, `promotedByRule`, `venueMatch`, `nameSimilarity`, `minDayDiff`, `organizerMatch`, `sharedLink`), `sameAccount`, `undoneMergeCount`, both events (name, slug, location, normalized links, detail level, categories, types, schedules, and the type of each source post's account) and `evidenceHash`. Also `totalPending`, `staleCount` (an event was deleted or merged away), `skippedCount`, `scanLimited` and `recentlyResolved` (the last 14 days, with `resolvedBy` of `reviewer`, `human`, `system` or `unknown`). A pair already at `high` is exported as such: the drain owns that case.
+*   **What it leaves out, on purpose:** the repo is public, so the log is world-readable. There are no usernames, account ids, captions or emails; a posting account becomes its type, "same account" a boolean, and links are lower-cased with the query string removed. The job summary holds counts only.
+*   **Why it cannot write:** the script runs inside a transaction set `READ ONLY`, so even a write-capable URL in the secret changes nothing.
+*   **`evidenceHash`:** SHA-256 of a canonical form of everything a reviewer sees, plus the suggestion's status and how many of its merges were later undone. `events.updatedAt` is not used: nothing sets it on enrichment or merge. The apply side will recompute the hash and skip a pair whose evidence changed.
+*   **Setup, once (GitHub settings; the owner does it):** an environment `dedup-review` with deployment branches limited to `master`; in it the secret `DEDUP_REVIEW_READONLY_DATABASE_URL`, the URL of a **read-only** role that **bypasses row level security** (every table the export reads has RLS, so a plain read-only role sees no rows: `backup_ro` is expected to work, `readonly_2` is expected not to, since migration 0084; neither is verified yet); optionally the repository variable `DEDUP_REVIEW_MODERATOR_EMAIL` so `recentlyResolved` can tell the reviewer's resolutions from a human's. Then run it once and check the line parses, holds no private data, and returns pairs (an empty result under a role that cannot see the tables looks like an empty queue, so compare `totalPending` with the moderator page).
+
 ## Re-extract preview (moderators)
 
 Shows what the **current** extraction and dedup logic would do with a post, and writes nothing. Spine **AD-40**.

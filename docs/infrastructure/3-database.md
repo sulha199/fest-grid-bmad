@@ -22,6 +22,10 @@ Every table in the `public` schema has row level security (RLS) enabled (migrati
 
 The manual Supabase and AWS steps for rolling this out are in [supabase-rls-and-kms-rollout.md](./supabase-rls-and-kms-rollout.md).
 
+## Read-only access for the dedup review export
+
+The [Dedup Review Export](../../.github/workflows/dedup-review-export.yml) workflow (`7-event-dedup.md`) reads the moderator queue for the AI reviewer. It reads `DEDUP_REVIEW_READONLY_DATABASE_URL` from the `dedup-review` environment, which must hold the URL of a **read-only role that bypasses RLS**: every table it reads has row level security, so a role without `BYPASSRLS` sees no rows and the export would look like an empty queue. `backup_ro` (above) fits; `readonly_2` is expected not to since migration 0084. This is a second consumer of the read role, so changing or rotating it means updating this secret too. The script also runs in a `READ ONLY` transaction, so a write-capable URL in the secret still cannot write. Do not put the owner role (the one the migration job uses) in this secret: its name says read-only.
+
 ## Backups
 
 The Supabase free plan has **no managed backups** (daily backups and point-in-time recovery need Pro), so the only backup is the nightly `pg_dump` run by the [Production DB Backup](../../.github/workflows/prod-db-backup.yml) GitHub Actions workflow. It also runs on demand (Actions → Production DB Backup → Run workflow).

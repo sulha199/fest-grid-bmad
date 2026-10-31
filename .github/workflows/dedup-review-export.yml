@@ -1,0 +1,116 @@
+name: Dedup Review Export
+
+# Names the run after the caller's tag, so a caller that dispatched this workflow can find its own run
+# (dispatching returns no run id).
+run-name: Dedup Review Export ${{ inputs.run_tag }}
+
+# AI-assisted dedup review, export side (design: _bmad-output/specs/ai-dedup-review/DESIGN.md, Piece B1).
+# Manual-only: prints the evidence for the oldest pending event_match_candidates rows as one JSON line
+# between DEDUP_REVIEW_EXPORT_BEGIN and DEDUP_REVIEW_EXPORT_END, for a reviewer that has no database
+# credentials of its own. It never writes: apps/backend/src/dedup-review-export.ts runs inside a
+# READ ONLY transaction, so even a write-capable URL in the secret below cannot change a row.
+#
+# THE REPO IS PUBLIC, so this run's log is world-readable. The export carries no usernames, account
+# ids, captions or emails; the job summary below holds counts only.
+#
+# One-time setup (the owner does this in GitHub; nothing here can create it):
+#   1. Settings -> Environments -> New environment `dedup-review`, with Deployment branches limited
+#      to `master`, so a pushed branch cannot run edited code against the secret.
+#   2. In that environment, add the secret DEDUP_REVIEW_READONLY_DATABASE_URL: the URL of an existing
+#      READ-ONLY role that BYPASSES row level security (every table the export reads has RLS, so a plain
+#      read-only role sees no rows and the export looks like an empty queue). `backup_ro` is expected to
+#      fit (docs/infrastructure/3-database.md); `readonly_2` is expected not to since migration 0084.
+#      Never the owner role: this secret's name is a promise.
+#   3. Optional: the repository variable DEDUP_REVIEW_MODERATOR_EMAIL (the dedicated reviewer
+#      moderator). With it, `recentlyResolved` can tell the reviewer's resolutions from a human's. The
+#      address is never printed.
+#   4. Run this workflow once from the Actions tab and check the line parses, holds no private data,
+#      and that the evidence query (pg_trgm similarity()) works under the role you chose.
+on:
+  workflow_dispatch:
+    inputs:
+      run_tag:
+        description: 'Optional label echoed in the run name and in the output (up to 64 letters, digits, ".", "_" or "-").'
+        required: false
+        type: string
+        default: ''
+      skip_ids:
+        description: 'Optional. Comma-separated suggestion uuids to leave out (the ones already escalated), up to 200.'
+        required: false
+        type: string
+        default: ''
+      limit:
+        description: 'How many pairs to export, 1 to 50.'
+        required: false
+        type: string
+        default: '30'
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    name: Export pending dedup suggestions (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dedup-review
+    concurrency:
+      group: dedup-review-export
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Workspace packages (@festgrid/database, @festgrid/domain) resolve to their gitignored dist/
+      # output, so the backend's dependencies must be built before the script can import them.
+      - name: Build the backend's workspace dependencies
+        run: pnpm --filter "backend^..." build
+
+      - name: Check the credential is configured
+        env:
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_READONLY_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::The 'dedup-review' environment has no DEDUP_REVIEW_READONLY_DATABASE_URL secret. See the setup steps at the top of this workflow."
+            exit 1
+          fi
+
+      - name: Export
+        env:
+          # loadBackendEnv() (run at import time by db/client.ts) requires this; the script never
+          # binds a port, so any valid number works.
+          BACKEND_PORT: '4001'
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_READONLY_DATABASE_URL }}
+          DEDUP_REVIEW_MODERATOR_EMAIL: ${{ vars.DEDUP_REVIEW_MODERATOR_EMAIL }}
+          # Inputs reach the script through the environment, never interpolated into the shell text;
+          # the script validates every one of them before it opens a database connection.
+          LIMIT: ${{ inputs.limit }}
+          SKIP_IDS: ${{ inputs.skip_ids }}
+          RUN_TAG: ${{ inputs.run_tag }}
+        run: |
+          set -euo pipefail
+          cd apps/backend
+          npx tsx src/dedup-review-export.ts --limit "$LIMIT" --skip-ids "$SKIP_IDS" --run-tag "$RUN_TAG" | tee "$RUNNER_TEMP/dedup-review-export.out"
+
+      # Counts only, from fixed keys. Never paste the export into the summary: names are untrusted text.
+      - name: Summarize the counts
+        run: |
+          {
+            echo '### Dedup Review Export'
+            echo ''
+            sed -n '2p' "$RUNNER_TEMP/dedup-review-export.out" | jq -r '"- run tag: `\(.runTag // "none")`", "- pending suggestions: \(.totalPending)", "- exported pairs: \(.pairs | length)", "- stale, dropped: \(.staleCount)", "- skipped by the caller: \(.skippedCount)", "- scan cap reached: \(.scanLimited)", "- resolved in the last 14 days: \(.recentlyResolved | length)"'
+          } >> "$GITHUB_STEP_SUMMARY"

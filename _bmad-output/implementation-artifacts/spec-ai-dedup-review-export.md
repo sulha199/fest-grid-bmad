@@ -2,7 +2,8 @@
 title: 'AI dedup review, piece B1: read-only export of pending suggestions as evidence JSON'
 type: 'feature'
 created: '2026-10-31'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: 'bb7a4fc509e4c13d4854c31e8931af41c8fcf7b3'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/project-context.md'
@@ -83,7 +84,7 @@ context:
 - **Why `READ ONLY` as well as a read-only role:** if the secret is ever set to the write URL by mistake, the export still cannot change a row.
 - **Why the hash is computed in the backend:** `packages/domain` has no `node:crypto` use; the domain builds the canonical string, the backend hashes it.
 - **Why `skip_ids` and a bounded scan:** escalated and stale pairs stay pending, so a fixed "oldest 30" would resend the same dead rows daily; the reviewer passes its open escalation ids, and the scan stops at a fixed cap (reported as `scanLimited`).
-- **First manual run proves:** that the chosen read-only role can run the evidence path, `similarity()` included (still unverified for `readonly_2` since migration 0084).
+- **First manual run proves:** that the chosen role can run the evidence path, `similarity()` included. Every table the export reads has row level security, so the role must bypass it: `backup_ro` is expected to work and `readonly_2` is expected to return nothing since migration 0084 (an empty result looks like an empty queue, so compare `totalPending` with the moderator page). Neither is verified.
 
 ## Verification
 
@@ -93,4 +94,4 @@ context:
 - `pnpm lint && pnpm build` -- expected: clean.
 
 **Manual checks (if no CLI):**
-- After merge, the owner creates the `dedup-review` environment (deployment branches limited to `master`) and the secret, dispatches the workflow once, and checks the line parses, holds no usernames or captions, and that `similarity()` worked under the chosen role.
+- After merge, the owner creates the `dedup-review` environment (deployment branches limited to `master`) and the secret (a read-only role that bypasses RLS), dispatches the workflow once, and checks the line parses, holds no usernames or captions, returns pairs, and that `similarity()` worked under the chosen role.

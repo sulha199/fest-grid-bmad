@@ -52,12 +52,13 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 | Piece | Scope | Ships | Depends on |
 |---|---|---|---|
 | **A** | Extract `resolveSuggestedMatch`, row lock, characterization tests, ratchet | Behaviour-preserving change to the live moderator mutation; fixes a latent race | none |
-| **B** | Domain contract, export, apply, two workflows, environment and moderator user, floor and caps, new AD, PRD amendment, docs | Dark: a human runs the workflows by dispatch, dry run first | A |
+| **B1** | Evidence contract and hash in `packages/domain`, the read-only export script and workflow, docs (`FIND-107`) | Dark: a human dispatches the export and reads the JSON. **Built 2026-10-31.** | A |
+| **B2** | Decision validator, floor and caps, apply script and workflow, environment and moderator wiring, new AD, PRD amendment (`FIND-108`) | Dark: a human dispatches it, `validate` before `apply` | B1 |
 | **C** | `SKILL.md`, labels, `dedup-insight` issue, shadow-mode acceptance | The daily skill | B on `master` |
 | C2 (later) | `review-insights` mode | Reads closed, labelled issues | weeks of C data |
 
-A+B may share a PR if wanted; C must follow B's merge (the skill dispatches B's workflows, which must exist on
-`master`).
+B was split into B1 and B2 on 2026-10-31 so the read-only half could be run against prod first. C must follow B2's
+merge (the skill dispatches both workflows, which must exist on `master`).
 
 ## 5. Requirements carried into B (from both reviews)
 
@@ -87,11 +88,18 @@ A+B may share a PR if wanted; C must follow B's merge (the skill dispatches B's 
 8. **Workflows**: export sets `DATABASE_URL` and `BACKEND_PORT: '4001'` (`env.ts` requires it); the workflow writes the
    decisions input to `$RUNNER_TEMP/decisions.json`; a `run_tag` input is echoed in `run-name` and the log so the
    skill can find its run (dispatch returns no run id); decisions input is at most 65,535 chars.
-9. **Credentials**: apply uses the write `DATABASE_URL` (say so in the AD; "no new credential" forbids a least-privilege
-   apply role, a recorded trade-off). Export: try `PROD_READONLY_DATABASE_URL` (`readonly_2`; doc 7 says it runs
-   `--evaluate-only`, but migration 0084 enabled RLS and doc `3-database.md` says `readonly_2` cannot read RLS tables)
-   before falling back to `PROD_BACKUP_DATABASE_URL` (`backup_ro`: BYPASSRLS, broader than needed). Verify
-   `similarity()` works under the chosen role with a manual dry export. **Unresolved with the owner.**
+9. **Credentials** (decided with the owner 2026-10-31). Export (B1, built): the secret `DEDUP_REVIEW_READONLY_DATABASE_URL`
+   in the `dedup-review` environment, holding the URL of a read-only role that **bypasses RLS** (every table it reads has
+   RLS, so a plain read-only role sees no rows): `backup_ro` is expected to work and `readonly_2` is expected not to since
+   migration 0084; neither is verified, and the first manual run settles it. The script also runs in a `READ ONLY`
+   transaction. Apply (B2): the **owner's suggestion is to reuse the DB user the migration job uses**, which is
+   `secrets.DATABASE_URL` in the `production` environment (the table owner, bypasses RLS, can also run DDL). It is
+   acceptable for v1 because the protections sit elsewhere: the dedicated `dedup-review` environment limited to `master`,
+   ACCEPT-only decisions, the per-run and per-day caps and the kill switch. It means copying that secret into the
+   `dedup-review` environment (or accepting the `production` environment's protection rules). A narrow role stays the
+   better long-term option and costs a role, grants on about nine tables, `BYPASSRLS` and a secret. B2 also gets two modes:
+   `validate` (default; runs every check on the read-only secret and runs no merge) and `apply` (the write secret), so
+   shadow mode never touches the write credential.
 10. **Docs and decisions**: a NEW AD (next free number after AD-44) for the credential-less-agent-through-CI-bridge
     pattern, with a one-line cross-reference in AD-30 Rule 9; a PRD amendment (the PRD says a moderator approves mid
     pairs; add the PRD to the spec's context); `docs/infrastructure/3-database.md` (second consumer of the read role);
