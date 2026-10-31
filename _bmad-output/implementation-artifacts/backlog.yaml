@@ -2649,12 +2649,12 @@ items:
 
   # ── 2026-10-31 (prod: logged-in Discovery lists events up to 7 days after they ended) ──
   BUG-095:
-    {type: bug, status: backlog, created: 2026-10-31,
+    {type: bug, status: done, created: 2026-10-31,
      impact: user-visible, effort: s,
      title: "Migration 0056 skipped on prod: logged-in users still get a 7-day past-event grace window",
      ref: [packages/database/migrations/0086_bug_095_reapply_skipped_0056_past_events_default.sql, packages/database/migrations-journal-order.ratchet.test.ts, backlog/BUG-095-migration-0056-skipped-on-prod.md],
      touches: [pkg:database, web:events, web:settings],
-     note: "Fixed in the PR that adds this row (0086 re-applies 0056, plus a journal-order ratchet); set done once merged and db-migrate has run on prod."}
+     note: "Fixed in PR #123 (0086 re-applies 0056, plus a journal-order ratchet). db-migrate ran green on prod 2026-10-31 and the column default then read 0; the 7 -> 0 row backfill could not be read back (readonly_2 is blind under RLS), so confirm by reloading logged-in Discovery."}
 
   BUG-096:
     {type: bug, status: backlog, created: 2026-10-31,
