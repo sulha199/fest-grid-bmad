@@ -2654,3 +2654,11 @@ items:
      ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lambdas/scraper.test.ts],
      touches: [app:backend],
      note: "Deferred from: bmad-quick-dev gate after merging master into the shared accept/reject change (2026-10-30). Sandbox-only: CI passes it, master's source fails it here too; cause unknown. 1 finding."}
+
+  FIND-109:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: compliance, effort: s,
+     title: "Workflows with database or cloud secrets run dependency install scripts and tag-pinned third-party actions before the secret step",
+     ref: [implementation-artifacts/deferred-work.md, .github/workflows/merge-twin-profiles.yml],
+     touches: [app:infrastructure, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Install with --ignore-scripts where possible and pin actions by SHA. 1 finding."}

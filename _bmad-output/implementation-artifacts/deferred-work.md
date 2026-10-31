@@ -821,3 +821,9 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: none
   summary: Piece B2 of the AI-assisted dedup review: the apply side -- the decision validator, per-run and per-day caps and deterministic floor (in `packages/domain`), the apply script and its `validate`/`apply` workflow, the dedicated `dedup-review` environment and moderator account wiring, the new AD, the PRD amendment, `3-database.md` and the runbook.
   evidence: Split from Piece B1 (the read-only export side) at the multi-goal check: B1 is shippable and verifiable alone by running it once on prod, which also settles the read-only role and `similarity()` question, while B2 is the only write path. Requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 5 (items 1, 3 and 5 to 11). Depends on B1's evidence hash and contract.
+
+## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-export.md`
+  summary: Every workflow that holds a database or cloud secret runs `pnpm install --frozen-lockfile` (dependency lifecycle scripts) and third-party actions pinned by tag before the step that uses the secret, so install-time code could read or misuse it.
+  evidence: Surfaced by Blind Hunter on the new export workflow, which follows the same pattern as `merge-twin-profiles.yml` and the backfill workflows (the older ones hold the full-privilege `DATABASE_URL`). Fix across all workflows: `pnpm install --ignore-scripts` where the build allows it, pin actions by commit SHA, and keep secrets out of any step that runs before the install.

@@ -8,24 +8,34 @@ run-name: Dedup Review Export ${{ inputs.run_tag }}
 # Manual-only: prints the evidence for the oldest pending event_match_candidates rows as one JSON line
 # between DEDUP_REVIEW_EXPORT_BEGIN and DEDUP_REVIEW_EXPORT_END, for a reviewer that has no database
 # credentials of its own. It never writes: apps/backend/src/dedup-review-export.ts runs inside a
-# READ ONLY transaction, so even a write-capable URL in the secret below cannot change a row.
+# REPEATABLE READ, READ ONLY transaction, so even a write-capable URL in the secret below cannot change
+# a row, and the whole export sees one consistent snapshot.
 #
-# THE REPO IS PUBLIC, so this run's log is world-readable. The export carries no usernames, account
-# ids, captions or emails; the job summary below holds counts only.
+# THE REPO IS PUBLIC, so this run's log is world-readable, and Actions keeps logs for 90 days by
+# default. The export reads no account username, account id, caption or email. It does pass event text
+# through as stored (names, locations, schedule titles, link paths), which is already public on the
+# event pages; links lose their query string. An unexpected error prints only its class and code. The
+# job summary holds counts only. Repository variables are NOT masked, so if the reviewer address in
+# DEDUP_REVIEW_MODERATOR_EMAIL must never appear in a log, store it as a secret instead and change the
+# `vars.` reference below to `secrets.` (re-running with step debug logging would print a variable).
 #
 # One-time setup (the owner does this in GitHub; nothing here can create it):
 #   1. Settings -> Environments -> New environment `dedup-review`, with Deployment branches limited
 #      to `master`, so a pushed branch cannot run edited code against the secret.
 #   2. In that environment, add the secret DEDUP_REVIEW_READONLY_DATABASE_URL: the URL of an existing
 #      READ-ONLY role that BYPASSES row level security (every table the export reads has RLS, so a plain
-#      read-only role sees no rows and the export looks like an empty queue). `backup_ro` is expected to
-#      fit (docs/infrastructure/3-database.md); `readonly_2` is expected not to since migration 0084.
-#      Never the owner role: this secret's name is a promise.
+#      read-only role sees no rows). The export refuses a role that cannot bypass it, so it never passes
+#      for an empty queue. `backup_ro` is expected to fit (docs/infrastructure/3-database.md);
+#      `readonly_2` is expected not to since migration 0084. Never the owner role: this secret's name is
+#      a promise.
 #   3. Optional: the repository variable DEDUP_REVIEW_MODERATOR_EMAIL (the dedicated reviewer
 #      moderator). With it, `recentlyResolved` can tell the reviewer's resolutions from a human's. The
 #      address is never printed.
 #   4. Run this workflow once from the Actions tab and check the line parses, holds no private data,
-#      and that the evidence query (pg_trgm similarity()) works under the role you chose.
+#      and that the evidence query (pg_trgm similarity()) works under the role you chose. Compare
+#      `pending suggestions` in the summary with the moderator page.
+# The job only runs from `master`; that is a convenience against an accidental dispatch from another ref,
+# not a security control (a branch can edit this file). The environment's branch rule in step 1 is.
 on:
   workflow_dispatch:
     inputs:
@@ -52,10 +62,13 @@ jobs:
   export:
     name: Export pending dedup suggestions (read-only)
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
     timeout-minutes: 15
     environment: dedup-review
+    # One group per run_tag: with a single fixed group GitHub keeps one pending run and cancels older
+    # pending ones, which would silently drop a caller's tagged run.
     concurrency:
-      group: dedup-review-export
+      group: dedup-review-export-${{ inputs.run_tag }}
       cancel-in-progress: false
     steps:
       - name: Checkout Repository
@@ -104,13 +117,20 @@ jobs:
         run: |
           set -euo pipefail
           cd apps/backend
-          npx tsx src/dedup-review-export.ts --limit "$LIMIT" --skip-ids "$SKIP_IDS" --run-tag "$RUN_TAG" | tee "$RUNNER_TEMP/dedup-review-export.out"
+          pnpm exec tsx src/dedup-review-export.ts --limit "$LIMIT" --skip-ids "$SKIP_IDS" --run-tag "$RUN_TAG" | tee "$RUNNER_TEMP/dedup-review-export.out"
 
       # Counts only, from fixed keys. Never paste the export into the summary: names are untrusted text.
       - name: Summarize the counts
         run: |
+          set -euo pipefail
+          # The JSON is the line between the markers, wherever the output puts it.
+          json=$(awk '/^DEDUP_REVIEW_EXPORT_BEGIN$/ {inside=1; next} /^DEDUP_REVIEW_EXPORT_END$/ {inside=0} inside' "$RUNNER_TEMP/dedup-review-export.out")
+          if [ -z "$json" ]; then
+            echo "::error::The export printed no line between its markers, so there is nothing to summarize."
+            exit 1
+          fi
           {
             echo '### Dedup Review Export'
             echo ''
-            sed -n '2p' "$RUNNER_TEMP/dedup-review-export.out" | jq -r '"- run tag: `\(.runTag // "none")`", "- pending suggestions: \(.totalPending)", "- exported pairs: \(.pairs | length)", "- stale, dropped: \(.staleCount)", "- skipped by the caller: \(.skippedCount)", "- scan cap reached: \(.scanLimited)", "- resolved in the last 14 days: \(.recentlyResolved | length)"'
+            printf '%s\n' "$json" | jq -r '"- run tag: `\(.runTag // "none")`", "- pending suggestions: \(.totalPending)", "- exported pairs: \(.pairs | length)", "- stale, dropped: \(.staleCount)", "- skipped by the caller: \(.skippedCount)", "- scan cap reached: \(.scanLimited)", "- resolved in the last 14 days: \(.recentlyResolved | length) (more existed: \(.recentlyResolvedTruncated))"'
           } >> "$GITHUB_STEP_SUMMARY"

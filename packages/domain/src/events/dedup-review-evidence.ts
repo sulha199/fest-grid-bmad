@@ -21,11 +21,19 @@ export const DEDUP_REVIEW_MAX_SKIP_IDS = 200;
 export const DEDUP_REVIEW_SCAN_CAP = 300;
 /** `recentlyResolved` covers suggestions resolved within this many days. */
 export const DEDUP_REVIEW_RECENT_DAYS = 14;
+/** `recentlyResolved` holds at most this many; `recentlyResolvedTruncated` says when more existed. */
+export const DEDUP_REVIEW_RECENT_LIMIT = 200;
 
 export type DedupReviewAccountType = 'ORGANIZER_VENUE_EVENT' | 'PERSONAL' | 'CURATOR_GUIDE' | 'UNCLASSIFIED';
 
-/** `UNCLASSIFIED` stands for an account that has never been classified. */
-export function toDedupReviewAccountType(value: string | null | undefined): DedupReviewAccountType {
+/**
+ * `UNCLASSIFIED` stands for an account that has never been classified, or whose AI-proposed type is
+ * still `AWAITING_APPROVAL` (a guess, not a decision, so it must not read as a fact).
+ */
+export function toDedupReviewAccountType(value: string | null | undefined, status?: string | null): DedupReviewAccountType {
+  if (status === 'AWAITING_APPROVAL') {
+    return 'UNCLASSIFIED';
+  }
   return value === 'ORGANIZER_VENUE_EVENT' || value === 'PERSONAL' || value === 'CURATOR_GUIDE' ? value : 'UNCLASSIFIED';
 }
 
@@ -114,14 +122,16 @@ export interface DedupReviewExportReport {
   limit: number;
   /** Every pending suggestion, whether or not this run looked at it. */
   totalPending: number;
-  /** Looked at and dropped because an event was deleted or merged away. */
+  /** Stale rows (an event deleted or merged away) among the rows this run scanned; the scan stops once the limit is filled. */
   staleCount: number;
-  /** Looked at and dropped because the caller asked to skip it. */
+  /** Pending suggestions named in `skip_ids`: queue-wide, and they never use up the scan cap. */
   skippedCount: number;
-  /** True when the scan cap was reached before the limit was filled. */
+  /** True when rows were left unscanned at the scan cap before the limit was filled. */
   scanLimited: boolean;
   pairs: DedupReviewExportPair[];
   recentlyResolved: DedupReviewResolvedSuggestion[];
+  /** True when more than `DEDUP_REVIEW_RECENT_LIMIT` suggestions were resolved in the window. */
+  recentlyResolvedTruncated: boolean;
 }
 
 /**

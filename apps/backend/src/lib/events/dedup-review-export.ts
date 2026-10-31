@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, ne, notInArray, sql } from 'drizzle-orm';
 import { eventMatchCandidates, eventMerges, eventPosts, events, posts, schedules, socialMediaAccountProfiles, users } from '@festgrid/database';
 import {
   DEDUP_REVIEW_RECENT_DAYS,
+  DEDUP_REVIEW_RECENT_LIMIT,
   DEDUP_REVIEW_SCAN_CAP,
   canonicalizeDedupEvidence,
   classifyDedupReviewResolvedBy,
@@ -15,6 +16,7 @@ import {
   type DedupReviewPairEvidence,
 } from '@festgrid/domain/events';
 import type { db as appDb } from '../../db/client.js';
+import { DedupReviewReviewerError, DedupReviewRoleError } from './dedup-review-errors.js';
 import { evaluateBacklogRow, type BacklogEvaluation } from './drain-match-backlog.js';
 import type { DbExecutor } from './set-event-primary-post.js';
 
@@ -24,12 +26,15 @@ import type { DbExecutor } from './set-event-primary-post.js';
  * Builds the evidence a reviewer needs for the oldest pending `event_match_candidates` rows, without
  * writing anything. The tier signals come from `evaluateBacklogRow` (so they are exactly what
  * ingestion's `decideMatchTier` says); this file adds the event, schedule and source-post facts and
- * the evidence hash. The repo is public and so are Actions logs: no username, account id, caption or
- * email is read into the output (a posting account becomes its type, "same account" a boolean).
+ * the evidence hash.
+ *
+ * The repo is public and so are Actions logs. Nothing from an account row (username, account id) or
+ * a caption is read into the output; a posting account becomes its type and "same account" a
+ * boolean. Event text (names, locations, schedule titles, link paths) is passed through as stored:
+ * it is already public on the event pages.
  */
 
 const SCAN_BATCH = 50;
-const RECENTLY_RESOLVED_LIMIT = 100;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface BuildDedupReviewExportOptions {
@@ -41,32 +46,58 @@ export interface BuildDedupReviewExportOptions {
   now?: Date;
   /** Tests only: how many pending rows one export may look at (default `DEDUP_REVIEW_SCAN_CAP`). */
   scanCap?: number;
+  /** Tests only: how many resolved suggestions to list (default `DEDUP_REVIEW_RECENT_LIMIT`). */
+  recentLimit?: number;
   /** Tests only: restricts the scan to these suggestions (the shared dev DB holds others). */
   onlySuggestionIds?: string[];
 }
 
 /**
- * Runs `work` inside a transaction set `READ ONLY`, whatever credential the connection uses: if the
- * secret is ever pointed at a write-capable role by mistake, the export still cannot change a row.
+ * Runs `work` in one snapshot that cannot write: `REPEATABLE READ, READ ONLY`. Read only means that
+ * even a write-capable credential changes nothing if the secret is ever pointed at one by mistake;
+ * repeatable read means the whole export, its paging included, sees one consistent state while
+ * moderators and ingestion keep working.
  */
 export async function runInReadOnlyTransaction<T>(database: Pick<typeof appDb, 'transaction'>, work: (executor: DbExecutor) => Promise<T>): Promise<T> {
   return database.transaction(async (tx) => {
-    await tx.execute(sql`SET TRANSACTION READ ONLY`);
+    await tx.execute(sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY`);
     return work(tx);
   });
 }
 
-/** Resolves the reviewer's `users.id` from its email; the email itself is never printed. */
+/**
+ * Every table the export reads has row level security, so a role that cannot bypass it sees no rows
+ * and the export would read as an empty queue, which a daily reviewer would trust. Refuse instead.
+ */
+export async function assertRoleBypassesRls(executor: DbExecutor): Promise<void> {
+  const rows = (await executor.execute(sql`SELECT (rolbypassrls OR rolsuper) AS bypass FROM pg_roles WHERE rolname = current_user`)) as unknown as Array<{
+    bypass: boolean;
+  }>;
+  if (rows[0]?.bypass !== true) {
+    throw new DedupReviewRoleError(
+      'The database role cannot bypass row level security, so every table would look empty and the export would pass for an empty queue. Put the URL of a read-only role with BYPASSRLS in DEDUP_REVIEW_READONLY_DATABASE_URL (docs/infrastructure/3-database.md).'
+    );
+  }
+}
+
+/** Resolves the reviewer's `users.id` from its email (case-insensitive, active moderators only); the email itself is never printed. */
 export async function resolveReviewerUserId(executor: DbExecutor, email: string): Promise<string> {
   const [reviewer] = await executor
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.email, email), eq(users.role, 'moderator')))
+    .where(and(sql`lower(${users.email}) = ${email.toLowerCase()}`, eq(users.role, 'moderator'), isNull(users.deletedAt)))
     .limit(1);
   if (!reviewer) {
-    throw new Error('The dedup reviewer account was not found among moderators. Check the DEDUP_REVIEW_MODERATOR_EMAIL repository variable.');
+    throw new DedupReviewReviewerError(
+      'The dedup reviewer account was not found among active moderators. Check the DEDUP_REVIEW_MODERATOR_EMAIL repository variable.'
+    );
   }
   return reviewer.id;
+}
+
+/** The hash the apply side recomputes: SHA-256 (hex) of the canonical evidence string built in `packages/domain`. */
+export function hashDedupReviewEvidence(evidence: DedupReviewPairEvidence): string {
+  return createHash('sha256').update(canonicalizeDedupEvidence(evidence)).digest('hex');
 }
 
 async function loadEventEvidence(executor: DbExecutor, eventId: string): Promise<{ evidence: DedupReviewEventEvidence; accountIds: Set<string> }> {
@@ -82,13 +113,22 @@ async function loadEventEvidence(executor: DbExecutor, eventId: string): Promise
       accountId: posts.accountId,
       publishedAt: posts.publishedAt,
       accountType: socialMediaAccountProfiles.accountType,
+      accountTypeStatus: socialMediaAccountProfiles.accountTypeStatus,
     })
     .from(eventPosts)
     .innerJoin(posts, eq(posts.id, eventPosts.postId))
     .leftJoin(socialMediaAccountProfiles, eq(socialMediaAccountProfiles.id, posts.accountId))
     .where(eq(eventPosts.eventId, eventId));
 
-  const links = [...new Set((event.links ?? []).map((link) => normalizeEventLinkUrl(link.url)).filter((url) => url.length > 0))];
+  // A link row in production can lack a usable `url` (the match scoring tolerates that too), so each
+  // entry is checked instead of trusting the declared type.
+  const links = [
+    ...new Set(
+      (event.links ?? [])
+        .flatMap((link) => (typeof link?.url === 'string' ? [normalizeEventLinkUrl(link.url)] : []))
+        .filter((url) => url.length > 0)
+    ),
+  ];
 
   return {
     evidence: {
@@ -111,7 +151,7 @@ async function loadEventEvidence(executor: DbExecutor, eventId: string): Promise
       })),
       sourcePosts: linkedPosts.map((p) => ({
         isPrimary: p.postId === event.postId,
-        accountType: toDedupReviewAccountType(p.accountType),
+        accountType: toDedupReviewAccountType(p.accountType, p.accountTypeStatus),
         publishedAt: p.publishedAt ? p.publishedAt.toISOString() : null,
       })),
     },
@@ -151,31 +191,36 @@ async function buildPair(executor: DbExecutor, evaluation: BacklogEvaluation): P
     newEvent: newEvent.evidence,
   };
 
-  return { ...evidence, evidenceHash: createHash('sha256').update(canonicalizeDedupEvidence(evidence)).digest('hex') };
+  return { ...evidence, evidenceHash: hashDedupReviewEvidence(evidence) };
 }
 
-/** Looks at pending suggestions oldest first, dropping stale and skipped ones, until `limit` pairs are built or the scan cap is reached. */
+/**
+ * Looks at pending suggestions oldest first, dropping stale ones, until `limit` pairs are built or
+ * the scan cap is reached. Ids in `skipIds` are filtered out in the query, so they never use up the
+ * scan cap, and are counted separately so the count is queue-wide.
+ */
 export async function buildDedupReviewExport(executor: DbExecutor, options: BuildDedupReviewExportOptions): Promise<DedupReviewExportReport> {
+  await assertRoleBypassesRls(executor);
+
   const now = options.now ?? new Date();
   const scanCap = options.scanCap ?? DEDUP_REVIEW_SCAN_CAP;
-  const skip = new Set(options.skipIds);
+  const recentLimit = options.recentLimit ?? DEDUP_REVIEW_RECENT_LIMIT;
   const only = options.onlySuggestionIds;
+  const pendingScope = and(eq(eventMatchCandidates.status, 'pending'), only ? inArray(eventMatchCandidates.id, only) : undefined);
 
-  const [{ total }] = await executor
-    .select({ total: count() })
-    .from(eventMatchCandidates)
-    .where(eq(eventMatchCandidates.status, 'pending'));
+  const [{ total }] = await executor.select({ total: count() }).from(eventMatchCandidates).where(eq(eventMatchCandidates.status, 'pending'));
 
-  const pairs: DedupReviewExportPair[] = [];
-  let scanned = 0;
-  let staleCount = 0;
   let skippedCount = 0;
-  let offset = 0;
-  let exhausted = false;
-  let unscanned = false;
-
-  while (pairs.length < options.limit && scanned < scanCap && !exhausted) {
-    const batch = await executor
+  if (options.skipIds.length > 0) {
+    const [{ skipped }] = await executor
+      .select({ skipped: count() })
+      .from(eventMatchCandidates)
+      .where(and(pendingScope, inArray(eventMatchCandidates.id, options.skipIds)));
+    skippedCount = Number(skipped);
+  }
+  const scanScope = and(pendingScope, options.skipIds.length > 0 ? notInArray(eventMatchCandidates.id, options.skipIds) : undefined);
+  const scanPage = (offset: number, pageSize: number) =>
+    executor
       .select({
         id: eventMatchCandidates.id,
         eventId: eventMatchCandidates.eventId,
@@ -184,10 +229,20 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
         score: eventMatchCandidates.score,
       })
       .from(eventMatchCandidates)
-      .where(and(eq(eventMatchCandidates.status, 'pending'), only ? inArray(eventMatchCandidates.id, only) : undefined))
+      .where(scanScope)
       .orderBy(asc(eventMatchCandidates.createdAt), asc(eventMatchCandidates.id))
-      .limit(SCAN_BATCH)
+      .limit(pageSize)
       .offset(offset);
+
+  const pairs: DedupReviewExportPair[] = [];
+  let scanned = 0;
+  let staleCount = 0;
+  let offset = 0;
+  let exhausted = false;
+  let unscanned = false;
+
+  while (pairs.length < options.limit && scanned < scanCap && !exhausted) {
+    const batch = await scanPage(offset, SCAN_BATCH);
     exhausted = batch.length < SCAN_BATCH;
     offset += batch.length;
 
@@ -197,10 +252,6 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
         break;
       }
       scanned++;
-      if (skip.has(row.id)) {
-        skippedCount++;
-        continue;
-      }
       const evaluation = await evaluateBacklogRow(executor, row);
       if (evaluation.kind === 'stale') {
         staleCount++;
@@ -208,6 +259,11 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
       }
       pairs.push(await buildPair(executor, evaluation));
     }
+  }
+
+  // The scan can stop on a full page with nothing after it, so ask whether a next row really exists.
+  if (pairs.length < options.limit && !unscanned && !exhausted) {
+    unscanned = (await scanPage(offset, 1)).length > 0;
   }
 
   const cutoff = new Date(now.getTime() - DEDUP_REVIEW_RECENT_DAYS * DAY_MS);
@@ -221,7 +277,7 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
     .from(eventMatchCandidates)
     .where(and(ne(eventMatchCandidates.status, 'pending'), isNotNull(eventMatchCandidates.resolvedAt), gte(eventMatchCandidates.resolvedAt, cutoff)))
     .orderBy(desc(eventMatchCandidates.resolvedAt))
-    .limit(RECENTLY_RESOLVED_LIMIT);
+    .limit(recentLimit + 1);
 
   return {
     schemaVersion: 1,
@@ -231,9 +287,9 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
     totalPending: Number(total),
     staleCount,
     skippedCount,
-    scanLimited: pairs.length < options.limit && (unscanned || !exhausted),
+    scanLimited: pairs.length < options.limit && unscanned,
     pairs,
-    recentlyResolved: resolved.flatMap((row) =>
+    recentlyResolved: resolved.slice(0, recentLimit).flatMap((row) =>
       row.status === 'pending' || row.resolvedAt === null
         ? []
         : [
@@ -249,5 +305,6 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
             },
           ]
     ),
+    recentlyResolvedTruncated: resolved.length > recentLimit,
   };
 }

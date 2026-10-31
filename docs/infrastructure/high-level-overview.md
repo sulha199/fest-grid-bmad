@@ -100,5 +100,6 @@ graph TD
     GHA_Backup -- uploads the dump --> S3_Backup
     S3_Backup -- newest dump --> GHA_Restore
     GHA_Restore -- read-only row and object counts --> Supabase
+    GHA_DedupExport -- read-only evidence queries, READ ONLY transaction --> Supabase
 ```
 

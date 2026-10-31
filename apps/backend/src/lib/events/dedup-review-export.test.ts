@@ -1,7 +1,6 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
-import { createHash } from 'node:crypto';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { count, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import {
   socialMediaAccountProfiles,
@@ -14,8 +13,16 @@ import {
   postAccountAssociations,
   users,
 } from '@festgrid/database';
-import { canonicalizeDedupEvidence, type DedupReviewPairEvidence } from '@festgrid/domain/events';
-import { buildDedupReviewExport, resolveReviewerUserId, runInReadOnlyTransaction } from './dedup-review-export.js';
+import type { DedupReviewPairEvidence } from '@festgrid/domain/events';
+import { DedupReviewReviewerError, DedupReviewRoleError } from './dedup-review-errors.js';
+import {
+  assertRoleBypassesRls,
+  buildDedupReviewExport,
+  hashDedupReviewEvidence,
+  resolveReviewerUserId,
+  runInReadOnlyTransaction,
+} from './dedup-review-export.js';
+import type { DbExecutor } from './set-event-primary-post.js';
 
 test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
   const suffix = Date.now() + '-ddrx';
@@ -33,6 +40,17 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
   const [otherAccount] = await db
     .insert(socialMediaAccountProfiles)
     .values({ accountId: 'acc-ddrx-other-' + suffix, platform: 'instagram', displayName: 'Export Other', username: OTHER_USERNAME, accountType: 'PERSONAL' })
+    .returning();
+  const [awaitingAccount] = await db
+    .insert(socialMediaAccountProfiles)
+    .values({
+      accountId: 'acc-ddrx-awaiting-' + suffix,
+      platform: 'instagram',
+      displayName: 'Export Awaiting',
+      username: 'pii_awaiting_' + suffix,
+      accountType: 'PERSONAL',
+      accountTypeStatus: 'AWAITING_APPROVAL',
+    })
     .returning();
   const [reviewer] = await db.insert(users).values({ email: REVIEWER_EMAIL, name: 'Reviewer', role: 'moderator' }).returning();
   const [human] = await db.insert(users).values({ email: HUMAN_EMAIL, name: 'Human', role: 'moderator' }).returning();
@@ -55,7 +73,7 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
       await db.delete(posts).where(inArray(posts.id, postIds));
     }
     await db.delete(users).where(inArray(users.id, [reviewer.id, human.id, plainUser.id]));
-    await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, [account.id, otherAccount.id]));
+    await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, [account.id, otherAccount.id, awaitingAccount.id]));
   });
 
   let counter = 0;
@@ -133,6 +151,8 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.strictEqual(report.scanLimited, false);
     assert.strictEqual(report.runTag, 'test-run');
     assert.strictEqual(report.schemaVersion, 1);
+    const [{ pending }] = await db.select({ pending: count() }).from(eventMatchCandidates).where(eq(eventMatchCandidates.status, 'pending'));
+    assert.strictEqual(report.totalPending, Number(pending), 'totalPending is the whole pending queue, counted independently');
     assert.ok(report.totalPending >= pendingIds.length);
 
     const first = report.pairs[0];
@@ -167,8 +187,8 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.strictEqual(withUndo.undoneMergeCount, 1);
 
     const { evidenceHash, ...evidence } = withUndo;
-    const recomputed = (e: DedupReviewPairEvidence) => createHash('sha256').update(canonicalizeDedupEvidence(e)).digest('hex');
-    assert.strictEqual(recomputed(evidence), evidenceHash, 'the hash is the SHA-256 of the canonical evidence');
+    const recomputed = (e: DedupReviewPairEvidence) => hashDedupReviewEvidence(e);
+    assert.strictEqual(recomputed(evidence), evidenceHash, 'the apply side recomputes the same hash from the evidence');
     assert.notStrictEqual(recomputed({ ...evidence, undoneMergeCount: 0 }), evidenceHash);
   });
 
@@ -193,6 +213,26 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.strictEqual(report.staleCount, 0);
   });
 
+  await t.test('a skipped id is counted queue-wide even when the limit fills before the scan reaches it', async () => {
+    const report = await buildDedupReviewExport(db, { ...base, limit: 1, skipIds: [undone.suggestion.id] });
+    assert.deepStrictEqual(
+      report.pairs.map((p) => p.suggestionId),
+      [high.suggestion.id]
+    );
+    assert.strictEqual(report.skippedCount, 1, 'counted although it sits after the pair that filled the limit');
+  });
+
+  await t.test('skipped ids never use up the scan cap', async () => {
+    const report = await buildDedupReviewExport(db, { ...base, skipIds: [high.suggestion.id, stranger.suggestion.id], scanCap: 2 });
+    assert.deepStrictEqual(
+      report.pairs.map((p) => p.suggestionId),
+      [undone.suggestion.id],
+      'the cap of 2 went to the stale row and the one pair, not to the two skipped ids'
+    );
+    assert.strictEqual(report.staleCount, 1);
+    assert.strictEqual(report.scanLimited, false);
+  });
+
   await t.test('the limit holds, and the scan cap is reported when it stops the scan short', async () => {
     const limited = await buildDedupReviewExport(db, { ...base, limit: 2 });
     assert.deepStrictEqual(
@@ -204,6 +244,41 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     const capped = await buildDedupReviewExport(db, { ...base, scanCap: 1 });
     assert.strictEqual(capped.pairs.length, 1);
     assert.strictEqual(capped.scanLimited, true);
+
+    const [{ pending }] = await db.select({ pending: count() }).from(eventMatchCandidates).where(eq(eventMatchCandidates.status, 'pending'));
+    assert.strictEqual(limited.totalPending, Number(pending), 'totalPending stays the whole queue when the limit cuts the list short');
+
+    const exactCap = await buildDedupReviewExport(db, { ...base, scanCap: pendingIds.length });
+    assert.strictEqual(exactCap.pairs.length, 3);
+    assert.strictEqual(exactCap.staleCount, 1);
+    assert.strictEqual(exactCap.scanLimited, false, 'the cap equals the number of rows, so nothing was left unscanned');
+  });
+
+  await t.test('a pair whose new event was merged away is stale too, not only a deleted one', async () => {
+    const mergedAway = await makePair('Merged Away Meetup', '2026-12-15');
+    await db.update(events).set({ mergedIntoEventId: mergedAway.candidate.event.id }).where(eq(events.id, mergedAway.newSide.event.id));
+
+    const report = await buildDedupReviewExport(db, { ...base, onlySuggestionIds: [mergedAway.suggestion.id] });
+    assert.deepStrictEqual(report.pairs, []);
+    assert.strictEqual(report.staleCount, 1);
+  });
+
+  await t.test('an event link without a usable url does not stop the export', async () => {
+    const odd = await makePair('Odd Link Fair', '2026-12-16');
+    await db.update(events).set({ links: [{ label: 'no url here' }, { url: '' }, { url: null }] as never }).where(eq(events.id, odd.candidate.event.id));
+
+    const report = await buildDedupReviewExport(db, { ...base, onlySuggestionIds: [odd.suggestion.id] });
+    assert.strictEqual(report.pairs.length, 1);
+    assert.deepStrictEqual(report.pairs[0].candidate.links, []);
+  });
+
+  await t.test('an account type still awaiting approval is exported as UNCLASSIFIED, a confirmed one as itself', async () => {
+    const awaiting = await makePair('Awaiting Type Fair', '2026-12-17', { newAccountId: awaitingAccount.id });
+
+    const report = await buildDedupReviewExport(db, { ...base, onlySuggestionIds: [awaiting.suggestion.id, stranger.suggestion.id] });
+    const byId = new Map(report.pairs.map((p) => [p.suggestionId, p]));
+    assert.strictEqual(byId.get(awaiting.suggestion.id)?.newEvent.sourcePosts[0].accountType, 'UNCLASSIFIED');
+    assert.strictEqual(byId.get(stranger.suggestion.id)?.newEvent.sourcePosts[0].accountType, 'PERSONAL');
   });
 
   await t.test('an empty queue still gives a valid report', async () => {
@@ -234,13 +309,19 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.strictEqual(resolved.has(oldPair.suggestion.id), false, 'older than 14 days');
     assert.ok(report.pairs.every((p) => p.status === 'pending'));
 
+    assert.strictEqual(report.recentlyResolvedTruncated, false);
+    const truncated = await buildDedupReviewExport(db, { ...base, recentLimit: 2 });
+    assert.strictEqual(truncated.recentlyResolved.length, 2);
+    assert.strictEqual(truncated.recentlyResolvedTruncated, true, 'more were resolved than the list holds, and the report says so');
+
     const withoutReviewer = await buildDedupReviewExport(db, { ...base, reviewerUserId: null });
     assert.strictEqual(withoutReviewer.recentlyResolved.find((r) => r.suggestionId === reviewerPair.suggestion.id)?.resolvedBy, 'unknown');
   });
 
-  await t.test('the output holds no username, caption, link token or email', async () => {
+  await t.test('the output holds no account username or id, caption, link query token or email; event text is passed through as stored', async () => {
     const report = await buildDedupReviewExport(db, base);
     const text = JSON.stringify(report);
+    assert.ok(text.includes(`Mall Anniversary Sale ${suffix}`), 'event names are public event text and go out verbatim');
     for (const secret of [USERNAME, OTHER_USERNAME, CAPTION, TOKEN, REVIEWER_EMAIL, HUMAN_EMAIL, account.accountId, account.id]) {
       assert.ok(!text.includes(secret), `the output must not contain ${secret.slice(0, 12)}...`);
     }
@@ -249,10 +330,11 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
   await t.test('the export transaction is read only: reads work and a write is refused', async () => {
     const mode = await runInReadOnlyTransaction(db, async (tx) => {
       const [row] = (await tx.execute(sql`SHOW transaction_read_only`)) as unknown as Array<{ transaction_read_only: string }>;
+      const [iso] = (await tx.execute(sql`SHOW transaction_isolation`)) as unknown as Array<{ transaction_isolation: string }>;
       await buildDedupReviewExport(tx, { ...base, limit: 1 });
-      return row.transaction_read_only;
+      return `${row.transaction_read_only}/${iso.transaction_isolation}`;
     });
-    assert.strictEqual(mode, 'on');
+    assert.strictEqual(mode, 'on/repeatable read', 'read only, and one snapshot for the whole export');
 
     await assert.rejects(
       runInReadOnlyTransaction(db, async (tx) => {
@@ -264,14 +346,35 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.strictEqual(row.location, 'Somewhere');
   });
 
-  await t.test('resolveReviewerUserId finds an active moderator and refuses anyone else without printing the email', async () => {
-    assert.strictEqual(await resolveReviewerUserId(db, REVIEWER_EMAIL), reviewer.id);
-    for (const email of [`ddrx-plain-${suffix}@example.com`, `ddrx-nobody-${suffix}@example.com`]) {
-      await assert.rejects(resolveReviewerUserId(db, email), (err: unknown) => {
-        assert.ok(!(err as Error).message.includes(email));
-        assert.match((err as Error).message, /reviewer account was not found among moderators/);
+  await t.test('assertRoleBypassesRls passes for a role that bypasses it and refuses one that cannot, so an empty queue is never faked', async () => {
+    await assertRoleBypassesRls(db); // the local test role is a superuser
+
+    const stub = (rows: unknown[]) => ({ execute: async () => rows }) as unknown as DbExecutor;
+    await assertRoleBypassesRls(stub([{ bypass: true }]));
+    for (const rows of [[{ bypass: false }], [], [{}]]) {
+      await assert.rejects(assertRoleBypassesRls(stub(rows)), (err: unknown) => {
+        assert.ok(err instanceof DedupReviewRoleError);
+        assert.match((err as Error).message, /cannot bypass row level security/);
         return true;
       });
     }
+  });
+
+  await t.test('resolveReviewerUserId matches case-insensitively, wants an active moderator, and never prints the email', async () => {
+    assert.strictEqual(await resolveReviewerUserId(db, REVIEWER_EMAIL), reviewer.id);
+    assert.strictEqual(await resolveReviewerUserId(db, REVIEWER_EMAIL.toUpperCase()), reviewer.id, 'a differently cased variable still finds it');
+
+    for (const email of [`ddrx-plain-${suffix}@example.com`, `ddrx-nobody-${suffix}@example.com`]) {
+      await assert.rejects(resolveReviewerUserId(db, email), (err: unknown) => {
+        assert.ok(err instanceof DedupReviewReviewerError);
+        assert.ok(!(err as Error).message.includes(email));
+        assert.match((err as Error).message, /reviewer account was not found among active moderators/);
+        return true;
+      });
+    }
+
+    await db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, human.id));
+    await assert.rejects(resolveReviewerUserId(db, HUMAN_EMAIL), DedupReviewReviewerError);
+    await db.update(users).set({ deletedAt: null }).where(eq(users.id, human.id));
   });
 });

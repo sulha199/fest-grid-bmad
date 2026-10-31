@@ -5,6 +5,7 @@ import {
   DEDUP_REVIEW_EXPORT_BEGIN,
   DEDUP_REVIEW_EXPORT_END,
   DEDUP_REVIEW_MAX_LIMIT,
+  DEDUP_REVIEW_RECENT_LIMIT,
   DEDUP_REVIEW_MAX_SKIP_IDS,
   DedupReviewOptionsError,
   canonicalizeDedupEvidence,
@@ -73,6 +74,18 @@ test('toDedupReviewAccountType - keeps the three known types and maps anything e
   assert.strictEqual(toDedupReviewAccountType('SOMETHING_NEW'), 'UNCLASSIFIED');
 });
 
+test('toDedupReviewAccountType - an AI-proposed type awaiting approval is not exported as a fact', () => {
+  assert.strictEqual(toDedupReviewAccountType('PERSONAL', 'AWAITING_APPROVAL'), 'UNCLASSIFIED');
+  assert.strictEqual(toDedupReviewAccountType('ORGANIZER_VENUE_EVENT', 'AWAITING_APPROVAL'), 'UNCLASSIFIED');
+  assert.strictEqual(toDedupReviewAccountType('PERSONAL', 'CONFIRMED'), 'PERSONAL');
+  assert.strictEqual(toDedupReviewAccountType('CURATOR_GUIDE', null), 'CURATOR_GUIDE');
+  assert.strictEqual(toDedupReviewAccountType(null, 'CONFIRMED'), 'UNCLASSIFIED');
+});
+
+test('the recently-resolved cap is larger than the default export limit', () => {
+  assert.ok(DEDUP_REVIEW_RECENT_LIMIT > DEDUP_REVIEW_MAX_LIMIT);
+});
+
 test('toDedupReviewDayDiff - finite numbers pass through and Infinity becomes null', () => {
   assert.strictEqual(toDedupReviewDayDiff(0), 0);
   assert.strictEqual(toDedupReviewDayDiff(2), 2);
@@ -124,6 +137,18 @@ test('canonicalizeDedupEvidence - every field a reviewer sees changes the string
     pairEvidence({ newEvent: eventEvidence({ slug: 'ig_p_def', detailLevel: 'stub' }) }),
     pairEvidence({ newEvent: eventEvidence({ slug: 'ig_p_def', sourcePosts: [] }) }),
     pairEvidence({ candidate: eventEvidence({ links: [] }) }),
+    pairEvidence({ suggestionId: ID_B }),
+    pairEvidence({ signals: { ...pairEvidence().signals, scoredTier: 'low' } }),
+    pairEvidence({ signals: { ...pairEvidence().signals, promotionRule: 'stub-repeat' } }),
+    pairEvidence({ signals: { ...pairEvidence().signals, stubRepeat: true } }),
+    pairEvidence({ signals: { ...pairEvidence().signals, nameSimilarity: 0.81 } }),
+    pairEvidence({ signals: { ...pairEvidence().signals, organizerMatch: false } }),
+    pairEvidence({ signals: { ...pairEvidence().signals, sharedLink: true } }),
+    pairEvidence({ candidate: eventEvidence({ name: 'Another name' }) }),
+    pairEvidence({ candidate: eventEvidence({ categories: ['MUSIC'] }) }),
+    pairEvidence({ candidate: eventEvidence({ types: ['FESTIVAL'] }) }),
+    pairEvidence({ candidate: eventEvidence({ schedules: [] }) }),
+    pairEvidence({ newEvent: eventEvidence({ slug: 'ig_p_def', sourcePosts: [{ isPrimary: false, accountType: 'PERSONAL', publishedAt: null }] }) }),
   ];
   for (const evidence of changed) {
     assert.notStrictEqual(canonicalizeDedupEvidence(evidence), base);
@@ -164,7 +189,7 @@ test('parseDedupReviewOptions - rejects a bad limit and names the field without 
 });
 
 test('parseDedupReviewOptions - rejects a bad id or too many ids', () => {
-  assert.throws(() => parseDedupReviewOptions({ skipIds: `${ID_A},not-a-uuid` }), /^DedupReviewOptionsError|skip_ids must be comma-separated suggestion uuids/);
+  assert.throws(() => parseDedupReviewOptions({ skipIds: `${ID_A},not-a-uuid` }), /skip_ids must be comma-separated suggestion uuids/);
   const many = Array.from({ length: DEDUP_REVIEW_MAX_SKIP_IDS + 1 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`).join(',');
   assert.throws(() => parseDedupReviewOptions({ skipIds: many }), /skip_ids must hold at most/);
   const exactly = many.split(',').slice(0, DEDUP_REVIEW_MAX_SKIP_IDS).join(',');
@@ -173,7 +198,12 @@ test('parseDedupReviewOptions - rejects a bad id or too many ids', () => {
 
 test('parseDedupReviewOptions - rejects a bad run tag', () => {
   for (const runTag of ['has space', 'semi;colon', 'x'.repeat(65), '$(whoami)', 'new\nline']) {
-    assert.throws(() => parseDedupReviewOptions({ runTag }), /^DedupReviewOptionsError|run_tag must be/);
+    assert.throws(() => parseDedupReviewOptions({ runTag }), (err: unknown) => {
+      assert.ok(err instanceof DedupReviewOptionsError);
+      assert.match((err as Error).message, /^run_tag must be/);
+      assert.ok(!(err as Error).message.includes(runTag), 'the untrusted value is not echoed');
+      return true;
+    });
   }
   assert.strictEqual(parseDedupReviewOptions({ runTag: 'x'.repeat(64) }).runTag, 'x'.repeat(64));
 });
@@ -190,6 +220,7 @@ test('formatDedupReviewExport - markers around exactly one JSON line, and a name
     scanLimited: false,
     pairs: [{ ...pairEvidence({ candidate: eventEvidence({ name: 'Evil\n::set-output name=x::y\nEND' }) }), evidenceHash: 'abc' }],
     recentlyResolved: [],
+    recentlyResolvedTruncated: false,
   };
 
   const lines = formatDedupReviewExport(report);

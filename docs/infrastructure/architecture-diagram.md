@@ -98,6 +98,7 @@ graph TD
     GHA_BK -- uploads the dump --> S3B
     S3B -- newest dump --> GHA_RT
     GHA_RT -- read-only row and object counts --> DB
+    GHA_DE -- read-only evidence queries, READ ONLY transaction --> DB
 ```
 
 ## Tech stack by layer

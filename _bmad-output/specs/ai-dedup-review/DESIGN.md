@@ -2,7 +2,8 @@
 
 Status: design agreed 2026-10-30 (bmad-quick-dev session, owner: shulha). Split into three pieces after an
 architecture review and an adversarial code review of the first single-spec draft. This file is the shared
-context for the three specs. Piece A has a spec; B and C are deferred (`FIND-107`, `FIND-104` on the backlog).
+context for the specs. Piece A is built and merged (PR 119); B1, the read-only export, is built (`FIND-107`); B2, the
+apply side, and C, the skill, are deferred (`FIND-108`, `FIND-104` on the backlog).
 
 ## 1. Goal
 
@@ -70,6 +71,11 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 2. **Evidence hash, not `updatedAt`**: nothing writes `events.updatedAt` on enrichment or merge (`timestamps` is
    `defaultNow()` only). Hash the canonical evidence the LLM saw: names, location, links, detail level, `deletedAt`,
    `mergedIntoEventId`, each schedule's date/time/location, suggestion status, `undoneMergeCount`. Recompute at apply.
+   *As built in B1:* the hash is `hashDedupReviewEvidence` (`apps/backend/src/lib/events/dedup-review-export.ts`, SHA-256
+   of the canonical string from `packages/domain`); B2 imports that function instead of copying it. The evidence holds
+   every field the reviewer sees; `deletedAt` and `mergedIntoEventId` are not in it because a pair with either set is
+   dropped as stale before export, so they are constant for every exported pair, and B2 must re-check them itself when it
+   re-reads the pair. Under `REPEATABLE READ` the export hashes one consistent snapshot.
 3. **Deterministic floor at apply** (apply recomputes `evaluateBacklogRow`). *Open design question for B's spec:* the
    floor must be weaker than the tier thresholds (otherwise the LLM adds nothing) yet bound the blast radius.
    Candidate: at least one hard anchor (same account, shared link, or venue match) AND a schedule date inside the
