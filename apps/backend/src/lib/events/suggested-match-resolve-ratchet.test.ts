@@ -209,19 +209,32 @@ test('the write detector flags every way of updating the table, and nothing else
 // `via: 'ai_skill'`: the one path that takes the row lock, checks the status and writes the journal. An unused
 // import does not count, and neither `mergeEvents` (the lower-level merge) nor a direct update of the table may appear.
 const APPLY_FILES = [join(SRC_ROOT, 'lib', 'events', 'dedup-review-apply.ts'), join(SRC_ROOT, 'dedup-review-apply.ts')];
-const CALLS_RESOLVE_AS_AI = /\bresolveSuggestedMatch\(\s*\w+\s*,\s*\{[^}]*\bvia:\s*'ai_skill'/;
+const RESOLVE_CALL = /\bresolveSuggestedMatch\(/g;
+const AI_VIA = /\bvia:\s*'ai_skill'/;
+// The apply code writes nothing itself: no drizzle write call and no write statement in a raw SQL template.
+const DIRECT_WRITE = /\.(?:update|insert|delete)\(|\b(?:INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM)\b/i;
 
-test('the apply script merges only through resolveSuggestedMatch() with via ai_skill', () => {
+/** Every `resolveSuggestedMatch(` call in the source must pass `via: 'ai_skill'` in its own argument list; at least one must exist. */
+function everyResolveCallIsAi(source: string): boolean {
+  const calls = [...source.matchAll(RESOLVE_CALL)];
+  return calls.length > 0 && calls.every((call) => AI_VIA.test(source.slice(call.index, call.index + 300).split(/\n\s*\)/)[0]));
+}
+
+test('the apply script merges only through resolveSuggestedMatch() with via ai_skill, and writes nothing itself', () => {
   const [lib, cli] = APPLY_FILES.map((file) => stripComments(readFileSync(file, 'utf8')));
 
-  assert.ok(CALLS_RESOLVE_AS_AI.test(lib), "dedup-review-apply must call resolveSuggestedMatch(tx, { ..., via: 'ai_skill' }); an import alone does not count");
+  assert.ok(everyResolveCallIsAi(lib), "every resolveSuggestedMatch(tx, { ..., via: 'ai_skill' }) call in dedup-review-apply must pass via ai_skill, and one must exist; an import alone does not count");
   for (const [name, source] of [['lib', lib], ['cli', cli]] as const) {
     assert.ok(!/\bmergeEvents\b/.test(source), `the apply ${name} must not reference mergeEvents (not even an aliased import)`);
     assert.ok(!writesSuggestionStatus(source), `the apply ${name} must not update event_match_candidates itself`);
+    assert.ok(!DIRECT_WRITE.test(source), `the apply ${name} must not write any table itself; the merge and its journal belong to resolveSuggestedMatch()`);
   }
 
-  assert.ok(!CALLS_RESOLVE_AS_AI.test("import { resolveSuggestedMatch } from './x';"), 'an import alone is not a call');
-  assert.ok(!CALLS_RESOLVE_AS_AI.test('resolveSuggestedMatch(tx, { id, action, moderatorId })'), 'a call without via is not enough');
-  assert.ok(!CALLS_RESOLVE_AS_AI.test("resolveSuggestedMatch(tx, { id, action, moderatorId, via: 'moderator' })"), 'the wrong via is not enough');
-  assert.ok(CALLS_RESOLVE_AS_AI.test("resolveSuggestedMatch(sp, { id: decision.suggestionId, action: 'ACCEPT', moderatorId, via: 'ai_skill' })"), 'the call as written passes');
+  assert.ok(!everyResolveCallIsAi("import { resolveSuggestedMatch } from './x';"), 'an import alone is not a call');
+  assert.ok(!everyResolveCallIsAi('resolveSuggestedMatch(tx, { id, action, moderatorId })'), 'a call without via is not enough');
+  assert.ok(!everyResolveCallIsAi("resolveSuggestedMatch(tx, { id, action, moderatorId, via: 'moderator' })"), 'the wrong via is not enough');
+  assert.ok(!everyResolveCallIsAi("resolveSuggestedMatch(a, { via: 'ai_skill' });\nresolveSuggestedMatch(b, { id, action, moderatorId });"), 'a second call without via is caught');
+  assert.ok(everyResolveCallIsAi("resolveSuggestedMatch(sp, {\n id: x,\n meta: { a: 1 },\n via: 'ai_skill',\n })"), 'a nested object literal is fine');
+  assert.ok(DIRECT_WRITE.test('await tx.update(events).set({})') && DIRECT_WRITE.test('await tx.execute(sql`UPDATE events SET x = 1`)') && DIRECT_WRITE.test('tx.insert(eventMerges)') && DIRECT_WRITE.test('tx.delete(events)'), 'direct writes are caught');
+  assert.ok(!DIRECT_WRITE.test('await tx.select().from(events).for(\'update\')') && !DIRECT_WRITE.test('SELECT pg_advisory_xact_lock(1)'), 'a locking select is not a write');
 });

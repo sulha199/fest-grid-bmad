@@ -56,7 +56,8 @@ export function parseDedupReviewDecisions(raw: string): DedupReviewDecision[] {
   }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    // Some editors and tools put a byte order mark in front of a UTF-8 file.
+    parsed = JSON.parse(raw.replace(/^\uFEFF/, ''));
   } catch {
     throw new DedupReviewApplyInputError('the decisions file is not valid JSON');
   }
@@ -129,10 +130,14 @@ export function parseDedupReviewApplyOptions(input: { mode?: string | null; live
   return { mode: input.mode, live, runTag: rawTag || null };
 }
 
-/** The kill switch: exactly `1` or `true` (any case) turns apply off. Anything else, including `0` and `false`, leaves it on. */
+/**
+ * The kill switch fails closed: apply is only enabled when the variable is unset, empty, `0` or `false`
+ * (any case). Every other value, `1` and `true` included but also `yes`, `on` or a typo, turns it off,
+ * because a safety switch must not read an unrecognised value as "carry on".
+ */
 export function isDedupReviewApplyDisabled(raw: string | undefined): boolean {
-  const value = raw?.trim().toLowerCase();
-  return value === '1' || value === 'true';
+  const value = raw?.trim().toLowerCase() ?? '';
+  return !(value === '' || value === '0' || value === 'false');
 }
 
 /** Why a decision was not applied. The first group is the pair's state, the second the floor, the third run limits and the live run. */

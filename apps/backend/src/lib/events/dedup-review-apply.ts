@@ -1,4 +1,4 @@
-import { count, eq, inArray, and, sql } from 'drizzle-orm';
+import { count, eq, inArray, and, isNull, sql } from 'drizzle-orm';
 import { eventMatchCandidates, eventMerges, events, users } from '@festgrid/database';
 import {
   DEDUP_REVIEW_APPLY_SCHEMA_VERSION,
@@ -44,19 +44,21 @@ export const DEDUP_REVIEW_APPLY_LOCK_KEY = 8_051_001;
 const INVOKER_REFUSAL = 'No single active moderator matches the invoker. Check the account the skill runs under, and that it is a moderator of the app.';
 
 /**
- * The moderator who invoked the run: exactly one user whose email hashes to `invokerHash` (SHA-256 of
- * the lowercased, trimmed address), who is an active moderator. Zero matches, two (emails differing
+ * The moderator who invoked the run: exactly one non-deleted user whose email hashes to `invokerHash`
+ * (SHA-256 of the address with spaces, tabs and line breaks trimmed and lower-cased), who is a moderator.
+ * Non-ASCII letters are lower-cased by the database's locale and by JavaScript differently, so such an
+ * address may never match: that fails closed, with the same refusal. Zero matches, two (emails differing
  * only in case can coexist, the unique index is case-sensitive) and a non-moderator all give the one
  * same refusal, so a public log cannot be used to probe who is a moderator. Neither the hash nor an
  * address is ever in the message.
  */
 export async function resolveInvokerUserId(executor: DbExecutor, invokerHash: string): Promise<string> {
   const rows = await executor
-    .select({ id: users.id, role: users.role, deletedAt: users.deletedAt })
+    .select({ id: users.id, role: users.role })
     .from(users)
-    .where(sql`encode(sha256(convert_to(lower(btrim(${users.email})), 'UTF8')), 'hex') = ${invokerHash}`);
+    .where(and(isNull(users.deletedAt), sql`encode(sha256(convert_to(lower(btrim(${users.email}, chr(9) || chr(10) || chr(13) || ' ')), 'UTF8')), 'hex') = ${invokerHash}`));
   const [only] = rows;
-  if (rows.length !== 1 || only.role !== 'moderator' || only.deletedAt !== null) {
+  if (rows.length !== 1 || only.role !== 'moderator') {
     throw new DedupReviewInvokerError(INVOKER_REFUSAL);
   }
   return only.id;
@@ -131,10 +133,34 @@ class DryRunRollback extends Error {
 }
 
 /**
+ * Database errors that mean the whole run is broken, not this one decision: a write refused (25xxx, a
+ * read-only credential), a privilege or function missing (42xxx), a connection or resource failure
+ * (08, 53, 57), a deadlock, serialization failure or lock timeout (40, 55), an authentication failure (28).
+ * They propagate, so the run fails loudly with a fixed hint and rolls back, instead of every decision
+ * quietly turning into `merge-failed` in a report that looks like a normal run. Anything else (a unique
+ * violation in the merge, say) is that decision's own failure.
+ */
+const RUN_FATAL_SQLSTATE_CLASSES = ['08', '25', '28', '40', '42', '53', '55', '57'];
+
+export function isRunFatalDatabaseError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && RUN_FATAL_SQLSTATE_CLASSES.includes(code.slice(0, 2));
+}
+
+/**
  * One eligible decision, merged under locks. Inside a savepoint (so a failure undoes only this
- * decision): lock the suggestion row, then both events in id order, which is the order the moderator's
- * accept takes them; re-read the pair under those locks and judge it again; only then merge. A pair
- * that changed between the plan and the locks is `concurrent-change`.
+ * decision): lock the suggestion row, then both events in id order; re-read the pair under those
+ * locks and judge it again; only then merge. A pair that changed between the plan and the locks is
+ * `concurrent-change`.
+ *
+ * What the locks cover, honestly: the suggestion row and the two event rows, which keeps another
+ * writer from resolving or merging this pair while it is judged. The moderator's own accept locks only
+ * the suggestion row, and `mergeEvents` itself reads schedules, posts, favorites and links with plain
+ * statements, so a row another writer adds to those tables in the few milliseconds between the
+ * re-read and the merge is not seen, exactly as it is not on the moderator's path. The locks of one
+ * decision are held to the end of the run (a savepoint does not release them), so a moderator who
+ * takes two of the same rows in the opposite order can deadlock with a run; Postgres ends one of them,
+ * and `lock_timeout` bounds the wait.
  */
 async function mergeUnderLocks(
   tx: WriteTx,
@@ -167,6 +193,7 @@ async function mergeUnderLocks(
     });
   } catch (err) {
     if (err instanceof DecisionAborted) return { reason: err.reason };
+    if (isRunFatalDatabaseError(err)) throw err;
     if (err instanceof EventMergeInvalidStateError || err instanceof SuggestedMatchNotPendingError || err instanceof SuggestedMatchNotFoundError) {
       return { reason: 'concurrent-change' };
     }

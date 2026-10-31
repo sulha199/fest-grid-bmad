@@ -18,7 +18,7 @@ import {
   users,
 } from '@festgrid/database';
 import { DedupReviewInvokerError } from './dedup-review-errors.js';
-import { countAiActionsLast24h, lookupFreshPair, resolveInvokerUserId, runDedupReviewApply, type DedupReviewApplyInput } from './dedup-review-apply.js';
+import { countAiActionsLast24h, isRunFatalDatabaseError, lookupFreshPair, resolveInvokerUserId, runDedupReviewApply, type DedupReviewApplyInput } from './dedup-review-apply.js';
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 
@@ -27,7 +27,6 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
   const eventIds: string[] = [];
   const postIds: string[] = [];
   const userIds: string[] = [];
-  const suggestionIds: string[] = [];
 
   const MOD_EMAIL = `ddap-mod-${suffix}@example.com`;
   const [account] = await db
@@ -90,7 +89,6 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
       .insert(eventMatchCandidates)
       .values({ eventId: newSide.event.id, candidateEventId: candidate.event.id, score: 0.6, postId: newSide.post.id })
       .returning();
-    suggestionIds.push(suggestion.id);
     return { candidate, newSide, suggestion };
   }
 
@@ -119,6 +117,9 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     await mkUser(`ddap-dup-${suffix}@example.com`, 'moderator');
     await mkUser(`ddap-plain-${suffix}@example.com`, 'user');
     await mkUser(`ddap-gone-${suffix}@example.com`, 'moderator', true);
+    const live = await mkUser(`ddap-twin-${suffix}@example.com`, 'moderator');
+    await mkUser(`Ddap-Twin-${suffix}@example.com`, 'moderator', true);
+    assert.strictEqual(await resolveInvokerUserId(db, sha256(`ddap-twin-${suffix}@example.com`)), live.id, 'a deleted account whose address differs only in case does not make the active moderator ambiguous');
 
     const messages = new Set<string>();
     for (const email of [`ddap-dup-${suffix}@example.com`, `ddap-plain-${suffix}@example.com`, `ddap-gone-${suffix}@example.com`, `ddap-nobody-${suffix}@example.com`]) {
@@ -149,7 +150,12 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     await merge(human, 'moderator');
     await db.update(eventMatchCandidates).set({ status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: moderator.id, resolvedVia: 'ai_skill' }).where(eq(eventMatchCandidates.id, rejected.suggestion.id));
 
-    assert.strictEqual((await countAiActionsLast24h(db)) - before, 3, 'a live merge, an undone merge and a rejection; not the old merge, not the human one');
+    // At least these three: other test files that run beside this one may add their own ai_skill rows for a moment.
+    assert.ok((await countAiActionsLast24h(db)) - before >= 3, 'a live merge, an undone merge and a rejection count');
+    const withoutOldAndHuman = await countAiActionsLast24h(db);
+    await merge(await makePair('Count Old Again', '2027-01-15'), 'ai_skill', { createdAt: new Date(Date.now() - 30 * 60 * 60 * 1000) });
+    await merge(await makePair('Count Human Again', '2027-01-16'), 'moderator');
+    assert.ok((await countAiActionsLast24h(db)) - withoutOldAndHuman <= 1, 'an old merge and a human merge add nothing (one unrelated writer may add a row)');
   });
 
   await t.test('lookupFreshPair names why there is no pair, and returns the pair, both event ids and the venue conflict otherwise', async () => {
@@ -278,7 +284,7 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     );
   });
 
-  await t.test('caps: the per-run cap and the per-day cap stop later decisions; a skipped decision uses up nothing', async () => {
+  await t.test('caps: the per-run cap and the per-day cap stop decisions; a skipped decision uses up nothing', async () => {
     const a = await makePair('Cap A', '2027-04-01');
     const b = await makePair('Cap B', '2027-04-02');
     const c = await makePair('Cap C', '2027-04-03');
@@ -291,10 +297,11 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     const perRun = await runDedupReviewApply(db, baseInput(decisions, { caps: { perRun: 2 } }));
     assert.deepStrictEqual(perRun.results.map((r) => r.reason ?? r.outcome), ['eligible', 'eligible', 'per-run-cap']);
 
-    const used = await countAiActionsLast24h(db);
-    const perDay = await runDedupReviewApply(db, baseInput(decisions, { caps: { perDay: used + 1 } }));
-    assert.strictEqual(perDay.usedLast24h, used);
-    assert.deepStrictEqual(perDay.results.map((r) => r.reason ?? r.outcome), ['eligible', 'per-day-cap', 'per-day-cap']);
+    // A day cap of zero is full whatever else the shared database holds; the arithmetic of "this run counts
+    // against the day" is pinned in the domain tests.
+    const perDay = await runDedupReviewApply(db, baseInput(decisions, { caps: { perDay: 0 } }));
+    assert.deepStrictEqual(perDay.results.map((r) => r.reason ?? r.outcome), ['per-day-cap', 'per-day-cap', 'per-day-cap']);
+    assert.ok(typeof perDay.usedLast24h === 'number');
   });
 
   await t.test('two decisions that touch one event: the first wins, the second is skipped', async () => {
@@ -304,7 +311,6 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
       .insert(eventMatchCandidates)
       .values({ eventId: secondNew.event.id, candidateEventId: first.candidate.event.id, score: 0.6, postId: secondNew.post.id })
       .returning();
-    suggestionIds.push(second.id);
 
     const decisions = [
       { suggestionId: first.suggestion.id, evidenceHash: await hashOf(first.suggestion.id) },
@@ -342,7 +348,15 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
         await tx`SELECT id FROM event_match_candidates WHERE id = ${p.suggestion.id} FOR UPDATE`;
         // Apply plans the pair as pending, then blocks on this row's lock.
         applied = runDedupReviewApply(db, baseInput(decisions, { live: true }));
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Wait until some backend is actually blocked on that row's lock, instead of guessing a delay.
+        const deadline = Date.now() + 15_000;
+        for (;;) {
+          // A row lock is waited on through the holder's transaction id, so a waiter on this transaction's id is apply.
+          const waiting = await tx`SELECT 1 FROM pg_locks w WHERE w.locktype = 'transactionid' AND NOT w.granted AND w.transactionid IN (SELECT transactionid FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'transactionid' AND granted)`;
+          if (waiting.length > 0) break;
+          assert.ok(Date.now() < deadline, 'apply never reached the lock wait');
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
         await tx`UPDATE event_match_candidates SET status = 'rejected', resolved_at = now() WHERE id = ${p.suggestion.id}`;
       });
       const report = await (applied as ReturnType<typeof runDedupReviewApply>);
@@ -351,5 +365,17 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     } finally {
       await holder.end();
     }
+  });
+
+  await t.test('isRunFatalDatabaseError: write refused, privilege, connection, deadlock and lock timeout stop the run; a unique violation is the decision\'s own', () => {
+    for (const code of ['25006', '42501', '42883', '08006', '53300', '57P01', '40001', '40P01', '55P03', '28P01']) {
+      assert.strictEqual(isRunFatalDatabaseError(Object.assign(new Error('x'), { code })), true, code);
+    }
+    for (const code of ['23505', '23503', '22P02', 'XX000']) {
+      assert.strictEqual(isRunFatalDatabaseError(Object.assign(new Error('x'), { code })), false, code);
+    }
+    assert.strictEqual(isRunFatalDatabaseError(new Error('no code')), false);
+    assert.strictEqual(isRunFatalDatabaseError(null), false);
+    assert.strictEqual(isRunFatalDatabaseError('25006'), false);
   });
 });

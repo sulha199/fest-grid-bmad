@@ -94,6 +94,7 @@ test('parseDedupReviewDecisions - a valid file keeps only the id and the hash, l
     { suggestionId: ID_B, evidenceHash: HASH },
   ]);
   assert.deepStrictEqual(parseDedupReviewDecisions(decisionsJson([])), [], 'an empty list is a no-op, not an error');
+  assert.deepStrictEqual(parseDedupReviewDecisions('\uFEFF' + decisionsJson([entry()])), [{ suggestionId: ID_A, evidenceHash: HASH }], 'a leading byte order mark is ignored');
 });
 
 test('parseDedupReviewDecisions - every malformed file is refused with a message that never echoes the input', () => {
@@ -152,9 +153,9 @@ test('parseDedupReviewApplyOptions - mode is required, --live needs apply, the r
   assert.throws(() => parseDedupReviewApplyOptions({ mode: 'apply', runTag: 'bad tag!' }), /run_tag must be/);
 });
 
-test('isDedupReviewApplyDisabled - only 1 and true (any case) turn it off; 0, false, empty and unset leave it on', () => {
-  for (const on of ['1', 'true', 'TRUE', ' True ']) assert.strictEqual(isDedupReviewApplyDisabled(on), true, on);
-  for (const off of [undefined, '', '0', 'false', 'no', 'yes']) assert.strictEqual(isDedupReviewApplyDisabled(off), false, String(off));
+test('isDedupReviewApplyDisabled - the switch fails closed: only unset, empty, 0 and false leave apply enabled', () => {
+  for (const on of ['1', 'true', 'TRUE', ' True ', 'yes', 'on', 'enabled', 'tru', 'disabled']) assert.strictEqual(isDedupReviewApplyDisabled(on), true, on);
+  for (const off of [undefined, '', '  ', '0', 'false', ' FALSE ']) assert.strictEqual(isDedupReviewApplyDisabled(off), false, String(off));
 });
 
 test('checkDedupReviewFloor - a same-day pair from one organizer passes', () => {
@@ -215,6 +216,17 @@ test('checkDedupReviewFloor - a shared link with a venue match reaches 90 days; 
     });
   assert.strictEqual(checkDedupReviewFloor(linked(18)), null, 'the deadline post and the race-day post of one event');
   assert.strictEqual(checkDedupReviewFloor(linked(90)), null, 'the window is inclusive');
+});
+
+test('checkDedupReviewFloor - an organizer pair that shares only a link (no venue match) also reaches 90 days, and no further', () => {
+  // The registration-deadline post and the race-day post of one event, from one organizer. This is a decision the floor
+  // makes on purpose: a link alone widens the window when the organizer anchor holds. A recurring series that shares one
+  // link is kept apart by the name check (differing numbers or qualifiers) and by the reviewer, not by the floor.
+  const linkOnly = (days: number) => fresh({ pair: pair({}, { organizerMatch: true, sharedLink: true, venueMatch: false, minDayDiff: days }) });
+  const candidateOn = (startDate: string) => eventEvidence({ schedules: [{ isMain: true, startDate, endDate: null, startTime: null, endTime: null, timezone: null, title: null, location: null }] });
+  const sixty = fresh({ pair: pair({ candidate: candidateOn('2026-09-09') }, { organizerMatch: true, sharedLink: true, venueMatch: false, minDayDiff: 60 }) });
+  assert.strictEqual(checkDedupReviewFloor(sixty), null);
+  assert.strictEqual(checkDedupReviewFloor(linkOnly(91)), 'outside-window');
 });
 
 test('judgeDedupReviewDecision - the pair state comes first, then the hash, then the floor', () => {

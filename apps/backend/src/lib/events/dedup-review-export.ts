@@ -77,10 +77,17 @@ export async function runInReadOnlyTransaction<T>(database: Pick<typeof appDb, '
  * spec). It sets the same search path as the read-only wrapper, for the same reason.
  */
 export async function runInWriteTransaction<T>(database: Pick<typeof appDb, 'transaction'>, work: (tx: Parameters<Parameters<typeof appDb.transaction>[0]>[0]) => Promise<T>): Promise<T> {
-  return database.transaction(async (tx) => {
-    await tx.execute(sql`SET LOCAL search_path TO public, extensions`);
-    return work(tx);
-  });
+  return database.transaction(
+    async (tx) => {
+      await tx.execute(sql`SET LOCAL search_path TO public, extensions`);
+      // A run that waits on a stuck moderator transaction or on another apply run must fail, not hang
+      // holding locks until the job's own timeout.
+      await tx.execute(sql`SET LOCAL lock_timeout = '15s'`);
+      await tx.execute(sql`SET LOCAL statement_timeout = '120s'`);
+      return work(tx);
+    },
+    { isolationLevel: 'read committed' }
+  );
 }
 
 /**

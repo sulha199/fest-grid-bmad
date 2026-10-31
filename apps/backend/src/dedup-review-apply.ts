@@ -22,8 +22,9 @@
  * The workflow's log is public, so nothing here prints event text, a reason, the invoker hash or an
  * email, and an unexpected error prints only its class, its code and a fixed hint.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import {
+  DEDUP_REVIEW_MAX_DECISIONS_BYTES,
   DEDUP_REVIEW_PER_DAY_CAP,
   DEDUP_REVIEW_PER_RUN_CAP,
   DEDUP_REVIEW_APPLY_SCHEMA_VERSION,
@@ -36,7 +37,7 @@ import {
   type DedupReviewApplyOptions,
   type DedupReviewApplyReport,
 } from '@festgrid/domain/events';
-import { DedupReviewInvokerError, DedupReviewRoleError } from './lib/events/dedup-review-errors.js';
+import { DedupReviewInvokerError, DedupReviewReportLostError, DedupReviewRoleError } from './lib/events/dedup-review-errors.js';
 import { describeUnexpectedFailure } from './lib/events/dedup-review-failure.js';
 
 export interface DedupReviewApplyCliArgs {
@@ -46,8 +47,14 @@ export interface DedupReviewApplyCliArgs {
 
 export function parseCliArgs(argv: string[]): DedupReviewApplyCliArgs {
   const raw: { mode?: string; runTag?: string; decisionsFile?: string; live?: boolean } = {};
+  const seen = new Set<string>();
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    // A repeated flag would let the last one win silently (`--mode validate --mode apply`).
+    if (seen.has(arg)) {
+      throw new DedupReviewApplyInputError(`${arg} was given more than once`);
+    }
+    seen.add(arg);
     if (arg === '--live') {
       raw.live = true;
       continue;
@@ -74,11 +81,17 @@ export function parseCliArgs(argv: string[]): DedupReviewApplyCliArgs {
 export function describeFailure(err: unknown): string {
   if (err instanceof DedupReviewApplyInputError) return `Invalid input: ${err.message}`;
   if (err instanceof DedupReviewRoleError || err instanceof DedupReviewInvokerError) return `Apply refused: ${err.message}`;
+  if (err instanceof DedupReviewReportLostError) return err.message;
   return describeUnexpectedFailure(err, 'Apply');
 }
 
 function readDecisionsFile(path: string): string {
   try {
+    // Checked before reading, so a huge file or a device never gets buffered.
+    const stats = statSync(path);
+    if (!stats.isFile() || stats.size > DEDUP_REVIEW_MAX_DECISIONS_BYTES * 4) {
+      throw new Error('not a readable decisions file');
+    }
     return readFileSync(path, 'utf8');
   } catch {
     // The path and the system's message are not echoed.
@@ -115,7 +128,13 @@ async function main(): Promise<void> {
   const { db } = await import('./db/client.js');
   const { runDedupReviewApply } = await import('./lib/events/dedup-review-apply.js');
   const report = await runDedupReviewApply(db, { decisions, invokerHash, runTag: options.runTag, mode: options.mode, live: options.live });
-  await print(report);
+  try {
+    await print(report);
+  } catch {
+    // A failed write after a live commit must not read as "nothing merged": the merges are in.
+    if (report.counts.merged > 0) throw new DedupReviewReportLostError(report.counts.merged);
+    throw new Error('the report could not be written');
+  }
 }
 
 if (process.argv[1] && /dedup-review-apply\.[tj]s$/.test(process.argv[1])) {

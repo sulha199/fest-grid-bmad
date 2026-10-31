@@ -297,7 +297,9 @@ export function areNamesAutoLinkable(newName: string, candidateName: string, nam
  * contradict ("(Morning)" vs "(Evening)"), or the digit tokens differ ("Part 1" vs "Part 2"). This is
  * the contradiction half of `areNamesAutoLinkable`, without its similarity requirement, so the AI
  * reviewer's floor can accept names a trigram cannot match (bilingual, abbreviated) while still
- * refusing a series or a race category.
+ * refusing a numbered series ("Part 1" vs "Part 2") or a bracketed category ("(5K)" vs "(10K)"). It does
+ * NOT catch a differing word ("Half Marathon" vs "Marathon", "Kids Run" vs "Adult Run"): that is left
+ * to the reviewer.
  */
 export function namesContradict(newName: string, candidateName: string): boolean {
   if (normalizeEventNameForMatch(newName) === '' || normalizeEventNameForMatch(candidateName) === '') return true;
