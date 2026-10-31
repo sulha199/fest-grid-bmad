@@ -21,7 +21,7 @@ export function readPastCutoff(value: unknown): PastCutoff | undefined {
  * `timezone_status` is RESOLVED, the card's wall-clock rule) minus `hidePastEventsAfterDays`;
  * UTC otherwise. The default-visibility filter (drizzle-where `overlaps`), the Archive's
  * `isPastEvent` and `Event.isExpiredForCurrentUser` all build their bound from this one fragment
- * so they stay exact complements. The `schedule_past_cutoff_date` function (migration 0087) also
+ * so they stay exact complements. The `schedule_past_cutoff_date` function (migration 0090) also
  * absorbs a zone name Postgres does not recognise, so one bad row cannot fail the whole query.
  */
 export function buildPastCutoffDateSql(

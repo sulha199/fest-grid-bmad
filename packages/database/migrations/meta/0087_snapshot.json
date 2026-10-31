@@ -1,5 +1,5 @@
 {
-  "id": "fdf4e154-f5d9-49bc-af67-24f8cc2c4c89",
+  "id": "d8a05afa-d1a2-4cd7-86be-f6458ae8ab89",
   "prevId": "ef48843c-5d4b-4c37-98ab-c9e36a5a9a3e",
   "version": "6",
   "dialect": "postgresql",
@@ -85,15 +85,15 @@
         "account_profile_merges_survivor_id_social_media_account_profiles_id_fk": {
           "name": "account_profile_merges_survivor_id_social_media_account_profiles_id_fk",
           "tableFrom": "account_profile_merges",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "survivor_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -174,15 +174,15 @@
         "account_profile_repairs_profile_id_social_media_account_profiles_id_fk": {
           "name": "account_profile_repairs_profile_id_social_media_account_profiles_id_fk",
           "tableFrom": "account_profile_repairs",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "profile_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -264,28 +264,28 @@
         "account_type_classification_reviews_account_id_social_media_account_profiles_id_fk": {
           "name": "account_type_classification_reviews_account_id_social_media_account_profiles_id_fk",
           "tableFrom": "account_type_classification_reviews",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "account_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "account_type_classification_reviews_reviewed_by_moderator_id_users_id_fk": {
           "name": "account_type_classification_reviews_reviewed_by_moderator_id_users_id_fk",
           "tableFrom": "account_type_classification_reviews",
+          "tableTo": "users",
           "columnsFrom": [
             "reviewed_by_moderator_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -356,28 +356,28 @@
         "account_votes_user_id_users_id_fk": {
           "name": "account_votes_user_id_users_id_fk",
           "tableFrom": "account_votes",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "account_votes_account_id_social_media_account_profiles_id_fk": {
           "name": "account_votes_account_id_social_media_account_profiles_id_fk",
           "tableFrom": "account_votes",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "account_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -446,15 +446,15 @@
         "ai_event_filters_owner_user_id_users_id_fk": {
           "name": "ai_event_filters_owner_user_id_users_id_fk",
           "tableFrom": "ai_event_filters",
+          "tableTo": "users",
           "columnsFrom": [
             "owner_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -557,15 +557,15 @@
         "api_keys_user_id_users_id_fk": {
           "name": "api_keys_user_id_users_id_fk",
           "tableFrom": "api_keys",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -649,45 +649,45 @@
         "apify_pending_jobs_profile_id_social_media_account_profiles_id_fk": {
           "name": "apify_pending_jobs_profile_id_social_media_account_profiles_id_fk",
           "tableFrom": "apify_pending_jobs",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "profile_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "apify_pending_jobs_scraper_actor_run_id_scraper_actor_runs_id_fk": {
           "name": "apify_pending_jobs_scraper_actor_run_id_scraper_actor_runs_id_fk",
           "tableFrom": "apify_pending_jobs",
+          "tableTo": "scraper_actor_runs",
           "columnsFrom": [
             "scraper_actor_run_id"
           ],
-          "tableTo": "scraper_actor_runs",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "apify_pending_jobs_run_id_unique": {
           "name": "apify_pending_jobs_run_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "run_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         },
         "apify_pending_jobs_webhook_token_unique": {
           "name": "apify_pending_jobs_webhook_token_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "webhook_token"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -769,45 +769,45 @@
         "brightdata_pending_jobs_profile_id_social_media_account_profiles_id_fk": {
           "name": "brightdata_pending_jobs_profile_id_social_media_account_profiles_id_fk",
           "tableFrom": "brightdata_pending_jobs",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "profile_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "brightdata_pending_jobs_scraper_actor_run_id_scraper_actor_runs_id_fk": {
           "name": "brightdata_pending_jobs_scraper_actor_run_id_scraper_actor_runs_id_fk",
           "tableFrom": "brightdata_pending_jobs",
+          "tableTo": "scraper_actor_runs",
           "columnsFrom": [
             "scraper_actor_run_id"
           ],
-          "tableTo": "scraper_actor_runs",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "brightdata_pending_jobs_snapshot_id_unique": {
           "name": "brightdata_pending_jobs_snapshot_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "snapshot_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         },
         "brightdata_pending_jobs_webhook_token_unique": {
           "name": "brightdata_pending_jobs_webhook_token_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "webhook_token"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -875,52 +875,52 @@
         "calendar_additions_user_id_users_id_fk": {
           "name": "calendar_additions_user_id_users_id_fk",
           "tableFrom": "calendar_additions",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "calendar_additions_event_id_events_id_fk": {
           "name": "calendar_additions_event_id_events_id_fk",
           "tableFrom": "calendar_additions",
+          "tableTo": "events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "calendar_additions_schedule_id_schedules_id_fk": {
           "name": "calendar_additions_schedule_id_schedules_id_fk",
           "tableFrom": "calendar_additions",
+          "tableTo": "schedules",
           "columnsFrom": [
             "schedule_id"
           ],
-          "tableTo": "schedules",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "calendar_additions_user_id_schedule_id_unique": {
           "name": "calendar_additions_user_id_schedule_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "user_id",
             "schedule_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -1002,28 +1002,28 @@
         "corrections_event_id_events_id_fk": {
           "name": "corrections_event_id_events_id_fk",
           "tableFrom": "corrections",
+          "tableTo": "events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "corrections_submitted_by_user_id_users_id_fk": {
           "name": "corrections_submitted_by_user_id_users_id_fk",
           "tableFrom": "corrections",
+          "tableTo": "users",
           "columnsFrom": [
             "submitted_by_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1120,41 +1120,41 @@
         "default_location_change_requests_account_id_social_media_account_profiles_id_fk": {
           "name": "default_location_change_requests_account_id_social_media_account_profiles_id_fk",
           "tableFrom": "default_location_change_requests",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "account_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "default_location_change_requests_changed_by_user_id_users_id_fk": {
           "name": "default_location_change_requests_changed_by_user_id_users_id_fk",
           "tableFrom": "default_location_change_requests",
+          "tableTo": "users",
           "columnsFrom": [
             "changed_by_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "default_location_change_requests_reviewed_by_moderator_id_users_id_fk": {
           "name": "default_location_change_requests_reviewed_by_moderator_id_users_id_fk",
           "tableFrom": "default_location_change_requests",
+          "tableTo": "users",
           "columnsFrom": [
             "reviewed_by_moderator_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1218,15 +1218,15 @@
         "embed_domains_widget_id_widgets_id_fk": {
           "name": "embed_domains_widget_id_widgets_id_fk",
           "tableFrom": "embed_domains",
+          "tableTo": "widgets",
           "columnsFrom": [
             "widget_id"
           ],
-          "tableTo": "widgets",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1287,6 +1287,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "resolved_via": {
+          "name": "resolved_via",
+          "type": "resolution_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1322,65 +1329,65 @@
         "event_match_candidates_event_id_events_id_fk": {
           "name": "event_match_candidates_event_id_events_id_fk",
           "tableFrom": "event_match_candidates",
+          "tableTo": "events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "event_match_candidates_candidate_event_id_events_id_fk": {
           "name": "event_match_candidates_candidate_event_id_events_id_fk",
           "tableFrom": "event_match_candidates",
+          "tableTo": "events",
           "columnsFrom": [
             "candidate_event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "event_match_candidates_post_id_posts_id_fk": {
           "name": "event_match_candidates_post_id_posts_id_fk",
           "tableFrom": "event_match_candidates",
+          "tableTo": "posts",
           "columnsFrom": [
             "post_id"
           ],
-          "tableTo": "posts",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "event_match_candidates_resolved_by_moderator_id_users_id_fk": {
           "name": "event_match_candidates_resolved_by_moderator_id_users_id_fk",
           "tableFrom": "event_match_candidates",
+          "tableTo": "users",
           "columnsFrom": [
             "resolved_by_moderator_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "event_match_candidates_event_id_candidate_event_id_unique": {
           "name": "event_match_candidates_event_id_candidate_event_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "event_id",
             "candidate_event_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -1418,6 +1425,14 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "performed_via": {
+          "name": "performed_via",
+          "type": "resolution_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'moderator'"
         },
         "loser_prior_slug": {
           "name": "loser_prior_slug",
@@ -1519,54 +1534,54 @@
         "event_merges_winner_event_id_events_id_fk": {
           "name": "event_merges_winner_event_id_events_id_fk",
           "tableFrom": "event_merges",
+          "tableTo": "events",
           "columnsFrom": [
             "winner_event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "event_merges_loser_event_id_events_id_fk": {
           "name": "event_merges_loser_event_id_events_id_fk",
           "tableFrom": "event_merges",
+          "tableTo": "events",
           "columnsFrom": [
             "loser_event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "event_merges_suggestion_id_event_match_candidates_id_fk": {
           "name": "event_merges_suggestion_id_event_match_candidates_id_fk",
           "tableFrom": "event_merges",
+          "tableTo": "event_match_candidates",
           "columnsFrom": [
             "suggestion_id"
           ],
-          "tableTo": "event_match_candidates",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         },
         "event_merges_performed_by_moderator_id_users_id_fk": {
           "name": "event_merges_performed_by_moderator_id_users_id_fk",
           "tableFrom": "event_merges",
+          "tableTo": "users",
           "columnsFrom": [
             "performed_by_moderator_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1616,28 +1631,28 @@
         "event_posts_event_id_events_id_fk": {
           "name": "event_posts_event_id_events_id_fk",
           "tableFrom": "event_posts",
+          "tableTo": "events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "event_posts_post_id_posts_id_fk": {
           "name": "event_posts_post_id_posts_id_fk",
           "tableFrom": "event_posts",
+          "tableTo": "posts",
           "columnsFrom": [
             "post_id"
           ],
-          "tableTo": "posts",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1652,11 +1667,11 @@
       "uniqueConstraints": {
         "event_posts_post_id_extraction_ordinal_unique": {
           "name": "event_posts_post_id_extraction_ordinal_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "post_id",
             "extraction_ordinal"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -1711,25 +1726,25 @@
         "event_slug_aliases_event_id_events_id_fk": {
           "name": "event_slug_aliases_event_id_events_id_fk",
           "tableFrom": "event_slug_aliases",
+          "tableTo": "events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "event_slug_aliases_slug_unique": {
           "name": "event_slug_aliases_slug_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -1911,46 +1926,46 @@
         "events_post_id_posts_id_fk": {
           "name": "events_post_id_posts_id_fk",
           "tableFrom": "events",
+          "tableTo": "posts",
           "columnsFrom": [
             "post_id"
           ],
-          "tableTo": "posts",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         },
         "events_merged_into_event_id_events_id_fk": {
           "name": "events_merged_into_event_id_events_id_fk",
           "tableFrom": "events",
+          "tableTo": "events",
           "columnsFrom": [
             "merged_into_event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "events_slug_unique": {
           "name": "events_slug_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ],
-          "nullsNotDistinct": false
+          ]
         },
         "events_post_id_extraction_ordinal_unique": {
           "name": "events_post_id_extraction_ordinal_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "post_id",
             "extraction_ordinal"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -2062,15 +2077,15 @@
         "extraction_audit_logs_post_id_posts_id_fk": {
           "name": "extraction_audit_logs_post_id_posts_id_fk",
           "tableFrom": "extraction_audit_logs",
+          "tableTo": "posts",
           "columnsFrom": [
             "post_id"
           ],
-          "tableTo": "posts",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2140,39 +2155,39 @@
         "favorites_user_id_users_id_fk": {
           "name": "favorites_user_id_users_id_fk",
           "tableFrom": "favorites",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "favorites_event_id_events_id_fk": {
           "name": "favorites_event_id_events_id_fk",
           "tableFrom": "favorites",
+          "tableTo": "events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "favorites_user_id_event_id_unique": {
           "name": "favorites_user_id_event_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "user_id",
             "event_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -2220,15 +2235,15 @@
         "fcm_tokens_user_id_users_id_fk": {
           "name": "fcm_tokens_user_id_users_id_fk",
           "tableFrom": "fcm_tokens",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2285,10 +2300,10 @@
       "uniqueConstraints": {
         "geolocation_cache_cache_key_unique": {
           "name": "geolocation_cache_cache_key_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "cache_key"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -2357,10 +2372,10 @@
       "uniqueConstraints": {
         "instagram_oembed_cache_post_url_unique": {
           "name": "instagram_oembed_cache_post_url_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "post_url"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -2462,15 +2477,15 @@
         "manual_extraction_jobs_requested_by_user_id_users_id_fk": {
           "name": "manual_extraction_jobs_requested_by_user_id_users_id_fk",
           "tableFrom": "manual_extraction_jobs",
+          "tableTo": "users",
           "columnsFrom": [
             "requested_by_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2556,10 +2571,10 @@
       "uniqueConstraints": {
         "parser_version_registry_version_unique": {
           "name": "parser_version_registry_version_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "version"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -2642,53 +2657,53 @@
         "post_account_associations_post_id_posts_id_fk": {
           "name": "post_account_associations_post_id_posts_id_fk",
           "tableFrom": "post_account_associations",
+          "tableTo": "posts",
           "columnsFrom": [
             "post_id"
           ],
-          "tableTo": "posts",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "post_account_associations_account_id_social_media_account_profiles_id_fk": {
           "name": "post_account_associations_account_id_social_media_account_profiles_id_fk",
           "tableFrom": "post_account_associations",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "account_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "post_account_associations_scraper_actor_run_id_scraper_actor_runs_id_fk": {
           "name": "post_account_associations_scraper_actor_run_id_scraper_actor_runs_id_fk",
           "tableFrom": "post_account_associations",
+          "tableTo": "scraper_actor_runs",
           "columnsFrom": [
             "scraper_actor_run_id"
           ],
-          "tableTo": "scraper_actor_runs",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "post_account_associations_post_id_account_id_role_unique": {
           "name": "post_account_associations_post_id_account_id_role_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "post_id",
             "account_id",
             "role"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -2913,38 +2928,38 @@
         "posts_account_id_social_media_account_profiles_id_fk": {
           "name": "posts_account_id_social_media_account_profiles_id_fk",
           "tableFrom": "posts",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "account_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "posts_scraper_actor_run_id_scraper_actor_runs_id_fk": {
           "name": "posts_scraper_actor_run_id_scraper_actor_runs_id_fk",
           "tableFrom": "posts",
+          "tableTo": "scraper_actor_runs",
           "columnsFrom": [
             "scraper_actor_run_id"
           ],
-          "tableTo": "scraper_actor_runs",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "posts_post_url_unique": {
           "name": "posts_post_url_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "post_url"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -2992,15 +3007,15 @@
         "prompt_filter_rate_limits_user_id_users_id_fk": {
           "name": "prompt_filter_rate_limits_user_id_users_id_fk",
           "tableFrom": "prompt_filter_rate_limits",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3098,41 +3113,41 @@
         "reports_event_id_events_id_fk": {
           "name": "reports_event_id_events_id_fk",
           "tableFrom": "reports",
+          "tableTo": "events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "reports_reporter_user_id_users_id_fk": {
           "name": "reports_reporter_user_id_users_id_fk",
           "tableFrom": "reports",
+          "tableTo": "users",
           "columnsFrom": [
             "reporter_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "reports_resolved_by_moderator_id_users_id_fk": {
           "name": "reports_resolved_by_moderator_id_users_id_fk",
           "tableFrom": "reports",
+          "tableTo": "users",
           "columnsFrom": [
             "resolved_by_moderator_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3312,25 +3327,25 @@
         "schedules_event_id_events_id_fk": {
           "name": "schedules_event_id_events_id_fk",
           "tableFrom": "schedules",
+          "tableTo": "events",
           "columnsFrom": [
             "event_id"
           ],
-          "tableTo": "events",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "schedules_slug_unique": {
           "name": "schedules_slug_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "slug"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -3465,26 +3480,26 @@
         "scraper_actor_runs_profile_id_social_media_account_profiles_id_fk": {
           "name": "scraper_actor_runs_profile_id_social_media_account_profiles_id_fk",
           "tableFrom": "scraper_actor_runs",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "profile_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "scraper_actor_runs_vendor_run_id_unique": {
           "name": "scraper_actor_runs_vendor_run_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "vendor",
             "run_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -3637,10 +3652,10 @@
       "uniqueConstraints": {
         "scraper_provider_health_provider_unique": {
           "name": "scraper_provider_health_provider_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "provider"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -3696,10 +3711,10 @@
       "uniqueConstraints": {
         "scraper_provider_usage_provider_unique": {
           "name": "scraper_provider_usage_provider_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "provider"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -3860,11 +3875,11 @@
       "uniqueConstraints": {
         "social_media_account_profiles_platform_account_id_unique": {
           "name": "social_media_account_profiles_platform_account_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "platform",
             "account_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -3932,28 +3947,28 @@
         "subscriptions_user_id_users_id_fk": {
           "name": "subscriptions_user_id_users_id_fk",
           "tableFrom": "subscriptions",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "subscriptions_account_id_social_media_account_profiles_id_fk": {
           "name": "subscriptions_account_id_social_media_account_profiles_id_fk",
           "tableFrom": "subscriptions",
+          "tableTo": "social_media_account_profiles",
           "columnsFrom": [
             "account_id"
           ],
-          "tableTo": "social_media_account_profiles",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4042,15 +4057,15 @@
         "unprocessed_scraper_payloads_scraper_actor_run_id_scraper_actor_runs_id_fk": {
           "name": "unprocessed_scraper_payloads_scraper_actor_run_id_scraper_actor_runs_id_fk",
           "tableFrom": "unprocessed_scraper_payloads",
+          "tableTo": "scraper_actor_runs",
           "columnsFrom": [
             "scraper_actor_run_id"
           ],
-          "tableTo": "scraper_actor_runs",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4137,15 +4152,15 @@
         "user_locations_user_id_users_id_fk": {
           "name": "user_locations_user_id_users_id_fk",
           "tableFrom": "user_locations",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4202,25 +4217,25 @@
         "user_settings_user_id_users_id_fk": {
           "name": "user_settings_user_id_users_id_fk",
           "tableFrom": "user_settings",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "user_settings_user_id_unique": {
           "name": "user_settings_user_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "user_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -4300,10 +4315,10 @@
       "uniqueConstraints": {
         "users_email_unique": {
           "name": "users_email_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "email"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       }
     },
@@ -4395,15 +4410,15 @@
         "widgets_owner_user_id_users_id_fk": {
           "name": "widgets_owner_user_id_users_id_fk",
           "tableFrom": "widgets",
+          "tableTo": "users",
           "columnsFrom": [
             "owner_user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4611,6 +4626,14 @@
         "pending",
         "upheld",
         "dismissed"
+      ]
+    },
+    "public.resolution_source": {
+      "name": "resolution_source",
+      "schema": "public",
+      "values": [
+        "moderator",
+        "ai_skill"
       ]
     },
     "public.schedule_timezone_status": {

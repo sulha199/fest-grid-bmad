@@ -904,7 +904,7 @@ This document defines the core architectural invariants for the FestDaily applic
     It is the date of the request's one captured `now` in each schedule's own timezone, counted back
     `hidePastEventsAfterDays`, taking the schedule's zone only when `timezoneStatus = RESOLVED` (the
     card's wall-clock rule, `resolveScheduleTimezone`) and UTC otherwise, computed by one SQL
-    function, `schedule_past_cutoff_date` (migration 0087, built into SQL by `buildPastCutoffDateSql`).
+    function, `schedule_past_cutoff_date` (migration 0090, built into SQL by `buildPastCutoffDateSql`).
     That is a separate mechanism from this AD's `notEnded`, which is **unchanged**: Rule 2's `notEnded`
     and Rules 2–3's `todayISO`/`tomorrowISO` still read the UTC date, and the `ended-cases` fixture
     (Rule 4) stays UTC-pinned, so the "Today" toggle can still disagree with a card for a few hours

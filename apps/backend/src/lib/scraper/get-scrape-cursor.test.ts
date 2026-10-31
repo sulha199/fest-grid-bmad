@@ -19,6 +19,8 @@ test('getScrapeCursor', async (t) => {
         platform: 'instagram',
         username: 'cursor_test_user',
         displayName: 'Cursor Test User',
+        // The cursor rules below are those of a seeded profile; the unseeded rule has its own tests.
+        historySeededAt: new Date(),
       })
       .returning({ id: socialMediaAccountProfiles.id });
     profileId = profile.id;
@@ -163,6 +165,34 @@ test('getScrapeCursor', async (t) => {
     } finally {
       await db.delete(posts).where(eq(posts.accountId, owner.id));
       await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, owner.id));
+    }
+  });
+
+  // A profile known only from other accounts' scrapes (co-author links) holds posts that say nothing about its
+  // own timeline; starting after the newest of them skipped the rest of it when someone later subscribed.
+  await t.test('an unseeded profile starts 30 days back whatever posts it holds, until its history is seeded', async () => {
+    const [unseeded] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: 'cursor-test-unseeded-' + Date.now(), platform: 'instagram', username: 'cursor_unseeded', displayName: 'Unseeded' })
+      .returning({ id: socialMediaAccountProfiles.id });
+    try {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await db.insert(posts).values({ accountId: unseeded.id, platform: 'instagram', postUrl: 'https://www.instagram.com/p/coauthored/', publishedAt: yesterday });
+
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      for (const vendor of ['APIFY', 'BRIGHTDATA'] as const) {
+        const cursor = new Date(await getScrapeCursor(vendor, unseeded.id, fallback)).getTime();
+        assert.ok(Math.abs(cursor - thirtyDaysAgo) < 60_000, `${vendor} cursor ${new Date(cursor).toISOString()} is not 30 days back`);
+      }
+
+      await db.update(socialMediaAccountProfiles).set({ historySeededAt: new Date() }).where(eq(socialMediaAccountProfiles.id, unseeded.id));
+      assert.strictEqual(
+        await getScrapeCursor('APIFY', unseeded.id, fallback),
+        new Date(yesterday.getTime() + 1000).toISOString()
+      );
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, unseeded.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, unseeded.id));
     }
   });
 });

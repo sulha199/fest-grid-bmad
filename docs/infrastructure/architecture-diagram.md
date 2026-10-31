@@ -39,6 +39,7 @@ graph TD
     subgraph GitHub["GitHub Actions"]
         GHA_BK["Production DB Backup: nightly and manual pg_dump"]
         GHA_RT["Production DB Restore Test: restores the newest dump after each backup"]
+        GHA_DE["Dedup Review Export: manual, read-only evidence JSON of the pending dedup queue for the AI reviewer"]
     end
 
     subgraph Data
@@ -97,6 +98,7 @@ graph TD
     GHA_BK -- uploads the dump --> S3B
     S3B -- newest dump --> GHA_RT
     GHA_RT -- read-only row and object counts --> DB
+    GHA_DE -- read-only evidence queries, READ ONLY transaction --> DB
 ```
 
 ## Tech stack by layer
@@ -114,6 +116,7 @@ graph TD
 | Secrets and keys | AWS KMS for BYOK keys; Secrets Manager for provider tokens | CDK stack |
 | Media | S3 behind CloudFront (origin access control) for durable post media | CDK stack |
 | Backups | Nightly and on-demand `pg_dump` (custom format) from a GitHub Actions runner to a private, encrypted S3 bucket with 30-day expiry; Supabase free plan has no managed backups. After each backup a restore test restores the dump into a throwaway `postgres:17` container and compares it with production | .github/workflows/prod-db-backup.yml, .github/workflows/prod-db-restore-test.yml, scripts/compare-restored-db.sh, CDK stack, docs/infrastructure/3-database.md |
+| AI dedup review (export) | A manual GitHub Actions workflow prints the pending dedup suggestions and their evidence as one JSON line, read-only (`READ ONLY` transaction, a read-only role that bypasses RLS), for a reviewer with no database credentials. The apply side is not built | .github/workflows/dedup-review-export.yml, apps/backend/src/dedup-review-export.ts, docs/infrastructure/7-event-dedup.md |
 | Notifications | Firebase Cloud Messaging (push); Amazon SES (email) | docs/infrastructure/4 and 6, backend lambdas |
 | Operations alerts | CloudWatch Embedded Metric Format lines from the Lambdas, three CloudWatch alarms and an SNS topic with an optional e-mail subscription (prod only; needs no SES) | CDK stack, `apps/backend/src/lib/metrics/emit-metric.ts` |
 | Geolocation | Geoapify (geocoding with a Postgres cache; map tiles) | docs/infrastructure/5-geolocation.md |
