@@ -1,0 +1,56 @@
+{
+  "createdAt": "2026-10-01T16:33:55.907Z",
+  "mode": "stories",
+  "modeValue": [
+    "3.7f",
+    "3.7g",
+    "3.7h",
+    "3.7i"
+  ],
+  "epicsFile": "C:\\projects\\portfolio\\festgrid\\bmad\\_bmad-output\\planning-artifacts\\epics.md",
+  "implementationArtifacts": "C:\\projects\\portfolio\\festgrid\\bmad\\_bmad-output\\implementation-artifacts",
+  "order": [
+    "3.7f",
+    "3.7g",
+    "3.7h",
+    "3.7i"
+  ],
+  "context": {
+    "3.7f": {
+      "bmad-create-story": "Part of CC-024 (Multi-event posts and cross-post event matching) Wave 2A. The batch readiness sweep already ran Gate 1 and Gate 3 for this story: read _bmad-output/planning-artifacts/epic-readiness/batch-cc-024-multi-event-readiness.md and cite it instead of re-running them; run Gate 2 only. Follow Architecture Spine AD-16 Rule 2 (and the CC-024 amendment). Track progress in _bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md.",
+      "bmad-dev-story": "CC-024 Wave 2A. Do not touch apps/web or any UI. Keep packages/domain free of React and DB code. Generate the Drizzle migration with drizzle-kit. Run the story's tests; lint and build are deferred to the batch-end pass."
+    },
+    "3.7g": {
+      "bmad-create-story": "CC-024 Wave 2A. Readiness already swept: cite _bmad-output/planning-artifacts/epic-readiness/batch-cc-024-multi-event-readiness.md and run Gate 2 only. This story builds only the BASE slug (ordinal 0); the -{ordinal} suffix belongs to 3.6t and re-slugging with aliases to 3.6v (AD-16 amendment, AD-30).",
+      "bmad-dev-story": "CC-024 Wave 2A. Base slug only; do not add the -{ordinal} suffix or alias logic. Run the story's tests; lint and build are deferred."
+    },
+    "3.7h": {
+      "bmad-create-story": "CC-024 Wave 2A. Readiness already swept: cite _bmad-output/planning-artifacts/epic-readiness/batch-cc-024-multi-event-readiness.md and run Gate 2 only. AD-16 Rule 6: DB-free oEmbed from the slug, backend-owned.",
+      "bmad-dev-story": "CC-024 Wave 2A. Backend only. Run the story's tests; lint and build are deferred."
+    },
+    "3.7i": {
+      "bmad-create-story": "CC-024 Wave 2A. Readiness already swept: cite _bmad-output/planning-artifacts/epic-readiness/batch-cc-024-multi-event-readiness.md and run Gate 2 only. AD-16 Rule 7: React Query hooks fire in parallel; no loading.tsx on the intercepted modal route; keep skeletons in sync with the real component (project-context.md).",
+      "bmad-dev-story": "CC-024 Wave 2A. Follow project-context.md: never a bundler-global read inside packages/ui; verify with the web build if you touch packages/ui. Run the story's tests; lint and build are deferred."
+    }
+  },
+  "progress": {
+    "3.7f": {
+      "bmad-create-story": "done (0308e173)",
+      "bmad-dev-story": "done (90dae6d9, review). Needed a resume: first run left bookkeeping unfinished; gate failures were environmental (stale node_modules, TZ, .env key, volume seed)."
+    },
+    "3.7g": {
+      "bmad-create-story": "done (df9de138; user chose DB lookup in process-ingestion-job)",
+      "bmad-dev-story": "done (04c94a42, review)"
+    },
+    "3.7h": {
+      "bmad-create-story": "done (08588d48; user chose lazy join)",
+      "bmad-dev-story": "done (f3e1bcac, review) after pause + 2 resumes; root cause: child backgrounded a long test run and ended its turn"
+    },
+    "3.7i": {
+      "bmad-create-story": "done (91295210)",
+      "bmad-dev-story": "done (ba6f33be, review)"
+    }
+  },
+  "note": "User pre-approved the dev-story pre-coding approval gate for 3.7g/3.7h/3.7i (2026-10-01) provided each proposed scope matches its story file; stop and ask if a child proposes more.",
+  "gate": "Batch-end gate run 2026-10-02: lint 8/8, build 8/8, tests only the 4 known .env key failures. BATCH COMPLETE."
+}

@@ -1,0 +1,51 @@
+{
+  "_preset": "event-groups batch: default config plus bmad-form-epics (untracked, 2026-10-19)",
+  "_description": "Active default when no --config override is given. See config-presets/ for low/medium/max presets across the mixed and all-claude variants.",
+  "bmad-create-story": {
+    "runtime": "claude",
+    "model": "claude-sonnet-5",
+    "effort": "medium"
+  },
+  "bmad-epic-readiness-check": {
+    "runtime": "claude",
+    "model": "claude-sonnet-5",
+    "effort": "medium"
+  },
+  "bmad-correct-course": {
+    "runtime": "claude",
+    "model": "claude-sonnet-5",
+    "effort": "medium"
+  },
+  "bmad-architecture": {
+    "runtime": "claude",
+    "model": "claude-sonnet-5",
+    "effort": "medium"
+  },
+  "bmad-prd": {
+    "runtime": "claude",
+    "model": "claude-sonnet-5",
+    "effort": "medium"
+  },
+  "bmad-code-review": {
+    "runtime": "claude",
+    "model": "claude-sonnet-5",
+    "effort": "medium"
+  },
+  "bmad-dev-story": {
+    "runtime": "cline",
+    "gcpRegion": "asia-southeast1",
+    "model": "gemini-3.5-flash",
+    "reasoningEffort": "medium"
+  },
+  "bmad-quick-dev": {
+    "runtime": "cline",
+    "gcpRegion": "asia-southeast1",
+    "model": "gemini-3.5-flash",
+    "reasoningEffort": "medium"
+  },
+  "bmad-form-epics": {
+    "runtime": "claude",
+    "model": "claude-sonnet-5",
+    "effort": "medium"
+  }
+}
