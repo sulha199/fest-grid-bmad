@@ -842,3 +842,13 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
   summary: The moderator re-extract rescrape and `extractEventDataFromUrl` call `getScraperAdapter(platform).getPostByUrl` without `isScrapableAccountType()`, which `project-context.md` says every code path that starts a scrape must call; neither is on the AD-34 entry-point list.
   evidence: Surfaced by Blind Hunter. Pre-existing (a single post URL fetch, not an account scrape), widened a little by BUG-097. Needs a decision: either record these two paths as exempt in AD-34, or gate stored posts on the owning account's type.
+
+## Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-apply-roundup.md`
+  summary: A re-extract preview keeps its validated extraction (`result_data.extracted`: event text, links, schedules) on its `manual_extraction_jobs` row until it is applied; a preview that is never applied, or has expired, keeps it indefinitely, and nothing sweeps the table.
+  evidence: Surfaced by two reviewers. The privacy discards (private contact, child performer names) are applied before it is stored, and the caption is never kept, so what remains is event text that is public once an event exists; it is still more retention than needed. Fix: null `extracted` in the stale-job sweep FIND-086 already asks for (any job older than the 30-minute apply window).
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-apply-roundup.md`
+  summary: Apply never turns an existing stub back into a full event, and never reconciles a post whose events changed between the preview and the apply (only the post row and the job row are locked).
+  evidence: Surfaced by two reviewers. Stub-to-full happens through an organizer post being linked (PRD 3.7), and a drift within 30 minutes costs at worst a mis-pairing the moderator can edit; a drift check (hash of the post's event links in the job) is the fix if it is ever seen.
+

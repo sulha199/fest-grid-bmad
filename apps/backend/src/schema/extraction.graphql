@@ -10,6 +10,7 @@ enum ExtractionErrorCode {
   SCRAPE_IN_PROGRESS # another request is fetching this post URL right now (FIND-110)
   EXPIRED # a preview is too old to apply (AD-40 Apply)
   NOT_STORED # a preview of a post that is not in the database cannot be applied (AD-40 Apply)
+  NOTHING_TO_APPLY # a preview that found no events has nothing to apply (AD-40 Apply)
   APPLY_FAILED # the apply was rolled back; nothing changed (AD-40 Apply)
 }
 

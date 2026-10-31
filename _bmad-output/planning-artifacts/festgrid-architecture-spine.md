@@ -2445,11 +2445,17 @@ This document defines the core architectural invariants for the FestDaily applic
         transaction (a failure rolls everything back, `APPLY_FAILED`) with the job row locked
         `FOR UPDATE`. Steps: (a) the post's `grouping_reason` and `title` are rewritten; (b) the post's
         existing events are paired to the items by name and date (`pairPostEventsToItems`,
-        `packages/domain`), never by ordinal, since ordinals sort by earliest date then name and shift
-        when the set grows; (c) a paired event is **reused**: same id, slug, favorites, calendar
+        `packages/domain`: score at least 0.5 AND name similarity at least 0.4, so a shared date alone
+        never pairs; on a tie a live event beats a deleted twin), never by ordinal, since ordinals
+        sort by earliest date then name and shift when the set grows; (c) a paired event is **reused**: same id, slug, favorites, calendar
         entries, aliases; it takes the item's data through `enrichAndPromoteEvent` (an applied
-        correction's fields keep their value) and is demoted to `detail_level = 'stub'` only when this
-        post is its **primary** post and `resolveStubSource` says the post is a roundup or curator post;
+        correction's fields keep their value; a schedule the new extraction no longer lists is removed
+        unless a calendar entry uses it; the slug is stripped from what is passed in, so a reused
+        event is never re-slugged) and is demoted to `detail_level = 'stub'` only when this post is its
+        **primary** post and `resolveStubSource` says the post is a roundup or curator post. An event
+        whose primary post is **another** post (typically the organizer's) is not enriched at all:
+        it keeps its data, schedules and detail level and only moves this post's link to the new
+        ordinal;
         (d) every other item goes through the ingestion decision and write
         (`evaluateIngestionMatch`, `writeIngestionDecision`), so a high match links to an existing
         event and a mid match queues a suggestion; (e) a live event no item matched is left as it is
@@ -2461,8 +2467,13 @@ This document defines the core architectural invariants for the FestDaily applic
         `events` forbids a NULL ordinal on a primary post, so moving events are first parked at
         `PARKED_ORDINAL_BASE + n` (30000+), then given their final ordinal (`assignApplyOrdinals`),
         which skips slots still held by events that do not move and, for a new item, any ordinal whose
-        derived slug a reused event keeps (`events.slug` is unique). There is no undo; a
-        `reextract_apply` JSON log line records the event ids touched.
+        derived slug a reused event, an orphan or a deleted event keeps (`events.slug` is unique).
+        Applies of one post are serialized by a `FOR UPDATE` lock on the post row (taken before the
+        job row's). A preview that found no events is refused (`NOTHING_TO_APPLY`): applying it would
+        blank the post's title and orphan every event. The kept extraction has the privacy discards
+        already applied (no private contact, no child performer names), because an unapplied preview
+        keeps it on the job row until a sweep exists (see the deferred retention row). There is no
+        undo; a `reextract_apply` JSON log line records the event ids touched.
 *   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
     written from a JS object as a jsonb **string** holding the JSON (`events.links`,
     `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it

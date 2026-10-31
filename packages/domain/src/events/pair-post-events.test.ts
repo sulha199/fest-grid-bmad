@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAIRING_MIN_SCORE, assignApplyOrdinals, nameSimilarity, pairPostEventsToItems, scorePair, slugImpliedOrdinal } from './pair-post-events.js';
+import { PAIRING_MIN_NAME_SIMILARITY, PAIRING_MIN_SCORE, assignApplyOrdinals, nameSimilarity, pairPostEventsToItems, scorePair, slugImpliedOrdinal } from './pair-post-events.js';
 
 const ev = (id: string, eventName: string, startDates: string[], deleted = false) => ({ id, eventName, startDates, deleted });
 const item = (index: number, eventName: string, startDates: string[]) => ({ index, eventName, startDates });
@@ -84,6 +84,22 @@ describe('pairPostEventsToItems', () => {
     assert.equal(result.items[0].kind, 'new');
   });
 
+  it('never pairs on a shared date alone: two unrelated events on one day stay separate', () => {
+    assert.ok(PAIRING_MIN_NAME_SIMILARITY > 0);
+    // Same date alone is worth 0.4; a faint name resemblance used to be enough to clear 0.5.
+    const faint = nameSimilarity('Kopi Pagi', 'Pasar Malam');
+    assert.ok(faint < PAIRING_MIN_NAME_SIMILARITY, `fixture sanity: the names are only faintly alike (${faint})`);
+    assert.ok(0.4 + 0.6 * faint >= PAIRING_MIN_SCORE, 'fixture sanity: the old score alone would have paired them');
+    const result = pairPostEventsToItems([ev('e1', 'Kopi Pagi', ['2026-09-01'])], [item(0, 'Pasar Malam', ['2026-09-01'])]);
+    assert.deepEqual(result.items, [{ index: 0, kind: 'new' }]);
+    assert.deepEqual(result.orphanEventIds, ['e1']);
+  });
+
+  it('on an exact tie a live event beats a deleted twin, whatever their ids', () => {
+    const result = pairPostEventsToItems([ev('a-deleted', 'Twin Fest', ['2026-09-01'], true), ev('z-live', 'Twin Fest', ['2026-09-01'])], [item(0, 'Twin Fest', ['2026-09-01'])]);
+    assert.deepEqual(result.items, [{ index: 0, kind: 'reuse', eventId: 'z-live' }]);
+  });
+
   it('handles no existing events and no items', () => {
     assert.deepEqual(pairPostEventsToItems([], [item(0, 'X', ['2026-09-01'])]), { items: [{ index: 0, kind: 'new' }], orphanEventIds: [] });
     assert.deepEqual(pairPostEventsToItems([ev('e1', 'X', [])], []), { items: [], orphanEventIds: ['e1'] });
@@ -128,6 +144,12 @@ describe('assignApplyOrdinals', () => {
     assert.deepEqual(assignApplyOrdinals([{ reused: false }, { reused: true }, { reused: false }], [], [0]), [1, 0, 2]);
     // E first: it may take ordinal 0 (the slug it holds); the new items then avoid 0 anyway.
     assert.deepEqual(assignApplyOrdinals([{ reused: true }, { reused: false }, { reused: false }], [], [0]), [0, 1, 2]);
+  });
+
+  it('keeps a NEW item off an ordinal whose slug an event that stays put still holds, but never a reused one off its own', () => {
+    // An orphan sits at ordinal 1 but carries the slug of ordinal 0 (an earlier Apply moved it).
+    assert.deepEqual(assignApplyOrdinals(newItems(2), [1], [], [0]), [2, 3], 'ordinal 0 would derive the orphan\'s slug; ordinal 1 is taken');
+    assert.deepEqual(assignApplyOrdinals([{ reused: true }], [1], [], [0]), [2], 'the same rule holds for any item: slot 0 maps to the held slug');
   });
 
   it('ignores a null slug ordinal (a legacy hex slug cannot collide)', () => {

@@ -377,4 +377,29 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  await t.test('the extraction kept for Apply has the privacy discards already applied: no private contact, no child performers', async () => {
+    const caption = 'Ayo daftar Lomba Tari Anak Sanggar Melati untuk siswa SD!';
+    const post = await makePost(caption);
+    gemini([
+      {
+        ...previewEvent('2026-11-20', `Kids Dance ${suffix}`),
+        hasPrivateContact: true,
+        contactInfo: '+62 812 0000 0000',
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-20', title: 'Show', location: 'Reex Zoo', performers: ['Aisyah', 'Budi'] }],
+      },
+    ]);
+    const id = await insertJob({ message: message(post, caption), existingPostAccountId: account.id, mode: 'REEXTRACT_PREVIEW', postStored: true, rescraped: false });
+    await processManualExtractionJob(id);
+
+    const row = await readJob(id);
+    const preview = row.resultData as ReextractionPreviewResult;
+    assert.ok(preview.extracted);
+    assert.strictEqual(preview.extracted.childrensDataMatch, true);
+    const [kept] = preview.extracted.events;
+    assert.strictEqual(kept.contactInfo, undefined, 'a private contact is not stored');
+    assert.strictEqual(kept.schedules[0].performers, undefined, 'a child performer\'s name is not stored');
+    const stored = JSON.stringify(row.resultData);
+    assert.ok(!stored.includes('+62 812 0000 0000') && !stored.includes('Aisyah') && !stored.includes('Budi'));
+  });
 });

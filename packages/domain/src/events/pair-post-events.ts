@@ -37,6 +37,12 @@ export interface PostEventPairing {
 
 /** A pair needs at least this much: a same name alone clears it, a shared date plus a rough name does too. */
 export const PAIRING_MIN_SCORE = 0.5;
+/**
+ * ...and, whatever the date, names at least this alike. Without a floor a shared date alone
+ * (0.4) plus a faint name resemblance clears the score, and two unrelated events on one day would
+ * be paired: a live event's id, slug and favorites handed to a different event.
+ */
+export const PAIRING_MIN_NAME_SIMILARITY = 0.4;
 const NAME_WEIGHT = 0.6;
 const DATE_WEIGHT = 0.4;
 const NEAR_DAYS = 2;
@@ -106,10 +112,17 @@ export function pairPostEventsToItems(existing: readonly PairableExistingEvent[]
   for (const item of items) {
     for (const event of existing) {
       const score = scorePair(item, event);
-      if (score >= PAIRING_MIN_SCORE) candidates.push({ item, event, score });
+      if (score >= PAIRING_MIN_SCORE && nameSimilarity(item.eventName, event.eventName) >= PAIRING_MIN_NAME_SIMILARITY) {
+        candidates.push({ item, event, score });
+      }
     }
   }
-  candidates.sort((a, b) => b.score - a.score || a.item.index - b.item.index || a.event.id.localeCompare(b.event.id));
+  // Highest score first. On a tie a LIVE event beats a deleted twin (the item must refresh the live one,
+  // not be skipped because of a deleted event with a lower id), then the lower item index, then the
+  // lower event id, so the result is deterministic.
+  candidates.sort(
+    (a, b) => b.score - a.score || Number(a.event.deleted) - Number(b.event.deleted) || a.item.index - b.item.index || a.event.id.localeCompare(b.event.id)
+  );
 
   const usedEvents = new Set<string>();
   const pairingByIndex = new Map<number, ItemPairing>();
@@ -146,12 +159,16 @@ export function slugImpliedOrdinal(slug: string): number | null {
  * - for a NEW item, never one whose derived slug (`..._X`, `..._X~n`) is already held by a reused
  *   event (`reusedSlugOrdinals`), because a reused event keeps its slug when it moves, and `events.slug`
  *   is unique.
- * A reused item may take such an ordinal: it is the event that holds the slug.
+ * - the same goes for the slugs of events that stay where they are (`otherSlugOrdinals`: an orphan, or a
+ *   deleted event, whose slug no longer matches the ordinal it now sits at after an earlier Apply).
+ * A reused item may take an ordinal held by a reused event's slug: only an item that is itself a
+ * reused event can (the allocation is by ordinal, so the caller's reuse keeps its own slug on move).
  */
 export function assignApplyOrdinals(
   keptItems: ReadonlyArray<{ reused: boolean }>,
   fixedOrdinals: Iterable<number | null>,
-  reusedSlugOrdinals: Iterable<number | null> = []
+  reusedSlugOrdinals: Iterable<number | null> = [],
+  otherSlugOrdinals: Iterable<number | null> = []
 ): number[] {
   const taken = new Set<number>();
   for (const ordinal of fixedOrdinals) {
@@ -161,10 +178,14 @@ export function assignApplyOrdinals(
   for (const ordinal of reusedSlugOrdinals) {
     if (ordinal !== null) slugHeld.add(ordinal);
   }
+  const otherSlugHeld = new Set<number>();
+  for (const ordinal of otherSlugOrdinals) {
+    if (ordinal !== null) otherSlugHeld.add(ordinal);
+  }
   const ordinals: number[] = [];
   for (const item of keptItems) {
     let candidate = 0;
-    while (taken.has(candidate) || (!item.reused && slugHeld.has(candidate))) candidate++;
+    while (taken.has(candidate) || otherSlugHeld.has(candidate) || (!item.reused && slugHeld.has(candidate))) candidate++;
     taken.add(candidate);
     ordinals.push(candidate);
   }

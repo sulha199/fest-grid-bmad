@@ -2704,3 +2704,12 @@ items:
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-reextract-scrape-gate-and-single-flight.md],
      touches: [app:backend, cross:architecture],
      note: "Deferred from: bmad-quick-dev review of spec-reextract-read-all-slide-images (2026-10-31). 2 findings. Fixed on branch ccr-56bef1e2-pmkhv6: per-URL lease and AD-34 Rule 7 gate."}
+
+  FIND-111:
+    {type: finding, status: backlog, created: 2026-10-31,
+     impact: internal, effort: s,
+     title: "Re-extract Apply: unapplied previews keep their extraction on the job row, and Apply has no drift check or stub-to-full path",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:architecture],
+     note: "Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31). 2 findings. Retention fix belongs with FIND-086's job sweep."}
+

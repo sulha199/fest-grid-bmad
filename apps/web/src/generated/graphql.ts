@@ -462,6 +462,7 @@ export enum ExtractionErrorCode {
   ApplyFailed = 'APPLY_FAILED',
   Expired = 'EXPIRED',
   ExtractionFailed = 'EXTRACTION_FAILED',
+  NothingToApply = 'NOTHING_TO_APPLY',
   NotFound = 'NOT_FOUND',
   NotStored = 'NOT_STORED',
   NoApiKey = 'NO_API_KEY',

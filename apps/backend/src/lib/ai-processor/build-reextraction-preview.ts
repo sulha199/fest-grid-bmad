@@ -135,11 +135,21 @@ export async function buildReextractionPreview(input: BuildReextractionPreviewIn
     events: previewEvents,
     // AD-40 (Apply): what a later Apply needs, with the one caption-derived fact computed now, while
     // the caption exists. The caption itself is never kept.
-    extracted: {
-      events: keptEvents,
-      groupingReason: payload.groupingReason ?? null,
-      postTitle: payload.postTitle?.trim().slice(0, 200) || null,
-      childrensDataMatch: matchesChildrensDataKeywordFilter(message.content),
-    },
+    extracted: (() => {
+      const childrensDataMatch = matchesChildrensDataKeywordFilter(message.content);
+      return {
+        // Stored for Apply, so it gets the same discard-at-classification the event builder applies
+        // (transformGeminiResponseToEventInfo): a raw private contact or a child performer's name
+        // must not sit in a job row, applied or not. Apply's transform repeats both rules.
+        events: keptEvents.map((event) => ({
+          ...event,
+          contactInfo: event.hasPrivateContact === true ? undefined : event.contactInfo,
+          schedules: childrensDataMatch ? event.schedules.map((schedule) => ({ ...schedule, performers: undefined })) : event.schedules,
+        })),
+        groupingReason: payload.groupingReason ?? null,
+        postTitle: payload.postTitle?.trim().slice(0, 200) || null,
+        childrensDataMatch,
+      };
+    })(),
   };
 }

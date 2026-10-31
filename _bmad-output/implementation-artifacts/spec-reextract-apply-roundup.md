@@ -2,7 +2,7 @@
 title: 'Moderator Apply for re-extract: turn a post into a roundup'
 type: 'feature'
 created: '2026-10-31'
-status: 'in-review'
+status: 'done'
 baseline_commit: '102eb47a92f5401d89896c497384e0496857749d'
 review_loop_iteration: 0
 context:

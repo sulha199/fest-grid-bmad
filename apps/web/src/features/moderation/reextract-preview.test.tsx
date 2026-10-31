@@ -66,23 +66,49 @@ describe('ReextractPreviewResult (AD-40)', () => {
       orphans: [{ slug: 'old-orphan', eventName: 'Left Alone Gala' }],
     };
     const applyState = (overrides: Record<string, unknown> = {}) =>
-      ({ apply: vi.fn().mockResolvedValue(undefined), phase: 'idle', summary: null, errorMessage: null, ...overrides }) as any;
+      ({ apply: vi.fn().mockResolvedValue(undefined), phase: 'idle', summary: null, errorMessage: null, retryable: true, ...overrides }) as any;
 
     it('offers Apply only when the server says the preview is applicable and an apply handler is given', () => {
-      const { unmount } = render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true })} apply={applyState()} />));
+      const { unmount } = render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={applyState()} />));
       expect(screen.getByRole('button', { name: 'Apply as roundup' })).toBeInTheDocument();
       unmount();
-      const { unmount: unmount2 } = render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: false })} apply={applyState()} />));
+      const { unmount: unmount2 } = render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: false, groupingReason: PostGroupingReason.Roundup })} apply={applyState()} />));
       expect(screen.queryByRole('button', { name: 'Apply as roundup' })).not.toBeInTheDocument();
       unmount2();
-      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true })} />));
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} />));
       expect(screen.queryByTestId('reextract-apply-panel')).not.toBeInTheDocument();
+    });
+
+    it('uses neutral wording, with no roundup claim, when the preview is not a roundup', () => {
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.SingleEvent })} apply={applyState()} />));
+      expect(screen.getByRole('button', { name: 'Apply this preview' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Apply as roundup' })).not.toBeInTheDocument();
+      expect(screen.getByTestId('reextract-apply-panel')).not.toHaveTextContent('roundup stubs');
+    });
+
+    it('tells the moderator truthfully what apply changes: nothing deleted, but stale schedules are removed', () => {
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={applyState()} />));
+      const panel = screen.getByTestId('reextract-apply-panel');
+      expect(panel).toHaveTextContent('No event is deleted');
+      expect(panel).toHaveTextContent('removed from a kept event unless someone\'s calendar uses it');
+    });
+
+    it('hides the button after a refusal no retry can fix (too old), keeping the message', () => {
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={applyState({ phase: 'failed', retryable: false, errorMessage: 'This preview can no longer be applied.' })} />));
+      expect(screen.getByRole('alert')).toHaveTextContent('can no longer be applied');
+      expect(screen.queryByRole('button', { name: 'Apply as roundup' })).not.toBeInTheDocument();
+    });
+
+    it('lists an event once even when two lists of the summary name it', () => {
+      const dup = { ...summary, linkedToExisting: [{ slug: 'ig_p_AAA', eventName: 'Kulon Progo Half Marathon' }] };
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: false })} apply={applyState({ phase: 'done', summary: dup })} />));
+      expect(screen.getAllByRole('link', { name: 'Kulon Progo Half Marathon' })).toHaveLength(1);
     });
 
     it('asks for confirmation first: cancel changes nothing, confirm applies once', async () => {
       const user = userEvent.setup();
       const state = applyState();
-      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true })} apply={state} />));
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={state} />));
 
       await user.click(screen.getByRole('button', { name: 'Apply as roundup' }));
       expect(await screen.findByText('Apply this preview?')).toBeInTheDocument();
@@ -95,7 +121,7 @@ describe('ReextractPreviewResult (AD-40)', () => {
     });
 
     it('shows what was applied, links the events, and lists the events it left alone', () => {
-      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: false })} apply={applyState({ phase: 'done', summary })} />));
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: false, groupingReason: PostGroupingReason.Roundup })} apply={applyState({ phase: 'done', summary })} />));
       const box = screen.getByTestId('reextract-apply-summary');
       expect(box).toHaveTextContent('1 existing event kept');
       expect(box).toHaveTextContent('1 new event created');
@@ -107,7 +133,7 @@ describe('ReextractPreviewResult (AD-40)', () => {
     });
 
     it('shows the failure and lets the moderator try again', () => {
-      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true })} apply={applyState({ phase: 'failed', errorMessage: 'This preview is too old to apply. Run the preview again.' })} />));
+      render(wrap(<ReextractPreviewResult preview={makePreview({ applicable: true, groupingReason: PostGroupingReason.Roundup })} apply={applyState({ phase: 'failed', errorMessage: 'This preview is too old to apply. Run the preview again.' })} />));
       expect(screen.getByRole('alert')).toHaveTextContent('too old to apply');
       expect(screen.getByRole('button', { name: 'Apply as roundup' })).toBeEnabled();
     });

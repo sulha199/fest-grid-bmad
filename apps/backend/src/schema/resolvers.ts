@@ -2996,6 +2996,7 @@ export const resolvers: Resolvers = {
                 job.status === 'SUCCEEDED' &&
                 result.postStored &&
                 Boolean(result.extracted) &&
+                result.extracted!.events.length > 0 &&
                 !result.applied &&
                 Date.now() - (job.completedAt?.getTime() ?? 0) <= REEXTRACT_APPLY_WINDOW_MS,
               applied: result.applied ? toGraphQLApplySummary(result.applied) : null,

@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { BlockingLoader, ConfirmActionDialog } from '@festgrid/ui';
 import { Link } from '@/i18n/navigation';
 import { Button } from '@/components/ui/button';
-import { ReextractionDedupTier } from '@/generated/graphql';
+import { PostGroupingReason, ReextractionDedupTier } from '@/generated/graphql';
 import type { ReextractionApplyState, ReextractionApplySummary, ReextractionPreview } from './use-post-reextraction-preview';
 
 const TIER_CLASS: Record<ReextractionDedupTier, string> = {
@@ -37,9 +37,11 @@ interface ReextractPreviewResultProps {
 }
 
 function EventLinks({ events }: { events: Array<{ slug: string; eventName: string }> }) {
+  // One link per event: an event can appear in two lists (reused and folded into by another item).
+  const unique = [...new Map(events.map((event) => [event.slug, event])).values()];
   return (
     <ul className="list-disc pl-5 text-sm">
-      {events.map((event) => (
+      {unique.map((event) => (
         <li key={event.slug}>
           <Link className="underline" href={`/events/${event.slug}`}>
             {event.eventName}
@@ -78,6 +80,8 @@ function ReextractApplySummary({ summary }: { summary: ReextractionApplySummary 
 export function ReextractPreviewResult({ preview, apply }: ReextractPreviewResultProps) {
   const t = useTranslations('ReextractPreview');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Only a roundup preview turns events into roundup stubs; any other grouping gets neutral wording.
+  const isRoundup = preview.groupingReason === PostGroupingReason.Roundup;
 
   return (
     <div className="space-y-4" data-testid="reextract-preview-result">
@@ -156,15 +160,18 @@ export function ReextractPreviewResult({ preview, apply }: ReextractPreviewResul
 
       {apply && apply.phase !== 'done' && preview.applicable && preview.events.length > 0 && (
         <div className="space-y-2 rounded-lg border p-3" data-testid="reextract-apply-panel">
-          <p className="text-sm">{t('applyExplainer')}</p>
+          <p className="text-sm">{isRoundup ? t('applyExplainerRoundup') : t('applyExplainer')}</p>
           {apply.phase === 'failed' && (
             <p role="alert" className="text-sm text-destructive">
               {apply.errorMessage || t('applyFailed')}
             </p>
           )}
-          <Button disabled={apply.phase === 'applying'} onClick={() => setConfirmOpen(true)}>
-            {t('applyButton')}
-          </Button>
+          {/* A refusal a second click cannot fix (too old, nothing to apply) leaves only the message. */}
+          {(apply.phase !== 'failed' || apply.retryable) && (
+            <Button disabled={apply.phase === 'applying'} onClick={() => setConfirmOpen(true)}>
+              {isRoundup ? t('applyButtonRoundup') : t('applyButton')}
+            </Button>
+          )}
         </div>
       )}
 

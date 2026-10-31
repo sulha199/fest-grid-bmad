@@ -91,7 +91,16 @@ test('applyPostReextraction (AD-40 Apply)', async (t) => {
     return post;
   }
 
-  async function makeEvent(post: { id: string }, ordinal: number, name: string, date: string, slug?: string) {
+  /** The slug `buildEventInsertValues` derives for a post's item at `ordinal` (AD-16: `ig_p_X`, `ig_p_X~n`). */
+  const derivedSlug = (post: { platformPostId: string | null }, ordinal: number) => `ig_p_${post.platformPostId}${ordinal === 0 ? '' : `~${ordinal}`}`;
+
+  async function makeEvent(
+    post: { id: string; platformPostId: string | null },
+    ordinal: number,
+    name: string,
+    date: string,
+    opts: { slug?: string; schedules?: Array<{ date: string; location: string | null }> } = {}
+  ) {
     const inserted = await insertEventWithPrimaryPost(db, {
       eventName: name,
       location: 'Apply Hall',
@@ -99,11 +108,13 @@ test('applyPostReextraction (AD-40 Apply)', async (t) => {
       postId: post.id,
       extractionOrdinal: ordinal,
       sourceSocialMediaAccountId: account.accountId,
-      ...(slug ? { slug } : {}),
+      slug: opts.slug ?? derivedSlug(post, ordinal),
     });
     assert.ok(inserted);
     eventIds.add(inserted.id);
-    await db.insert(schedules).values({ eventId: inserted.id, eventStartDate: date, isMainSchedule: true, location: 'Apply Hall' });
+    for (const [i, sch] of (opts.schedules ?? [{ date, location: 'Apply Hall' }]).entries()) {
+      await db.insert(schedules).values({ eventId: inserted.id, eventStartDate: sch.date, isMainSchedule: i === 0, location: sch.location });
+    }
     return inserted;
   }
 
@@ -164,7 +175,7 @@ test('applyPostReextraction (AD-40 Apply)', async (t) => {
   await t.test('a post stored as one event becomes a roundup: the old event keeps its id and slug, favorites survive, new items link as stubs', async () => {
     const post = await makePost();
     const kulon = `Kulon Progo Half Marathon ${suffix}`;
-    const existing = await makeEvent(post, 0, kulon, '2026-09-01', `ig_p_apply_${suffix}`);
+    const existing = await makeEvent(post, 0, kulon, '2026-09-01');
     await db.insert(favorites).values({ userId: moderator.id, eventId: existing.id });
 
     const job = await makeJob(post, [rawEvent(`Merapi Performance Trail Run ${suffix}`, '2026-09-01'), rawEvent(kulon, '2026-09-01'), rawEvent(`PLN Mobile Electric Series ${suffix}`, '2026-09-02')]);
@@ -204,6 +215,12 @@ test('applyPostReextraction (AD-40 Apply)', async (t) => {
     // The new items took the lowest free ordinals in ingestion order, around the reused event's slug.
     const created = rows.filter((r) => r.eventId !== existing.id);
     assert.ok(created.every((r) => r.slug !== existing.slug), 'no slug collision with the reused event');
+    // Kulon sorts before Merapi (same date, name order), so ordinals are 0 (reused), 1, 2 in date/name order.
+    assert.deepStrictEqual(
+      rows.sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0)).map((r) => r.name),
+      [kulon, `Merapi Performance Trail Run ${suffix}`, `PLN Mobile Electric Series ${suffix}`],
+      'ordinals follow the date-then-name order ingestion uses'
+    );
     const [job2] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.id, job.id));
     const stored2 = job2.resultData as ReextractionPreviewResult;
     assert.strictEqual(stored2.extracted, null, 'the kept extraction is dropped once applied');
@@ -300,6 +317,97 @@ test('applyPostReextraction (AD-40 Apply)', async (t) => {
     const [after] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.id, job.id));
     const afterResult = after.resultData as ReextractionPreviewResult;
     assert.ok(afterResult.extracted && !afterResult.applied, 'the job can still be applied after fixing the cause');
+  });
+
+  await t.test('events really change ordinal, including a swap that needs parking, and keep their slugs', async () => {
+    const post = await makePost();
+    const first = `Swap First ${suffix}`;
+    const second = `Swap Second ${suffix}`;
+    // Stored as: First at ordinal 0 (slug X), Second at ordinal 1 (slug X~1). The new extraction sorts
+    // Second (earlier date) before First, so the two must trade ordinals.
+    const e1 = await makeEvent(post, 0, first, '2026-10-20');
+    const e2 = await makeEvent(post, 1, second, '2026-10-10');
+    const job = await makeJob(post, [rawEvent(first, '2026-10-20'), rawEvent(second, '2026-10-10')]);
+    const result = await applyPostReextraction(moderator.id, job.id);
+    assert.ok('summary' in result, JSON.stringify(result));
+    const rows = await linkRows(post.id);
+    assert.strictEqual(rows.find((r) => r.eventId === e2.id)?.ordinal, 0, 'Second moved to ordinal 0');
+    assert.strictEqual(rows.find((r) => r.eventId === e1.id)?.ordinal, 1, 'First moved to ordinal 1');
+    assert.strictEqual(rows.find((r) => r.eventId === e1.id)?.slug, derivedSlug(post, 0), 'slugs stay with their events');
+    assert.strictEqual(rows.find((r) => r.eventId === e2.id)?.slug, derivedSlug(post, 1));
+    const primary = await db.select({ id: events.id, ordinal: events.extractionOrdinal }).from(events).where(inArray(events.id, [e1.id, e2.id]));
+    assert.strictEqual(primary.find((r) => r.id === e2.id)?.ordinal, 0, 'events.extraction_ordinal moved with event_posts');
+    assert.strictEqual(primary.find((r) => r.id === e1.id)?.ordinal, 1);
+  });
+
+  await t.test('a reused event whose fresh schedules are more complete keeps its slug (no re-slug), and drops a schedule the extraction no longer lists', async () => {
+    const post = await makePost();
+    const name = `Prune Fest ${suffix}`;
+    // Stored at ordinal 3 (slug X~3); alone in the new extraction it becomes ordinal 0, whose derived
+    // slug (X) differs, so a re-slug WOULD fire if the slug were not stripped.
+    const existing = await makeEvent(post, 3, name, '2026-11-01', {
+      schedules: [{ date: '2026-11-01', location: null }, { date: '2026-11-02', location: null }],
+    });
+    const job = await makeJob(post, [rawEvent(name, '2026-11-01')]);
+    const result = await applyPostReextraction(moderator.id, job.id);
+    assert.ok('summary' in result, JSON.stringify(result));
+    const [after] = await db.select().from(events).where(eq(events.id, existing.id));
+    assert.strictEqual(after.slug, derivedSlug(post, 3), 'the event keeps the slug it had');
+    assert.strictEqual((await linkRows(post.id)).find((r) => r.eventId === existing.id)?.ordinal, 0, 'while its ordinal moved, so a re-slug was possible');
+    assert.strictEqual((await db.select().from(eventSlugAliases).where(eq(eventSlugAliases.eventId, existing.id))).length, 0, 'and no alias was written');
+    const remaining = await db.select().from(schedules).where(eq(schedules.eventId, existing.id));
+    assert.deepStrictEqual(remaining.map((r) => r.eventStartDate), ['2026-11-01'], 'the schedule the new extraction omits is removed');
+  });
+
+  await t.test('an event whose primary post is another post keeps its data and schedules: only the link moves', async () => {
+    const earlier = await makePost('2026-09-01T00:00:00Z');
+    const post = await makePost('2026-10-01T00:00:00Z');
+    const name = `Organizer Owned ${suffix}`;
+    const owned = await makeEvent(earlier, 0, name, '2026-12-01', {
+      schedules: [{ date: '2026-12-01', location: 'Organizer Hall' }, { date: '2026-12-02', location: 'Organizer Hall' }],
+    });
+    await db.update(events).set({ description: 'The organizer wrote this.', location: 'Organizer Hall' }).where(eq(events.id, owned.id));
+    await db.insert(eventPosts).values({ eventId: owned.id, postId: post.id, extractionOrdinal: 0 });
+    const thin = { ...rawEvent(name, '2026-12-01'), location: 'Roundup guess', description: 'A thin roundup blurb.' };
+    const job = await makeJob(post, [thin]);
+    const result = await applyPostReextraction(moderator.id, job.id);
+    assert.ok('summary' in result, JSON.stringify(result));
+    const [after] = await db.select().from(events).where(eq(events.id, owned.id));
+    assert.strictEqual(after.description, 'The organizer wrote this.');
+    assert.strictEqual(after.location, 'Organizer Hall');
+    assert.strictEqual(after.postId, earlier.id);
+    assert.strictEqual((await db.select().from(schedules).where(eq(schedules.eventId, owned.id))).length, 2, 'no schedule was pruned');
+  });
+
+  await t.test('a new item never takes an ordinal whose derived slug an orphan still holds', async () => {
+    const post = await makePost();
+    // An earlier Apply left this orphan at ordinal 1 while it kept the slug of ordinal 0.
+    const orphan = await makeEvent(post, 1, `Orphan Elsewhere ${suffix}`, '2027-03-03', { slug: derivedSlug(post, 0) });
+    const job = await makeJob(post, [rawEvent(`Needs A Slot ${suffix}`, '2026-09-21')]);
+    const result = await applyPostReextraction(moderator.id, job.id);
+    assert.ok('summary' in result, JSON.stringify(result));
+    const rows = await linkRows(post.id);
+    assert.strictEqual(rows.find((r) => r.eventId === orphan.id)?.ordinal, 1);
+    const created = rows.find((r) => r.name === `Needs A Slot ${suffix}`);
+    assert.strictEqual(created?.ordinal, 2, 'ordinal 0 would have derived the orphan\'s slug');
+    assert.notStrictEqual(created?.slug, orphan.slug);
+  });
+
+  await t.test('an extraction with no events is refused: nothing to apply, the post is untouched', async () => {
+    const post = await makePost();
+    const existing = await makeEvent(post, 0, `Stays Put ${suffix}`, '2026-09-28');
+    const job = await makeJob(post, []);
+    const result = await applyPostReextraction(moderator.id, job.id);
+    assert.ok('errorCode' in result && result.errorCode === 'NOTHING_TO_APPLY', JSON.stringify(result));
+    const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(stored.groupingReason, 'single-event');
+    assert.strictEqual(stored.title, null);
+    assert.deepStrictEqual((await linkRows(post.id)).map((r) => r.eventId), [existing.id]);
+  });
+
+  await t.test('a malformed job id is NOT_FOUND, not a database error', async () => {
+    const result = await applyPostReextraction(moderator.id, 'abc');
+    assert.ok('errorCode' in result && result.errorCode === 'NOT_FOUND');
   });
 
   await t.test('two simultaneous applies of one job apply once and both get the same summary', async () => {

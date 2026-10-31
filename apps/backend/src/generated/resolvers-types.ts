@@ -445,6 +445,7 @@ export type ExtractionErrorCode =
   | 'APPLY_FAILED'
   | 'EXPIRED'
   | 'EXTRACTION_FAILED'
+  | 'NOTHING_TO_APPLY'
   | 'NOT_FOUND'
   | 'NOT_STORED'
   | 'NO_API_KEY'

@@ -26,7 +26,9 @@ import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-s
 // aliases survive), and the remaining items are ingested through the same write path as ingestion.
 // Never deletes an event, never recreates one a moderator deleted (PRD 3.7), never notifies.
 
-export type ApplyPostReextractionErrorCode = 'NOT_FOUND' | 'EXPIRED' | 'NOT_STORED' | 'APPLY_FAILED';
+export type ApplyPostReextractionErrorCode = 'NOT_FOUND' | 'EXPIRED' | 'NOT_STORED' | 'NOTHING_TO_APPLY' | 'APPLY_FAILED';
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type ApplyPostReextractionResult =
   | { summary: ApplyReextractionSummary }
@@ -39,6 +41,8 @@ type PostRow = typeof posts.$inferSelect;
 
 export async function applyPostReextraction(userId: string, jobId: string, now: Date = new Date()): Promise<ApplyPostReextractionResult> {
   // Owner-scoped, like every manual job read: another moderator's job is NOT_FOUND, not forbidden.
+  // A malformed id is a NOT_FOUND too, not a database error.
+  if (!UUID_PATTERN.test(jobId)) return fail('NOT_FOUND', 'Preview not found, or it has not finished.');
   const [job] = await db
     .select()
     .from(manualExtractionJobs)
@@ -54,9 +58,12 @@ export async function applyPostReextraction(userId: string, jobId: string, now: 
 
   const finishedAt = job.completedAt ?? job.updatedAt;
   if (!result?.extracted || now.getTime() - finishedAt.getTime() > REEXTRACT_APPLY_WINDOW_MS) {
-    return fail('EXPIRED', 'This preview is too old to apply. Run the preview again.');
+    return fail('EXPIRED', 'This preview can no longer be applied (it is too old, or predates Apply). Run the preview again.');
   }
   const extracted = result.extracted;
+  // "Not an event" is a fine preview, but applying it would rewrite the post's grouping, blank its
+  // title and orphan every event it has, with nothing to put in their place.
+  if (extracted.events.length === 0) return fail('NOTHING_TO_APPLY', 'This preview found no events, so there is nothing to apply.');
 
   if (!result.postStored) return fail('NOT_STORED', 'Only a post that is stored can be applied.');
   const [post] = await db.select().from(posts).where(eq(posts.id, requestPayload.message.postId)).limit(1);
@@ -78,6 +85,10 @@ export async function applyPostReextraction(userId: string, jobId: string, now: 
     }
 
     const applied = await db.transaction(async (tx) => {
+      // Serializes applies of one POST (two previews of it, or a double click): the second waits here
+      // and then pairs against whatever the first wrote. The post lock comes before the job lock in
+      // every apply, so two applies cannot deadlock on the pair.
+      await tx.select({ id: posts.id }).from(posts).where(eq(posts.id, post.id)).for('update');
       // Serializes two applies of one job: the second waits here, then sees `applied` and returns it.
       const [locked] = await tx
         .select({ resultData: manualExtractionJobs.resultData })
@@ -173,10 +184,13 @@ async function applyInTransaction(
   );
   const movingEventIds = new Set(reusedByIndex.values());
   const slugOrdinalOf = new Map(links.map((l) => [l.eventId, slugImpliedOrdinal(l.slug)]));
+  const staying = links.filter((l) => !movingEventIds.has(l.eventId));
   const finalOrdinals = assignApplyOrdinals(
     kept.map((m) => ({ reused: reusedByIndex.has(m.applyIndex) })),
-    links.filter((l) => !movingEventIds.has(l.eventId)).map((l) => l.ordinal),
-    [...movingEventIds].map((id) => slugOrdinalOf.get(id) ?? null)
+    staying.map((l) => l.ordinal),
+    [...movingEventIds].map((id) => slugOrdinalOf.get(id) ?? null),
+    // An orphan or deleted event keeps its slug even when an earlier Apply left it at another ordinal.
+    staying.map((l) => slugOrdinalOf.get(l.eventId) ?? null)
   );
 
   // Grouping and title first: the stub rule below reads the post's (new) grouping.
@@ -204,16 +218,27 @@ async function applyInTransaction(
 
     if (reusedEventId) {
       const [existing] = await tx.select().from(events).where(eq(events.id, reusedEventId)).limit(1);
-      const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null);
-      // Corrections already applied to the event keep their values (enrichAndPromoteEvent's own rule).
-      const { event: updated } = await enrichAndPromoteEvent(tx, existing, event, scheduleValues, post.id, ordinal);
-      // A stub means "this roundup post is all there is": only an event whose primary post IS this
-      // post is demoted. One whose primary is the organizer's own post keeps its detail level.
-      if (isStub && existing.postId === post.id && existing.detailLevel !== 'stub') {
-        await tx.update(events).set({ detailLevel: 'stub' }).where(eq(events.id, reusedEventId));
+      let reusedRow = existing;
+      if (existing.postId === post.id) {
+        // This post is the event's own source: it takes the fresh extraction (a schedule the new
+        // extraction no longer lists is removed unless a calendar entry uses it; fields named by an
+        // applied correction keep their value). The slug is stripped so no re-slug can happen: a
+        // reused event keeps its address, and a new slug could collide with another event's.
+        const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null);
+        const { slug: _derivedSlug, ...eventWithoutSlug } = event;
+        const enriched = await enrichAndPromoteEvent(tx, existing, eventWithoutSlug, scheduleValues, post.id, ordinal);
+        reusedRow = enriched.event;
+        // A stub means "this roundup post is all there is": demoted only because this post is its
+        // primary post (and the post is a roundup or curator post).
+        if (isStub && existing.detailLevel !== 'stub') {
+          await tx.update(events).set({ detailLevel: 'stub' }).where(eq(events.id, reusedEventId));
+        }
       }
+      // An event whose primary post is ANOTHER post (typically the organizer's own) is left exactly
+      // as it is: the roundup is a thin source, and the organizer's data and detail level win. It
+      // only keeps this post's link, under the new ordinal.
       await setEventPostOrdinal(tx, { eventId: reusedEventId, postId: post.id, extractionOrdinal: ordinal });
-      summary.reused.push({ slug: updated.slug, eventName: updated.eventName, ordinal });
+      summary.reused.push({ slug: reusedRow.slug, eventName: reusedRow.eventName, ordinal });
       journal.reusedEventIds.push(reusedEventId);
       continue;
     }
