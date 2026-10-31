@@ -2,7 +2,7 @@
 title: 'AI dedup review piece B2b-1: decision validator, floor, caps and the apply script'
 type: 'feature'
 created: '2026-10-31'
-status: 'in-progress'
+status: 'in-review'
 review_loop_iteration: 0
 baseline_commit: 'd0517f4daeaa03791d9958b2b2d9e4c57e7d3059'
 context:
