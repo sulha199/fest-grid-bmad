@@ -157,8 +157,14 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 Verified 2026-10-31 (first run of the export): the cloud session can dispatch a workflow from `master` and read its
 job log, and a `run_tag` in `run-name` is enough to find the run (dispatch returns no run id, so the tag is how a
 caller finds its run); the `dedup-review` environment let a `master` run start; the secret was present. That run
-failed with SQLSTATE 42883 (`similarity()` not resolvable for the role); the fix puts `extensions` on the search
-path, and a re-run is still needed to confirm it and to see real evidence.
+failed with SQLSTATE 42883 (`similarity()` not resolvable for the role). After the search-path fix (PR 128) the
+re-run (tag `verify-trgm-1`) succeeded: 134 pending, 30 pairs exported, no email and no URL query string in the
+output, `scanLimited` false. The role therefore bypasses RLS and resolves `pg_trgm`.
 
-Still not verified: which role the secret holds and whether it works (the re-run settles it); whether `readonly_2`
-can run the evidence path after RLS (expected not to); `get_job_logs` truncation on a large export (50 pairs).
+Findings from that run: the one log line is about 98k characters for 30 pairs, so `get_job_logs` with
+`return_content` spills to a file the session must slice (the skill must read it from the saved file, not inline);
+all 200 `recentlyResolved` rows were system expiries, so the cap hides human decisions (a follow-up should leave
+`expired` rows out or count them separately).
+
+Still not verified: whether `readonly_2` can run the evidence path after RLS (expected not to); the size of a
+50-pair export; the pending count against the moderator page (compare by eye).
