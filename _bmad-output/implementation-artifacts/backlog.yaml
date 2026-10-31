@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-27"
+last_updated: "2026-10-30"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -2559,20 +2559,107 @@ items:
      touches: [app:backend, web:events],
      note: "Fixed in the PR that adds this row (events.id as the last ORDER BY key); set done once merged. 2026-10-30: one pass of 664 rows held 614 distinct events. Duplicate counts taken from that list before the fix are inflated."}
 
+  # ── 2026-10-30 (Apify monthly cap, repeated posts, late Bright Data results) ──
+  BUG-091:
+    {type: bug, status: done, created: 2026-10-30,
+     title: "Scrape cursor ignored co-authored posts and re-fetched the boundary post, so 30% of billed Apify items were repeats",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend, pkg:domain],
+     note: "Fixed in PR #118 (cursor over owned or associated posts; Apify cursor newest + 1 s). 489 of 1,642 items repeated, 2026-10-23..29."}
+
+  BUG-092:
+    {type: bug, status: done, created: 2026-10-30,
+     title: "A Bright Data delivery that arrived after the job expired was dropped, losing 21 snapshots (~190 records)",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend],
+     note: "Fixed in PR #118 (webhook processes an expired job's delivery when it has records); the 2026-10-29 snapshots were replayed on prod, 88 new posts."}
+
+  BUG-093:
+    {type: bug, status: done, created: 2026-10-30,
+     title: "Apify's monthly usage cap was audited as FAILED runs, counted against its health and redelivered through SQS",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend],
+     note: "Fixed in PR #118 (ApifyMonthlyUsageLimitError: no audit row, no rethrow, CAPACITY_EXHAUSTED on the async trigger). 105 FAILED rows on 2026-10-30."}
+
+  FIND-103:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: user-visible, effort: xs,
+     title: "Prod's Apify account is on the FREE plan ($5/month) and cannot carry the daily scrape load (~$19/month)",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:infrastructure, cross:process],
+     note: "Owner decision: upgrade the plan, or keep Bright Data primary with Apify as a small fallback. Usage resets 2026-11-23 00:00 UTC."}
+
+  IDEA-101:
+    {type: idea, status: backlog, created: 2026-10-30,
+     impact: internal, effort: s,
+     title: "Remember an exhausted Apify monthly cap for the rest of the usage cycle instead of trying every target",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend],
+     note: "Today each target still makes one refused start per batch; the refusal is cheap but fills the logs and delays the fallback to the next provider."}
+
+  IDEA-102:
+    {type: idea, status: backlog, created: 2026-10-30,
+     impact: internal, effort: s,
+     title: "Bright Data snapshots can take hours; the 180-minute expiry sends them to a paid Apify fallback while the late result still arrives",
+     ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
+     touches: [app:backend],
+     note: "2026-10-29: 21 of 38 snapshots took 5-6 h. Options: longer expiry, or have the sweep wait for a snapshot Bright Data still reports as running."}
+
+  # ── 2026-10-30 (moderator dedup queue: AI-assisted review, pieces B and C of the split spec) ──
+  FIND-107:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: internal, effort: m, blocks: [FIND-104],
+     title: "AI dedup review piece B: export and apply workflows, domain contract, dedicated moderator, new AD and PRD amendment",
+     ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
+     touches: [app:backend, app:infrastructure, web:moderation, cross:architecture, cross:prd, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs Piece A (shared resolveSuggestedMatch) first; requirements in DESIGN.md section 5. 1 finding."}
+
+  FIND-104:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: user-visible, effort: s,
+     title: "AI dedup review piece C: daily festgrid-dedup-review skill, escalation issues and insight log",
+     ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
+     touches: [web:moderation, cross:process, cross:ai-extraction],
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs FIND-107 on master first; requirements in DESIGN.md section 6; review-insights follows later. 1 finding."}
+
+  # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
+  BUG-094:
+    {type: bug, status: backlog, created: 2026-10-30,
+     impact: latent, effort: s,
+     title: "Suggested-match merges outside resolveSuggestedMatch skip the row lock and pending guard, and event rows are never locked",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/events/drain-match-backlog.ts, apps/backend/src/lib/events/merge-events.ts],
+     touches: [app:backend, web:moderation, cross:architecture],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-pipeline (2026-10-30). Drain and mergeEvents step 11 first, then lock both events in assertMergeable. 2 findings."}
+
+  FIND-105:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: internal, effort: xs,
+     title: "trigger-brightdata-for-target capacity test fails in the cloud sandbox (passes in CI)",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/scraper/__tests__/trigger-brightdata-for-target.test.ts],
+     touches: [app:backend],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-pipeline (2026-10-30). Gets TRIGGER_ERROR in the sandbox only; CI passes it; cause not investigated. 1 finding."}
+
+  FIND-106:
+    {type: finding, status: backlog, created: 2026-10-30,
+     impact: internal, effort: xs,
+     title: "scraper.test.ts daily-batch cutoff test fails in the cloud sandbox (passes in CI): cutoff one hour earlier than expected",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lambdas/scraper.test.ts],
+     touches: [app:backend],
+     note: "Deferred from: bmad-quick-dev gate after merging master into the shared accept/reject change (2026-10-30). Sandbox-only: CI passes it, master's source fails it here too; cause unknown. 1 finding."}
 
   # ── 2026-10-31 (prod: logged-in Discovery lists events up to 7 days after they ended) ──
-  BUG-094:
-    {type: bug, status: backlog, created: 2026-10-31,
-     impact: user-visible, effort: s,
-     title: "Migration 0056 skipped on prod: logged-in users still get a 7-day past-event grace window",
-     ref: [packages/database/migrations/0086_bug_094_reapply_skipped_0056_past_events_default.sql, packages/database/migrations-journal-order.ratchet.test.ts, backlog/BUG-094-migration-0056-skipped-on-prod.md],
-     touches: [pkg:database, web:events, web:settings],
-     note: "Fixed in the PR that adds this row (0086 re-applies 0056, plus a journal-order ratchet); set done once merged and db-migrate has run on prod."}
-
   BUG-095:
     {type: bug, status: backlog, created: 2026-10-31,
      impact: user-visible, effort: s,
+     title: "Migration 0056 skipped on prod: logged-in users still get a 7-day past-event grace window",
+     ref: [packages/database/migrations/0086_bug_095_reapply_skipped_0056_past_events_default.sql, packages/database/migrations-journal-order.ratchet.test.ts, backlog/BUG-095-migration-0056-skipped-on-prod.md],
+     touches: [pkg:database, web:events, web:settings],
+     note: "Fixed in the PR that adds this row (0086 re-applies 0056, plus a journal-order ratchet); set done once merged and db-migrate has run on prod."}
+
+  BUG-096:
+    {type: bug, status: backlog, created: 2026-10-31,
+     impact: user-visible, effort: s,
      title: "Past-event cutoff uses the UTC date, so in Jakarta's first 7 hours the list still shows ended events",
-     ref: [packages/domain/src/events/computePastEventThreshold.ts, packages/ui/src/features/events/format-event-date.ts, backlog/BUG-095-past-event-cutoff-uses-utc-date.md],
+     ref: [packages/domain/src/events/computePastEventThreshold.ts, packages/ui/src/features/events/format-event-date.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
      touches: [pkg:domain, pkg:ui, app:backend, web:events],
      note: "Not fixed, log only. 43 events that ended the day before were listed at 01:55 WIB on 2026-10-31. The shared ended-cases fixture is built around UTC, so a fix needs a timezone decision first."}

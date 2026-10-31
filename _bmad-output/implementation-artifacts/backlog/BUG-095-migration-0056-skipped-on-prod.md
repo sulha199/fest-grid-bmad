@@ -1,10 +1,10 @@
 ---
-backlog_id: BUG-094
+backlog_id: BUG-095
 title: "Migration 0056 skipped on prod: logged-in users still get a 7-day past-event grace window"
 captured: 2026-10-31
 ---
 
-# BUG-094 — migration 0056 never ran on prod, so logged-in Discovery shows events for 7 days after they ended
+# BUG-095 — migration 0056 never ran on prod, so logged-in Discovery shows events for 7 days after they ended
 
 ## Capture
 
@@ -33,7 +33,7 @@ No web code writes this field (the web only sends `pushNotificationsEnabled`), s
 
 ## Fix (same PR as this row)
 
-1. `0086_bug_094_reapply_skipped_0056_past_events_default.sql`, a custom (data) migration made with `drizzle-kit generate --custom`, so its journal `when` is newer than every earlier entry. It repeats 0056's two statements and is idempotent (`SET DEFAULT 0`; `UPDATE ... WHERE = 7`). 0056 and its journal entry are untouched (applied history stays as it is). A row at any value other than 7 is left alone.
+1. `0086_bug_095_reapply_skipped_0056_past_events_default.sql`, a custom (data) migration made with `drizzle-kit generate --custom`, so its journal `when` is newer than every earlier entry. It repeats 0056's two statements and is idempotent (`SET DEFAULT 0`; `UPDATE ... WHERE = 7`). 0056 and its journal entry are untouched (applied history stays as it is). A row at any value other than 7 is left alone.
 2. `packages/database/migrations-journal-order.ratchet.test.ts`: fails when any journal entry's `when` is not strictly greater than every earlier one. The single named exception is idx 56 / `0056_wide_chimera`; the test also fails if that exception stops being out of order or names the wrong entry.
 3. A rule line in `_bmad-output/project-context.md` (Database & Performance).
 

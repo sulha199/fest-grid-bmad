@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { describe, test, expect } from 'vitest';
 
-// BUG-094 -- drizzle's migrator applies a migration only when its journal `when` is newer than
+// BUG-095 -- drizzle's migrator applies a migration only when its journal `when` is newer than
 // the newest migration already recorded in __drizzle_migrations (drizzle-orm pg-core
 // dialect.migrate: `lastDbMigration.created_at < migration.folderMillis`). An entry whose `when`
 // is not newer than an earlier entry is therefore skipped, silently and for good, on any database
@@ -26,7 +26,7 @@ interface JournalOrderException {
   tag: string;
 }
 
-// The only tolerated violation: 0056 was skipped on prod and is repaired by 0086 (BUG-094).
+// The only tolerated violation: 0056 was skipped on prod and is repaired by 0086 (BUG-095).
 // Do not add to this list -- fix the new entry's `when` instead. Delete it if 0056 is ever
 // brought back in order.
 const KNOWN_OUT_OF_ORDER: JournalOrderException = { idx: 56, tag: '0056_wide_chimera' };
@@ -68,7 +68,7 @@ function readJournalEntries(): JournalEntry[] {
   return journal.entries;
 }
 
-describe('migrations/meta/_journal.json order (BUG-094)', () => {
+describe('migrations/meta/_journal.json order (BUG-095)', () => {
   test('every `when` is strictly newer than all earlier entries, bar the one known exception', () => {
     expect(findJournalOrderViolations(readJournalEntries(), KNOWN_OUT_OF_ORDER)).toEqual([]);
   });

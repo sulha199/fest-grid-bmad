@@ -1,4 +1,4 @@
--- BUG-094: re-run of 0056_wide_chimera, which prod never applied.
+-- BUG-095: re-run of 0056_wide_chimera, which prod never applied.
 --
 -- drizzle's migrator only applies a migration whose journal `when` is newer than the newest
 -- one already recorded in __drizzle_migrations. 0056's `when` (2026-09-14) is older than 0055's

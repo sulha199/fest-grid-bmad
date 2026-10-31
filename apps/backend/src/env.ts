@@ -94,6 +94,10 @@ export interface BackendEnv {
   brightdataApiToken?: string;
   brightdataDatasetId?: string;
   brightdataWebhookBaseUrl?: string;
+  // Bright Data's Instagram Profiles dataset (the posts dataset is `brightdataDatasetId`).
+  brightdataProfileDatasetId?: string;
+  // PROFILE_SCRAPER_PROVIDER_ORDER, raw: parsed by parseProfileScraperOrder in @festgrid/domain.
+  profileScraperProviderOrder?: string;
   brightdataJobTimeoutMinutes?: number;
   brightdataPricePerThousandItemsUsd?: number;
   brightdataMonthlyBudgetUsd?: number;
@@ -127,7 +131,7 @@ export interface BackendEnv {
   // (60s) default is a conservative placeholder -- Story 0.46's real measurement (worst-case
   // stage ~1.1s locally, ~277x headroom against the 300s Lambda timeout/queue visibility
   // timeout) found headroom is NOT thin, so this guard is a cheap safety check, not a design
-  // driver, and the placeholder default was kept as-is rather than tuned tighter.
+  // adapter, and the placeholder default was kept as-is rather than tuned tighter.
   faceBlurMinRemainingTimeMs: number;
   // Story 3.20 (AD-28 Rule 10) — default-ON gate for blurring every image (cover + carousel
   // slides) before it is sent to Gemini, unless the post's PUBLISHER account has opted in to
@@ -334,6 +338,10 @@ export function loadBackendEnv(): BackendEnv {
     brightdataApiToken: process.env.BRIGHTDATA_API_TOKEN,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataDatasetId: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataProfileDatasetId: process.env.BRIGHTDATA_PROFILE_DATASET_ID || 'gd_l1vikfch901nx3by4',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    profileScraperProviderOrder: process.env.PROFILE_SCRAPER_PROVIDER_ORDER,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataWebhookBaseUrl: process.env.BRIGHTDATA_WEBHOOK_BASE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars

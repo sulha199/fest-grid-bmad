@@ -61,10 +61,18 @@ export class ApifyRequestTimeoutError extends Error {
   }
 }
 
+/**
+ * How long a profile scrape may take. The default is the interactive budget (API Lambda, 28 s hard limit); a
+ * caller with a longer one (a worker, an admin script) passes it so slower profile adapters become eligible.
+ */
+export interface ProfileScrapeOptions {
+  budgetMs?: number;
+}
+
 export interface ScraperAdapter {
   getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]>;
-  lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null>;
-  getAccountClassificationProfile(username: string): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null>;
+  lookupAccountProfile(handleOrUrl: string, options?: ProfileScrapeOptions): Promise<AccountProfileLookupResult | null>;
+  getAccountClassificationProfile(username: string, options?: ProfileScrapeOptions): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null>;
   getPostByUrl(url: string): Promise<ScrapedPost | null>;
   /**
    * True when the underlying scraper actor reliably filters `getNewestPosts` server-side by

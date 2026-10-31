@@ -139,7 +139,7 @@ export const userSettings = pgTable('user_settings', {
   // window, matching DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS in
   // packages/domain/src/events/buildDefaultEventVisibilityConditions.ts — keep the two in
   // sync. See migration 0056 for the matching backfill of existing untouched-default rows
-  // (0056 was skipped on prod by journal ordering; 0086 re-applies it, BUG-094).
+  // (0056 was skipped on prod by journal ordering; 0086 re-applies it, BUG-095).
   hidePastEventsAfterDays: integer('hide_past_events_after_days').default(0).notNull(),
   pushNotificationsEnabled: boolean('push_notifications_enabled').default(true).notNull(),
   ...timestamps,

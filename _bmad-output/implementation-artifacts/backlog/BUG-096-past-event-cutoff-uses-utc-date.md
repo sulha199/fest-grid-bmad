@@ -1,12 +1,12 @@
 ---
-backlog_id: BUG-095
+backlog_id: BUG-096
 title: "Past-event cutoff uses the UTC date, so in Jakarta's first 7 hours the list still shows ended events"
 captured: 2026-10-31
 ---
 
-# BUG-095 — the list cuts "past" at the UTC date, the cards judge "Ended" in the event's own timezone
+# BUG-096 — the list cuts "past" at the UTC date, the cards judge "Ended" in the event's own timezone
 
-Log only, no code. Found 2026-10-31 while chasing BUG-094; it is a smaller, separate gap.
+Log only, no code. Found 2026-10-31 while chasing BUG-095; it is a smaller, separate gap.
 
 ## What happens
 
@@ -16,7 +16,7 @@ The card decides "Ended" with `isEventEnded` (`packages/ui/src/features/events/f
 
 Jakarta's day starts 7 hours before UTC's does. From 00:00 to 07:00 WIB, the UTC date is still yesterday, so an event that ended "yesterday" in Jakarta is still listed (its end date overlaps the UTC date) and its card says Ended. Observed at 01:55 WIB on 2026-10-31: 43 listed events that had ended on 2026-10-30.
 
-This is a few hours a day, not a week, and it shows an event the card itself labels ended, so it is milder than BUG-094. It still means "hidden as soon as it ends" is false for 7 of every 24 hours in Jakarta.
+This is a few hours a day, not a week, and it shows an event the card itself labels ended, so it is milder than BUG-095. It still means "hidden as soon as it ends" is false for 7 of every 24 hours in Jakarta.
 
 ## Why it is not a one-line fix
 
@@ -30,4 +30,4 @@ Moving the list's cutoff to the event's (or the viewer's) timezone breaks the pr
 
 ## Not touched here
 
-Nothing in code. BUG-094 fixes the larger window (7 days for logged-in users) separately.
+Nothing in code. BUG-095 fixes the larger window (7 days for logged-in users) separately.
