@@ -427,12 +427,14 @@ export type ExtractEventDataFromUrlResult = {
 };
 
 export enum ExtractionErrorCode {
+  AccountNotScrapable = 'ACCOUNT_NOT_SCRAPABLE',
   ExtractionFailed = 'EXTRACTION_FAILED',
   NotFound = 'NOT_FOUND',
   NoApiKey = 'NO_API_KEY',
   QuotaExhausted = 'QUOTA_EXHAUSTED',
   RateLimited = 'RATE_LIMITED',
   ScrapeFailed = 'SCRAPE_FAILED',
+  ScrapeInProgress = 'SCRAPE_IN_PROGRESS',
   UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
 }
 

@@ -10,6 +10,8 @@ import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
+import { isOwnerAccountScrapable } from '../lib/scraper/post-scrape-gate.js';
+import { claimPostUrlScrape } from '../lib/scraper/post-url-scrape-lease.js';
 import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
 import { resolveProfileByUsername } from '../lib/accounts/resolve-profile-by-username.js';
@@ -1652,37 +1654,62 @@ export const resolvers: Resolvers = {
         };
       }
 
-      const adapter = getScraperAdapter(platform);
-      let scrapedPost;
+      // FIND-110 -- one scrape of this URL at a time (shared with the moderator re-extract). A busy
+      // lease means another request is fetching it right now; this one does not scrape again.
+      const lease = await claimPostUrlScrape(url);
+      if (!lease) {
+        return {
+          errorCode: 'SCRAPE_IN_PROGRESS',
+          errorMessage: 'This post is being fetched right now. Try again in a moment.',
+        };
+      }
+
       try {
-        scrapedPost = await adapter.getPostByUrl(url);
-        if (!scrapedPost) {
+        const adapter = getScraperAdapter(platform);
+        let scrapedPost;
+        try {
+          scrapedPost = await adapter.getPostByUrl(url);
+          if (!scrapedPost) {
+            return {
+              errorCode: 'SCRAPE_FAILED',
+              errorMessage: 'Could not retrieve content from the provided URL.',
+            };
+          }
+        } catch (err) {
+          console.error(`Failed to scrape post from URL ${url}:`, err);
           return {
             errorCode: 'SCRAPE_FAILED',
             errorMessage: 'Could not retrieve content from the provided URL.',
           };
         }
-      } catch (err) {
-        console.error(`Failed to scrape post from URL ${url}:`, err);
-        return {
-          errorCode: 'SCRAPE_FAILED',
-          errorMessage: 'Could not retrieve content from the provided URL.',
-        };
-      }
 
-      return startManualExtractionJob(authUser.userId, url, {
-        message: {
-          postId: randomUUID(),
-          accountId: '',
-          content: scrapedPost.content,
-          imageUrl: scrapedPost.imageUrl ?? undefined,
-          postUrl: scrapedPost.postUrl,
-          publishedAt: scrapedPost.publishedAt,
-          // BUG-097 -- the carousel slides after the cover; they were dropped here, so a correction
-          // of a multi-slide post read the first image only.
-          additionalImageUrls: scrapedPost.additionalImageUrls,
-        },
-      });
+        // AD-34 -- an unknown URL cannot be gated before the scrape, so the account it returned is
+        // looked up now. A known personal / awaiting-classification account refuses the post: no
+        // job is started and nothing the scrape returned is kept.
+        if (!(await isOwnerAccountScrapable(platform, scrapedPost.ownerUsername))) {
+          return {
+            errorCode: 'ACCOUNT_NOT_SCRAPABLE',
+            errorMessage:
+              'This post belongs to an account FestDaily does not scrape (a personal account, or one still waiting for a moderator to classify it), so it cannot be fetched.',
+          };
+        }
+
+        return await startManualExtractionJob(authUser.userId, url, {
+          message: {
+            postId: randomUUID(),
+            accountId: '',
+            content: scrapedPost.content,
+            imageUrl: scrapedPost.imageUrl ?? undefined,
+            postUrl: scrapedPost.postUrl,
+            publishedAt: scrapedPost.publishedAt,
+            // BUG-097 -- the carousel slides after the cover; they were dropped here, so a correction
+            // of a multi-slide post read the first image only.
+            additionalImageUrls: scrapedPost.additionalImageUrls,
+          },
+        });
+      } finally {
+        await lease.release();
+      }
     },
     previewPostReextraction: async (_, { postId, url }, context): Promise<any> => {
       const moderator = requireModerator(context);

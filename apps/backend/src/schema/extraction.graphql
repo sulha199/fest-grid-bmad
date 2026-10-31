@@ -6,6 +6,8 @@ enum ExtractionErrorCode {
   EXTRACTION_FAILED
   QUOTA_EXHAUSTED
   RATE_LIMITED # a rescrape of this post URL was done in the last 10 minutes (AD-40)
+  ACCOUNT_NOT_SCRAPABLE # the post's account is personal or still awaiting classification (AD-34)
+  SCRAPE_IN_PROGRESS # another request is fetching this post URL right now (FIND-110)
 }
 
 type ProposedScheduleCorrectionData {

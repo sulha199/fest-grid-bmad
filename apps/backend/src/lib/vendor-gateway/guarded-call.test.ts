@@ -8,6 +8,7 @@ import {
   VendorKeyBusyError,
   VendorDpaNotConfirmedError,
   VendorCallTimeoutError,
+  tryClaimInFlight,
 } from './guarded-call.js';
 
 const ALWAYS_TRANSIENT = () => true;
@@ -468,6 +469,41 @@ test('guarded-call: callVendor', async (t) => {
     const rows = await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, lockKey));
     assert.equal(rows.length, 1);
     assert.ok(rows[0].lockedUntil.getTime() <= Date.now() + 1000, 'the acquired lease must be released');
+    await deleteLockRow(lockKey);
+  });
+});
+
+test('guarded-call: tryClaimInFlight (single-flight lease)', async (t) => {
+  await t.test('claim, busy for a second caller, claimable again after release', async () => {
+    const lockKey = 'test-in-flight-claim-release';
+    await deleteLockRow(lockKey);
+
+    const first = await tryClaimInFlight(lockKey, 60_000);
+    assert.ok(first, 'the first caller claims the lease');
+    assert.equal(await tryClaimInFlight(lockKey, 60_000), null, 'a live lease is busy for everyone else');
+
+    await first.release();
+    assert.equal((await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, lockKey))).length, 0, 'the released row is deleted, not left behind');
+    const second = await tryClaimInFlight(lockKey, 60_000);
+    assert.ok(second, 'released: claimable again at once');
+    await second.release();
+    await deleteLockRow(lockKey);
+  });
+
+  await t.test('an expired lease is reclaimable, and the stale owner cannot release the new lease', async () => {
+    const lockKey = 'test-in-flight-expiry';
+    await deleteLockRow(lockKey);
+
+    const stale = await tryClaimInFlight(lockKey, 60_000);
+    assert.ok(stale);
+    await db.update(vendorCallLocks).set({ lockedUntil: new Date(Date.now() - 1000) }).where(eq(vendorCallLocks.lockKey, lockKey));
+
+    const fresh = await tryClaimInFlight(lockKey, 60_000);
+    assert.ok(fresh, 'an expired lease is reclaimable');
+    await stale.release(); // token no longer matches: must leave the live lease alone
+    assert.equal(await tryClaimInFlight(lockKey, 60_000), null, 'the fresh lease is still held');
+
+    await fresh.release();
     await deleteLockRow(lockKey);
   });
 });

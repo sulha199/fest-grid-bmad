@@ -2289,6 +2289,18 @@ This document defines the core architectural invariants for the FestDaily applic
         `isScrapableAccountType` takes a required third argument for this, and Rule 3's SQL form and
         its test gain the same dimension. The classification worker and the moderator-resolve path
         (AD-41 Rule 7) join the entry points that adopt the gate.
+    7.  **Amended 2026-10-31 (FIND-110): the two paths that fetch ONE post by URL adopt the gate.**
+        The moderator re-extract rescrape (`startPostReextractionPreview`) and
+        `extractEventDataFromUrl` start a scrape although they scrape no account, and PRD 3.16 says a
+        personal or awaiting-approval account is never scraped. Both call `isScrapableAccountType()`
+        through `apps/backend/src/lib/scraper/post-scrape-gate.ts`: a stored post is gated on its
+        owning account **before** the scrape; an unknown URL has no account to look up first, so the
+        account the scrape returns (`ownerUsername`) is looked up **after** it, and a known
+        non-scrapable account refuses the result (no job, no caption copy; the refused scrape is
+        recorded against the re-extract cooldown). A stored post with a caption still previews
+        without a scrape; with none, the caller gets `ACCOUNT_NOT_SCRAPABLE`. An unknown owner
+        is allowed: nothing marks it as off limits. `post-scrape-gate.test.ts` covers every
+        type x status combination through both lookups.
 *   **Enforced by:** the unit tests in Rule 1 and the lockstep tests in Rule 3. No lint or source-scan
     ratchet yet; see Deferred.
 *   **Deferred:** a source-scan ratchet forbidding a raw `accountTypeStatus === ` comparison outside
@@ -2402,7 +2414,14 @@ This document defines the core architectural invariants for the FestDaily applic
         minutes (`REEXTRACT_RESCRAPE_COOLDOWN_MS`), checked against recent preview jobs; it does not
         limit previews of a stored caption whose image links are still valid. Inside the window a
         blocked rescrape reuses the usable (not expired) links the last rescrape found, taken from
-        that job's payload, never from `posts`. A scrape that throws or returns nothing is recorded as an
+        that job's payload, never from `posts`. (Amended 2026-10-31, FIND-110: one scrape of a
+        URL at a time. A per-URL lease `post-url-scrape:<hash>` in `vendor_call_locks`
+        (`tryClaimInFlight`, `guarded-call.ts`, TTL 60 s) covers the cooldown re-check, the scrape
+        and the job-row insert, so a second request either sees the lease busy or the first one's
+        row. A busy lease means no second scrape: a stored caption previews on the first run's fresh
+        links, or on stored data; a post with no caption gets `SCRAPE_IN_PROGRESS`, because a caption
+        is never stored and so cannot be handed to another request. `extractEventDataFromUrl` takes
+        the same lease. The stored-post and by-owner scrape gate of AD-34 Rule 7 also applies.) A scrape that throws or returns nothing is recorded as an
         already-FAILED job so it counts too (a post that never scrapes cannot be retried without
         limit). An image-only post (empty caption) is not a failure. A URL that is not in the
         database is scraped, previewed without an account signal (`postStored: false`, authorship

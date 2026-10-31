@@ -410,12 +410,14 @@ export type ExtractEventDataFromUrlResult = {
 };
 
 export type ExtractionErrorCode =
+  | 'ACCOUNT_NOT_SCRAPABLE'
   | 'EXTRACTION_FAILED'
   | 'NOT_FOUND'
   | 'NO_API_KEY'
   | 'QUOTA_EXHAUSTED'
   | 'RATE_LIMITED'
   | 'SCRAPE_FAILED'
+  | 'SCRAPE_IN_PROGRESS'
   | 'UNSUPPORTED_PLATFORM';
 
 export type ExtractionJobState =

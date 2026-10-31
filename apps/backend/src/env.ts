@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
 import { resolve } from 'path';
+import { REEXTRACT_MAX_CAROUSEL_IMAGES } from '@festgrid/domain/posts';
 
 export interface BackendEnv {
   port: number;
@@ -35,6 +36,9 @@ export interface BackendEnv {
   // single extraction request, beyond the cover image (Story 3.6l). Keeps the AI Processor
   // Lambda inside its fixed 300s timeout (AD-13) and bounds per-request token usage.
   maxCarouselImages: number;
+  // Slides a moderator re-extract preview sends (AD-40 amendment, BUG-097). Separate from the
+  // ingestion cap above; default REEXTRACT_MAX_CAROUSEL_IMAGES (10).
+  maxReextractCarouselImages: number;
   // Story 3.6s (AD-30 Rule 5) — roundup per-post event cap, default 10, configurable. Used both
   // as the Gemini-facing schema's `events.maxItems` hint and as the code-level truncation
   // backstop in process-ai-job.ts (never a hard AJV cap -- see extracted-event.schema.ts).
@@ -302,6 +306,7 @@ export function loadBackendEnv(): BackendEnv {
     scrapeQueueApifyCallTimeoutMs: Math.max(1_000, parseInt(process.env.SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS || '120000', 10) || 120_000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxCarouselImages: parseInt(process.env.MAX_CAROUSEL_IMAGES || '5', 10),
+    maxReextractCarouselImages: parseInt(process.env.MAX_REEXTRACT_CAROUSEL_IMAGES || String(REEXTRACT_MAX_CAROUSEL_IMAGES), 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxExtractedEventsPerPost: parseInt(process.env.MAX_EXTRACTED_EVENTS_PER_POST || '10', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

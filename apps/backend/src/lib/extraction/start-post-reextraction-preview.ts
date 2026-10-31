@@ -12,6 +12,8 @@ import {
 import { db } from '../../db/client.js';
 import { fetchCandidateKeys } from '../ai-gateway/usage-store.js';
 import { startManualExtractionJob } from './manual-extraction-job.js';
+import { isOwnerAccountScrapable, isStoredPostAccountScrapable } from '../scraper/post-scrape-gate.js';
+import { claimPostUrlScrape } from '../scraper/post-url-scrape-lease.js';
 
 // AD-40 -- starts a moderator re-extract preview. The caller (the resolver) has already enforced
 // `requireModerator`. Nothing here writes to `posts` or `events`: a rescraped caption lives only in
@@ -23,6 +25,8 @@ export type PreviewStartErrorCode =
   | 'NO_API_KEY'
   | 'SCRAPE_FAILED'
   | 'RATE_LIMITED'
+  | 'ACCOUNT_NOT_SCRAPABLE'
+  | 'SCRAPE_IN_PROGRESS'
   | 'EXTRACTION_FAILED';
 
 export type StartPostReextractionPreviewResult =
@@ -85,6 +89,16 @@ async function rescrapeCooldown(url: string, now: Date): Promise<RescrapeCooldow
   }
   return { minutesLeft: Math.max(1, Math.ceil(msLeft / 60_000)), recentImages: null };
 }
+
+const ACCOUNT_NOT_SCRAPABLE = {
+  errorCode: 'ACCOUNT_NOT_SCRAPABLE',
+  errorMessage: 'This post belongs to an account FestDaily does not scrape (a personal account, or one still waiting for a moderator to classify it), so it cannot be fetched.',
+} as const;
+
+const SCRAPE_IN_PROGRESS = {
+  errorCode: 'SCRAPE_IN_PROGRESS',
+  errorMessage: 'This post is being fetched right now. Try again in a moment.',
+} as const;
 
 const SCRAPE_FAILED = {
   errorCode: 'SCRAPE_FAILED',
@@ -202,51 +216,83 @@ export async function startPostReextractionPreview(
     }
   }
 
-  const { minutesLeft, recentImages } = await rescrapeCooldown(url, now);
-  if (minutesLeft > 0) {
-    if (scrapeIsOptional) return startStored(post!, recentImages);
-    return {
-      errorCode: 'RATE_LIMITED',
-      errorMessage: `This post was rescraped recently. Try again in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`,
-    };
+  // AD-34 -- a stored post is gated on its owning account before any scrape starts. A caption we
+  // already hold still previews (no scrape needed); with none, the moderator is told why.
+  if (post && !(await isStoredPostAccountScrapable(post.accountId))) {
+    return scrapeIsOptional ? startStored(post) : ACCOUNT_NOT_SCRAPABLE;
   }
 
-  let scraped;
+  // FIND-110 -- one scrape of this URL at a time. A busy lease means another preview is fetching
+  // it right now: reuse what that run produced (its fresh image links, for a stored caption), or
+  // say so. A caption is never stored, so a post with none cannot share the other run's result.
+  const lease = await claimPostUrlScrape(url);
+  if (!lease) {
+    if (scrapeIsOptional) {
+      const { recentImages } = await rescrapeCooldown(url, now);
+      return startStored(post!, recentImages);
+    }
+    return SCRAPE_IN_PROGRESS;
+  }
+
   try {
-    scraped = await getScraperAdapter(platform).getPostByUrl(url);
-  } catch (err) {
-    console.error(`[startPostReextractionPreview] Failed to scrape ${url}:`, err);
-    await recordFailedRescrape(userId, url, post?.id ?? null, post?.accountId ?? null);
-    return scrapeIsOptional ? startStored(post!) : SCRAPE_FAILED;
-  }
-  // An image-only post has an empty caption but is still extractable from its image, so only a
-  // missing result is a failure (the correction flow makes the same call).
-  if (!scraped) {
-    await recordFailedRescrape(userId, url, post?.id ?? null, post?.accountId ?? null);
-    return scrapeIsOptional ? startStored(post!) : SCRAPE_FAILED;
-  }
+    // Checked inside the lease, so a run that just finished (row written, lease released) blocks
+    // this one instead of being scraped again.
+    const { minutesLeft, recentImages } = await rescrapeCooldown(url, now);
+    if (minutesLeft > 0) {
+      if (scrapeIsOptional) return startStored(post!, recentImages);
+      return {
+        errorCode: 'RATE_LIMITED',
+        errorMessage: `This post was rescraped recently. Try again in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`,
+      };
+    }
 
-  // The rescraped caption goes into the job payload only -- never into `posts.content`. A stored
-  // caption is kept as it is; the scrape then only supplies fresh image URLs (the scraper's cover
-  // and every slide of the same fetch, falling back to what is stored for either).
-  const requestPayload: ManualExtractionRequestPayload = {
-    message: {
-      postId: post?.id ?? randomUUID(),
-      accountId: post?.accountId ?? '',
-      content: post?.content || scraped.content,
-      imageUrl: scraped.imageUrl ?? post?.imageUrl ?? undefined,
-      postUrl: post?.postUrl ?? scraped.postUrl,
-      publishedAt: post?.publishedAt.toISOString() ?? scraped.publishedAt,
-      ownerDisplayName: post?.ownerDisplayName ?? scraped.ownerDisplayName,
-      ownerUsername: post?.ownerUsername ?? scraped.ownerUsername,
-      // An empty list from the scraper is "no slides found", not "no slides": fall back to the stored
-      // ones, so a dead stored slide still shows up as a shortfall instead of vanishing silently.
-      additionalImageUrls: scraped.additionalImageUrls?.length ? scraped.additionalImageUrls : (post?.additionalImageUrls ?? undefined),
-    },
-    existingPostAccountId: post?.accountId,
-    mode: 'REEXTRACT_PREVIEW',
-    postStored: Boolean(post),
-    rescraped: true,
-  };
-  return startManualExtractionJob(userId, url, requestPayload);
+    let scraped;
+    try {
+      scraped = await getScraperAdapter(platform).getPostByUrl(url);
+    } catch (err) {
+      console.error(`[startPostReextractionPreview] Failed to scrape ${url}:`, err);
+      await recordFailedRescrape(userId, url, post?.id ?? null, post?.accountId ?? null);
+      return scrapeIsOptional ? startStored(post!) : SCRAPE_FAILED;
+    }
+    // An image-only post has an empty caption but is still extractable from its image, so only a
+    // missing result is a failure (the correction flow makes the same call).
+    if (!scraped) {
+      await recordFailedRescrape(userId, url, post?.id ?? null, post?.accountId ?? null);
+      return scrapeIsOptional ? startStored(post!) : SCRAPE_FAILED;
+    }
+
+    // AD-34 -- an unknown URL could not be gated before the scrape; the account it returned is
+    // looked up now. A refusal still costs a scrape, so it is recorded against the cooldown and no
+    // job (and no caption copy) is created.
+    if (!post && !(await isOwnerAccountScrapable(platform, scraped.ownerUsername))) {
+      await recordFailedRescrape(userId, url, null, null);
+      return ACCOUNT_NOT_SCRAPABLE;
+    }
+
+    // The rescraped caption goes into the job payload only -- never into `posts.content`. A stored
+    // caption is kept as it is; the scrape then only supplies fresh image URLs (the scraper's cover
+    // and every slide of the same fetch, falling back to what is stored for either).
+    const requestPayload: ManualExtractionRequestPayload = {
+      message: {
+        postId: post?.id ?? randomUUID(),
+        accountId: post?.accountId ?? '',
+        content: post?.content || scraped.content,
+        imageUrl: scraped.imageUrl ?? post?.imageUrl ?? undefined,
+        postUrl: post?.postUrl ?? scraped.postUrl,
+        publishedAt: post?.publishedAt.toISOString() ?? scraped.publishedAt,
+        ownerDisplayName: post?.ownerDisplayName ?? scraped.ownerDisplayName,
+        ownerUsername: post?.ownerUsername ?? scraped.ownerUsername,
+        // An empty list from the scraper is "no slides found", not "no slides": fall back to the stored
+        // ones, so a dead stored slide still shows up as a shortfall instead of vanishing silently.
+        additionalImageUrls: scraped.additionalImageUrls?.length ? scraped.additionalImageUrls : (post?.additionalImageUrls ?? undefined),
+      },
+      existingPostAccountId: post?.accountId,
+      mode: 'REEXTRACT_PREVIEW',
+      postStored: Boolean(post),
+      rescraped: true,
+    };
+    return await startManualExtractionJob(userId, url, requestPayload);
+  } finally {
+    await lease.release();
+  }
 }

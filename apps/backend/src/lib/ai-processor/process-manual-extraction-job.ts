@@ -1,7 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { manualExtractionJobs } from '@festgrid/database';
 import { mapExtractionPayloadToProposedCorrection } from '@festgrid/domain/events';
-import { REEXTRACT_MAX_CAROUSEL_IMAGES } from '@festgrid/domain/posts';
 import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
@@ -86,7 +85,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
         : {}),
       // BUG-097 -- a re-extract preview reads more slides than ingestion and keeps trying them when
       // the cover hotlink has expired. Correction jobs keep the ingestion behavior.
-      ...(isPreview ? { maxCarouselImages: REEXTRACT_MAX_CAROUSEL_IMAGES, slidesWhenCoverFails: true } : {}),
+      ...(isPreview ? { maxCarouselImages: env.maxReextractCarouselImages, slidesWhenCoverFails: true } : {}),
     };
     const { request, imagesAvailable, imagesSent } = await buildGeminiExtractionRequest(
       message,

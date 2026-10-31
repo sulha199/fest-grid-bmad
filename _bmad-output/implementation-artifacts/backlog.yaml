@@ -2698,10 +2698,9 @@ items:
      note: "Deferred from: bmad-quick-dev split of spec-reextract-read-all-slide-images (2026-10-31). Needs BUG-097 first; amends AD-40 Rule 1 (preview-only). 1 finding."}
 
   FIND-110:
-    {type: finding, status: backlog, created: 2026-10-31,
+    {type: finding, status: done, created: 2026-10-31,
      impact: internal, effort: s,
      title: "Re-extract rescrape: concurrent previews double the scraper spend, and single-post scrapes bypass the AD-34 gate rule without being listed as exempt",
-     ref: [implementation-artifacts/deferred-work.md],
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-reextract-scrape-gate-and-single-flight.md],
      touches: [app:backend, cross:architecture],
-     note: "Deferred from: bmad-quick-dev review of spec-reextract-read-all-slide-images (2026-10-31). 2 findings."}
-
+     note: "Deferred from: bmad-quick-dev review of spec-reextract-read-all-slide-images (2026-10-31). 2 findings. Fixed on branch ccr-56bef1e2-pmkhv6: per-URL lease and AD-34 Rule 7 gate."}

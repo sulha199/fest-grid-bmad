@@ -14,6 +14,7 @@ import { callApifyActor, setCallApifyActor } from '../lib/scraper/instagram-adap
 import { sendSqsMessage, setSendSqsMessage } from '../lib/aws/send-sqs-message.js';
 import { invokeAiProcessor, setInvokeAiProcessor } from '../lib/aws/invoke-ai-processor.js';
 import { processManualExtractionJob } from '../lib/ai-processor/process-manual-extraction-job.js';
+import { claimPostUrlScrape } from '../lib/scraper/post-url-scrape-lease.js';
 import { clearApifyProviderUsage } from '../lib/scraper/usage-store-test-helpers.js';
 
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -409,6 +410,71 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
       'https://cdn.example.com/slide-2.jpg',
       'https://cdn.example.com/slide-3.jpg',
     ]);
+  });
+
+  await t.test('extractEventDataFromUrl - a busy post-URL lease returns SCRAPE_IN_PROGRESS without scraping (FIND-110)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const url = 'https://instagram.com/p/inflight_123';
+    const lease = await claimPostUrlScrape(url);
+    assert.ok(lease);
+    let scrapes = 0;
+    setCallApifyActor(async () => {
+      scrapes++;
+      return [];
+    });
+    try {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation ($url: String!) { extractEventDataFromUrl(url: $url) { jobId errorCode errorMessage } }`,
+          variables: { url },
+        }),
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, 'should not have errors');
+      assert.strictEqual(result.data.extractEventDataFromUrl.errorCode, 'SCRAPE_IN_PROGRESS');
+      assert.strictEqual(result.data.extractEventDataFromUrl.jobId, null);
+      assert.strictEqual(scrapes, 0, 'the busy lease stopped the scrape');
+    } finally {
+      await lease.release();
+    }
+  });
+
+  await t.test('extractEventDataFromUrl - a scraped post owned by a known personal account is refused, no job started (AD-34)', async () => {
+    mockUser = { userId: testUser.id, role: testUser.role };
+    const handle = 'gate_personal_' + Date.now();
+    const [personal] = await db.insert(socialMediaAccountProfiles).values({
+      platform: 'instagram',
+      accountId: 'acc-' + handle,
+      username: handle,
+      displayName: 'Personal',
+      accountType: 'PERSONAL',
+      accountTypeStatus: 'CONFIRMED',
+    }).returning();
+    const url = 'https://instagram.com/p/gate_personal_post';
+    setCallApifyActor(async () => [
+      { timestamp: '2026-08-11T00:00:00Z', url, caption: 'A personal post', ownerUsername: handle },
+    ]);
+    const jobsBefore = (await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.requestedByUserId, testUser.id))).length;
+    try {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation ($url: String!) { extractEventDataFromUrl(url: $url) { jobId errorCode errorMessage } }`,
+          variables: { url },
+        }),
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, 'should not have errors');
+      assert.strictEqual(result.data.extractEventDataFromUrl.errorCode, 'ACCOUNT_NOT_SCRAPABLE');
+      assert.strictEqual(result.data.extractEventDataFromUrl.jobId, null);
+      const jobsAfter = (await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.requestedByUserId, testUser.id))).length;
+      assert.strictEqual(jobsAfter, jobsBefore, 'no job row, so no caption copy');
+    } finally {
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, personal.id));
+    }
   });
 
   await t.test('extractEventDataFromUrl - isEvent false returns EXTRACTION_FAILED', async () => {
