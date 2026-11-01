@@ -2,8 +2,9 @@
 title: 'AI dedup review piece B2b-2: the apply workflow, its credential gate, and the AD, PRD and runbook that govern it'
 type: 'feature'
 created: '2026-11-01'
-status: 'draft'
+status: 'in-review'
 review_loop_iteration: 0
+baseline_commit: 'dddb8f15eae07f4f503b4c2abb3359b83d63c677'
 context:
   - '{project-root}/_bmad-output/project-context.md'
   - '{project-root}/_bmad-output/specs/ai-dedup-review/DESIGN.md'
@@ -33,7 +34,9 @@ context:
 - **Paper trail:** AD-45 with pointers from AD-30 Rules 7 and 9; the PRD amendment; `3-database.md`; `7-event-dedup.md` (stale statements rewritten, runbook: validate then apply, disable, roll back from the database's `event_merges` list not from the log, a lost report); both architecture diagrams; `project-context.md`; `event-dedup-flow.html`; `DESIGN.md` (shadow mode is `validate`); a setup checklist in the workflow header and the runbook.
 - **Tests** (`apps/backend/src/dedup-review-workflow.test.ts`): the guard script run against fixtures (markers present or absent, status 0 or 1, live or not, mode mismatch, disabled report); a text scan of the workflow after stripping comments: no `${{` in any `run:` body, only the `workflow_dispatch` trigger, `permissions` only `contents: read`, `cancel-in-progress` false, the write secret only in the `apply` job and the read-only one only in `validate`, `--ignore-scripts` and `persist-credentials: false` present.
 
-**Ask First:** The write secret's name (proposed `DEDUP_REVIEW_APPLY_DATABASE_URL`, in `dedup-review-live`) and the role it holds (your earlier suggestion: the migration role, with an expiry for that exception, proposed 2026-12-31, after which a narrow role replaces it); SHA-pinning (this session cannot read the actions' repositories: either you supply the SHAs, or the write secret is created only after the actions here are pinned); the repository settings AD-45 lists as preconditions; the PRD wording shown at this checkpoint.
+**Decided with the owner 2026-11-01:** the write secret is `DEDUP_REVIEW_APPLY_DATABASE_URL` in `dedup-review-live`, holding the migration role as an exception that expires 2026-12-31 (a narrow role replaces it, `FIND-114`); the write secret is created only after the actions in this workflow are pinned by SHA (the owner supplies the SHAs or runs a pinning tool; until then only `validate` is usable); the must-have repository settings are the owner's to apply (master-only rule on both environments, no repository or organization secret with either database secret's name, "prevent self-review" off), and the `master` ruleset with CODEOWNERS is decided separately; the PRD wording in Design Notes is approved.
+
+**Ask First:** Any change to those decisions, a different secret name, an apply path that does not need the owner's approval.
 
 **Never:** Change the apply script; a push, schedule or branch trigger; the write secret in `dedup-review` or at repository level; print anything but counts and reason codes; close `FIND-109`; a moderator UI or list view.
 
@@ -64,9 +67,9 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] Workflow, guard script and tests -- as above
-- [ ] AD-45 (rules: bridge, floor and caps bound model error only, credential protection comes from the settings below, owner-role exception with an expiry, accepted public exposures, a gate that releases the credential and does not review decisions, kill switch, retention), PRD amendment, pointers
-- [ ] Docs, diagrams, runbook, setup checklist; `FIND-112` done; new rows `FIND-114` (narrow write role, run id in the journal) and `IDEA-113` (moderator list and badge of AI merges), each with its `deferred-work.md` heading
+- [x] Workflow, guard script and tests -- as above
+- [x] AD-45 (rules: bridge, floor and caps bound model error only, credential protection comes from the settings below, owner-role exception with an expiry, accepted public exposures, a gate that releases the credential and does not review decisions, kill switch, retention), PRD amendment, pointers
+- [x] Docs, diagrams, runbook, setup checklist; `FIND-112` done; new rows `FIND-114` (narrow write role, run id in the journal) and `IDEA-113` (moderator list and badge of AI merges), each with its `deferred-work.md` heading
 
 **Acceptance Criteria:**
 - Given `validate`, when it runs, then no step has the write secret and no approval is needed.

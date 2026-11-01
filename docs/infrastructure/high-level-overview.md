@@ -46,6 +46,7 @@ graph TD
         GHA_Backup["Production DB Backup: nightly and manual pg_dump"]
         GHA_Restore["Production DB Restore Test: restores the newest dump after each backup"]
         GHA_DedupExport["Dedup Review Export: manual, read-only evidence JSON for the AI reviewer"]
+        GHA_DedupApply["Dedup Review Apply: manual; validate read-only, apply needs the owner's approval"]
     end
 
     subgraph External Services
@@ -101,5 +102,6 @@ graph TD
     S3_Backup -- newest dump --> GHA_Restore
     GHA_Restore -- read-only row and object counts --> Supabase
     GHA_DedupExport -- read-only evidence queries, READ ONLY transaction --> Supabase
+    GHA_DedupApply -- validate: read-only; apply: guarded merges, write role, approval --> Supabase
 ```
 
