@@ -1,0 +1,313 @@
+name: Dedup Review Apply
+
+# Names the run after its mode, whether it is live, and the caller's tag, so the approver sees what they are
+# releasing (key=value, so a tag cannot pose as the flag) and a caller that dispatched this workflow can find
+# its own run (dispatching returns no run id).
+run-name: Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'apply' && inputs.live }} tag=${{ inputs.run_tag }}
+
+# AI-assisted dedup review, apply side (design: _bmad-output/specs/ai-dedup-review/DESIGN.md, piece B2b-2;
+# architecture decision AD-45). Manual-only: it takes the reviewer's ACCEPT decisions (an AI session that
+# has no database credentials of its own) and runs apps/backend/src/dedup-review-apply.ts on them.
+#
+#   mode validate : every check in a READ ONLY snapshot, merges nothing. This is the shadow mode. It uses the
+#                   read-only secret of the `dedup-review` environment and needs no approval.
+#   mode apply    : a dry run (the merges run and are rolled back) unless `live` is true, in which case they
+#                   commit. It uses the WRITE secret of the `dedup-review-live` environment, which requires
+#                   the owner's approval, so every apply run, a dry run included, waits for a click. That
+#                   click releases the credential; it is not a review of the decisions (the approver sees ids).
+#
+# THE REPO IS PUBLIC. The dispatch inputs (run tag, decisions, invoker hash) show on the run page and in the
+# log, and step env blocks are printed in every run, so none of them may hold anything private. The invoker
+# hash is the SHA-256 of the lowercased account email, never the address. The skill sends `reasons: []`.
+# The job SUMMARY holds counts and fixed reason codes only; the LOG holds the script's whole report (ids and
+# merge ids, no more private than the public inputs). See scripts/dedup-review-apply-guard.sh.
+#
+# What protects the write credential is NOT the floor, the caps or the kill switch in the script (those bound
+# a mistaken or prompt-injected decision). It is: the environment's branch rule and required reviewer, a
+# reviewed `master`, who can approve, and the supply chain of this job. See AD-45 and
+# docs/infrastructure/7-event-dedup.md. TWO HONEST LIMITS: (1) if the AI session dispatches with a token that
+# belongs to the one required reviewer, it can approve its own run through the API, so the click only stops
+# anyone else; dispatch with a separate account that is not a reviewer to make the gate real. (2) The actions
+# below are tag-pinned, so a moved tag runs new code in this job; and `--ignore-scripts` stops dependencies'
+# lifecycle scripts only, not their code when it is built or imported.
+#
+# One-time setup (the owner does this in GitHub; nothing here can create it). Create the environments BEFORE
+# this file reaches master: a workflow that names a missing environment makes GitHub create it unprotected.
+#   1. Environment `dedup-review` (already used by the export): Deployment branches limited to `master`.
+#   2. New environment `dedup-review-live`: Deployment branches limited to `master`; Required reviewers: the
+#      owner. "Prevent self-review": ON if the AI session dispatches with a different account (recommended);
+#      OFF only if it dispatches with the owner's own token, in which case nobody could approve otherwise and
+#      the gate does not stop that session (limit 1 above).
+#   3. In `dedup-review-live`, the VARIABLE `DEDUP_REVIEW_APPLY_DISABLED` set to `false` (an environment
+#      variable, so only an admin edits it). The apply job refuses unless it is exactly `false` or `0`, so a
+#      deleted or misspelled variable stops apply. To switch apply off, set it to `true`: it applies to jobs
+#      that start afterwards; to stop a run that has started, cancel it (a live run that is cancelled before
+#      its commit rolls back).
+#   4. In `dedup-review-live`, the SECRET `DEDUP_REVIEW_APPLY_DATABASE_URL`: the URL of a role that can write
+#      the dedup tables and bypasses row level security (the script refuses a role that does not). For v1 it
+#      is the migration role, an exception that expires 2026-12-31 (FIND-114: a narrow role replaces it).
+#      DO NOT CREATE THIS SECRET until the actions below are pinned by commit SHA (owner decision
+#      2026-11-01): the three `uses:` lines are still tag-pinned because the SHAs could not be looked up.
+#      Until then only `validate` can run. Rotating the migration role's password means updating both copies.
+#   5. No repository-level or organization-level secret OR variable may carry the names of the two database
+#      secrets or of DEDUP_REVIEW_APPLY_DISABLED: an outer one is visible to every job (a secret) or shows
+#      through when the environment's own is deleted (a variable).
+#   6. First run: dispatch `validate` with decisions `{"schemaVersion":1,"decisions":[]}` and your account's
+#      hash. Then, once the secret exists, one approved dry run (`apply`, `live` false): it also proves the
+#      write role bypasses row level security.
+# The jobs only run from `master`; that is a convenience against an accidental dispatch from another ref, not a
+# security control (a branch can edit this file). The environments' branch rule in steps 1 and 2 is. A dispatch
+# from another ref fails loudly in the first job instead of skipping everything.
+on:
+  workflow_dispatch:
+    inputs:
+      run_tag:
+        description: 'Optional label echoed in the run name and the output (up to 64 letters, digits, ".", "_" or "-").'
+        required: false
+        type: string
+        default: ''
+      mode:
+        description: 'validate: read-only checks, merges nothing. apply: a dry run unless live is true; waits for the owner''s approval.'
+        required: true
+        type: choice
+        options:
+          - validate
+          - apply
+        default: validate
+      live:
+        description: 'With mode apply: commit the merges (otherwise a dry run). live with mode validate is refused.'
+        required: false
+        type: boolean
+        default: false
+      decisions:
+        description: 'The decisions file: {"schemaVersion":1,"decisions":[{"suggestionId","evidenceHash","reasons"}]}. Public. Send reasons as []. GitHub caps all inputs together at 65,535 characters.'
+        required: true
+        type: string
+      invoker_hash:
+        description: 'SHA-256 hex of the lowercased, trimmed Claude account email, matched to exactly one active moderator. Public; never the address.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  inputs:
+    name: Check the ref and the inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # No `if:` on this job on purpose: a dispatch from another ref must fail here with a message, not skip
+      # every job and look like a run that did nothing.
+      - name: Check the ref
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/master ]; then
+            echo "::error::This workflow runs only from master (it was dispatched from $GITHUB_REF). Dispatch it with ref master."
+            exit 1
+          fi
+
+      # These checks use no secret and run before the owner is asked to approve anything, so an approval is not
+      # spent on a run that cannot work.
+      - name: Check the inputs
+        env:
+          MODE: ${{ inputs.mode }}
+          LIVE: ${{ inputs.live }}
+          INVOKER_HASH: ${{ inputs.invoker_hash }}
+          RUN_TAG: ${{ inputs.run_tag }}
+          DECISIONS: ${{ inputs.decisions }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in
+            validate | apply) ;;
+            *) echo "::error::mode must be validate or apply."; exit 1 ;;
+          esac
+          if [ "$MODE" = validate ] && [ "$LIVE" = true ]; then
+            echo "::error::live is only valid with mode apply."
+            exit 1
+          fi
+          # Bash regex on the whole value: grep would match a single line of a multi-line value.
+          if ! [[ "$INVOKER_HASH" =~ ^[0-9a-fA-F]{64}$ ]]; then
+            echo "::error::invoker_hash must be 64 hex characters."
+            exit 1
+          fi
+          if [ -n "$RUN_TAG" ] && ! [[ "$RUN_TAG" =~ ^[A-Za-z0-9._-]{1,64}$ ]]; then
+            echo "::error::run_tag must be 1 to 64 letters, digits, '.', '_' or '-'."
+            exit 1
+          fi
+          if [ "${#DECISIONS}" -eq 0 ] || [ "${#DECISIONS}" -gt 65535 ]; then
+            echo "::error::decisions must be 1 to 65,535 characters."
+            exit 1
+          fi
+          if ! printf '%s' "$DECISIONS" | jq -e '(.schemaVersion == 1) and (.decisions | type == "array") and ((.decisions | length) <= 50)' > /dev/null 2>&1; then
+            echo "::error::decisions must be JSON of the form {\"schemaVersion\":1,\"decisions\":[...]} with at most 50 decisions."
+            exit 1
+          fi
+
+  validate:
+    name: Validate the decisions (read-only)
+    needs: inputs
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && inputs.mode == 'validate'
+    timeout-minutes: 15
+    environment: dedup-review
+    # One group per run_tag, or per run when there is no tag: with a shared group GitHub keeps one pending run
+    # and cancels older pending ones, which would silently drop a caller's run.
+    concurrency:
+      group: dedup-review-apply-validate-${{ inputs.run_tag || github.run_id }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      # No `cache:` here on purpose: this job holds a database credential, and a restored cache is code
+      # this run did not fetch. The install takes seconds.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+
+      # --ignore-scripts: no dependency's lifecycle script runs. Their code still runs when it is built (a step
+      # without the credential) and when the script imports it (a step with it).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # Workspace packages (@festgrid/database, @festgrid/domain) resolve to their gitignored dist/
+      # output, so the backend's dependencies must be built before the script can import them.
+      - name: Build the backend's workspace dependencies
+        run: pnpm --filter "backend^..." build
+
+      - name: Check the credential is configured
+        env:
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_READONLY_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::The 'dedup-review' environment has no DEDUP_REVIEW_READONLY_DATABASE_URL secret. See the setup steps at the top of this workflow."
+            exit 1
+          fi
+
+      - name: Validate
+        env:
+          # loadBackendEnv() (run at import time by db/client.ts) requires this; the script never
+          # binds a port, so any valid number works.
+          BACKEND_PORT: '4001'
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_READONLY_DATABASE_URL }}
+          # Inputs reach the script through the environment, never interpolated into the shell text;
+          # the script validates every one of them before it opens a database connection.
+          DEDUP_REVIEW_INVOKER_HASH: ${{ inputs.invoker_hash }}
+          DECISIONS: ${{ inputs.decisions }}
+          RUN_TAG: ${{ inputs.run_tag }}
+        run: |
+          # GitHub runs this with `bash -e`, which `set -uo pipefail` does not undo: a failing script would end
+          # the step before the guard ran. `|| rc=$?` keeps the status and carries on to the guard.
+          set -uo pipefail
+          printf '%s' "$DECISIONS" > "$RUNNER_TEMP/decisions.json"
+          rc=0
+          (cd apps/backend && pnpm exec tsx src/dedup-review-apply.ts --mode validate --decisions-file "$RUNNER_TEMP/decisions.json" --run-tag "$RUN_TAG") > "$RUNNER_TEMP/dedup-review-apply.out" || rc=$?
+          bash scripts/dedup-review-apply-guard.sh "$RUNNER_TEMP/dedup-review-apply.out" "$rc" validate false
+
+  apply:
+    name: Apply the decisions (dry run unless live; needs approval)
+    needs: inputs
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && inputs.mode == 'apply'
+    timeout-minutes: 15
+    environment: dedup-review-live
+    # All apply runs share one group, so two cannot overlap. GitHub keeps one pending run and cancels an
+    # older pending one, and a run waiting for approval probably holds the slot (NOT yet verified, see the
+    # runbook); the caller treats a cancelled run as "dispatch again". The script's advisory lock is the real
+    # guard against two live runs.
+    concurrency:
+      group: dedup-review-apply-write
+      cancel-in-progress: false
+    steps:
+      # First, before the checkout, the install and the build: the switch and the secret need no code. (The
+      # approval has already happened by now, and `vars` is fixed when the job starts.)
+      - name: Check the credential and the kill switch
+        env:
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_APPLY_DATABASE_URL }}
+          DISABLED: ${{ vars.DEDUP_REVIEW_APPLY_DISABLED }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::The 'dedup-review-live' environment has no DEDUP_REVIEW_APPLY_DATABASE_URL secret. See the setup steps at the top of this workflow."
+            exit 1
+          fi
+          # Fail closed: only an explicit false or 0 enables apply. A deleted or misspelled variable is empty.
+          case "$DISABLED" in
+            false | 0) ;;
+            *)
+              echo "::error::Apply is switched off: the variable DEDUP_REVIEW_APPLY_DISABLED of the 'dedup-review-live' environment must be exactly false or 0 for apply to run (it is empty when missing)."
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The commit was fixed when this run was dispatched, and the approval can come days later. Refuse to run
+      # code that `master` has since moved past (a fix to the floor, say).
+      - name: Check this commit is still the head of master
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin master
+          if [ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error::master has moved since this run was dispatched, so it would run old code. Dispatch it again."
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      # No `cache:` here on purpose: this job holds the write credential, and a restored cache is code this
+      # run did not fetch. The install takes seconds.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+
+      # --ignore-scripts: no dependency's lifecycle script runs. Their code still runs when it is built (a step
+      # without the credential) and when the script imports it (a step with it).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build the backend's workspace dependencies
+        run: pnpm --filter "backend^..." build
+
+      - name: Apply
+        env:
+          BACKEND_PORT: '4001'
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_APPLY_DATABASE_URL }}
+          DEDUP_REVIEW_INVOKER_HASH: ${{ inputs.invoker_hash }}
+          DEDUP_REVIEW_APPLY_DISABLED: ${{ vars.DEDUP_REVIEW_APPLY_DISABLED }}
+          DECISIONS: ${{ inputs.decisions }}
+          RUN_TAG: ${{ inputs.run_tag }}
+          LIVE: ${{ inputs.live }}
+        run: |
+          # GitHub runs this with `bash -e`, which `set -uo pipefail` does not undo: a failing script would end
+          # the step before the guard ran. `|| rc=$?` keeps the status and carries on to the guard.
+          set -uo pipefail
+          printf '%s' "$DECISIONS" > "$RUNNER_TEMP/decisions.json"
+          args=(--mode apply --decisions-file "$RUNNER_TEMP/decisions.json" --run-tag "$RUN_TAG")
+          if [ "$LIVE" = true ]; then
+            args+=(--live)
+          fi
+          rc=0
+          (cd apps/backend && pnpm exec tsx src/dedup-review-apply.ts "${args[@]}") > "$RUNNER_TEMP/dedup-review-apply.out" || rc=$?
+          bash scripts/dedup-review-apply-guard.sh "$RUNNER_TEMP/dedup-review-apply.out" "$rc" apply "$LIVE"
+
+      # A cancel, a timeout or a killed runner after the commit loses the report and the guard's message. This
+      # step runs in those cases (and after any earlier failure, so read it as conditional).
+      - name: After a failed or cancelled run
+        if: failure() || cancelled()
+        run: |
+          echo "::warning::If the Apply step had started a live run, its transaction may have committed before the run ended, and a cancel or timeout loses the report. Before running it again for the same decisions, list event_merges rows with performed_via = 'ai_skill' (newest first) to see what was merged."

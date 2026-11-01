@@ -2607,28 +2607,28 @@ items:
 
   # ── 2026-10-30 (moderator dedup queue: AI-assisted review, pieces B and C of the split spec) ──
   FIND-107:
-    {type: finding, status: backlog, created: 2026-10-30,
-     impact: internal, effort: m, blocks: [FIND-108],
+    {type: finding, status: done, created: 2026-10-30,
+     impact: internal, effort: m,
      title: "AI dedup review piece B1: read-only export workflow, evidence contract and evidence hash",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
      touches: [app:backend, app:infrastructure, pkg:domain, cross:process],
-     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs Piece A (shared resolveSuggestedMatch) first; requirements in DESIGN.md section 5. 1 finding."}
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs Piece A (shared resolveSuggestedMatch) first; requirements in DESIGN.md section 5. 1 finding. Built in PR 127; verified on prod 2026-10-31."}
 
   FIND-108:
-    {type: finding, status: backlog, created: 2026-10-31,
-     impact: internal, effort: m, blocks: [FIND-112],
+    {type: finding, status: done, created: 2026-10-31,
+     impact: internal, effort: m,
      title: "AI dedup review piece B2b-1: decision validator, floor and caps in packages/domain, and the apply script",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
      touches: [app:backend, pkg:domain, cross:process],
-     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31); re-scoped at bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31). The resolved_via flag (B2a) is done; this is the engine."}
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31); re-scoped at bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31). The resolved_via flag (B2a) is done; this is the engine. Built in PR 134."}
 
   FIND-112:
-    {type: finding, status: backlog, created: 2026-10-31,
+    {type: finding, status: done, created: 2026-10-31,
      impact: internal, effort: m, blocks: [FIND-104],
      title: "AI dedup review piece B2b-2: apply workflow, credentials, kill switch, new AD, PRD amendment and runbook",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
      touches: [app:infrastructure, cross:architecture, cross:prd, cross:process],
-     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-apply-engine (2026-10-31). Needs the apply script (FIND-108) on master; the write secret name is the owner's call."}
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-apply-engine (2026-10-31). Needs the apply script (FIND-108) on master; the write secret name is the owner's call. Built in the B2b-2 PR; the write secret is not created yet (SHA pinning first)."}
 
   FIND-113:
     {type: finding, status: backlog, created: 2026-10-31,
@@ -2637,6 +2637,22 @@ items:
      ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/events/merge-events.ts],
      touches: [app:backend, web:moderation],
      note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-engine (2026-10-31). Pre-existing; an automated apply makes it likelier. 1 finding."}
+
+  FIND-114:
+    {type: finding, status: backlog, created: 2026-11-01,
+     impact: compliance, effort: m,
+     title: "AI dedup review: replace the owner role in the apply secret with a narrow write role by 2026-12-31, and record the run id in the merge journal",
+     ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, pkg:database, app:infrastructure, cross:architecture],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-workflow (2026-11-01). AD-45 Rule 8: the owner role is an exception that expires 2026-12-31."}
+
+  IDEA-113:
+    {type: idea, status: backlog, created: 2026-11-01,
+     impact: user-visible, effort: m,
+     title: "Moderator tools: list and badge the AI-assisted merges, with undo from the list",
+     ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, web:moderation, cross:prd],
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-workflow (2026-11-01). Moderators cannot see AI merges; the runbook lists them from event_merges."}
 
   FIND-104:
     {type: finding, status: backlog, created: 2026-10-30,
