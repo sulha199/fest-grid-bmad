@@ -2944,13 +2944,22 @@ This document defines the core architectural invariants for the FestDaily applic
         `dedup-review-live` and waits for the owner's approval, which releases the write credential. The
         approver sees ids and hashes and cannot judge a merge from them. `validate`, the skill's shadow mode,
         runs in `dedup-review` with a read-only role and needs none. An approval can come after `master` has
-        moved, so `apply` refuses unless its commit is still the head of `master`.
+        moved, so `apply` refuses unless its commit is still the head of `master`. **Limit:** the gate stops
+        anyone but the approver. If the AI session dispatches with a token that belongs to the one required
+        reviewer, it can approve its own run through the API, so the gate does not stop that session. To make it
+        real the session must dispatch as a separate account that is not a reviewer, with "Prevent self-review"
+        on; until then the gate is only as strong as the separation of that token.
     7.  **What protects the credential.** Rules 3 and 4 bound a mistaken or manipulated *decision*. They do
-        nothing if the credential leaks. That is covered by: both environments limited to `master`; the
-        required reviewer; no repository or organization secret of the same name; a reviewed `master`
-        (a ruleset requiring a pull request, and CODEOWNERS over the workflows and the dedup code, decided
-        by the owner); and the supply chain of the apply job (no dependency lifecycle scripts, no persisted
-        checkout token, actions pinned by commit SHA). **Precondition (owner decision 2026-11-01):** the write
+        nothing if the credential leaks. That is covered only to the extent these are in place: both environments
+        limited to `master`; the required reviewer; no repository or organization secret or variable of the
+        same name; a reviewed `master` (a ruleset requiring a pull request, and CODEOWNERS over the workflows
+        and the dedup code, decided by the owner); and the supply chain of the apply job (no dependency
+        lifecycle scripts, no persisted checkout token, no restored cache, actions pinned by commit SHA).
+        **At the time of writing the ruleset, CODEOWNERS and the SHA pins do not exist.** `--ignore-scripts`
+        stops lifecycle scripts only: a dependency's own code still runs when it is built (a step without the
+        credential) and when the script imports it (a step with it). The read-only secret has the same exposure:
+        `backup_ro` reads every table, the export and `validate` hold it with tag-pinned actions, and `validate`
+        needs no approval (`FIND-109`). **Precondition (owner decision 2026-11-01):** the write
         secret is created only after the actions in the apply workflow are pinned by SHA; until then only
         `validate` runs. The owner role is already in `production` and used by other workflows without a
         reviewer; this adds a gated copy and does not reduce that exposure.
@@ -2966,7 +2975,9 @@ This document defines the core architectural invariants for the FestDaily applic
         (`IDEA-113`).
     10. **Nothing private in a public log.** No username, account id, caption or email is read into the
         output; event text passes through as stored on public event pages; an unexpected error prints only
-        its class, SQLSTATE code and a fixed hint.
+        its class, SQLSTATE code and a fixed hint. The job summary holds counts and fixed reason codes only;
+        the log holds the script's whole report (suggestion ids and merge ids, no more private than the public
+        dispatch inputs).
 *   **Enforced by:** `dedup-review-workflow.test.ts` (the workflow's text and the guard script's behavior),
     `suggested-match-resolve-ratchet.test.ts`, the domain tests of the judge and floor (100% coverage), and
     the apply library's tests against a real database.
