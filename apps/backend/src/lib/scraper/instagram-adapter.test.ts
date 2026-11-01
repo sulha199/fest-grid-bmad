@@ -233,6 +233,31 @@ test('instagram-adapter tests', async (t) => {
     ]);
   });
 
+  await t.test('mapApifyItemToScrapedPost (BUG-101) also drops a later non-cover slide that repeats an earlier slide by file name', async () => {
+    const item = {
+      type: 'Sidecar',
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_sidecar_mid_repeat/',
+      caption: 'Carousel caption with a repeated mid-carousel slide, not the cover',
+      displayUrl: 'https://scontent.cdninstagram.com/v/t51/cover_mid111_n.jpg?oe=aaa',
+      childPosts: [
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide1_mid222_n.jpg?oe=bbb' },
+        // Same file name as slide1 above, different signed query -- a genuine Apify repeat of a
+        // non-cover slide (not just childPosts[0]).
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide1_mid222_n.jpg?oe=ccc' },
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide2_mid333_n.jpg?oe=ddd' },
+      ],
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    assert.deepStrictEqual(result!.additionalImageUrls, [
+      'https://scontent.cdninstagram.com/v/t51/slide1_mid222_n.jpg?oe=bbb',
+      'https://scontent.cdninstagram.com/v/t51/slide2_mid333_n.jpg?oe=ddd',
+    ]);
+  });
+
   await t.test('mapApifyItemToScrapedPost drops a childPost missing displayUrl and keeps the rest', async () => {
     const item = {
       type: 'Sidecar',
