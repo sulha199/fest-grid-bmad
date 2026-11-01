@@ -7,6 +7,7 @@ import type { ManualExtractionRequestPayload } from '@festgrid/domain/posts';
 import { clearRegisteredAdapters, registerScraperAdapter, ScraperCapacityExceededError } from '@festgrid/domain/scraper';
 import type { ScrapedPost } from '@festgrid/domain/scraper';
 import { startPostReextractionPreview } from './start-post-reextraction-preview.js';
+import { ApifyMemoryLimitExhaustedError, ApifyMonthlyUsageLimitError } from '../scraper/instagram-adapter.js';
 import { getManualExtractionJobStatus } from './manual-extraction-job.js';
 import { claimPostUrlScrape } from '../scraper/post-url-scrape-lease.js';
 import { VendorDpaNotConfirmedError } from '../vendor-gateway/guarded-call.js';
@@ -116,6 +117,31 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
     assert.strictEqual(rows.length, 0, 'a DPA-gate refusal spends no vendor credit, so no row is recorded');
   });
+
+  // Apify refusing to START a run (account memory cap, or the monthly spend cap the free plan hit on
+  // 2026-10-29) means no run exists and no credit was spent: same rule as the gates above.
+  for (const [label, makeError] of [
+    ['the Apify memory cap outlasts the wait', () => new ApifyMemoryLimitExhaustedError(20000, 4, '402 actor-memory-limit-exceeded')],
+    ['the Apify monthly usage cap is reached', () => new ApifyMonthlyUsageLimitError('403 platform-feature-disabled')],
+  ] as const) {
+    await t.test(`FIND-119: ${label} (no run started) -> SCRAPE_FAILED, no FAILED row, no cooldown on retry`, async () => {
+      const post = await makePost(null);
+      fakeAdapter(async () => {
+        throw makeError();
+      });
+      let first, second;
+      try {
+        first = await startPostReextractionPreview(user.id, { postId: post.id });
+        second = await startPostReextractionPreview(user.id, { postId: post.id });
+      } finally {
+        clearRegisteredAdapters();
+      }
+      assert.ok('errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
+      assert.ok('errorCode' in second && second.errorCode === 'SCRAPE_FAILED', 'the immediate retry is not RATE_LIMITED');
+      const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
+      assert.strictEqual(rows.length, 0, 'a refusal to start a run spends no vendor credit, so no row is recorded');
+    });
+  }
 
   await t.test('FIND-119: a throw once the vendor call started still records the FAILED row and the cooldown still applies', async () => {
     const post = await makePost(null);
