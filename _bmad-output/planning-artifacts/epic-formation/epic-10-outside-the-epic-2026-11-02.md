@@ -110,7 +110,10 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 ## 7. Pieces that join an epic story (their rows stay open until that story lands)
 
 - [ ] **FIND-086** (re-extract preview review deferrals) and **FIND-111** (Apply keeps unapplied previews on the job row): `carve-first`. Split each so the
-  retention/sweep finding joins Story 10.1a and the rest stays as its own row.
+  retention/sweep finding joins Story 10.1a and the rest stays as its own row. **Carve done** (bmad-create-story, 2026-11-02, Story 10.1a creation):
+  FIND-086/FIND-111 set `promoted` with `stories: [10-1a-...]`; the leftover findings carved to new child rows FIND-120 (parent FIND-086) and FIND-121
+  (parent FIND-111). This checkbox stays unchecked per this section's own header ("their rows stay open until that story lands") — the carve is done, the
+  story itself is not.
 - [ ] **IDEA-101** to Story 10.2, **IDEA-102** to Story 10.5, **FIND-082** (triplicated transient-error classifier) to Story 10.2,
   **FIND-119** and **BUG-101** to Stories 10.3 and 10.2 (their engine forms), **FIND-079** (public-accounts-only is not enforced) to Story 10.7
   (do it as `quick-dev` if 10.7 is not started).

@@ -2302,12 +2302,13 @@ items:
      note: "Built 2026-10-18, preview only (AD-40). Placements: event detail source-post panel (moderator) and Moderator -> Tools -> Re-extract. No apply step by design. Follow-ups: an apply mode needs a replace/skip design for already-represented (post, ordinal) slots."}
 
   FIND-086:
-    {type: finding, status: backlog, created: 2026-10-18,
+    {type: finding, status: promoted, created: 2026-10-18,
      impact: internal, effort: s,
      title: "Re-extract preview review deferrals: unclaimed-job caption sweep, invalid-JSON links aborting the candidate query, LIMIT 20 ordering, URL variants",
      ref: [implementation-artifacts/deferred-work.md],
+     stories: [10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep],
      touches: [app:backend, cross:architecture],
-     note: "Deferred from: quick-dev of the moderator re-extract preview (2026-10-18, `bmad-quick-dev`). 4 findings."}
+     note: "Deferred from: quick-dev of the moderator re-extract preview (2026-10-18, `bmad-quick-dev`). Finding 1 joined Story 10.1a; findings 2-4 carved to FIND-120."}
 
   # ── 2026-10-23 (code review of Epic 9) ──────────────────────────────────────
   BUG-065:
@@ -2704,12 +2705,13 @@ items:
      note: "Deferred from: bmad-quick-dev review of spec-reextract-read-all-slide-images (2026-10-31). 2 findings. Fixed on branch ccr-56bef1e2-pmkhv6: per-URL lease and AD-34 Rule 7 gate."}
 
   FIND-111:
-    {type: finding, status: backlog, created: 2026-10-31,
+    {type: finding, status: promoted, created: 2026-10-31,
      impact: internal, effort: s,
      title: "Re-extract Apply: unapplied previews keep their extraction on the job row, and Apply has no drift check or stub-to-full path",
      ref: [implementation-artifacts/deferred-work.md],
+     stories: [10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep],
      touches: [app:backend, cross:architecture],
-     note: "Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31). 2 findings. Retention fix belongs with FIND-086's job sweep."}
+     note: "Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31). Finding 1 joined Story 10.1a; finding 2 carved to FIND-121."}
 
   BUG-098:
     {type: bug, status: done, created: 2026-10-31,
@@ -2842,3 +2844,20 @@ items:
      ref: [backlog/IDEA-119-tell-the-user-when-a-long-job-finishes.md],
      touches: [app:backend, cross:notifications, cross:prd],
      note: "Epic 10, Story 10.13. Moderators via Epic 0.i1's helper; notifying subscribers is a PRD question."}
+
+  # ── 2026-11-02 (bmad-create-story, Story 10.1a carve-first) ──────────────────
+  FIND-120:
+    {type: finding, status: backlog, created: 2026-11-02, parent: FIND-086,
+     impact: internal, effort: s,
+     title: "Re-extract candidate query: invalid-JSON links abort the match, LIMIT 20 ordering risk, and URL variants bypass the rescrape cooldown",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:architecture],
+     note: "Carved from FIND-086 (findings 2-4) when finding 1 (caption sweep) joined Story 10.1a (2026-11-02, carve-first, epic-10-outside-the-epic.md §7). Unrelated to the job engine."}
+
+  FIND-121:
+    {type: finding, status: backlog, created: 2026-11-02, parent: FIND-111,
+     impact: internal, effort: s,
+     title: "Re-extract Apply has no drift check and no stub-to-full reconciliation path",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:architecture],
+     note: "Carved from FIND-111 (finding 2) when finding 1 (retention) joined Story 10.1a (2026-11-02, carve-first, epic-10-outside-the-epic.md §7). Unrelated to the job engine."}

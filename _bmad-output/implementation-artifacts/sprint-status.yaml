@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-10-25T02:13:56Z
+last_updated: 2026-11-01T10:34:07Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -2546,7 +2546,7 @@ development_status:
   # Members BUG-099, IDEA-115, IDEA-047, IDEA-008, IDEA-009, BUG-014, IDEA-116..119. See epics.md Epic 10 and
   # planning-artifacts/epic-formation/formation-2026-11-02.md; what sits outside it: epic-10-outside-the-epic-2026-11-02.md.
   epic-10: backlog
-  10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep: backlog
+  10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep: ready-for-dev
   10-2-build-the-post-scraper-provider-chain-with-failover-and-quota-skip: backlog
   10-3-add-reuse-and-admission-control-to-job-start: backlog
   10-4-build-the-jobs-page-and-the-inline-job-progress-component: backlog
