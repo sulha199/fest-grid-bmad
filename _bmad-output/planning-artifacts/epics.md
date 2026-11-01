@@ -6062,3 +6062,214 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Depends on:** Stories 9.2, 9.3, 9.4.
 
 **Note:** Formed 2026-10-14 via `bmad-form-epics` (scoped pass) from IDEA-069 (driving), FIND-083 (carved from FIND-018) and BUG-060 (carved from BUG-011). Feature epic: the `z` ratchet is optional and was included because the epic's justification is the shared compiler. Remaining FIND-018 scope (DW-083/084/085) and BUG-011 scope (DW-066/067/068) stay on the board.
+
+## Epic 10 (Background vendor jobs) — feature epic formed from the backlog
+
+### Epic 10: Background vendor jobs: one engine, one Jobs page
+
+**Capability:** A user or moderator who starts work that takes longer than a request (re-fetching a post, a profile lookup at subscribe) sees it run in the background and can check its progress and result in one place. It finishes even when a vendor is slow, over quota or fails over, and starting it twice never costs twice.
+**Spec:** `bmad-prd` first (`epic-formation-gate.md` §2): the PRD has no section for a Jobs page, so a new capability section plus amendments to §3.7, §3.9.3 and §3.11 land before any story below starts. **Evidence and decisions:** `planning-artifacts/background-vendor-jobs-design-notes-2026-11-02.md`. **Profile-lookup design:** `planning-artifacts/profile-lookup-fallback-and-ux-2026-10-31.md`.
+**Decisions already taken:** vendor chain `apify,brightdata`; a rescrape runs when the cover link has expired, the cover is low resolution (`s640x640` or smaller) or slides are missing or unknown; fresh links are saved to `posts` (never the caption); when the budget runs out the job continues on the stored images with a banner and a Retry button; a late vendor result is still collected; the same input re-attaches to the running job; a subscribe job reserves a slot against the subscription cap.
+**FRs covered:** none yet. The PRD amendment assigns them.
+
+### Story 10.1a: Build the job engine core: record, lifecycle, runner and sweep
+
+**As a** developer,
+**I want** one job record with a typed lifecycle and a worker that runs it off the request path,
+**So that** any vendor-backed action returns a job id at once and finishes inside its own budget.
+
+**Acceptance Criteria:**
+
+*   **Given** a job type registered in the engine's registry, **when** `startJob(type, input, owner)` runs in the API Lambda, **then** a job row (type, owner, input key, status, phase, deadline, result, attempts) is written and the scraper Lambda is invoked asynchronously through the AD-41 invoke seam; the call returns the job id in under one second.
+*   **And** the worker runs the handler inside the job's deadline (about 150 s per attempt within the scraper Lambda's 300 s), records phase changes, and ends the job FAILED with a reason when the handler throws or the deadline passes.
+*   **And** a sweep ends running jobs past their deadline, releases their locks, and clears retained captions and previews older than the apply window (absorbs FIND-086 finding 1 and FIND-111 finding 1).
+*   **And** the job table references `apify_pending_jobs`, `brightdata_pending_jobs`, `scraper_actor_runs` and `vendor_call_locks` rather than replacing them, and `manual_extraction_jobs` is untouched (the decision to migrate it is Story 10.9's).
+*   **And** the CDK grants the API Lambda invoke on the scraper Lambda and passes the Lambda-timeout and IAM-grant checks (Epic 0.i3); `docs/infrastructure/architecture-diagram.md` and `high-level-overview.md` show the new table and invoke path.
+*   **And** a new `AD-n` records the engine rule (a vendor-backed action that can exceed a few seconds runs as a job) and AD-41 is amended to name the engine as its worker.
+
+**Depends on:** none (mechanism story). Readiness-check may split it.
+
+### Story 10.2: Build the post-scraper provider chain with failover and quota skip
+
+**As a** developer,
+**I want** a post-scraper chain that mirrors the profile chain and covers Apify and Bright Data,
+**So that** a rescrape tries each provider in order and moves on when one fails or is over quota.
+
+**Acceptance Criteria:**
+
+*   **Given** `POST_SCRAPER_PROVIDER_ORDER` (default `apify,brightdata`) and a budget, **when** a post URL is fetched, **then** each adapter runs through the guarded vendor call (capacity, degraded-provider and DPA gates, usage recorded), declares `minBudgetMs`, and an adapter that throws, returns nothing or is over quota hands over to the next one; each adapter considered writes one attempt row (outcome, budget, elapsed).
+*   **And** the Bright Data adapter fetches one post through `/datasets/v3/scrape` on the posts dataset with `[{url}]` (synchronous, then polling the snapshot inside the budget) and maps it with `mapBrightDataRecordToScrapedPost`; the Apify adapter keeps `getPostByUrl`; both return the cover and the slides, and the slide list never contains the cover (the source fix for BUG-101).
+*   **And** an exhausted Apify monthly cap is remembered for the rest of the usage cycle, so the chain skips Apify without a refused call (absorbs IDEA-101); an empty or unreadable vendor result throws so the next adapter is tried.
+*   **And** the credential used per call depends on the job type (the app-funded key today; a contributed key only for its owner's own subscription, per Story 3-4b AC6), so 3-4b can plug in without changing the chain.
+*   **And** the transient-error classifier is shared, not copied a fourth time (FIND-082).
+
+**Depends on:** Story 10.1a (attempt rows).
+
+### Story 10.3: Add reuse and admission control to job start
+
+**As a** user,
+**I want** starting the same work twice to join the running job, and starting several at once never to push me past my plan,
+**So that** I never wait or pay twice and never exceed my subscription cap.
+
+**Acceptance Criteria:**
+
+*   **Given** a running job of the same type and input for the same user, **when** it is started again, **then** the existing job id is returned (replacing the `SCRAPE_IN_PROGRESS` error); for a different user the vendor call is shared and each user's job completes from it.
+*   **And** a per-user cap limits concurrent jobs, enforced atomically, and a refused start says why.
+*   **And** a subscribe job reserves a slot against the subscription cap (5 for a normal user, moderators exempt, per PRD §6) inside one transaction and releases it on failure or expiry; two simultaneous subscribes by a user holding 4 accounts produce exactly one success (concurrency test). The cap itself, its upgrade call to action and its analytics events are built here if IDEA-008 has not landed (absorbs IDEA-008).
+*   **And** the 10-minute rescrape cooldown starts only when a vendor call actually ran (FIND-119).
+
+**Depends on:** Story 10.1a.
+
+### Story 10.4: Build the Jobs page and the inline job progress component
+
+**As a** user or moderator,
+**I want** to see my running and finished jobs in one place and to watch a job where I started it,
+**So that** long work never freezes the screen and I can leave and come back.
+
+**Acceptance Criteria:**
+
+*   **Given** the GraphQL `job(id)`, `myJobs` (cursor-paginated) and `activeJobs`, **when** the Jobs page loads, **then** it lists the user's jobs (a moderator also sees all jobs behind a filter) with type, status, start time and elapsed time; the detail view shows the phase stepper, the provider, the per-attempt history (which adapter ran and why it switched), the reason a job ended degraded, and a Retry button.
+*   **And** the inline component polls a job and shows its stepper in a dialog that can be dismissed; reopening the same action re-attaches to the running job.
+*   **And** the list uses the shared list-pagination controller (Epic 0.i5) and account rows use `SubscribedAccountCard` (Epic 0.i6); copy exists in English and Indonesian and status changes are announced to assistive technology.
+*   **And** the flow is designed through `bmad-ux` before the build.
+
+**Depends on:** Story 10.1a.
+
+### Story 10.5: Collect late vendor results and finish the job
+
+**As a** moderator,
+**I want** a vendor result that arrives after a job's deadline to still be used,
+**So that** a Bright Data snapshot that takes hours heals the post instead of being paid for twice.
+
+**Acceptance Criteria:**
+
+*   **Given** a Bright Data snapshot still running when a job's deadline passes, **when** the job ends, **then** the snapshot id stays linked to the job; when it finishes later (webhook or sweep poll) its records are processed, the job records "completed after deadline", and for a rescrape job the fresh links are saved to `posts`.
+*   **And** the sweep waits for a snapshot Bright Data still reports as running instead of sending it to the paid Apify fallback, up to a configured bound after which the job expires with a reason (absorbs IDEA-102).
+*   **And** a duplicate delivery is a no-op.
+
+**Depends on:** Stories 10.1a, 10.2.
+
+### Story 10.6: Move the moderator re-extract rescrape onto the engine
+
+**As a** moderator,
+**I want** Re-extract to fetch fresh image links in the background,
+**So that** the preview reads every slide even when the stored links have expired or were never captured.
+
+**Acceptance Criteria:**
+
+*   **Given** a stored post, **when** the moderator clicks Re-extract, **then** a job starts at once and the preview runs after a refresh phase; the refresh runs when the cover link has expired, the cover is low resolution (`s640x640` or smaller in `stp`), or slides are missing or unknown (null post type and null slide list).
+*   **And** the chain order is Apify then Bright Data; on success the fresh cover link, slides, expiry and post type are saved to `posts` (never the caption, never an empty slide list over a non-empty one, never a 640 px cover over a full-size one), amending AD-12 and AD-40.
+*   **And** when the budget runs out or every adapter fails, the preview continues on the stored images with a banner naming what is missing and a Retry button, and the result reports images available and read.
+*   **And** a post whose account is PERSONAL or AWAITING_APPROVAL is refused with its reason (AD-34).
+*   **And** BUG-099's cases are tests (a carousel with an expired cover reads all its slides; a cover failure still reads the slides), and on prod `/p/DcntzF0mB7z/` reads 5 images (closes BUG-099).
+
+**Depends on:** Stories 10.1a, 10.2, 10.3.
+
+### Story 10.7: Move subscribe and profile lookup onto the engine
+
+**As a** user subscribing to an account,
+**I want** the subscribe to return at once and the profile lookup, classification and first scrape to run as a job I can follow,
+**So that** a slow vendor never shows me a generic error.
+
+**Acceptance Criteria:**
+
+*   **Given** the AD-41 flow, **when** a user subscribes, **then** the request returns fast and the lookup, classification and first scrape run as one job on the engine, using the profile chain with each adapter's `minBudgetMs`.
+*   **And** a lookup that outlasts the interactive budget falls back to the background phase with the UX flow from IDEA-115 (its decisions D1 to D4 settled first).
+*   **And** the slot reservation of Story 10.3 applies, and the worker checks that the account is public (absorbs FIND-079).
+*   **And** the job appears on the Jobs page.
+
+**Depends on:** Stories 10.1a, 10.2, 10.3, 10.4. Needs `bmad-ux` and the IDEA-115 decisions.
+
+### Story 10.8: Auto-extract the first posts after subscribe and route the wizard to the feed
+
+**As a** new subscriber,
+**I want** the first posts of an account I just followed to be extracted without waiting for the daily batch,
+**So that** the feed shows events soon after I finish onboarding.
+
+**Acceptance Criteria:**
+
+*   **Given** a successful first-scrape job, **when** new posts are saved, **then** they are queued for extraction within the Gemini daily request budget (rate-limit-aware), and the onboarding wizard routes to the feed with the job's progress visible.
+*   **And** PRD §3.11 is amended for the redirect and the auto-extract behavior.
+
+**Depends on:** Story 10.7.
+
+### Story 10.9: Move AI-assisted correction onto the engine and let it re-scrape
+
+**As a** moderator,
+**I want** AI-assisted correction to appear with my other jobs and to re-scrape a post whose caption or images no longer exist,
+**So that** I can still correct it.
+
+**Acceptance Criteria:**
+
+*   **Given** correction jobs (`manual_extraction_jobs`, CORRECTION mode), **when** the Jobs page lists jobs, **then** they appear through an adapter with no data migration; the decision to migrate the table is recorded here.
+*   **And** when a post's caption or images are missing, the moderator can trigger a rescrape through the chain, including the CURATOR_GUIDE carve-out that narrows Story 3.4o's blanket hold (absorbs IDEA-047).
+
+**Depends on:** Stories 10.1a, 10.2, 10.4, 10.6.
+
+### Story 10.10: Run extract-by-URL as a job
+
+**As a** user submitting a post URL,
+**I want** the scrape and extraction to run as a job,
+**So that** a slow vendor does not hit the 28-second request limit.
+
+**Acceptance Criteria:**
+
+*   **Given** `extractEventDataFromUrl`, **when** a URL is submitted, **then** a job id is returned, the scrape (through the chain) and the Gemini call run in the worker, and the inline component shows progress.
+*   **And** the synchronous path is removed (IDEA-116).
+
+**Depends on:** Stories 10.1a, 10.2, 10.4.
+
+### Story 10.11: Show progress for a subscribed account's "refresh now"
+
+**As a** subscriber,
+**I want** to see progress when I ask for an account's posts to be refreshed,
+**So that** I know it is running and when it is done.
+
+**Acceptance Criteria:**
+
+*   **Given** the existing on-demand scrape (`trigger-scrape-for-account.ts`), **when** a user triggers it, **then** a job is linked to the queued run, progress and result show on the account page and the Jobs page, and a second trigger for the same account re-attaches instead of scraping again (IDEA-117).
+
+**Depends on:** Stories 10.1a, 10.3, 10.4.
+
+### Story 10.12: Run CLI-only admin batch operations as jobs
+
+**As a** moderator,
+**I want** long admin operations to run as jobs I can start and watch,
+**So that** I do not need a developer with a shell.
+
+**Acceptance Criteria:**
+
+*   **Given** moderator payload reprocessing, **when** it is triggered, **then** the enqueue, the consumer and the status run through the engine (absorbs BUG-014).
+*   **And** for the event dedup drain, expiring stale match suggestions, replaying late Bright Data snapshots and the post-media, thumbnail and legacy-slug backfills, each is either moved (dry run then apply as two phases, writer credentials staying in the worker's secret) or recorded as staying a CLI with its reason; moderators see them on the Jobs page (IDEA-118).
+
+**Depends on:** Stories 10.1a, 10.4.
+
+### Story 10.13: Notify when a job finishes
+
+**As a** moderator,
+**I want** to be told when a long job finishes,
+**So that** I do not have to keep the page open.
+
+**Acceptance Criteria:**
+
+*   **Given** a finished job, **when** its owner is a moderator, **then** a templated, throttled notification goes out through Epic 0.i1's helper and links to the job.
+*   **And** notifying subscribing users (channel, throttling, consent) is settled in the PRD before it is built (IDEA-119).
+
+**Depends on:** Story 10.1a and Epic 0.i1's Story 0.i1a.
+
+### Story 10.14z: Ratchet: no Lambda reaches a vendor call without registering the adapters
+
+**As a** developer,
+**I want** a test that fails when a Lambda entry can call a vendor but never registered the adapters, and when a resolver calls a vendor outside the engine,
+**So that** the 2026-10-31 failure (the API Lambda threw "No scraper adapter registered") and a return to synchronous vendor calls in the request path cannot recur.
+
+**Acceptance Criteria:**
+
+*   **Given** every Lambda entry in `apps/infrastructure/lib/festgrid-backend-stack.ts`, **when** a test bundles it with esbuild and reads the metafile (the method of `lambda-sharp-isolation.test.ts`), **then** each entry whose bundle reaches `getScraperAdapter`, `getProfileScraperAdapters` or `fetchScrapedProfile` also reaches `lib/scraper/register-adapters.ts`, and the failure names the entry. The test is written red first against today's `lambdas/api.ts`.
+*   **And** a boundary test (the method of `eslint-enforcement.test.ts`) fails when a file under `apps/backend/src/schema/` imports a vendor client or adapter module (`brightdata-client`, `instagram-adapter`, `*-profile-adapter`) instead of the engine's start function; the allowlist is empty when the epic closes, and every entry it holds before then cites the story that removes it.
+*   **And** the engine rejects, at compile or test time, a job type that has no registered handler.
+*   **And** the PRD sections added or amended by this epic, AD-12, AD-40, AD-41 and the engine's new AD, `project-context.md` and `docs/infrastructure/architecture-diagram.md` with `high-level-overview.md` describe the shipped behavior, and `backlog-check.py` exits 0.
+
+**Depends on:** all other Epic 10 stories.
+
+**Note:** Formed 2026-11-02 via `bmad-form-epics` from BUG-099, IDEA-115, IDEA-047, IDEA-008, IDEA-009 and BUG-014, plus IDEA-116 to IDEA-119 created with the epic; IDEA-101 and IDEA-102 are answered by Stories 10.2 and 10.5. Feature epic: the `z` ratchet is optional and was included because the epic's whole justification is the shared mechanism, which is what stops a second feature forking the first one's helper. In chat the stories were lettered `a` (engine core) to `m`: `a`=10.1a, `b`=10.2, `c`=10.3, `d`=10.4, `e`=10.5, `f`=10.6, `g`=10.7, `h`=10.8, `i`=10.9, `j`=10.10, `k`=10.11, `l`=10.12, `m`=10.13, `z`=10.14z. The gate allows one mechanism story; 10.1a is large and 10.2 to 10.5 are mechanism parts, so `bmad-epic-readiness-check` is expected to validate or split them. Independent fixes that ship ahead of the epic: BUG-100, FIND-119 and BUG-101. What sits outside the epic is tracked in `planning-artifacts/epic-formation/epic-10-outside-the-epic-2026-11-02.md`.

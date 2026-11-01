@@ -444,7 +444,7 @@ items:
 
 
   BUG-014:
-    {type: bug, status: triaged, created: 2026-09-05,
+    {type: bug, status: triaged, created: 2026-09-05, epic: epic-10,
      impact: user-visible, effort: m,
      title: "Moderator payload reprocessing remains unbuilt after its false-success message was fixed",
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
@@ -643,7 +643,7 @@ items:
 
   # ── 2026-09-06 (ux-rework2 gap audit) ────────────────────────────────────────
   IDEA-008:
-    {type: idea, status: triaged, created: 2026-09-06,
+    {type: idea, status: triaged, created: 2026-09-06, epic: epic-10,
      impact: user-visible, effort: m,
      title: "Max 5 subscribed accounts (normal user), upgrade-account 'coming soon' CTA + PostHog event, moderator exempt",
      ref: [backlog/IDEA-008-subscribed-account-cap.md],
@@ -651,7 +651,7 @@ items:
      note: "Resolved to 5 (MAX_SUBSCRIBED_ACCOUNTS_FREE_USER) via PRD 6, with cap enforcement, moderator exemption, and upgrade-CTA PostHog events. No open question remains. Full detail in backlog/IDEA-008-subscribed-account-cap.md."}
 
   IDEA-009:
-    {type: idea, status: triaged, created: 2026-09-06,
+    {type: idea, status: triaged, created: 2026-09-06, epic: epic-10,
      impact: user-visible, effort: m, reprice_on: epic-0-i2,
      title: "Auto-extract posts on first subscribe (respecting Gemini's 500 RPD limit) + onboarding wizard redirect to feed",
      ref: [],
@@ -1481,7 +1481,7 @@ items:
      note: "enqueuePostForProcessing's only caller was the manual selectPostsForExtraction mutation; PRD 3.7/3.10 now defines the automatic trigger (CC-024). Promoted 2026-10-02 to Story 3.6z. Full trace: backlog/BUG-039-no-automatic-post-extraction.md."}
 
   IDEA-047:
-    {type: idea, status: backlog, created: 2026-09-21,
+    {type: idea, status: backlog, created: 2026-09-21, epic: epic-10,
      impact: user-visible, effort: m,
      title: "AI-assisted correction should support re-scraping a post when its images/caption no longer exist",
      ref: [backlog/IDEA-047-re-extract-on-missing-post-media.md],
@@ -2564,16 +2564,16 @@ items:
      note: "Owner decision: upgrade the plan, or keep Bright Data primary with Apify as a small fallback. Usage resets 2026-11-23 00:00 UTC."}
 
   IDEA-101:
-    {type: idea, status: backlog, created: 2026-10-30,
-     impact: internal, effort: s,
+    {type: idea, status: backlog, created: 2026-10-30, epic: epic-10,
+     impact: internal, effort: xs,
      title: "Remember an exhausted Apify monthly cap for the rest of the usage cycle instead of trying every target",
      ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
      touches: [app:backend],
      note: "Today each target still makes one refused start per batch; the refusal is cheap but fills the logs and delays the fallback to the next provider."}
 
   IDEA-102:
-    {type: idea, status: backlog, created: 2026-10-30,
-     impact: internal, effort: s,
+    {type: idea, status: backlog, created: 2026-10-30, epic: epic-10,
+     impact: internal, effort: xs,
      title: "Bright Data snapshots can take hours; the 180-minute expiry sends them to a paid Apify fallback while the late result still arrives",
      ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
      touches: [app:backend],
@@ -2680,7 +2680,7 @@ items:
 
   # ── 2026-10-31 (bmad-quick-dev: re-extract preview of a carousel roundup showed only the first image's events) ──
   BUG-099:
-    {type: bug, status: backlog, created: 2026-10-31,
+    {type: bug, status: backlog, created: 2026-10-31, epic: epic-10,
      impact: user-visible, effort: s,
      title: "Moderator re-extract preview drops carousel slides: expired image URLs, cover failure skips slides, scraped slides discarded",
      ref: [implementation-artifacts/spec-reextract-read-all-slide-images.md, apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/backend/src/lib/ai-processor/build-gemini-request.ts],
@@ -2736,7 +2736,7 @@ items:
      note: "Built in the PR stacked on #130: interval after an empty run = clamp(ceil(typical gap), 1, 3) days (SCRAPE_BACKOFF_MAX_DAYS=1 disables). The SQS path does not record new_posts, so a queue-run profile stays daily. Detail: backlog/IDEA-105-back-off-a-profile-s.md."}
 
   IDEA-115:
-    {type: idea, status: backlog, created: 2026-10-31,
+    {type: idea, status: backlog, created: 2026-10-31, epic: epic-10,
      impact: user-visible, effort: m,
      title: "Profile lookup falls back to a background phase on timeout, with a UX flow that tells the user what is happening",
      ref: [planning-artifacts/profile-lookup-fallback-and-ux-2026-10-31.md],
@@ -2784,3 +2784,61 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend, cross:ai-extraction],
      note: "Deferred from: code review of spec-cc-024-wave3-gate-test-fixes.md (2026-10-02, CC-024 Wave 3 batch-end gate, `bmad-quick-dev`). 3 findings."}
+
+  # ── 2026-11-02 (epic formation: background vendor jobs, epic-10, and the fixes that ship ahead of it) ──
+
+  BUG-100:
+    {type: bug, status: backlog, created: 2026-11-02,
+     impact: user-visible, effort: xs,
+     title: "The API Lambda registers no scraper adapters, so every API-side scrape throws",
+     ref: [backlog/BUG-100-api-lambda-registers-no-scraper-adapters.md],
+     touches: [app:backend, app:infrastructure],
+     note: "Seen on prod 2026-10-31 14:32Z in the BUG-099 rescrape. Ship ahead of Epic 10; Story 10.14z ratchets it."}
+
+  FIND-119:
+    {type: finding, status: backlog, created: 2026-11-02,
+     impact: internal, effort: xs,
+     title: "A rescrape failure that spent no vendor credit still starts the 10-minute cooldown",
+     ref: [backlog/FIND-119-rescrape-failure-without-vendor-call-starts-cooldown.md],
+     touches: [app:backend],
+     note: "Seen 2026-10-31: the retry 20 s later hit the cooldown. Record a failed rescrape only when a vendor call ran; Story 10.3 has the engine form."}
+
+  BUG-101:
+    {type: bug, status: backlog, created: 2026-11-02,
+     impact: internal, effort: xs,
+     title: "Apify's slide list repeats the cover, so Gemini receives it twice",
+     ref: [backlog/BUG-101-apify-slide-list-repeats-the-cover.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "354 of 354 stored Apify carousels repeat the cover in additional_image_urls (Bright Data 0 of 629). Fix at the source (Story 10.2) and de-duplicate stored rows at read time."}
+
+  IDEA-116:
+    {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
+     impact: user-visible, effort: m,
+     title: "Extract-by-URL runs as a job instead of inside the 28-second request",
+     ref: [backlog/IDEA-116-extract-by-url-runs-as-a-job.md],
+     touches: [app:backend, web:posts, cross:architecture],
+     note: "Epic 10, Story 10.10. Scrape plus Gemini today share the API Lambda's 28 s limit."}
+
+  IDEA-117:
+    {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
+     impact: user-visible, effort: s,
+     title: "\"Refresh now\" for a subscribed account shows progress and re-attaches instead of scraping twice",
+     ref: [backlog/IDEA-117-refresh-now-shows-progress-and-reattaches.md],
+     touches: [app:backend, web:accounts],
+     note: "Epic 10, Story 10.11. The on-demand scrape is queued today but shows no progress."}
+
+  IDEA-118:
+    {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
+     impact: user-visible, effort: l,
+     title: "Long admin operations that are CLI-only today run as moderator-visible jobs",
+     ref: [backlog/IDEA-118-cli-only-admin-operations-run-as-jobs.md],
+     touches: [app:backend, web:moderation, app:infrastructure],
+     note: "Epic 10, Story 10.12; BUG-014 is its first member. Decide per operation which are worth moving."}
+
+  IDEA-119:
+    {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
+     impact: user-visible, effort: m,
+     title: "Tell a user or moderator when a long job finishes",
+     ref: [backlog/IDEA-119-tell-the-user-when-a-long-job-finishes.md],
+     touches: [app:backend, cross:notifications, cross:prd],
+     note: "Epic 10, Story 10.13. Moderators via Epic 0.i1's helper; notifying subscribers is a PRD question."}
