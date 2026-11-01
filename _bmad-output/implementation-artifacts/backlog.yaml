@@ -41,8 +41,8 @@ items:
     {type: bug, status: done, created: 2026-08-01, parent: CC-002,
      impact: user-visible, effort: xs,
      title: "Logo.tsx logotype span still hardcodes 'Grid' — FestDaily rename unfinished",
-     ref: [], touches: [pkg:ui],
-     note: "Verified 2026-09-04: 0 occurrences of 'Daily' in packages/ui/src/core/app-shell/Logo.tsx. Fixed 2026-09-11 (quick-dev) — replaced the hardcoded 'Grid' logotype span in packages/ui/src/core/app-shell/Logo.tsx with 'Daily' (now renders 'FestDaily'), completing CC-002's leftover. Only the '2x2 grid logomark' comment retains the word grid, describing the icon graphic. Verified via pnpm --filter @festgrid/ui test (app-shell: 3 files / 11 tests passed), commit 831800c."}
+     ref: [backlog/BUG-001-logo-tsx-logotype-span-still.md], touches: [pkg:ui],
+     note: "Fixed 2026-09-11 (quick-dev, 831800c): Logo.tsx logotype span now reads 'Daily' (renders 'FestDaily'), completing CC-002's leftover. Detail: backlog/BUG-001-logo-tsx-logotype-span-still.md."}
 
   IDEA-002:
     {type: idea, status: backlog, created: 2026-08-01, parent: CC-002,
@@ -377,9 +377,9 @@ items:
   BUG-006:
     {type: finding, status: superseded, created: 2026-09-05, superseded_by: FIND-009,
      title: "EventCard 'Today' day-diff — claimed product bug, verified to be the test-clock gap only",
-     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml, backlog/BUG-006-eventcard-today-day-diff-claimed.md],
      touches: [pkg:ui, web:events],
-     note: "DW-031. Verified 2026-09-05 against format-event-date.ts:66-71: getCalendarDayDifference anchors both sides to Date.UTC midnight from calendar-day parts, so diffMs is always an exact multiple of 86400000 and the floor is exact — no day-boundary defect exists in the product. The only real defect is the unmocked test clock, which is FIND-009. Kept as a row so the claim is not re-raised from the same evidence."}
+     note: "No defect: getCalendarDayDifference anchors both sides to UTC midnight, so the floor is exact (checked 2026-09-05); the real defect is the unmocked test clock, FIND-009. Kept so the claim is not re-raised. Detail: backlog/BUG-006-eventcard-today-day-diff-claimed.md."}
 
   BUG-007:
     {type: bug, status: promoted, created: 2026-09-05,
@@ -388,8 +388,7 @@ items:
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      stories: [2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers],
      touches: [web:events/EventDetailWrapper],
-     note: "DW-032. Predates ux-rework2 batch-2; that batch only added error announcement plus re-throw, not per-item success tracking.
-     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): event-pages-remaining-backlog-plan.md's Cluster A checkbox for this row was still unchecked and a bmad-create-story dispatch was about to be run against it; caught before dispatch — Story 2.i1a is already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox corrected."}
+     note: "DW-032: predates ux-rework2 batch-2, which only added error announcement plus re-throw, no per-item success tracking. Covered by Story 2.i1a. Detail: Story 2.i1a Dev Notes."}
 
   BUG-008:
     {type: bug, status: promoted, created: 2026-09-05,
@@ -398,8 +397,7 @@ items:
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      stories: [2-i1a-fix-eventdetailwrappers-four-onsuccess-handlers],
      touches: [web:events/EventDetailWrapper],
-     note: "DW-033. Matches an established but imperfect pattern already used by 3 other per-page favorite mutations. Story 2.i1a closes this via an additive ToggleFavoriteResult.favoriteCount field (backend) rather than a confirm-then-refetch rewrite -- per AskUserQuestion, 2026-09-16.
-     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): same stale-checkbox situation as BUG-007 — Story 2.i1a already `review` in sprint-status.yaml, and its scope covers this row plus FIND-006's folded-in test-gap coverage. No new dispatch run. Plan doc checkbox corrected."}
+     note: "DW-033: matches an imperfect pattern used by 3 other favorite mutations; Story 2.i1a closes it with an additive ToggleFavoriteResult.favoriteCount field, not a confirm-then-refetch rewrite. Detail: Story 2.i1a Dev Notes."}
 
   BUG-009:
     {type: bug, status: done, created: 2026-09-05,
@@ -465,18 +463,17 @@ items:
     {type: finding, status: triaged, created: 2026-09-05,
      impact: internal, effort: s, epic: epic-2-i1,
      title: "Two ux-rework2 fixes shipped without automated tests (favorite cache-sync, scroll-anchor)",
-     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml, backlog/FIND-006-two-ux-rework2-fixes-shipped.md],
      touches: [web:events, pkg:ui],
-     note: "DW-001, DW-003. The unfavorite/decrement path across all 4 patched favorite caches is untested; the overflow-anchor scroll-flicker fix has no Playwright spec since jsdom can't exercise CSS scroll anchoring.
-     VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): closes via Story 2.i1a (BUG-008's story) per event-pages-remaining-backlog-plan.md's own framing, already `review` in sprint-status.yaml. No dispatch run against this row (it was never independently storied)."}
+     note: "DW-001, DW-003: the unfavorite/decrement path across the 4 patched favorite caches is untested, and the overflow-anchor flicker fix has no Playwright spec. Closes via Story 2.i1a; never storied on its own. Detail: backlog/FIND-006-two-ux-rework2-fixes-shipped.md."}
 
   FIND-007:
     {type: finding, status: documented, created: 2026-09-05,
      impact: internal, effort: s,
      title: "cline-cli hang saga: one root cause fixed and verified, later recurrences still unexplained",
-     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml, backlog/FIND-007-cline-cli-hang-saga-one.md],
      touches: [cross:process],
-     note: "DW-002, DW-004, DW-007 (chronological order is 007, then 004, then 002). DW-007's stale-hub-manifest fix was verified working at the time; DW-004's batch-10 and DW-002's batch-11 hangs are separate, later, still-unexplained recurrences. 2026-09-14 (bmad-quick-dev, 'documented'): record-consolidation half completed via docs/infrastructure/incidents/2026-09-01-cline-cli-hang-saga.md (commit 2c0aa58); later recurrences still unexplained, so no speculative fix attempted. The SDK act-path runner already has an idle watchdog + logging; CLI-path --timeout gap and a hang-detection heartbeat are recorded there for the next recurrence, deliberately not wired into live mailbox-runner tooling."}
+     note: "DW-002/004/007: DW-007's stale-hub-manifest fix held; DW-004 and DW-002 hangs are later and still unexplained. Record consolidated in docs/infrastructure/incidents/2026-09-01-cline-cli-hang-saga.md; no speculative fix. Detail: backlog/FIND-007-cline-cli-hang-saga-one.md."}
 
   FIND-008:
     {type: finding, status: backlog, epic: epic-0-i6, created: 2026-09-05,
@@ -501,8 +498,7 @@ items:
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      stories: [0-i6f-platform-icon-fallback-and-functional-subscribe-unsubscribe-toggle],
      touches: [pkg:ui, web:events, web:subscriptions],
-     note: "DW-009, DW-016, DW-017, DW-018, DW-019, DW-020, DW-027. A loading-state flash, unmanaged focus on expand/collapse, an unpruned dayOverrides map, a loose test assertion, and an unresolved desktop/mobile calendar-layout unification question.
-     PROMOTED 2026-09-16 (bmad-create-story, Story 0.i6f): only the DW-009 slice (subscribe-status loading flash) is covered — bundled with IDEA-031's toggle redesign since both touch the same subscribe-state rendering. Remaining DW-016/017/018/019/020/027 carved to child row FIND-033."}
+     note: "DW-009 slice (subscribe-status loading flash) is covered by Story 0.i6f with IDEA-031; DW-016/017/018/019/020/027 were carved to child row FIND-033. Detail: Story 0.i6f Dev Notes."}
 
   FIND-033:
     {type: finding, status: triaged, created: 2026-09-16, parent: FIND-010,
@@ -516,9 +512,9 @@ items:
     {type: finding, status: done, created: 2026-09-05,
      impact: internal, effort: xs, epic: epic-0-i6,
      title: "SubscribedAccountCard/EventDetailView carry minor unused-prop and unscaled-variant cruft",
-     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml, backlog/FIND-011-subscribedaccountcard-eventdetailview-carry-minor-unused.md],
      touches: [pkg:ui, cross:i18n, web:events/EventDetailView],
-     note: "DW-011, DW-014. Fixed 2026-09-15 (bmad-quick-dev): removed the unused postedByLabel field end-to-end (EventDetailViewLabels type, mapper.ts, both test fixtures, en/id.json); SubscribedAccountCard's size=\"lg\" now scales the adjacent displayName (text-lg) and username (text-base) text. The size=\"lg\" scaling is a fractional overlap with Story 0.i6a (still backlog) -- 0.i6a's remaining scope is BUG-005's degenerate-input fallback only."}
+     note: "Fixed 2026-09-15 (quick-dev): removed the unused postedByLabel end-to-end; SubscribedAccountCard size=lg now scales displayName and username. Story 0.i6a keeps only BUG-005's fallback. Detail: backlog/FIND-011-subscribedaccountcard-eventdetailview-carry-minor-unused.md."}
 
   FIND-012:
     {type: finding, status: promoted, created: 2026-09-05,
@@ -541,9 +537,9 @@ items:
     {type: finding, status: done, created: 2026-09-05,
      impact: internal, effort: xs,
      title: "ViewModeToggle removal left dead markup, unused i18n keys, and an ignored URL param",
-     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml, backlog/FIND-013-viewmodetoggle-removal-left-dead-markup.md],
      touches: [web:events, cross:i18n],
-     note: "DW-021, DW-022, DW-023. Fixed 2026-09-14 (bmad-quick-dev, commit c55b5e4): removed the single-child flex wrapper divs around EventListView left over from the removed ViewModeToggle in home/feed/archive/favorites/account content (DW-021); removed the unused layoutSwitcherListLabel/MasonryLabel/Announcement locale keys from all 5 event-page sections of en.json and id.json, keeping en/id key parity intact (DW-022); and confirmed the stale ?layout= URL param read/parse code was already fully removed with the toggle (DW-023) - a shadowed ?layout=list/masonry param is simply ignored by the app with no dead read code left to strip. Pure dead-code removal, no behavior change, verified via eslint, tsc, and affected page tests (26 pass)."}
+     note: "Fixed 2026-09-14 (quick-dev, c55b5e4): pure dead-code removal left by the ViewModeToggle removal (single-child wrappers, unused layoutSwitcher locale keys); no behavior change. Detail: backlog/FIND-013-viewmodetoggle-removal-left-dead-markup.md."}
 
   FIND-014:
     {type: finding, status: done, created: 2026-09-05,
@@ -557,9 +553,9 @@ items:
     {type: finding, status: backlog, created: 2026-09-05,
      impact: internal, effort: m, epic: epic-0-i3,
      title: "Assorted process gaps: DB setup docs, an irreversible enum migration, disabled lint gate",
-     ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
+     ref: [implementation-artifacts/backlog-evidence-deferred.yaml, backlog/FIND-015-assorted-process-gaps-db-setup.md],
      touches: [cross:process, app:infrastructure, app:backend, pkg:database],
-     note: "DW-042 (vague local Postgres setup), DW-051 (first ALTER TYPE ADD VALUE migration in the repo; Postgres has no DROP VALUE, no process doc flags the one-way-door risk), DW-052 (historical diff-hygiene note, not re-checkable), DW-058 (apps/backend's lint script dropped --max-warnings 0 against 868 pre-existing warnings)."}
+     note: "DW-042 vague local Postgres setup; DW-051 first ALTER TYPE ADD VALUE migration (no DROP VALUE, one-way door unflagged); DW-052 unverifiable diff-hygiene note; DW-058 backend lint dropped --max-warnings 0 (868 warnings). Detail: backlog/FIND-015-assorted-process-gaps-db-setup.md."}
 
   FIND-016:
     {type: finding, status: promoted, created: 2026-09-05,
@@ -568,7 +564,7 @@ items:
      ref: [implementation-artifacts/backlog-evidence-deferred.yaml],
      stories: [0-34-harden-eventcategory-eventtype-cross-source-consistency, 0-35-fix-ticketprice-from-label-pairing-for-free-text-prices],
      touches: [cross:i18n, pkg:shared-types, web:events, app:backend],
-     note: "DW-044, DW-046, DW-047, DW-048, DW-050. The enums are hand-maintained in shared-types and generated/graphql.ts with nothing enforcing sync; no e2e proves locale actually flows to EventCard; no test builds the runtime-merged GraphQL schema; ticketPrice's 'From Free' pairing is unresolved. PROMOTED 2026-09-16 (bmad-create-story), split per the confirmed AskUserQuestion answer: DW-044/046/047/050 -> Story 0.34 (enum/schema/locale consistency hardening); DW-048 -> Story 0.35 (EventCard.tsx 'From Free' label-pairing fix). Fully covered, no leftover chunk."}
+     note: "Fully covered: DW-044/046/047/050 by Story 0.34 (enum/schema/locale consistency), DW-048 by Story 0.35 (EventCard 'From Free' label pairing). No leftover chunk. Detail: Story 0.34 Dev Notes."}
 
   FIND-017:
     {type: finding, status: done, created: 2026-09-05,
@@ -608,17 +604,17 @@ items:
     {type: finding, status: triaged, created: 2026-09-05,
      impact: internal, effort: m, epic: epic-0-i1,
      title: "Scraper audit-trail alert lacks throttling/dedup, duplicates an existing moderator-notify pattern, and depends on the same DB it may be reporting on",
-     ref: [implementation-artifacts/deferred-work.md],
+     ref: [implementation-artifacts/deferred-work.md, backlog/FIND-020-scraper-audit-trail-alert-lacks.md],
      touches: [app:backend, pkg:domain],
-     note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). 5 findings (excludes the HTML-escaping finding, tracked separately as FIND-021 per its user-visible impact). Triaged 2026-09-18 alongside FIND-034 (same scraper/infra-reliability neighborhood). Deferred from: bmad-quick-dev BUG-015,FIND-020 intent (2026-09-18) -- split from a combined BUG-015+FIND-020 quick-dev pass (multi-goal check), user chose to do BUG-015 first since it was the live risk; this row's own scope (DB-persisted cooldown + getModeratorEmails() dedup reuse) is unchanged, still pending its own dispatch."}
+     note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). 5 findings (not FIND-021's). Deferred from: bmad-quick-dev BUG-015,FIND-020 intent (2026-09-18). Scope: persisted cooldown, getModeratorEmails() reuse. Detail: backlog/FIND-020-scraper-audit-trail-alert-lacks.md."}
 
   FIND-021:
     {type: finding, status: triaged, created: 2026-09-05,
      impact: user-visible, effort: m, epic: epic-0-i1,
      title: "render-template.ts has no HTML-escaping; scraper-sourced content flows unescaped into moderator alert emails",
-     ref: [implementation-artifacts/deferred-work.md],
+     ref: [implementation-artifacts/deferred-work.md, backlog/FIND-021-render-template-ts-has-no.md],
      touches: [pkg:domain, app:backend],
-     note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). Pre-existing gap in the shared render engine, already reachable via existing templates (e.g. DANGEROUS_EVENT_MODERATOR_ALERT's eventName); this pass's new SCRAPER_AUDIT_TRAIL_FAILURE_ALERT template is a new consumer of scraper-influenced fields (postUrl, raw DB error text) routed through it."}
+     note: "Deferred from: quick-dev fix of scraper-audit-trail-alerting (2026-09-05). Pre-existing HTML-escaping gap in the shared render engine; the new SCRAPER_AUDIT_TRAIL_FAILURE_ALERT template feeds it scraper-influenced fields. Detail: backlog/FIND-021-render-template-ts-has-no.md."}
 
   FIND-022:
     {type: finding, status: triaged, created: 2026-09-07,
@@ -635,15 +631,15 @@ items:
      title: "Retry AI extraction on n+1 carousel slides when schedule count falls short",
      ref: [backlog/IDEA-001-multislide-extraction.md],
      touches: [cross:ai-extraction, app:backend],
-     note: "value: 3-6l delivers the same outcome within the Gemini 500-RPD budget — IDEA-001 retries n+1 slides per post, multiplying requests against that ceiling, while 3-6l is one batched request regardless of slide count. Rival designs, not a supersession: only one gets built, so this is a value skip and §9.2 never reopens it on price. Ruled at the 2026-09-11 human checkpoint. Original reason follows. Instagram carousels sometimes carry schedules on slide 2+ and not in the caption. Proposes the prompt also return expected schedule count/names to trigger a follow-up pass. Open question: heuristic vs always processing all images. Not implemented — no such mechanism in apps/backend/src/lib/ai-processor."}
+     note: "value: rival design to 3-6l, which delivers the same outcome in one batched Gemini request; IDEA-001 retries n+1 slides per post against the 500-RPD ceiling. Ruled 2026-09-11; never reopens on price (section 9.2). Detail: backlog/IDEA-001-multislide-extraction.md."}
 
   FIND-005:
     {type: finding, status: done, created: 2026-09-04,
      title: "deferred-work.md is a third untracked tracker holding 89 items",
      ref: [implementation-artifacts/deferred-work.md,
-           implementation-artifacts/backlog-evidence-deferred.yaml],
+           implementation-artifacts/backlog-evidence-deferred.yaml, backlog/FIND-005-deferred-work-md-is-a.md],
      touches: [cross:process],
-     note: "Phase F complete 2026-09-05: all 89 DW records folded into 24 new rows (10 bug, 14 finding after BUG-006 was superseded into FIND-009 on review) under the 2026-09-05 section below. 27 dropped as already-fixed (rule 1), 1 (DW-065) already tracked as BUG-003 (rule 3), 4 absorbed into an anchor row's note as duplicates (rule 2: DW-004/007 into FIND-007, DW-015 into BUG-005, DW-036 into FIND-014). 9 stayed individual per the Phase E user-visible list (BUG-006 through BUG-015 excl. BUG-011); the remaining 49 batched by shared cause into 15 rows."}
+     note: "Phase F complete 2026-09-05: all 89 DW records folded into 24 rows (27 dropped as fixed, 1 already BUG-003, 4 absorbed as duplicates). Check 14 exempts this row by construction. Detail: backlog/FIND-005-deferred-work-md-is-a.md."}
 
   # ── 2026-09-06 (ux-rework2 gap audit) ────────────────────────────────────────
   IDEA-008:
@@ -678,17 +674,16 @@ items:
      ref: [],
      stories: [0-i7b-re-rank-sub-venue-matches-using-the-confidence-signal],
      touches: [web:locations, app:backend],
-     note: "PROMOTED (2026-09-13 via bmad-dev-story, user-confirmed): fully covered by Story 0.i7b — selectBestCandidate re-ranks the retained candidate set by confidence (matchType-priority tiebreak) in resolveLocation's ADDRESS branch, so a low-confidence Geoapify top hit no longer wins over a correct, lower-ranked sub-venue. Threshold/filtering and event-detail map-link follow-through remain IDEA-023/Story 0.i7c."}
+     note: "Fully covered by Story 0.i7b (selectBestCandidate re-ranks the candidate set by confidence). Threshold/filtering and the map-link follow-through remain IDEA-023 / Story 0.i7c. Detail: Story 0.i7b Dev Notes."}
 
   BUG-018:
-    {type: bug, status: done, created: 2026-09-07, closed: 2026-09-30, epic: epic-0-i5,
+    {type: bug, status: promoted, created: 2026-09-07, epic: epic-0-i5,
      impact: user-visible, effort: s,
      title: "Infinite-scroll next-page load doesn't preserve scroll position, forcing user to scroll up/down again to trigger the following page",
      ref: [],
      stories: [0-i5b-adopt-the-controller-in-discovery-event-list-surfaces],
      touches: [web:events, pkg:ui],
-     note: "CAUTION (superseded, see below): Story 0.i5b's fix targeted a hypothesis not present in the code; symptom not independently re-verified. Real fix was via sibling BUG-031 (sentinel height collapse), not re-confirmed against this row's repro. Full trail in Story 0.i5b's Dev Notes.
-     VERIFIED RESOLVED 2026-09-30: this row's exact repro (a naive repeated scroll-to-bottom must keep triggering the next page WITHOUT the user needing to scroll up then down again to re-trigger the observer) is precisely what BUG-043's live-prod Playwright re-test just demonstrated -- 8 consecutive `scrollTo(bottom)` calls in a tight loop, zero manual up/down correction between them, loaded pages continuously (20->30->...->100, one request per scroll). If this row's symptom still existed, that simple loop would have stalled after one page exactly like BUG-043 originally did. Between BUG-031 (sentinel min-h-16), BUG-038, and BUG-046 (both overflow-anchor fixes), this failure class has been fixed three times over since this row was filed. Closing on this evidence rather than leaving the caution open indefinitely."}
+     note: "Story 0.i5b's fix targeted a hypothesis not in the code; the symptom is gone (BUG-043's live Playwright scroll loop, 2026-09-30) via BUG-031/038/046. Row stays promoted until Story 0.i5b leaves review. Detail: Story 0.i5b Dev Notes."}
 
   BUG-019:
     {type: bug, status: promoted, created: 2026-09-07, epic: epic-0-i5,
@@ -703,9 +698,9 @@ items:
     {type: bug, status: triaged, created: 2026-09-07,
      impact: user-visible, effort: m, epic: epic-0-i5,
      title: "Moderator tools tab-item pages lack previous-page navigation and total/page info in their simple pagination",
-     ref: [],
+     ref: [backlog/BUG-020-moderator-tools-tab-item-pages.md],
      touches: [web:moderation, pkg:ui],
-     note: "Reported by user on event-list-bug-fixes-pagination branch. Affected pages: apps/web/src/app/[locale]/moderator/tools/unprocessed-payloads-content.tsx, actor-runs-content.tsx, and moderator-accounts-content.tsx. All three use cursor-based pagination but only render a single 'Load more' button (hasNextPage) with no way to go back to the previous page, and they do not surface totalCount or any 'current page' indicator. Fix should add a prev-page control alongside next, and display totalCount + current page info so moderators can orient themselves in the result set."}
+     note: "Three moderator tool pages (unprocessed payloads, actor runs, accounts) render only 'Load more': no previous-page control, no totalCount or current-page indicator. Detail: backlog/BUG-020-moderator-tools-tab-item-pages.md."}
 
   IDEA-011:
     {type: idea, status: promoted, created: 2026-09-07,
@@ -730,9 +725,9 @@ items:
     {type: bug, status: superseded, created: 2026-09-07, parent: CC-019, superseded_by: BUG-047,
      impact: user-visible, effort: xs,
      title: "EventCard's masonry date box shows startDate even while the event is ongoing, contradicting its own TILL sub-badge",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, backlog/BUG-022-eventcard-s-masonry-date-box.md],
      touches: [web:events/EventCard, pkg:ui],
-     note: "Never actually landed despite being marked promoted against Story 1.3b's supposed AC19 — direct code reading 2026-09-26 confirmed EventCard.tsx still always derives the date-box's month/day from startDate regardless of `started`. Superseded by BUG-047's unified context-date rule, which fixes this and BUG-040's overlapping surface in one pass rather than two."}
+     note: "Never landed despite being marked promoted against Story 1.3b's AC19: EventCard.tsx still derives the date-box month/day from startDate regardless of `started` (checked 2026-09-26). Superseded by BUG-047's context-date rule. Detail: backlog/BUG-022-eventcard-s-masonry-date-box.md."}
 
   BUG-023:
     {type: bug, status: promoted, epic: epic-1-i1, created: 2026-09-07, parent: CC-019,
@@ -740,7 +735,7 @@ items:
      stories: [1-i1b-tie-the-favorite-icon-size-to-the-date-badge-token],
      title: "EventCard favorite icon size not tied to the date badge's font size — drifts inconsistently",
      ref: [], touches: [pkg:ui, web:events/EventCard],
-     note: "Reported by user via bmad-help. Verified in EventCard.tsx: the favorite button's Heart icon is hardcoded `w-5 h-5` (line ~191), independent of the masonry date badge's `text-xs` (line ~219) — no shared token links them, so the two can visually drift out of proportion. Fix should size the icon relative to the date badge's font size (e.g. an em-based or shared-token size) rather than a fixed pixel class. Promoted 2026-09-13 via bmad-create-story: Story 1.i1b implements this fix in full (surgical <Heart> className swap to Story 1.i1a's eventCardBadgeIconSizeClass token) — no remaining scope, no child row needed."}
+     note: "Fully covered by Story 1.i1b: the favorite Heart icon (hardcoded w-5 h-5) now uses Story 1.i1a's eventCardBadgeIconSizeClass token. No remaining scope. Detail: Story 1.i1b Dev Notes."}
 
   IDEA-012:
     {type: idea, status: promoted, created: 2026-09-07,
@@ -809,8 +804,7 @@ items:
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView, cross:ux-tokens],
      stories: [1-i1d-adopt-the-primitive-into-weeklycalendarview-compact-row],
-     note: "Story 1.i1d delivered thumbnail+fallback+date box on CalendarCard variant='list'; badges carved to IDEA-025. AMENDED 2026-09-14: 3 prototyping corrections not yet folded into a story amendment. Full detail in Story 1.i1d's Dev Notes.
-     STALE NOTE CORRECTED 2026-09-29 (double-check against EVENT-CARD-DESIGN.md/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md as source of truth): the '3 prototyping corrections not yet folded in' are exactly the gap IDEA-046 audited and closed via Story 1.i1l (explicitly named in that story's own opening paragraph) -- now `review`, verified against commit c80cd9b. No remaining unaddressed corrections from this row."}
+     note: "Story 1.i1d delivered thumbnail, fallback and date box on CalendarCard variant='list'; badges carved to IDEA-025. The 3 prototyping corrections were closed via Story 1.i1l (checked 2026-09-29, c80cd9b). Detail: Story 1.i1d Dev Notes."}
 
   IDEA-017:
     {type: idea, status: promoted, epic: epic-1-i1, created: 2026-09-11, parent: CC-019,
@@ -819,8 +813,7 @@ items:
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
      touches: [pkg:ui, web:events/EventCard, cross:ux-tokens],
      stories: [1-i1e-adopt-the-primitive-into-the-masonry-default-state],
-     note: "Story 1.i1e delivered the promoted scope (date-box-beside-thumbnail + TILL-badge restyle); no child row. AMENDED 2026-09-14: 7 prototyping refinements (see CC-019) post-date 1.i1e, not yet folded into a story amendment. Full detail in Story 1.i1e's Dev Notes.
-     STALE NOTE CORRECTED 2026-09-29 (double-check against EVENT-CARD-DESIGN.md/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md as source of truth): the '7 prototyping refinements' are exactly the gap IDEA-046 audited and closed via Story 1.i1l (explicitly named in that story's own opening paragraph) -- now `review`, verified against commit c80cd9b. Note this masonry surface was then further revised past 1.i1l's own scope by the 2026-09-27/28 pixel-perfect pass (uncommitted-at-the-time changes, committed 2026-09-28) -- EVENT-CARD-DESIGN.md's event_card_masonry tokens (top_row_default, thumbnail_default, event_card_date_box.base_default) are the current source of truth, not 1.i1e's or 1.i1l's own original AC text."}
+     note: "Story 1.i1e delivered the date-box-beside-thumbnail and TILL-badge restyle; 7 later prototyping refinements closed via Story 1.i1l. EVENT-CARD-DESIGN.md's event_card_masonry tokens are now the source of truth. Detail: Story 1.i1e Dev Notes."}
 
   # ── 2026-09-11 (bmad-help scraper-webhook-token-bug session) ────────────────
   IDEA-018:
@@ -858,11 +851,7 @@ items:
      impact: user-visible, effort: m,
      title: "Extend the Today/Upcoming/All temporal filter to Feed and Favorites once they adopt useListPaginationController",
      ref: [backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md], touches: [web:events, pkg:ui],
-     note: "AMENDED 2026-09-19: missing prerequisite carved to Story 0-i5e (ready-for-dev); still blocked on 0-i5e + 1-3l both landing. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md.
-     AMENDED 2026-09-30 (batch-event-pages-wave-a-readiness.md): also depends on Story 0-i5d -- it builds TemporalFilterToggle / EventFilterInput.temporalFilter, which this row extends to Feed/Favorites. Unblock chain is 1-3l + 0-i5e + 0-i5d, each at least `review`.
-     AMENDED 2026-09-30 (Story 0-i5e completion): 0-i5e's own scope (Feed/Favorites adopting useListPaginationController) is now landed -- that prerequisite in the unblock chain is closed. Remaining blockers: 0-i5d and 1-3l, each still needing to reach at least `review`.
-     UPDATED 2026-09-30 (after Wave A batch): 0-i5d, 1-3l and 0-i5e are now all at `review` -- the unblock chain is satisfied; this row is ready for `bmad-create-story IDEA-038`.
-     CLOSED 2026-10-05: already implemented out-of-band by commit d3414728 (2026-10-03) -- `useTemporalFilter` + `temporalFilter` wired into Feed, Favorites and Account, and `buildFeedQueryCondition`/`buildAccountEventsQueryCondition` accept it. No story was ever created; do not run create-story."}
+     note: "Closed 2026-10-05: already implemented out-of-band by commit d3414728 (useTemporalFilter wired into Feed, Favorites and Account). No story was ever created; do not run create-story. Detail: backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md."}
 
   # ── 2026-09-11 (bmad-help event-extraction-recurrence-bug session) ──────────
   BUG-026:
@@ -1046,7 +1035,7 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
      stories: [1-3j-batch-computed-event-fields-and-gate-totalcount-staletime],
      touches: [app:backend, web:events/getEvents],
-     note: "Found via bmad-agent-architect review (2026-09-15). apps/backend/src/schema/resolvers.ts's `events` resolver (~3163-3170) runs a second query (count() with two left joins) unconditionally, even when the client doesn't select `totalCount` — the code already has a `// Note:` comment acknowledging this. Not currently wasted (Discovery/Feed/Favorites all request totalCount today), but unlike the item-list select it isn't gated by `info` field selection, so it silently becomes dead work the moment any consumer drops the field. Fix: check `info` for `totalCount` selection the same way buildOptimizedDrizzleSelect already does for `items`."}
+     note: "The `events` resolver runs its count() query even when the client does not select totalCount; gate it on `info` the way buildOptimizedDrizzleSelect does for `items`. Found by the architect review 2026-09-15. Detail: Story 1.3j Dev Notes."}
 
   FIND-028:
     {type: finding, status: promoted, created: 2026-09-15,
@@ -1055,7 +1044,7 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md],
      stories: [1-3j-batch-computed-event-fields-and-gate-totalcount-staletime],
      touches: [web:events/getEvents],
-     note: "Found via bmad-agent-architect review (2026-09-15). The useInfiniteQuery/useQuery hooks in apps/web/src/app/[locale]/home-content.tsx, feed/feed-content.tsx, and favorites/favorites-content.tsx all omit `staleTime`, so React Query's default of 0 applies — every remount or window refocus on Discovery, Feed, or Favorites refires a request against getEvents, the highest-traffic endpoint in the app. A short staleTime (e.g. 30s) would cut request volume for normal tab-switching/navigation without materially staling the data."}
+     note: "The useInfiniteQuery/useQuery hooks in home, feed and favorites content omit staleTime (default 0), so every remount or refocus refires getEvents; a ~30s staleTime would cut requests. Found 2026-09-15. Detail: Story 1.3j Dev Notes."}
 
   BUG-031:
     {type: bug, status: done, created: 2026-09-15,
@@ -1149,7 +1138,7 @@ items:
            planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
      touches: [pkg:ui, web:events, web:locations],
      stories: [1-6d-build-the-reusable-locationlink-component],
-     note: "Reported by user via bmad-help (2026-09-15). New reusable component taking a locationDetailObject prop: renders pin-location-icon + location name as text, always clickable and always opening the map in a new tab. Two confidence-based icon states: confirmed/acceptable confidence → open-in-new-tab icon (straight to the resolved map location); otherwise → search icon that opens the map with a query built from the location name. Fully promoted 2026-09-19 to Story 1.6d (packages/ui/src/core/LocationLink.tsx). Consumers (separate, not-yet-promoted rows): event-detail page + its schedule (IDEA-033, → future Story 1.6e), and the reusable account element (IDEA-032, → future Story 0.i6e)."}
+     note: "Promoted 2026-09-19 to Story 1.6d (packages/ui/src/core/LocationLink.tsx). Consumers still unpromoted: event-detail schedule (IDEA-033, Story 1.6e) and the account element (IDEA-032, Story 0.i6e). Detail: Story 1.6d Dev Notes."}
 
   IDEA-030:
     {type: idea, status: promoted, created: 2026-09-15,
@@ -1186,7 +1175,7 @@ items:
      ref: [backlog/IDEA-032-platform-account.md],
      stories: [4-9-moderator-accounts-tab-location-info-and-edit-clear-actions],
      touches: [web:moderation, web:accounts, web:locations, pkg:ui],
-     note: "Carved 2026-09-15 from IDEA-032 (§6) — that row's original capture bundled two unrelated surfaces. Moderator Tools accounts tab (moderator/tools?tab=accounts) account card gains location info plus an edit-location icon (opens a select-location popup) and a clear-location icon (opens a confirmation to set the account location to empty). Epic 4 (Data Quality and Moderation) surface, distinct from IDEA-032's now-narrowed Epic 1/3 reusable-account-element scope — not part of the IDEA-029 location-link mechanism cluster. Promoted 2026-10-06 to Story 4.9 -- full row scope covered by that one story, no child row carved out."}
+     note: "Carved 2026-09-15 from IDEA-032: the moderator Tools accounts-tab card gains location info plus edit and clear controls. Promoted 2026-10-06 to Story 4.9; full scope covered. Detail: Story 4.9 Dev Notes."}
 
   IDEA-033:
     {type: idea, status: promoted, created: 2026-09-15,
@@ -1196,7 +1185,7 @@ items:
            planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
      stories: [1-6e-event-detail-schedule-refinements-smaller-name-bigger-add-to-calendar-action-location-link],
      touches: [web:events, web:locations, pkg:ui],
-     note: "Reported by user via bmad-help (2026-09-15). Event-detail schedule section, follow-up to IDEA-030's smaller event title: (1) shrink the schedule name by removing the `text-lg` class; (2) replace each schedule item's calendar icon with an add-to-calendar action icon that adds that specific schedule-item to the calendar — made bigger and more visible (distinct from IDEA-030 item 7, which removes the top-of-page icon); (3) show the schedule item's location via the reusable location link component (IDEA-029)."}
+     note: "Event-detail schedule follow-up to IDEA-030: shrink the schedule name (drop text-lg), a per-item add-to-calendar icon, and the location via the reusable location link (IDEA-029). Detail: Story 1.6e Dev Notes."}
 
   # ── 2026-09-15 (bmad-correct-course, event-pages follow-through Phase 2a) ───
   CC-020:
@@ -1221,7 +1210,7 @@ items:
      ref: [planning-artifacts/event-pages-followthrough-plan.md,
            planning-artifacts/sprint-change-proposal-2026-09-15-reusable-location-link.md],
      touches: [pkg:ui, web:events, web:locations, web:accounts],
-     note: "Amends Epic 1 (Stories 1.6d mechanism + 1.6e event-detail-schedule adoption: IDEA-029, IDEA-033) and Epic 0's improvement epic 0.i6 directly (Story 0.i6e: IDEA-032's post-carve Epic-1/3 half) — not Epic 1/3 as event-pages-followthrough-plan.md's Phase 1 table originally framed the choice, since direct code inspection found SubscribedAccountCard is actually owned by Epic 0.i6, not Epic 1 or 3 (see the proposal's Section 2 for the full reasoning and the recorded assumption). Not yet promoted to a story file — bmad-create-story is Phase 3, a separate later session."}
+     note: "Amends Epic 1 (Stories 1.6d, 1.6e) and improvement epic 0.i6 (Story 0.i6e): SubscribedAccountCard is owned by Epic 0.i6, not Epic 1 or 3 (proposal section 2). Detail: Story 1.6d Dev Notes."}
 
   # ── 2026-09-15 (Cluster A batch, ritual-orchestrator) ────────────────────────
   FIND-032:
@@ -1248,11 +1237,9 @@ items:
      impact: internal, effort: xs,
      title: "Formalize scroll-to-top-on-filter-reset as a cross-surface EXPERIENCE.md convention",
      ref: [implementation-artifacts/0-i5b-adopt-the-controller-in-discovery-event-list-surfaces.md,
-           design-artifacts/UX-festgrid-run-1/EXPERIENCE.md],
+           design-artifacts/UX-festgrid-run-1/EXPERIENCE.md, backlog/IDEA-035-formalize-scroll-to-top-on.md],
      touches: [pkg:ui, web:events, cross:ux-tokens],
-     note: "Surfaced during Story 0.i5b (bmad-create-story, 2026-09-15): Gate 2 found neither DESIGN.md nor EXPERIENCE.md addresses whether a filter change should scroll a list view back to top. User chose (via AskUserQuestion) to add this behavior to Discovery's home-content.tsx now — window.scrollTo({top:0}) fired from useListPaginationController's onReset, reusing useCollapseHeaderOnScroll.ts's existing reduced-motion-aware convention — but explicitly as a single-surface implementation, not a binding EXPERIENCE.md rule. This idea tracks formalizing it into a documented cross-surface convention if/when Feed/Favorites or other useListPaginationController adopters need the same treatment. Not promoted to a story; no adoption story references it yet.
-     UPDATED 2026-09-30 (Story 0-i5e): Feed (feed-content.tsx) and Favorites (favorites-content.tsx) now also implement scroll-to-top-on-filter-reset the same way, via AskUserQuestion during Story 0.i5e's creation. All 3 current useListPaginationController adopters (Discovery, Feed, Favorites) now implement this behavior — still recorded here as a documented convention, not promoted to a binding EXPERIENCE.md rule by this story.
-     CLOSED 2026-10-07 (bmad-quick-dev, documentation-only): formalized as a new 'Scroll-to-Top on Filter Reset' subsection under EXPERIENCE.md's Component Patterns, documenting the onReset snippet and its reuse of useCollapseHeaderOnScroll.ts's reduced-motion convention. No application code touched — the three existing adopters already matched the documented behavior exactly."}
+     note: "Closed 2026-10-07 (quick-dev, docs only): formalized as 'Scroll-to-Top on Filter Reset' under EXPERIENCE.md's Component Patterns; Discovery, Feed and Favorites already matched it. Detail: backlog/IDEA-035-formalize-scroll-to-top-on.md."}
 
   # ── 2026-09-17 (direct AWS CLI investigation) ────────────────────────────────
   FIND-034:
@@ -1441,7 +1428,7 @@ items:
      title: "Infinite-scroll pagination jumps the viewport to the new bottom of the list every time a page loads, instead of preserving scroll position",
      ref: [backlog/BUG-038-infinite-scroll-jump-to-bottom-scroll-anchoring.md],
      touches: [web:events, pkg:ui],
-     note: "Fixed 2026-09-19 via bmad-quick-dev: EventListView.tsx's card+sentinel subtree wrapped in a `display:contents` div carrying `overflow-anchor:none` (also duplicated directly on the sentinel), excluding the whole growing list from CSS scroll-anchoring's anchor selection. Root cause distinct from BUG-031 (which only fixed the sentinel-height-collapse trigger): the browser was anchoring near the viewport-bottom and chasing new content down on every page load. Lint+build passed; the automatic test gate's backend suite showed 165/279 failures but every one carries the identical exitCode 3221225794 (Windows STATUS_ACCESS_VIOLATION) across completely unrelated schema test files -- a pre-existing native-crash/environment issue, not caused by this frontend-only CSS change (zero backend files touched). Full repro evidence and validation in backlog/BUG-038-infinite-scroll-jump-to-bottom-scroll-anchoring.md."}
+     note: "Fixed 2026-09-19 (quick-dev): the list+sentinel subtree is wrapped in a display:contents div with overflow-anchor:none, so scroll anchoring stops chasing new content. Distinct from BUG-031's sentinel-height fix. Detail: backlog/BUG-038-infinite-scroll-jump-to-bottom-scroll-anchoring.md."}
 
   # ── 2026-09-19 (bmad-quick-dev, spec-curator-guide-frontend-gate-stale review) ──
   FIND-044:
@@ -1507,11 +1494,9 @@ items:
      impact: user-visible, effort: xs,
      title: "Calendar compact row (Mobile Vertical Day List): favorite pill still corner-overlays the thumbnail instead of mirroring the till badge's floating-corner treatment on the opposite side",
      ref: [design-artifacts/UX-festgrid-run-1/DESIGN.md, design-artifacts/UX-festgrid-run-1/EVENT-CARD-DESIGN.md,
-           implementation-artifacts/1-i1l-apply-the-six-unowned-prototype-fidelity-rules.md],
+           implementation-artifacts/1-i1l-apply-the-six-unowned-prototype-fidelity-rules.md, backlog/IDEA-048-calendar-compact-row-mobile-vertical.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView, cross:ux-tokens],
-     note: "Found 2026-09-21 drafting Story 1.i1l: two residuals in the same event_card_compact token block as IDEA-046 rules 6/7. The with-image counterpart to rule 7, originally expected to land with Story 1.i1m -- it didn't (1.i1m only touched the no-image branch).
-     RESCOPED 2026-09-29 after direct code verification: this IS the Mobile Vertical Day List's per-schedule card (`WeeklyCalendarView.tsx`'s `variant === 'list'` path, confirmed rendered inside `data-testid=\"mobile-day-row\"` -- mobile only, not the desktop grid). (a) Venue line gap CLOSED -- `WeeklyCalendarView.tsx:1245-1249` now renders `schedule.locationName` (shipped in a 2026-09-27 session commit), title narrowed to just the remaining gap. (b) Favorite-pill corner-overlay CONFIRMED still present: `EventCardMediaPrimitives.tsx:265`'s with-image branch still renders `className=\"absolute top-1 right-1 z-30\"` (positive, inset) for `size='compact'` same as masonry. User-directed fix (2026-09-29): mirror the till badge's floating-corner treatment (`eventCardTillLabelClass('compact')` = `-top-1.5 -left-1.5`, floating past the thumbnail's own corner into the row's unclipped padding gutter) onto the favorite pill's OPPOSITE corner (`-top-1.5 -right-1.5`). Implementation note: the till badge achieves this by living in a different component (`EventCardDateBox`, not clipped) -- the favorite pill currently lives inside `EventCardMediaSlot`'s own `overflow-hidden` wrapper (`EventCardMediaPrimitives.tsx:244`), so a naive negative-offset class would get clipped. Will need the same treatment masonry VM1's till tag got (pulled out as an external floating sibling positioned against the thumbnail's own corner, not nested inside the clipped slot) -- scope this at pickup, not a one-line class swap.
-     CLOSED 2026-10-05: already shipped out-of-band by commit d3414728 (2026-10-03) -- `EventCardCompact.tsx` and `WeeklyCalendarView.tsx`'s `CalendarCard` pass `hideFavoriteBadge` and render the pill externally at `absolute -top-1.5 -right-1.5 z-30`. The slot's own internal badge branches are now unused by production callers but still tested; removal is a separate step in planning-artifacts/event-pages-followup-2026-10-05.md."}
+     note: "Closed 2026-10-05: the favorite pill now renders externally at -top-1.5 -right-1.5 (commit d3414728, hideFavoriteBadge). The slot's own badge branches are unused; removal is tracked in event-pages-followup-2026-10-05.md. Detail: backlog/IDEA-048-calendar-compact-row-mobile-vertical.md."}
 
   FIND-046:
     {type: finding, status: backlog, created: 2026-09-21, parent: IDEA-046,
@@ -1524,87 +1509,85 @@ items:
 
   # ── 2026-09-22 (bmad-architecture, visual-fidelity audit session) ────────────
   IDEA-049:
-    {type: idea, status: promoted, created: 2026-09-22,
+    {type: idea, status: done, created: 2026-09-22,
      impact: internal, effort: m,
      stories: [0-43-visual-fidelity-audit-tool],
      title: "New packages/visual-audit tool: reference-based + rule-based visual-fidelity checks against design prototypes, so a story's AC can automate 'does this match its prototype' instead of eyeballing it",
-     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md],
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md, backlog/IDEA-049-new-packages-visual-audit-tool.md],
      touches: [pkg:visual-audit, cross:architecture, cross:ux-tokens],
-     note: "Architecture Spine AD-26. Triggered by this session's own event-card/calendar visual-fidelity audit (~70% prototype accuracy found), which had to improvise its method ad hoc for lack of reusable tooling. Story 0.43 drafted 2026-09-22 via bmad-create-story. Unlocks IDEA-050 (masonry engine) and a still-to-be-registered fix for the EventCardDateBox overflow bug found by the same audit."}
+     note: "Architecture Spine AD-26: reusable visual-fidelity audit tooling (Story 0.43). Unlocks IDEA-050 (masonry engine) and a still-to-be-registered EventCardDateBox overflow fix. Detail: backlog/IDEA-049-new-packages-visual-audit-tool.md."}
 
   IDEA-050:
-    {type: idea, status: promoted, created: 2026-09-22, parent: IDEA-049,
+    {type: idea, status: done, created: 2026-09-22, parent: IDEA-049,
      impact: user-visible, effort: m,
      stories: [0-45-replace-grid-containers-masonry-engine-with-shortest-column-placement],
      title: "GridContainer's masonry variant is plain CSS Grid (row-locked), not true Pinterest-style independent column flow — replace with JS shortest-column placement",
-     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md],
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md, backlog/IDEA-050-gridcontainer-s-masonry-variant-is.md],
      touches: [pkg:ui, web:events, cross:architecture],
-     note: "Architecture Spine AD-27, decided in the same session as AD-26/IDEA-049. Native CSS masonry ruled out (Safari-only in 2026); CSS multi-column rejected (reading-order regression). Becomes AD-26's tool's first rule-based-mode consumer -- sequence bmad-create-story for this after Story 0.43 exists.
-     SCOPE WIDENED, 2026-09-25 (user-reported, direct code comparison confirmed real): EventCard's masonry variant caps at max-w-[230px] (EventCard.tsx:239) regardless of its actual grid-cell width. GridContainer (baseCols=2, colsStep=1 on Discovery) grows to 6 grid-cols-N columns at 2xl, and CSS Grid's equal-fractional-column sizing means a cell easily exceeds 230px on wide screens -- the capped card centers inside a wider cell, producing large empty inter-column gaps. User wants max-width removed and the card's elements/font-size to scale responsively at larger screens instead. Deliberately folded into this same story rather than fixed separately first: a JS shortest-column-placement algorithm decides its own column-width strategy from scratch (it doesn't inherit Tailwind's grid-cols-N breakpoints), so solving card sizing under the soon-to-be-replaced CSS Grid engine would likely be redone the moment this story lands. Not yet story-created."}
+     note: "Architecture Spine AD-27: JS shortest-column masonry placement (native CSS masonry and multi-column rejected). Scope widened 2026-09-25 to drop EventCard's max-w-[230px] cap and scale card elements instead. Detail: backlog/IDEA-050-gridcontainer-s-masonry-variant-is.md."}
 
   BUG-040:
     {type: bug, status: done, created: 2026-09-22, closed: 2026-09-25,
      impact: user-visible, effort: s,
      stories: [1-i1n-fix-eventcarddatebox-overflow-on-word-time-content],
      title: "EventCardDateBox's day slot overflows/clips on word or time content (Today/Tomorrow/Yesterday/a time string) instead of a numeric day — confirmed to overflow the entire 175px mobile masonry card by ~107px for \"Tomorrow\"",
-     ref: [planning-artifacts/event-pages-dev-story-tracking.md, planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-card-family-consolidated-acs.md],
+     ref: [planning-artifacts/event-pages-dev-story-tracking.md, planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-card-family-consolidated-acs.md, backlog/BUG-040-eventcarddatebox-s-day-slot-overflows.md],
      touches: [pkg:ui, web:events],
-     note: "Story 1.i1n's fix (dayVariant='word' sizing) is superseded, not extended, by BUG-047 — the 2026-09-26 consolidation reverses course and removes word content from the date-box entirely (numeric-only, AC-DATE-1), making 1.i1n's word-safe sizing mechanism dead code once BUG-047 lands. 1.i1n itself stays `done` as a historical record of a real fix for its own narrower scope at the time."}
+     note: "Story 1.i1n's dayVariant='word' sizing is superseded by BUG-047 (numeric-only date box, AC-DATE-1); 1.i1n stays done as the record of its narrower fix. Detail: backlog/BUG-040-eventcarddatebox-s-day-slot-overflows.md."}
 
   # ── 2026-09-22 (bmad-create-story, Story 0.43 Gate 3 finding) ───────────────
   FIND-047:
-    {type: finding, status: backlog, created: 2026-09-22, parent: IDEA-049,
+    {type: finding, status: done, created: 2026-09-22, parent: IDEA-049,
      impact: internal, effort: xs,
      stories: [0-44-define-testing-standard-for-meta-testing-tooling-packages],
      title: "project-context.md's Testing Rules section has no tier for a meta-testing/tooling package (packages/domain's 100%-unit-test rule and the apps/* testing-trophy/E2E-DoD rule are a closed partition that packages/visual-audit fits neither)",
-     ref: [project-context.md, implementation-artifacts/0-43-visual-fidelity-audit-tool.md],
-     touches: [cross:project-context, pkg:visual-audit],
-     note: "Surfaced by bmad-create-story's mandatory Gate 3 (story-split-gate.md) while drafting Story 0.43 (2026-09-22): Story 0.43 is the first-of-a-kind dev-tooling/check-engine package, and its own future adopters (IDEA-050's masonry story, BUG-040's fix story) will inherit whatever testing/DoD convention it sets. Left undecided, that precedent gets set ad hoc by whichever story happens first instead of as a reusable, project-wide rule. Story 0.44 amends project-context.md's Testing Rules with an explicit third tier; Story 0.43 proceeds with its own scoped, documented DoD in the meantime (escape hatch accepted, not blocking)."}
+     ref: [_bmad-output/project-context.md, implementation-artifacts/0-43-visual-fidelity-audit-tool.md, backlog/FIND-047-project-context-md-s-testing.md],
+     touches: [cross:process, pkg:visual-audit],
+     note: "Story 0.44 amended project-context.md's Testing Rules with a third tier for meta-testing/tooling packages; Story 0.43 used its own scoped DoD meanwhile. Detail: backlog/FIND-047-project-context-md-s-testing.md."}
 
   # ── 2026-09-22 (Story 0.44 code review follow-up, user-directed deferral) ────
   FIND-048:
     {type: finding, status: done, created: 2026-09-22, closed: 2026-09-22,
      impact: internal, effort: xs,
      title: "project-context.md's new Meta-Testing/Tooling Packages testing tier (Story 0.44) may need propagating into other spec/companion docs that restate testing rules",
-     ref: [project-context.md, README.md, packages/testing-config/README.md, implementation-artifacts/0-44-define-testing-standard-for-meta-testing-tooling-packages.md],
+     ref: [_bmad-output/project-context.md, README.md, packages/testing-config/README.md, implementation-artifacts/0-44-define-testing-standard-for-meta-testing-tooling-packages.md, backlog/FIND-048-project-context-md-s-new.md],
      touches: [cross:process],
-     note: "Scoping pass found exactly two real duplicates (only one project-context.md exists repo-wide; the 4 SPEC.md companions under _bmad-output/specs/ don't restate testing rules at all): (1) top-level README.md's own onboarding description of the tiered testing strategy, now amended to mention the third tier; (2) packages/testing-config/README.md's Testing Philosophy section, which never documented the tsx --test pattern packages/graphql-select already used (a pre-existing gap, not caused by Story 0.44) -- added as a fourth bullet, citing graphql-select as precedent and project-context.md's tier as the full rule. No other doc needed a change. Fixed directly, not deferred further."}
+     note: "Scoping pass found two real duplicates, both fixed directly: README.md's testing-strategy description (now mentions the third tier) and packages/testing-config/README.md's Testing Philosophy (new fourth bullet). Detail: backlog/FIND-048-project-context-md-s-new.md."}
 
   # ── 2026-09-25 (Story 0.43 second code-review pass, deferred findings) ───────
   FIND-049:
     {type: finding, status: triaged, created: 2026-09-25,
      impact: internal, effort: xs,
      title: "assertFormattingFunctionExists's regex only matches export function declarations, false-throws on export const formatX = (...) =>-style formatters",
-     ref: [implementation-artifacts/0-43-visual-fidelity-audit-tool.md],
+     ref: [implementation-artifacts/0-43-visual-fidelity-audit-tool.md, backlog/FIND-049-assertformattingfunctionexists-s-regex-only-matches.md],
      touches: [pkg:visual-audit],
-     note: "Deferred by the reviewer, 2026-09-25 second-pass code review on Story 0.43: pre-existing pattern risk, not a regression -- every formatting function this repo has today (e.g. format-event-date.ts) uses function declarations, so nothing trips this yet. Fix when a consumer needs an arrow-function-style formatter: either widen the regex or document function-declaration-only as this guard's contract. packages/visual-audit/src/rules/overflow.ts:110-115."}
+     note: "Deferred (2026-09-25, Story 0.43 review): the overflow guard only matches function declarations (pre-existing risk). Fix when a consumer needs an arrow-function formatter (visual-audit rules/overflow.ts:110-115). Detail: backlog/FIND-049-assertformattingfunctionexists-s-regex-only-matches.md."}
 
   FIND-050:
     {type: finding, status: triaged, created: 2026-09-25,
      impact: internal, effort: xs,
      title: "count-badge-react-mount demo manifest's overflow rule is a trivially-passing single-element sibling cluster, enforces nothing",
-     ref: [implementation-artifacts/0-43-visual-fidelity-audit-tool.md],
+     ref: [implementation-artifacts/0-43-visual-fidelity-audit-tool.md, backlog/FIND-050-count-badge-react-mount-demo.md],
      touches: [pkg:visual-audit],
-     note: "Deferred by the reviewer, 2026-09-25 second-pass code review on Story 0.43: this manifest is a demo/proof entry, not a real audited component -- a single-member sibling-dimension cluster always passes by definition. Fix when a real future story actually audits CountBadge's overflow behavior; not blocking for Story 0.43 itself. packages/visual-audit/manifests/count-badge-react-mount.ts:61-66."}
+     note: "Deferred (2026-09-25, Story 0.43 review): the CountBadge manifest is a demo entry whose single-member cluster always passes. Fix when a real story audits it (visual-audit manifests/count-badge-react-mount.ts). Detail: backlog/FIND-050-count-badge-react-mount-demo.md."}
 
   # ── 2026-09-25 (Story 1.i1n code-review pass, deferred finding) ──────────────
   FIND-051:
     {type: finding, status: triaged, created: 2026-09-25,
      impact: internal, effort: s,
      title: "event-card-date-box-overflow manifest fixture never mounts the shipped 'number' day-variant class path and only covers size='default' — no live fixture for compact-row word rendering",
-     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/1-i1n-fix-eventcarddatebox-overflow-on-word-time-content.md],
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/1-i1n-fix-eventcarddatebox-overflow-on-word-time-content.md, backlog/FIND-051-event-card-date-box-overflow.md],
      touches: [pkg:visual-audit, pkg:ui],
-     note: "Deferred by the reviewer, 2026-09-25 code review on Story 1.i1n: all literal-free enumerate branches (real-date fallback, hasTime time-string) collide on the same 'Wednesday' placeholder sample so dayVariantForSample mounts them as 'word'; collision is benign today (word classes fit every mounted content under 96px; compact row uses an identical class set on a shrink-0 box, yesterday ≈70px). Add a fixture variant if the date box ever gains new day-variants or sizes. Deferred from: 'Deferred from: code review of 1-i1n-fix-eventcarddatebox-overflow-on-word-time-content (2026-09-25)'. 1 finding. packages/visual-audit/manifests/event-card-date-box-overflow.ts."}
+     note: "Deferred from: 'Deferred from: code review of 1-i1n-fix-eventcarddatebox-overflow-on-word-time-content (2026-09-25)'. 1 finding: literal-free enumerate branches share the 'Wednesday' placeholder; benign today. Detail: backlog/FIND-051-event-card-date-box-overflow.md."}
 
   # ── 2026-09-25 (user-reported, live UI observation) ──────────────────────────
   BUG-041:
     {type: bug, status: done, created: 2026-09-25, closed: 2026-09-25,
      impact: user-visible, effort: xs,
-     ref: [design-artifacts/UX-festgrid-run-1/prototypes/event-card-masonry/default-with-thumbnail.html, packages/ui/src/features/events/EventCard.tsx, implementation-artifacts/spec-bug-041-till-badge-padding.md],
+     ref: [design-artifacts/UX-festgrid-run-1/prototypes/event-card-masonry/default-with-thumbnail.html, packages/ui/src/features/events/EventCard.tsx, implementation-artifacts/spec-bug-041-till-badge-padding.md, backlog/BUG-041-eventcard-masonry-default-s-till.md],
      title: "EventCard masonry-default's TILL badge is cropped -- the card has no padding around the date-box+thumbnail row, unlike the validated prototype",
      touches: [pkg:ui],
-     note: "User-reported, confirmed by direct code comparison: the validated prototype wraps its date-box+thumbnail row in a p-2 padding container (default-with-thumbnail.html:62), giving the till badge's -top-1.5/-left-1.5 corner offset room inside the card's overflow-hidden bounds. EventCard.tsx's real isMasonryDefault composition (:325, touched by Stories 1.i1e/1.i1k/1.i1l) had no padding wrapper at all -- the row sat flush against the <article>'s own edges, so the till badge poked outside the card and got clipped. Fixed via bmad-quick-dev (commit 77a236b5): added the p-2 wrapper, then corrected two other absolutely-positioned overlays that assumed zero row padding (the no-thumbnail favorite-badge overlay's inline math, the thumbnail-present favorite badge's stale top-1/right-1 offset) -- caught during the same pass, not left as follow-on gaps. statusBadge checked and confirmed to need no change. Verified independently: 68/68 EventCard tests, lint clean, repo-wide build 8/8.
-     SUPERSEDED 2026-09-27 (see design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 1): the pixel-perfect masonry pass removed this p-2 padding again -- the date-box+thumbnail row is flush against the card's edges once more, and the TILL/favorite badges moved from negative (floating-past-edge) to positive (just-inside-edge) offsets instead, with the outer card's overflow-hidden restored. Do NOT re-add p-2 padding to fix a cropped till badge -- that's this closed bug's fix, now reversed on purpose."}
+     note: "Fixed via 77a236b5 (p-2 padding wrapper for the till badge), then reversed on purpose 2026-09-27 (MASONRY-CARD-SESSION-CHANGES item 1): do not re-add p-2 padding to fix a cropped till badge. Detail: backlog/BUG-041-eventcard-masonry-default-s-till.md."}
 
   FIND-052:
     {type: finding, status: promoted, created: 2026-09-26,
@@ -1620,20 +1603,20 @@ items:
     {type: bug, status: done, created: 2026-09-26, closed: 2026-09-27,
      impact: user-visible, effort: m,
      title: "EventCard never shows a thumbnail image -- missing the imageUrl->imageFallbackUrl (durableImageUrl) pattern EventImage/EventDetailView already has",
-     ref: [apps/web/src/features/events/mapper.ts, packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/EventImage.tsx, planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-042-eventcard-family-image-fallback-chain.md],
+     ref: [apps/web/src/features/events/mapper.ts, packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/EventImage.tsx, planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-042-eventcard-family-image-fallback-chain.md, backlog/BUG-042-eventcard-never-shows-a-thumbnail.md],
      touches: [pkg:ui, web:events],
-     note: "Fixed 2026-09-27 (bmad-quick-dev): added durableImageUrl to the 3 gap GraphQL queries, threaded imageFallbackUrl through EventCard/EventCardMediaSlot/EventCardCalendarGridItem/WeeklyCalendarView, and fixed VM1's AC-IMG-3 gap (scale=\"large\" favorite badge on total image failure). Code-review loopback caught a real bug in the first pass: the retry chain only fired on onError, missing the common case where imageUrl is null from the start. See spec-bug-042-eventcard-family-image-fallback-chain.md for full detail."}
+     note: "Fixed 2026-09-27 (quick-dev): durableImageUrl added to 3 GraphQL queries and imageFallbackUrl threaded through the EventCard family; the retry chain also covers an imageUrl that is null from the start. Detail: backlog/BUG-042-eventcard-never-shows-a-thumbnail.md."}
 
   BUG-043:
     {type: bug, status: done, created: 2026-09-26, closed: 2026-09-29,
      impact: user-visible, effort: m,
      title: "Discovery infinite scroll stops loading after exactly one extra page despite hasMore:true",
-     ref: [apps/web/src/features/events],
+     ref: [apps/web/src/features/events, backlog/BUG-043-discovery-infinite-scroll-stops-loading.md],
      touches: [web:events],
-     note: "Found via live-deployment visual audit (https://fest-grid.vercel.app/id) at user's request. Original observation: scrolled to bottom 6 times, fetch fired exactly once (10->20->30), then stopped despite hasMore:true/totalCount:123. Note's own hypothesis (masonry's JS engine, Story 0.45, absolutely-positioning items and breaking the sentinel) was CHECKED 2026-09-29 by reading grid-container.tsx's actual masonry branch -- no `position: absolute` anywhere, plain flex columns, real DOM children; the sentinel is also a sibling outside GridContainer entirely (EventListView.tsx) so masonry layout can't affect it. Hypothesis was wrong, but the underlying bug is CONFIRMED FIXED regardless: user reported it works now, independently re-verified live against https://fest-grid.vercel.app/id via a scripted Playwright run (8 scrolls, cards grew 20->30->40->50->60->70->80->90->100, one getEvents request fired per scroll, no stall). Root cause of the original stall (and whichever commit fixed it) was never identified -- likely subsumed by one of the several other infinite-scroll fixes landed 2026-09-26 (BUG-045/046) or the masonry engine rewrite itself -- but the symptom no longer reproduces."}
+     note: "Confirmed gone 2026-09-29 by a live 8-scroll Playwright run (20 to 100 cards, one getEvents per scroll); the root cause and fixing commit were never identified, likely BUG-045/046 or the masonry rewrite. Detail: backlog/BUG-043-discovery-infinite-scroll-stops-loading.md."}
 
   BUG-044:
-    {type: bug, status: promoted, created: 2026-09-26,
+    {type: bug, status: done, created: 2026-09-26,
      impact: user-visible, effort: m,
      title: "No event-card label is wired to next-intl in production -- entire EventCard/WeeklyCalendarView labels surface (till, all 8 status-badge states, favorite toggle, nearby badge) shows hardcoded English even on the /id locale",
      ref: ["apps/web/src/app/[locale]/home-content.tsx", packages/ui/src/features/events/EventCard.tsx, packages/ui/src/features/events/EventCard.types.ts, packages/ui/src/features/events/WeeklyCalendarView.types.ts, planning-artifacts/event-card-family-consolidated-acs.md],
@@ -1680,30 +1663,25 @@ items:
      impact: cosmetic, effort: s,
      spec: spec-bug-048-eventcardcalendargriditem-single-day-adoption.md,
      title: "WeeklyCalendarView's desktop single-day grid-item cell never adopted EventCardCalendarGridItem -- renders a plain untokened text pill instead",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md, design-artifacts/UX-festgrid-run-1/prototypes/event-card-calendar-grid-item/thumbnail-fallback.html],
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, design-artifacts/UX-festgrid-run-1/prototypes/event-card-calendar-grid-item/thumbnail-fallback.html, backlog/BUG-048-weeklycalendarview-s-desktop-single-day.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView],
-     note: "Fixed 2026-09-26 (bmad-quick-dev): grid cell now composes EventCardCalendarGridItem, plus a shared status-badge amendment (AC-STATUS-1, VM5+VM6). See the spec file for detail/decisions.
-     AMENDED 2026-09-28 (see design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md items 7 and 12): the grid-cell/spanning-bar adoption above is UNCHANGED, but the status-badge half of this fix did NOT survive intact -- item 7 (2026-09-27) removed the status badge from VM5/VM6 entirely, reversing AC-STATUS-1 back to 2026-09-14's original 'no status badge' decision; item 12 (2026-09-28) then re-added a badge, but far narrower than AC-STATUS-1's original scope -- only for the `inHours`/`endsAt` states (formatEventStatus's `state` field), rendered under location/venue, with no nearby-badge-parity claim either way. Any future work referencing this bug's AC-STATUS-1 scope should target item 12's narrower rule, not this note's original 'shared status-badge amendment' description."}
+     note: "Fixed 2026-09-26: the grid cell composes EventCardCalendarGridItem. Its status-badge half was later narrowed to inHours/endsAt (MASONRY-CARD-SESSION-CHANGES items 7, 12); target item 12's rule, not AC-STATUS-1. Detail: backlog/BUG-048-weeklycalendarview-s-desktop-single-day.md."}
 
   FIND-057:
     {type: finding, status: backlog, created: 2026-09-26,
      impact: cosmetic, effort: xs,
      title: "CalendarOverflowDialog (VM8) still doesn't render a status badge -- EventCardCalendarGridItem's status-badge treatment (VM5/VM6) never reaches it",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-048-eventcardcalendargriditem-single-day-adoption.md, design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md],
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-048-eventcardcalendargriditem-single-day-adoption.md, design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md, backlog/FIND-057-calendaroverflowdialog-vm8-still-doesn-t.md],
      touches: [pkg:ui, web:events/CalendarOverflowDialog],
-     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). CalendarOverflowDialogItemShape has no date fields to pass through yet; extending it (a subset of WeeklyCalendarViewScheduleShape) is the fix.
-     RE-SCOPED 2026-09-28: the target this row should match against changed twice since it was filed -- BUG-048's original AC-STATUS-1 badge (all 8 states) was removed 2026-09-27, then re-added 2026-09-28 far narrower (see MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 12): only `inHours`/`endsAt`, gated on formatEventStatus's `state` field, rendered under location/venue. If this finding is ever picked up, extend CalendarOverflowDialogItemShape to match VM5/VM6's CURRENT narrow rule, not BUG-048's original full-scope one."}
+     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). CalendarOverflowDialogItemShape lacks date fields; extend it to the current status-badge rule (inHours/endsAt). Detail: backlog/FIND-057-calendaroverflowdialog-vm8-still-doesn-t.md."}
 
   FIND-058:
     {type: finding, status: backlog, created: 2026-09-26,
      impact: cosmetic, effort: xs,
      title: "MultiDaySpanningBar still missing isAddedToCalendar treatment (nearbyBadgeLabel gap since closed), and no browser/screenshot check of the new grid composition",
-     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-bug-048-eventcardcalendargriditem-single-day-adoption.md],
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-bug-048-eventcardcalendargriditem-single-day-adoption.md, backlog/FIND-058-multidayspanningbar-still-missing-isaddedtocalendar-treatment.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView],
-     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). 3 findings (plus FIND-057, tracked separately).
-     VERIFIED 2026-09-29 against live code: nearbyBadgeLabel is now wired and rendering with an estimated-distance value (user-confirmed live; matches AC-NEARBY-1/2/3, BUG-049) -- that part of this finding is CLOSED. `isAddedToCalendar` treatment is CONFIRMED still missing from `MultiDaySpanningBar` (`WeeklyCalendarView.tsx:1556-1570` -- `EventCardCalendarGridItem`'s `labels` prop only forwards `favoriteToggle`, no isAddedToCalendar slot exists in the shared primitive at all, same as the day-cell's own comment at :1325-1327 already notes). LAYOUT PROPOSAL (2026-09-29, user asked for one): reuse the sibling single-day grid card's own already-shipped pattern verbatim -- `WeeklyCalendarView.tsx:1373-1379` renders a decorative `CalendarPlus` icon at `absolute -top-1.5 -left-1.5` (white/90 rounded bg, shadow-sm) as a sibling of `EventCardCalendarGridItem` inside `SPANNING_BAR_VISUAL_CLASS`, floating outside the card's own `p-2` padding box over the border corner -- mirroring the same corner's decorative favorited-Heart icon (`-top-1.5 -right-1.5`, only shown when `!onFavoriteToggle`). MultiDaySpanningBar has the identical outer structure (`SPANNING_BAR_VISUAL_CLASS` wrapper, no competing decorative-favorite icon since `onFavoriteToggle` is always supplied there) -- the top-left corner is free, so the exact same `schedule.isAddedToCalendar && <CalendarPlus className=\"absolute -top-1.5 -left-1.5 ...\" />` block can be copied in unchanged. Screenshot/visual-audit-check sub-finding remains open, unaddressed.
-     SCOPE WIDENED, DEFERRED 2026-09-30 (user observation, verified): this isn't MultiDaySpanningBar-only -- `EventCard.tsx` (masonry family) has ZERO references to `isAddedToCalendar` anywhere (grep confirmed), so the masonry card doesn't show this indicator at all either, unlike the calendar single-day grid card and the mobile compact row (both of which already have a CalendarPlus treatment). The 2026-09-29 layout proposal above still holds for MultiDaySpanningBar specifically, but shipping it there alone would make the badge's presence/absence inconsistent across the three card families with no product decision behind that inconsistency. User-directed: DEFER isAddedToCalendar work entirely (both the MultiDaySpanningBar fix and any masonry addition) until a cross-family decision is made on which card families should show it at all -- do not dispatch this row's remaining scope as-is.
-     FIXED (MultiDaySpanningBar sub-scope only) 2026-10-07 (bmad-quick-dev, user-directed re-scope: ships the MultiDaySpanningBar corner icon now, independent of the 2026-09-30 cross-family deferral, which still stands for the masonry `EventCard` addition): copied the 2026-09-29 layout proposal verbatim -- `MultiDaySpanningBar` (`WeeklyCalendarView.tsx`) now renders `schedule.isAddedToCalendar && <CalendarPlus ... data-testid=\"calendar-plus-icon\">` at `absolute -top-1.5 -left-1.5`, byte-identical styling to the single-day grid card's own corner icon, with a new `addedToCalendarBadgeLabel` prop threaded through from the same `defaultLabels.addedToCalendarBadgeLabel` the single-day card already uses. Test coverage added in `WeeklyCalendarView.test.tsx`. Playwright visual audit NOT run (no browser binaries available in this environment) -- screenshot/visual-audit-check sub-finding stays open. Masonry `EventCard` isAddedToCalendar addition remains deferred pending the cross-family product decision (2026-09-30 entry, unchanged) -- row stays `backlog` for that remaining scope."}
+     note: "Deferred from: code review of spec-bug-048-eventcardcalendargriditem-single-day-adoption.md (2026-09-26). MultiDaySpanningBar part fixed 2026-10-07; masonry isAddedToCalendar is on hold for a product decision. Detail: backlog/FIND-058-multidayspanningbar-still-missing-isaddedtocalendar-treatment.md."}
 
   BUG-049:
     {type: bug, status: done, created: 2026-09-26, parent: CC-019,
@@ -1718,19 +1696,17 @@ items:
      impact: user-visible, effort: s,
      spec: spec-bug-050-calendar-desktop-gridlines.md,
      title: "Calendar desktop view: card items make the day-column gridlines invisible -- should remain visible under/around cards",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-050-calendar-desktop-gridlines.md],
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, implementation-artifacts/spec-bug-050-calendar-desktop-gridlines.md, backlog/BUG-050-calendar-desktop-view-card-items.md],
      touches: [pkg:ui, web:events/WeeklyCalendarView],
-     note: "Fixed 2026-09-26 (bmad-quick-dev): §2.7's divide-x candidate confirmed as sole cause, scoped to the spanning-banner row only (header/day-cell rows were already correct) -- see spec-bug-050-calendar-desktop-gridlines.md for the full root-cause writeup, fix, and committed Playwright geometry proof.
-     CROSS-REFERENCE 2026-09-28 (not a reopen): design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 7 fixes a related but distinct symptom of the same 'grid should stay visible under cards' goal -- EventCardCalendarGridItem's own bg-violet-50 fill halved to bg-violet-50/50, since a fully opaque card fill hides the gridlines regardless of the divide-x cause this bug fixed. Both fixes are complementary, not overlapping."}
+     note: "Fixed 2026-09-26 (quick-dev): the divide-x on the spanning-banner row was the sole cause (spec-bug-050). A related 2026-09-28 change halved EventCardCalendarGridItem's bg-violet-50 fill so gridlines stay visible. Detail: backlog/BUG-050-calendar-desktop-view-card-items.md."}
 
   FIND-053:
     {type: finding, status: done, created: 2026-09-26,
      impact: internal, effort: xs,
      title: "EventCard.tsx's variant='standard' branch is dead code -- no production call site reaches it",
-     ref: [planning-artifacts/event-card-family-consolidated-acs.md],
+     ref: [planning-artifacts/event-card-family-consolidated-acs.md, backlog/FIND-053-eventcard-tsx-s-variant-standard.md],
      touches: [pkg:ui, web:events/EventCard],
-     note: "Confirmed 2026-09-26: EventListView.tsx (the only production <EventCard> call site) always passes variant=\"masonry\" explicitly; variant='standard' has no DESIGN.md/EVENT-CARD-DESIGN.md token and appears nowhere in apps/web outside EventCard.tsx's own default parameter and its test fixtures. Delete the branch and its dedicated tests rather than carry it forward or spend further AC-consolidation effort on it.
-     CLOSED 2026-10-05: already shipped 2026-09-26 by commit f214f4e4 (the branch and its tests were removed); this row was never updated."}
+     note: "Closed 2026-10-05: the variant='standard' branch and its tests were already removed 2026-09-26 by commit f214f4e4; this row was never updated. Detail: backlog/FIND-053-eventcard-tsx-s-variant-standard.md."}
 
   FIND-054:
     {type: finding, status: done, created: 2026-09-26,
@@ -1738,17 +1714,16 @@ items:
      title: "PageContainer's contained (fullWidth=false) variant has the same unguarded min-w-floor-vs-nav-rail-inset pattern BUG-045 fixed, latent not active",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [pkg:ui],
-     note: "Deferred from: code review of spec-bug-045-masonry-horizontal-overflow (2026-09-26). 1 finding.
+     note: "Deferred from: code review of story 0.45 (2026-09-26). 1 finding.
      CLOSED 2026-10-05: doesn't reproduce -- lg:768px floor never exceeds available width (>=960px) at any viewport; no code change, matches BUG-045 spec's own confirmation."}
 
   FIND-056:
     {type: finding, status: backlog, created: 2026-09-26,
      impact: internal, effort: xs,
      title: "BUG-047 code review: min-w-[2ch] numeral-width assumption, and a latent date-vs-till-tag mismatch for an unreachable calendar input",
-     ref: [implementation-artifacts/deferred-work.md],
+     ref: [implementation-artifacts/deferred-work.md, backlog/FIND-056-bug-047-code-review-min.md],
      touches: [pkg:ui],
-     note: "Deferred from: code review of spec-bug-047-eventcarddatebox-unified-content-rule.md (2026-09-26). 2 findings.
-     PARTIALLY SUPERSEDED 2026-09-28: finding 2 (date-vs-till-tag mismatch for an event rendered on a calendar day after it already ended, via computeCalendarSegmentTillText's `<` vs the date-box's widened `<=`) is now moot -- computeCalendarSegmentTillText was removed entirely on 2026-09-27 (see design-artifacts/UX-festgrid-run-1/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md item 3: the TILL badge no longer shows at all when the end date is today, the status badge covers that case instead). Finding 1 (min-w-[2ch] Latin-numeral-glyph-width assumption, still present at EventCardMediaPrimitives.tsx) is untouched and still open."}
+     note: "Deferred from: code review of spec-bug-047-eventcarddatebox-unified-content-rule.md (2026-09-26). 2 findings; finding 2 is moot (computeCalendarSegmentTillText removed), finding 1 (min-w-[2ch] glyph-width assumption) is open. Detail: backlog/FIND-056-bug-047-code-review-min.md."}
 
   FIND-059:
     {type: finding, status: done, created: 2026-09-27,
@@ -1773,8 +1748,8 @@ items:
     {type: idea, status: backlog, created: 2026-09-30,
      impact: internal, effort: s,
      title: "Move useNavRailItemInteraction onto the shared useHoverFocusTooltip hook (three hand-rolled hover+focus tooltip copies exist)",
-     ref: [planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md, implementation-artifacts/1-3k-render-day-of-week-recurring-schedules-and-repeat-badge.md], touches: [pkg:ui],
-     note: "Found 2026-09-30 (Wave A readiness Gate 3): hover+focus+Escape tooltip state is hand-rolled in CalendarCard, MultiDaySpanningBar (both WeeklyCalendarView.tsx) and packages/ui/src/hooks/useNavRailItemInteraction.ts. Story 1-3k extracts useHoverFocusTooltip and adopts it in the first two; this row is the optional follow-up to adopt it in the nav rail, behavior-preserving, after 1-3k lands."}
+     ref: [planning-artifacts/epic-readiness/batch-event-pages-wave-a-readiness.md, implementation-artifacts/1-3k-render-day-of-week-recurring-schedules-and-repeat-badge.md, backlog/IDEA-052-move-usenavrailiteminteraction-onto-the-shared.md], touches: [pkg:ui],
+     note: "Hover+focus+Escape tooltip state is hand-rolled in CalendarCard, MultiDaySpanningBar and useNavRailItemInteraction. Story 1-3k extracts useHoverFocusTooltip for the first two; this row adopts it in the nav rail. Detail: backlog/IDEA-052-move-usenavrailiteminteraction-onto-the-shared.md."}
 
   # ── 2026-09-30 ──────────────────────────────────────────────────────────────
   CC-023:
@@ -1880,18 +1855,17 @@ items:
     {type: finding, status: done, created: 2026-10-02, fixed: 2026-10-04,
      impact: internal, effort: xs,
      title: "isEventEnded shared-fixture tests (ended-cases.ts) fail in any non-UTC time zone",
-     ref: [planning-artifacts/cc-024-multi-event-wave-plan.md],
+     ref: [planning-artifacts/cc-024-multi-event-wave-plan.md, backlog/FIND-062-iseventended-shared-fixture-tests-ended.md],
      touches: [pkg:ui, pkg:domain],
-     note: "Fixed incidentally during Story 3.20's dev-story run (unrelated repo-wide test-gate failure, fixed per the user's explicit instruction rather than deferred). Pinned TZ: 'UTC' in packages/ui/vitest.config.ts's test.env (FIND-062's own suggested fix) rather than changing isEventEnded's production behavior, which 0-i5d's Dev Notes document as deliberate (mirrors the SQL side's naive/no-timezone-conversion comparison). Confirmed failing before the fix on this machine's local (non-UTC) timezone, passing after."}
+     note: "Fixed incidentally during Story 3.20: TZ 'UTC' pinned in packages/ui/vitest.config.ts test.env instead of changing isEventEnded's deliberate production behavior. Detail: backlog/FIND-062-iseventended-shared-fixture-tests-ended.md."}
 
   FIND-063:
     {type: finding, status: done, created: 2026-10-02,
      impact: internal, effort: xs,
      title: "system-key-adapter tests fail whenever .env defines SYSTEM_GEMINI_API_KEY",
-     ref: [planning-artifacts/cc-024-multi-event-wave-plan.md],
+     ref: [planning-artifacts/cc-024-multi-event-wave-plan.md, backlog/FIND-063-system-key-adapter-tests-fail.md],
      touches: [app:backend, cross:ai-extraction],
-     note: "The test deletes process.env.SYSTEM_GEMINI_API_KEY but loadBackendEnv() re-reads .env and restores it; 4 tests fail with a key configured.
-     Fixed 2026-10-04 (orchestrator batch-end test-fix pass): set the var to '' instead of deleting it in both affected system-key-adapter.test.ts blocks -- an empty string is still 'defined' in process.env, so loadBackendEnv()'s per-call dotenv.config() leaves it alone instead of refilling it from the repo's real .env."}
+     note: "Fixed 2026-10-04: SYSTEM_GEMINI_API_KEY is set to '' instead of deleted in both system-key-adapter.test.ts blocks, so loadBackendEnv()'s dotenv reload cannot refill it. Detail: backlog/FIND-063-system-key-adapter-tests-fail.md."}
 
   FIND-064:
     {type: finding, status: promoted, created: 2026-10-02,
@@ -2242,7 +2216,7 @@ items:
     {type: bug, status: backlog, created: 2026-10-15,
      impact: user-visible, effort: m,
      title: "A subscribed account and its scrape-discovered numeric-ID profile are two rows; posts land on the one nobody subscribed to",
-     ref: [apps/backend/src/lib/accounts/get-or-create-discovered-account-profile.ts, apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/posts/posts-scraped-under-account.ts, apps/backend/src/lib/posts/auto-enqueue-new-post.ts, backlog/BUG-059-subscribed-profile-twin-split.md],
+     ref: [apps/backend/src/lib/accounts/get-or-create-discovered-account-profile.ts, apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/posts/posts-associated-with-account.ts, apps/backend/src/lib/posts/auto-enqueue-new-post.ts, backlog/BUG-059-subscribed-profile-twin-split.md],
      touches: [app:backend, pkg:database, web:post-selection, web:subscriptions],
      note: "Twin merge tool built (d3123f5b), not yet run on PROD; numeric account_id identity model still to build. Related but distinct: BUG-081 (username overwrite relabelled 13 rows + 0587b45b). Detail in the linked note."}
 
@@ -2299,9 +2273,9 @@ items:
     {type: finding, status: done, created: 2026-10-18,
      impact: internal, effort: xs,
      title: "Nightly golden-prompt eval runs on a free-tier Gemini key: paced to ~13/min but a daily cap can still truncate the ~116-call run",
-     ref: [.github/workflows/ai-filter-golden-prompt-nightly-eval.yml, apps/backend/scripts/run-golden-prompt-live-eval.ts],
+     ref: [.github/workflows/ai-filter-golden-prompt-nightly-eval.yml, apps/backend/scripts/run-golden-prompt-live-eval.ts, backlog/FIND-085-nightly-golden-prompt-eval-runs.md],
      touches: [app:infrastructure, cross:process],
-     note: "Fixed 2026-10-21 without needing a paid key: the free-tier flash cap is ~20 requests/day (the full run is 49 fixtures + 39 variants = 88 calls), so the nightly now runs a GOLDEN_EVAL_DAILY_BUDGET-sized window and leaves the rest pending. planGoldenEvalWindow (packages/domain) picks never-evaluated fixtures, then last night's drift (capped at 25% of the budget), then the stalest, rotating across categories; the ledger rides between nights in actions/cache; a per-day 429 ends the run early as a warning. Verified against a stubbed Gemini over a 7-night simulation (full rotation in 5 nights) -- the first live windowed run is the next scheduled nightly. Original advice follows: use a paid GEMINI_NIGHTLY_EVAL_API_KEY and set GOLDEN_EVAL_MIN_INTERVAL_MS to 0, or unset GOLDEN_EVAL_VARIANTS on most nights (now: remove GOLDEN_EVAL_DAILY_BUDGET)."}
+     note: "Fixed 2026-10-21: the nightly golden-prompt eval runs a GOLDEN_EVAL_DAILY_BUDGET-sized window (free tier ~20 requests/day) via planGoldenEvalWindow; the first live windowed run is the next nightly. Detail: backlog/FIND-085-nightly-golden-prompt-eval-runs.md."}
   # ── 2026-10-18 (event dedup: GembiRun Loka 2026 split into three events) ─────
   BUG-063:
     {type: bug, status: done, created: 2026-10-18,
@@ -2457,7 +2431,7 @@ items:
      note: "Script is on the PR for the owner to run with their own token; the alarm (and an alarm on the scraping DLQ depth) is proposed in the PR description, not built."}
 
   IDEA-100:
-    {type: idea, status: promoted, created: 2026-10-23,
+    {type: idea, status: done, created: 2026-10-23,
      title: "Add Home & Living, Fashion & Beauty, Finance & Investment and Gadgets & Devices event categories behind a single definitions source (Architecture Spine AD-44)",
      ref: [planning-artifacts/festgrid-architecture-spine.md,
            planning-artifacts/architecture/architecture-festgrid-2026-09-22/event-category-review-2026-10-23.md],
@@ -2477,7 +2451,7 @@ items:
      note: "Traced in code, not yet reproduced. Proposal in the note: per-schedule AttendanceMode enum, not an EventType. Needs a PRD change, so route via bmad-correct-course."}
 
   FIND-098:
-    {type: finding, status: promoted, created: 2026-10-24,
+    {type: finding, status: done, created: 2026-10-24,
      impact: user-visible, effort: s,
      title: "Live golden-corpus run (22 values) shows 5 of 13 mismatches: UMKM bazaar still tagged BUSINESS_AND_NETWORKING, Rule 5.4 'more than four' vs a four-subject sale, and three contestable fixtures",
      ref: [implementation-artifacts/0-53-add-home-living-fashion-finance-and-gadget-event-categories.md,
@@ -2686,15 +2660,15 @@ items:
      title: "Past-event cutoff uses the UTC date, so in Jakarta's first 7 hours the list still shows ended events",
      ref: [packages/database/migrations/0090_bug_096_schedule_past_cutoff_date.sql, packages/graphql-select/past-cutoff-sql.ts, apps/backend/src/schema/events-past-cutoff-timezone.test.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
      touches: [pkg:database, pkg:domain, pkg:graphql-select, app:backend, web:events, cross:architecture],
-     note: "Fixed in PR #126 (option A of an architect review): the list's cutoff is now the date of the request's one `now` in each schedule's own timezone (RESOLVED only, else UTC), from one SQL function shared by default visibility, isPastEvent and isExpiredForCurrentUser. Verify after deploy in the 00:00-07:00 WIB window: no event that ended on the previous Jakarta day should be listed. The TODAY/UPCOMING toggles still use the UTC date (BUG-097)."}
+     note: "Fixed in PR #126: the list cutoff is the date of the request's `now` in each schedule's own timezone (SQL fn schedule_past_cutoff_date). Check after deploy in the 00:00-07:00 WIB window; TODAY/UPCOMING still use UTC (BUG-097). Detail: backlog/BUG-096-past-event-cutoff-uses-utc-date.md."}
 
   BUG-097:
     {type: bug, status: backlog, created: 2026-10-31,
      impact: user-visible, effort: m,
      title: "TODAY/UPCOMING toggles and the next-upcoming sort key still use the UTC date, so 'Today' is UTC's yesterday for Jakarta's first 7 hours",
-     ref: [packages/domain/src/events/buildEventsQueryCondition.ts, packages/graphql-select/drizzle-where.ts, packages/domain/src/events/__fixtures__/ended-cases.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md],
+     ref: [packages/domain/src/events/buildEventsQueryCondition.ts, packages/graphql-select/drizzle-where.ts, packages/domain/src/events/__fixtures__/ended-cases.ts, backlog/BUG-096-past-event-cutoff-uses-utc-date.md, backlog/BUG-097-today-upcoming-toggles-and-the.md],
      touches: [pkg:domain, pkg:graphql-select, pkg:ui, app:backend, web:events, cross:architecture],
-     note: "Follow-up of BUG-096, split out on purpose. `resolveTodayISO` falls back to the UTC date and no caller passes the `timezone` option DW-074 added; `notEnded` has no timezone conversion and the shared ended-cases fixture is pinned to UTC (AD-20 Rule 4, FIND-062); Query.events' `today` (sort key) is the UTC date. Needs the same per-schedule zone rule as BUG-096 plus a decision for the logged-out viewer's zone. Found by code reading, not reproduced live."}
+     note: "Follow-up of BUG-096: resolveTodayISO, notEnded and Query.events' `today` still use the UTC date. Needs BUG-096's per-schedule zone rule plus a logged-out-viewer decision. Found by code reading, not live. Detail: backlog/BUG-097-today-upcoming-toggles-and-the.md."}
 
   FIND-109:
     {type: finding, status: backlog, created: 2026-10-31,
@@ -2711,15 +2685,15 @@ items:
      title: "Moderator re-extract preview drops carousel slides: expired image URLs, cover failure skips slides, scraped slides discarded",
      ref: [implementation-artifacts/spec-reextract-read-all-slide-images.md, apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/backend/src/lib/ai-processor/build-gemini-request.ts],
      touches: [app:backend, pkg:domain, web:moderation, cross:ai-extraction],
-     note: "Built on branch ccr-56bef1e2-pmkhv6, not yet merged. Cause on the prod post unconfirmed (no prod read access); after deploy, re-run the preview and check the images-read line."}
+     note: "Merged in PR #133. Prod check 2026-11-02: the rescrape throws in the API Lambda (it registers no scraper adapters) and the stored cover link is expired, so the preview still reads 0 of 1 images. Follow-up: the background-jobs epic."}
 
   IDEA-103:
     {type: idea, status: backlog, created: 2026-10-31,
      impact: user-visible, effort: m,
      title: "Moderator Apply for re-extract: turn a post stored as one event into a roundup linked to several events",
-     ref: [implementation-artifacts/spec-reextract-apply-roundup.md, apps/backend/src/lib/extraction/apply-post-reextraction.ts, specs/reextract-apply-roundup/DESIGN.md],
+     ref: [implementation-artifacts/spec-reextract-apply-roundup.md, apps/backend/src/lib/extraction/apply-post-reextraction.ts, specs/reextract-apply-roundup/DESIGN.md, implementation-artifacts/deferred-work.md],
      touches: [app:backend, pkg:domain, web:moderation, cross:architecture, cross:prd],
-     note: "Built on branch ccr-56bef1e2-pmkhv6, not yet merged (AD-40 Rule 8, PRD 3.9.3 amended). Not exercised on prod: after deploy, apply one real roundup post and check the result list."}
+     note: "Merged in PR #133 (AD-40 Rule 8, PRD 3.9.3 amended); not exercised on prod. Deferred from: bmad-quick-dev split of spec-reextract-read-all-slide-images (2026-10-31)."}
 
   FIND-110:
     {type: finding, status: done, created: 2026-10-31,
@@ -2741,27 +2715,27 @@ items:
     {type: bug, status: done, created: 2026-10-31,
      impact: user-visible, effort: m,
      title: "A new subscription scrapes the last 7 days, and a profile known only as a co-author skips its history",
-     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md, packages/database/migrations/0088_history_seeded_at.sql, packages/domain/src/scraper/resolve-scrape-cursor.ts],
+     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md, packages/database/migrations/0088_history_seeded_at.sql, packages/domain/src/scraper/resolve-scrape-cursor.ts, backlog/BUG-098-a-new-subscription-scrapes-the.md],
      touches: [pkg:domain, pkg:database, app:backend],
-     note: "Found 2026-10-31: the first scrape was a 7-day window (biliardindonesia, 3,073 posts, gave 1), and 1,020 unsubscribed profiles hold co-authored posts that would have moved their cursor past their own history. Fixed: seeding scrape = newest 30 posts, none older than 30 days, until history_seeded_at is set; migration 0088 backfills it from last_scraped_at."}
+     note: "Fixed: the seeding scrape is the newest 30 posts, none older than 30 days, until history_seeded_at is set (migration 0088 backfills it from last_scraped_at). Detail: backlog/BUG-098-a-new-subscription-scrapes-the.md."}
 
   IDEA-104:
     {type: idea, status: done, created: 2026-10-31,
      impact: operational, effort: s,
      title: "Store each Bright Data run's records, errors, error codes and new-post count, and classify its success rate",
-     ref: [planning-artifacts/brightdata-yield-and-dead-page-policy-2026-10-31.md],
+     ref: [planning-artifacts/brightdata-yield-and-dead-page-policy-2026-10-31.md, backlog/IDEA-104-store-each-bright-data-run.md],
      touches: [pkg:domain, pkg:database, app:backend],
-     note: "D1-D3 of the yield design: a separate classifyBrightDataYield (complete / partial-expected / partial-retryable / partial-unknown), read the free progress call after the posts are saved. No retry mechanism until a transient error code is observed (371 snapshots: only dead_page, 44 of 44). Built in PR #130 (stacked on #129): classifyBrightDataYield, scraper_actor_runs.records_reported / errors_reported / error_codes / new_posts (migration 0089), reportBrightDataYield in the webhook and the sweep, new_posts for Bright Data and Apify async deliveries. The SQS path does not record new_posts yet."}
+     note: "Built in PR #130: classifyBrightDataYield plus scraper_actor_runs records_reported/errors_reported/error_codes/new_posts (migration 0089). No retry until a transient error code is observed; the SQS path does not record new_posts. Detail: backlog/IDEA-104-store-each-bright-data-run.md."}
 
   IDEA-105:
     {type: idea, status: done, created: 2026-10-31,
      impact: operational, effort: m,
      title: "Back off a profile's scrape after an empty run using its posting cadence (median gap between posting days)",
-     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md],
+     ref: [planning-artifacts/profile-history-seed-and-cadence-backoff-2026-10-31.md, backlog/IDEA-105-back-off-a-profile-s.md],
      touches: [pkg:domain, app:backend],
-     note: "E3-E4 of the seeding design, depends on BUG-098 and IDEA-104 (needs new_posts per run). Interval after an empty run = clamp(ceil(typical gap), 1, 3) days, never off, daily when confidence is insufficient. Backtest: 4% fewer scrapes, 1.3% of posts one day late; savings are cents, so repeat the backtest on 30 days of real data first. Built in the PR stacked on #130 (decision: cap 3 days, multiplier 1, SCRAPE_BACKOFF_MAX_DAYS=1 disables). Real-run check before building: on 10-29 and 10-31, 26% of Bright Data runs (10 of 38) found no new post (6 re-delivered only known posts, 3-4 delivered nothing). Not recorded for the SQS path, so a profile whose last run was a queue run stays daily."}
+     note: "Built in the PR stacked on #130: interval after an empty run = clamp(ceil(typical gap), 1, 3) days (SCRAPE_BACKOFF_MAX_DAYS=1 disables). The SQS path does not record new_posts, so a queue-run profile stays daily. Detail: backlog/IDEA-105-back-off-a-profile-s.md."}
 
-  IDEA-103:
+  IDEA-115:
     {type: idea, status: backlog, created: 2026-10-31,
      impact: user-visible, effort: m,
      title: "Profile lookup falls back to a background phase on timeout, with a UX flow that tells the user what is happening",
@@ -2769,3 +2743,44 @@ items:
      touches: [app:backend, web:votes, web:subscriptions, cross:ux-tokens, cross:architecture],
      note: "Proposal, four decisions open (D1-D4). Builds on AD-41 (async subscribe, not yet built); the vote form shows one generic toast for every error."}
 
+  # ── 2026-11-02 (deferral intake backfill for check 14: sections from 2026-09-26 to 2026-10-04 had no row) ──
+
+  FIND-114:
+    {type: finding, status: backlog, created: 2026-11-02,
+     impact: internal, effort: s,
+     title: "Sharp-isolation test checks the esbuild graph only, not execution or CDK's real esbuild options",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:infrastructure],
+     note: "Deferred from: bmad-quick-dev fix-lambda-sharp-lazy-load review (2026-10-04). 2 findings."}
+
+  FIND-115:
+    {type: finding, status: backlog, created: 2026-11-02,
+     impact: internal, effort: s,
+     title: "EventCard keeps dead props and a dead date helper after FIND-053; archive getCardProps is any-typed",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [pkg:ui, web:events],
+     note: "Deferred from: bmad-quick-dev FIND-053 review (2026-09-26). 3 findings."}
+
+  FIND-116:
+    {type: finding, status: backlog, created: 2026-11-02,
+     impact: internal, effort: s,
+     title: "Scraper integration tests skip post_account_associations rows, clean up four ways and flaked once",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: code review of 3-15-post-account-association-table-lossless-migration.md Story 3.14 scraper-test regression fix (2026-10-02, CC-024 Wave 2B batch-end gate, `bmad-quick-dev`). 3 findings."}
+
+  FIND-117:
+    {type: finding, status: backlog, created: 2026-11-02,
+     impact: internal, effort: s,
+     title: "Awaited notification dispatch lacks a regression test and a prod guard; email failures go unchecked",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:notifications],
+     note: "Deferred from: code review of FIND-061 fix (await notification dispatch) (2026-10-02, `bmad-quick-dev`). 4 findings."}
+
+  FIND-118:
+    {type: finding, status: backlog, created: 2026-11-02,
+     impact: internal, effort: s,
+     title: "Wave 3 gate fixes leave the extraction-ordinal CHECK untested and 9 event fixtures unshared",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Deferred from: code review of spec-cc-024-wave3-gate-test-fixes.md (2026-10-02, CC-024 Wave 3 batch-end gate, `bmad-quick-dev`). 3 findings."}

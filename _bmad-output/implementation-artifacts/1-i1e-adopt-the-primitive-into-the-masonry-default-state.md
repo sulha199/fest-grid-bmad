@@ -177,6 +177,10 @@ masonry states. This story already shipped the pre-round-3 version of this card;
 above 7 points were folded into a story file at note-capture time — needed a bmad-create-story
 amendment pass before further dev-story work on this surface.
 
+### Board note moved from IDEA-017 (backlog.yaml, 2026-11-02)
+
+Story 1.i1e delivered the promoted scope (date-box-beside-thumbnail + TILL-badge restyle); no child row. AMENDED 2026-09-14: 7 prototyping refinements (see CC-019) post-date 1.i1e, not yet folded into a story amendment. Full detail in Story 1.i1e's Dev Notes. STALE NOTE CORRECTED 2026-09-29 (double-check against EVENT-CARD-DESIGN.md/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md as source of truth): the '7 prototyping refinements' are exactly the gap IDEA-046 audited and closed via Story 1.i1l (explicitly named in that story's own opening paragraph) -- now `review`, verified against commit c80cd9b. Note this masonry surface was then further revised past 1.i1l's own scope by the 2026-09-27/28 pixel-perfect pass (uncommitted-at-the-time changes, committed 2026-09-28) -- EVENT-CARD-DESIGN.md's event_card_masonry tokens (top_row_default, thumbnail_default, event_card_date_box.base_default) are the current source of truth, not 1.i1e's or 1.i1l's own original AC text.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Components & Scalability rule (Domain Features → `packages/ui/src/features/<domain>/`, unchanged placement); State Management rule (the new local `useState` is plain component state, not Server/URL/Global — explicitly categorized above, no `react-query`/`nuqs`/`zustand` involved); Locale-Sensitive Data Rendering rule (no date/time formatting logic changes — Task 3.2 explicitly preserves `formatEventTime`/`tillBadgeText` computation).

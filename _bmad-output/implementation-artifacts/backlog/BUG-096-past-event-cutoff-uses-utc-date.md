@@ -44,3 +44,7 @@ No client change: `EventListView` already shows its empty state when a first pag
 Domain 1413/1413 at 100% coverage, `graphql-select` 59/59, database 22/22 (includes the journal-order ratchet), 17 new integration test cases against local Postgres (`events-past-cutoff-timezone.test.ts`), backend `tsc` and lint clean. Three mutants of the SQL function (UTC only, no invalid-zone handler, status ignored) each fail the new tests. Existing events suites: 158/160, the 2 failures are the known local-only `queryModeratorAccountProfiles` ones.
 
 Not verified: `EXPLAIN` on the prod data volume (about 1,000 schedules, so small), and the live behaviour in the 00:00-07:00 WIB window after deploy.
+
+## Board note (moved verbatim from backlog.yaml, 2026-11-02)
+
+Fixed in PR #126 (option A of an architect review): the list's cutoff is now the date of the request's one `now` in each schedule's own timezone (RESOLVED only, else UTC), from one SQL function shared by default visibility, isPastEvent and isExpiredForCurrentUser. Verify after deploy in the 00:00-07:00 WIB window: no event that ended on the previous Jakarta day should be listed. The TODAY/UPCOMING toggles still use the UTC date (BUG-097).

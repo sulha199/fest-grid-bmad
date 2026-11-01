@@ -85,3 +85,7 @@ measure. Lint and build both passed clean. The automatic test gate's backend sui
 environment issue, not a real assertion failure and not caused by this change (which touches
 zero backend files). Confirmed unrelated on that basis, matching the same pre-existing-failure
 pattern already documented for BUG-032/FIND-024 earlier this project.
+
+## Board note (moved verbatim from backlog.yaml, 2026-11-02)
+
+Fixed 2026-09-19 via bmad-quick-dev: EventListView.tsx's card+sentinel subtree wrapped in a `display:contents` div carrying `overflow-anchor:none` (also duplicated directly on the sentinel), excluding the whole growing list from CSS scroll-anchoring's anchor selection. Root cause distinct from BUG-031 (which only fixed the sentinel-height-collapse trigger): the browser was anchoring near the viewport-bottom and chasing new content down on every page load. Lint+build passed; the automatic test gate's backend suite showed 165/279 failures but every one carries the identical exitCode 3221225794 (Windows STATUS_ACCESS_VIOLATION) across completely unrelated schema test files -- a pre-existing native-crash/environment issue, not caused by this frontend-only CSS change (zero backend files touched). Full repro evidence and validation in backlog/BUG-038-infinite-scroll-jump-to-bottom-scroll-anchoring.md.

@@ -110,6 +110,14 @@ No `epic-2-i1-readiness.md` sweep report exists yet (only `epic-2-readiness.md`,
 - **Backward compatibility and rollout notes:** Adding a field to a GraphQL type/selecting it in one query document is additive and non-breaking — the three other `useToggleFavoriteMutation` call sites (deferred to Story 2.i1b) that don't select `favoriteCount` in their own `.graphql` documents are completely unaffected and continue to compile/run exactly as today.
 - **Verification checks:** Backend integration test (Task 1) asserting the mutation's returned `favoriteCount` matches an independent `activeOnly(favorites)` `COUNT` read at each step of a toggle-on/off/on cycle; frontend integration test (Task 5) asserting the rendered badge reflects a server-supplied count that would diverge from a naive ±1 computation, proving the UI reads the response field rather than computing locally.
 
+### Board note moved from BUG-007 (backlog.yaml, 2026-11-02)
+
+DW-032. Predates ux-rework2 batch-2; that batch only added error announcement plus re-throw, not per-item success tracking. VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): event-pages-remaining-backlog-plan.md's Cluster A checkbox for this row was still unchecked and a bmad-create-story dispatch was about to be run against it; caught before dispatch — Story 2.i1a is already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox corrected.
+
+### Board note moved from BUG-008 (backlog.yaml, 2026-11-02)
+
+DW-033. Matches an established but imperfect pattern already used by 3 other per-page favorite mutations. Story 2.i1a closes this via an additive ToggleFavoriteResult.favoriteCount field (backend) rather than a confirm-then-refetch rewrite -- per AskUserQuestion, 2026-09-16. VERIFIED 2026-09-17 (ritual-orchestrator batch, pre-dispatch check): same stale-checkbox situation as BUG-007 — Story 2.i1a already `review` in sprint-status.yaml, and its scope covers this row plus FIND-006's folded-in test-gap coverage. No new dispatch run. Plan doc checkbox corrected.
+
 ## Global Rules References
 
 - `_bmad-output/project-context.md` (Database & Performance — Soft-Delete Convention/AD-8 legacy exception, Drizzle ORM Types, Optimized DB Queries; State Management Architecture; Testing Rules; Development Workflow Rules)

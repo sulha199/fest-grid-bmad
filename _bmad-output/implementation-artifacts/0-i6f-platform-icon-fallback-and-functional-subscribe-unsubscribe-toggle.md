@@ -158,6 +158,10 @@ so that IDEA-031's two requested UI changes ship together with FIND-010's DW-009
 - [Source: apps/web/src/app/[locale]/settings/account/subscriptions-content.tsx] (the existing `removeSubscription`/`useSoftDeleteWithUndo` reference implementation this story's Dev Notes explicitly diverges from, with reasoning)
 - [Source: apps/web/locales/en.json, id.json#EventDetailsPage] (existing label keys and both locales' current parity, new keys added alongside)
 
+### Board note moved from FIND-010 (backlog.yaml, 2026-11-02)
+
+DW-009, DW-016, DW-017, DW-018, DW-019, DW-020, DW-027. A loading-state flash, unmanaged focus on expand/collapse, an unpruned dayOverrides map, a loose test assertion, and an unresolved desktop/mobile calendar-layout unification question. PROMOTED 2026-09-16 (bmad-create-story, Story 0.i6f): only the DW-009 slice (subscribe-status loading flash) is covered — bundled with IDEA-031's toggle redesign since both touch the same subscribe-state rendering. Remaining DW-016/017/018/019/020/027 carved to child row FIND-033.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Code Organization (`packages/ui/core` vs. `packages/domain` placement, confirmed above); i18n convention (`next-intl`, en/id parity); Analytics convention (PostHog capture per user action)

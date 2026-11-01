@@ -34,3 +34,7 @@ full sequencing rationale. This row remains not-actionable until **both** 0-i5e 
 `done`. EXPERIENCE.md's Temporal Filter section already names `feed-content.tsx`/
 `favorites-content.tsx` as anticipated future `useListPaginationController` adopters,
 corroborating the gap.
+
+## Board note (moved verbatim from backlog.yaml, 2026-11-02)
+
+AMENDED 2026-09-19: missing prerequisite carved to Story 0-i5e (ready-for-dev); still blocked on 0-i5e + 1-3l both landing. Full detail in backlog/IDEA-038-feed-favorites-temporal-filter-adoption.md. AMENDED 2026-09-30 (batch-event-pages-wave-a-readiness.md): also depends on Story 0-i5d -- it builds TemporalFilterToggle / EventFilterInput.temporalFilter, which this row extends to Feed/Favorites. Unblock chain is 1-3l + 0-i5e + 0-i5d, each at least `review`. AMENDED 2026-09-30 (Story 0-i5e completion): 0-i5e's own scope (Feed/Favorites adopting useListPaginationController) is now landed -- that prerequisite in the unblock chain is closed. Remaining blockers: 0-i5d and 1-3l, each still needing to reach at least `review`. UPDATED 2026-09-30 (after Wave A batch): 0-i5d, 1-3l and 0-i5e are now all at `review` -- the unblock chain is satisfied; this row is ready for `bmad-create-story IDEA-038`. CLOSED 2026-10-05: already implemented out-of-band by commit d3414728 (2026-10-03) -- `useTemporalFilter` + `temporalFilter` wired into Feed, Favorites and Account, and `buildFeedQueryCondition`/`buildAccountEventsQueryCondition` accept it. No story was ever created; do not run create-story.

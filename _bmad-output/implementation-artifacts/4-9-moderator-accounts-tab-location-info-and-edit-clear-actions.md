@@ -156,6 +156,10 @@ so that I can review and correct an account's default location directly from the
 - [Source: _bmad-output/planning-artifacts/story-split-gate.md] — Gate 1/2/3 definitions and execution protocol applied fresh above.
 - [Source: _bmad-output/planning-artifacts/story-content-structure.md] — canonical section order and status vocabulary this file follows.
 
+### Board note moved from IDEA-034 (backlog.yaml, 2026-11-02)
+
+Carved 2026-09-15 from IDEA-032 (§6) — that row's original capture bundled two unrelated surfaces. Moderator Tools accounts tab (moderator/tools?tab=accounts) account card gains location info plus an edit-location icon (opens a select-location popup) and a clear-location icon (opens a confirmation to set the account location to empty). Epic 4 (Data Quality and Moderation) surface, distinct from IDEA-032's now-narrowed Epic 1/3 reusable-account-element scope — not part of the IDEA-029 location-link mechanism cluster. Promoted 2026-10-06 to Story 4.9 -- full row scope covered by that one story, no child row carved out.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — API Style (GraphQL for all client-server data), Database Access (Drizzle ORM only), UI Patterns (Blocking loader for the set/edit/clear mutations via existing `BlockingLoader` usage in `SetDefaultLocationDialog` and a new one in the accounts-tab content for the clear action), State Management (Server State via React Query/`graphql-request`, unchanged pattern), i18n (next-intl, both locale files).

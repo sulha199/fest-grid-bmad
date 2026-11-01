@@ -1,7 +1,7 @@
 # Profile lookup: timeout fallback and the UX flow it needs
 
 **Status:** proposal, 2026-10-31. Not built. Needs the four decisions in section 6, then `bmad-architecture` (extend AD-41) and `bmad-ux` (the flow and copy in section 4).
-**Backlog:** IDEA-103.
+**Backlog:** IDEA-115.
 
 ## 1. The problem, with measurements
 
