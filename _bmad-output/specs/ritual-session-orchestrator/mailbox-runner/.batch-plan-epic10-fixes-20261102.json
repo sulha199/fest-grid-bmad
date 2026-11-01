@@ -1,0 +1,40 @@
+{
+  "_note": "Hand-authored plan for the three standalone fixes that sit ahead of Epic 10 (tracker section 1). Sequential, one story in flight. Code runs in the worktree C:/wt/epic10-fixes (cut from d454d905); each fix gets its own branch cut from d454d905 so its PR carries only its own code. Nothing is pushed until the user says go. Prompts live in the orchestrator session's scratchpad (qd-bug-100.txt, qd-find-119.txt, qd-bug-101.txt) and were composed from the rows' backlog/<ID>-*.md evidence files. To resume: check which steps are done below, verify the branch and commit in the worktree, and dispatch the first one still pending. After the last step run the batch-end checks once (run-check.ts --kind lint, build, test with --cwd C:/wt/epic10-fixes) on EACH branch, not just the last, because the branches are independent. Row bookkeeping (status/note on BUG-100, FIND-119, BUG-101) is done on the docs branch after the PRs merge, not by the children.",
+  "config": "all-claude-medium (claude runtime for quick-dev; cline-cli delegation is unreliable in this project)",
+  "cwd": "C:/wt/epic10-fixes",
+  "mailbox": "../mailbox",
+  "createdAt": "2026-11-02T00:00:00Z",
+  "input": "_bmad-output/planning-artifacts/epic-formation/epic-10-outside-the-epic-2026-11-02.md section 1",
+  "steps": [
+    {
+      "skill": "bmad-quick-dev",
+      "story": "BUG-100",
+      "label": "BUG-100/bmad-quick-dev",
+      "branch": "fix/bug-100-api-lambda-registers-scraper-adapters",
+      "status": "done",
+      "commit": "2fea660e",
+      "note": "Verified independently by the orchestrator: one commit, 3 files (server.ts imports register-adapters; index.ts drops its now-redundant import; new lambdas/api.test.ts). Regression test RED without the fix (assertion 'none was found', not an import error) and GREEN with it; lambda-sharp-isolation 8/8 per the child. Not pushed. Whole-repo lint/build/test still owed at batch end (Step 4.5).",
+      "expect": "regression test red then green; API Lambda entry registers the scraper adapters; lambda-sharp-isolation test still green; one commit on the branch"
+    },
+    {
+      "skill": "bmad-quick-dev",
+      "story": "FIND-119",
+      "label": "FIND-119/bmad-quick-dev",
+      "branch": "fix/find-119-no-cooldown-without-vendor-call",
+      "status": "done",
+      "commit": "fb5b77d7 + fec4e050",
+      "note": "fb5b77d7 by the child (isAdapterRegistered pre-check; ScraperCapacityExceededError and VendorDpaNotConfirmedError exempt from the cooldown). fec4e050 by the orchestrator after review: the Apify refused-to-start errors (ApifyMemoryLimitExhaustedError, ApifyMonthlyUsageLimitError, the free-plan cap) were missing from the exemption, and the adapter-missing branch had lost the console.error that BUG-100 was found by. Tests 31/31 green; the two new tests red against the previous source; lint 0 errors; no tsc errors in the touched files. Not pushed. Whole-repo lint/build/test still owed at batch end.",
+      "expect": "a throw before any vendor call leaves no cooldown row; a throw after a vendor call still does; one commit on the branch"
+    },
+    {
+      "skill": "bmad-quick-dev",
+      "story": "BUG-101",
+      "label": "BUG-101/bmad-quick-dev",
+      "branch": "fix/bug-101-apify-slide-list-repeats-cover",
+      "status": "done",
+      "commit": "311a6b36 + the refactor commit that follows it",
+      "note": "311a6b36 by the child (new shared helper in packages/domain, adapter drops index-0 cover repeat, build-gemini-request de-dupes at read time). The child ended (exit 0, empty result text) with a second change STAGED but not committed: the adapter reusing dedupeImageUrlsByFileName instead of the index-0-only check. The orchestrator ran its tests (adapter 40/40, build-gemini-request 47/47, domain helper 7/7, lint 0 errors, no tsc errors in touched files) and committed it. Not pushed. Whole-repo lint/build/test still owed at batch end.",
+      "expect": "adapter drops the repeated cover; build-gemini-request de-duplicates by file name at read time; one shared file-name helper; one commit on the branch"
+    }
+  ]
+}

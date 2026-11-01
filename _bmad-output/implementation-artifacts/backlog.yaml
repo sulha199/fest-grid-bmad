@@ -1787,7 +1787,7 @@ items:
      title: "A post advertising multiple distinct events has its schedules incorrectly merged into one event",
      ref: [planning-artifacts/sprint-change-proposal-2026-10-01-multi-event-posts.md],
      touches: [cross:ai-extraction, app:backend, cross:architecture],
-     note: "Addressed by CC-024 (stories 3.6r-3.6t, 3.6u-3.6x); needs AD-30 (bmad-architecture) before 3.6r, then bmad-create-story."}
+     note: "Folded into CC-024: its stories 3-6r, 3-6s, 3-6t, 3-6u and 3-6x are built (all in review, code on master; FIND-101's live run counted events correctly). Close this row once 3-6s and 3-6t are done."}
 
   BUG-052:
     {type: bug, status: promoted, created: 2026-09-30,
@@ -2391,36 +2391,36 @@ items:
      note: "Deferred from: code review of the page-overflow audit, fake-auth fixture, responsive matrix and fixes (2026-10-24). 4 findings."}
 
   BUG-076:
-    {type: bug, status: triaged, created: 2026-10-23,
+    {type: bug, status: done, created: 2026-10-23,
      impact: user-visible, effort: s,
      title: "Daily batch fires every Apify trigger at once; the account's memory cap refuses most (402 actor-memory-limit-exceeded) and they are logged and classed as an outage",
      ref: [apps/backend/src/lambdas/scraper.ts, apps/backend/src/lib/scraper/trigger-apify-for-target.ts],
      touches: [app:backend],
-     note: "Prod 2026-10-23: 31 of 35 triggers refused. Fix on its PR: SCRAPE_TRIGGER_CONCURRENCY (default 3) and 402 mapped to CAPACITY_EXHAUSTED."}
+     note: "Fixed in PR #98 (merged 2026-10-23): SCRAPE_TRIGGER_CONCURRENCY (default 3) and 402 mapped to CAPACITY_EXHAUSTED. Prod 2026-10-23: 31 of 35 triggers were refused before the fix."}
 
   BUG-077:
-    {type: bug, status: triaged, created: 2026-10-23,
-     impact: user-visible, effort: s, blocks: [BUG-078],
+    {type: bug, status: done, created: 2026-10-23,
+     impact: user-visible, effort: s, blocks: [],
      title: "Queue fallback drops an account silently when the Apify call exceeds 26s: no audit row, run not aborted, lastScrapedAt stamped, message deleted",
      ref: [apps/backend/src/lib/scraper/process-scrape-job.ts, apps/backend/src/lib/scraper/instagram-adapter.ts, apps/backend/src/lib/aws/poll-and-drain-queue.ts],
      touches: [app:backend, app:infrastructure],
-     note: "Prod 2026-10-23: 11 profiles hit VendorCallTimeoutError at 26000ms inside a 300s Lambda. Fix on its PR: 120s queue budget, abort, TIMED_OUT row, no stamp, rethrow to SQS."}
+     note: "Fixed in PR #98 (merged 2026-10-23): 120s queue budget, abort, TIMED_OUT row, no stamp, rethrow to SQS. Prod 2026-10-23: 11 profiles hit VendorCallTimeoutError at 26000ms inside a 300s Lambda."}
 
   BUG-078:
-    {type: bug, status: triaged, created: 2026-10-23,
+    {type: bug, status: done, created: 2026-10-23,
      impact: internal, effort: xs,
      title: "scraper_batch_runs counts targets that fell back to the scraping queue as dispatched_failed, so a working fallback reads as an outage",
      ref: [apps/backend/src/lib/scraper/record-scraper-batch-run.ts, apps/backend/src/lambdas/scraper.ts],
      touches: [app:backend, pkg:database],
-     note: "Fix on its PR: new dispatched_queued column (migration 0080); a 402 no longer counts as TRIGGER_ERROR in the Apify tally."}
+     note: "Fixed in PR #98 (merged 2026-10-23): new dispatched_queued column (migration 0080, applied by CI); a 402 no longer counts as TRIGGER_ERROR in the Apify tally."}
 
   IDEA-097:
-    {type: idea, status: triaged, created: 2026-10-23,
+    {type: idea, status: done, created: 2026-10-23,
      impact: internal, effort: xs,
      title: "Scraper Lambda runs at the 128 MB default (Max Memory Used 124-128 MB, two poll-and-drain runs hit the full 300s): give it 512 MB",
      ref: [apps/infrastructure/lib/festgrid-backend-stack.ts],
      touches: [app:infrastructure],
-     note: "Fix on its PR. Memory only; no service added, so the architecture diagram is unchanged."}
+     note: "Done in PR #98 (merged 2026-10-23): scraper Lambda memory raised to 512 MB. Memory only; no service added, so the architecture diagram is unchanged."}
 
   IDEA-098:
     {type: idea, status: backlog, created: 2026-10-23,
@@ -2499,39 +2499,39 @@ items:
 
   # ── 2026-10-26 (prod: batch scraping the wrong accounts after the profile backfill relabelled usernames) ──
   BUG-081:
-    {type: bug, status: backlog, created: 2026-10-26,
+    {type: bug, status: done, created: 2026-10-26,
      impact: user-visible, effort: s,
      title: "Profile backfill overwrites a subscribed username with a non-owner post's; the batch scrapes the wrong account",
      ref: [apps/backend/src/lib/accounts/backfill-account-profile-and-infer-location.ts, packages/domain/src/scraper/account-enrichment.ts, backlog/BUG-081-profile-backfill-overwrites-subscribed-username.md],
      touches: [app:backend, pkg:domain, web:subscriptions],
-     note: "Fix and PROD repair script in the same PR; set done once merged and the repair workflow has run. 0587b45b is probably jogjakajian's account (inferred)."}
+     note: "Fixed in PR #104 (merged 2026-10-26) with the prod repair script; the repair applied (repaired=13, 7 numeric-keyed rows left for review, see BUG-059). 0587b45b is probably jogjakajian's account (inferred)."}
 
   # ── 2026-10-27 (prod: Bright Data degraded state flapped back to healthy while the vendor was still down) ──
   BUG-082:
-    {type: bug, status: backlog, created: 2026-10-27,
+    {type: bug, status: done, created: 2026-10-27,
      impact: user-visible, effort: xs,
      title: "Provider health trusts a degraded provider again once probing leaves under 10 runs in 72h, so the next batch sends it every target",
      ref: [packages/domain/src/scraper/evaluate-provider-run-health.ts, apps/backend/src/lib/scraper/provider-run-health-store.ts],
      touches: [app:backend, pkg:domain],
-     note: "Fixed in the PR that adds this row (14-day carry-over); set done once merged. 2026-10-26 03:13 UTC: all 38 targets went to Bright Data and failed, Apify re-queue recovered the data."}
+     note: "Fixed in PR #105 (merged 2026-10-27): 14-day carry-over of provider run health. 2026-10-26 03:13 UTC: all 38 targets went to Bright Data and failed, Apify re-queue recovered the data."}
 
   # ── 2026-10-27 (prod: Apify memory cap on the queue path recorded as vendor failures) ──
   BUG-083:
-    {type: bug, status: backlog, created: 2026-10-27,
+    {type: bug, status: done, created: 2026-10-27,
      impact: user-visible, effort: xs,
      title: "Queue-path Apify runs refused by the account memory cap (402) are recorded FAILED and burn SQS receives",
      ref: [apps/backend/src/lib/scraper/instagram-adapter.ts, packages/domain/src/scraper/apify-memory-limit-wait.ts],
      touches: [app:backend, pkg:domain],
-     note: "Fixed in the PR that adds this row (bounded wait inside the call budget, no row for a run that never started); set done once merged. 2026-10-25 03:13 UTC: 31 SYNC rows FAILED, 34 later SUCCEEDED via redelivery."}
+     note: "Fixed in PR #106 (merged 2026-10-27): bounded wait inside the call budget, no row for a run that never started. 2026-10-25 03:13 UTC: 31 SYNC rows FAILED, 34 later SUCCEEDED via redelivery."}
 
   # ── 2026-10-30 (public events list repeats and skips rows across pages) ──
   BUG-090:
-    {type: bug, status: backlog, created: 2026-10-30,
+    {type: bug, status: done, created: 2026-10-30,
      impact: user-visible, effort: s,
      title: "Discovery's default order has no tie-breaker, so paging repeats one event and skips another",
      ref: [apps/backend/src/schema/resolvers.ts, apps/backend/src/schema/events-default-order-tiebreak.test.ts, backlog/BUG-090-discovery-order-no-tiebreaker.md],
      touches: [app:backend, web:events],
-     note: "Fixed in the PR that adds this row (events.id as the last ORDER BY key); set done once merged. 2026-10-30: one pass of 664 rows held 614 distinct events. Duplicate counts taken from that list before the fix are inflated."}
+     note: "Fixed in PR #115 (merged 2026-10-30): events.id as the last ORDER BY key. 2026-10-30: one pass of 664 rows held 614 distinct events; duplicate counts taken before the fix are inflated."}
 
   # ── 2026-10-30 (Apify monthly cap, repeated posts, late Bright Data results) ──
   BUG-091:
