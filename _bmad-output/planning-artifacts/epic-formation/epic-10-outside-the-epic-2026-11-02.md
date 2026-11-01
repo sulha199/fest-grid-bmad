@@ -38,13 +38,18 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
     line). Mapping: 10.1a = FR116, FR117; 10.2 = FR118; 10.3 = FR120, FR121, FR122; 10.4 = FR123; 10.5 = FR119; 10.6 = FR125; 10.7 = FR126;
     10.8 = FR127; 10.9 to 10.12 = FR128; 10.13 = FR124. Not done in the PRD pass (planning-only rule: PRD and this tracker).
     **Done 2026-11-02:** 13 inventory entries, 13 coverage-map entries and Epic 10's "FRs covered" line are in `epics.md` with exactly this mapping.
-  - [ ] Follow-up: Story 10.7 and AD-41 Rule 1 ("the subscription always succeeds") must be reconciled with PRD 3.7: a subscribe job that ends
+  - [x] Follow-up: Story 10.7 and AD-41 Rule 1 ("the subscription always succeeds") must be reconciled with PRD 3.7: a subscribe job that ends
     not found, private or with no provider leaves no subscription and releases its slot.
+    **Done 2026-11-01 (`bmad-epic-readiness-check`):** Rule 1 is amended, not superseded, carried by Story 10.7 (AC added in `epics.md`); see
+    `epic-readiness/epic-10-readiness.md`.
   - [ ] Follow-up: `project-context.md` loader rule gets one line when the engine's AD lands (a vendor-backed action that can exceed a few
     seconds is a job, never a blocking overlay); owned by Story 10.14z's documentation check.
-- [ ] **`bmad-epic-readiness-check`** on epic-10: validates or splits Story 10.1a and the mechanism parts 10.2 to 10.5. If it drops or
+- [x] **`bmad-epic-readiness-check`** on epic-10: validates or splits Story 10.1a and the mechanism parts 10.2 to 10.5. If it drops or
   reshapes 10.2 or 10.5, re-examine the re-scoring of **IDEA-101** (remember an exhausted Apify cap) and **IDEA-102** (Bright Data
   snapshots take hours), both set to `xs` on the strength of those stories.
+  **Done 2026-11-01:** `epic-readiness/epic-10-readiness.md`. 10.1a validated as one story, AD embedded, not split (one new AC added:
+  cross-Lambda phase hand-off). 10.2 to 10.5 validated as-is, not split or reshaped — IDEA-101/IDEA-102's `xs` re-scoring stands, no
+  re-examination needed. AC corrections applied directly to 10.1a, 10.4, 10.7, 10.13, 10.14z; no new prerequisite story created.
 - [ ] **`bmad-ux`** for the Jobs page, and for **IDEA-115** (profile lookup falls back to a background phase) before Stories 10.4 and 10.7.
 
 ## 3. Decisions that are the owner's
