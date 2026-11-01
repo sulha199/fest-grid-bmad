@@ -20,8 +20,18 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 
 ## 2. Gates before any Epic 10 story starts
 
-- [ ] **`bmad-prd`** for the Jobs capability: a new section plus amendments to PRD sections 3.7, 3.9.3 and 3.11; settle IDEA-119's
+- [x] **`bmad-prd`** for the Jobs capability: a new section plus amendments to PRD sections 3.7, 3.9.3 and 3.11; settle IDEA-119's
   subscriber-notification question and the cap wording (IDEA-008). The gate puts this first for a feature epic.
+  **Done 2026-11-02:** new PRD section 3.18 (FR116 to FR124) and Job interface 4.21; amended 3.7, 3.9.1, 3.9.3, 3.10, 3.11, 3.12, 3.13, 3.16,
+  4.9, section 5 (new Background Jobs NFR, public-only note), section 6 (reserved slots count) and section 7 (KPI); FR125 to FR128 sit in the
+  sections they change. Open items OI-1 to OI-4 are in PRD 3.18 with owners (mapped in section 3 below).
+  - [ ] Follow-up: backfill FR116 to FR128 into `epics.md` (the requirements inventory, the FR coverage map and Epic 10's "FRs covered: none yet"
+    line). Mapping: 10.1a = FR116, FR117; 10.2 = FR118; 10.3 = FR120, FR121, FR122; 10.4 = FR123; 10.5 = FR119; 10.6 = FR125; 10.7 = FR126;
+    10.8 = FR127; 10.9 to 10.12 = FR128; 10.13 = FR124. Not done in the PRD pass (planning-only rule: PRD and this tracker).
+  - [ ] Follow-up: Story 10.7 and AD-41 Rule 1 ("the subscription always succeeds") must be reconciled with PRD 3.7: a subscribe job that ends
+    not found, private or with no provider leaves no subscription and releases its slot.
+  - [ ] Follow-up: `project-context.md` loader rule gets one line when the engine's AD lands (a vendor-backed action that can exceed a few
+    seconds is a job, never a blocking overlay); owned by Story 10.14z's documentation check.
 - [ ] **`bmad-epic-readiness-check`** on epic-10: validates or splits Story 10.1a and the mechanism parts 10.2 to 10.5. If it drops or
   reshapes 10.2 or 10.5, re-examine the re-scoring of **IDEA-101** (remember an exhausted Apify cap) and **IDEA-102** (Bright Data
   snapshots take hours), both set to `xs` on the strength of those stories.
@@ -31,12 +41,25 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 
 - [ ] **FIND-103** (Apify is on the free plan, $5 a month, resets 2026-11-23): upgrade, or keep Bright Data primary? Decides the default
   chain order (`apify,brightdata` assumes Apify capacity) and interacts with the low-resolution rule, because Bright Data images are 640 px.
-- [ ] **IDEA-115**'s four open decisions D1 to D4 (`profile-lookup-fallback-and-ux-2026-10-31.md` section 6).
-- [ ] **CC-032** (decide the cost model: platform-paid, user-paid or hybrid): decides whose key a vendor call uses.
+  Written as open item OI-1 in PRD 3.18 (owner: product owner; revisit before Story 10.2 sets the default).
+- [ ] **IDEA-115**'s four open decisions D1 to D4 (`profile-lookup-fallback-and-ux-2026-10-31.md` section 6). **D2 (channel) is answered
+  2026-11-02** by PRD FR124 (in-app plus push through the existing push setting, no email). D1, D3 and D4 stay open as OI-2 in PRD 3.18
+  (owner: product owner through `bmad-ux`; revisit before Stories 10.4 and 10.7).
+- [ ] **CC-032** (decide the cost model: platform-paid, user-paid or hybrid): decides whose key a vendor call uses. Written as open item OI-3
+  in PRD 3.18 (owner: product owner, legal gate; revisit when CC-032 is decided).
 - [ ] **Story 3-4b** (BYOK pooled scraper vendor keys, legally gated): its AC6 (a contributed Apify token is never used for a
-  moderator-initiated run) is already a constraint on Story 10.2's credential choice.
-- [ ] **Notifying subscribing users** when a job finishes (IDEA-119): channel, throttling, consent. A PRD question.
-- [ ] **Whether to migrate `manual_extraction_jobs`** onto the engine's table: recorded in Story 10.9, decide there.
+  moderator-initiated run) is already a constraint on Story 10.2's credential choice. Same open item, OI-3.
+- [x] **Notifying subscribing users** when a job finishes (IDEA-119): channel, throttling, consent. **Closed 2026-11-02, PRD FR124:** in-app always
+  (Jobs menu count) plus push through the existing FCM channel and the existing `pushNotificationsEnabled` setting (default on, no new consent
+  screen); no email; one push per job, merged when several end within 10 minutes; the push names the job type and account handle only; sent only
+  when the owner was not watching. Story 10.13 still has to check that Epic 0.i1's `notifyAllModerators` can address one moderator (the job's owner).
+- [x] **IDEA-008 cap wording** (do in-flight subscriptions count): **closed 2026-11-02, PRD section 6 and FR122:** reserved slots count (active plus
+  in-flight, at most 5), checked and reserved in one atomic server-side step per user account so other tabs, browsers, devices or parallel requests
+  cannot exceed it; released on failure, expiry, cancel or removal; votes reserve nothing.
+- [x] **Image-refresh failure visibility** (what the moderator sees): **closed 2026-11-02, PRD 3.9.3 and FR125:** a plain-words reason from a fixed list,
+  images read of available, and a Retry button; Apply is unchanged (no extra warning or block).
+- [ ] **Whether to migrate `manual_extraction_jobs`** onto the engine's table: recorded in Story 10.9, decide there. Open item OI-4 in PRD 3.18
+  (owner: architect).
 - [ ] **Durable image copies and consent:** see section 8, first item.
 
 ## 4. Dependencies the epic waits on (other work, not mine to build here)
