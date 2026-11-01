@@ -903,4 +903,45 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.request.contents, msg.content);
     assert.strictEqual(result.aiImageInput, 'no_image_sent');
   });
+
+  // ── BUG-101: the stored slide list's slide 0 can repeat the cover (same file name, different
+  // signed query, left over from the pre-fix Apify adapter) -- de-duplicate by file name at read
+  // time so the 354 already-stored Apify posts are covered without a backfill. ──────────────────
+  await t.test('BUG-101 A: a stored slide 0 repeating the cover by file name is de-duplicated before fetching, and never counted twice in imagesAvailable', async () => {
+    const coverFileName = coverUrl.split('?')[0].split('/').pop();
+    const repeatOfCover = `https://scontent-muc2-1.cdninstagram.com/v/t51.82787-15/${coverFileName}?oe=different&sig=zzz`;
+    const callCount = installOrderedFetchMock();
+    const msg = multiImageMessage([repeatOfCover, slide1Url, slide2Url]);
+    const result = await buildGeminiExtractionRequest(msg);
+
+    // text + cover + slide1 + slide2 (the repeated-cover entry is dropped, never fetched)
+    assert.strictEqual(result.request.contents.length, 4);
+    assert.strictEqual(result.request.contents[1].inlineData.data, Buffer.from('carousel-bytes-0').toString('base64'));
+    assert.strictEqual(result.request.contents[2].inlineData.data, Buffer.from('carousel-bytes-1').toString('base64'));
+    assert.strictEqual(result.request.contents[3].inlineData.data, Buffer.from('carousel-bytes-2').toString('base64'));
+    // 3 fetches total: cover, slide1, slide2 -- the repeat is never fetched.
+    assert.strictEqual(callCount(), 3);
+    // imagesAvailable counts the de-duplicated list (cover + 2 real slides), not 4.
+    assert.strictEqual(result.imagesAvailable, 3);
+    assert.strictEqual(result.imagesSent, 3);
+  });
+
+  await t.test('BUG-101 B: a repeat later in the slide list (not just index 0) is also de-duplicated', async () => {
+    const coverFileName = coverUrl.split('?')[0].split('/').pop();
+    const repeatOfCover = `https://scontent-muc2-1.cdninstagram.com/v/t51.82787-15/${coverFileName}?oe=different2&sig=yyy`;
+    installOrderedFetchMock();
+    const result = await buildGeminiExtractionRequest(multiImageMessage([slide1Url, repeatOfCover, slide2Url]));
+
+    assert.strictEqual(result.imagesAvailable, 3);
+    assert.strictEqual(result.request.contents.length, 4); // text + cover + slide1 + slide2
+  });
+
+  await t.test('BUG-101 C: two genuinely different slides that merely share a host are NOT merged (regression guard)', async () => {
+    installOrderedFetchMock();
+    // slide1Url/slide2Url already share a host and differ only in file name -- confirm imagesAvailable
+    // counts both rather than collapsing them.
+    const result = await buildGeminiExtractionRequest(multiImageMessage([slide1Url, slide2Url]));
+    assert.strictEqual(result.imagesAvailable, 3); // cover + 2 distinct slides
+    assert.strictEqual(result.request.contents.length, 4);
+  });
 });

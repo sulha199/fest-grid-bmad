@@ -20,6 +20,7 @@ import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 import { recordSyncActorRun } from './record-actor-run.js';
 import { callVendor, VendorDpaNotConfirmedError, VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
+import { getImageUrlFileName } from '@festgrid/domain/posts';
 
 // ============================================================================
 // ACTOR INPUT TYPES
@@ -536,10 +537,19 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
     // Carousel/Sidecar post (AC1/AC2): capture every slide's image URL beyond the cover, in Apify's
     // childPosts slide order, dropping falsy/missing displayUrl entries defensively. Omitted entirely
     // for non-Sidecar items or those with no childPosts (no behavior change for single-image posts).
+    // BUG-101: Apify's childPosts[0] IS the cover, re-served under a different signed query --
+    // compare by file name (not the whole URL, since the signed query differs) and drop it when
+    // it matches the cover, keeping every other slide in order. Bright Data's own slide lists
+    // never repeat the cover this way, so this only ever drops the genuine Apify repeat.
     ...(item.type === 'Sidecar' && Array.isArray(item.childPosts) && item.childPosts.length > 0 && (() => {
-      const additionalImageUrls = item.childPosts
+      const childUrls = item.childPosts
         .map((cp: { displayUrl?: string }) => cp.displayUrl)
         .filter((url: string | undefined): url is string => Boolean(url));
+      const coverFileName = imageUrl ? getImageUrlFileName(imageUrl) : null;
+      const additionalImageUrls = childUrls.filter((url: string, index: number) => {
+        if (index !== 0 || !coverFileName) return true;
+        return getImageUrlFileName(url) !== coverFileName;
+      });
       return additionalImageUrls.length > 0 ? { additionalImageUrls } : {};
     })()),
   };
