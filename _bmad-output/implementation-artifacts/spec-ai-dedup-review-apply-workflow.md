@@ -2,7 +2,7 @@
 title: 'AI dedup review piece B2b-2: the apply workflow, its credential gate, and the AD, PRD and runbook that govern it'
 type: 'feature'
 created: '2026-11-01'
-status: 'in-review'
+status: 'done'
 review_loop_iteration: 0
 baseline_commit: 'dddb8f15eae07f4f503b4c2abb3359b83d63c677'
 context:
@@ -102,3 +102,46 @@ Preconditions AD-45 states, all repository settings the owner controls: a rulese
 - Dispatch `validate` with `{"schemaVersion":1,"decisions":[]}` and your account's hash: a clean report or the one invoker refusal.
 - Dispatch three `apply` runs in a row and watch the concurrency group (how a waiting run holds the slot).
 - From a throwaway branch workflow that requests each environment, confirm the branch is refused. This session can run that check once the environments exist.
+
+## Suggested Review Order
+
+**Who may run what: the gate**
+
+- Entry point: three jobs; `validate` and `apply` are separate jobs so each secret sits in exactly one.
+  [`dedup-review-apply.yml:95`](../../.github/workflows/dedup-review-apply.yml#L95)
+
+- The checks that spend no approval: ref, mode, live, hash, tag, decisions shape.
+  [`dedup-review-apply.yml:111`](../../.github/workflows/dedup-review-apply.yml#L111)
+
+- Apply: the secret and kill-switch check come first and fail closed when the variable is missing.
+  [`dedup-review-apply.yml:232`](../../.github/workflows/dedup-review-apply.yml#L232)
+
+- The script's status survives GitHub's `bash -e`, so the guard always runs.
+  [`dedup-review-apply.yml:286`](../../.github/workflows/dedup-review-apply.yml#L286)
+
+- Setup checklist and the two honest limits (self-approval, unpinned actions).
+  [`dedup-review-apply.yml:34`](../../.github/workflows/dedup-review-apply.yml#L34)
+
+**What the job may report: the guard**
+
+- Marker order, shape, consistency, mode, `disabled`; summary of counts only.
+  [`dedup-review-apply-guard.sh:54`](../../scripts/dedup-review-apply-guard.sh#L54)
+
+**Why it is trusted: the tests**
+
+- The two script steps run under `bash -e` with a stub: the test that would have caught the unreachable guard.
+  [`dedup-review-workflow.test.ts:405`](../../apps/backend/src/dedup-review-workflow.test.ts#L405)
+
+- The guard against fixtures, including wrong-shape and inconsistent reports.
+  [`dedup-review-workflow.test.ts:265`](../../apps/backend/src/dedup-review-workflow.test.ts#L265)
+
+**The paper trail**
+
+- AD-45: the bridge, the limits of the gate, what protects the credential, the expiring exception.
+  [`festgrid-architecture-spine.md:2901`](../planning-artifacts/festgrid-architecture-spine.md#L2901)
+
+- Runbook, setup order and what does not yet exist.
+  [`7-event-dedup.md:166`](../../docs/infrastructure/7-event-dedup.md#L166)
+
+- The write role and its estimated narrow grants.
+  [`3-database.md:33`](../../docs/infrastructure/3-database.md#L33)
