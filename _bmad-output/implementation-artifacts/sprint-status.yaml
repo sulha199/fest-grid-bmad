@@ -2543,7 +2543,7 @@ development_status:
   9-9z-ratchet-every-filter-consumer-goes-through-the-shared-compiler: review
   epic-9-retrospective: optional
   # Epic 10 formed 2026-11-02 via bmad-form-epics (feature epic): background vendor jobs, one engine and one Jobs page.
-  # Members BUG-099, IDEA-115, IDEA-047, IDEA-008, IDEA-009, BUG-014, IDEA-116..119. See epics.md Epic 10 and
+  # Members BUG-099, IDEA-115, IDEA-047, IDEA-008, IDEA-009, BUG-014, IDEA-116..120. See epics.md Epic 10 and
   # planning-artifacts/epic-formation/formation-2026-11-02.md; what sits outside it: epic-10-outside-the-epic-2026-11-02.md.
   epic-10: backlog
   10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep: ready-for-dev
@@ -2558,6 +2558,7 @@ development_status:
   10-10-run-extract-by-url-as-a-job: backlog
   10-11-show-progress-for-a-subscribed-accounts-refresh-now: backlog
   10-12-run-cli-only-admin-batch-operations-as-jobs: backlog
+  10-12a-run-manual-post-selection-as-a-job: backlog
   10-13-notify-when-a-job-finishes: backlog
   10-14z-ratchet-no-lambda-reaches-a-vendor-call-without-registering-the-adapters: backlog
   epic-10-retrospective: optional

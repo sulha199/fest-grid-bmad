@@ -17,6 +17,8 @@ stories_covered:
   - '10.12'
   - '10.13'
   - '10.14z'
+addendum_2026_11_02_stories_covered:
+  - '10.12a'
 ---
 
 # Epic 10 Readiness Report: Background Vendor Jobs — One Engine, One Jobs Page
@@ -183,3 +185,45 @@ direct corrections. No `sprint-status.yaml` changes were needed: Epic 10's fourt
 first (the mechanism story; no story in this epic is unblocked ahead of it), then the remaining stories in
 `epics.md` order (10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 10.10, 10.11, 10.12, 10.13, 10.14z last). Each
 will skip Gate 1/3 citing this report and run only Gate 2.
+
+---
+
+## Addendum 2026-11-02: Story 10.12a (manual post selection) and the FR121 queue amendment
+
+**Scope.** A story-scoped Gate 1 and Gate 3 pass for the one story added after the sweep, plus the effect of two product decisions
+taken the same day on stories already swept: a job started over its limit is queued, not refused (FR121), and manual post selection
+becomes a job type (FR129). This is not a re-sweep; the findings above still stand.
+
+**Gate 1 (architecture / infrastructure), Story 10.12a**
+
+- **No new service, queue, Lambda or table.** It reuses the AI processing queue, the AI-processor Lambda (which Story 10.1a gives a
+  `job-engine-run` branch) and the `jobs` table. `docs/infrastructure/architecture-diagram.md` and `high-level-overview.md` need no
+  change for it. No new AD: a job type is added by registering it (the engine rule Story 10.1a writes).
+- **The one real seam, covered by an AC.** A selected post's extraction ends in one place, `markPostExtractedSeam` in
+  `lib/ai-processor/process-ai-job.ts` (two call sites). The job needs to know when its last post finishes, so
+  `ProcessingJobMessage` (`packages/domain/src/posts/types.ts`) gains an optional `jobId` and the seam calls one shared
+  "finish the job if complete" check. This is on Story 10.12a as an AC; a domain type change keeps the 100% coverage rule.
+- **Residual, accepted.** A post whose extraction fails (for example a validation failure) never reaches that seam: it returns to
+  Pending after the 30-minute claim TTL. The job learns that at the sweep or at its 45-minute bound, so a job with a failed post
+  ends later than one that succeeds. The PRD states this behaviour (FR129).
+
+**Gate 1 finding on Story 10.1a from the queue amendment (fixed, no AC change).** 10.1a's claim accepts any `QUEUED` row and its
+sweep expires rows by `deadlineAt`, which `startJob` sets at insert. With waiting jobs that is wrong twice: a waiting job could be
+claimed early by a stray invoke, and the sweep would expire it 150 seconds after insert. Fix: a nullable `jobs.admitted_at`
+(set at insert in 10.1a, because admission control arrives in 10.3), required by the claim and by the sweep's deadline condition,
+and a `usesVendor` flag on the registry entry. Both are recorded as a task and a Dev Note in the 10.1a story file. Story 10.3 then
+sets `admitted_at` and `deadlineAt` when it promotes a waiting job, with no change to 10.1a's call sites.
+
+**Story 10.3 rewritten, same sweep.** Its acceptance criteria now carry the two limits (vendor jobs 3, extraction-only jobs 2), the
+queue (accepted as `QUEUED`, started by the worker's end-of-job path and by the sweep, bounded by `JOB_QUEUE_MAX_WAIT_MINUTES`
+and `MAX_QUEUED_JOBS_PER_USER`), and a concurrency test. The queue-wait expiry extends the existing hourly sweep; no second sweep.
+
+**Gate 3 (foundational / cross-cutting), Story 10.12a**
+
+- Depends on Stories 10.1a, 10.3 and 10.4 only. No cross-epic prerequisite found. Backend tests must leave no `jobs` rows
+  (row-count ratchet), the same obligation as Story 10.1a.
+- New user-facing strings (the job-type label, the "waiting" marker on the selection screen) need English and Indonesian copy
+  (project-context i18n rule). The Jobs page copy is Story 10.4's; the selection screen's marker is this story's.
+
+**Verdict.** Story 10.12a is buildable as one story; no split, no new prerequisite story. Sprint status gains the key
+`10-12a-run-manual-post-selection-as-a-job` (`backlog`). Epic 10 readiness status stays **APPROVED & READY FOR DEV**.

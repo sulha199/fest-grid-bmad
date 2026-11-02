@@ -269,3 +269,18 @@ The 14% for `user-visible` is low because the pass was seeded on one capability.
 - `bmad-prd` for the Jobs capability comes before `bmad-epic-readiness-check` on Epic 10, then `bmad-create-story` in story order.
 - Several `quick-dev` rows say "fix on its PR, set done once merged" (BUG-076, BUG-077, BUG-078, BUG-081, BUG-082, BUG-083, BUG-090, IDEA-097); their action is verify and close.
 - Run the runner with `PYTHONIOENCODING=utf-8` for `--cluster` on Windows.
+
+---
+
+## Addendum 2026-11-02 (later the same day): one story added, one story rewritten
+
+- **IDEA-120 "Manual post selection runs as a job and shows on the Jobs page"** joins Epic 10 as **Story 10.12a** (FR129). Product owner
+  decision after asking whether manual extraction was covered: it was not (only AI-assisted correction, extract-by-URL and re-extract
+  were). Mechanism shared with the rest of the epic is the engine, the Jobs page and the finish notification; it is the one job type
+  that makes no vendor call. Numbered 10.12a so 10.13 and 10.14z keep their numbers. Effort `m`.
+- **Story 10.3 rewritten** for FR121's amendment: a job over its limit is queued, not refused, and the vendor-job limit (3) is separate
+  from the extraction-job limit (2). Story 10.1a gains a nullable `admitted_at` and a `usesVendor` registry flag so the queue lands
+  without changing its call sites; no acceptance criterion changed.
+- Epic 10 has fifteen stories. The stability test is unaffected: the new row joined by the same mechanism (the engine), not by
+  similarity.
+

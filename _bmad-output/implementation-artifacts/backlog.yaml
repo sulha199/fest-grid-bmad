@@ -2861,6 +2861,14 @@ items:
      touches: [app:backend, cross:notifications, cross:prd],
      note: "Epic 10, Story 10.13. Moderators via Epic 0.i1's helper; notifying subscribers is a PRD question."}
 
+  IDEA-120:
+    {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
+     impact: user-visible, effort: m,
+     title: "Manual post selection runs as a job and shows on the Jobs page",
+     ref: [backlog/IDEA-120-manual-post-selection-runs-as-a-job.md],
+     touches: [app:backend, web:posts, cross:prd],
+     note: "Epic 10, Story 10.12a. Makes no vendor call, so it uses the engine's non-vendor lane (limit 2). Added at the product owner's request."}
+
   # ── 2026-11-02 (bmad-create-story, Story 10.1a carve-first) ──────────────────
   FIND-120:
     {type: finding, status: backlog, created: 2026-11-02, parent: FIND-086,

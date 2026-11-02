@@ -131,7 +131,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR118 (added 2026-11-02):** A job reaches a vendor through an ordered, configurable chain of providers (Apify and Bright Data today; the default order is open item OI-1); when a provider throws, returns nothing, runs out of time or is over its quota the job moves to the next one, and every provider considered is recorded with its outcome and times (PRD 3.18).
 - **FR119 (added 2026-11-02):** A vendor result that arrives after the job deadline is still collected and processed and the job is marked "completed after deadline"; a vendor run still reported as running is waited for up to a configured bound before the job falls back or expires; a result delivered twice is processed once (PRD 3.18; IDEA-102).
 - **FR120 (added 2026-11-02):** Starting work that the same user already has running re-attaches to that job; the same input started by different users shares one vendor call and each user job completes from it, sharing only the vendor public result (PRD 3.18).
-- **FR121 (added 2026-11-02):** A user may have at most MAX_CONCURRENT_JOBS_PER_USER jobs running (default 3, environment-configurable), enforced on the server per user account and atomically; a refused start says why and points to the running jobs (PRD 3.18).
+- **FR121 (added 2026-11-02; amended 2026-11-02):** A user may have at most MAX_CONCURRENT_JOBS_PER_USER vendor jobs running (default 3, environment-configurable); jobs that never reach a vendor have their own limit, MAX_CONCURRENT_EXTRACTION_JOBS_PER_USER (default 2). A job started over its limit is accepted and shown as Queued, starts by itself as a running job of its kind ends, and expires with a reason if it waits longer than JOB_QUEUE_MAX_WAIT_MINUTES (default 30); at most MAX_QUEUED_JOBS_PER_USER (default 10) may wait, and a start beyond that is refused with its reason. Enforced on the server per user account and atomically (PRD 3.18).
 - **FR122 (added 2026-11-02):** A subscribe job reserves a slot against the subscription cap in the same atomic step as the cap check (active plus in-flight, never above the cap), per user account rather than per tab or device, and releases it when the job fails, expires or is cancelled (PRD 3.18 and Section 6; closes the IDEA-008 cap wording).
 - **FR123 (added 2026-11-02):** A Jobs page, reachable from the user menu and usable on a phone, lists the signed-in user jobs newest first with infinite scroll and shows type, status and timing; a job detail shows the step it is at, the result link, the reason and a Retry button where retrying makes sense, and the action that started the job shows inline progress (PRD 3.18).
 - **FR124 (added 2026-11-02):** When a job ends in any way (including a late result) and its owner was not watching, the owner is told: in-app always, plus push through the existing channel and the pushNotificationsEnabled setting (default on, no new consent screen, no email), one push per job and merged within JOB_NOTIFY_WINDOW_MINUTES (default 10), naming only the job type and the account handle (PRD 3.18; closes IDEA-119).
@@ -139,6 +139,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR126 (added 2026-11-02):** Subscribing returns at once and the profile lookup, the account-type classification and the first scrape run as one job the user can follow and leave; the account shows as being added and holds a slot; if the job ends because the account was not found, is private or no provider could be reached, no subscription remains and the slot is released (PRD 3.7).
 - **FR127 (added 2026-11-02):** The posts a first-scrape job saves for a newly subscribed account are queued for extraction as soon as the job finishes, within the Gemini daily budget and the Tier 1/Tier 2 key rules, and the onboarding wizard never waits for a scrape (PRD 3.7, 3.10, 3.11; IDEA-009).
 - **FR128 (added 2026-11-02):** The other long vendor-backed actions run as jobs on the same engine and appear on the Jobs page: AI-assisted correction and extract-from-a-post-URL (re-scraping the one post through the provider chain when its caption or images no longer exist), the scrape-this-account-now action (which re-attaches to a running job), and the moderator administrative jobs such as payload reprocessing and the dedup, snapshot-replay and backfill operations (PRD 3.7, 3.9.1, 3.9.3; IDEA-047, IDEA-116).
+- **FR129 (added 2026-11-02):** Extracting the posts a user selected by hand (PRD 3.10) runs as one job per confirmed selection: the quota and subscription checks still refuse first, posts already extracted or in flight are skipped and counted, progress and ending are read from the posts' own statuses, a job that cannot finish every post ends Succeeded with limits with a Retry for the posts that are Pending again, and it makes no vendor call, so it does not count toward the vendor job limit (PRD 3.10, 3.18).
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -320,7 +321,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR118: Epic 10 - Background vendor jobs (Story 10.2, the post-scraper provider chain; PRD 3.18, added 2026-11-02)
 - FR119: Epic 10 - Background vendor jobs (Story 10.5, late vendor results; PRD 3.18, added 2026-11-02)
 - FR120: Epic 10 - Background vendor jobs (Story 10.3, admission control and slot reservation; PRD 3.18, added 2026-11-02)
-- FR121: Epic 10 - Background vendor jobs (Story 10.3, admission control and slot reservation; PRD 3.18, added 2026-11-02)
+- FR121: Epic 10 - Background vendor jobs (Story 10.3, admission control, waiting and slot reservation; PRD 3.18, added 2026-11-02)
 - FR122: Epic 10 - Background vendor jobs (Story 10.3, admission control and slot reservation; PRD 3.18, added 2026-11-02)
 - FR123: Epic 10 - Background vendor jobs (Story 10.4, the Jobs page; PRD 3.18, added 2026-11-02)
 - FR124: Epic 10 - Background vendor jobs (Story 10.13, job-finished notifications; PRD 3.18, added 2026-11-02)
@@ -328,6 +329,7 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR126: Epic 10 - Background vendor jobs (Story 10.7, subscribe and profile lookup as a job; PRD 3.18, added 2026-11-02)
 - FR127: Epic 10 - Background vendor jobs (Story 10.8, first-subscribe automatic extraction; PRD 3.18, added 2026-11-02)
 - FR128: Epic 10 - Background vendor jobs (Stories 10.9 to 10.12, AI correction, extract-by-URL, refresh now and the administrative jobs; PRD 3.18, added 2026-11-02)
+- FR129: Epic 10 - Background vendor jobs (Story 10.12a, manual post selection as a job; PRD 3.10 and 3.18, added 2026-11-02)
 
 ## Epic List
 
@@ -6096,7 +6098,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Capability:** A user or moderator who starts work that takes longer than a request (re-fetching a post, a profile lookup at subscribe) sees it run in the background and can check its progress and result in one place. It finishes even when a vendor is slow, over quota or fails over, and starting it twice never costs twice.
 **Spec:** `bmad-prd` first (`epic-formation-gate.md` §2): the PRD has no section for a Jobs page, so a new capability section plus amendments to §3.7, §3.9.3 and §3.11 land before any story below starts. **Evidence and decisions:** `planning-artifacts/background-vendor-jobs-design-notes-2026-11-02.md`. **Profile-lookup design:** `planning-artifacts/profile-lookup-fallback-and-ux-2026-10-31.md`.
 **Decisions already taken:** vendor chain `apify,brightdata`; a rescrape runs when the cover link has expired, the cover is low resolution (`s640x640` or smaller) or slides are missing or unknown; fresh links are saved to `posts` (never the caption); when the budget runs out the job continues on the stored images with a banner and a Retry button; a late vendor result is still collected; the same input re-attaches to the running job; a subscribe job reserves a slot against the subscription cap.
-**FRs covered:** FR116 to FR128 (PRD 3.18 and the sections it amends; assigned 2026-11-02).
+**FRs covered:** FR116 to FR129 (PRD 3.18 and the sections it amends; assigned 2026-11-02).
 
 ### Story 10.1a: Build the job engine core: record, lifecycle, runner and sweep
 
@@ -6135,15 +6137,17 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 ### Story 10.3: Add reuse and admission control to job start
 
 **As a** user,
-**I want** starting the same work twice to join the running job, and starting several at once never to push me past my plan,
-**So that** I never wait or pay twice and never exceed my subscription cap.
+**I want** starting the same work twice to join the running job, and starting several at once never to push me past my plan or be turned away,
+**So that** I never pay twice, never exceed my subscription cap and never get a refusal for work I am allowed to start.
 
 **Acceptance Criteria:**
 
 *   **Given** a running job of the same type and input for the same user, **when** it is started again, **then** the existing job id is returned (replacing the `SCRAPE_IN_PROGRESS` error); for a different user the vendor call is shared and each user's job completes from it.
-*   **And** a per-user cap limits concurrent jobs, enforced atomically, and a refused start says why.
-*   **And** a subscribe job reserves a slot against the subscription cap (5 for a normal user, moderators exempt, per PRD §6) inside one transaction and releases it on failure or expiry; two simultaneous subscribes by a user holding 4 accounts produce exactly one success (concurrency test). The cap itself, its upgrade call to action and its analytics events are built here if IDEA-008 has not landed (absorbs IDEA-008).
+*   **And** admission is per user account and atomic. Each job type's registration declares whether it uses a scraping vendor. At most `MAX_CONCURRENT_JOBS_PER_USER` (default 3) vendor jobs run at once; jobs that never reach a vendor (Story 10.12a) are limited separately by `MAX_CONCURRENT_EXTRACTION_JOBS_PER_USER` (default 2), so an extraction never holds up a subscribe (PRD §3.18, FR121).
+*   **And** a job started over its limit is accepted as `QUEUED` with its position, not refused; it starts by itself, oldest first, when a running job of the same kind ends (the worker's end-of-job path and the sweep both start the next one, so a lost wake-up cannot strand it). A job holds its place only until it ends, so a late vendor result (Story 10.5) does not hold one. A job queued longer than `JOB_QUEUE_MAX_WAIT_MINUTES` (default 30) ends `EXPIRED` with the reason `WAITED_TOO_LONG` (the existing hourly sweep is extended for this, not a second sweep), and a start beyond `MAX_QUEUED_JOBS_PER_USER` (default 10) is refused with its reason and a pointer to the Jobs page. A start that re-attaches to a running or queued job returns that job (reuse above).
+*   **And** a subscribe job reserves a slot against the subscription cap (5 for a normal user, moderators exempt, per PRD §6) inside one transaction when the job is accepted, even while it waits in the queue, and releases it on failure or expiry; two simultaneous subscribes by a user holding 4 accounts produce exactly one success (concurrency test). The cap itself, its upgrade call to action and its analytics events are built here if IDEA-008 has not landed (absorbs IDEA-008).
 *   **And** the 10-minute rescrape cooldown starts only when a vendor call actually ran (FIND-119).
+*   **And** a concurrency test starts five subscribes at once for a user holding none: three run, two are `QUEUED` and start as the first ones end, and a sixth subscribe is refused by the subscription cap (FR122), not by the job limit.
 
 **Depends on:** Story 10.1a.
 
@@ -6157,6 +6161,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 *   **Given** the GraphQL `job(id)`, `myJobs` (cursor-paginated) and `activeJobs`, **when** the Jobs page loads, **then** it lists the user's jobs (a moderator also sees all jobs behind a filter) with type, status, start time and elapsed time; the detail view shows the phase stepper, the provider, the per-attempt history (which adapter ran and why it switched), the reason a job ended degraded, and a Retry button.
 *   **And** the inline component polls a job and shows its stepper in a dialog that can be dismissed; reopening the same action re-attaches to the running job.
+*   **And** a `QUEUED` job shows that it is waiting, with its position and the reason (the user's limit is full), in the list, the detail view and the inline component, and the change from waiting to running is announced to assistive technology (PRD §3.18, FR121; added 2026-11-02).
 *   **And** the list uses the shared list-pagination controller (Epic 0.i5) and account rows use `SubscribedAccountCard` (Epic 0.i6); copy exists in English and Indonesian and status changes are announced to assistive technology.
 *   **And** the flow is designed through `bmad-ux` before the build.
 
@@ -6272,6 +6277,27 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Stories 10.1a, 10.4.
 
+### Story 10.12a: Run manual post selection as a job
+
+**As a** user selecting posts to extract by hand,
+**I want** the extraction to show on the Jobs page and to tell me when it has finished,
+**So that** I can leave the selection screen and still know which of my posts were read.
+
+**Acceptance Criteria:**
+
+*   **Given** a user confirms a selection on the post selection screen (PRD §3.10), **when** `selectPostsForExtraction` runs, **then** the Gemini key-quota check and the subscription check run first and refuse as today (`QUOTA_EXHAUSTED`, `FORBIDDEN`) before any job exists; otherwise one `EXTRACT_SELECTED_POSTS` job is created for the whole selection (input key: the sorted post ids), the mutation still returns the selected posts with their `extractionStatus` and now also returns the job id, and no scraping vendor is called.
+*   **And** each post still goes through `enqueuePostForProcessing`'s atomic claim unchanged; a post already extracted or already in flight is skipped and counted in the job's result, not treated as an error, and when no post can start the selection is refused with today's `BAD_REQUEST` or `CONFLICT` reasons. Starting an identical selection again returns the same job (Story 10.3 reuse).
+*   **And** the job's progress and ending are read from the posts' own `extractionStatus`, which stays the single source of truth (no second per-post status is stored): it shows "N of M finished"; it ends `SUCCEEDED` when every started post is `PROMOTED` or `NOT_EVENT`, and `SUCCEEDED_WITH_LIMITS` with `SOME_POSTS_NOT_EXTRACTED` when `JOB_EXTRACTION_DEADLINE_MINUTES` (default 45, longer than the 30-minute `POST_EXTRACTION_CLAIM_TTL_MINUTES`) passes first or posts have returned to `PENDING`. Retry starts a new job for the posts that are `PENDING` again.
+*   **And** the job learns that a post finished through one shared check, called from the AI processor's end-of-post path and from the sweep; the queue message carries the job id (an optional field on `ProcessingJobMessage`), so the check is a lookup and not a scan, and the owner is told when the last post finishes, not at the next hourly sweep.
+*   **And** admission uses the extraction limit of Story 10.3 (`MAX_CONCURRENT_EXTRACTION_JOBS_PER_USER`, default 2) and never the vendor-job count. A job that waits keeps its posts `PENDING`; the screen marks them as waiting and keeps them unselectable; the quota is checked again when the waiting job starts, and posts the quota no longer covers are skipped and counted (PRD §3.10, FR129).
+*   **And** the job appears on the Jobs page with the number of posts and, when every post belongs to one account, its handle; Story 10.13's notification applies, and the push names the job type and that handle, or the number of posts, never a caption.
+*   **And** the wizard's selection step shows the job's progress after confirm and lets the user continue to the feed (PRD §3.10 Wizard Integration, §3.11, FR127).
+*   **And** integration tests cover: quota refusal before any job exists; two identical selections give one job; an overlapping selection skips the claimed posts; a full extraction limit queues the job and a finishing job starts it; a post that never finishes ends the job `SUCCEEDED_WITH_LIMITS`.
+
+**Depends on:** Stories 10.1a, 10.3, 10.4.
+
+**Note:** Numbered `10.12a` so the already-referenced `10.13` and `10.14z` keep their numbers. Added 2026-11-02 at the product owner's request ("everything into one epic"); backlog row IDEA-120. Unlike every other job type it makes no vendor call, so it is the one story that exercises the engine's non-vendor lane.
+
 ### Story 10.13: Notify when a job finishes
 
 **As a** moderator,
@@ -6300,6 +6326,8 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** all other Epic 10 stories.
 
-**Note:** Formed 2026-11-02 via `bmad-form-epics` from BUG-099, IDEA-115, IDEA-047, IDEA-008, IDEA-009 and BUG-014, plus IDEA-116 to IDEA-119 created with the epic; IDEA-101 and IDEA-102 are answered by Stories 10.2 and 10.5. Feature epic: the `z` ratchet is optional and was included because the epic's whole justification is the shared mechanism, which is what stops a second feature forking the first one's helper. In chat the stories were lettered `a` (engine core) to `m`: `a`=10.1a, `b`=10.2, `c`=10.3, `d`=10.4, `e`=10.5, `f`=10.6, `g`=10.7, `h`=10.8, `i`=10.9, `j`=10.10, `k`=10.11, `l`=10.12, `m`=10.13, `z`=10.14z. The gate allows one mechanism story; 10.1a is large and 10.2 to 10.5 are mechanism parts, so `bmad-epic-readiness-check` is expected to validate or split them. Independent fixes that ship ahead of the epic: BUG-100, FIND-119 and BUG-101. What sits outside the epic is tracked in `planning-artifacts/epic-formation/epic-10-outside-the-epic-2026-11-02.md`.
+**Note:** Formed 2026-11-02 via `bmad-form-epics` from BUG-099, IDEA-115, IDEA-047, IDEA-008, IDEA-009 and BUG-014, plus IDEA-116 to IDEA-119 created with the epic; IDEA-101 and IDEA-102 are answered by Stories 10.2 and 10.5. Feature epic: the `z` ratchet is optional and was included because the epic's whole justification is the shared mechanism, which is what stops a second feature forking the first one's helper. In chat the stories were lettered `a` (engine core) to `m`: `a`=10.1a, `b`=10.2, `c`=10.3, `d`=10.4, `e`=10.5, `f`=10.6, `g`=10.7, `h`=10.8, `i`=10.9, `j`=10.10, `k`=10.11, `l`=10.12, `m`=10.13, `z`=10.14z; 10.12a was added later (see its Note). The gate allows one mechanism story; 10.1a is large and 10.2 to 10.5 are mechanism parts, so `bmad-epic-readiness-check` is expected to validate or split them. Independent fixes that ship ahead of the epic: BUG-100, FIND-119 and BUG-101. What sits outside the epic is tracked in `planning-artifacts/epic-formation/epic-10-outside-the-epic-2026-11-02.md`.
 
 **Readiness swept 2026-11-01** (`bmad-epic-readiness-check`, Gate 1 + Gate 3, `epic-readiness/epic-10-readiness.md`): no story split, no new prerequisite story. 10.1a validated buildable as one story with the AD embedded (worker host, job-table relation to the four existing tables and slot-reservation storage were already settled by the design notes and by the story's own AC before this sweep; the one real gap, cross-Lambda phase hand-off for a job whose phases need different Lambda capabilities, is now its own explicit AC). AD-32's `callVendor` adoption gap for Apify/Bright Data scraper call sites, which the spine flagged as missing (AD-32 Rule 6), is already closed by Story 0.i2d (`done`) and enforced going forward by 0.i2z (`review`); Story 10.2's own AC already routes its new post-chain calls through it — no new story needed. AD-41 Rule 1 ("the subscription always succeeds") is amended, not superseded, by Story 10.7 (AC added). Story 10.13's moderator-notification AC was corrected (0.i1a's drafted contract is all-moderators fan-out with no single-recipient mode) and a missing AC for FR124's main in-app/push channel (every job owner, not just moderators) was added — this was the one FR→AC traceability gap found. Dependencies on Epic 0.i3 (10.1a) and Epic 0.i5/0.i6 (10.4) are soft, not hard: the mechanisms Story 10.4 actually needs (0.i5a, 0.i6a) are already `review`-status and safe to build against; only their ratchets (0-i5z, 0-i6z) are still pending. Story 0.24 (wizard primitive) is marked `ready-for-dev` in `sprint-status.yaml` but is confirmed already implemented in code (`apps/web/src/features/wizard/wizard-registry.ts`, committed) — stale bookkeeping, not a blocker for Story 10.8; flagged for correction outside this sweep's scope. Next: `bmad-create-story` on Story 10.1a first.
+
+**Changed after the sweep, 2026-11-02** (product owner decisions, addendum in `epic-readiness/epic-10-readiness.md`): a job started over its limit is queued instead of refused (FR121; Story 10.3 rewritten, Story 10.1a gains `admitted_at` and a `usesVendor` registry flag with no acceptance criterion changed), and manual post selection becomes a job type (FR129; new Story 10.12a, backlog row IDEA-120). The vendor-job limit stays 3; extraction-only jobs have their own limit of 2, so a long extraction never holds up a subscribe. Epic 10 now has fifteen stories; Gate 1 and Gate 3 were re-run for the new story only and found no split and no new prerequisite.

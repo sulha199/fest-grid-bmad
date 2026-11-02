@@ -89,7 +89,7 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 
 ## 5. Clusters found but not formed (decide whether to run another pass)
 
-- [ ] **Event dedup**, 10 rows: IDEA-062 (manual merge of any two events), IDEA-066 (organizer's post beats a venue's), IDEA-067 (organizer signal
+- [ ] **Event dedup**, 10 rows (updated 2026-11-02 after master PR #135: FIND-107, FIND-108 and FIND-112 are now `done`, so 7 rows stay open, and two new rows joined the area: FIND-114, replace the owner role in the AI-review apply secret with a narrow write role by 2026-12-31, and IDEA-113, list and badge the AI-assisted merges with undo; so 9 rows are open). Original list: IDEA-062 (manual merge of any two events), IDEA-066 (organizer's post beats a venue's), IDEA-067 (organizer signal
   from the new post's associations), IDEA-056 (LLM tie-break for mid-confidence matches), BUG-094 (merges outside resolveSuggestedMatch skip
   the lock), FIND-113 (undoEventMerge does not refuse a later live merge), FIND-104 / FIND-107 / FIND-108 / FIND-112 (AI dedup review pieces C,
   B1, B2b-1, B2b-2, already sequenced by `spec-ai-dedup-review-pipeline`). A plausible feature epic; not formed because the last four are
@@ -144,9 +144,10 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 
 - [x] Board repaired to a clean runner (checks 1, 3, 5, 14, 15; the check-5 versus check-6 contradiction resolved in the runner and spec section 5).
 - [x] The duplicate `IDEA-103` renumbered: "Profile lookup falls back to a background phase" is now **IDEA-115**.
-- [x] Epic 10 formed (14 stories), rows IDEA-116 to IDEA-119 and BUG-100, FIND-119, BUG-101 created, eight rows stamped `epic: epic-10`.
+- [x] Epic 10 formed (14 stories; a fifteenth, 10.12a manual post selection, was added later the same day with IDEA-120), rows IDEA-116 to IDEA-119 and BUG-100, FIND-119, BUG-101 created, eight rows stamped `epic: epic-10`.
 - [x] Spike: one single-post scrape per vendor; both return all 5 slides (numbers in the design notes).
 - [x] PRD amended for the Jobs capability (commit `c8341998`): section 3.18, FR116 to FR128, open items OI-1 to OI-4.
-- [x] FR116 to FR128 backfilled into `epics.md` (inventory, coverage map, Epic 10 "FRs covered").
+- [x] FR116 to FR128 backfilled into `epics.md` (inventory, coverage map, Epic 10 "FRs covered"); FR129 added with Story 10.12a, and FR121 amended (a job over its limit is queued, not refused; vendor jobs limited to 3, extraction-only jobs to 2).
+- [x] Manual post selection (PRD 3.10) was not in the epic; the product owner chose to add it as a job type: Story 10.12a, IDEA-120. Readiness re-run for that story only (addendum in `epic-readiness/epic-10-readiness.md`).
 - [x] Nine "fix on its PR" rows verified against master and closed or corrected (section 6).
 - [x] Code for BUG-100, FIND-119 and BUG-101 committed on three local branches (section 1); lint and build green on their integration.
