@@ -1,10 +1,11 @@
 # AI-assisted dedup review: design record
 
-Status: design agreed 2026-10-30 (bmad-quick-dev session, owner: shulha). Split into three pieces after an
-architecture review and an adversarial code review of the first single-spec draft. This file is the shared
-context for the specs. Piece A is built and merged (PR 119); B1, the read-only export, is built and verified on prod (`FIND-107`); B2a (the `resolved_via` flag)
-is merged; B2b-1, the apply engine, is built (`FIND-108`); B2b-2, the workflow and paper trail (`FIND-112`), and C, the
-skill (`FIND-104`), are deferred.
+Status: design agreed 2026-10-30 (bmad-quick-dev session, owner: shulha). Split into pieces after architecture and
+code reviews. This file is the shared context for the specs. Built and merged: A (PR 119), B1 the read-only export
+(`FIND-107`, verified on prod), B2a the `resolved_via` flag, B2b-1 the apply engine (`FIND-108`, PR 134). B2b-2, the
+apply workflow and its paper trail (`FIND-112`, architecture decision AD-45, PRD 3.7 and 3.9.3 amended), is built on
+its branch; its write secret is created only after the workflow's actions are pinned by SHA, so until then only
+`validate` can run. C, the skill (`FIND-104`), is deferred.
 
 ## 1. Goal
 
@@ -20,7 +21,10 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 
 - Decider is the cloud Claude session; Actions never runs an LLM (a later option: `claude-code-action`).
 - v1 auto-**ACCEPT** only. Never auto-reject. Everything else is escalated.
-- Shadow mode (apply as a dry run) is the default; `live` must be passed explicitly.
+- Shadow mode is the workflow's `validate` mode: every check, no merge, a read-only role, no approval. `apply` (a dry
+  run unless `live` is passed explicitly) uses the write credential, so it waits for the owner's approval in the
+  `dedup-review-live` environment on every run. (The first draft called the dry run the shadow mode; the two
+  contradicted §5 item 9, which keeps shadow away from the write credential.)
 - Merges are recorded under the **moderator who invoked the skill** (decision 2026-10-31, replacing the earlier
   dedicated moderator user and the `DEDUP_REVIEW_MODERATOR_EMAIL` variable). The skill reads the Claude account email
   from its session context and passes its SHA-256 (lowercased, trimmed) as a workflow input, never the address: the
@@ -64,7 +68,7 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 | **B1** | Evidence contract and hash in `packages/domain`, the read-only export script and workflow, docs (`FIND-107`) | Dark: a human dispatches the export and reads the JSON. **Built 2026-10-31.** | A |
 | **B2a** | `resolved_via` / `performed_via` flag (merged, PR 131) | Behaviour-preserving; marks every resolution as a person's or the AI's | B1 |
 | **B2b-1** | Decision judge, floor and caps in `packages/domain`; apply script (`FIND-108`). **Built 2026-10-31.** | Dark: code and tests, nothing can run it | B2a |
-| **B2b-2** | `dedup-review-apply` workflow, write secret, kill-switch variable, new AD, PRD amendment, runbook (`FIND-112`) | Dark: a human dispatches it, `validate` before `apply` | B2b-1 |
+| **B2b-2** | `dedup-review-apply` workflow (three jobs, two environments), guard script and tests, kill-switch variable, AD-45, PRD amendment, runbook (`FIND-112`). **Built 2026-11-01.** | A human dispatches it, `validate` before `apply`; the write secret waits for SHA-pinned actions | B2b-1 |
 | **C** | `moderator-dedup-review` skill (`SKILL.md`), labels, `dedup-insight` issue, shadow-mode acceptance | The daily skill | B on `master` |
 | C2 (later) | `review-insights` mode | Reads closed, labelled issues | weeks of C data |
 
@@ -121,6 +125,12 @@ merge (the skill dispatches both workflows, which must exist on `master`).
    better long-term option and costs a role, grants on about nine tables, `BYPASSRLS` and a secret. B2 also gets two modes:
    `validate` (default; runs every check on the read-only secret and runs no merge) and `apply` (the write secret), so
    shadow mode never touches the write credential.
+   *Decided 2026-11-01 (B2b-2):* the write secret is `DEDUP_REVIEW_APPLY_DATABASE_URL` in a **separate** environment
+   `dedup-review-live` (master only, the owner as required reviewer), holding the migration role as an exception that
+   expires 2026-12-31 (`FIND-114`: a narrow role replaces it); it is created only after the workflow's actions are pinned
+   by commit SHA; the kill-switch variable lives in that environment and apply refuses unless it is exactly `false`
+   or `0`. The architecture review's point stands: the floor, caps and kill switch bound a wrong decision, not a leaked
+   credential, and the owner role is already in `production` for other workflows with no reviewer (AD-45 Rule 7).
 10. **Docs and decisions**: a NEW AD (next free number after AD-44) for the credential-less-agent-through-CI-bridge
     pattern, with a one-line cross-reference in AD-30 Rule 9; a PRD amendment (the PRD says a moderator approves mid
     pairs; add the PRD to the spec's context); `docs/infrastructure/3-database.md` (second consumer of the read role);

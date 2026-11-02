@@ -869,3 +869,14 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-apply-engine.md`
   summary: `undoEventMerge` does not refuse when the winner or the loser has a later live merge, so undoing an earlier merge after the winner was itself merged away leaves an inconsistent state (an alias chain pointing at a merged event).
   evidence: Found by the architecture review of the apply engine; it is pre-existing and reachable by a moderator today, but the apply path makes it likelier (an automated run can merge a winner shortly before a human undoes an older merge). Not caused by B2b-1.
+
+## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-workflow (2026-11-01)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-apply-workflow.md`
+  summary: Replace the owner (migration) role in the `DEDUP_REVIEW_APPLY_DATABASE_URL` secret with a narrow write role by 2026-12-31 (write on the tables a merge changes, `BYPASSRLS`, no DDL, no `auth` schema, a `statement_timeout`), and record the workflow run id in `event_merges` so a merge can be traced to its run and approver once the Actions logs have expired.
+  evidence: AD-45 Rule 8 makes the owner role a time-boxed exception, and the architecture review of the workflow found that the floor, caps and kill switch bound a wrong decision but not a leaked credential. The Actions log keeps the `mergeId` list only 90 days and does not record the approver, so the run id in the journal is the durable link (it needs a change to the apply script and a column, so it is not part of the workflow piece).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-apply-workflow.md`
+  summary: A moderator-facing view of AI-assisted merges: a list or badge built on `resolved_via` and `performed_via`, with the undo action beside each, so rolling back no longer depends on the runbook's database query.
+  evidence: The PRD amendment says an AI merge is recorded as AI-assisted and can be undone like any merge, but no screen shows the flag; moderators can only learn of an AI merge from the runbook. Deferred as a user-visible item of its own (exposing the flag in GraphQL is under Ask First in the flag spec).
+
