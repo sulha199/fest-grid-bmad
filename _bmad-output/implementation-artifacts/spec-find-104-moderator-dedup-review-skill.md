@@ -2,7 +2,7 @@
 title: 'moderator-dedup-review skill (FIND-104, piece C of the AI dedup review)'
 type: 'feature'
 created: '2026-11-03'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '4796f16fb8f49718fbdd1068c927c6311df518e3'
 review_loop_iteration: 0
 context:
