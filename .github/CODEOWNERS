@@ -1,8 +1,8 @@
-# Code that holds or gates a production write credential. The ruleset "protect-master" requires a code
-# owner's approval on a pull request that changes these paths. The owner is the only account with write access
-# and cannot approve their own pull request, so the owner merges these with the ruleset bypass (a deliberate
-# act, only inside a pull request); nobody else can merge them.
-# To merge one: gh pr merge <number> --admin (a plain merge is refused until a code owner approves).
+# Code that holds or gates a production write credential. The ruleset "protect-master" refuses a direct push to
+# master and asks a code owner to approve a pull request that changes these paths. The repository admin role
+# (the owner, and any session using the owner's token) bypasses that approval inside a pull request, and the
+# bypass is automatic: a plain `gh pr merge` goes through (tested 2026-11-03). So these paths are protected
+# from everyone else, not from the owner's token.
 /.github/workflows/                          @sulha199
 /.github/CODEOWNERS                          @sulha199
 /scripts/                                    @sulha199

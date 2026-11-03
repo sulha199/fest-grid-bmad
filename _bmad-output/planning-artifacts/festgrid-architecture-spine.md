@@ -2955,7 +2955,9 @@ This document defines the core architectural invariants for the FestDaily applic
         same name; a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
         required, a code owner named in `.github/CODEOWNERS` must approve a change to the workflows, `scripts/`
         and the dedup code, and force pushes and deletion are blocked; the repository admin role bypasses it
-        inside a pull request, so it stops everyone but the owner and a session using the owner's token); and
+        inside a pull request, so it stops everyone but the owner and a session using the owner's token; tested
+        2026-11-03: a direct push and a branch deletion are refused even for the owner, but a pull request that
+        touches an owned path merges with a plain `gh pr merge`, the bypass being automatic); and
         the supply chain of the apply job (no dependency lifecycle scripts, no persisted checkout token, no
         restored cache, actions pinned by commit SHA). **The apply workflow's actions have been pinned by SHA
         since 2026-11-03.** `--ignore-scripts`
