@@ -29,11 +29,12 @@ const WRITE_SECRET = 'secrets.DEDUP_REVIEW_APPLY_DATABASE_URL';
 const READ_SECRET = 'secrets.DEDUP_REVIEW_READONLY_DATABASE_URL';
 
 /**
- * Actions that are still pinned by tag, not by commit SHA. The SHAs could not be looked up when the workflow
- * was written, and the owner decided (2026-11-01) that the write secret is created only once these are
- * pinned. When they are, empty this list and delete the warning from the workflow header.
+ * Actions that are still pinned by tag, not by commit SHA. Empty since the pin change (2026-11-03): the owner
+ * decided (2026-11-01) that the write secret is created only once the workflow's actions are pinned. Pin a new
+ * action by SHA instead of listing it here; if one is listed on purpose, the workflow header must carry the
+ * "DO NOT CREATE THIS SECRET" warning again while it is.
  */
-const KNOWN_UNPINNED = ['actions/checkout@v4', 'actions/setup-node@v4', 'pnpm/action-setup@v3'];
+const KNOWN_UNPINNED: string[] = [];
 
 function stripComments(text: string): string {
   return text

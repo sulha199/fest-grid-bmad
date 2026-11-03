@@ -2955,18 +2955,21 @@ This document defines the core architectural invariants for the FestDaily applic
         same name; a reviewed `master` (a ruleset requiring a pull request, and CODEOWNERS over the workflows
         and the dedup code, decided by the owner); and the supply chain of the apply job (no dependency
         lifecycle scripts, no persisted checkout token, no restored cache, actions pinned by commit SHA).
-        **At the time of writing the ruleset, CODEOWNERS and the SHA pins do not exist.** `--ignore-scripts`
+        **At the time of writing the ruleset and CODEOWNERS do not exist; the apply workflow's actions have been
+        pinned by SHA since 2026-11-03.** `--ignore-scripts`
         stops lifecycle scripts only: a dependency's own code still runs when it is built (a step without the
         credential) and when the script imports it (a step with it). The read-only secret has the same exposure:
-        `backup_ro` reads every table, the export and `validate` hold it with tag-pinned actions, and `validate`
-        needs no approval (`FIND-109`). **Precondition (owner decision 2026-11-01):** the write
-        secret is created only after the actions in the apply workflow are pinned by SHA; until then only
-        `validate` runs. The owner role is already in `production` and used by other workflows without a
-        reviewer; this adds a gated copy and does not reduce that exposure.
-    8.  **The write role is a time-boxed exception.** For v1 the secret holds the migration (owner) role,
-        which can run DDL. That exception expires **2026-12-31**, when a narrow role (write on the dedup
-        tables, `BYPASSRLS`, no DDL, no `auth` schema) replaces it (`FIND-114`). Rotating the owner password
-        means updating both copies.
+        `backup_ro` reads every table, the export holds it with tag-pinned actions (`FIND-109`), `validate` holds
+        it with SHA-pinned ones, and `validate` needs no approval. **Precondition (owner decision 2026-11-01),
+        met 2026-11-03:** the write secret is created only after the actions in the apply workflow are pinned
+        by SHA. The owner role is already in `production` and used by other workflows without a reviewer; the
+        write secret holds a different, narrower role (Rule 8), so this does not add a copy of it.
+    8.  **The write role is a narrow role, not the owner role.** The secret holds `dedup_review_apply`
+        (created 2026-11-03): `BYPASSRLS`, no DDL, `UPDATE` and `INSERT` only on the tables a merge changes
+        (grants in `3-database.md`). The time-boxed use of the migration (owner) role that this rule first
+        allowed, expiring 2026-12-31, was not taken. Its read grant is `SELECT` on the tables in `public`, with
+        no `pg_read_all_data` and so no `auth` schema; narrowing that to the evidence tables is what remains of
+        `FIND-114`. Rotating its password means updating one secret.
     9.  **Reversibility and audit.** A merge is undoable through `undoEventMerge` (AD-30 Rule 9), with the
         known gap that undo does not refuse when a later merge touched the winner (`FIND-113`). The list to
         undo from is the database's, not the log: `event_merges` where `performed_via = 'ai_skill'` and
