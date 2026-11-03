@@ -2,6 +2,7 @@
 # owner's approval on a pull request that changes these paths. The owner is the only account with write access
 # and cannot approve their own pull request, so the owner merges these with the ruleset bypass (a deliberate
 # act, only inside a pull request); nobody else can merge them.
+# To merge one: gh pr merge <number> --admin (a plain merge is refused until a code owner approves).
 /.github/workflows/                          @sulha199
 /.github/CODEOWNERS                          @sulha199
 /scripts/                                    @sulha199
