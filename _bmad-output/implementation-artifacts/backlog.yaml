@@ -2641,10 +2641,10 @@ items:
   FIND-114:
     {type: finding, status: backlog, created: 2026-11-01,
      impact: compliance, effort: m,
-     title: "AI dedup review: replace the owner role in the apply secret with a narrow write role by 2026-12-31, and record the run id in the merge journal",
+     title: "AI dedup review: narrow the apply role's reads to the evidence tables, and record the run id in the merge journal",
      ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md],
      touches: [app:backend, pkg:database, app:infrastructure, cross:architecture],
-     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-workflow (2026-11-01). AD-45 Rule 8: the owner role is an exception that expires 2026-12-31."}
+     note: "The write role landed 2026-11-03: dedup_review_apply (BYPASSRLS, writes only the merge tables, SELECT on public) holds the apply secret and merged one pair live; the owner-role exception never started. Left: narrow its reads, put the run id in the journal."}
 
   IDEA-113:
     {type: idea, status: backlog, created: 2026-11-01,
@@ -2718,7 +2718,7 @@ items:
      title: "Workflows with database or cloud secrets run dependency install scripts and tag-pinned third-party actions before the secret step",
      ref: [implementation-artifacts/deferred-work.md, .github/workflows/merge-twin-profiles.yml],
      touches: [app:infrastructure, cross:process],
-     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Install with --ignore-scripts where possible and pin actions by SHA. 1 finding."}
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Dedup apply workflow pinned by SHA (PR 137, 2026-11-03); 12 other workflows still use tags, incl. the dedup export (read-only secret). pinact can pin them in one pass."}
 
   # ── 2026-10-31 (bmad-quick-dev: re-extract preview of a carousel roundup showed only the first image's events) ──
   BUG-099:
