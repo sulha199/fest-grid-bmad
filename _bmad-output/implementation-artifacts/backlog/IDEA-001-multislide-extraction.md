@@ -1073,3 +1073,7 @@ expected minimum events schedule, ignore the harga_tiket:
 ]
 
 ```
+
+## Board note (moved verbatim from backlog.yaml, 2026-11-02)
+
+value: 3-6l delivers the same outcome within the Gemini 500-RPD budget — IDEA-001 retries n+1 slides per post, multiplying requests against that ceiling, while 3-6l is one batched request regardless of slide count. Rival designs, not a supersession: only one gets built, so this is a value skip and §9.2 never reopens it on price. Ruled at the 2026-09-11 human checkpoint. Original reason follows. Instagram carousels sometimes carry schedules on slide 2+ and not in the caption. Proposes the prompt also return expected schedule count/names to trigger a follow-up pass. Open question: heuristic vs always processing all images. Not implemented — no such mechanism in apps/backend/src/lib/ai-processor.

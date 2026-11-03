@@ -137,6 +137,12 @@ def run_checks(items, tags, stories, last_updated=None):
     def fail(num, row, msg):
         failures.append((num, row, msg))
 
+    # A parent with an open child stays `promoted` (backlog-spec.md section 6: a parent cannot be `done`
+    # while any child is open), so check 5's derivation and check 6 cannot contradict each other.
+    parents_with_open_child = {
+        r.get("parent") for r in items.values() if r.get("parent") and r.get("status") in OPEN
+    }
+
     for key, row in items.items():
         status = row.get("status")
 
@@ -158,7 +164,7 @@ def run_checks(items, tags, stories, last_updated=None):
                 fail(4, key, f"story not in sprint-status.yaml: {story}")
 
         if row_stories:
-            derived = "done" if all(
+            derived = "done" if key not in parents_with_open_child and all(
                 stories.get(s) in STORY_TERMINAL for s in row_stories
             ) else "promoted"
             if status != derived:

@@ -230,6 +230,9 @@ as a "cheap win".
 
 - any story `backlog`/`ready-for-dev`/`in-progress`/`review` → `promoted`
 - all stories terminal (`done` or `wont-do`) **and** no unapplied sections → `done`
+- any open child (§6) → `promoted`, even when every story is terminal: a parent cannot be `done`
+  while a child is open (check 5 derives this; added 2026-11-02 after CC-028 and IDEA-026 made
+  checks 5 and 6 contradict each other)
 
 `wont-do` is a real terminal value in `sprint-status.yaml` (first used for
 `4-3b-add-a-report-trigger-to-eventcard-list-view`, cancelled by CC-017). It counts
