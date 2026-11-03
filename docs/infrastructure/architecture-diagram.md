@@ -40,10 +40,11 @@ graph TD
         GHA_BK["Production DB Backup: nightly and manual pg_dump"]
         GHA_RT["Production DB Restore Test: restores the newest dump after each backup"]
         GHA_DE["Dedup Review Export: manual, read-only evidence JSON of the pending dedup queue for the AI reviewer"]
+        GH_ISSUES["GitHub Issues: dedup-escalate issues and the rolling dedup-insight log"]
         GHA_DA["Dedup Review Apply: manual; validate is read-only, apply (dry run or live) waits for the owner's approval in dedup-review-live and merges accepted pairs"]
     end
 
-    subgraph ClaudeCloud["Claude cloud session (no database credentials)"]
+    subgraph ClaudeCloud["Claude cloud session (no production database credentials)"]
         AI_SKILL["moderator-dedup-review skill: decides which pending dedup pairs are obvious, opens escalation issues, logs each run on the dedup-insight issue"]
     end
 
@@ -106,7 +107,8 @@ graph TD
     GHA_DE -- read-only evidence queries, READ ONLY transaction --> DB
     GHA_DA -- validate: read-only checks, READ ONLY transaction --> DB
     GHA_DA -- apply: guarded merges through resolveSuggestedMatch, write role, owner approval --> DB
-    AI_SKILL -- dispatches the export and validate on master, reads the report from the job log --> GHA_DE
+    AI_SKILL -- dispatches the export on master, reads its report from the job log --> GHA_DE
+    AI_SKILL -- opens and closes labelled issues, one comment per run --> GH_ISSUES
     AI_SKILL -- dispatches validate; apply only when the owner says so --> GHA_DA
 ```
 

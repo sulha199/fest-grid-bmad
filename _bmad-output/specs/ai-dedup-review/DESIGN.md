@@ -173,16 +173,19 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 - **The reader.** `dedup_report.py` (with `test_dedup_report.py`) reads the job logs and builds every piece of public text,
   so a model never parses a 98k-character line or copies a 64-hex hash. Markers are matched as whole lines: the export
   workflow's summary step echoes its own `awk` script, so a substring test rejects every real log.
-- **Shadow mode is `validate`.** A pair `validate` calls eligible gets an escalation issue marked "shadow", because nothing
-  merges and it would otherwise lead every export; the later `outcome:*` label is the agreement data the acceptance
-  needs. A live `apply` is dispatched only on the owner's word in the conversation, and an unattended session is
-  validate-only.
+- **Shadow mode is `validate`.** A pair `validate` calls eligible gets an escalation issue whose title ends `(shadow)`, because
+  nothing merges and it would otherwise lead every export; the later `outcome:*` label is the agreement data the acceptance
+  needs. To go live the owner clears the run: shadow ids then stay out of `skip_ids`, the pair returns in a fresh export, is
+  decided again and validated, and the owner is asked about the set that will be dispatched. A live `apply` is dispatched only
+  on the owner's word in the conversation, and an unattended session is validate-only.
 - **Issue trust is by label.** Only issues carrying `dedup-escalate` (or `dedup-insight`) count, read with `list_issues`
   and no body; the repo has no issue template or workflow that could label an outsider's issue. A closed issue is reopened
   only when its pair is pending again after an undo.
 - **When the open issues fill `skip_ids`** (its cap is in the export workflow) the skill is frozen: it still exports and
   settles, opens no new issue and stamps the insight issue.
-- **Known gaps.** `recentlyResolved` hides human decisions (`FIND-115`, the skill closes only ids it can see there); the
+- **Known gaps.** A pair whose issue a person closed while it is still pending keeps leading every export; only open ids go
+  in `skip_ids` so the count of resolved-but-open issues stays exact (`FIND-117`: the skill reports it and stamps `blocked`).
+  `recentlyResolved` hides human decisions (`FIND-115`, the skill closes only ids it can see there); the
   export has no suggestion age, so the insight issue's "oldest" age is approximate; whether issue creation makes a missing
   label is unverified, so the skill reads the labels back; the owner-token limit (AD-45 Rule 6) is text, not enforcement
   (`FIND-116`).

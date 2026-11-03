@@ -47,10 +47,11 @@ graph TD
         GHA_Restore["Production DB Restore Test: restores the newest dump after each backup"]
         GHA_DedupExport["Dedup Review Export: manual, read-only evidence JSON for the AI reviewer"]
         GHA_DedupApply["Dedup Review Apply: manual; validate read-only, apply needs the owner's approval"]
+        GH_Issues["GitHub Issues: dedup-escalate issues and the dedup-insight log"]
     end
 
     subgraph "Claude cloud session"
-        AI_Skill["moderator-dedup-review skill: decides, escalates through GitHub issues, no database credentials"]
+        AI_Skill["moderator-dedup-review skill: decides, escalates through GitHub issues, no production database credentials"]
     end
 
     subgraph External Services
@@ -109,5 +110,6 @@ graph TD
     GHA_DedupApply -- validate: read-only; apply: guarded merges, write role, approval --> Supabase
     AI_Skill -- dispatches the export, reads its report from the job log --> GHA_DedupExport
     AI_Skill -. validate; apply only when the owner says so .-> GHA_DedupApply
+    AI_Skill -- opens and closes labelled issues --> GH_Issues
 ```
 

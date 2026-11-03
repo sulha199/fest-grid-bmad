@@ -2,9 +2,9 @@
 title: 'moderator-dedup-review skill (FIND-104, piece C of the AI dedup review)'
 type: 'feature'
 created: '2026-11-03'
-status: 'in-review'
+status: 'in-progress'
 baseline_commit: '4796f16fb8f49718fbdd1068c927c6311df518e3'
-review_loop_iteration: 0
+review_loop_iteration: 1
 context:
   - '{project-root}/_bmad-output/specs/ai-dedup-review/DESIGN.md'
   - '{project-root}/docs/infrastructure/7-event-dedup.md'
@@ -60,8 +60,8 @@ context:
 
 **Execution:**
 - [x] `.claude/skills/moderator-dedup-review/SKILL.md` -- the procedure, the reason-code table, the live gate, failure handling -- DESIGN section 6
-- [x] `.claude/skills/moderator-dedup-review/dedup_report.py` -- stdlib reader and builder: whole-line markers after stripping timestamp, CR, ANSI, BOM; END = BEGIN + 2; payload checks; commands for header, pairs, resolved, apply, decisions, issue body -- the export line is about 98k characters
-- [x] `.claude/skills/moderator-dedup-review/test_dedup_report.py` -- `unittest` with synthetic logs: echoed marker, truncation, two pairs, U+2028, CRLF, non-JSON wrapper, backticks
+- [x] `.claude/skills/moderator-dedup-review/dedup_report.py` -- stdlib reader and builder: whole-line markers after stripping timestamp, CR, ANSI, BOM; END = BEGIN + 2; every log command requires the dispatched run tag (`apply` also the mode and the dispatched ids); commands for header, pairs, resolved, apply, decisions, triage, issue-ids, issue, comment, insight -- the export line is about 98k characters; model text goes in by file, never argv; all public text is built here (fixed phrases, validated enums, fenced and masked event text)
+- [x] `.claude/skills/moderator-dedup-review/test_dedup_report.py` -- `unittest` with synthetic logs: echoed marker, truncation, two pairs, reordered markers, U+2028, CRLF, non-JSON wrapper, backticks, malformed event shapes, invisible characters, a stale log
 - [x] `.github/CODEOWNERS` -- own the skill folder
 - [x] `7-event-dedup.md`, `architecture-diagram.md`, `DESIGN.md` -- add the skill, fix the stale lines (`apply` dry run is not shadow; AD-45, not AD-40; cancelled runs)
 - [x] `backlog.yaml` -- `FIND-104` status
@@ -72,9 +72,20 @@ context:
 - Given a shadow run, when it ends, then every apply run it dispatched has `mode=validate`.
 - Given a run, when it ends, then the insight issue has a comment per run and a body with last run, `totalPending`, the oldest open escalation age and the oldest unescalated pair's age (approximate).
 
+## Spec Change Log
+
+- **Round 1 (2026-11-03), Blind Hunter and Edge Case Hunter, `bad_spec`.**
+  - Finding: shadow-eligible pairs sat in `skip_ids`, so a pair never returned in a later export and the skill had no way to build the live `decisions` from a shadow run. The spec described shadow but never the path to live.
+  - Amended: Design Notes (the shadow-to-live rule, the `blocked` status), the reader and test tasks. The frozen row "skipped next time" is read as "in shadow-only runs"; it is unchanged.
+  - Known-bad state avoided: a live path that cannot start, or a live set different from the one the owner approved.
+  - Patches folded into the re-derive: model text by file not argv (command injection); required run tag, mode and ids so a stale or foreign log is refused; a log-less `failed:` stamp; plain-text output instead of escaped JSON; `fullmatch` instead of `$`; a truncation marker and no accept on a cut pair; invisible-character and contact masking; malformed shapes exit 7; the apply result codes and an ids check; consent after the re-run in the live step; stricter preflight; duplicate-create re-listing.
+  - KEEP: whole-line marker matching and its tests; fence sizing; label-only issue trust; reader-built public text; the `decisions` command; shadow issues; the docs and board edits.
+
 ## Design Notes
 
 Every pair not merged is escalated or recorded, or tomorrow's export returns it first and the queue starves. The export has no suggestion age (`FIND-115`).
+
+Shadow to live: a shadow issue's title ends `(shadow)`. In a shadow-only run its id goes into `skip_ids` (frozen matrix: skipped next time). Once the owner has cleared the run for live, shadow ids are NOT skipped: the pair returns in a fresh export, is decided again on fresh evidence, validated, shown to the owner, and only then applied. A shadow pair that `validate` now refuses gets a fixed-phrase comment. Open issues are the only ids in `skip_ids`, so the count of resolved-but-open issues stays exact; a pair whose issue is closed but which is pending again stays visible at the head of the export and is reported (status `blocked` when no exported pair is new), because sending closed ids would break that count (`FIND-117`).
 
 ## Verification
 
@@ -84,4 +95,5 @@ Every pair not merged is escalated or recorded, or tomorrow's export returns it 
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: its failure lines are the same as clean master's
 
 **Manual checks (if no CLI):**
+- The lint and build gates pass. The full test gate cannot finish in this sandbox (unseeded database, a hanging `scraper.test.ts`) and fails identically on a clean master; this change touches no file under `apps/` or `packages/`.
 - The owner reviews one shadow run: dispatch, log reading, labels, insight comment.

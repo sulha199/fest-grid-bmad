@@ -2685,6 +2685,14 @@ items:
      touches: [app:infrastructure, cross:process, cross:architecture],
      note: "Deferred from: bmad-quick-dev review of spec-find-104-moderator-dedup-review-skill (2026-11-03). Architecture review blocker: AD-45 Rule 6 is prose; the skill carries an allowlist meanwhile. 1 finding."}
 
+  FIND-117:
+    {type: finding, status: backlog, created: 2026-11-03,
+     impact: latent, effort: s,
+     title: "AI dedup review skill: closed-pending issues block the export head, U+2028 in its line, no CI tests",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/events/dedup-review-export.ts, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [app:backend, pkg:domain, app:infrastructure, cross:process],
+     note: "Deferred from: bmad-quick-dev code review of spec-find-104-moderator-dedup-review-skill (2026-11-03). The skill reports the blocked head and stamps the insight issue meanwhile. 3 findings."}
+
   FIND-115:
     {type: finding, status: backlog, created: 2026-11-03,
      impact: internal, effort: s,
