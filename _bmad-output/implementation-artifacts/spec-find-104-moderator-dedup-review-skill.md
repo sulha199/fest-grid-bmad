@@ -2,7 +2,8 @@
 title: 'moderator-dedup-review skill (FIND-104, piece C of the AI dedup review)'
 type: 'feature'
 created: '2026-11-03'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '4796f16fb8f49718fbdd1068c927c6311df518e3'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/specs/ai-dedup-review/DESIGN.md'
@@ -58,12 +59,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `.claude/skills/moderator-dedup-review/SKILL.md` -- the procedure, the reason-code table, the live gate, failure handling -- DESIGN section 6
-- [ ] `.claude/skills/moderator-dedup-review/dedup_report.py` -- stdlib reader and builder: whole-line markers after stripping timestamp, CR, ANSI, BOM; END = BEGIN + 2; payload checks; commands for header, pairs, resolved, apply, decisions, issue body -- the export line is about 98k characters
-- [ ] `.claude/skills/moderator-dedup-review/test_dedup_report.py` -- `unittest` with synthetic logs: echoed marker, truncation, two pairs, U+2028, CRLF, non-JSON wrapper, backticks
-- [ ] `.github/CODEOWNERS` -- own the skill folder
-- [ ] `7-event-dedup.md`, `architecture-diagram.md`, `DESIGN.md` -- add the skill, fix the stale lines (`apply` dry run is not shadow; AD-45, not AD-40; cancelled runs)
-- [ ] `backlog.yaml` -- `FIND-104` status
+- [x] `.claude/skills/moderator-dedup-review/SKILL.md` -- the procedure, the reason-code table, the live gate, failure handling -- DESIGN section 6
+- [x] `.claude/skills/moderator-dedup-review/dedup_report.py` -- stdlib reader and builder: whole-line markers after stripping timestamp, CR, ANSI, BOM; END = BEGIN + 2; payload checks; commands for header, pairs, resolved, apply, decisions, issue body -- the export line is about 98k characters
+- [x] `.claude/skills/moderator-dedup-review/test_dedup_report.py` -- `unittest` with synthetic logs: echoed marker, truncation, two pairs, U+2028, CRLF, non-JSON wrapper, backticks
+- [x] `.github/CODEOWNERS` -- own the skill folder
+- [x] `7-event-dedup.md`, `architecture-diagram.md`, `DESIGN.md` -- add the skill, fix the stale lines (`apply` dry run is not shadow; AD-45, not AD-40; cancelled runs)
+- [x] `backlog.yaml` -- `FIND-104` status
 
 **Acceptance Criteria:**
 - Given the real 2026-11-03 export log and the synthetic ones, when the tests run, then the real log parses, and every bad log exits non-zero with its own code.
@@ -78,7 +79,7 @@ Every pair not merged is escalated or recorded, or tomorrow's export returns it 
 ## Verification
 
 **Commands:**
-- `python3 -I -m unittest .claude/skills/moderator-dedup-review/test_dedup_report.py` -- expected: all pass
+- `python3 -I .claude/skills/moderator-dedup-review/test_dedup_report.py` -- expected: all pass (`DEDUP_REPORT_REAL_LOG=<saved log>` adds the real-log test)
 - `python3 -I .claude/skills/moderator-dedup-review/dedup_report.py <saved log> header` -- expected: totals of the 2026-11-03 run
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: its failure lines are the same as clean master's
 

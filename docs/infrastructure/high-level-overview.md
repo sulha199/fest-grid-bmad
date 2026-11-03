@@ -49,6 +49,10 @@ graph TD
         GHA_DedupApply["Dedup Review Apply: manual; validate read-only, apply needs the owner's approval"]
     end
 
+    subgraph "Claude cloud session"
+        AI_Skill["moderator-dedup-review skill: decides, escalates through GitHub issues, no database credentials"]
+    end
+
     subgraph External Services
         Supabase[Supabase (PostgreSQL)]
         FCM[Firebase Cloud Messaging]
@@ -103,5 +107,7 @@ graph TD
     GHA_Restore -- read-only row and object counts --> Supabase
     GHA_DedupExport -- read-only evidence queries, READ ONLY transaction --> Supabase
     GHA_DedupApply -- validate: read-only; apply: guarded merges, write role, approval --> Supabase
+    AI_Skill -- dispatches the export, reads its report from the job log --> GHA_DedupExport
+    AI_Skill -. validate; apply only when the owner says so .-> GHA_DedupApply
 ```
 
