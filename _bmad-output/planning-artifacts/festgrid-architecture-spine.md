@@ -2952,11 +2952,13 @@ This document defines the core architectural invariants for the FestDaily applic
     7.  **What protects the credential.** Rules 3 and 4 bound a mistaken or manipulated *decision*. They do
         nothing if the credential leaks. That is covered only to the extent these are in place: both environments
         limited to `master`; the required reviewer; no repository or organization secret or variable of the
-        same name; a reviewed `master` (a ruleset requiring a pull request, and CODEOWNERS over the workflows
-        and the dedup code, decided by the owner); and the supply chain of the apply job (no dependency
-        lifecycle scripts, no persisted checkout token, no restored cache, actions pinned by commit SHA).
-        **At the time of writing the ruleset and CODEOWNERS do not exist; the apply workflow's actions have been
-        pinned by SHA since 2026-11-03.** `--ignore-scripts`
+        same name; a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
+        required, a code owner named in `.github/CODEOWNERS` must approve a change to the workflows, `scripts/`
+        and the dedup code, and force pushes and deletion are blocked; the repository admin role bypasses it
+        inside a pull request, so it stops everyone but the owner and a session using the owner's token); and
+        the supply chain of the apply job (no dependency lifecycle scripts, no persisted checkout token, no
+        restored cache, actions pinned by commit SHA). **The apply workflow's actions have been pinned by SHA
+        since 2026-11-03.** `--ignore-scripts`
         stops lifecycle scripts only: a dependency's own code still runs when it is built (a step without the
         credential) and when the script imports it (a step with it). The read-only secret has the same exposure:
         `backup_ro` reads every table, the export holds it with tag-pinned actions (`FIND-109`), `validate` holds

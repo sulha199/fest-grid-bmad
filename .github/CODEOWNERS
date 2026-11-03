@@ -1,0 +1,10 @@
+# Code that holds or gates a production write credential. The ruleset "protect-master" requires a code
+# owner's approval on a pull request that changes these paths. The owner is the only account with write access
+# and cannot approve their own pull request, so the owner merges these with the ruleset bypass (a deliberate
+# act, only inside a pull request); nobody else can merge them.
+/.github/workflows/                          @sulha199
+/.github/CODEOWNERS                          @sulha199
+/scripts/                                    @sulha199
+/apps/backend/src/dedup-review-*             @sulha199
+/apps/backend/src/lib/events/dedup-review-*  @sulha199
+/packages/domain/src/events/dedup-review-*   @sulha199
