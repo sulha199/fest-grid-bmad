@@ -220,7 +220,7 @@ jobs:
     timeout-minutes: 15
     environment: dedup-review-live
     # All apply runs share one group, so two cannot overlap. GitHub keeps one pending run and cancels an
-    # older pending one, and a run waiting for approval probably holds the slot (NOT yet verified, see the
+    # older pending one, and a run waiting for approval holds the slot (verified 2026-11-03, see the
     # runbook); the caller treats a cancelled run as "dispatch again". The script's advisory lock is the real
     # guard against two live runs.
     concurrency:
