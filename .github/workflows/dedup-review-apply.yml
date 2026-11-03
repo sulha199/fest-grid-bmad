@@ -28,8 +28,9 @@ run-name: Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'ap
 # docs/infrastructure/7-event-dedup.md. TWO HONEST LIMITS: (1) if the AI session dispatches with a token that
 # belongs to the one required reviewer, it can approve its own run through the API, so the click only stops
 # anyone else; dispatch with a separate account that is not a reviewer to make the gate real. (2) The actions
-# below are tag-pinned, so a moved tag runs new code in this job; and `--ignore-scripts` stops dependencies'
-# lifecycle scripts only, not their code when it is built or imported.
+# below are pinned by commit SHA (the trailing comment names the tag, for people), so a moved tag cannot
+# change this job, and a newer release is taken only by re-pinning by hand; `--ignore-scripts` stops
+# dependencies' lifecycle scripts only, not their code when it is built or imported.
 #
 # One-time setup (the owner does this in GitHub; nothing here can create it). Create the environments BEFORE
 # this file reaches master: a workflow that names a missing environment makes GitHub create it unprotected.
@@ -43,12 +44,11 @@ run-name: Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'ap
 #      deleted or misspelled variable stops apply. To switch apply off, set it to `true`: it applies to jobs
 #      that start afterwards; to stop a run that has started, cancel it (a live run that is cancelled before
 #      its commit rolls back).
-#   4. In `dedup-review-live`, the SECRET `DEDUP_REVIEW_APPLY_DATABASE_URL`: the URL of a role that can write
-#      the dedup tables and bypasses row level security (the script refuses a role that does not). For v1 it
-#      is the migration role, an exception that expires 2026-12-31 (FIND-114: a narrow role replaces it).
-#      DO NOT CREATE THIS SECRET until the actions below are pinned by commit SHA (owner decision
-#      2026-11-01): the three `uses:` lines are still tag-pinned because the SHAs could not be looked up.
-#      Until then only `validate` can run. Rotating the migration role's password means updating both copies.
+#   4. In `dedup-review-live`, the SECRET `DEDUP_REVIEW_APPLY_DATABASE_URL`: the URL of the narrow role
+#      `dedup_review_apply` (BYPASSRLS, no DDL, update and insert only on the tables a merge changes; the script
+#      refuses a role that does not bypass row level security). It is not the owner role. The owner decided
+#      (2026-11-01) that this secret is created only once the actions below are pinned by commit SHA, which
+#      this change does. Rotating the role's password means updating this one secret.
 #   5. No repository-level or organization-level secret OR variable may carry the names of the two database
 #      secrets or of DEDUP_REVIEW_APPLY_DISABLED: an outer one is visible to every job (a secret) or shows
 #      through when the environment's own is deleted (a variable).
@@ -157,19 +157,19 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
         with:
           run_install: false
 
       # No `cache:` here on purpose: this job holds a database credential, and a restored cache is code
       # this run did not fetch. The install takes seconds.
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: 'package.json'
 
@@ -248,7 +248,7 @@ jobs:
           esac
 
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
 
@@ -264,14 +264,14 @@ jobs:
           fi
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
         with:
           run_install: false
 
       # No `cache:` here on purpose: this job holds the write credential, and a restored cache is code this
       # run did not fetch. The install takes seconds.
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: 'package.json'
 
