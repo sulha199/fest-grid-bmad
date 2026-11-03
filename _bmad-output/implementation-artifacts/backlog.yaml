@@ -2552,12 +2552,27 @@ items:
 
   # ── 2026-10-30 (public events list repeats and skips rows across pages) ──
   BUG-090:
-    {type: bug, status: backlog, created: 2026-10-30,
+    {type: bug, status: done, created: 2026-10-30,
      impact: user-visible, effort: s,
      title: "Discovery's default order has no tie-breaker, so paging repeats one event and skips another",
      ref: [apps/backend/src/schema/resolvers.ts, apps/backend/src/schema/events-default-order-tiebreak.test.ts, backlog/BUG-090-discovery-order-no-tiebreaker.md],
      touches: [app:backend, web:events],
-     note: "Fixed in the PR that adds this row (events.id as the last ORDER BY key); set done once merged. 2026-10-30: one pass of 664 rows held 614 distinct events. Duplicate counts taken from that list before the fix are inflated."}
+     note: "Fixed in PR 115, merged 2026-10-30 (events.id as the last ORDER BY key). Before it, one pass of 664 rows held 614 distinct events; duplicate counts taken from that list are inflated."}
+
+  # ── 2026-10-30 (dedup matching: tolerant venue match, expiring dead suggestions; rows added 2026-11-03, the work shipped without one) ──
+  IDEA-110:
+    {type: idea, status: done, created: 2026-10-30,
+     title: "Read one venue spelled two ways (\"Ground Floor\" / \"Lantai GF\") as one place in dedup matching",
+     ref: [packages/domain/src/events/venue-text-match.ts, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, pkg:domain, cross:architecture],
+     note: "Shipped in PR 116 (2026-10-30): venueTextsSamePlace ignores floor words and abbreviations for the promotion's venue-conflict test and the stub-repeat venue match. Evaluated on prod data the same day."}
+
+  IDEA-107:
+    {type: idea, status: done, created: 2026-10-30,
+     title: "Expire pending match suggestions whose pair has a dead event or whose events are both over",
+     ref: [apps/backend/src/lib/events/expire-match-suggestions.ts, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, cross:architecture],
+     note: "Shipped in PR 117 (2026-10-30): the operator tool expire-stale-match-suggestions.ts sets such a suggestion to the new status expired (dry run, then --apply). Run on prod 2026-10-30/31."}
 
   # ── 2026-10-30 (Apify monthly cap, repeated posts, late Bright Data results) ──
   BUG-091:
