@@ -2967,8 +2967,8 @@ This document defines the core architectural invariants for the FestDaily applic
     8.  **The write role is a narrow role, not the owner role.** The secret holds `dedup_review_apply`
         (created 2026-11-03): `BYPASSRLS`, no DDL, `UPDATE` and `INSERT` only on the tables a merge changes
         (grants in `3-database.md`). The time-boxed use of the migration (owner) role that this rule first
-        allowed, expiring 2026-12-31, was not taken. Its read grant is wider than the target: `pg_read_all_data`
-        reads every schema, `auth` included, and narrowing that to `SELECT` on `public` is what remains of
+        allowed, expiring 2026-12-31, was not taken. Its read grant is `SELECT` on the tables in `public`, with
+        no `pg_read_all_data` and so no `auth` schema; narrowing that to the evidence tables is what remains of
         `FIND-114`. Rotating its password means updating one secret.
     9.  **Reversibility and audit.** A merge is undoable through `undoEventMerge` (AD-30 Rule 9), with the
         known gap that undo does not refuse when a later merge touched the winner (`FIND-113`). The list to
