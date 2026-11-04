@@ -1,4 +1,5 @@
-import { count, eq, inArray, and, isNull, sql } from 'drizzle-orm';
+import { count, eq, inArray, and, sql } from 'drizzle-orm';
+import { activeOnly } from '@festgrid/graphql-select';
 import { eventMatchCandidates, eventMerges, events, users } from '@festgrid/database';
 import {
   DEDUP_REVIEW_APPLY_SCHEMA_VERSION,
@@ -56,7 +57,7 @@ export async function resolveInvokerUserId(executor: DbExecutor, invokerHash: st
   const rows = await executor
     .select({ id: users.id, role: users.role })
     .from(users)
-    .where(and(isNull(users.deletedAt), sql`encode(sha256(convert_to(lower(btrim(${users.email}, chr(9) || chr(10) || chr(13) || ' ')), 'UTF8')), 'hex') = ${invokerHash}`));
+    .where(and(activeOnly(users), sql`encode(sha256(convert_to(lower(btrim(${users.email}, chr(9) || chr(10) || chr(13) || ' ')), 'UTF8')), 'hex') = ${invokerHash}`));
   const [only] = rows;
   if (rows.length !== 1 || only.role !== 'moderator') {
     throw new DedupReviewInvokerError(INVOKER_REFUSAL);

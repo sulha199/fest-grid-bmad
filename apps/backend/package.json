@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/src/index.js",
-    "lint": "eslint . --report-unused-disable-directives",
+    "lint": "eslint . --report-unused-disable-directives && pnpm run lint:invariants",
+    "lint:invariants": "eslint --quiet --config eslint.invariants.config.mjs .",
     "codegen": "graphql-codegen --config codegen.ts",
     "test": "cross-env NODE_ENV=test tsx scripts/run-tests-with-row-count-ratchet.ts"
   },

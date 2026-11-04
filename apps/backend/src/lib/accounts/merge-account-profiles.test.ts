@@ -12,7 +12,8 @@ import {
   subscriptions,
   users,
 } from '@festgrid/database';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
+import { activeOnly } from '@festgrid/graphql-select';
 import { mergeAccountProfiles, planAccountProfileMerge, findTwinGroups } from './merge-account-profiles.js';
 
 const suffix = Date.now().toString();
@@ -169,7 +170,7 @@ test('merge-account-profiles integration tests', async (t) => {
     assert.strictEqual(assocs.filter((a) => a.postId === thirdParty.id && a.role === 'COAUTHOR').length, 1);
 
     // Subscriptions: user A has exactly one active row, user B was repointed.
-    const subs = await db.select().from(subscriptions).where(and(eq(subscriptions.accountId, survivor.id), isNull(subscriptions.deletedAt)));
+    const subs = await db.select().from(subscriptions).where(and(eq(subscriptions.accountId, survivor.id), activeOnly(subscriptions)));
     assert.strictEqual(subs.filter((s) => s.userId === userA.id).length, 1);
     assert.strictEqual(subs.filter((s) => s.userId === userB.id).length, 1);
 

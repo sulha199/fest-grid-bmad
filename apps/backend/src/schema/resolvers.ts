@@ -2599,7 +2599,7 @@ export const resolvers: Resolvers = {
     registerEmbedDomain: async (_, { widgetId, pattern }, context) => {
       const authUser = requireAuth(context);
       
-      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       if (!widget) {
         throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
       }
@@ -2782,7 +2782,7 @@ export const resolvers: Resolvers = {
         .where(
           and(
             eq(unprocessedScraperPayloads.id, payloadId),
-            isNull(unprocessedScraperPayloads.deletedAt)
+            activeOnly(unprocessedScraperPayloads)
           )
         )
         .returning({ id: unprocessedScraperPayloads.id });
@@ -3126,7 +3126,7 @@ export const resolvers: Resolvers = {
     rankedVoteAccounts: async (_, { nearMe, locationPreferenceId }, context, info) => {
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
-        .where(isNull(subscriptions.deletedAt));
+        .where(activeOnly(subscriptions));
       const excludedAccountIds = activeSubs.map(s => s.accountId);
 
       let userId: string | null = null;
@@ -3140,13 +3140,13 @@ export const resolvers: Resolvers = {
       let locationPref: typeof userLocations.$inferSelect | null = null;
       if (nearMe && locationPreferenceId && userId) {
         const [loc] = await db.select().from(userLocations)
-          .where(and(eq(userLocations.id, locationPreferenceId), eq(userLocations.userId, userId), isNull(userLocations.deletedAt)));
+          .where(and(eq(userLocations.id, locationPreferenceId), eq(userLocations.userId, userId), activeOnly(userLocations)));
         if (loc) {
           locationPref = loc;
         }
       }
 
-      const conditions = [isNull(accountVotes.deletedAt)];
+      const conditions = [activeOnly(accountVotes)];
       if (excludedAccountIds.length > 0) {
         conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
       }
@@ -3168,7 +3168,7 @@ export const resolvers: Resolvers = {
           weight: sql<number>`MAX(CASE WHEN ${distanceSql} <= ${callerRadiusKm} THEN 10 ELSE 1 END)`.as('weight')
         })
         .from(userLocations)
-        .where(isNull(userLocations.deletedAt))
+        .where(activeOnly(userLocations))
         .groupBy(userLocations.userId)
         .as('voter_weights');
 
@@ -3221,8 +3221,8 @@ export const resolvers: Resolvers = {
         locationDetails: userLocations.locationDetails,
       })
       .from(accountVotes)
-      .leftJoin(userLocations, and(eq(accountVotes.userId, userLocations.userId), isNull(userLocations.deletedAt)))
-      .where(and(eq(accountVotes.accountId, accountId), isNull(accountVotes.deletedAt)));
+      .leftJoin(userLocations, and(eq(accountVotes.userId, userLocations.userId), activeOnly(userLocations)))
+      .where(and(eq(accountVotes.accountId, accountId), activeOnly(accountVotes)));
 
       const voterLocationsMap = new Map<string, { latitude: number; longitude: number; city?: string; province?: string }>();
       for (const row of votes) {
@@ -3267,10 +3267,10 @@ export const resolvers: Resolvers = {
 
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
-        .where(isNull(subscriptions.deletedAt));
+        .where(activeOnly(subscriptions));
       const excludedAccountIds = activeSubs.map(s => s.accountId);
 
-      const conditions = [isNull(accountVotes.deletedAt), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)];
+      const conditions = [activeOnly(accountVotes), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)];
       if (excludedAccountIds.length > 0) {
         conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
       }
@@ -3320,25 +3320,25 @@ export const resolvers: Resolvers = {
     },
     myWidgets: async (_, __, context) => {
       const authUser = requireAuth(context);
-      const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
     widgetById: async (_, { id }, context) => {
-      const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), isNull(widgets.deletedAt)));
+      const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), activeOnly(widgets)));
       return (row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null);
     },
     embedDomainsForWidget: async (_, { widgetId }, context) => {
       const authUser = requireAuth(context);
-      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       if (!widget) {
         throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
       }
-      const rows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+      const rows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), activeOnly(embedDomains)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
     isOriginAllowedForWidget: async (_, { widgetId, origin }) => {
       const cleanOrigin = origin.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
-      const activePatterns = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+      const activePatterns = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), activeOnly(embedDomains)));
       
       for (const row of activePatterns) {
         const pattern = row.pattern.toLowerCase();
@@ -4356,7 +4356,7 @@ export const resolvers: Resolvers = {
           .innerJoin(events, eq(events.id, eventPosts.eventId))
           .where(and(
             eq(eventPosts.postId, postId),
-            isNull(events.deletedAt),
+            activeOnly(events),
             isNull(events.mergedIntoEventId)
           ));
 
@@ -4377,7 +4377,7 @@ export const resolvers: Resolvers = {
         .where(and(
           eq(ep1.eventId, eventId!),
           ne(eventPosts.eventId, eventId!),
-          isNull(events.deletedAt),
+          activeOnly(events),
           isNull(events.mergedIntoEventId)
         ));
 
@@ -4487,7 +4487,7 @@ export const resolvers: Resolvers = {
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
       const offset = decodeActorRunCursor(after);
 
-      const conditions = [isNull(unprocessedScraperPayloads.deletedAt)];
+      const conditions = [activeOnly(unprocessedScraperPayloads)];
 
       if (filters?.source) {
         conditions.push(
