@@ -2,7 +2,7 @@
 title: 'moderator-dedup-review skill (FIND-104, piece C of the AI dedup review)'
 type: 'feature'
 created: '2026-11-03'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '4796f16fb8f49718fbdd1068c927c6311df518e3'
 review_loop_iteration: 1
 context:
@@ -102,3 +102,94 @@ Shadow to live: a shadow issue's title ends `(shadow)`. In a shadow-only run its
 **Manual checks (if no CLI):**
 - The lint and build gates pass. The full test gate cannot finish in this sandbox (unseeded database, a hanging `scraper.test.ts`) and fails identically on a clean master; this change touches no file under `apps/` or `packages/`.
 - The owner reviews one shadow run: dispatch, log reading, labels, insight comment.
+
+## Suggested Review Order
+
+**The rules a session obeys (start here)**
+
+- The allowlist and the eight rules: the owner-token limit is carried as rules, not hoped for.
+  [`SKILL.md:12`](../../.claude/skills/moderator-dedup-review/SKILL.md#L12)
+
+- Preflight: the whole tree must equal master before the rubric is trusted.
+  [`SKILL.md:59`](../../.claude/skills/moderator-dedup-review/SKILL.md#L59)
+
+- Decide: accept only when very sure; the floor is a ceiling, unsure is an escalation.
+  [`SKILL.md:92`](../../.claude/skills/moderator-dedup-review/SKILL.md#L92)
+
+- Live apply: whole flow re-run first, consent asked after it, never retried blind.
+  [`SKILL.md:135`](../../.claude/skills/moderator-dedup-review/SKILL.md#L135)
+
+**Reading a log strictly**
+
+- Whole-line markers, END = BEGIN + 2: the workflow echoes its own marker text.
+  [`dedup_report.py:304`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L304)
+
+- A damaged wrapper means "cut"; content blocks unwrap.
+  [`dedup_report.py:280`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L280)
+
+- Every log command is bound to the dispatched run tag, mode and ids.
+  [`dedup_report.py:416`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L416)
+
+**Building public text safely**
+
+- Invisible, bidi and control characters out; joiners kept only between visible ones.
+  [`dedup_report.py:130`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L130)
+
+- Contact masking: phones and e-mails, but not dates, money or URL paths.
+  [`dedup_report.py:184`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L184)
+
+- Issue body: fixed phrases, fenced event text, every cut counted.
+  [`dedup_report.py:850`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L850)
+
+- verify-issue: what GitHub holds must be what the reader built.
+  [`dedup_report.py:902`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L902)
+
+**Trusting only our own issues**
+
+- Label plus exact title; a missing labels field or short page set fails loudly.
+  [`dedup_report.py:652`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L652)
+
+- skip_ids, the id-to-issue map, and the frozen reasons.
+  [`dedup_report.py:691`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L691)
+
+- Shadow pairs return only when the owner clears a run for live.
+  [`dedup_report.py:741`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L741)
+
+- settle: which issues to close, with which labels; outcome labels only for a human.
+  [`dedup_report.py:771`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L771)
+
+**Recording a run**
+
+- Summary keys are fixed; unknown keys and typed merge ids are refused.
+  [`dedup_report.py:943`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L943)
+
+- Merge ids come only from the validated live apply report.
+  [`dedup_report.py:983`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L983)
+
+**Ownership, docs and board**
+
+- The skill folder is code-owned: its text steers a token-holding session.
+  [`CODEOWNERS:14`](../../.github/CODEOWNERS#L14)
+
+- Runbook section for the daily skill and its known limits.
+  [`7-event-dedup.md:187`](../../docs/infrastructure/7-event-dedup.md#L187)
+
+- Diagram: the skill node and GitHub Issues apart from Actions.
+  [`architecture-diagram.md:51`](../../docs/infrastructure/architecture-diagram.md#L51)
+
+- As-built notes for piece C in the design record.
+  [`DESIGN.md:171`](../specs/ai-dedup-review/DESIGN.md#L171)
+
+- Deferred: FIND-115 export cap, FIND-116 token hardening, FIND-117 follow-ups.
+  [`backlog.yaml:2680`](backlog.yaml#L2680)
+
+**Tests (72, each defence mutation-checked)**
+
+- Log reading, provenance and malformed shapes.
+  [`test_dedup_report.py:121`](../../.claude/skills/moderator-dedup-review/test_dedup_report.py#L121)
+
+- Round-2 cases: masking, truncation, verify-issue, apply binding.
+  [`test_dedup_report.py:598`](../../.claude/skills/moderator-dedup-review/test_dedup_report.py#L598)
+
+- Issue trust: pages, frozen states, settle, shadow-to-live triage.
+  [`test_dedup_report.py:696`](../../.claude/skills/moderator-dedup-review/test_dedup_report.py#L696)
