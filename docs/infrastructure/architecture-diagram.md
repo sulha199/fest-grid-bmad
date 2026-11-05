@@ -1,6 +1,6 @@
 # Architecture Diagram and Tech Stack
 
-Overview diagram and tech-stack table for FestGrid, drawn from the pages in this folder, `apps/infrastructure/lib/festgrid-backend-stack.ts` and the `package.json` files (checked against master at b5912f1, 12 Oct 2026; the dedup review rows and nodes were updated on 1 Nov 2026). It extends the smaller diagram in [High-Level Overview](./high-level-overview.md).
+Overview diagram and tech-stack table for FestGrid, drawn from the pages in this folder, `apps/infrastructure/lib/festgrid-backend-stack.ts` and the `package.json` files (checked against master at b5912f1, 12 Oct 2026; the dedup review rows and nodes were updated on 3 Nov 2026). It extends the smaller diagram in [High-Level Overview](./high-level-overview.md).
 
 > **Keep this diagram current.** Update this page in the same change whenever the architecture or tech stack changes: a new or removed service, queue, Lambda, scraper, database, hosting provider or major library. Also update the matching page in this folder and `high-level-overview.md`. Check against the source code, not against a summary.
 
@@ -41,6 +41,14 @@ graph TD
         GHA_RT["Production DB Restore Test: restores the newest dump after each backup"]
         GHA_DE["Dedup Review Export: manual, read-only evidence JSON of the pending dedup queue for the AI reviewer"]
         GHA_DA["Dedup Review Apply: manual; validate is read-only, apply (dry run or live) waits for the owner's approval in dedup-review-live and merges accepted pairs"]
+    end
+
+    subgraph GitHubIssues["GitHub Issues"]
+        GH_ISSUES["dedup-escalate issues and the rolling dedup-insight log"]
+    end
+
+    subgraph ClaudeCloud["Claude cloud session (no production database credentials)"]
+        AI_SKILL["moderator-dedup-review skill: decides which pending dedup pairs are obvious, opens escalation issues, logs each run on the dedup-insight issue"]
     end
 
     subgraph Data
@@ -102,6 +110,9 @@ graph TD
     GHA_DE -- read-only evidence queries, READ ONLY transaction --> DB
     GHA_DA -- validate: read-only checks, READ ONLY transaction --> DB
     GHA_DA -- apply: guarded merges through resolveSuggestedMatch, write role, owner approval --> DB
+    AI_SKILL -- dispatches the export on master, reads its report from the job log --> GHA_DE
+    AI_SKILL -- opens and closes labelled issues, one comment per run --> GH_ISSUES
+    AI_SKILL -- dispatches validate; apply only when the owner says so --> GHA_DA
 ```
 
 ## Tech stack by layer
@@ -120,7 +131,8 @@ graph TD
 | Media | S3 behind CloudFront (origin access control) for durable post media | CDK stack |
 | Backups | Nightly and on-demand `pg_dump` (custom format) from a GitHub Actions runner to a private, encrypted S3 bucket with 30-day expiry; Supabase free plan has no managed backups. After each backup a restore test restores the dump into a throwaway `postgres:17` container and compares it with production | .github/workflows/prod-db-backup.yml, .github/workflows/prod-db-restore-test.yml, scripts/compare-restored-db.sh, CDK stack, docs/infrastructure/3-database.md |
 | AI dedup review (export) | A manual GitHub Actions workflow prints the pending dedup suggestions and their evidence as one JSON line, read-only (`READ ONLY` transaction, a read-only role that bypasses RLS), for a reviewer with no database credentials. The apply side is a second manual workflow (below) | .github/workflows/dedup-review-export.yml, apps/backend/src/dedup-review-export.ts, docs/infrastructure/7-event-dedup.md |
-| AI dedup review (apply) | A manual GitHub Actions workflow with a `validate` mode (read-only, the read-only role, no approval) and an `apply` mode (a dry run unless live) that uses a write role from the separate `dedup-review-live` environment and waits for the owner's approval on every run. Accepted pairs merge through the moderator's own `resolveSuggestedMatch` with `via: 'ai_skill'`, under a deterministic floor, per-run and per-day caps, a fail-closed kill switch and a check that `master` has not moved. Architecture decision AD-45. The write secret is not created yet (the actions must be pinned by SHA first) | .github/workflows/dedup-review-apply.yml, scripts/dedup-review-apply-guard.sh, apps/backend/src/dedup-review-apply.ts, docs/infrastructure/3-database.md, docs/infrastructure/7-event-dedup.md |
+| AI dedup review (skill) | A repo skill a cloud Claude session follows: it dispatches the export, decides, dispatches `validate`, opens a labelled escalation issue for every pair it does not accept, and logs each run on a rolling `dedup-insight` issue. It never approves a deployment; a live `apply` happens only on the owner's word | .claude/skills/moderator-dedup-review/, docs/infrastructure/7-event-dedup.md |
+| AI dedup review (apply) | A manual GitHub Actions workflow with a `validate` mode (read-only, the read-only role, no approval) and an `apply` mode (a dry run unless live) that uses a write role from the separate `dedup-review-live` environment and waits for the owner's approval on every run. Accepted pairs merge through the moderator's own `resolveSuggestedMatch` with `via: 'ai_skill'`, under a deterministic floor, per-run and per-day caps, a fail-closed kill switch and a check that `master` has not moved. Architecture decision AD-45. The write secret holds the narrow role `dedup_review_apply` (created 2026-11-03, after the actions were pinned by SHA) | .github/workflows/dedup-review-apply.yml, scripts/dedup-review-apply-guard.sh, apps/backend/src/dedup-review-apply.ts, docs/infrastructure/3-database.md, docs/infrastructure/7-event-dedup.md |
 | Notifications | Firebase Cloud Messaging (push); Amazon SES (email) | docs/infrastructure/4 and 6, backend lambdas |
 | Operations alerts | CloudWatch Embedded Metric Format lines from the Lambdas, three CloudWatch alarms and an SNS topic with an optional e-mail subscription (prod only; needs no SES) | CDK stack, `apps/backend/src/lib/metrics/emit-metric.ts` |
 | Geolocation | Geoapify (geocoding with a Postgres cache; map tiles) | docs/infrastructure/5-geolocation.md |

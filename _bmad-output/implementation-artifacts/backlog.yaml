@@ -2675,7 +2675,31 @@ items:
      title: "AI dedup review piece C: daily moderator-dedup-review skill, escalation issues and insight log",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
      touches: [web:moderation, cross:process, cross:ai-extraction],
-     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs FIND-107 on master first; requirements in DESIGN.md section 6; review-insights follows later. 1 finding."}
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Skill built (spec-find-104); stays open until the owner reviews one shadow run, then goes live. review-insights (C2) follows. 1 finding."}
+
+  FIND-115:
+    {type: finding, status: backlog, created: 2026-11-03,
+     impact: internal, effort: s,
+     title: "AI dedup review export: recentlyResolved is capped at 200 and shows only expired rows",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/events/dedup-review-export.ts],
+     touches: [app:backend, pkg:domain, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-find-104-moderator-dedup-review-skill (2026-11-03). 200 of 200 rows were expired on 2026-11-03, truncated. The skill copes until this lands. 1 finding."}
+
+  FIND-116:
+    {type: finding, status: backlog, created: 2026-11-03,
+     impact: latent, effort: m,
+     title: "Narrow what a session holding the owner's token can reach: own .claude/ and CLAUDE.md",
+     ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:infrastructure, cross:process, cross:architecture],
+     note: "Deferred from: bmad-quick-dev review of spec-find-104-moderator-dedup-review-skill (2026-11-03). Architecture review blocker: AD-45 Rule 6 is prose; the skill carries an allowlist meanwhile. 1 finding."}
+
+  FIND-117:
+    {type: finding, status: backlog, created: 2026-11-03,
+     impact: latent, effort: s,
+     title: "AI dedup review skill: closed-pending issues block the export head, U+2028 in its line, no CI tests",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/events/dedup-review-export.ts, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [app:backend, pkg:domain, app:infrastructure, cross:process],
+     note: "Deferred from: bmad-quick-dev code review of spec-find-104-moderator-dedup-review-skill (2026-11-03). The skill reports the blocked head and stamps the insight issue meanwhile. 4 findings."}
 
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
