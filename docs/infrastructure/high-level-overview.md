@@ -47,7 +47,10 @@ graph TD
         GHA_Restore["Production DB Restore Test: restores the newest dump after each backup"]
         GHA_DedupExport["Dedup Review Export: manual, read-only evidence JSON for the AI reviewer"]
         GHA_DedupApply["Dedup Review Apply: manual; validate read-only, apply needs the owner's approval"]
-        GH_Issues["GitHub Issues: dedup-escalate issues and the dedup-insight log"]
+    end
+
+    subgraph "GitHub Issues"
+        GH_Issues["dedup-escalate issues and the dedup-insight log"]
     end
 
     subgraph "Claude cloud session"
@@ -109,7 +112,7 @@ graph TD
     GHA_DedupExport -- read-only evidence queries, READ ONLY transaction --> Supabase
     GHA_DedupApply -- validate: read-only; apply: guarded merges, write role, approval --> Supabase
     AI_Skill -- dispatches the export, reads its report from the job log --> GHA_DedupExport
-    AI_Skill -. validate; apply only when the owner says so .-> GHA_DedupApply
+    AI_Skill -- dispatches validate; apply only when the owner says so --> GHA_DedupApply
     AI_Skill -- opens and closes labelled issues --> GH_Issues
 ```
 

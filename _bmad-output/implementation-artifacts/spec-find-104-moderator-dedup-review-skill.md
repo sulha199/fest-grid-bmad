@@ -60,7 +60,7 @@ context:
 
 **Execution:**
 - [x] `.claude/skills/moderator-dedup-review/SKILL.md` -- the procedure, the reason-code table, the live gate, failure handling -- DESIGN section 6
-- [x] `.claude/skills/moderator-dedup-review/dedup_report.py` -- stdlib reader and builder: whole-line markers after stripping timestamp, CR, ANSI, BOM; END = BEGIN + 2; every log command requires the dispatched run tag (`apply` also the mode and the dispatched ids); commands for header, pairs, resolved, apply, decisions, triage, issue-ids, issue, comment, insight -- the export line is about 98k characters; model text goes in by file, never argv; all public text is built here (fixed phrases, validated enums, fenced and masked event text)
+- [x] `.claude/skills/moderator-dedup-review/dedup_report.py` -- stdlib reader and builder: whole-line markers after stripping timestamp, CR, ANSI, BOM; END = BEGIN + 2; every log command requires the dispatched run tag (`apply` also the mode and the dispatched ids); commands for header, pairs, resolved, apply, decisions, triage, settle, issue-ids, issue, verify-issue, comment, insight -- the export line is about 98k characters; model text goes in by file, never argv; all public text is built here (fixed phrases, validated enums, fenced and masked event text)
 - [x] `.claude/skills/moderator-dedup-review/test_dedup_report.py` -- `unittest` with synthetic logs: echoed marker, truncation, two pairs, reordered markers, U+2028, CRLF, non-JSON wrapper, backticks, malformed event shapes, invisible characters, a stale log
 - [x] `.github/CODEOWNERS` -- own the skill folder
 - [x] `7-event-dedup.md`, `architecture-diagram.md`, `DESIGN.md` -- add the skill, fix the stale lines (`apply` dry run is not shadow; AD-45, not AD-40; cancelled runs)
@@ -80,6 +80,11 @@ context:
   - Known-bad state avoided: a live path that cannot start, or a live set different from the one the owner approved.
   - Patches folded into the re-derive: model text by file not argv (command injection); required run tag, mode and ids so a stale or foreign log is refused; a log-less `failed:` stamp; plain-text output instead of escaped JSON; `fullmatch` instead of `$`; a truncation marker and no accept on a cut pair; invisible-character and contact masking; malformed shapes exit 7; the apply result codes and an ids check; consent after the re-run in the live step; stricter preflight; duplicate-create re-listing.
   - KEEP: whole-line marker matching and its tests; fence sizing; label-only issue trust; reader-built public text; the `decisions` command; shadow issues; the docs and board edits.
+
+- **Round 2 (2026-11-03), a fresh Blind Hunter and Edge Case Hunter, patches only (no loopback).**
+  - Findings folded in: a listing without labels, pages that do not add up to the listing's total, or an edited title freeze the run instead of reading as "no issues"; `settle` maps each resolved id to its issue, labels and comment so nothing is matched by eye; `verify-issue` compares what was posted with what the reader built; every cut of a string counts as truncation; contact masking rebuilt (local numbers start with 0, + or 628; dates, money, URL paths and file names are left alone; NFKC and dash folding; masking before the cap; WhatsApp links); the validator requires every key the formatter reads; the timestamp strip is anchored; a damaged wrapper means "cut"; content-block logs unwrap; the run summary takes merge ids only from the validated apply report and refuses unknown keys; `alerts` and a wider `blocked`; the tests no longer write `__pycache__`; the preflight checks the whole tree.
+  - Not patched, on purpose: the owner-token limit (`FIND-116`, owner decision) and closed-but-pending issues leading the export with `recentlyResolved` capped (`FIND-115`, `FIND-117`); both are in Design Notes and the runbook as known gaps.
+  - KEEP: everything under round 1's KEEP, plus the mutation-checked tests (72, each defence has a mutant that fails them).
 
 ## Design Notes
 

@@ -19,6 +19,7 @@ import sys
 import tempfile
 import unittest
 
+sys.dont_write_bytecode = True  # a __pycache__ next to the skill would fail the preflight's clean-tree check
 HERE = os.path.dirname(os.path.abspath(__file__))
 SPEC = importlib.util.spec_from_file_location('dedup_report', os.path.join(HERE, 'dedup_report.py'))
 dr = importlib.util.module_from_spec(SPEC)
@@ -249,8 +250,10 @@ class ExportCommandTests(Base):
         self.assertNotIn(A, out)
         _, out, _ = self.cli('export-resolved', path, '--ids', A.upper())
         self.assertIn(A, out)
-        for bad in ('nope', '', A + ',nope', A + 'x'):
+        for bad in ('nope', A + ',nope', A + 'x'):
             self.assertEqual(self.cli('export-resolved', path, '--ids', bad)[0], dr.EXIT_BAD_INPUT, repr(bad))
+        code, out, _ = self.cli('export-resolved', path, '--ids', '')  # a first run has no open issues: show none, do not fail
+        self.assertEqual((code, json.loads(out.splitlines()[-1])['shown']), (0, 0))
         code, out, _ = self.cli('export-resolved', path, '--ids', ' %s \n' % A)  # whitespace around an id is trimmed, then validated
         self.assertEqual(code, 0)
         self.assertNotIn('\\n', out.splitlines()[0])
@@ -355,7 +358,7 @@ class IssueListTests(Base):
 
     def ids(self, *extra_args, data=None):
         path = self.write(json.dumps(self.listing() if data is None else data), 'issues.json')
-        return self.run_cli('issue-ids', path, '--max', '200', *extra_args)
+        return self.run_cli('issue-ids', path, '--max', '200', '--limit', '10', *extra_args)
 
     def test_only_labelled_exact_titles_count_and_the_rest_is_listed(self):
         code, out, _ = self.ids()
@@ -373,25 +376,27 @@ class IssueListTests(Base):
         result = json.loads(self.ids('--exclude-shadow')[1])
         self.assertEqual(result['ids'], [A])
         path = self.write(json.dumps(self.listing()), 'i.json')
-        capped = json.loads(self.run_cli('issue-ids', path, '--max', '1')[1])
+        capped = json.loads(self.run_cli('issue-ids', path, '--max', '1', '--limit', '1')[1])
         self.assertEqual(capped['ids'], [A])
         self.assertTrue(capped['capped'])
         for bad in ('0', '-1'):
-            self.assertEqual(self.run_cli('issue-ids', path, '--max', bad)[0], dr.EXIT_BAD_INPUT)
-        self.assertEqual(self.run_cli('issue-ids', path)[0], dr.EXIT_USAGE)  # --max is required
+            self.assertEqual(self.run_cli('issue-ids', path, '--max', bad, '--limit', '1')[0], dr.EXIT_BAD_INPUT)
+            self.assertEqual(self.run_cli('issue-ids', path, '--max', '5', '--limit', bad)[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.run_cli('issue-ids', path)[0], dr.EXIT_USAGE)  # --max and --limit are required
+        self.assertEqual(self.run_cli('issue-ids', path, '--max', '5')[0], dr.EXIT_USAGE)
 
     def test_pages_merge_and_content_blocks_are_unwrapped(self):
         page2 = {'issues': [{'number': 9, 'title': 'Dedup review: ' + C, 'state': 'OPEN', 'labels': ['dedup-escalate'], 'created_at': '2026-11-09T00:00:00Z'}]}
         first = self.write(json.dumps(self.listing()), 'p1.json')
         second = self.write(json.dumps([{'type': 'text', 'text': json.dumps(page2)}]), 'p2.json')
-        result = json.loads(self.run_cli('issue-ids', first, second, '--max', '200')[1])
+        result = json.loads(self.run_cli('issue-ids', first, second, '--max', '200', '--limit', '10')[1])
         self.assertEqual(result['ids'], [A, B, C])
 
     def test_unrecognised_shapes_fail_loudly(self):
         for label, data in (('no list', {'a': 1}), ('labels as a string', {'issues': [{'title': 't', 'labels': 'dedup-escalate'}]}),
                             ('label without name', {'issues': [{'title': 't', 'labels': [{'id': 1}]}]}), ('entry not an object', {'issues': ['x']})):
             self.assertEqual(self.ids(data=data)[0], dr.EXIT_BAD_INPUT, label)
-        self.assertEqual(self.run_cli('issue-ids', self.write('nope', 'x.json'), '--max', '5')[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.run_cli('issue-ids', self.write('nope', 'x.json'), '--max', '5', '--limit', '1')[0], dr.EXIT_BAD_INPUT)
         odd = {'issues': [{'number': 'x', 'title': 5, 'state': 'OPEN', 'labels': ['dedup-escalate']}]}
         code, out, _ = self.ids(data=odd)
         self.assertEqual((code, json.loads(out)['labelledIgnored']), (0, [None]))  # a non-string title, no traceback
@@ -501,7 +506,7 @@ class TextBuilderTests(Base):
         many = [dict(event()['schedules'][0], startDate='2026-11-%02d' % (i + 1)) for i in range(15)]
         _, out, _ = self.issue(self.write(export_log(export_payload([pair(new=event(schedules=many))]))), '--reason', 'unsure', '--json')
         body = json.loads(out)['body']
-        self.assertIn('Lists cut for length:** 3', body)
+        self.assertIn('Texts or lists cut for length:** 3', body)
         self.assertIn('(+3 more)', body)
 
     def test_fixed_phrase_comments(self):
@@ -515,7 +520,7 @@ class TextBuilderTests(Base):
         data = {'mode': 'shadow', 'exportTag': TAG, 'validateTag': 't1v', 'applyTag': None,
                 'entries': [{'suggestionId': A, 'decision': 'escalated', 'reason': 'name-mismatch', 'pattern': 'other', 'rationale': 'why `x`'},
                             {'suggestionId': B, 'decision': 'shadow-eligible', 'pattern': 'venue-alias'}],
-                'closedIssues': [7], 'unknownCount': 1, 'unknownIssues': [9]}
+                'closedIssues': [7], 'unknownCount': 1}
         data.update(over)
         return self.write(json.dumps(data), 'summary.json')
 
@@ -552,17 +557,17 @@ class TextBuilderTests(Base):
 
     def test_summary_is_validated(self):
         path = self.write(export_log())
-        merge = {'suggestionId': A, 'decision': 'merged', 'mergeId': MERGE}
-        self.assertEqual(self.cli('insight-comment', path, '--summary', self.summary(mode='live', entries=[merge]))[0], 0)
-        self.assertEqual(self.cli('insight-comment', path, '--summary', self.summary(entries=[merge]))[0], dr.EXIT_BAD_INPUT)
         bad_entries = ([{'suggestionId': 'x', 'decision': 'dropped'}], [{'suggestionId': A + '\n', 'decision': 'dropped'}],
                        [{'suggestionId': A, 'decision': 'accepted'}], [{'suggestionId': A, 'decision': 'dropped', 'pattern': 'nope'}],
                        [{'suggestionId': A, 'decision': 'dropped', 'reason': '](http://evil)'}],
                        [{'suggestionId': A, 'decision': 'dropped', 'reason': 'unsure\n'}],
-                       [{'suggestionId': A, 'decision': 'dropped', 'rationale': 'y' * 201}])
+                       [{'suggestionId': A, 'decision': 'dropped', 'rationale': 'y' * 201}],
+                       [{'suggestionId': A, 'decision': 'merged', 'mergeId': MERGE}],          # a merge id is never typed in
+                       [{'suggestionId': A, 'decision': 'dropped', 'export_tag': 'x'}])        # an unknown key is refused, not ignored
         for entries in bad_entries:
             self.assertEqual(self.cli('insight-comment', path, '--summary', self.summary(entries=entries))[0], dr.EXIT_BAD_INPUT, entries)
-        for field in ({'exportTag': 'bad tag!'}, {'exportTag': 'ok\n'}, {'unknownCount': -1}, {'closedIssues': [0]}):
+        for field in ({'exportTag': 'bad tag!'}, {'exportTag': 'ok\n'}, {'unknownCount': -1}, {'closedIssues': [0]},
+                      {'unknownIssues': [9]}, {'export_tag': 'x'}):
             self.assertEqual(self.cli('insight-comment', path, '--summary', self.summary(**field))[0], dr.EXIT_BAD_INPUT, field)
 
     def test_clean_text(self):
@@ -588,6 +593,235 @@ class RealLogProvenanceTests(Base):
             self.assertIsNone(pattern.fullmatch('a\n'))
         self.assertFalse(dr.full(dr.UUID, A + '\n'))
         self.assertTrue(dr.full(dr.UUID, A))
+
+
+class PatchRoundTests(Base):
+    """Cases found by the second round of reviews."""
+
+    # --- reading
+    def test_a_damaged_wrapper_means_cut_not_missing(self):
+        damaged = export_log()[:300]  # a saved get_job_logs answer that stops mid-way
+        code, _, err = self.cli('export-header', self.write(damaged))
+        self.assertEqual(code, dr.EXIT_TRUNCATED)
+        self.assertIn('tail_lines', err)
+
+    def test_a_log_saved_as_mcp_content_blocks_is_unwrapped(self):
+        blocks = json.dumps([{'type': 'text', 'text': export_log()}])
+        self.assertEqual(self.cli('export-header', self.write(blocks))[0], 0)
+
+    def test_a_timestamp_inside_event_text_survives_in_a_log_without_prefixes(self):
+        name = 'Final 2026-11-03T02:59:06.5Z Race'
+        line = json.dumps(export_payload([pair(new=event(name))]), ensure_ascii=False, separators=(',', ':'))
+        raw = '\n'.join([dr.EXPORT_BEGIN, line, dr.EXPORT_END])  # no Actions prefix at all
+        code, out, _ = self.cli('export-pairs', self.write(raw), '0:1')
+        self.assertEqual(code, 0)
+        self.assertIn(name, out)
+
+    def test_the_validator_requires_every_key_the_formatter_reads(self):
+        for label, mutate in {
+            'location key missing': lambda p: p['pairs'][0]['newEvent'].pop('location'),
+            'minDayDiff key missing': lambda p: p['pairs'][0]['signals'].pop('minDayDiff'),
+        }.items():
+            payload = export_payload([pair()])
+            mutate(payload)
+            code, _, err = self.cli('issue', self.write(export_log(payload)), '--id', A, '--pattern', 'other', '--reason', 'unsure', '--rationale-file', self.write('r', 'r.txt'))
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, label)
+            self.assertNotIn('KeyError', err, label)
+
+    def test_header_alerts(self):
+        stale = export_payload([])
+        stale['scanLimited'] = True
+        self.assertIn('scan-limited-no-pairs', json.loads(self.cli('export-header', self.write(export_log(stale)))[1])['alerts'])
+        escalated = dict(export_payload([]), totalPending=5, skippedCount=5)
+        self.assertIn('everything-pending-is-already-escalated', json.loads(self.cli('export-header', self.write(export_log(escalated)))[1])['alerts'])
+        self.assertEqual(json.loads(self.cli('export-header', self.write(export_log()))[1])['alerts'], [])
+
+    def test_a_huge_range_is_a_usage_error(self):
+        self.assertEqual(self.cli('export-pairs', self.write(export_log()), '0:' + '9' * 5000)[0], dr.EXIT_USAGE)
+
+    # --- truncation is always counted
+    def test_a_cut_string_is_counted_and_stated(self):
+        long_a = 'Same long name ' * 21 + 'Part 1'   # equal for 300+ characters, differing only at the very end
+        long_b = 'Same long name ' * 21 + 'Part 2'
+        path = self.write(export_log(export_payload([pair(candidate=event(long_a), new=event(long_b))])))
+        row = json.loads(self.cli('export-pairs', path, '0:1')[1].splitlines()[-1])
+        self.assertGreaterEqual(row['truncated'], 2)
+        _, out, _ = self.cli('issue', path, '--id', A, '--pattern', 'other', '--reason', 'unsure', '--rationale-file', self.write('r', 'r.txt'), '--json')
+        self.assertNotIn('cut for length:** 0', json.loads(out)['body'])
+
+    # --- masking
+    def test_contact_details_are_masked(self):
+        for text in ('Tel.02-1234-5678', 'T.010-1234-5678', '(02) 1234-5678', '010–1234–5678', '010/1234/5678',
+                     '０１０－１２３４－５６７８', '+82 10 1234 5678',
+                     'wa.me/6281234567890', 'user@münchen.de', '홍길동@naver.com', 'a@b.co', '0812 - 3456 - 7890'):
+            masked = dr.mask_contacts(text)
+            self.assertTrue('[number]' in masked or '[email]' in masked, (text, masked))
+            self.assertFalse(re.search(r'[0-9]{4}', masked), (text, masked))
+
+    def test_evidence_is_not_destroyed_by_masking(self):
+        for text in ('2026.07.10-07.12', '2026.07.10-12', '2026-07-10 0900', '17.08.2026 06.00', '05.06.2026 10.00', 'Rp 100.000.000',
+                     'blog.naver.com/abc/223456789012', 'instagram.com/p/1234567890123/', 'poster@2x.png', 'ig_p_0123456789', 'Day 12 of 365',
+                     'Jakarta 10K 2026'):
+            self.assertEqual(dr.mask_contacts(text), text, text)
+
+    def test_masking_runs_before_the_length_cap(self):
+        # A cap-first implementation would cut at '...john.doe@exam' (no dot, so no longer an address) and leak it.
+        text, _ = dr.public_text_ex('x' * 285 + ' john.doe@example.org tail')
+        self.assertNotIn('john', text)
+        self.assertNotIn('@exam', text)
+        self.assertIn('[email]', text)
+
+    def test_a_rationale_that_grows_when_masked_is_accepted(self):
+        path = self.write('a@b.co ' * 28, 'many.txt')  # 195 characters, longer once masked
+        code, out, _ = self.cli('issue', self.write(export_log()), '--id', A, '--pattern', 'other', '--reason', 'unsure', '--rationale-file', path)
+        self.assertEqual(code, 0)
+        self.assertIn('[email]', out)
+
+    def test_an_emoji_presentation_selector_survives_after_a_symbol(self):
+        self.assertEqual(dr.clean_text('I ❤️ Bali'), 'I ❤️ Bali')
+        self.assertEqual(dr.clean_text('a️b'), 'ab')  # but not after a letter
+        self.assertEqual(dr.clean_text('1️⃣'), '1️⃣')
+
+    def test_no_bytecode_is_written_next_to_the_skill(self):
+        self.assertFalse(os.path.isdir(os.path.join(HERE, '__pycache__')))
+
+    def test_the_day_gap_is_never_printed_as_none(self):
+        payload = export_payload([pair()])
+        payload['pairs'][0]['signals']['minDayDiff'] = None
+        _, out, _ = self.cli('issue', self.write(export_log(payload)), '--id', A, '--pattern', 'other', '--reason', 'unsure', '--rationale-file', self.write('r', 'r.txt'))
+        self.assertIn('day gap unknown', out)
+        self.assertNotIn('None', out)
+
+
+class IssueTrustTests(Base):
+    def issue_page(self, issues, total=None):
+        data = {'issues': issues}
+        if total is not None:
+            data['totalCount'] = total
+        return self.write(json.dumps(data), 'page-%d.json' % len(self.dir.name))
+
+    def row(self, number, suggestion_id, state='OPEN', labels=('dedup-escalate',), created='2026-11-01T00:00:00Z', title=None):
+        item = {'number': number, 'title': title or 'Dedup review: ' + suggestion_id, 'state': state, 'labels': list(labels)}
+        if created is not None:
+            item['created_at'] = created
+        return item
+
+    def test_a_listing_without_labels_fails_instead_of_reading_as_empty(self):
+        page = self.write(json.dumps({'issues': [{'number': 1, 'title': 'Dedup review: ' + A, 'state': 'OPEN'}]}), 'nolabels.json')
+        for command in (('issue-ids', page, '--max', '5', '--limit', '1'), ('settle', self.write(export_log()), page, '--expect-run-tag', TAG)):
+            self.assertEqual(self.run_cli(*command)[0], dr.EXIT_BAD_INPUT, command)
+
+    def test_pages_must_add_up_to_the_listings_total(self):
+        page1 = self.write(json.dumps({'issues': [self.row(1, A)], 'totalCount': 2}), 'p1.json')
+        self.assertEqual(self.run_cli('issue-ids', page1, '--max', '5', '--limit', '1')[0], dr.EXIT_BAD_INPUT)  # a page is missing
+        page2 = self.write(json.dumps({'issues': [self.row(2, B)], 'totalCount': 2}), 'p2.json')
+        self.assertEqual(self.run_cli('issue-ids', page1, page2, '--max', '5', '--limit', '1')[0], 0)
+
+    def test_an_edited_title_or_an_unfiltered_listing_freezes_the_run(self):
+        edited = self.write(json.dumps({'issues': [self.row(1, A, title='[needs info] Dedup review: ' + A)]}), 'edited.json')
+        result = json.loads(self.run_cli('issue-ids', edited, '--max', '5', '--limit', '1')[1])
+        self.assertTrue(result['frozen'])
+        self.assertIn('labelled-issue-not-understood', result['frozenReasons'])
+        self.assertEqual(result['labelledIgnored'], [1])
+        triage = json.loads(self.cli('triage', self.write(export_log()), edited)[1])
+        self.assertTrue(triage['frozen'])
+        mixed = self.write(json.dumps({'issues': [self.row(1, A), self.row(2, B, labels=('bug',))]}), 'mixed.json')
+        self.assertIn('listing-had-unlabelled-issues', json.loads(self.run_cli('issue-ids', mixed, '--max', '5', '--limit', '1')[1])['frozenReasons'])
+
+    def test_near_the_cap_is_frozen_and_the_numbers_map_is_exact(self):
+        page = self.write(json.dumps({'issues': [self.row(1, A), self.row(2, B), self.row(3, B)]}), 'cap.json')
+        result = json.loads(self.run_cli('issue-ids', page, '--max', '3', '--limit', '2')[1])
+        self.assertIn('near-cap', result['frozenReasons'])
+        self.assertEqual(result['numbers'], {A: [1], B: [2, 3]})  # twins are both listed
+        self.assertEqual(result['duplicates'], {B: [2, 3]})
+        self.assertFalse(json.loads(self.run_cli('issue-ids', page, '--max', '200', '--limit', '2')[1])['frozen'])
+
+    def test_the_oldest_open_time_skips_issues_without_one(self):
+        page = self.write(json.dumps({'issues': [self.row(1, A, created=None), self.row(2, B, created='2026-11-02T00:00:00Z')]}), 'old.json')
+        self.assertEqual(json.loads(self.run_cli('issue-ids', page, '--max', '5', '--limit', '1')[1])['oldestOpenCreatedAt'], '2026-11-02T00:00:00Z')
+
+    def test_settle_maps_each_resolved_id_to_its_issue_labels_and_comment(self):
+        rows = [{'suggestionId': A, 'status': 'accepted', 'resolvedBy': 'human', 'resolvedAt': '2026-11-02T00:00:00.000Z'},
+                {'suggestionId': B, 'status': 'expired', 'resolvedBy': 'system', 'resolvedAt': '2026-11-02T00:00:00.000Z'}]
+        log = self.write(export_log(export_payload(resolved=rows)))
+        page = self.write(json.dumps({'issues': [self.row(1, A, labels=('dedup-escalate', 'pattern:other')), self.row(2, B), self.row(3, B),
+                                                  self.row(4, C), self.row(5, A, state='CLOSED')]}), 'settle.json')
+        result = json.loads(self.cli('settle', log, page)[1])
+        by_number = {item['number']: item for item in result['close']}
+        self.assertEqual(sorted(by_number), [1, 2, 3])                                       # the twin of B is closed too; C is untouched
+        self.assertEqual(sorted(by_number[1]['labels']), ['dedup-escalate', 'outcome:accepted', 'pattern:other'])  # GitHub takes a set; order is irrelevant
+        self.assertEqual(by_number[2]['labels'], ['dedup-escalate'])                          # an expiry gets no outcome label
+        self.assertIn('accepted by a moderator', by_number[1]['comment'])
+        self.assertEqual(result['closedIds'], 2)                                              # distinct suggestions, not issues
+        self.assertEqual(json.loads(self.cli('settle', log, self.write('{"issues":[]}', 'e.json'))[1])['close'], [])
+
+    def test_only_a_humans_decision_earns_an_outcome_label(self):
+        def settled(status, by):
+            rows = [{'suggestionId': A, 'status': status, 'resolvedBy': by, 'resolvedAt': '2026-11-02T00:00:00.000Z'}]
+            page = self.write(json.dumps({'issues': [self.row(1, A)]}), 'one.json')
+            return json.loads(self.cli('settle', self.write(export_log(export_payload(resolved=rows))), page)[1])['close'][0]['labels']
+
+        self.assertEqual(sorted(settled('rejected', 'human')), ['dedup-escalate', 'outcome:rejected'])
+        for status, by in (('accepted', 'reviewer'), ('accepted', 'unknown'), ('rejected', 'unknown'), ('expired', 'system')):
+            self.assertEqual(settled(status, by), ['dedup-escalate'], (status, by))
+
+    def test_everything_already_escalated_counts_as_blocked(self):
+        log = self.write(export_log(dict(export_payload([]), totalPending=3, skippedCount=3)))
+        self.assertTrue(json.loads(self.cli('triage', log, self.write('{"issues":[]}', 'e.json'))[1])['blocked'])
+
+    def test_insight_age_uses_the_first_pair_no_issue_covers(self):
+        old_post = [{'isPrimary': True, 'accountType': 'PERSONAL', 'publishedAt': '2026-10-01T00:00:00.000Z'}]
+        new_post = [{'isPrimary': True, 'accountType': 'PERSONAL', 'publishedAt': '2026-11-02T00:00:00.000Z'}]
+        log = self.write(export_log(export_payload([pair(A, new=event(sourcePosts=old_post)), pair(B, new=event(sourcePosts=new_post))])))
+        page = self.write(json.dumps({'issues': [self.row(1, A)]}), 'covers.json')
+        _, plain, _ = self.cli('insight-body', log, '--status', 'ok')
+        _, covered, _ = self.cli('insight-body', log, '--status', 'ok', '--issues', page)
+        self.assertIn('about 33.1 days', plain)       # the first exported pair, already escalated
+        self.assertIn('about 1.1 days', covered)      # the first pair without an issue
+
+    def test_verify_issue_compares_title_body_and_labels(self):
+        log = self.write(export_log())
+        rationale = self.write('same race', 'r.txt')
+        args = ('--id', A, '--pattern', 'other', '--reason', 'unsure', '--rationale-file', rationale)
+        built = json.loads(self.cli('issue', log, *args, '--json')[1])
+
+        def verify(**over):
+            posted = {'title': built['title'], 'body': built['body'], 'labels': [{'name': n} for n in built['labels']]}
+            posted.update(over)
+            return self.cli('verify-issue', log, *args, '--posted', self.write(json.dumps(posted), 'posted.json'))
+
+        self.assertEqual(verify()[0], 0)
+        self.assertEqual(verify(body=built['body'].replace('\n', '\r\n') + '\n')[0], 0)        # GitHub may change line endings
+        self.assertEqual(verify(labels=[{'name': 'dedup-escalate'}])[0], dr.EXIT_POSTED_DIFFERS)
+        self.assertEqual(verify(title=built['title'] + ' (shadow)')[0], dr.EXIT_POSTED_DIFFERS)
+        code, _, err = verify(body=built['body'].replace('same race', 'SAME RACE'))
+        self.assertEqual(code, dr.EXIT_POSTED_DIFFERS)
+        self.assertIn('body', err)
+        self.assertEqual(verify(issue=None)[0], 0)  # extra keys are ignored
+        wrapped = self.write(json.dumps({'issue': {'title': built['title'], 'body': built['body'], 'labels': built['labels']}}), 'wrapped.json')
+        self.assertEqual(self.cli('verify-issue', log, *args, '--posted', wrapped)[0], 0)
+
+    # --- the run summary is bound to the validated apply report
+    def test_merge_ids_come_from_the_apply_report_only(self):
+        log = self.write(export_log())
+        report = apply_payload('live', [{'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE}], run_tag='t1a')
+        apply_path = self.write(apply_log(report), 'apply.txt')
+        entries = [{'suggestionId': A, 'decision': 'merged', 'pattern': 'name-language'}]
+
+        def summary(mode='live', entries=entries):
+            return self.write(json.dumps({'mode': mode, 'exportTag': TAG, 'validateTag': 't1v', 'applyTag': 't1a', 'entries': entries,
+                                          'closedIssues': [], 'unknownCount': 0}), 'sum.json')
+
+        code, out, _ = self.cli('insight-comment', log, '--summary', summary(), '--apply-log', apply_path, '--apply-run-tag', 't1a')
+        self.assertEqual(code, 0)
+        self.assertIn('`%s`' % MERGE, out)
+        self.assertEqual(self.cli('insight-comment', log, '--summary', summary())[0], dr.EXIT_BAD_INPUT)                    # merged but no apply log
+        self.assertEqual(self.cli('insight-comment', log, '--summary', summary('shadow'), '--apply-log', apply_path, '--apply-run-tag', 't1a')[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.cli('insight-comment', log, '--summary', summary(entries=[{'suggestionId': B, 'decision': 'merged'}]),
+                                  '--apply-log', apply_path, '--apply-run-tag', 't1a')[0], dr.EXIT_BAD_INPUT)                 # a different merge than reported
+        self.assertEqual(self.cli('insight-comment', log, '--summary', summary(entries=[{'suggestionId': A, 'decision': 'deferred'}]),
+                                  '--apply-log', apply_path, '--apply-run-tag', 't1a')[0], dr.EXIT_BAD_INPUT)                 # a merge nobody recorded
+        self.assertEqual(self.cli('insight-comment', log, '--summary', summary(), '--apply-log', apply_path, '--apply-run-tag', 'wrong')[0], dr.EXIT_BAD_REPORT)
 
 
 if __name__ == '__main__':

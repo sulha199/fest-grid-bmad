@@ -40,8 +40,11 @@ graph TD
         GHA_BK["Production DB Backup: nightly and manual pg_dump"]
         GHA_RT["Production DB Restore Test: restores the newest dump after each backup"]
         GHA_DE["Dedup Review Export: manual, read-only evidence JSON of the pending dedup queue for the AI reviewer"]
-        GH_ISSUES["GitHub Issues: dedup-escalate issues and the rolling dedup-insight log"]
         GHA_DA["Dedup Review Apply: manual; validate is read-only, apply (dry run or live) waits for the owner's approval in dedup-review-live and merges accepted pairs"]
+    end
+
+    subgraph GitHubIssues["GitHub Issues"]
+        GH_ISSUES["dedup-escalate issues and the rolling dedup-insight log"]
     end
 
     subgraph ClaudeCloud["Claude cloud session (no production database credentials)"]
