@@ -2,10 +2,12 @@
 
 Status: design agreed 2026-10-30 (bmad-quick-dev session, owner: shulha). Split into pieces after architecture and
 code reviews. This file is the shared context for the specs. Built and merged: A (PR 119), B1 the read-only export
-(`FIND-107`, verified on prod), B2a the `resolved_via` flag, B2b-1 the apply engine (`FIND-108`, PR 134). B2b-2, the
-apply workflow and its paper trail (`FIND-112`, architecture decision AD-45, PRD 3.7 and 3.9.3 amended), is built on
-its branch; its write secret is created only after the workflow's actions are pinned by SHA, so until then only
-`validate` can run. C, the skill (`FIND-104`), is deferred.
+(`FIND-107`, verified on prod), B2a the `resolved_via` flag, B2b-1 the apply engine (`FIND-108`, PR 134), B2b-2 the
+apply workflow and its paper trail (`FIND-112`, architecture decision AD-45, PRD 3.7 and 3.9.3 amended, PR 135); its
+actions were pinned by SHA and its write secret (the narrow role `dedup_review_apply`) created on 2026-11-03, and one
+approved live merge ran that day. C, the skill (`FIND-104`), is built (2026-11-03, spec
+`implementation-artifacts/spec-find-104-moderator-dedup-review-skill.md`) and waits for its acceptance: one shadow run
+that the owner reviews, then live.
 
 ## 1. Goal
 
@@ -44,7 +46,7 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
   count `ai_skill` rows. The export's `recentlyResolved` reads the same flag.
 - Escalations are GitHub issues labelled `dedup-escalate`; status is open/closed. The LLM-written insight per pair
   feeds a rolling `dedup-insight` issue.
-- The skill reads AD-30 Rules 7 and 9, AD-40, `docs/infrastructure/7-event-dedup.md` and `project-context.md`
+- The skill reads AD-30 Rules 7 and 9, AD-45, `docs/infrastructure/7-event-dedup.md` and `project-context.md`
   at run time and copies no thresholds.
 
 ## 3. Trust model (the repo is PUBLIC, verified 2026-10-30)
@@ -69,7 +71,7 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 | **B2a** | `resolved_via` / `performed_via` flag (merged, PR 131) | Behaviour-preserving; marks every resolution as a person's or the AI's | B1 |
 | **B2b-1** | Decision judge, floor and caps in `packages/domain`; apply script (`FIND-108`). **Built 2026-10-31.** | Dark: code and tests, nothing can run it | B2a |
 | **B2b-2** | `dedup-review-apply` workflow (three jobs, two environments), guard script and tests, kill-switch variable, AD-45, PRD amendment, runbook (`FIND-112`). **Built 2026-11-01.** | A human dispatches it, `validate` before `apply`; the write secret waits for SHA-pinned actions | B2b-1 |
-| **C** | `moderator-dedup-review` skill (`SKILL.md`), labels, `dedup-insight` issue, shadow-mode acceptance | The daily skill | B on `master` |
+| **C** | `moderator-dedup-review` skill (`SKILL.md`, the `dedup_report.py` reader), labels, `dedup-insight` issue, shadow-mode acceptance (`FIND-104`). **Built 2026-11-03; acceptance pending.** | The daily skill | B on `master` |
 | C2 (later) | `review-insights` mode | Reads closed, labelled issues | weeks of C data |
 
 B was split into B1 and B2 on 2026-10-31 so the read-only half could be run against prod first. C must follow B2's
@@ -146,8 +148,10 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 ## 6. Requirements carried into C
 
 - `SKILL.md`: dispatch export (`ref=master`, `run_tag`), read logs, read the rubric docs, decide per pair,
-  dispatch apply (dry run in shadow), open escalation issues, close issues for `recentlyResolved`, append a run
-  summary to the rolling `dedup-insight` issue, report to the user.
+  dispatch `validate` (the shadow mode; an `apply` run, a dry run included, uses the write credential and waits for
+  approval, so the skill does not use it for shadow) and a live `apply` only on the owner's word, open escalation
+  issues, close issues for `recentlyResolved`, append a run summary to the rolling `dedup-insight` issue, report to
+  the user.
 - Escalation issue: the **suggestion id in the title** (dedupe by `in:title`, not by label or body text); create the
   issue and its labels in one call so a partial failure cannot leave a label-less duplicate.
 - Labels: `dedup-escalate`; one `pattern:<tag>` from a fixed set (`name-language`, `venue-alias`,
@@ -163,6 +167,28 @@ merge (the skill dispatches both workflows, which must exist on `master`).
   issues' pairs through `evaluateBacklogRow`/`decideMatchTier` before proposing a rule change, and keep them as a
   regression corpus (precedent: the golden-prompt eval). Suggested trigger: five unlearned issues with one pattern.
   `bmad-form-epics` is the natural intake.
+
+*As built in C (2026-11-03, after an architecture and a code review of the spec):*
+
+- **The reader.** `dedup_report.py` (with `test_dedup_report.py`) reads the job logs and builds every piece of public text,
+  so a model never parses a 98k-character line or copies a 64-hex hash. Markers are matched as whole lines: the export
+  workflow's summary step echoes its own `awk` script, so a substring test rejects every real log.
+- **Shadow mode is `validate`.** A pair `validate` calls eligible gets an escalation issue whose title ends `(shadow)`, because
+  nothing merges and it would otherwise lead every export; the later `outcome:*` label is the agreement data the acceptance
+  needs. To go live the owner clears the run: shadow ids then stay out of `skip_ids`, the pair returns in a fresh export, is
+  decided again and validated, and the owner is asked about the set that will be dispatched. A live `apply` is dispatched only
+  on the owner's word in the conversation, and an unattended session is validate-only.
+- **Issue trust is by label.** Only issues carrying `dedup-escalate` (or `dedup-insight`) count, read with `list_issues`
+  and no body; the repo has no issue template or workflow that could label an outsider's issue. A closed issue is reopened
+  only when its pair is pending again after an undo.
+- **When the open issues fill `skip_ids`** (its cap is in the export workflow) the skill is frozen: it still exports and
+  settles, opens no new issue and stamps the insight issue.
+- **Known gaps.** A pair whose issue a person closed while it is still pending keeps leading every export; only open ids go
+  in `skip_ids` so the count of resolved-but-open issues stays exact (`FIND-117`: the skill reports it and stamps `blocked`).
+  `recentlyResolved` hides human decisions (`FIND-115`, the skill closes only ids it can see there); the
+  export has no suggestion age, so the insight issue's "oldest" age is approximate; whether issue creation makes a missing
+  label is unverified, so the skill reads the labels back; the owner-token limit (AD-45 Rule 6) is text, not enforcement
+  (`FIND-116`).
 
 ## 7. Facts verified while reviewing
 
