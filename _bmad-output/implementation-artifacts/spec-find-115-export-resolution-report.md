@@ -2,7 +2,8 @@
 title: 'Export tells the reviewer what happened to the pairs it escalated (FIND-115)'
 type: 'feature'
 created: '2026-11-05'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '62077e90669bf5d18e27cfe2075b1530013f9ebb'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/specs/ai-dedup-review/DESIGN.md'

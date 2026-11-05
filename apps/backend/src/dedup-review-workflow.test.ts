@@ -479,3 +479,100 @@ test('dedup-review-apply workflow steps run the way GitHub runs them (bash -e, a
     assert.ok(ok.calls.includes('--mode validate') && !ok.calls.includes('--live'));
   });
 });
+
+// AI dedup review, FIND-115: the export workflow's summary step. It runs under `bash -e` with `set -euo pipefail`,
+// so a jq error turns a good export red. It must print counts and raw timestamps from any report shape (a
+// millisecond timestamp breaks jq's date functions; a missing key must not abort), and never an id: a suggestion
+// id is not private, but the summary is for counts, and names in the report are untrusted text.
+test('export workflow: the summary step prints counts and raw timestamps for any report shape and never an id', async (t) => {
+  const body = extractRunBodies(stripComments(readFileSync(EXPORT_WORKFLOW, 'utf8'))).find((b) => b.includes('DEDUP_REVIEW_EXPORT_BEGIN') && b.includes('jq -r')) as string;
+  assert.ok(body, 'the summary step exists');
+
+  const dir = mkdtempSync(join(tmpdir(), 'dedup-export-summary-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const ID_A = '11111111-1111-4111-8111-111111111111';
+  const ID_B = '22222222-2222-4222-8222-222222222222';
+  const markers = (report: unknown) => ['DEDUP_REVIEW_EXPORT_BEGIN', JSON.stringify(report), 'DEDUP_REVIEW_EXPORT_END'].join('\n') + '\n';
+
+  const full = {
+    schemaVersion: 1,
+    generatedAt: '2026-11-05T11:00:00.123Z',
+    runTag: 'daily-1',
+    limit: 10,
+    totalPending: 160,
+    staleCount: 1,
+    skippedCount: 3,
+    skipIdCount: 5,
+    skipResolved: [
+      { suggestionId: ID_A, status: 'accepted', resolvedAt: '2026-11-04T08:30:00.456Z', resolvedBy: 'human' },
+      { suggestionId: ID_B, status: 'missing', resolvedAt: null, resolvedBy: null },
+    ],
+    scanLimited: false,
+    oldestPendingAt: '2026-10-01T08:30:00.456Z',
+    oldestUnskippedPendingAt: '2026-10-20T08:30:00.789Z',
+    pairs: [],
+    recentlyResolved: [{ suggestionId: ID_A, status: 'accepted', resolvedAt: '2026-11-04T08:30:00.456Z', resolvedBy: 'human' }],
+    recentlyResolvedTruncated: false,
+    recentlyExpiredCount: 300,
+  };
+  const empty = { ...full, totalPending: 0, skippedCount: 0, skipIdCount: 0, skipResolved: [], oldestPendingAt: null, oldestUnskippedPendingAt: null, recentlyResolved: [], recentlyExpiredCount: 0, runTag: null };
+  const oldShape: Record<string, unknown> = { ...full };
+  for (const key of ['skipIdCount', 'skipResolved', 'recentlyExpiredCount', 'oldestPendingAt', 'oldestUnskippedPendingAt']) delete oldShape[key];
+
+  let n = 0;
+  function runStep(output: string) {
+    const runnerTemp = join(dir, `runner-${++n}`);
+    mkdirSync(runnerTemp);
+    writeFileSync(join(runnerTemp, 'dedup-review-export.out'), output);
+    const summary = join(dir, `summary-${n}.md`);
+    writeFileSync(summary, '');
+    const script = join(dir, `step-${n}.sh`);
+    writeFileSync(script, body);
+    // GitHub runs a step without `shell:` as `bash -e {0}`.
+    const result = spawnSync('bash', ['-e', script], {
+      env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', RUNNER_TEMP: runnerTemp, GITHUB_STEP_SUMMARY: summary },
+      encoding: 'utf8',
+    });
+    return { status: result.status, out: result.stdout + result.stderr, summary: readFileSync(summary, 'utf8') };
+  }
+  const noId = (text: string) => assert.ok(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(text), `no suggestion id in the summary:\n${text}`);
+
+  await t.test('a full report: counts, the expiry count and both raw timestamps, millisecond part included', () => {
+    const result = runStep(markers(full));
+    assert.strictEqual(result.status, 0, result.out);
+    for (const line of [
+      '- pending suggestions: 160',
+      '- skipped by the caller: 3',
+      '- sent ids no longer pending: 2 of 5',
+      '- decisions in the last 14 days: 1 (more existed: false)',
+      '- expired in the last 14 days: 300',
+      '- oldest pending: 2026-10-01T08:30:00.456Z',
+      '- oldest pending not yet escalated: 2026-10-20T08:30:00.789Z',
+    ]) {
+      assert.ok(result.summary.includes(line), `missing "${line}" in:\n${result.summary}`);
+    }
+    noId(result.summary);
+  });
+
+  await t.test('an empty queue: nulls print as none, zeros as zeros, and the step still succeeds', () => {
+    const result = runStep(markers(empty));
+    assert.strictEqual(result.status, 0, result.out);
+    assert.ok(result.summary.includes('- oldest pending: none'));
+    assert.ok(result.summary.includes('- oldest pending not yet escalated: none'));
+    assert.ok(result.summary.includes('- sent ids no longer pending: 0 of 0'));
+    assert.ok(result.summary.includes('- run tag: `none`'));
+  });
+
+  await t.test('a report from before these fields existed does not turn the run red', () => {
+    const result = runStep(markers(oldShape));
+    assert.strictEqual(result.status, 0, result.out);
+    assert.ok(result.summary.includes('- pending suggestions: 160'));
+    noId(result.summary);
+  });
+
+  await t.test('no markers in the output still fails the step, loudly', () => {
+    const result = runStep('nothing useful\n');
+    assert.strictEqual(result.status, 1);
+    assert.match(result.out, /::error::The export printed no line between its markers/);
+  });
+});

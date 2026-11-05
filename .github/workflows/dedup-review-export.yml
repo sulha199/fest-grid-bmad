@@ -127,5 +127,5 @@ jobs:
           {
             echo '### Dedup Review Export'
             echo ''
-            printf '%s\n' "$json" | jq -r '"- run tag: `\(.runTag // "none")`", "- pending suggestions: \(.totalPending)", "- exported pairs: \(.pairs | length)", "- stale, dropped: \(.staleCount)", "- skipped by the caller: \(.skippedCount)", "- scan cap reached: \(.scanLimited)", "- resolved in the last 14 days: \(.recentlyResolved | length) (more existed: \(.recentlyResolvedTruncated))"'
+            printf '%s\n' "$json" | jq -r '"- run tag: `\(.runTag // "none")`", "- pending suggestions: \(.totalPending)", "- exported pairs: \(.pairs | length)", "- stale, dropped: \(.staleCount)", "- skipped by the caller: \(.skippedCount)", "- sent ids no longer pending: \(.skipResolved | length) of \(.skipIdCount)", "- scan cap reached: \(.scanLimited)", "- decisions in the last 14 days: \(.recentlyResolved | length) (more existed: \(.recentlyResolvedTruncated))", "- expired in the last 14 days: \(.recentlyExpiredCount)", "- oldest pending: \(.oldestPendingAt // "none")", "- oldest pending not yet escalated: \(.oldestUnskippedPendingAt // "none")"'
           } >> "$GITHUB_STEP_SUMMARY"
