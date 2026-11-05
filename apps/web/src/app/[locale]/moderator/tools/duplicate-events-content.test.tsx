@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -184,5 +184,61 @@ describe('DuplicateEventsContent', () => {
     toastOptions.action.onClick();
 
     await waitFor(() => expect(mockUndo).toHaveBeenCalledWith({ mergeId: 'merge-1' }));
+  });
+
+  // Story 0.i5c / AD-18: previous-page navigation and a page readout. This queue has no filters and
+  // its connection reports no totalCount, so the readout is "Page N" with no total.
+  describe('pagination', () => {
+    const pages: Record<string, { id: string; hasNextPage: boolean; endCursor: string | null }> = {
+      first: { id: 'suggestion-page-one', hasNextPage: true, endCursor: 'c1' },
+      c1: { id: 'suggestion-page-two', hasNextPage: false, endCursor: null },
+    };
+
+    beforeEach(() => {
+      (useRequireModerator as any).mockReturnValue({ status: 'authorized' });
+      (useQuerySuggestedEventMatches as any).mockImplementation((_size: number, cursor: string | undefined) => {
+        const page = pages[cursor ?? 'first'];
+        return {
+          data: {
+            suggestedEventMatches: {
+              edges: [{
+                node: makeSuggestion({ id: page.id, candidateEvent: { ...makeSuggestion().candidateEvent, eventName: `Event on ${page.id}` } }),
+                cursor: page.endCursor ?? 'last',
+              }],
+              pageInfo: { hasNextPage: page.hasNextPage, endCursor: page.endCursor },
+            },
+          },
+          isLoading: false, error: null, refetch: mockRefetch,
+        };
+      });
+    });
+
+    const lastCursor = () => {
+      const calls = (useQuerySuggestedEventMatches as any).mock.calls;
+      return calls[calls.length - 1][1] as string | undefined;
+    };
+
+    it('shows the page number without a total, with Previous disabled on the first page', () => {
+      render(<DuplicateEventsContent />, { wrapper: createWrapper() });
+      expect(screen.getByText('Event on suggestion-page-one')).toBeInTheDocument();
+      expect(screen.getByText('Page 1')).toBeInTheDocument();
+      expect(screen.queryByText(/total/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+    });
+
+    it('goes forward to the last page and back, fetching each page with its own cursor', () => {
+      render(<DuplicateEventsContent />, { wrapper: createWrapper() });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(lastCursor()).toBe('c1');
+      expect(screen.getByText('Event on suggestion-page-two')).toBeInTheDocument();
+      expect(screen.getByText('Page 2')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+      expect(lastCursor()).toBeUndefined();
+      expect(screen.getByText('Event on suggestion-page-one')).toBeInTheDocument();
+    });
   });
 });

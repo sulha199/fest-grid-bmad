@@ -2,21 +2,23 @@
 
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { RouteLoader, BlockingLoader, Checkbox, AccountLocationField, ConfirmActionDialog } from '@festgrid/ui';
+import { RouteLoader, BlockingLoader, Checkbox, AccountLocationField, ConfirmActionDialog, PaginationControls, useListPaginationController } from '@festgrid/ui';
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
 import { usePostHog } from '@festgrid/analytics';
 import { toast } from 'sonner';
 import { useQueryModeratorAccountProfiles, useSetImageStorageOptInMutation, useClearAccountDefaultLocationMutation } from './moderator-accounts-hooks';
 import { SetDefaultLocationDialog } from '../../settings/account/set-default-location-dialog';
 import type { ModeratorAccountProfileFilters } from '@/gql/graphql';
-import { Button } from '@festgrid/ui';
+import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
+import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
+
+const PAGE_SIZE = 20;
 
 export function ModeratorAccountsContent() {
   const t = useTranslations('ModeratorAccountsPage');
   const posthog = usePostHog();
   const { status: authStatus } = useRequireModerator();
   const [searchTerm, setSearchInput] = useState('');
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [updatingAccounts, setUpdatingAccounts] = useState<{ [key: string]: boolean }>({});
   const [locationDialogState, setLocationDialogState] = useState<{
     accountId: string;
@@ -26,7 +28,11 @@ export function ModeratorAccountsContent() {
   const [clearingAccountId, setClearingAccountId] = useState<string | null>(null);
   const [isClearing, setIsClearing] = useState(false);
   const filters: ModeratorAccountProfileFilters = { search: searchTerm.trim() || undefined };
-  const { data: accountsData, isLoading: isLoadingAccounts, error: accountsError, refetch: refetchAccounts } = useQueryModeratorAccountProfiles(filters, cursor, 20, authStatus === 'authorized');
+  const pagination = useListPaginationController<ModeratorAccountProfileFilters, string | undefined>({ filterKey: filters, initialCursor: undefined });
+  const { data: accountsData, isLoading: isLoadingAccounts, error: accountsError, refetch: refetchAccounts } = useQueryModeratorAccountProfiles(filters, pagination.cursor, PAGE_SIZE, authStatus === 'authorized');
+  const queryResult = accountsData?.queryModeratorAccountProfiles;
+  useReportConnectionPageMeta(pagination, queryResult);
+  const paginationLabels = usePaginationLabels(pagination.pageIndex, pagination.totalCount, PAGE_SIZE);
   const { mutateAsync: setImageStorageOptIn } = useSetImageStorageOptInMutation();
   const { mutateAsync: clearAccountDefaultLocation } = useClearAccountDefaultLocationMutation();
 
@@ -35,7 +41,6 @@ export function ModeratorAccountsContent() {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchInput(e.target.value);
-    setCursor(undefined);
   };
 
   const handleToggleOptIn = async (accountId: string, displayName: string, checked: boolean) => {
@@ -76,10 +81,9 @@ export function ModeratorAccountsContent() {
     }
   };
 
-  const queryResult = accountsData?.queryModeratorAccountProfiles;
   const edges = queryResult?.edges || [];
-  const hasNextPage = queryResult?.pageInfo?.hasNextPage || false;
-  const isEmpty = edges.length === 0 && !cursor;
+  const isEmpty = edges.length === 0 && !pagination.hasPrevPage;
+  const endCursor = queryResult?.pageInfo?.endCursor;
   const isAnyToggleInProgress = Object.values(updatingAccounts).some((v) => v);
 
   return (
@@ -159,7 +163,13 @@ export function ModeratorAccountsContent() {
               );
             })}
           </div>
-          {hasNextPage && <Button onClick={() => setCursor(queryResult?.pageInfo?.endCursor || undefined)} variant="outline" className="w-full">{t('loadMoreButton')}</Button>}
+          <PaginationControls
+            hasPrevPage={pagination.hasPrevPage}
+            hasNextPage={pagination.hasNextPage}
+            onPrev={pagination.goToPrevPage}
+            onNext={() => { if (endCursor) pagination.goToNextPage(endCursor); }}
+            labels={paginationLabels}
+          />
         </div>
       )}
 

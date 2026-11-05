@@ -9,11 +9,15 @@ import {
   BlockingLoader,
   Button,
   ConfirmActionDialog,
+  PaginationControls,
+  useListPaginationController,
   useSoftDeleteWithUndo,
   formatEventCardDateBoxLine,
   combineDateTime,
 } from '@festgrid/ui';
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
+import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
+import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
 import {
   useQuerySuggestedEventMatches,
   useResolveSuggestedEventMatchMutation,
@@ -22,6 +26,9 @@ import {
 } from './duplicate-events-hooks';
 
 const PAGE_SIZE = 10;
+
+// This queue has no filters, so the controller's filter key never changes and it never resets itself.
+const NO_FILTERS = {};
 
 type SuggestedEvent = {
   id: string;
@@ -132,12 +139,16 @@ export function DuplicateEventsContent() {
   const posthog = usePostHog();
   const { status: authStatus } = useRequireModerator();
 
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [actionInFlight, setActionInFlight] = useState<Record<string, boolean>>({});
   const [confirmSuggestion, setConfirmSuggestion] = useState<SuggestedMatch | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const { data, isLoading, error, refetch } = useQuerySuggestedEventMatches(PAGE_SIZE, cursor, authStatus === 'authorized');
+  const pagination = useListPaginationController<typeof NO_FILTERS, string | undefined>({ filterKey: NO_FILTERS, initialCursor: undefined });
+  const { data, isLoading, error, refetch } = useQuerySuggestedEventMatches(PAGE_SIZE, pagination.cursor, authStatus === 'authorized');
+  const queryResult = data?.suggestedEventMatches;
+  // The connection has no totalCount, so the readout is "Page N" without a total.
+  useReportConnectionPageMeta(pagination, queryResult);
+  const paginationLabels = usePaginationLabels(pagination.pageIndex, pagination.totalCount, PAGE_SIZE);
   const { mutateAsync: resolveSuggestedEventMatch } = useResolveSuggestedEventMatchMutation();
   const { mutateAsync: undoEventMerge } = useUndoEventMergeMutation();
 
@@ -151,10 +162,9 @@ export function DuplicateEventsContent() {
   if (authStatus === 'loading' || authStatus === 'unauthenticated' || authStatus === 'unauthorized') return <RouteLoader />;
   if (isLoading) return <RouteLoader />;
 
-  const queryResult = data?.suggestedEventMatches;
   const edges = queryResult?.edges || [];
-  const hasNextPage = queryResult?.pageInfo?.hasNextPage || false;
-  const isEmpty = edges.length === 0 && !cursor;
+  const isEmpty = edges.length === 0 && !pagination.hasPrevPage;
+  const endCursor = queryResult?.pageInfo?.endCursor;
   const isAnyActionInFlight = Object.values(actionInFlight).some(Boolean);
 
   const handleAcceptClick = (suggestion: SuggestedMatch) => {
@@ -256,11 +266,13 @@ export function DuplicateEventsContent() {
               );
             })}
           </div>
-          {hasNextPage && (
-            <Button onClick={() => setCursor(queryResult?.pageInfo?.endCursor || undefined)} variant="outline" className="w-full">
-              {t('loadMoreButton')}
-            </Button>
-          )}
+          <PaginationControls
+            hasPrevPage={pagination.hasPrevPage}
+            hasNextPage={pagination.hasNextPage}
+            onPrev={pagination.goToPrevPage}
+            onNext={() => { if (endCursor) pagination.goToNextPage(endCursor); }}
+            labels={paginationLabels}
+          />
         </div>
       )}
 

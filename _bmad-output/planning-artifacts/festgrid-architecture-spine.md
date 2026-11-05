@@ -843,9 +843,20 @@ This document defines the core architectural invariants for the FestDaily applic
         `useState` cursor that must be remembered to reset on filter change. This is what
         structurally prevents BUG-019's failure mode from recurring at a new call site.
         - **Enforced by:** `packages/ui/src/hooks/useListPaginationController.test.ts` (Story
-          0.i5a) proves the reset-on-filter-change contract in isolation; adoption at concrete
-          call sites (Discovery's `home-content.tsx`, moderator tools) and the CI-enforced
-          no-local-pagination-state ratchet land in Stories 0.i5b/0.i5c/0.i5d/0.i5z.
+          0.i5a) proves the reset-on-filter-change contract in isolation. Every paged list
+          (Discovery, Feed, Favorites, the post-events page and the four moderator-tools pages) now
+          uses the controller, and `packages/ui/src/__tests__/ad18-list-pagination.ratchet.test.ts`
+          (Story 0.i5z, added 2026-11-05) fails if any file under `packages/ui/src` or
+          `apps/web/src` declares its own cursor / `hasNextPage` / page-number state with
+          `useState` or `useReducer`, or if one of those eight lists stops using the controller.
+          It does not try to ban local *filter* state (a list's filters are the controller's
+          `filterKey`, and "is this a filter?" has no reliable static test); a filter change
+          resetting to page 1 is proved by the controller's test and by the `pagination` suite of
+          each moderator page (BUG-019's exact case). The moderator pages page with
+          `PaginationControls` (`packages/ui/src/core/pagination-controls.tsx`, Story 0.i5c) and
+          report `hasNextPage`/`totalCount` through `useReportConnectionPageMeta`
+          (`apps/web/src/features/pagination/`), which re-reports on `resetToken` so a cleared
+          controller is never left at "no next page" when the new page reports the same numbers.
 
 ---
 
