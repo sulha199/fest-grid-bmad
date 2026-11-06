@@ -2,7 +2,7 @@
 title: 'Attended decision loop: a moderator accepts or skips each escalated pair from a popup (FIND-119)'
 type: 'feature'
 created: '2026-11-06'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '24ef5e65f3135f75e198f2ef4877384b23a19c7e'
 review_loop_iteration: 0
 context:
@@ -56,10 +56,10 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `dedup_report.py` + test -- `brief LOG --ids ...`: per pair a cleaned, masked, capped popup text (names, venue, dates and times, link, source account type, signals, undone merges, deterministic clues: words and numbers only one name has, day gap, venue, organizer and link match) and the issue number from the listing
-- [ ] `dedup_report.py` + test -- `close-decided LOG PAGE... --apply-log ... --apply-run-tag ...`: for each merged id with an open issue, number, full label set with `outcome:accepted`, and the fixed comment with the merge id; `comment decided` as the phrase
-- [ ] `SKILL.md` -- the attended loop step: start condition, fresh export, triage, validate, popups, final confirmation, live apply by step 6, `close-decided`; the table, rules 2 and 3 and the report updated
-- [ ] docs -- `DESIGN.md`, `7-event-dedup.md`, AD-45 Rule 3 (one sentence), `FIND-119` and the deferral rows on the board; no diagram impact
+- [x] `dedup_report.py` + test -- `brief LOG --ids ...`: per pair a cleaned, masked, capped popup text (names, venue, dates and times, link, source account type, signals, undone merges, deterministic clues: words and numbers only one name has, day gap, venue, organizer and link match) and the issue number from the listing
+- [x] `dedup_report.py` + test -- `close-decided LOG PAGE... --apply-log ... --apply-run-tag ...`: for each merged id with an open issue, number, full label set with `outcome:accepted`, and the fixed comment with the merge id; `comment decided` as the phrase
+- [x] `SKILL.md` -- the attended loop step: start condition, fresh export, triage, validate, popups, final confirmation, live apply by step 6, `close-decided`; the table, rules 2 and 3 and the report updated
+- [x] docs -- `DESIGN.md`, `7-event-dedup.md`, AD-45 Rule 3 (one sentence), `FIND-119` and the deferral rows on the board; no diagram impact
 
 **Acceptance Criteria:**
 - Given an apply report with merged ids and an open issue each, when `close-decided` runs, then it lists those issues with `outcome:accepted` and a comment naming the merge id, and leaves an unmerged id alone.
