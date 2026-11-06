@@ -2709,6 +2709,22 @@ items:
      touches: [app:backend, cross:process],
      note: "Deferred from: bmad-quick-dev review of spec-find-115-export-resolution-report (2026-11-06). The skill reports a missing id and never closes it (frozen spec), so enough of them freeze the skill. Also: --sent-file cannot see a swapped pending id; null resolved_at rows are invisible. 3 findings."}
 
+  FIND-119:
+    {type: finding, status: done, created: 2026-11-06,
+     impact: internal, effort: s,
+     title: "AI dedup review: attended loop, a moderator accepts or skips each escalated pair from a popup",
+     ref: [implementation-artifacts/spec-find-119-attended-decision-loop.md, .claude/skills/moderator-dedup-review/dedup_report.py, specs/ai-dedup-review/DESIGN.md],
+     touches: [web:moderation, cross:process],
+     note: "Owner-requested 2026-11-06. SKILL.md step 8 plus the reader's brief and close-decided; accept goes through the live apply as the session's email, then the issue closes with outcome:accepted. Reject is FIND-120."}
+
+  FIND-120:
+    {type: finding, status: backlog, created: 2026-11-06,
+     impact: latent, effort: m,
+     title: "AI dedup review: reject an escalated pair from the attended loop (needs an apply-side reject path)",
+     ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/dedup-review-apply.ts],
+     touches: [app:backend, pkg:domain, app:infrastructure, cross:architecture],
+     note: "Deferred from: bmad-quick-dev split of spec-find-119-attended-decision-loop (2026-11-06). Needs an apply-side reject path, an AD-45 Rule 3 amendment and an architecture decision (not undoable, indistinguishable from an injected decision, cap). Owned paths: Ask First. 1 finding."}
+
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
     {type: bug, status: backlog, created: 2026-10-30,

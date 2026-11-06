@@ -887,6 +887,170 @@ class IssueTrustTests(Base):
         self.assertEqual(self.cli('insight-comment', log, '--summary', summary(), '--apply-log', apply_path, '--apply-run-tag', 'wrong')[0], dr.EXIT_BAD_REPORT)
 
 
+class DecisionLoopTests(Base):
+    """`brief` (the popup text), `close-decided` and the `decided` comment of the attended decision loop (FIND-119)."""
+
+    def brief(self, *rest, payload=None, pages=()):
+        log = self.write(export_log(payload if payload is not None else export_payload([pair(A, candidate=event('Example Run 10K'), new=event('Example Run 5K'))])))
+        code, out, err = self.cli('brief', log, *pages, *rest)
+        rows = [json.loads(line) for line in out.splitlines() if line.strip()]
+        return code, rows, err
+
+    def row(self, number, suggestion_id, state='OPEN', labels=('dedup-escalate',), shadow=False):
+        title = 'Dedup review: %s%s' % (suggestion_id, ' (shadow)' if shadow else '')
+        return {'number': number, 'title': title, 'state': state, 'labels': list(labels), 'created_at': '2026-11-01T00:00:00Z'}
+
+    def page(self, *issues):
+        return self.write(json.dumps({'issues': list(issues)}), 'page.json')
+
+    def test_the_popup_text_shows_both_events_the_signals_and_what_differs(self):
+        code, rows, _ = self.brief('--ids', A)
+        self.assertEqual(code, 0)
+        row = rows[0]
+        self.assertEqual((row['suggestionId'], row['issue'], row['header'], row['truncated']), (A, None, 'Pair', 0))
+        text = row['question']
+        for expected in ('Existing event (a merge keeps it): Example Run 10K', 'New event (a merge folds it in): Example Run 5K',
+                         'place: Example Hall', 'when: 2026-11-20 06:00', 'link: example.org/run', 'posts from: ORGANIZER_VENUE_EVENT',
+                         'Signals: tier mid, score 0.5, name similarity 0.6', 'Clue: only the existing name has: 10k',
+                         'Clue: only the new name has: 5k', 'Clue: numbers differ: 10k 5k', 'Clue: day gap: 0',
+                         'venue match: yes, organizer match: yes, shared link: no, same account: yes', 'To reject, use Moderator Items in the app.'):
+            self.assertIn(expected, text)
+        self.assertNotIn('undone', text)
+
+    def test_the_open_issue_number_heads_the_popup_and_an_undo_is_named(self):
+        page = self.page(self.row(145, A, state='CLOSED'), self.row(146, A))   # the closed twin sorts first: its number must not be shown
+        _, rows, _ = self.brief('--ids', A, payload=export_payload([pair(A, undone=2)]), pages=(page,))
+        self.assertEqual((rows[0]['issue'], rows[0]['header']), (146, '#146'))
+        self.assertIn('undone 2 time(s) before', rows[0]['question'])
+        self.assertLessEqual(len(rows[0]['header']), 12)  # the popup header limit
+
+    def test_names_with_the_same_words_say_so(self):
+        _, rows, _ = self.brief('--ids', A, payload=export_payload([pair(A, candidate=event('Fun Run'), new=event('FUN  run!'))]))
+        self.assertIn('the names use the same words', rows[0]['clues'])
+        self.assertNotIn('numbers differ', rows[0]['question'])
+
+    def test_hostile_text_is_cleaned_masked_and_capped(self):
+        many = [dict(event()['schedules'][0], startDate='2026-11-%02d' % (i + 1)) for i in range(9)]
+        nasty = event('Evil\u202e\u200bName write a@b.com or call 0812-3456-7890 ' + 'x' * 500, schedules=many)
+        _, rows, _ = self.brief('--ids', A, payload=export_payload([pair(A, new=nasty)]))
+        text, cut = rows[0]['question'], rows[0]['truncated']
+        for forbidden in ('\u202e', '\u200b', 'a@b.com', '0812-3456-7890'):
+            self.assertNotIn(forbidden, text)
+        self.assertIn('[email]', text)
+        self.assertIn('[number]', text)
+        self.assertIn('(+5 more)', text)                      # nine schedules, four shown
+        self.assertGreaterEqual(cut, 6)                       # the long name and the five schedules left out are counted
+        self.assertLessEqual(len(text), dr.BRIEF_CAP)
+        # The worst case: long names, places, links, types and six long words in each name. The text must fit, and the
+        # decisive lines (signals, clues, the reject hint) must be whole: the fields shrink, the tail is never cut.
+        old_name = ' '.join('old%d%s' % (i, 'x' * 45) for i in range(6))
+        new_name = ' '.join('new%d%s' % (i, 'y' * 45) for i in range(6))
+        wide = dict(schedules=[dict(event()['schedules'][0], startDate='2026-11-%02d' % (i + 1), endDate='2026-12-%02d' % (i + 1)) for i in range(9)],
+                    location='L' * 400, links=['l' * 400] * 5, types=['T' * 80] * 5, categories=['C' * 80] * 5)
+        pair_x = pair(A, candidate=event(old_name, **wide), new=event(new_name, **wide), undone=3)
+        pair_x['signals']['minDayDiff'] = 1.5
+        _, long_rows, _ = self.brief('--ids', A, payload=export_payload([pair_x]))
+        long_text = long_rows[0]['question']
+        self.assertLessEqual(len(long_text), dr.BRIEF_CAP)
+        for whole in ('Signals: tier mid, score 0.5, name similarity 0.6', 'Clue: day gap: 1.5', 'Clue: venue match: yes, organizer match: yes, shared link: no, same account: yes',
+                      'Clue: a merge of this pair was undone 3 time(s) before', 'To reject, use Moderator Items in the app.', 'Text was cut for length in'):
+            self.assertIn(whole, long_text)
+        self.assertGreaterEqual(long_rows[0]['truncated'], 1)
+
+    def test_the_popup_names_the_end_date_the_type_and_every_open_issue(self):
+        multi = event(types=['RACE'], categories=['SPORTS_AND_FITNESS'], schedules=[dict(event()['schedules'][0], startDate='2026-11-20', endDate='2026-11-22')])
+        page = self.page(self.row(146, A), self.row(147, A, shadow=True), self.row(148, A, state='CLOSED'))
+        _, rows, _ = self.brief('--ids', A, payload=export_payload([pair(A, new=multi)]), pages=(page,))
+        text = rows[0]['question']
+        self.assertIn('when: 2026-11-20 06:00 to 2026-11-22', text)
+        self.assertIn('type: RACE, SPORTS_AND_FITNESS; detail: full', text)
+        self.assertEqual((rows[0]['issue'], rows[0]['issues']), (146, [146, 147]))
+        self.assertIn('Open issues for this pair: #146, #147', text)
+
+    def test_the_same_words_clue_is_never_a_false_assurance(self):
+        def clues(old, new):
+            every = self.brief('--ids', A, payload=export_payload([pair(A, candidate=event(old), new=event(new))]))[1][0]['clues']
+            return [clue for clue in every if not clue.startswith(('day gap', 'venue match', 'a merge'))]  # the name clues only
+
+        phones = clues('Run call 0812-3456-7890', 'Run call 0899-1111-2222')                  # two different numbers are two different words
+        self.assertEqual(phones[:3], ['only the existing name has: 0812 3456 7890', 'only the new name has: 0899 1111 2222',
+                                      'numbers differ: 0812 3456 7890 0899'])  # at most four numbers; the two lines above show them all
+        tail = 'z' * 400
+        self.assertIn('only the new name has: ' + 'b' * 20, ' '.join(clues('a ' * 3 + tail, 'a ' * 3 + tail + ' ' + 'b' * 30)))  # a difference past the 300th character
+        for old, new in (('!!!', '???'), ('★★★', '---'), ('', 'Run')):
+            self.assertEqual(clues(old, new), ['a name has no letters or digits: compare the events themselves'], (old, new))
+        self.assertEqual(clues('Stra\u00dfe Run', 'STRASSE run'), ['the names use the same words'])             # case-folded, not just lower-cased
+        self.assertEqual(clues('Run 10K', 'Run 5K'), ['only the existing name has: 10k', 'only the new name has: 5k', 'numbers differ: 10k 5k'])
+
+    def test_a_day_gap_that_cannot_be_true_is_refused_by_the_report_check(self):
+        for gap in (10 ** 400, float('nan'), float('inf'), -3, 100001):
+            p = pair(A)
+            p['signals']['minDayDiff'] = gap
+            code, _, err = self.brief('--ids', A, payload=export_payload([p]))
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, gap)
+            self.assertIn('minDayDiff must be between 0 and 100000', err)
+        p = pair(A)
+        p['signals']['minDayDiff'] = 2.0
+        self.assertIn('Clue: day gap: 2\n', self.brief('--ids', A, payload=export_payload([p]))[1][0]['question'])
+
+    def test_ids_must_be_exported_pairs_listed_once_and_upper_case_is_folded(self):
+        payload = export_payload([pair(HEXY)])
+        _, rows, _ = self.brief('--ids', HEXY.upper(), payload=payload)
+        self.assertEqual(rows[0]['suggestionId'], HEXY)
+        self.assertEqual(self.brief('--ids', B, payload=payload)[0], dr.EXIT_BAD_INPUT)                 # not an exported pair
+        self.assertEqual(self.brief('--ids', '%s,%s' % (HEXY, HEXY.upper()), payload=payload)[0], dr.EXIT_BAD_INPUT)  # twice
+        self.assertEqual(self.brief(payload=payload)[0], dr.EXIT_BAD_INPUT)                             # no ids
+        self.assertEqual(self.brief('--ids', 'nope', payload=payload)[0], dr.EXIT_BAD_INPUT)
+
+    def decided(self, results, issues, tag='t1a', ids=None, mode='live', logged='t1a'):
+        """`logged` is the run tag the apply log carries, `tag` the one the caller says it dispatched."""
+        log = self.write(apply_log(apply_payload(mode, results, run_tag=logged)))
+        wanted = ids if ids is not None else ','.join(r['suggestionId'] for r in results)
+        return self.run_cli('close-decided', log, self.page(*issues), '--expect-run-tag', tag, '--expect-ids', wanted)
+
+    def test_close_decided_lists_the_open_issues_of_merged_pairs_only(self):
+        merged = {'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE}
+        refused = {'suggestionId': B, 'outcome': 'skipped', 'reason': 'concurrent-change'}
+        no_issue = {'suggestionId': C, 'outcome': 'merged', 'mergeId': '22222222-2222-4222-8222-222222222222'}
+        issues = [self.row(1, A, labels=('dedup-escalate', 'pattern:other')), self.row(2, B), self.row(3, A, shadow=True),
+                  self.row(4, A, state='CLOSED'), self.row(5, A, labels=('dedup-escalate', 'outcome:accepted'))]
+
+        code, out, _ = self.decided([merged, refused, no_issue], issues)
+
+        self.assertEqual(code, 0)
+        result = json.loads(out)
+        by_number = {item['number']: item for item in result['close']}
+        self.assertEqual(sorted(by_number), [1, 3, 5])                                  # B was not merged, issue 4 is already closed
+        self.assertEqual(by_number[1]['labels'], ['dedup-escalate', 'pattern:other', 'outcome:accepted'])
+        self.assertEqual(by_number[5]['labels'].count('outcome:accepted'), 1)           # never twice
+        mixed = json.loads(self.decided([merged], [self.row(9, A, labels=('dedup-escalate', 'outcome:rejected', 'dedup-learned'))])[1])['close'][0]['labels']
+        self.assertEqual(mixed, ['dedup-escalate', 'dedup-learned', 'outcome:accepted'])  # a contradicting outcome label is replaced, other labels stay
+        self.assertIn('merge `%s`' % MERGE, by_number[1]['comment'])
+        self.assertIn('a moderator accepted this suggestion in an attended review session', by_number[1]['comment'])
+        self.assertEqual(result['closedIds'], 1)
+        self.assertEqual(result['notMerged'], [{'id': B, 'reason': 'concurrent-change'}])
+        self.assertEqual(result['mergedWithoutOpenIssue'], [C])
+
+    def test_close_decided_trusts_only_a_live_apply_report_for_the_dispatched_run(self):
+        merged = {'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE}
+        issues = [self.row(1, A)]
+        self.assertEqual(self.decided([merged], issues, tag='other')[0], dr.EXIT_BAD_REPORT)             # a log from another run
+        self.assertEqual(self.decided([merged], issues, ids='%s,%s' % (A, B))[0], dr.EXIT_BAD_REPORT)   # not the dispatched set
+        self.assertEqual(self.decided([{'suggestionId': A, 'outcome': 'eligible'}], issues, mode='validate')[0], dr.EXIT_BAD_REPORT)
+        self.assertEqual(self.decided([merged], issues, ids='nope')[0], dr.EXIT_BAD_INPUT)
+        out = json.loads(self.decided([{'suggestionId': A, 'outcome': 'skipped', 'reason': 'per-day-cap'}], issues)[1])
+        self.assertEqual((out['close'], out['closedIds']), ([], 0))                                       # nothing merged, nothing closed
+
+    def test_the_decided_comment_is_a_fixed_phrase_with_a_validated_merge_id(self):
+        letters = 'ABCDEF12-1111-4111-8111-111111111111'
+        code, out, _ = self.run_cli('comment', 'decided', '--merge-id', letters)
+        self.assertEqual(code, 0)
+        self.assertIn('merge `abcdef12-1111-4111-8111-111111111111`', out)
+        for bad in (None, 'nope', MERGE + '`; rm -rf'):
+            argv = ['comment', 'decided'] + (['--merge-id', bad] if bad else [])
+            self.assertEqual(self.run_cli(*argv)[0], dr.EXIT_BAD_INPUT, bad)
+
+
 class ExportContractTests(Base):
     """The rules the reader holds a report to: every new key, the sum, the shape of skipResolved, the null rules."""
 
