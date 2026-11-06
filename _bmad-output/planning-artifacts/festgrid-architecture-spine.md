@@ -127,6 +127,7 @@ This document defines the core architectural invariants for the FestDaily applic
     3.  **Single enforcement surface:** `requireAuth`/`requireModerator` (exported once from the backend's auth-context layer) are the only sanctioned way for a resolver to enforce "caller must be logged in" / "caller must be a moderator." Individual resolvers must import and call these rather than re-implementing equivalent checks.
     4.  **Role model:** Application-level authorization uses the `users.role` column (`user` | `moderator`, assigned manually via direct database access per the PRD's MVP scope — no self-service promotion). This is distinct from Supabase's own JWT `role` claim, which reflects the caller's Postgres role (`authenticated`/`anon`/`service_role`) for Supabase's Row Level Security and must never be used for application-level authorization decisions.
     5.  **New moderator-gated resources extend, not bypass, this surface:** e.g. accepting/reverting a `DefaultLocationChangeRequest` (PRD Section 4.14) is gated by the same `requireModerator` check as report moderation — a new resource type, not a new enforcement mechanism.
+*   **Enforced by (added 2026-11-04):** `apps/backend/src/schema/auth-surface.ratchet.test.ts`, a source-scan ratchet over the TypeScript AST of `src/schema/resolvers.ts` and the merged `.graphql` files. Rule 3: every `Query`/`Mutation` field must call `requireAuth`/`requireModerator` on a top-level statement before its first `await`, with no `if`, loop, `switch`, label, `return` or `throw` ahead of it (`if (x) return data; requireAuth(c)` fails), or be listed in the test's `PUBLIC_ROOT_FIELDS` (never guarded) or `OPTIONAL_AUTH_ROOT_FIELDS` (guarded only inside a branch), each entry carrying a reason and a source and failing the moment it goes stale. A `try` block counts only when its `catch` ends in `throw` or an empty `return` (`return`, `return null`, `return undefined`) and returns no data earlier: `try { requireAuth(c) } catch {}` swallows the failure and `catch { return await db.select() }` serves the failed caller, so neither is a guard. The check reads statement shapes, not a full control-flow graph (a guard hidden inside a helper, or a call that throws before the guard, is not modelled), and the detector is pinned by a table of accepted and rejected snippets in the same file. Hand-rolled reads of `context.user` are held to a shrink-only list. Rule 1: no root argument or input field may name the acting user (`userId`, `ownerId`, ...). Not covered: full path analysis, that a resolver checks ownership of the *resource*, and object-type field resolvers (`Event.*`, `Report.*`). Those stay with the resolvers' own integration tests.
 
 ---
 
@@ -842,9 +843,20 @@ This document defines the core architectural invariants for the FestDaily applic
         `useState` cursor that must be remembered to reset on filter change. This is what
         structurally prevents BUG-019's failure mode from recurring at a new call site.
         - **Enforced by:** `packages/ui/src/hooks/useListPaginationController.test.ts` (Story
-          0.i5a) proves the reset-on-filter-change contract in isolation; adoption at concrete
-          call sites (Discovery's `home-content.tsx`, moderator tools) and the CI-enforced
-          no-local-pagination-state ratchet land in Stories 0.i5b/0.i5c/0.i5d/0.i5z.
+          0.i5a) proves the reset-on-filter-change contract in isolation. Every paged list
+          (Discovery, Feed, Favorites, the post-events page and the four moderator-tools pages) now
+          uses the controller, and `packages/ui/src/__tests__/ad18-list-pagination.ratchet.test.ts`
+          (Story 0.i5z, added 2026-11-05) fails if any file under `packages/ui/src` or
+          `apps/web/src` declares its own cursor / `hasNextPage` / page-number state with
+          `useState` or `useReducer`, or if one of those eight lists stops using the controller.
+          It does not try to ban local *filter* state (a list's filters are the controller's
+          `filterKey`, and "is this a filter?" has no reliable static test); a filter change
+          resetting to page 1 is proved by the controller's test and by the `pagination` suite of
+          each moderator page (BUG-019's exact case). The moderator pages page with
+          `PaginationControls` (`packages/ui/src/core/pagination-controls.tsx`, Story 0.i5c) and
+          report `hasNextPage`/`totalCount` through `useReportConnectionPageMeta`
+          (`apps/web/src/features/pagination/`), which re-reports on `resetToken` so a cleared
+          controller is never left at "no next page" when the new page reports the same numbers.
 
 ---
 

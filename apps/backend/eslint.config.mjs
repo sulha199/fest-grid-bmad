@@ -1,4 +1,5 @@
 import { config as baseConfig } from "@festgrid/eslint-config/base";
+import { AD8_NO_HAND_WRITTEN_SOFT_DELETE_FILTER } from "@festgrid/eslint-config/invariants";
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -9,14 +10,9 @@ export default [
   {
     files: ["src/**/*.ts"],
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "CallExpression[callee.name='isNull'] Identifier[name='deletedAt']",
-          message:
-            "Do not hand-write isNull(table.deletedAt) — import activeOnly(table) from '@festgrid/graphql-select' instead (AD-8 rule 2).",
-        },
-      ],
+      // Editor feedback only: the base config's `only-warn` plugin downgrades this to a warning, so it
+      // cannot fail a build. The enforced copy lives in eslint.invariants.config.mjs (`lint:invariants`).
+      "no-restricted-syntax": ["error", AD8_NO_HAND_WRITTEN_SOFT_DELETE_FILTER],
     },
   },
 ];

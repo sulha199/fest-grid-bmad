@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import { db } from '../db/client.js';
 import { scraperActorRuns, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq, desc, count } from 'drizzle-orm';
-import { decodeActorRunCursor, endOfUtcDay, resolvers } from './resolvers.js';
+import { decodeActorRunCursor, encodeActorRunCursor, endOfUtcDay, resolvers } from './resolvers.js';
 import { GraphQLError } from 'graphql';
 
 const moderatorContext = { user: { userId: 'test-moderator', role: 'moderator' as const } };
@@ -168,12 +168,10 @@ test('Actor Runs GraphQL Resolvers', async (t) => {
     });
 
     await t.test('should encode cursor as base64', async () => {
-      // Cursor should be Buffer.from(offset.toString()).toString('base64')
-      // After cursor should decode it back to offset
-      const offset = 10;
-      const cursor = Buffer.from(offset.toString()).toString('base64');
-      const decoded = parseInt(Buffer.from(cursor, 'base64').toString(), 10);
-      assert.strictEqual(decoded, offset);
+      // The cursor names the position AFTER its row; paging through it is covered against real rows
+      // in moderator-list-pagination.test.ts.
+      assert.strictEqual(encodeActorRunCursor(10), Buffer.from('10').toString('base64'));
+      assert.strictEqual(decodeActorRunCursor(encodeActorRunCursor(10)), 10);
     });
 
     await t.test('should include totalCount in response', async () => {

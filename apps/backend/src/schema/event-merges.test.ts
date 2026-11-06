@@ -123,6 +123,40 @@ test('event-merges resolvers (Story 3.6w)', async (t) => {
     assert.ok(!nodes.some((n: any) => n.id === rejected.id), 'rejected suggestion must not appear in the pending list');
   });
 
+  await t.test('suggestedEventMatches - paging with after: endCursor shows every pending row once', async () => {
+    // The queue is global, so walk all of it and look for the three rows made here: a cursor that points
+    // at the last row of a page (instead of past it) repeats that row at the top of the next page.
+    const made: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const candidate = await makeEvent(`Page Candidate ${i} ${suffix}`);
+      const newEvent = await makeEvent(`Page New ${i} ${suffix}`);
+      made.push((await makeSuggestion(newEvent.id, candidate.id, 0.5)).id);
+    }
+
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const seen: string[] = [];
+    let after: string | null = null;
+    for (let i = 0; i < 200; i++) {
+      const result: any = await gqlCall(
+        `query ($after: String) {
+          suggestedEventMatches(first: 2, after: $after) {
+            edges { node { id } }
+            pageInfo { hasNextPage endCursor }
+          }
+        }`,
+        { after },
+      );
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const page = result.data.suggestedEventMatches;
+      seen.push(...page.edges.map((e: any) => e.node.id));
+      if (!page.pageInfo.hasNextPage) break;
+      after = page.pageInfo.endCursor;
+    }
+
+    assert.strictEqual(new Set(seen).size, seen.length, 'no suggestion may appear on two pages');
+    for (const id of made) assert.ok(seen.includes(id), `suggestion ${id} must be reachable by paging`);
+  });
+
   await t.test('resolveSuggestedEventMatch - ACCEPT commits a merge, returns mergeId, flips status', async () => {
     const candidate = await makeEvent('Accept Candidate ' + suffix);
     const newEvent = await makeEvent('Accept New ' + suffix);

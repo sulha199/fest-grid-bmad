@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import { useTranslations } from "next-intl"
-import { RouteLoader, BlockingLoader } from "@festgrid/ui"
+import { RouteLoader, BlockingLoader, PaginationControls, useListPaginationController } from "@festgrid/ui"
 import { useRequireModerator } from "@/features/auth/use-require-moderator"
 import { usePostHog } from "@festgrid/analytics"
 import { toast } from "sonner"
@@ -10,6 +10,10 @@ import { useUnprocessedPayloadsQuery, useReprocessPayloadMutation, useDeleteUnpr
 import { PayloadListItem } from "./payload-list-item"
 import { FilterPanel } from "./filter-panel"
 import type { UnprocessedPayloadFilters } from "./types"
+import { usePaginationLabels } from "@/features/pagination/use-pagination-labels"
+import { useReportConnectionPageMeta } from "@/features/pagination/use-report-connection-page-meta"
+
+const PAGE_SIZE = 20
 
 interface FilterState {
   source: string | null
@@ -30,20 +34,25 @@ export function UnprocessedPayloadsContent() {
     sortOrder: "newest",
   })
 
-  const [cursor, setCursor] = useState<string | undefined>(undefined)
-
   const graphqlFilters: UnprocessedPayloadFilters = {
     source: filters.source,
     createdAfter: filters.createdAfter,
     createdBefore: filters.createdBefore,
   }
 
+  const pagination = useListPaginationController<UnprocessedPayloadFilters, string | undefined>({ filterKey: graphqlFilters, initialCursor: undefined })
+
   // Query unprocessed payloads
-  const { data: payloadsData, isLoading: isLoadingPayloads, error: payloadsError, refetch: refetchPayloads } = useUnprocessedPayloadsQuery(graphqlFilters, cursor, 20, authStatus === "authorized")
+  const { data: payloadsData, isLoading: isLoadingPayloads, isPlaceholderData, error: payloadsError, refetch: refetchPayloads } = useUnprocessedPayloadsQuery(graphqlFilters, pagination.cursor, PAGE_SIZE, authStatus === "authorized")
 
   // Mutations
   const { mutateAsync: reprocessPayload, isPending: isReprocessing } = useReprocessPayloadMutation()
   const { mutateAsync: deletePayload, isPending: isDeleting } = useDeleteUnprocessedPayloadMutation()
+
+  const queryResult = payloadsData?.queryUnprocessedPayloads
+  // While the previous page is still on screen as placeholder data its numbers must not be reported for the new one.
+  useReportConnectionPageMeta(pagination, isPlaceholderData ? undefined : queryResult)
+  const paginationLabels = usePaginationLabels(pagination.pageIndex, pagination.totalCount, PAGE_SIZE)
 
   if (authStatus === "loading" || authStatus === "unauthenticated" || authStatus === "unauthorized") {
     return <RouteLoader />
@@ -55,7 +64,6 @@ export function UnprocessedPayloadsContent() {
 
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }))
-    setCursor(undefined)
     refetchPayloads()
   }
 
@@ -96,10 +104,9 @@ export function UnprocessedPayloadsContent() {
     }
   }
 
-  const queryResult = payloadsData?.queryUnprocessedPayloads
   const edges = queryResult?.edges || []
-  const hasNextPage = queryResult?.pageInfo?.hasNextPage || false
-  const isEmpty = edges.length === 0 && !cursor
+  const isEmpty = edges.length === 0 && !pagination.hasPrevPage
+  const endCursor = queryResult?.pageInfo?.endCursor
 
   return (
     <div className="min-h-screen bg-background">
@@ -139,22 +146,21 @@ export function UnprocessedPayloadsContent() {
         )}
 
         {!isEmpty && (
-          <div className="mt-8 space-y-4">
+          <div className={`mt-8 space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
             {edges.map((edge) => (
               <PayloadListItem key={edge.node.id} payload={edge.node} onReprocess={handleReprocess} onDelete={handleDelete} isReprocessing={isReprocessing} isDeleting={isDeleting} />
             ))}
 
-            {hasNextPage && (
-              <button
-                onClick={() => {
-                  setCursor(queryResult?.pageInfo?.endCursor || undefined)
-                  refetchPayloads()
-                }}
-                className="w-full py-3 text-center text-sm font-medium text-primary hover:underline"
-              >
-                Load more
-              </button>
-            )}
+            <PaginationControls
+              hasPrevPage={pagination.hasPrevPage}
+              hasNextPage={pagination.hasNextPage && Boolean(endCursor)}
+              onPrev={pagination.goToPrevPage}
+              onNext={() => {
+                if (endCursor) pagination.goToNextPage(endCursor)
+              }}
+              disabled={isPlaceholderData}
+              labels={paginationLabels}
+            />
           </div>
         )}
       </div>
