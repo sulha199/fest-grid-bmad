@@ -926,7 +926,7 @@ class DecisionLoopTests(Base):
 
     def test_names_with_the_same_words_say_so(self):
         _, rows, _ = self.brief('--ids', A, payload=export_payload([pair(A, candidate=event('Fun Run'), new=event('FUN  run!'))]))
-        self.assertEqual(rows[0]['clues'][0], 'the names use the same words')
+        self.assertIn('the names use the same words', rows[0]['clues'])
         self.assertNotIn('numbers differ', rows[0]['question'])
 
     def test_hostile_text_is_cleaned_masked_and_capped(self):
@@ -941,13 +941,57 @@ class DecisionLoopTests(Base):
         self.assertIn('(+5 more)', text)                      # nine schedules, four shown
         self.assertGreaterEqual(cut, 6)                       # the long name and the five schedules left out are counted
         self.assertLessEqual(len(text), dr.BRIEF_CAP)
-        # Six long words in each name make two long clue lines: the text would pass the cap without it.
+        # The worst case: long names, places, links, types and six long words in each name. The text must fit, and the
+        # decisive lines (signals, clues, the reject hint) must be whole: the fields shrink, the tail is never cut.
         old_name = ' '.join('old%d%s' % (i, 'x' * 45) for i in range(6))
         new_name = ' '.join('new%d%s' % (i, 'y' * 45) for i in range(6))
-        _, long_rows, _ = self.brief('--ids', A, payload=export_payload([pair(A, candidate=event(old_name), new=event(new_name))]))
-        self.assertEqual(len(long_rows[0]['question']), dr.BRIEF_CAP)
-        self.assertTrue(long_rows[0]['question'].endswith('…'))
+        wide = dict(schedules=[dict(event()['schedules'][0], startDate='2026-11-%02d' % (i + 1), endDate='2026-12-%02d' % (i + 1)) for i in range(9)],
+                    location='L' * 400, links=['l' * 400] * 5, types=['T' * 80] * 5, categories=['C' * 80] * 5)
+        pair_x = pair(A, candidate=event(old_name, **wide), new=event(new_name, **wide), undone=3)
+        pair_x['signals']['minDayDiff'] = 1.5
+        _, long_rows, _ = self.brief('--ids', A, payload=export_payload([pair_x]))
+        long_text = long_rows[0]['question']
+        self.assertLessEqual(len(long_text), dr.BRIEF_CAP)
+        for whole in ('Signals: tier mid, score 0.5, name similarity 0.6', 'Clue: day gap: 1.5', 'Clue: venue match: yes, organizer match: yes, shared link: no, same account: yes',
+                      'Clue: a merge of this pair was undone 3 time(s) before', 'To reject, use Moderator Items in the app.', 'Text was cut for length in'):
+            self.assertIn(whole, long_text)
         self.assertGreaterEqual(long_rows[0]['truncated'], 1)
+
+    def test_the_popup_names_the_end_date_the_type_and_every_open_issue(self):
+        multi = event(types=['RACE'], categories=['SPORTS_AND_FITNESS'], schedules=[dict(event()['schedules'][0], startDate='2026-11-20', endDate='2026-11-22')])
+        page = self.page(self.row(146, A), self.row(147, A, shadow=True), self.row(148, A, state='CLOSED'))
+        _, rows, _ = self.brief('--ids', A, payload=export_payload([pair(A, new=multi)]), pages=(page,))
+        text = rows[0]['question']
+        self.assertIn('when: 2026-11-20 06:00 to 2026-11-22', text)
+        self.assertIn('type: RACE, SPORTS_AND_FITNESS; detail: full', text)
+        self.assertEqual((rows[0]['issue'], rows[0]['issues']), (146, [146, 147]))
+        self.assertIn('Open issues for this pair: #146, #147', text)
+
+    def test_the_same_words_clue_is_never_a_false_assurance(self):
+        def clues(old, new):
+            every = self.brief('--ids', A, payload=export_payload([pair(A, candidate=event(old), new=event(new))]))[1][0]['clues']
+            return [clue for clue in every if not clue.startswith(('day gap', 'venue match', 'a merge'))]  # the name clues only
+
+        phones = clues('Run call 0812-3456-7890', 'Run call 0899-1111-2222')                  # two different numbers are two different words
+        self.assertEqual(phones[:3], ['only the existing name has: 0812 3456 7890', 'only the new name has: 0899 1111 2222',
+                                      'numbers differ: 0812 3456 7890 0899'])  # at most four numbers; the two lines above show them all
+        tail = 'z' * 400
+        self.assertIn('only the new name has: ' + 'b' * 20, ' '.join(clues('a ' * 3 + tail, 'a ' * 3 + tail + ' ' + 'b' * 30)))  # a difference past the 300th character
+        for old, new in (('!!!', '???'), ('★★★', '---'), ('', 'Run')):
+            self.assertEqual(clues(old, new), ['a name has no letters or digits: compare the events themselves'], (old, new))
+        self.assertEqual(clues('Stra\u00dfe Run', 'STRASSE run'), ['the names use the same words'])             # case-folded, not just lower-cased
+        self.assertEqual(clues('Run 10K', 'Run 5K'), ['only the existing name has: 10k', 'only the new name has: 5k', 'numbers differ: 10k 5k'])
+
+    def test_a_day_gap_that_cannot_be_true_is_refused_by_the_report_check(self):
+        for gap in (10 ** 400, float('nan'), float('inf'), -3, 100001):
+            p = pair(A)
+            p['signals']['minDayDiff'] = gap
+            code, _, err = self.brief('--ids', A, payload=export_payload([p]))
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, gap)
+            self.assertIn('minDayDiff must be between 0 and 100000', err)
+        p = pair(A)
+        p['signals']['minDayDiff'] = 2.0
+        self.assertIn('Clue: day gap: 2\n', self.brief('--ids', A, payload=export_payload([p]))[1][0]['question'])
 
     def test_ids_must_be_exported_pairs_listed_once_and_upper_case_is_folded(self):
         payload = export_payload([pair(HEXY)])
@@ -979,6 +1023,8 @@ class DecisionLoopTests(Base):
         self.assertEqual(sorted(by_number), [1, 3, 5])                                  # B was not merged, issue 4 is already closed
         self.assertEqual(by_number[1]['labels'], ['dedup-escalate', 'pattern:other', 'outcome:accepted'])
         self.assertEqual(by_number[5]['labels'].count('outcome:accepted'), 1)           # never twice
+        mixed = json.loads(self.decided([merged], [self.row(9, A, labels=('dedup-escalate', 'outcome:rejected', 'dedup-learned'))])[1])['close'][0]['labels']
+        self.assertEqual(mixed, ['dedup-escalate', 'dedup-learned', 'outcome:accepted'])  # a contradicting outcome label is replaced, other labels stay
         self.assertIn('merge `%s`' % MERGE, by_number[1]['comment'])
         self.assertIn('a moderator accepted this suggestion in an attended review session', by_number[1]['comment'])
         self.assertEqual(result['closedIds'], 1)

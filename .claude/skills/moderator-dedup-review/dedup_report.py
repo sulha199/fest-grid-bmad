@@ -83,6 +83,8 @@ MAX_DECISIONS = 50
 BRIEF_CAP = 1500  # characters of one popup question
 BRIEF_LINE = 120
 BRIEF_WORDS = 6
+BRIEF_WORD_CAP = 20
+BRIEF_TIERS = ((BRIEF_LINE, 4, 5), (80, 3, 3), (50, 2, 2), (30, 1, 1))  # field length, schedules and types shown: the text shrinks until it fits
 MAX_DECISIONS_CHARS = 65535
 MAX_LOG_BYTES = 50_000_000
 ESCALATION_LABEL = 'dedup-escalate'
@@ -387,6 +389,7 @@ def validate_signals(signals):
     for key in ('score', 'nameSimilarity'):
         require(is_number(signals.get(key)), 'a pair has a bad signal %s' % key)
     require('minDayDiff' in signals and (signals['minDayDiff'] is None or is_number(signals['minDayDiff'])), 'a pair needs the signal minDayDiff (a number or null)')
+    require(signals['minDayDiff'] is None or 0 <= signals['minDayDiff'] <= 100000, 'the signal minDayDiff must be between 0 and 100000 days (or null)')
 
 
 def need(payload, key, what=None):
@@ -686,72 +689,97 @@ def cmd_decisions(args):
 
 
 def brief_words(name):
-    return [word.lower() for word in WORD.findall(public_text(name) or '')]
+    """The words of a name as a moderator would compare them: the full cleaned text (no cap, no mask, so a difference
+    cannot hide behind either), case-folded, each word cut to BRIEF_WORD_CAP characters for display."""
+    return [word.casefold()[:BRIEF_WORD_CAP] for word in WORD.findall(_clean(name))]
 
 
 def name_clues(existing_name, new_name):
-    """Facts about how two names differ, from the words alone (no judgement)."""
+    """Facts about how two names differ, from the words alone (no judgement). "The same words" is said only when
+    both names have words and the two sets are equal, so a difference never hides behind a cut or a mask."""
     old, new = brief_words(existing_name), brief_words(new_name)
+    if not old or not new:
+        return ['a name has no letters or digits: compare the events themselves']
     only_old = [word for word in dict.fromkeys(old) if word not in new]
     only_new = [word for word in dict.fromkeys(new) if word not in old]
     if not only_old and not only_new:
         return ['the names use the same words']
     clues = []
     if only_old:
-        clues.append('only the existing name has: ' + ' '.join(only_old[:BRIEF_WORDS]))
+        clues.append('only the existing name has: ' + ' '.join(only_old[:BRIEF_WORDS]) + (' ...' if len(only_old) > BRIEF_WORDS else ''))
     if only_new:
-        clues.append('only the new name has: ' + ' '.join(only_new[:BRIEF_WORDS]))
-    numbers = [word for word in only_old + only_new if any(ch.isdigit() for ch in word)]
+        clues.append('only the new name has: ' + ' '.join(only_new[:BRIEF_WORDS]) + (' ...' if len(only_new) > BRIEF_WORDS else ''))
+    numbers = [word for word in only_old[:BRIEF_WORDS] + only_new[:BRIEF_WORDS] if any(ch.isdigit() for ch in word)]
     if numbers:
-        clues.append('numbers differ: ' + ' '.join(numbers[:BRIEF_WORDS]))
+        clues.append('numbers differ: ' + ' '.join(numbers[:4]))
     return clues
 
 
-def brief_event(label, event, cuts):
+def brief_event(label, event, cuts, limit, schedules=4, kinds=5):
     """The lines that tell a moderator what one event is: cleaned, masked and capped like public text."""
-    def text(value, limit=BRIEF_LINE):
-        shown, cut = public_text_ex(value, limit)
+    def text(value, cap=limit):
+        shown, cut = public_text_ex(value, cap)
         cuts[0] += 1 if cut else 0
         return shown or '-'
 
     when = []
-    for schedule in event['schedules'][:4]:
-        start = text(schedule['startDate'])
-        when.append(start + (' ' + text(schedule['startTime'])[:5] if schedule.get('startTime') else ''))
-    extra = len(event['schedules']) - 4
+    for schedule in event['schedules'][:schedules]:
+        start = text(schedule['startDate'], min(limit, 40))
+        if schedule.get('startTime'):
+            start += ' ' + text(schedule['startTime'], 8)[:5]
+        if schedule.get('endDate') and schedule['endDate'] != schedule['startDate']:
+            start += ' to ' + text(schedule['endDate'], min(limit, 40))
+        when.append(start)
+    extra = len(event['schedules']) - schedules
     cuts[0] += max(0, extra)
     accounts = sorted({post['accountType'] for post in event['sourcePosts']})
     links = event['links']
+    shown_kinds = ', '.join(text(kind, 30) for kind in (event['types'][:3] + event['categories'][:2])[:kinds]) or '-'
     return [
         '%s: %s' % (label, text(event['name'])),
         '  place: %s' % text(event['location']),
         '  when: %s%s' % ('; '.join(when) or '-', ' (+%d more)' % extra if extra > 0 else ''),
         '  link: %s%s' % (text(links[0]) if links else '-', ' (+%d more)' % (len(links) - 1) if len(links) > 1 else ''),
-        '  detail: %s; posts from: %s' % (event['detailLevel'], ', '.join(accounts) or '-'),
+        '  type: %s; detail: %s; posts from: %s' % (shown_kinds, event['detailLevel'], ', '.join(accounts) or '-'),
     ]
 
 
-def build_brief(pair, issue_number):
-    """(popup header, popup text, clues, number of strings cut) for one exported pair."""
-    cuts = [0]
+def day_gap_text(gap):
+    if gap is None:
+        return 'unknown'
+    return str(int(gap)) if float(gap).is_integer() else str(round(gap, 1))
+
+
+def build_brief(pair, issue_numbers):
+    """(popup header, popup text, clues, number of strings cut) for one exported pair. The decisive lines (signals, clues)
+    sit before the long ones' tail, and every line is capped: the field limit shrinks until the whole text fits, so the cap
+    never cuts the clues."""
     signals = pair['signals']
-    clues = name_clues(pair['candidate']['name'], pair['newEvent']['name'])
-    gap = signals['minDayDiff']
-    clues.append('day gap: %s' % ('unknown' if gap is None else int(gap) if float(gap).is_integer() else gap))
-    clues.append('venue match: %s, organizer match: %s, shared link: %s, same account: %s' % tuple(
-        'yes' if flag else 'no' for flag in (signals['venueMatch'], signals['organizerMatch'], signals['sharedLink'], pair['sameAccount'])))
+    clues = ['day gap: %s' % day_gap_text(signals['minDayDiff']),
+             'venue match: %s, organizer match: %s, shared link: %s, same account: %s' % tuple(
+                 'yes' if flag else 'no' for flag in (signals['venueMatch'], signals['organizerMatch'], signals['sharedLink'], pair['sameAccount']))]
     if pair['undoneMergeCount']:
         clues.append('a merge of this pair was undone %d time(s) before' % pair['undoneMergeCount'])
-    lines = brief_event('Existing event (a merge keeps it)', pair['candidate'], cuts) + brief_event('New event (a merge folds it in)', pair['newEvent'], cuts)
-    lines.append('Signals: tier %s, score %s, name similarity %s' % (signals['tier'], signals['score'], signals['nameSimilarity']))
-    lines += ['Clue: %s' % clue for clue in clues]
-    lines.append('To reject, use Moderator Items in the app.')
-    question = '\n'.join(lines)
-    if len(question) > BRIEF_CAP:
-        question = question[: BRIEF_CAP - 1] + '…'
-        cuts[0] += 1
-    header = '#%d' % issue_number if issue_number else 'Pair'
-    return header, question, clues, cuts[0]
+    clues += name_clues(pair['candidate']['name'], pair['newEvent']['name'])  # the short, fixed clues come first: a cut would reach the word lists
+    question, cuts = '', 0
+    for limit, schedules, kinds in BRIEF_TIERS:
+        counter = [0]
+        lines = (brief_event('Existing event (a merge keeps it)', pair['candidate'], counter, limit, schedules, kinds)
+                 + brief_event('New event (a merge folds it in)', pair['newEvent'], counter, limit, schedules, kinds))
+        lines.append('Signals: tier %s, score %s, name similarity %s' % (signals['tier'], signals['score'], signals['nameSimilarity']))
+        if counter[0]:
+            lines.append('Text was cut for length in %d place(s): open the event pages for the full text.' % counter[0])
+        lines += ['Clue: %s' % clue for clue in clues]
+        if len(issue_numbers) > 1:
+            lines.append('Open issues for this pair: %s' % ', '.join('#%d' % number for number in issue_numbers))
+        lines.append('To reject, use Moderator Items in the app.')
+        question, cuts = '\n'.join(lines), counter[0]
+        if len(question) <= BRIEF_CAP:
+            break
+    else:
+        question, cuts = question[: BRIEF_CAP - 1] + '…', cuts + 1
+    header = '#%d' % issue_numbers[0] if issue_numbers else 'Pair'
+    return header, question, clues, cuts
 
 
 def cmd_brief(args):
@@ -766,11 +794,12 @@ def cmd_brief(args):
     numbers = {}
     for row in (load_issues(args.files)[0] if args.files else []):
         if row['state'] == 'OPEN':
-            numbers.setdefault(row['id'], row['number'])
+            numbers.setdefault(row['id'], []).append(row['number'])
     for suggestion_id in ids:
-        header, question, clues, cut = build_brief(index[suggestion_id], numbers.get(suggestion_id))
-        print(json.dumps({'suggestionId': suggestion_id, 'issue': numbers.get(suggestion_id), 'header': header, 'question': question,
-                          'clues': clues, 'truncated': cut}, ensure_ascii=False))
+        open_numbers = numbers.get(suggestion_id, [])
+        header, question, clues, cut = build_brief(index[suggestion_id], open_numbers)
+        print(json.dumps({'suggestionId': suggestion_id, 'issue': open_numbers[0] if open_numbers else None, 'issues': open_numbers,
+                          'header': header, 'question': question, 'clues': clues, 'truncated': cut}, ensure_ascii=False))
     return 0
 
 
@@ -950,7 +979,7 @@ def cmd_close_decided(args):
     for row in rows:
         if row['state'] != 'OPEN' or row['id'] not in merges:
             continue
-        labels = list(row['labels']) + ([] if 'outcome:accepted' in row['labels'] else ['outcome:accepted'])
+        labels = [label for label in row['labels'] if not label.startswith('outcome:')] + ['outcome:accepted']  # one outcome label, the moderator's accept
         close.append({'number': row['number'], 'id': row['id'], 'mergeId': merges[row['id']], 'labels': labels, 'comment': decided_comment(merges[row['id']])})
     covered = {item['id'] for item in close}
     print(json.dumps({'close': close, 'closedIds': len(covered), 'notMerged': not_merged,
@@ -1294,7 +1323,7 @@ def build_parser():
     p.add_argument('ids', nargs='+')
     p = with_log('triage', cmd_triage, 'which exported pairs are new and which a labelled issue covers')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
-    p.add_argument('--live-cleared', action='store_true', help='the owner cleared this run for live: shadow pairs are decided again')
+    p.add_argument('--live-cleared', action='store_true', help='the owner cleared this run for live, or the attended loop is running: shadow pairs return for a fresh decision')
     p = with_log('brief', cmd_brief, 'the popup text for exported pairs of the attended decision loop')
     p.add_argument('files', nargs='*', help='list_issues output, one file per page (adds the open issue number)')
     p.add_argument('--ids', default=None, help='comma-separated suggestion ids of exported pairs')
