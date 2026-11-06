@@ -188,6 +188,10 @@ export function decodeActorRunCursor(cursor: string | null | undefined): number 
 // A cursor names the position AFTER the edge it sits on: `after: <cursor of row i>` resumes at row i + 1,
 // because the next page is read with `.offset(<decoded cursor>)`. Encoding the row's own index here (as
 // these resolvers used to) made the last row of every page the first row of the next one.
+// Every list paged with these cursors must end its ORDER BY in a unique key (the row's `id`): the sort keys
+// (`createdAt`, `displayName`) are shared by many rows, and under LIMIT/OFFSET Postgres may break those ties
+// differently for each page, so a row can show on two pages or on none. Rows written in one transaction share
+// `defaultNow()`. Same rule, and same reason, as `Query.events` (project-context.md, BUG-090).
 export function encodeActorRunCursor(positionAfterRow: number): string {
   return Buffer.from(positionAfterRow.toString()).toString('base64');
 }
@@ -4523,7 +4527,7 @@ export const resolvers: Resolvers = {
         .select()
         .from(unprocessedScraperPayloads)
         .where(and(...conditions))
-        .orderBy(desc(unprocessedScraperPayloads.createdAt))
+        .orderBy(desc(unprocessedScraperPayloads.createdAt), desc(unprocessedScraperPayloads.id))
         .limit(limit)
         .offset(offset);
 
@@ -4593,7 +4597,7 @@ export const resolvers: Resolvers = {
         .select()
         .from(scraperActorRuns)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(scraperActorRuns.createdAt))
+        .orderBy(desc(scraperActorRuns.createdAt), desc(scraperActorRuns.id))
         .limit(limit)
         .offset(offset);
 
@@ -4642,7 +4646,7 @@ export const resolvers: Resolvers = {
         .select()
         .from(socialMediaAccountProfiles)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(asc(socialMediaAccountProfiles.displayName))
+        .orderBy(asc(socialMediaAccountProfiles.displayName), asc(socialMediaAccountProfiles.id))
         .limit(limit)
         .offset(offset);
 
@@ -4684,7 +4688,7 @@ export const resolvers: Resolvers = {
         .select()
         .from(eventMatchCandidates)
         .where(eq(eventMatchCandidates.status, 'pending'))
-        .orderBy(asc(eventMatchCandidates.createdAt))
+        .orderBy(asc(eventMatchCandidates.createdAt), asc(eventMatchCandidates.id))
         .limit(limit)
         .offset(offset);
 

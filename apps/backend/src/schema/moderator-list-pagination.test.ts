@@ -150,3 +150,93 @@ test('moderator list cursors page without overlap (real DB)', async (t) => {
     assert.strictEqual(walk.pages[0].totalCount, 5);
   });
 });
+
+// Rows that share their sort key (`createdAt`, `displayName`) have no defined order among themselves unless
+// the ORDER BY ends in a unique key, and under LIMIT/OFFSET Postgres may break such a tie differently for each
+// page. Five rows with an identical key must come back in `id` order (newest-first lists: descending id), so
+// the order is the same on every page query. Without the `id` tiebreaker they come back in physical order,
+// which for random UUIDs is almost never id order.
+test('rows that tie on the sort key page in id order (real DB)', async (t) => {
+  const suffix = `${Date.now()}-tie`;
+  const sameInstant = new Date(Date.UTC(2026, 0, 1, 12, 0, 0));
+  const byIdAsc = (ids: string[]) => [...ids].sort();
+  const byIdDesc = (ids: string[]) => [...ids].sort().reverse();
+
+  await t.test('queryActorRuns', async (t) => {
+    const [profile] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: `acct-${suffix}-runs`, platform: 'instagram', username: `tie_runs_${suffix}`, displayName: 'Tie runs' })
+      .returning({ id: socialMediaAccountProfiles.id });
+    const rows = await db
+      .insert(scraperActorRuns)
+      .values(
+        [0, 1, 2, 3, 4].map((i) => ({
+          vendor: 'APIFY' as const,
+          triggerMode: 'SYNC' as const,
+          profileId: profile.id,
+          runId: `${suffix}-run-${i}`,
+          rawInput: {},
+          createdAt: sameInstant,
+        })),
+      )
+      .returning({ id: scraperActorRuns.id });
+    t.after(async () => {
+      await db.delete(scraperActorRuns).where(eq(scraperActorRuns.profileId, profile.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    });
+
+    const queryActorRuns = (resolvers.Query as any).queryActorRuns;
+    const walk = await walkPages((after) =>
+      queryActorRuns({}, { filters: { profileId: profile.id }, first: PAGE_SIZE, after }, moderatorContext, {}),
+    );
+    assertWalkedWithoutOverlap(walk, byIdDesc(rows.map((r) => r.id)));
+  });
+
+  await t.test('queryModeratorAccountProfiles', async (t) => {
+    const displayName = `PgTie-${suffix}`;
+    const rows = await db
+      .insert(socialMediaAccountProfiles)
+      .values(
+        [0, 1, 2, 3, 4].map((i) => ({
+          accountId: `acct-${suffix}-acc-${i}`,
+          platform: 'instagram',
+          username: `tie_acc_${suffix}_${i}`,
+          displayName,
+        })),
+      )
+      .returning({ id: socialMediaAccountProfiles.id });
+    t.after(async () => {
+      await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, rows.map((r) => r.id)));
+    });
+
+    const queryModeratorAccountProfiles = (resolvers.Query as any).queryModeratorAccountProfiles;
+    const walk = await walkPages((after) =>
+      queryModeratorAccountProfiles({}, { filters: { search: displayName }, first: PAGE_SIZE, after }, moderatorContext, {}),
+    );
+    assertWalkedWithoutOverlap(walk, byIdAsc(rows.map((r) => r.id)));
+  });
+
+  await t.test('queryUnprocessedPayloads', async (t) => {
+    const parserVersion = `tie-${suffix}`;
+    const rows = await db
+      .insert(unprocessedScraperPayloads)
+      .values(
+        [0, 1, 2, 3, 4].map((i) => ({
+          rawPayload: { i },
+          validationError: { message: 'tie test' },
+          context: { source: 'instagram', parserVersion },
+          createdAt: sameInstant,
+        })),
+      )
+      .returning({ id: unprocessedScraperPayloads.id });
+    t.after(async () => {
+      await db.delete(unprocessedScraperPayloads).where(inArray(unprocessedScraperPayloads.id, rows.map((r) => r.id)));
+    });
+
+    const queryUnprocessedPayloads = (resolvers.Query as any).queryUnprocessedPayloads;
+    const walk = await walkPages((after) =>
+      queryUnprocessedPayloads({}, { filters: { parserVersion }, first: PAGE_SIZE, after }, moderatorContext, {}),
+    );
+    assertWalkedWithoutOverlap(walk, byIdDesc(rows.map((r) => r.id)));
+  });
+});
