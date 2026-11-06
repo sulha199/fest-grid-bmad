@@ -2720,10 +2720,18 @@ items:
   FIND-120:
     {type: finding, status: backlog, created: 2026-11-06,
      impact: latent, effort: m,
-     title: "AI dedup review: reject an escalated pair from the attended loop (needs an apply-side reject path)",
+     title: "AI dedup review: apply-side reject path, a decision kind that records a moderator's reject",
      ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/dedup-review-apply.ts],
      touches: [app:backend, pkg:domain, app:infrastructure, cross:architecture],
      note: "Deferred from: bmad-quick-dev split of spec-find-119-attended-decision-loop (2026-11-06). Needs an apply-side reject path, an AD-45 Rule 3 amendment and an architecture decision (not undoable, indistinguishable from an injected decision, cap). Owned paths: Ask First. 1 finding."}
+
+  FIND-121:
+    {type: finding, status: backlog, created: 2026-11-06,
+     impact: internal, effort: s,
+     title: "AI dedup review: Reject option in the attended loop popup and its issue closing",
+     ref: [implementation-artifacts/deferred-work.md, .claude/skills/moderator-dedup-review/SKILL.md, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [web:moderation, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-find-120-apply-side-reject (2026-11-06). Popup Reject, decisions action, close with outcome:rejected, SKILL.md rule 7 and step 8. Needs FIND-120 first. 1 finding."}
 
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
