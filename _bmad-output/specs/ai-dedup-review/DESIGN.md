@@ -214,8 +214,9 @@ the pairs the reviewer escalated, which `recentlyResolved` could not.
   the signals and deterministic clues (the words and numbers only one name has, the day gap, venue, organizer and link match, an
   earlier undo). The options are Accept and Skip; any other answer is a skip. One final confirmation covers the batch. The popup
   stands in for "the shadow runs were reviewed" for those pairs only.
-- **What it may merge.** Only a pair `validate` calls `eligible` on a fresh export (the escalated pairs return because the loop sends
-  no `skip_ids`): the floor, the hash check and the caps are the apply side's and did not change. A floor-refused pair is listed with
+- **What it may merge.** Only a pair `validate` calls `eligible` on a fresh export (the escalated pairs among the oldest 10 pending
+  ones return because the first export sends no `skip_ids`; a pair that is skipped or refused leads the next export again, so a
+  second batch sends the ids already shown): the floor, the hash check and the caps are the apply side's and did not change. A floor-refused pair is listed with
   its code and issue number; without a reject path it can only be skipped, so it is decided in the app.
 - **Invoker.** The session's account email, as always; the owner approves the run once per batch.
 - **Closing the issue.** The apply path records the Accept as an AI-assisted merge, so `settle` would class it as the reviewer's and
