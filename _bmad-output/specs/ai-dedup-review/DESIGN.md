@@ -150,7 +150,7 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 - `SKILL.md`: dispatch export (`ref=master`, `run_tag`), read logs, read the rubric docs, decide per pair,
   dispatch `validate` (the shadow mode; an `apply` run, a dry run included, uses the write credential and waits for
   approval, so the skill does not use it for shadow) and a live `apply` only on the owner's word, open escalation
-  issues, close issues for `recentlyResolved`, append a run summary to the rolling `dedup-insight` issue, report to
+  issues, close issues for the sent ids that are no longer pending (`skipResolved`), append a run summary to the rolling `dedup-insight` issue, report to
   the user.
 - Escalation issue: the **suggestion id in the title** (dedupe by `in:title`, not by label or body text); create the
   issue and its labels in one call so a partial failure cannot leave a label-less duplicate.
@@ -184,11 +184,29 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 - **When the open issues fill `skip_ids`** (its cap is in the export workflow) the skill is frozen: it still exports and
   settles, opens no new issue and stamps the insight issue.
 - **Known gaps.** A pair whose issue a person closed while it is still pending keeps leading every export; only open ids go
-  in `skip_ids` so the count of resolved-but-open issues stays exact (`FIND-117`: the skill reports it and stamps `blocked`).
-  `recentlyResolved` hides human decisions (`FIND-115`, the skill closes only ids it can see there); the
-  export has no suggestion age, so the insight issue's "oldest" age is approximate; whether issue creation makes a missing
-  label is unverified, so the skill reads the labels back; the owner-token limit (AD-45 Rule 6) is text, not enforcement
-  (`FIND-116`).
+  in `skip_ids`, because a closed issue would take a slot for nothing and bring the freeze closer (`FIND-117`: the skill
+  reports it and stamps `blocked`).
+  whether issue creation makes a missing label is unverified, so the skill reads the labels back; the owner-token limit
+  (AD-45 Rule 6) is text, not enforcement (`FIND-116`).
+
+*As built in FIND-115 (2026-11-05, after an architecture and a code review of the spec):* the export answers what happened to
+the pairs the reviewer escalated, which `recentlyResolved` could not.
+
+- **`skipResolved`.** For the ids sent as `skip_ids`, one query reads every row and a pure function in `packages/domain`
+  (`partitionDedupReviewSkipIds`) splits them: pending rows are counted in `skippedCount`; every other row is listed with its
+  status (`accepted`, `rejected`, `expired`), who resolved it (`human`, `reviewer`, `system`, `unknown`) and when; an id with
+  no row is `missing`, with no time or class. There is no window and no cap beyond the 200-id limit on the sent list, so a pair
+  escalated 20 days ago is still answered. `skippedCount + skipResolved.length = skipIdCount`, and the reader checks the sum.
+  The skill closes the issue of every listed id, labels an outcome only for a human decision, and reports a `missing` id
+  without closing it.
+- **`recentlyResolved` is decisions only** (`accepted`, `rejected`, newest first, tie-break by id); expiries are the count
+  `recentlyExpiredCount` for the same 14 days.
+- **Queue age.** `oldestPendingAt` (queue-wide) and `oldestUnskippedPendingAt` (the oldest pending that is not in `skip_ids`).
+  The second is the "daily session stopped" signal, because the first is dominated by escalated pairs. The insight issue
+  shows both in days to one decimal (`33.1 days`) with the raw time; the workflow summary prints raw timestamps, no date arithmetic.
+- **Contract.** `schemaVersion` stays 1: the export and the reader ship together. The reader requires every new key and exits
+  7 naming the key or the sum. The export stays read-only in one `REPEATABLE READ, READ ONLY` snapshot and the new fields hold
+  ids, statuses, timestamps and the class only.
 
 ## 7. Facts verified while reviewing
 
@@ -214,8 +232,8 @@ output, `scanLimited` false. The role therefore bypasses RLS and resolves `pg_tr
 
 Findings from that run: the one log line is about 98k characters for 30 pairs, so `get_job_logs` with
 `return_content` spills to a file the session must slice (the skill must read it from the saved file, not inline);
-all 200 `recentlyResolved` rows were system expiries, so the cap hides human decisions (a follow-up should leave
-`expired` rows out or count them separately).
+all 200 `recentlyResolved` rows were system expiries, so the cap hid human decisions (fixed by `FIND-115`: the list now
+holds decisions only and expiries are a count).
 
 Still not verified: whether `readonly_2` can run the evidence path after RLS (expected not to); the size of a
 50-pair export; the pending count against the moderator page (compare by eye).

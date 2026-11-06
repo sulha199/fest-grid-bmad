@@ -70,6 +70,8 @@ OTHER_REASONS = ('stale-evidence', 'not-pending', 'stale-pair', 'unknown-suggest
 ALL_REASONS = ESCALATION_REASONS + OTHER_REASONS
 DECISIONS = ('escalated', 'shadow-eligible', 'merged', 'deferred', 'dropped')
 RESOLVED_STATUSES = ('accepted', 'rejected', 'expired')
+DECISION_STATUSES = ('accepted', 'rejected')  # what `recentlyResolved` lists; expiries are counted
+SKIP_STATUSES = RESOLVED_STATUSES + ('missing',)  # what `skipResolved` lists
 RESOLVED_BY = ('reviewer', 'human', 'system', 'unknown')
 ACCOUNT_TYPES = ('ORGANIZER_VENUE_EVENT', 'PERSONAL', 'CURATOR_GUIDE', 'UNCLASSIFIED')
 TIERS = ('low', 'mid', 'high')
@@ -82,7 +84,7 @@ MAX_DECISIONS_CHARS = 65535
 MAX_LOG_BYTES = 50_000_000
 ESCALATION_LABEL = 'dedup-escalate'
 SHADOW_SUFFIX = ' (shadow)'
-SUMMARY_KEYS = ('mode', 'exportTag', 'validateTag', 'applyTag', 'entries', 'closedIssues', 'unknownCount')
+SUMMARY_KEYS = ('mode', 'exportTag', 'validateTag', 'applyTag', 'entries', 'closedIssues')
 ENTRY_KEYS = ('suggestionId', 'decision', 'reason', 'pattern', 'rationale')
 
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
@@ -383,8 +385,46 @@ def validate_signals(signals):
     require('minDayDiff' in signals and (signals['minDayDiff'] is None or is_number(signals['minDayDiff'])), 'a pair needs the signal minDayDiff (a number or null)')
 
 
+def need(payload, key, what=None):
+    """A key the new shape always carries. At the top of the export a missing key means an old export; in a
+    row it means a malformed one, so the row-level message does not blame the version."""
+    if what is None:
+        require(key in payload, "the export has no '%s': it predates this reader (the skill and the export must come from the same commit of master)" % key)
+    else:
+        require(key in payload, "%s has no '%s'" % (what, key))
+
+
+def real_time(value):
+    """The right shape AND a real moment (2026-13-45T00:00:00Z has the shape of one)."""
+    return full(ISO_TIME, value) and parse_time(value) is not None
+
+
+def optional_time(value, what):
+    require(value is None or real_time(value), '%s must be an ISO timestamp or null' % what)
+
+
+def validate_skip_resolved(rows, pair_ids):
+    seen = []
+    for row in rows:
+        require(isinstance(row, dict) and full(UUID, row.get('suggestionId')), 'a skipResolved row has a bad suggestionId')
+        for key in ('status', 'resolvedAt', 'resolvedBy'):
+            need(row, key, 'a skipResolved row')
+        require(row['status'] in SKIP_STATUSES, 'a skipResolved row has a bad status')
+        optional_time(row['resolvedAt'], 'a skipResolved resolvedAt')
+        require(row['resolvedBy'] is None or row['resolvedBy'] in RESOLVED_BY, 'a skipResolved row has a bad resolvedBy')
+        if row['status'] == 'missing':
+            require(row['resolvedAt'] is None and row['resolvedBy'] is None, 'a missing skipResolved row must have a null time and class')
+        else:
+            require(row['resolvedBy'] is not None, 'a resolved skipResolved row needs its class')
+        seen.append(row['suggestionId'])
+    require(seen == sorted(set(seen)), 'skipResolved must be sorted by id with no duplicates')
+    require(not (set(seen) & pair_ids), 'a sent id must not also be an exported pair')
+
+
 def validate_export(payload, expected_tag):
-    require(full(ISO_TIME, payload.get('generatedAt')), 'generatedAt must be an ISO timestamp')
+    for key in ('skipIdCount', 'skipResolved', 'recentlyExpiredCount', 'oldestPendingAt', 'oldestUnskippedPendingAt'):
+        need(payload, key)
+    require(real_time(payload.get('generatedAt')), 'generatedAt must be an ISO timestamp')
     require(payload.get('runTag') is None or full(RUN_TAG, payload['runTag']), 'runTag must be a run tag or null')
     for key in ('limit', 'totalPending', 'staleCount', 'skippedCount'):
         require(is_int(payload.get(key)) and payload[key] >= 0, '%s must be a non-negative integer' % key)
@@ -406,9 +446,21 @@ def validate_export(payload, expected_tag):
         validate_event(pair.get('newEvent'), 'newEvent')
     for row in resolved:
         require(isinstance(row, dict) and full(UUID, row.get('suggestionId')), 'a resolved row has a bad suggestionId')
-        require(row.get('status') in RESOLVED_STATUSES, 'a resolved row has a bad status')
+        require(row.get('status') in DECISION_STATUSES, 'a resolved row has a bad status (expiries are counted in recentlyExpiredCount, never listed)')
         require(row.get('resolvedBy') in RESOLVED_BY, 'a resolved row has a bad resolvedBy')
-        require(full(ISO_TIME, row.get('resolvedAt')), 'a resolved row has a bad resolvedAt')
+        require(real_time(row.get('resolvedAt')), 'a resolved row has a bad resolvedAt')
+    require(is_int(payload['skipIdCount']) and payload['skipIdCount'] >= 0, 'skipIdCount must be a non-negative integer')
+    require(is_int(payload['recentlyExpiredCount']) and payload['recentlyExpiredCount'] >= 0, 'recentlyExpiredCount must be a non-negative integer')
+    require(isinstance(payload['skipResolved'], list), 'skipResolved must be a list')
+    validate_skip_resolved(payload['skipResolved'], seen)
+    require(payload['skippedCount'] + len(payload['skipResolved']) == payload['skipIdCount'],
+            'the accounting is off: skippedCount (%d) + skipResolved (%d) is not skipIdCount (%d)' % (payload['skippedCount'], len(payload['skipResolved']), payload['skipIdCount']))
+    require(payload['skippedCount'] + len(pairs) <= payload['totalPending'], 'the pairs (%d) and the skipped ids (%d) are more than totalPending (%d)' % (len(pairs), payload['skippedCount'], payload['totalPending']))
+    optional_time(payload['oldestPendingAt'], 'oldestPendingAt')
+    optional_time(payload['oldestUnskippedPendingAt'], 'oldestUnskippedPendingAt')
+    require((payload['oldestPendingAt'] is None) == (payload['totalPending'] == 0), 'oldestPendingAt must be null exactly when nothing is pending')
+    require((payload['oldestUnskippedPendingAt'] is None) == (payload['totalPending'] == payload['skippedCount']),
+            'oldestUnskippedPendingAt must be null exactly when every pending suggestion was sent as a skip id')
     check_run_tag(payload, expected_tag)
     return payload
 
@@ -487,11 +539,6 @@ def days_between(later, earlier):
     return max(0.0, round((later - earlier).total_seconds() / 86400, 1))
 
 
-def newest_post_time(pair):
-    times = [parse_time(post.get('publishedAt')) for post in pair['newEvent']['sourcePosts']]
-    times = [t for t in times if t is not None]
-    return max(times) if times else None
-
 
 def now_utc():
     return datetime.now(timezone.utc)
@@ -511,6 +558,8 @@ def export_alerts(payload):
         alerts.append('scan-limited-no-pairs')  # the oldest rows are all stale: close them with the expiry tool
     if not pairs and payload['totalPending'] > 0 and payload['skippedCount'] >= payload['totalPending']:
         alerts.append('everything-pending-is-already-escalated')
+    if any(row['status'] == 'missing' for row in payload['skipResolved']):
+        alerts.append('sent-ids-missing')  # an issue names a suggestion that no longer exists: tell the owner
     if payload['recentlyResolvedTruncated']:
         alerts.append('recently-resolved-truncated')
     if payload['staleCount']:
@@ -518,31 +567,43 @@ def export_alerts(payload):
     return alerts
 
 
+def check_sent_file(payload, path):
+    """The ids that were really sent (the `ids` of the `issue-ids` output) against what the export answered for."""
+    data = parse_json(read_source(path), EXIT_BAD_INPUT, 'the sent-ids file')
+    ids = data.get('ids') if isinstance(data, dict) else None
+    if not (isinstance(ids, list) and all(full(UUID, item) for item in ids)):
+        raise ReportError(EXIT_BAD_INPUT, 'the sent-ids file needs an "ids" list of suggestion uuids (the output of issue-ids)')
+    sent = set(ids)
+    require(len(sent) == payload['skipIdCount'], 'the export answered for %d ids but %d were sent' % (payload['skipIdCount'], len(sent)))
+    stray = [row['suggestionId'] for row in payload['skipResolved'] if row['suggestionId'] not in sent]
+    require(not stray, 'the export lists %d id(s) that were not sent' % len(stray))
+
+
 def cmd_export_header(args):
     payload = load_export(args)
+    if args.sent_file is not None:
+        check_sent_file(payload, args.sent_file)
     pairs, resolved = payload['pairs'], payload['recentlyResolved']
-    tally, tiers = {}, {}
+    decisions, tiers, skipped = {}, {}, {}
     for row in resolved:
         key = '%s/%s' % (row['status'], row['resolvedBy'])
-        tally[key] = tally.get(key, 0) + 1
+        decisions[key] = decisions.get(key, 0) + 1
     for pair in pairs:
         tiers[pair['signals']['tier']] = tiers.get(pair['signals']['tier'], 0) + 1
+    for row in payload['skipResolved']:
+        skipped[row['status']] = skipped.get(row['status'], 0) + 1
+    generated = parse_time(payload['generatedAt'])
     header = {
         'generatedAt': payload['generatedAt'], 'runTag': payload['runTag'], 'limit': payload['limit'],
         'totalPending': payload['totalPending'], 'staleCount': payload['staleCount'],
-        'skippedCount': payload['skippedCount'], 'scanLimited': payload['scanLimited'],
-        'pairCount': len(pairs), 'tiers': tiers, 'alerts': export_alerts(payload),
+        'skippedCount': payload['skippedCount'], 'skipIdCount': payload['skipIdCount'], 'skipResolvedByStatus': skipped,
+        'scanLimited': payload['scanLimited'], 'pairCount': len(pairs), 'tiers': tiers, 'alerts': export_alerts(payload),
         'recentlyResolvedCount': len(resolved), 'recentlyResolvedTruncated': payload['recentlyResolvedTruncated'],
-        'recentlyResolvedByStatus': tally,
-        'firstPairNewestPostAgeDays': days_between(parse_time(payload['generatedAt']), newest_post_time(pairs[0]) if pairs else None),
+        'recentlyResolvedByStatus': decisions, 'recentlyExpiredCount': payload['recentlyExpiredCount'],
+        'oldestPendingAt': payload['oldestPendingAt'], 'oldestPendingAgeDays': days_between(generated, parse_time(payload['oldestPendingAt'])),
+        'oldestUnskippedPendingAt': payload['oldestUnskippedPendingAt'],
+        'oldestUnskippedPendingAgeDays': days_between(generated, parse_time(payload['oldestUnskippedPendingAt'])),
     }
-    if (args.sent is None) != (args.closed is None):
-        raise ReportError(EXIT_BAD_INPUT, 'give --sent and --closed together')
-    if args.sent is not None:
-        if args.sent < 0 or args.closed < 0:
-            raise ReportError(EXIT_BAD_INPUT, '--sent and --closed must not be negative')
-        # Open-issue ids sent as skip_ids, minus those still pending, minus the distinct ids closed this run.
-        header['unknownCount'] = max(0, args.sent - payload['skippedCount'] - args.closed)
     print(json.dumps(header, indent=2))
     return 0
 
@@ -573,12 +634,19 @@ def cmd_export_pairs(args):
 
 def cmd_export_resolved(args):
     payload = load_export(args)
-    wanted = None if args.ids is None else set(parse_ids(args.ids, '--ids', allow_empty=True))
-    rows = payload['recentlyResolved']
-    shown = [row for row in rows if (row['suggestionId'] in wanted if wanted is not None else row['status'] != 'expired')]
+    if args.ids is None:
+        shown = list(payload['recentlyResolved'])
+    else:
+        wanted = set(parse_ids(args.ids, '--ids', allow_empty=True))
+        known = {row['suggestionId']: row for row in payload['recentlyResolved'] if row['suggestionId'] in wanted}
+        known.update({row['suggestionId']: row for row in payload['skipResolved'] if row['suggestionId'] in wanted})  # the answer for a sent id wins
+        shown = [known[key] for key in sorted(known)]
     for row in shown:
         print(json.dumps({key: row[key] for key in ('suggestionId', 'status', 'resolvedBy', 'resolvedAt')}))
-    print(json.dumps({'shown': len(shown), 'notShown': len(rows) - len(shown), 'recentlyResolvedTruncated': payload['recentlyResolvedTruncated']}))
+    summary = {'shown': len(shown), 'recentlyResolvedTruncated': payload['recentlyResolvedTruncated'], 'recentlyExpiredCount': payload['recentlyExpiredCount']}
+    if args.ids is not None:
+        summary['notListed'] = sorted(wanted - {row['suggestionId'] for row in shown})  # still pending, or an old decision that was not sent
+    print(json.dumps(summary))
     return 0
 
 
@@ -769,15 +837,22 @@ def resolved_comment(status, by):
 
 
 def cmd_settle(args):
-    """The open issues whose suggestion `recentlyResolved` shows as resolved: what to post, which labels
-    to send (the update replaces the whole set) and how many distinct suggestions that closes."""
+    """The open issues whose suggestion the export shows as resolved: what to post, which labels to send (the
+    update replaces the whole set) and how many distinct suggestions that closes. The answer for the ids that
+    were sent (`skipResolved`, whatever the age) wins over the recent decisions; a `missing` suggestion (deleted
+    with its event) is reported and its issue left open, because a wrong-database export must not close
+    every issue."""
     payload = load_export(args)
     rows, _, _ = load_issues(args.files)
     resolved = {row['suggestionId']: row for row in payload['recentlyResolved']}
-    close = []
+    resolved.update({row['suggestionId']: row for row in payload['skipResolved']})
+    close, missing = [], []
     for row in rows:
         entry = resolved.get(row['id'])
         if row['state'] != 'OPEN' or entry is None:
+            continue
+        if entry['status'] == 'missing':
+            missing.append({'number': row['number'], 'id': row['id']})
             continue
         labels = list(row['labels'])
         if entry['status'] in ('accepted', 'rejected') and entry['resolvedBy'] == 'human':
@@ -785,7 +860,7 @@ def cmd_settle(args):
             labels += [outcome] if outcome not in labels else []
         close.append({'number': row['number'], 'id': row['id'], 'status': entry['status'], 'by': entry['resolvedBy'],
                       'labels': labels, 'comment': resolved_comment(entry['status'], entry['resolvedBy'])})
-    print(json.dumps({'close': close, 'closedIds': len({item['id'] for item in close}),
+    print(json.dumps({'close': close, 'missing': missing, 'closedIds': len({item['id'] for item in close}),
                       'recentlyResolvedTruncated': payload['recentlyResolvedTruncated']}))
     return 0
 
@@ -975,8 +1050,6 @@ def load_summary(path):
     closed = data.get('closedIssues', [])
     if not (isinstance(closed, list) and all(is_int(item) and item > 0 for item in closed)):
         raise ReportError(EXIT_BAD_INPUT, 'closedIssues must be a list of issue numbers')
-    if not (is_int(data.get('unknownCount', 0)) and data.get('unknownCount', 0) >= 0):
-        raise ReportError(EXIT_BAD_INPUT, 'unknownCount must be a non-negative integer')
     return data
 
 
@@ -993,6 +1066,10 @@ def cmd_insight_comment(args):
         if set(merges) != merged_ids:
             raise ReportError(EXIT_BAD_INPUT, 'the merged entries (%d) do not match the merges in the apply report (%d)' % (len(merged_ids), len(merges)))
     counts = {name: sum(1 for entry in data['entries'] if entry['decision'] == name) for name in DECISIONS}
+    by_status = {}
+    for row in payload['skipResolved']:
+        by_status[row['status']] = by_status.get(row['status'], 0) + 1
+    skip_tally = (' (' + ', '.join('%s %d' % (status, by_status[status]) for status in sorted(by_status)) + ')') if by_status else ''
     lines = [
         '### Run `%s`, %s mode, %s' % (data.get('exportTag') or 'untagged', data['mode'], payload['generatedAt']),
         '',
@@ -1001,8 +1078,8 @@ def cmd_insight_comment(args):
         '- Shadow-eligible: %(shadow-eligible)d. Escalated: %(escalated)d. Merged: %(merged)d. Deferred: %(deferred)d. Dropped: %(dropped)d.' % counts,
         '- Workflow runs: validate `%s`, apply `%s`.' % (data.get('validateTag') or 'none', data.get('applyTag') or 'none'),
         '- Issues closed this run: %s.' % (', '.join('#%d' % n for n in data.get('closedIssues', [])) or 'none'),
-        '- Open issues of suggestions that are no longer pending but that the export could not show: %d. `recentlyResolved` was truncated: %s.' % (
-            data.get('unknownCount', 0), payload['recentlyResolvedTruncated']),
+        '- Sent ids no longer pending: %d of %d%s. Decisions in the last 14 days: %d (more existed: %s). Expired in the last 14 days: %d.' % (
+            len(payload['skipResolved']), payload['skipIdCount'], skip_tally, len(payload['recentlyResolved']), payload['recentlyResolvedTruncated'], payload['recentlyExpiredCount']),
         '',
         '| Suggestion | Decision | Reason | Pattern | Merge |',
         '|---|---|---|---|---|',
@@ -1023,11 +1100,12 @@ def cmd_insight_body(args):
         raise ReportError(EXIT_BAD_INPUT, 'the status must be ok, frozen, blocked or failed:<step>')
     if args.oldest_escalation is not None and parse_time(args.oldest_escalation) is None:
         raise ReportError(EXIT_BAD_INPUT, '--oldest-escalation must be an ISO timestamp ending in Z')
+    unknown = 'not known (no export)'
     if args.log is None:
         # A failed run has no export to read: stamp the failure alone.
         if not status.startswith('failed:'):
             raise ReportError(EXIT_BAD_INPUT, 'a log is required unless the status is failed:<step>')
-        generated, backlog, approx = now_utc(), 'not known (no export)', 'not known (no export)'
+        generated, backlog, queue_age, unescalated_age = now_utc(), unknown, unknown, unknown
         stamp = generated.strftime('%Y-%m-%dT%H:%M:%SZ')
     else:
         if args.expect_run_tag is None:
@@ -1035,14 +1113,11 @@ def cmd_insight_body(args):
         payload = load_export(args)
         stamp, generated = payload['generatedAt'], parse_time(payload['generatedAt'])
         backlog = str(payload['totalPending'])
-        pairs = payload['pairs']
-        if args.issues:  # the oldest pair no issue covers yet, not just the first exported one
-            rows, _, _ = load_issues(args.issues)
-            new, reconsider, _, _ = classify_pairs(payload, rows, False)
-            wanted = set(new)
-            pairs = [pair for pair in pairs if pair['suggestionId'] in wanted]
-        age = days_between(generated, newest_post_time(pairs[0]) if pairs else None)
-        approx = ('about %s days' % age) if age is not None else 'not known (no unescalated pair exported)'
+
+        def age(value):
+            return 'none' if value is None else '%s days (since %s)' % (days_between(generated, parse_time(value)), value)
+
+        queue_age, unescalated_age = age(payload['oldestPendingAt']), age(payload['oldestUnskippedPendingAt'])
     if args.oldest_escalation:
         escalation = '%s days (opened %s)' % (days_between(generated, parse_time(args.oldest_escalation)), args.oldest_escalation)
     else:
@@ -1054,8 +1129,9 @@ def cmd_insight_body(args):
         '',
         '- **Last run:** %s (%s)' % (stamp, status),
         '- **Backlog (pending suggestions):** %s' % backlog,
+        '- **Oldest pending in the queue:** %s' % queue_age,
+        '- **Oldest pending nobody has escalated (the sign the daily review stopped):** %s' % unescalated_age,
         '- **Oldest open escalation:** %s' % escalation,
-        '- **Oldest unescalated pair (approximate, the newest source post of the first exported pair no issue covers):** %s' % approx,
     ]))
     return 0
 
@@ -1082,8 +1158,7 @@ def build_parser():
         p.add_argument('--shadow', action='store_true')
 
     p = with_log('export-header', cmd_export_header, 'counts and alerts of an export report')
-    p.add_argument('--sent', type=int, default=None, help='how many open-issue ids were sent as skip_ids')
-    p.add_argument('--closed', type=int, default=None, help='how many distinct suggestions had an issue closed this run')
+    p.add_argument('--sent-file', default=None, help='the issue-ids output whose ids were sent as skip_ids: the export must have answered for exactly those')
     p = with_log('export-pairs', cmd_export_pairs, 'a range of exported pairs, text cleaned')
     p.add_argument('range', help='start:stop, e.g. 0:5')
     p = with_log('export-resolved', cmd_export_resolved, 'recentlyResolved rows')
@@ -1113,7 +1188,6 @@ def build_parser():
     p.add_argument('--expect-run-tag', default=None)
     p.add_argument('--status', required=True)
     p.add_argument('--oldest-escalation', default=None)
-    p.add_argument('--issues', nargs='+', default=None, help='list_issues pages, to find the oldest pair no issue covers')
     p.set_defaults(handler=cmd_insight_body)
     p = sub.add_parser('issue-ids', help='suggestion ids of open labelled issues, from list_issues output', allow_abbrev=False)
     p.add_argument('files', nargs='+')

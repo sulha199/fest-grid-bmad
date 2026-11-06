@@ -12,15 +12,21 @@ import {
   classifyDedupReviewResolvedBy,
   formatDedupReviewExport,
   parseDedupReviewOptions,
+  partitionDedupReviewSkipIds,
   toDedupReviewAccountType,
   toDedupReviewDayDiff,
+  toDedupReviewTimestamp,
   type DedupReviewEventEvidence,
   type DedupReviewExportReport,
   type DedupReviewPairEvidence,
+  type DedupReviewSkipRow,
 } from './dedup-review-evidence.js';
 
 const ID_A = '11111111-1111-4111-8111-111111111111';
 const ID_B = '22222222-2222-4222-8222-222222222222';
+// Hex letters in them: upper-casing changes these, unlike the digit-only ids above, so a test that upper-cases them can fail.
+const ID_HEX_A = 'abcdef01-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const ID_HEX_B = 'bcdef012-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 function eventEvidence(overrides: Partial<DedupReviewEventEvidence> = {}): DedupReviewEventEvidence {
   return {
@@ -219,10 +225,15 @@ test('formatDedupReviewExport - markers around exactly one JSON line, and a name
     totalPending: 1,
     staleCount: 0,
     skippedCount: 0,
+    skipIdCount: 1,
+    skipResolved: [{ suggestionId: ID_B, status: 'missing', resolvedAt: null, resolvedBy: null }],
     scanLimited: false,
+    oldestPendingAt: '2026-10-01T00:00:00.000Z',
+    oldestUnskippedPendingAt: null,
     pairs: [{ ...pairEvidence({ candidate: eventEvidence({ name: 'Evil\n::set-output name=x::y\nEND' }) }), evidenceHash: 'abc' }],
     recentlyResolved: [],
     recentlyResolvedTruncated: false,
+    recentlyExpiredCount: 0,
   };
 
   const lines = formatDedupReviewExport(report);
@@ -233,4 +244,78 @@ test('formatDedupReviewExport - markers around exactly one JSON line, and a name
   assert.ok(!lines[1].includes('\n'), 'the JSON is a single line');
   assert.ok(lines[1].startsWith('{'), 'a log line must not start with ::');
   assert.deepStrictEqual(JSON.parse(lines[1]), report);
+});
+
+const ID_C = '33333333-3333-4333-8333-333333333333';
+const ID_D = '44444444-4444-4444-8444-444444444444';
+const ID_E = '55555555-5555-4555-8555-555555555555';
+const ID_F = '66666666-6666-4666-8666-666666666666';
+const RESOLVED_AT = new Date('2026-11-02T10:00:00.000Z');
+
+function skipRow(overrides: Partial<DedupReviewSkipRow> & Pick<DedupReviewSkipRow, 'id'>): DedupReviewSkipRow {
+  return { status: 'pending', resolvedAt: null, resolvedVia: null, ...overrides };
+}
+
+test('toDedupReviewTimestamp - a Date prints as an ISO string, no date prints as null', () => {
+  assert.strictEqual(toDedupReviewTimestamp(new Date('2026-11-02T10:00:00.456Z')), '2026-11-02T10:00:00.456Z');
+  assert.strictEqual(toDedupReviewTimestamp(null), null);
+});
+
+test('partitionDedupReviewSkipIds - every state lands once: pending is counted, the rest listed with who and when, an absent row is missing', () => {
+  const result = partitionDedupReviewSkipIds(
+    [ID_F, ID_E, ID_D, ID_C, ID_B, ID_A],
+    [
+      skipRow({ id: ID_A, status: 'pending' }),
+      skipRow({ id: ID_B, status: 'accepted', resolvedAt: RESOLVED_AT, resolvedVia: 'moderator' }),
+      skipRow({ id: ID_C, status: 'rejected', resolvedAt: RESOLVED_AT, resolvedVia: 'ai_skill' }),
+      skipRow({ id: ID_D, status: 'expired', resolvedAt: RESOLVED_AT }),
+      // ID_E has no row at all: its suggestion was deleted with its event
+      skipRow({ id: ID_F, status: 'accepted', resolvedAt: RESOLVED_AT, resolvedVia: null }),
+    ]
+  );
+
+  assert.deepStrictEqual(result, {
+    skipIdCount: 6,
+    skippedCount: 1,
+    skipResolved: [
+      { suggestionId: ID_B, status: 'accepted', resolvedAt: '2026-11-02T10:00:00.000Z', resolvedBy: 'human' },
+      { suggestionId: ID_C, status: 'rejected', resolvedAt: '2026-11-02T10:00:00.000Z', resolvedBy: 'reviewer' },
+      { suggestionId: ID_D, status: 'expired', resolvedAt: '2026-11-02T10:00:00.000Z', resolvedBy: 'system' },
+      { suggestionId: ID_E, status: 'missing', resolvedAt: null, resolvedBy: null },
+      { suggestionId: ID_F, status: 'accepted', resolvedAt: '2026-11-02T10:00:00.000Z', resolvedBy: 'unknown' },
+    ],
+  });
+  assert.strictEqual(result.skippedCount + result.skipResolved.length, result.skipIdCount, 'the accounting holds by construction');
+});
+
+test('partitionDedupReviewSkipIds - ids are lower-cased, deduplicated and sorted; rows nobody asked about are ignored', () => {
+  assert.notStrictEqual(ID_HEX_A.toUpperCase(), ID_HEX_A, 'the fixture has letters, so upper-casing it changes it');
+  const result = partitionDedupReviewSkipIds(
+    [ID_HEX_B.toUpperCase(), ID_HEX_A, ID_HEX_B, ID_HEX_A.toUpperCase()],
+    [
+      // a row id in upper case is matched too (the database returns lower case, but the function does not rely on it)
+      skipRow({ id: ID_HEX_B.toUpperCase(), status: 'accepted', resolvedAt: RESOLVED_AT, resolvedVia: 'moderator' }),
+      skipRow({ id: ID_C, status: 'pending' }),
+    ]
+  );
+
+  assert.strictEqual(result.skipIdCount, 2);
+  assert.strictEqual(result.skippedCount, 0, 'the pending row ID_C was not asked about');
+  assert.deepStrictEqual(
+    result.skipResolved.map((r) => [r.suggestionId, r.status]),
+    [
+      [ID_HEX_A, 'missing'],
+      [ID_HEX_B, 'accepted'],
+    ]
+  );
+});
+
+test('partitionDedupReviewSkipIds - a resolved row without a time is listed with a null time and is not read as missing', () => {
+  const [row] = partitionDedupReviewSkipIds([ID_A], [skipRow({ id: ID_A, status: 'rejected', resolvedAt: null, resolvedVia: 'moderator' })]).skipResolved;
+
+  assert.deepStrictEqual(row, { suggestionId: ID_A, status: 'rejected', resolvedAt: null, resolvedBy: 'human' });
+});
+
+test('partitionDedupReviewSkipIds - nothing sent means nothing counted or listed', () => {
+  assert.deepStrictEqual(partitionDedupReviewSkipIds([], [skipRow({ id: ID_A })]), { skipIdCount: 0, skippedCount: 0, skipResolved: [] });
 });

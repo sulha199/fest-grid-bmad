@@ -26,6 +26,7 @@ dr = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(dr)
 
 A, B, C = ('00000000-0000-4000-8000-00000000000%d' % i for i in (1, 2, 3))
+HEXY = 'abcdef01-0000-4000-8000-00000000000a'  # letters in it: upper-casing changes it, unlike A, B and C
 HASH = 'ab' * 32
 MERGE = '11111111-1111-4111-8111-111111111111'
 TAG = 't1'
@@ -54,13 +55,24 @@ def pair(suggestion_id=A, tier='mid', candidate=None, new=None, undone=0):
     }
 
 
-def export_payload(pairs=None, resolved=None, run_tag=TAG):
+def export_payload(pairs=None, resolved=None, run_tag=TAG, skip_resolved=None, total_pending=160, skipped=1, expired=0):
+    """A consistent new-shape report: the accounting adds up and the two ages are null exactly when they must be."""
+    skip_resolved = skip_resolved or []
     return {
         'schemaVersion': 1, 'generatedAt': '2026-11-03T02:59:06.586Z', 'runTag': run_tag, 'limit': 10,
-        'totalPending': 160, 'staleCount': 0, 'skippedCount': 1, 'scanLimited': False,
+        'totalPending': total_pending, 'staleCount': 0, 'skippedCount': skipped, 'skipIdCount': skipped + len(skip_resolved),
+        'skipResolved': skip_resolved, 'scanLimited': False,
+        'oldestPendingAt': None if total_pending == 0 else '2026-10-01T00:00:00.000Z',
+        'oldestUnskippedPendingAt': None if total_pending == skipped else '2026-10-20T00:00:00.000Z',
         'pairs': [pair()] if pairs is None else pairs,
-        'recentlyResolved': resolved or [], 'recentlyResolvedTruncated': False,
+        'recentlyResolved': resolved or [], 'recentlyResolvedTruncated': False, 'recentlyExpiredCount': expired,
     }
+
+
+def skip_row(suggestion_id, status='accepted', by='human', at='2026-11-02T00:00:00.000Z'):
+    if status == 'missing':
+        return {'suggestionId': suggestion_id, 'status': 'missing', 'resolvedAt': None, 'resolvedBy': None}
+    return {'suggestionId': suggestion_id, 'status': status, 'resolvedAt': at, 'resolvedBy': by}
 
 
 def apply_payload(mode='validate', results=None, run_tag=TAG, counts=None):
@@ -233,7 +245,10 @@ class ReadingTests(Base):
     @unittest.skipUnless(os.environ.get('DEDUP_REPORT_REAL_LOG'), 'set DEDUP_REPORT_REAL_LOG to a saved real export log')
     def test_a_real_saved_log(self):
         tag = os.environ.get('DEDUP_REPORT_REAL_TAG', 'dryrun-pick')
-        code, out, _ = self.cli('export-header', os.environ['DEDUP_REPORT_REAL_LOG'], tag=tag)
+        code, out, err = self.cli('export-header', os.environ['DEDUP_REPORT_REAL_LOG'], tag=tag)
+        if code == dr.EXIT_BAD_REPORT:  # a log from before FIND-115 must be refused, naming what is missing, never guessed at
+            self.assertIn('predates this reader', err)
+            return
         self.assertEqual(code, 0)
         pairs = json.loads(out)['pairCount']
         self.assertGreater(pairs, 0)
@@ -241,28 +256,38 @@ class ReadingTests(Base):
 
 
 class ExportCommandTests(Base):
-    def test_resolved_default_hides_expired_and_ids_shows_everything(self):
-        rows = [{'suggestionId': A, 'status': 'expired', 'resolvedBy': 'system', 'resolvedAt': '2026-11-01T00:00:00.000Z'},
-                {'suggestionId': B, 'status': 'accepted', 'resolvedBy': 'human', 'resolvedAt': '2026-11-02T00:00:00.000Z'}]
-        path = self.write(export_log(export_payload(resolved=rows)))
-        _, out, _ = self.cli('export-resolved', path)
-        self.assertIn(B, out)
-        self.assertNotIn(A, out)
-        _, out, _ = self.cli('export-resolved', path, '--ids', A.upper())
-        self.assertIn(A, out)
+    def test_export_resolved_lists_decisions_and_answers_for_the_ids_asked_about(self):
+        d = '00000000-0000-4000-8000-000000000004'
+        # B is both a recent decision and a sent id: the two lists describe the same row, so they agree.
+        recent = [{'suggestionId': B, 'status': 'rejected', 'resolvedBy': 'reviewer', 'resolvedAt': '2026-11-02T00:00:00.000Z'},
+                  {'suggestionId': d, 'status': 'accepted', 'resolvedBy': 'human', 'resolvedAt': '2026-11-02T00:00:00.000Z'}]
+        skipped = [skip_row(A, 'expired', 'system'), skip_row(B, 'rejected', 'reviewer'), skip_row(C, 'missing'), skip_row(HEXY)]
+        path = self.write(export_log(export_payload([], resolved=recent, skip_resolved=skipped, expired=4)))
+
+        lines = self.cli('export-resolved', path)[1].splitlines()
+        self.assertEqual([json.loads(line)['suggestionId'] for line in lines[:-1]], [B, d])     # the default view: the recent decisions
+        self.assertEqual(json.loads(lines[-1]), {'shown': 2, 'recentlyResolvedTruncated': False, 'recentlyExpiredCount': 4})
+
+        asked = ','.join([HEXY.upper(), A, B, C, d])        # an upper-case id is folded to lower case before it is looked up
+        rows = [json.loads(line) for line in self.cli('export-resolved', path, '--ids', asked)[1].splitlines()[:-1]]
+        self.assertEqual([(r['suggestionId'], r['status'], r['resolvedBy']) for r in rows],
+                         [(A, 'expired', 'system'), (B, 'rejected', 'reviewer'), (C, 'missing', None), (d, 'accepted', 'human'), (HEXY, 'accepted', 'human')])  # sorted, B once
+        code, out, _ = self.cli('export-resolved', path, '--ids', '')                  # a first run has no open issues: show none, do not fail
+        self.assertEqual((code, json.loads(out.splitlines()[-1])['shown']), (0, 0))
         for bad in ('nope', A + ',nope', A + 'x'):
             self.assertEqual(self.cli('export-resolved', path, '--ids', bad)[0], dr.EXIT_BAD_INPUT, repr(bad))
-        code, out, _ = self.cli('export-resolved', path, '--ids', '')  # a first run has no open issues: show none, do not fail
-        self.assertEqual((code, json.loads(out.splitlines()[-1])['shown']), (0, 0))
+        pending = '00000000-0000-4000-8000-0000000000bb'
+        summary = json.loads(self.cli('export-resolved', path, '--ids', ','.join([A, pending]))[1].splitlines()[-1])
+        self.assertEqual((summary['shown'], summary['notListed']), (1, [pending]))      # an id with no row is named, not silently dropped
+        self.assertNotIn('notListed', json.loads(self.cli('export-resolved', path)[1].splitlines()[-1]))
         code, out, _ = self.cli('export-resolved', path, '--ids', ' %s \n' % A)  # whitespace around an id is trimmed, then validated
         self.assertEqual(code, 0)
-        self.assertNotIn('\\n', out.splitlines()[0])
 
     def test_decisions_carry_the_exact_hash_and_no_reasons(self):
-        path = self.write(export_log(export_payload([pair(A), pair(B)])))
-        code, out, _ = self.cli('decisions', path, A.upper(), B)
+        path = self.write(export_log(export_payload([pair(HEXY), pair(B)])))
+        code, out, _ = self.cli('decisions', path, HEXY.upper(), B)
         self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out)['decisions'][0], {'suggestionId': A, 'evidenceHash': HASH, 'reasons': []})
+        self.assertEqual(json.loads(out)['decisions'][0], {'suggestionId': HEXY, 'evidenceHash': HASH, 'reasons': []})
         self.assertNotIn(' ', out)
         self.assertEqual(self.cli('decisions', path, C)[0], dr.EXIT_BAD_INPUT)
         self.assertEqual(self.cli('decisions', path, A, A)[0], dr.EXIT_BAD_INPUT)
@@ -287,15 +312,30 @@ class ExportCommandTests(Base):
         self.assertEqual(row['truncated'], 8)
         self.assertIn('(+8 more)', json.dumps(row))
 
-    def test_header_age_and_unknown_count(self):
-        path = self.write(export_log())
-        _, out, _ = self.cli('export-header', path, '--sent', '5', '--closed', '2')
-        header = json.loads(out)
-        self.assertAlmostEqual(header['firstPairNewestPostAgeDays'], 2.0, delta=0.2)
-        self.assertEqual(header['unknownCount'], 2)  # 5 sent - 1 still pending - 2 closed
-        self.assertEqual(json.loads(self.cli('export-header', path, '--sent', '1', '--closed', '5')[1])['unknownCount'], 0)
-        self.assertEqual(self.cli('export-header', path, '--sent', '1')[0], dr.EXIT_BAD_INPUT)
+    def test_header_reports_the_queue_ages_the_tallies_and_checks_the_sent_ids(self):
+        d, e, f, x = ('00000000-0000-4000-8000-00000000000%d' % i for i in (4, 5, 6, 9))
+        rows = [skip_row(A), skip_row(B, 'expired', 'system'), skip_row(C, 'missing')]
+        path = self.write(export_log(export_payload([pair(d)], skip_resolved=rows, skipped=2, expired=7)))
+        sent = self.write(json.dumps({'ids': [A, B, C, e, f]}), 'sent.json')
 
+        code, out, _ = self.cli('export-header', path, '--sent-file', sent)
+
+        self.assertEqual(code, 0)
+        header = json.loads(out)
+        self.assertEqual((header['skipIdCount'], header['skippedCount']), (5, 2))
+        self.assertEqual(header['skipResolvedByStatus'], {'accepted': 1, 'expired': 1, 'missing': 1})
+        self.assertEqual(header['recentlyExpiredCount'], 7)
+        self.assertEqual(header['oldestPendingAgeDays'], 33.1)            # 2026-10-01 to 2026-11-03T02:59
+        self.assertEqual(header['oldestUnskippedPendingAgeDays'], 14.1)   # 2026-10-20 to 2026-11-03T02:59
+        self.assertIn('sent-ids-missing', header['alerts'])
+        self.assertEqual(json.loads(self.cli('export-header', path)[1])['skipIdCount'], 5)  # the cross-check is optional
+
+        short = self.write(json.dumps({'ids': [A, B, C, e]}), 'short.json')                   # one fewer id was sent than the export answered for
+        stray = self.write(json.dumps({'ids': [A, C, e, f, x]}), 'stray.json')                # B is listed by the export but was not sent
+        for bad in (short, stray):
+            code, _, err = self.cli('export-header', path, '--sent-file', bad)
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, bad)
+        self.assertEqual(self.cli('export-header', path, '--sent-file', self.write('{"ids": "no"}', 'bad.json'))[0], dr.EXIT_BAD_INPUT)
 
 class ApplyTests(Base):
     def apply(self, log_text, mode='validate', ids=A, tag=TAG):
@@ -371,6 +411,18 @@ class IssueListTests(Base):
         self.assertEqual(result['oldestOpenCreatedAt'], '2026-11-01T00:00:00Z')
         self.assertEqual(result['shadowOpen'], [B])
         self.assertEqual(result['closed'], [A])
+
+    def test_the_real_issue_ids_output_is_what_sent_file_checks_against(self):
+        """No hand-made sent file: what `issue-ids` printed (and the skill saved) is what `--sent-file` reads."""
+        sent = self.write(self.ids()[1], 'sent.json')                               # ids [A, B]: A and B are open
+        header = lambda payload, sent_file: self.cli('export-header', self.write(export_log(payload)), '--sent-file', sent_file)
+        both = export_payload([], skip_resolved=[skip_row(A, 'expired', 'system')], total_pending=1, skipped=1)   # B stays pending
+        self.assertEqual(header(both, sent)[0], 0)
+        self.assertEqual(json.loads(header(both, sent)[1])['skipIdCount'], 2)
+        without_shadow = self.write(self.ids('--exclude-shadow')[1], 'sent-live.json')   # only [A] was sent this time
+        code, _, err = header(both, without_shadow)
+        self.assertEqual(code, dr.EXIT_BAD_REPORT)                                  # the export answered for 2 ids, 1 was sent
+        self.assertIn('answered for 2 ids but 1 were sent', err)
 
     def test_exclude_shadow_and_cap(self):
         result = json.loads(self.ids('--exclude-shadow')[1])
@@ -520,7 +572,7 @@ class TextBuilderTests(Base):
         data = {'mode': 'shadow', 'exportTag': TAG, 'validateTag': 't1v', 'applyTag': None,
                 'entries': [{'suggestionId': A, 'decision': 'escalated', 'reason': 'name-mismatch', 'pattern': 'other', 'rationale': 'why `x`'},
                             {'suggestionId': B, 'decision': 'shadow-eligible', 'pattern': 'venue-alias'}],
-                'closedIssues': [7], 'unknownCount': 1}
+                'closedIssues': [7]}
         data.update(over)
         return self.write(json.dumps(data), 'summary.json')
 
@@ -531,6 +583,7 @@ class TextBuilderTests(Base):
         self.assertIn('Escalated: 1', out)
         self.assertIn('#7', out)
         self.assertIn('| `%s` | escalated | name-mismatch | other | - |' % A, out)
+        self.assertIn('Sent ids no longer pending: 0 of 1. Decisions in the last 14 days: 0 (more existed: False). Expired in the last 14 days: 0.', out)
         code, out, _ = self.cli('insight-body', path, '--status', 'ok', '--oldest-escalation', '2026-11-01T02:59:06Z')
         self.assertEqual(code, 0)
         self.assertIn('Backlog (pending suggestions):** 160', out)
@@ -629,11 +682,13 @@ class PatchRoundTests(Base):
             self.assertNotIn('KeyError', err, label)
 
     def test_header_alerts(self):
-        stale = export_payload([])
+        stale = export_payload([], total_pending=5, skipped=0)
         stale['scanLimited'] = True
         self.assertIn('scan-limited-no-pairs', json.loads(self.cli('export-header', self.write(export_log(stale)))[1])['alerts'])
-        escalated = dict(export_payload([]), totalPending=5, skippedCount=5)
+        escalated = export_payload([], total_pending=5, skipped=5)
         self.assertIn('everything-pending-is-already-escalated', json.loads(self.cli('export-header', self.write(export_log(escalated)))[1])['alerts'])
+        missing = export_payload(skip_resolved=[skip_row(B, 'missing')])
+        self.assertIn('sent-ids-missing', json.loads(self.cli('export-header', self.write(export_log(missing)))[1])['alerts'])
         self.assertEqual(json.loads(self.cli('export-header', self.write(export_log()))[1])['alerts'], [])
 
     def test_a_huge_range_is_a_usage_error(self):
@@ -741,43 +796,51 @@ class IssueTrustTests(Base):
         self.assertEqual(json.loads(self.run_cli('issue-ids', page, '--max', '5', '--limit', '1')[1])['oldestOpenCreatedAt'], '2026-11-02T00:00:00Z')
 
     def test_settle_maps_each_resolved_id_to_its_issue_labels_and_comment(self):
-        rows = [{'suggestionId': A, 'status': 'accepted', 'resolvedBy': 'human', 'resolvedAt': '2026-11-02T00:00:00.000Z'},
-                {'suggestionId': B, 'status': 'expired', 'resolvedBy': 'system', 'resolvedAt': '2026-11-02T00:00:00.000Z'}]
-        log = self.write(export_log(export_payload(resolved=rows)))
-        page = self.write(json.dumps({'issues': [self.row(1, A, labels=('dedup-escalate', 'pattern:other')), self.row(2, B), self.row(3, B),
-                                                  self.row(4, C), self.row(5, A, state='CLOSED')]}), 'settle.json')
+        d, e, f, g = ('00000000-0000-4000-8000-00000000000%d' % i for i in (4, 5, 6, 7))
+        recent = [{'suggestionId': f, 'status': 'accepted', 'resolvedBy': 'human', 'resolvedAt': '2026-11-02T00:00:00.000Z'},   # not sent: the recent decisions are the fallback
+                  {'suggestionId': g, 'status': 'accepted', 'resolvedBy': 'human', 'resolvedAt': '2026-11-02T00:00:00.000Z'}]  # also answered for below, the same row
+        sent = [skip_row(A, 'accepted', 'human', '2026-10-01T00:00:00.000Z'),  # decided long before the 14-day window
+                skip_row(B, 'expired', 'system'), skip_row(C, 'missing'), skip_row(g, 'accepted', 'human', '2026-11-02T00:00:00.000Z')]
+        log = self.write(export_log(export_payload([], resolved=recent, skip_resolved=sent)))
+        page = self.write(json.dumps({'issues': [
+            self.row(1, A, labels=('dedup-escalate', 'pattern:other')), self.row(2, B), self.row(3, B), self.row(4, C), self.row(5, A, state='CLOSED'),
+            self.row(6, e), self.row(7, f), self.row(8, g)]}), 'settle.json')
+
         result = json.loads(self.cli('settle', log, page)[1])
+
         by_number = {item['number']: item for item in result['close']}
-        self.assertEqual(sorted(by_number), [1, 2, 3])                                       # the twin of B is closed too; C is untouched
+        self.assertEqual(sorted(by_number), [1, 2, 3, 7, 8])                                    # the twin of B closes too; E is untouched
         self.assertEqual(sorted(by_number[1]['labels']), ['dedup-escalate', 'outcome:accepted', 'pattern:other'])  # GitHub takes a set; order is irrelevant
-        self.assertEqual(by_number[2]['labels'], ['dedup-escalate'])                          # an expiry gets no outcome label
+        self.assertEqual(by_number[2]['labels'], ['dedup-escalate'])                             # an expiry gets no outcome label
         self.assertIn('accepted by a moderator', by_number[1]['comment'])
-        self.assertEqual(result['closedIds'], 2)                                              # distinct suggestions, not issues
+        self.assertEqual(sorted(by_number[7]['labels']), ['dedup-escalate', 'outcome:accepted'])  # the fallback closes an id that was not sent
+        self.assertEqual(sorted(by_number[8]['labels']), ['dedup-escalate', 'outcome:accepted'])  # in both lists: closed once, one outcome label
+        self.assertEqual(result['missing'], [{'number': 4, 'id': C}])                            # reported, never closed
+        self.assertEqual(result['closedIds'], 4)                                                # distinct suggestions: A, B, F, G
         self.assertEqual(json.loads(self.cli('settle', log, self.write('{"issues":[]}', 'e.json'))[1])['close'], [])
 
     def test_only_a_humans_decision_earns_an_outcome_label(self):
         def settled(status, by):
-            rows = [{'suggestionId': A, 'status': status, 'resolvedBy': by, 'resolvedAt': '2026-11-02T00:00:00.000Z'}]
             page = self.write(json.dumps({'issues': [self.row(1, A)]}), 'one.json')
-            return json.loads(self.cli('settle', self.write(export_log(export_payload(resolved=rows))), page)[1])['close'][0]['labels']
+            result = json.loads(self.cli('settle', self.write(export_log(export_payload([], skip_resolved=[skip_row(A, status, by)]))), page)[1])
+            return result['close'][0]['labels']
 
         self.assertEqual(sorted(settled('rejected', 'human')), ['dedup-escalate', 'outcome:rejected'])
         for status, by in (('accepted', 'reviewer'), ('accepted', 'unknown'), ('rejected', 'unknown'), ('expired', 'system')):
             self.assertEqual(settled(status, by), ['dedup-escalate'], (status, by))
 
+
     def test_everything_already_escalated_counts_as_blocked(self):
-        log = self.write(export_log(dict(export_payload([]), totalPending=3, skippedCount=3)))
+        log = self.write(export_log(export_payload([], total_pending=3, skipped=3)))
         self.assertTrue(json.loads(self.cli('triage', log, self.write('{"issues":[]}', 'e.json'))[1])['blocked'])
 
-    def test_insight_age_uses_the_first_pair_no_issue_covers(self):
-        old_post = [{'isPrimary': True, 'accountType': 'PERSONAL', 'publishedAt': '2026-10-01T00:00:00.000Z'}]
-        new_post = [{'isPrimary': True, 'accountType': 'PERSONAL', 'publishedAt': '2026-11-02T00:00:00.000Z'}]
-        log = self.write(export_log(export_payload([pair(A, new=event(sourcePosts=old_post)), pair(B, new=event(sourcePosts=new_post))])))
-        page = self.write(json.dumps({'issues': [self.row(1, A)]}), 'covers.json')
-        _, plain, _ = self.cli('insight-body', log, '--status', 'ok')
-        _, covered, _ = self.cli('insight-body', log, '--status', 'ok', '--issues', page)
-        self.assertIn('about 33.1 days', plain)       # the first exported pair, already escalated
-        self.assertIn('about 1.1 days', covered)      # the first pair without an issue
+    def test_insight_body_shows_both_queue_ages_exactly(self):
+        _, body, _ = self.cli('insight-body', self.write(export_log()), '--status', 'ok')
+        self.assertIn('**Oldest pending in the queue:** 33.1 days (since 2026-10-01T00:00:00.000Z)', body)
+        self.assertIn('**Oldest pending nobody has escalated (the sign the daily review stopped):** 14.1 days (since 2026-10-20T00:00:00.000Z)', body)
+        _, none, _ = self.cli('insight-body', self.write(export_log(export_payload([], total_pending=0, skipped=0))), '--status', 'ok')
+        self.assertEqual(none.count('none'), 3, 'an empty queue shows none for both ages and for the open escalation')   # 2 ages + "none open"
+        self.assertEqual(self.run_cli('insight-body', self.write(export_log()), '--expect-run-tag', TAG, '--status', 'ok', '--issues', 'x.json')[0], dr.EXIT_USAGE)  # the estimate is gone
 
     def test_verify_issue_compares_title_body_and_labels(self):
         log = self.write(export_log())
@@ -810,7 +873,7 @@ class IssueTrustTests(Base):
 
         def summary(mode='live', entries=entries):
             return self.write(json.dumps({'mode': mode, 'exportTag': TAG, 'validateTag': 't1v', 'applyTag': 't1a', 'entries': entries,
-                                          'closedIssues': [], 'unknownCount': 0}), 'sum.json')
+                                          'closedIssues': []}), 'sum.json')
 
         code, out, _ = self.cli('insight-comment', log, '--summary', summary(), '--apply-log', apply_path, '--apply-run-tag', 't1a')
         self.assertEqual(code, 0)
@@ -822,6 +885,98 @@ class IssueTrustTests(Base):
         self.assertEqual(self.cli('insight-comment', log, '--summary', summary(entries=[{'suggestionId': A, 'decision': 'deferred'}]),
                                   '--apply-log', apply_path, '--apply-run-tag', 't1a')[0], dr.EXIT_BAD_INPUT)                 # a merge nobody recorded
         self.assertEqual(self.cli('insight-comment', log, '--summary', summary(), '--apply-log', apply_path, '--apply-run-tag', 'wrong')[0], dr.EXIT_BAD_REPORT)
+
+
+class ExportContractTests(Base):
+    """The rules the reader holds a report to: every new key, the sum, the shape of skipResolved, the null rules."""
+
+    def load(self, payload):
+        return self.cli('export-header', self.write(export_log(payload)))
+
+    def test_an_export_without_a_new_key_is_refused_and_the_key_is_named(self):
+        for key in ('skipIdCount', 'skipResolved', 'recentlyExpiredCount', 'oldestPendingAt', 'oldestUnskippedPendingAt'):
+            payload = export_payload()
+            del payload[key]
+            code, _, err = self.load(payload)
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, key)
+            self.assertIn("'%s'" % key, err)
+            self.assertIn('predates this reader', err)
+
+    def test_the_sum_of_pending_and_resolved_must_be_the_number_of_ids_sent(self):
+        payload = export_payload(skip_resolved=[skip_row(B)])
+        self.assertEqual(self.load(payload)[0], 0)
+        payload['skipIdCount'] += 1
+        code, _, err = self.load(payload)
+        self.assertEqual(code, dr.EXIT_BAD_REPORT)
+        self.assertIn('accounting is off', err)
+
+    def test_skip_resolved_rows_must_have_the_documented_shape(self):
+        cases = {  # label: (the rows, the part of the message that names the rule that must fire)
+            'a missing row with a time': ([dict(skip_row(B, 'missing'), resolvedAt='2026-11-02T00:00:00.000Z')], 'null time and class'),
+            'a missing row with a class': ([dict(skip_row(B, 'missing'), resolvedBy='human')], 'null time and class'),
+            'a resolved row without a class': ([dict(skip_row(B), resolvedBy=None)], 'needs its class'),
+            'a status that does not exist': ([dict(skip_row(B), status='pending')], 'bad status'),
+            'a bad class': ([dict(skip_row(B), resolvedBy='robot')], 'bad resolvedBy'),
+            'a bad time': ([dict(skip_row(B), resolvedAt='yesterday')], 'skipResolved resolvedAt'),
+            'not sorted': ([skip_row(C), skip_row(B)], 'sorted by id'),
+            'a duplicate': ([skip_row(B), skip_row(B)], 'sorted by id'),
+            'also an exported pair': ([skip_row(A)], 'also be an exported pair'),  # the default fixture exports a pair with id A
+            'a key missing': ([{'suggestionId': B, 'status': 'accepted', 'resolvedBy': 'human'}], "a skipResolved row has no 'resolvedAt'"),
+            'not an object': (['x'], 'bad suggestionId'),
+        }
+        for label, (rows, rule) in cases.items():
+            payload = export_payload(skip_resolved=rows)
+            payload['skipIdCount'] = payload['skippedCount'] + len(rows)  # keep the sum right so only the shape is wrong
+            code, _, err = self.load(payload)
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, label)
+            self.assertIn(rule, err, label)
+            self.assertNotIn('Traceback', err, label)
+            self.assertNotIn('predates', err, label)  # a malformed row is not an old export
+
+    def test_the_ages_are_null_exactly_when_the_counts_say_so(self):
+        def refused(payload, rule):
+            code, _, err = self.load(payload)
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, rule)
+            self.assertIn(rule, err)
+
+        nothing_pending = export_payload([], total_pending=0, skipped=0)
+        self.assertEqual(self.load(nothing_pending)[0], 0)
+        refused(dict(nothing_pending, oldestPendingAt='2026-10-01T00:00:00.000Z'), 'oldestPendingAt must be null exactly when nothing is pending')
+        refused(dict(export_payload(), oldestPendingAt=None), 'oldestPendingAt must be null exactly when nothing is pending')
+        all_sent = export_payload([], total_pending=3, skipped=3)
+        self.assertEqual(self.load(all_sent)[0], 0)
+        refused(dict(all_sent, oldestUnskippedPendingAt='2026-10-20T00:00:00.000Z'), 'oldestUnskippedPendingAt must be null exactly when')
+        refused(dict(export_payload(), oldestUnskippedPendingAt=None), 'oldestUnskippedPendingAt must be null exactly when')
+        refused(dict(export_payload(), oldestPendingAt='not a time'), 'oldestPendingAt must be an ISO timestamp or null')
+
+    def test_a_row_level_key_that_is_missing_does_not_blame_the_export_version(self):
+        row = skip_row(B)
+        del row['resolvedAt']
+        payload = export_payload(skip_resolved=[row])
+        code, _, err = self.load(payload)
+        self.assertEqual(code, dr.EXIT_BAD_REPORT)
+        self.assertIn("a skipResolved row has no 'resolvedAt'", err)
+
+    def test_impossible_times_and_counts_are_refused(self):
+        def refused(payload, rule):
+            code, _, err = self.load(payload)
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, rule)
+            self.assertIn(rule, err)
+
+        refused(dict(export_payload(), oldestPendingAt='2026-13-45T00:00:00.000Z'), 'oldestPendingAt must be an ISO timestamp or null')   # the shape of a time, not a time
+        refused(dict(export_payload(), generatedAt='2026-02-30T00:00:00.000Z'), 'generatedAt must be an ISO timestamp')
+        bad_row = {'suggestionId': B, 'status': 'accepted', 'resolvedBy': 'human', 'resolvedAt': '2026-00-10T00:00:00.000Z'}
+        refused(export_payload(resolved=[bad_row]), 'a resolved row has a bad resolvedAt')
+        refused(dict(export_payload([], total_pending=1, skipped=2), skipIdCount=2), 'more than totalPending')          # more sent ids pending than pending rows
+        refused(dict(export_payload([pair(A), pair(B)], total_pending=2, skipped=1), skipIdCount=1), 'more than totalPending')  # 2 pairs + 1 skipped > 2 pending
+
+    def test_an_expiry_in_the_list_of_decisions_is_refused(self):
+        expired = {'suggestionId': B, 'status': 'expired', 'resolvedBy': 'system', 'resolvedAt': '2026-11-02T00:00:00.000Z'}
+        code, _, err = self.load(export_payload(resolved=[expired]))
+        self.assertEqual(code, dr.EXIT_BAD_REPORT)
+        self.assertIn('recentlyExpiredCount', err)
+        self.assertEqual(self.load(export_payload(expired=-1))[0], dr.EXIT_BAD_REPORT)
+        self.assertEqual(self.load(dict(export_payload(), skipIdCount=-1))[0], dr.EXIT_BAD_REPORT)
 
 
 if __name__ == '__main__':

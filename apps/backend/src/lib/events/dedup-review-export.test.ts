@@ -1,6 +1,6 @@
 import test from 'node:test';
 import * as assert from 'node:assert';
-import { count, eq, inArray, sql } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, min, notInArray, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import {
   socialMediaAccountProfiles,
@@ -31,6 +31,8 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
   const TOKEN = 'SECRET_TOKEN_' + suffix;
   const REVIEWER_EMAIL = `ddrx-reviewer-${suffix}@example.com`;
   const HUMAN_EMAIL = `ddrx-human-${suffix}@example.com`;
+  const REVIEWER_NAME = 'Moderator Rho ' + suffix; // names no event or pair in this file uses, so a privacy check on them cannot match pair text
+  const HUMAN_NAME = 'Moderator Eta ' + suffix;
 
   const [account] = await db
     .insert(socialMediaAccountProfiles)
@@ -51,8 +53,8 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
       accountTypeStatus: 'AWAITING_APPROVAL',
     })
     .returning();
-  const [reviewer] = await db.insert(users).values({ email: REVIEWER_EMAIL, name: 'Reviewer', role: 'moderator' }).returning();
-  const [human] = await db.insert(users).values({ email: HUMAN_EMAIL, name: 'Human', role: 'moderator' }).returning();
+  const [reviewer] = await db.insert(users).values({ email: REVIEWER_EMAIL, name: REVIEWER_NAME, role: 'moderator' }).returning();
+  const [human] = await db.insert(users).values({ email: HUMAN_EMAIL, name: HUMAN_NAME, role: 'moderator' }).returning();
   const [plainUser] = await db.insert(users).values({ email: `ddrx-plain-${suffix}@example.com`, name: 'Plain', role: 'user' }).returning();
 
   const eventIds: string[] = [];
@@ -147,6 +149,8 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     );
     assert.strictEqual(report.staleCount, 1);
     assert.strictEqual(report.skippedCount, 0);
+    assert.strictEqual(report.skipIdCount, 0, 'no ids sent');
+    assert.deepStrictEqual(report.skipResolved, [], 'nothing sent, nothing listed');
     assert.strictEqual(report.scanLimited, false);
     assert.strictEqual(report.runTag, 'test-run');
     assert.strictEqual(report.schemaVersion, 1);
@@ -288,16 +292,28 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.strictEqual(report.scanLimited, false);
   });
 
-  await t.test('recentlyResolved tells the reviewer, a human and the system apart, and leaves out old resolutions', async () => {
+  const set = (id: string, values: Partial<typeof eventMatchCandidates.$inferInsert>) => db.update(eventMatchCandidates).set(values).where(eq(eventMatchCandidates.id, id));
+  const DAY = 24 * 60 * 60 * 1000;
+  const independentExpiredCount = async () => {
+    const [{ n }] = await db
+      .select({ n: count() })
+      .from(eventMatchCandidates)
+      .where(and(eq(eventMatchCandidates.status, 'expired'), gte(eventMatchCandidates.resolvedAt, new Date(Date.now() - 14 * DAY))));
+    return Number(n);
+  };
+
+  await t.test('recentlyResolved lists decisions only, telling the reviewer from a human, and counts the expiries apart', async () => {
     const reviewerPair = await makePair('Resolved By Reviewer', '2026-12-20');
     const humanPair = await makePair('Resolved By Human', '2026-12-21');
     const expiredPair = await makePair('Expired Pair', '2026-12-22');
     const oldPair = await makePair('Resolved Long Ago', '2026-12-23');
-    const set = (id: string, values: Partial<typeof eventMatchCandidates.$inferInsert>) => db.update(eventMatchCandidates).set(values).where(eq(eventMatchCandidates.id, id));
+    const oldExpiredPair = await makePair('Expired Long Ago', '2026-12-31');
+    const expiredBefore = await buildDedupReviewExport(db, base);
     await set(reviewerPair.suggestion.id, { status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: human.id, resolvedVia: 'ai_skill' });
     await set(humanPair.suggestion.id, { status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: reviewer.id, resolvedVia: 'moderator' });
     await set(expiredPair.suggestion.id, { status: 'expired', resolvedAt: new Date() });
-    await set(oldPair.suggestion.id, { status: 'rejected', resolvedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), resolvedByModeratorId: human.id });
+    await set(oldExpiredPair.suggestion.id, { status: 'expired', resolvedAt: new Date(Date.now() - 30 * DAY) });
+    await set(oldPair.suggestion.id, { status: 'rejected', resolvedAt: new Date(Date.now() - 20 * DAY), resolvedByModeratorId: human.id });
 
     // The moderator ids above are swapped on purpose: the label comes from resolved_via alone, never from who the user is.
     const report = await buildDedupReviewExport(db, base);
@@ -305,14 +321,20 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.strictEqual(resolved.get(reviewerPair.suggestion.id)?.resolvedBy, 'reviewer');
     assert.strictEqual(resolved.get(reviewerPair.suggestion.id)?.status, 'accepted');
     assert.strictEqual(resolved.get(humanPair.suggestion.id)?.resolvedBy, 'human');
-    assert.strictEqual(resolved.get(expiredPair.suggestion.id)?.resolvedBy, 'system');
+    assert.strictEqual(resolved.has(expiredPair.suggestion.id), false, 'an expiry is counted, not listed');
     assert.strictEqual(resolved.has(oldPair.suggestion.id), false, 'older than 14 days');
+    assert.ok(report.recentlyResolved.every((r) => r.status === 'accepted' || r.status === 'rejected'), 'decisions only');
     assert.ok(report.pairs.every((p) => p.status === 'pending'));
 
+    assert.strictEqual(report.recentlyExpiredCount, await independentExpiredCount(), 'counted independently, in the same 14-day window, uncapped');
+    assert.strictEqual(report.recentlyExpiredCount, expiredBefore.recentlyExpiredCount + 1, 'the expiry made above is the difference (the one from 30 days ago is outside the window), whatever else the shared database holds');
+
     assert.strictEqual(report.recentlyResolvedTruncated, false);
-    const truncated = await buildDedupReviewExport(db, { ...base, recentLimit: 2 });
-    assert.strictEqual(truncated.recentlyResolved.length, 2);
-    assert.strictEqual(truncated.recentlyResolvedTruncated, true, 'more were resolved than the list holds, and the report says so');
+    const truncated = await buildDedupReviewExport(db, { ...base, recentLimit: 1 });
+    assert.strictEqual(truncated.recentlyResolved.length, 1);
+    assert.strictEqual(truncated.recentlyResolvedTruncated, true, 'more decisions were made than the list holds, and the report says so');
+    const noisy = await buildDedupReviewExport(db, { ...base, recentLimit: 1 });
+    assert.strictEqual(noisy.recentlyExpiredCount, report.recentlyExpiredCount, 'the expiry count does not depend on the cap');
 
     // A resolution from before the flag existed (no `resolved_via`) is not guessed at.
     await set(humanPair.suggestion.id, { resolvedVia: null });
@@ -320,11 +342,106 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.strictEqual(legacy.recentlyResolved.find((r) => r.suggestionId === humanPair.suggestion.id)?.resolvedBy, 'unknown');
   });
 
+  await t.test('decisions made at the same instant are listed in the same order on every run (the id breaks the tie)', async () => {
+    // Four tied rows: by luck alone they would come back in id order one time in 24.
+    const tied = [await makePair('Tie One', '2026-12-24'), await makePair('Tie Two', '2026-12-25'), await makePair('Tie Three', '2026-12-26'), await makePair('Tie Four', '2026-12-27')];
+    const moment = new Date(Date.now() - 1000);
+    for (const pair of tied) await set(pair.suggestion.id, { status: 'accepted', resolvedAt: moment, resolvedByModeratorId: human.id, resolvedVia: 'moderator' });
+
+    const ids = tied.map((pair) => pair.suggestion.id).sort();
+    const listed = (await buildDedupReviewExport(db, base)).recentlyResolved.filter((r) => ids.includes(r.suggestionId)).map((r) => r.suggestionId);
+    assert.deepStrictEqual(listed, ids);
+  });
+
+  await t.test('skipResolved answers for the ids sent: every state once, whatever the age, and the counts add up', async () => {
+    const byHuman = await makePair('Skip Accepted By Human', '2026-12-26');
+    const byReviewer = await makePair('Skip Rejected By Reviewer', '2026-12-27');
+    const expiredPair = await makePair('Skip Expired', '2026-12-28');
+    const longAgo = await makePair('Skip Resolved Long Ago', '2026-12-29');
+    const noTime = await makePair('Skip Resolved Without A Time', '2026-12-30');
+    await set(byHuman.suggestion.id, { status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: human.id, resolvedVia: 'moderator' });
+    await set(byReviewer.suggestion.id, { status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: human.id, resolvedVia: 'ai_skill' });
+    await set(expiredPair.suggestion.id, { status: 'expired', resolvedAt: new Date() });
+    await set(longAgo.suggestion.id, { status: 'accepted', resolvedAt: new Date(Date.now() - 45 * DAY), resolvedByModeratorId: human.id, resolvedVia: 'moderator' });
+    await set(noTime.suggestion.id, { status: 'rejected', resolvedAt: null, resolvedVia: 'moderator' });
+    const nobody = '00000000-0000-4000-8000-0000000000aa';
+    const sent = [
+      byHuman.suggestion.id, byReviewer.suggestion.id, expiredPair.suggestion.id, longAgo.suggestion.id, noTime.suggestion.id,
+      stranger.suggestion.id, // pending
+      undone.suggestion.id, // an undone merge returns a suggestion to pending
+      nobody, // no such suggestion
+    ];
+
+    // Duplicates and upper case reach the builder too (only the CLI's parser removes them); `only` narrows the scan alone.
+    const report = await buildDedupReviewExport(db, { ...base, skipIds: [...sent, byHuman.suggestion.id.toUpperCase()], onlySuggestionIds: [high.suggestion.id] });
+
+    assert.strictEqual(report.skipIdCount, sent.length);
+    assert.strictEqual(report.skippedCount, 2, 'the two pending ids, though the test-only `only` option leaves them out of the scan');
+    assert.strictEqual(report.skippedCount + report.skipResolved.length, report.skipIdCount);
+    const listed = report.skipResolved.map((r) => r.suggestionId);
+    assert.deepStrictEqual(listed, [...listed].sort(), 'sorted by id');
+    const row = (id: string) => report.skipResolved.find((r) => r.suggestionId === id);
+    assert.deepStrictEqual(
+      [row(byHuman.suggestion.id)?.status, row(byHuman.suggestion.id)?.resolvedBy],
+      ['accepted', 'human']
+    );
+    assert.deepStrictEqual([row(byReviewer.suggestion.id)?.status, row(byReviewer.suggestion.id)?.resolvedBy], ['rejected', 'reviewer']);
+    assert.deepStrictEqual([row(expiredPair.suggestion.id)?.status, row(expiredPair.suggestion.id)?.resolvedBy], ['expired', 'system']);
+    assert.strictEqual(row(longAgo.suggestion.id)?.status, 'accepted', 'listed though older than the 14-day window');
+    assert.match(row(longAgo.suggestion.id)?.resolvedAt ?? '', /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/);
+    assert.deepStrictEqual(row(noTime.suggestion.id), { suggestionId: noTime.suggestion.id, status: 'rejected', resolvedAt: null, resolvedBy: 'human' }, 'a resolved row without a time is not read as missing');
+    assert.deepStrictEqual(row(nobody), { suggestionId: nobody, status: 'missing', resolvedAt: null, resolvedBy: null });
+    assert.strictEqual(row(stranger.suggestion.id), undefined, 'a pending id is counted, not listed');
+    assert.strictEqual(row(undone.suggestion.id), undefined);
+    // `stranger` is pending and sent. Put it inside the scan scope: only the exclusion of sent ids keeps it out of the pairs.
+    const scoped = await buildDedupReviewExport(db, { ...base, skipIds: sent, onlySuggestionIds: [high.suggestion.id, stranger.suggestion.id] });
+    assert.deepStrictEqual(scoped.pairs.map((p) => p.suggestionId), [high.suggestion.id], 'a sent id never comes back as a pair, so it never uses up the scan');
+    assert.strictEqual(scoped.skippedCount, 2);
+  });
+
+  await t.test('the two queue ages are independent minimums: the whole queue, and what nobody has escalated', async () => {
+    const ancient = await makePair('Ancient Pending Pair', '2027-01-02');
+    await set(ancient.suggestion.id, { createdAt: new Date('2001-01-01T00:00:00.000Z') });
+    const independentMin = async (excluding: string[]) => {
+      const [{ oldest }] = await db
+        .select({ oldest: min(eventMatchCandidates.createdAt) })
+        .from(eventMatchCandidates)
+        .where(and(eq(eventMatchCandidates.status, 'pending'), excluding.length > 0 ? notInArray(eventMatchCandidates.id, excluding) : undefined));
+      return oldest === null ? null : oldest.toISOString();
+    };
+
+    const plain = await buildDedupReviewExport(db, base);
+    assert.strictEqual(plain.oldestPendingAt, await independentMin([]));
+    assert.strictEqual(plain.oldestPendingAt, '2001-01-01T00:00:00.000Z', 'the ancient pair is the oldest in any realistic database');
+    assert.strictEqual(plain.oldestUnskippedPendingAt, plain.oldestPendingAt, 'nothing sent, so nothing is excluded');
+
+    const withSkip = await buildDedupReviewExport(db, { ...base, skipIds: [ancient.suggestion.id] });
+    assert.strictEqual(withSkip.oldestPendingAt, '2001-01-01T00:00:00.000Z', 'the queue-wide age still counts the escalated pair');
+    assert.strictEqual(withSkip.oldestUnskippedPendingAt, await independentMin([ancient.suggestion.id]), 'the signal that the daily review stopped ignores what was escalated');
+    // Other pending pairs of this file (high, stranger, undone) are never resolved, so this age is never null here.
+    assert.notStrictEqual(withSkip.oldestUnskippedPendingAt, null);
+    assert.ok((withSkip.oldestUnskippedPendingAt as string) > '2001-01-01T00:00:00.000Z', 'the escalated ancient pair is no longer the minimum');
+  });
+
   await t.test('the output holds no account username or id, caption, link query token or email; event text is passed through as stored', async () => {
     const report = await buildDedupReviewExport(db, base);
     const text = JSON.stringify(report);
     assert.ok(text.includes(`Mall Anniversary Sale ${suffix}`), 'event names are public event text and go out verbatim');
     for (const secret of [USERNAME, OTHER_USERNAME, CAPTION, TOKEN, REVIEWER_EMAIL, HUMAN_EMAIL, account.accountId, account.id]) {
+      assert.ok(!text.includes(secret), `the output must not contain ${secret.slice(0, 12)}...`);
+    }
+  });
+
+  await t.test('the sent ids\' resolutions name no moderator: ids, statuses, times and the four-value class only', async () => {
+    const decided = await makePair('Privacy Resolved Pair', '2027-01-03');
+    await set(decided.suggestion.id, { status: 'accepted', resolvedAt: new Date(), resolvedByModeratorId: human.id, resolvedVia: 'moderator' });
+
+    const report = await buildDedupReviewExport(db, { ...base, skipIds: [decided.suggestion.id] });
+    const text = JSON.stringify(report);
+
+    assert.strictEqual(report.skipResolved.length, 1);
+    assert.deepStrictEqual(Object.keys(report.skipResolved[0]).sort(), ['resolvedAt', 'resolvedBy', 'status', 'suggestionId']);
+    for (const secret of [HUMAN_EMAIL, REVIEWER_EMAIL, human.id, reviewer.id, HUMAN_NAME, REVIEWER_NAME]) {
       assert.ok(!text.includes(secret), `the output must not contain ${secret.slice(0, 12)}...`);
     }
   });
