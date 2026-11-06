@@ -157,6 +157,44 @@ test('event-merges resolvers (Story 3.6w)', async (t) => {
     for (const id of made) assert.ok(seen.includes(id), `suggestion ${id} must be reachable by paging`);
   });
 
+  await t.test('suggestedEventMatches - suggestions that tie on createdAt page in id order', async () => {
+    // Same instant for all three; without an `id` tiebreaker their order is physical order, not id order.
+    const made: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const candidate = await makeEvent(`Tie Candidate ${i} ${suffix}`);
+      const newEvent = await makeEvent(`Tie New ${i} ${suffix}`);
+      made.push((await makeSuggestion(newEvent.id, candidate.id, 0.5)).id);
+    }
+    await db.update(eventMatchCandidates).set({ createdAt: new Date('2000-01-01T00:00:00Z') }).where(inArray(eventMatchCandidates.id, made));
+
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const seen: string[] = [];
+    let after: string | null = null;
+    for (let i = 0; i < 200; i++) {
+      const result: any = await gqlCall(
+        `query ($after: String) {
+          suggestedEventMatches(first: 2, after: $after) {
+            edges { node { id } }
+            pageInfo { hasNextPage endCursor }
+          }
+        }`,
+        { after },
+      );
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const page = result.data.suggestedEventMatches;
+      seen.push(...page.edges.map((e: any) => e.node.id));
+      if (!page.pageInfo.hasNextPage) break;
+      after = page.pageInfo.endCursor;
+    }
+
+    assert.strictEqual(new Set(seen).size, seen.length, 'no suggestion may appear on two pages');
+    assert.deepStrictEqual(
+      seen.filter((id) => made.includes(id)),
+      [...made].sort(),
+      'suggestions with the same createdAt come back in id order',
+    );
+  });
+
   await t.test('resolveSuggestedEventMatch - ACCEPT commits a merge, returns mergeId, flips status', async () => {
     const candidate = await makeEvent('Accept Candidate ' + suffix);
     const newEvent = await makeEvent('Accept New ' + suffix);
