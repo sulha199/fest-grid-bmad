@@ -19,19 +19,25 @@ import { parse, Kind } from 'graphql';
 //   1. A resolver exists for it, written inline in `resolvers.ts` where this test can see it.
 //   2. Unless it is on PUBLIC_ROOT_FIELDS or OPTIONAL_AUTH_ROOT_FIELDS below, the resolver calls
 //      `requireAuth`/`requireModerator` on a straight-line statement and before its first `await`, so a
-//      mutation cannot write before it knows who is calling. A `try` block counts as straight-line only
-//      when its `catch` ends in `throw`/`return`; `try { requireAuth(c) } catch {}` swallows the failure
-//      and is a way to *read* identity, not a guard. An `if`, ternary, `&&`/`||`/`??` or callback is
-//      never straight-line.
+//      mutation cannot write before it knows who is calling. "Straight-line" is checked on the shape of
+//      the code, not on every path: the guard must be reached through top-level statements (descending
+//      into bare blocks and `try` blocks) with no `if`, loop, `switch`, label, `return` or `throw` ahead
+//      of it, so `if (x) return data; requireAuth(c)` fails. A ternary, `&&`/`||`/`??` or callback never
+//      counts. A `try` block counts only when its `catch` cannot fall through to the code after it: the
+//      catch ends in `throw` or an empty `return` (`return`, `return null`, `return undefined`) and
+//      returns no data earlier. `try { requireAuth(c) } catch {}` swallows the failure and is a way to
+//      *read* identity, not a guard, and `catch { return await db.select() }` serves the failed caller.
 //   3. Both lists stay honest: an entry must name a real field, say why and cite its source, and drops
 //      off the moment the resolver stops needing it. They can only shrink or be argued for in review.
 //   4. No resolver re-implements the check by reading `context.user` itself (AD-7 Rule 3), apart from
 //      the entries in HAND_ROLLED_USER_READS, and no argument or input field lets the client name the
 //      acting user (AD-7 Rule 1).
 //
-// What it does NOT prove: that every code path reaches the guard, or that a resolver authorizes the
-// right *resource* (ownership checks). Those stay with the resolvers' own integration tests. A field
-// resolver on an object type (`Event.*`, `Report.*`, ...) is outside this scan too.
+// What it does NOT prove: a full control-flow analysis (it reads statement shapes: a guard hidden in a
+// helper function it cannot see through, or an exception thrown by a call before the guard, is not
+// modelled), or that a resolver authorizes the right *resource* (ownership checks). Those stay with the
+// resolvers' own integration tests. A field resolver on an object type (`Event.*`, `Report.*`, ...) is
+// outside this scan too. The detector itself is pinned by the "detector" test below.
 
 const backendRoot = process.cwd();
 const srcDir = path.resolve(backendRoot, 'src');
@@ -251,8 +257,61 @@ const isShortCircuit = (n: ts.Node): boolean =>
     n.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken);
 
 /**
+ * A statement that decides, before the guard has run, whether the rest of the resolver runs at all:
+ * `if (x) return data; requireAuth(context);` hands data to an unauthenticated caller on the `x` path, and
+ * a loop or `switch` can exit the same way. Nothing after one of these is on the straight-line path.
+ */
+const isFlowBarrier = (stmt: ts.Statement): boolean =>
+  ts.isIfStatement(stmt) ||
+  ts.isForStatement(stmt) ||
+  ts.isForInStatement(stmt) ||
+  ts.isForOfStatement(stmt) ||
+  ts.isWhileStatement(stmt) ||
+  ts.isDoStatement(stmt) ||
+  ts.isSwitchStatement(stmt) ||
+  ts.isLabeledStatement(stmt) ||
+  ts.isReturnStatement(stmt) ||
+  ts.isThrowStatement(stmt);
+
+/** `return;`, `return null`, `return undefined`, `return void 0`: leaves with no data. */
+const isEmptyReturn = (stmt: ts.ReturnStatement): boolean => {
+  const e = stmt.expression;
+  return (
+    e === undefined ||
+    e.kind === ts.SyntaxKind.NullKeyword ||
+    (ts.isIdentifier(e) && e.text === 'undefined') ||
+    ts.isVoidExpression(e)
+  );
+};
+
+/** Every `return` in a catch block (callbacks excluded) that hands a value back to the caller. */
+function returnsAValue(block: ts.Block): boolean {
+  let found = false;
+  const walk = (n: ts.Node) => {
+    if (found || ts.isFunctionLike(n)) return;
+    if (ts.isReturnStatement(n) && !isEmptyReturn(n)) found = true;
+    ts.forEachChild(n, walk);
+  };
+  walk(block);
+  return found;
+}
+
+/**
+ * A catch clause is part of a guard only if the code after the `try` cannot run once `requireAuth`
+ * threw: it ends in `throw` or an empty `return`, and no earlier `return` in it carries data
+ * (`catch { return await db.select() }` serves the failed caller).
+ */
+function catchTerminates(clause: ts.CatchClause | undefined): boolean {
+  if (!clause) return true; // try/finally: the error propagates
+  const last = clause.block.statements[clause.block.statements.length - 1];
+  if (last === undefined || returnsAValue(clause.block)) return false;
+  return ts.isThrowStatement(last) || ts.isReturnStatement(last);
+}
+
+/**
  * The first auth call that runs on the straight-line path: a top-level statement of the function body
- * (descending into `try` blocks and bare blocks), outside any callback, ternary or short-circuit.
+ * (descending into `try` blocks and bare blocks), outside any callback, ternary or short-circuit, with no
+ * `if`/loop/`switch`/`return`/`throw` ahead of it on the way (`isFlowBarrier`).
  */
 function straightLineAuthCall(fn: ts.FunctionLikeDeclaration): ts.CallExpression | null {
   if (!fn.body || !ts.isBlock(fn.body)) return isAuthCall(fn.body ?? fn) ? (fn.body as ts.CallExpression) : null;
@@ -272,25 +331,37 @@ function straightLineAuthCall(fn: ts.FunctionLikeDeclaration): ts.CallExpression
     return hit;
   };
 
-  // A catch clause that falls through lets the code after the `try` run even though the guard threw.
-  const catchTerminates = (clause: ts.CatchClause | undefined): boolean => {
-    if (!clause) return true; // try/finally: the error propagates
-    const last = clause.block.statements[clause.block.statements.length - 1];
-    return last !== undefined && (ts.isThrowStatement(last) || ts.isReturnStatement(last));
-  };
-
-  const searchBlock = (statements: readonly ts.Statement[]): ts.CallExpression | null => {
+  // `null`: no guard seen yet, keep reading. `'blocked'`: the resolver can leave (or skip ahead) before any
+  // guard, so a later call is not on every path and the search ends for the whole function.
+  const searchBlock = (statements: readonly ts.Statement[]): ts.CallExpression | 'blocked' | null => {
     for (const stmt of statements) {
-      let found: ts.CallExpression | null = null;
-      if (ts.isTryStatement(stmt)) found = catchTerminates(stmt.catchClause) ? searchBlock(stmt.tryBlock.statements) : null;
-      else if (ts.isBlock(stmt)) found = searchBlock(stmt.statements);
-      else if (ts.isVariableStatement(stmt) || ts.isExpressionStatement(stmt) || ts.isReturnStatement(stmt)) found = searchStatement(stmt);
+      if (ts.isTryStatement(stmt)) {
+        const inner = searchBlock(stmt.tryBlock.statements);
+        if (inner === 'blocked') return 'blocked';
+        if (inner && catchTerminates(stmt.catchClause)) return inner;
+        continue;
+      }
+      if (ts.isBlock(stmt)) {
+        const inner = searchBlock(stmt.statements);
+        if (inner) return inner;
+        continue;
+      }
+      // `return requireAuth(context)` is a guard that is also the exit; any other barrier is not.
+      const found = ts.isVariableStatement(stmt) || ts.isExpressionStatement(stmt) || ts.isReturnStatement(stmt) ? searchStatement(stmt) : null;
       if (found) return found;
+      if (isFlowBarrier(stmt)) return 'blocked';
     }
     return null;
   };
 
-  return searchBlock(fn.body.statements);
+  const result = searchBlock(fn.body.statements);
+  return result === 'blocked' ? null : result;
+}
+
+/** The AD-7 contract for one resolver: a straight-line guard that runs before its first `await`. */
+function guardsUpFront(fn: ts.FunctionLikeDeclaration): boolean {
+  const guard = straightLineAuthCall(fn);
+  return guard !== null && guard.getStart() <= firstAwaitStart(fn);
 }
 
 /** Start of the first `await` that runs in the resolver itself (callbacks excluded). */
@@ -374,6 +445,66 @@ function findHandRolledUserReads(): string[] {
 const none = (violations: string[], message: string) =>
   assert.strictEqual(violations.length, 0, `${message}\n  - ${violations.join('\n  - ')}`);
 
+/** A resolver-shaped arrow function parsed from `body`, to run the detector on a snippet. */
+function resolverFromBody(body: string): ts.FunctionLikeDeclaration {
+  const source = `const resolver = async (_: unknown, args: any, context: any) => {\n${body}\n};`;
+  const file = ts.createSourceFile('snippet.ts', source, ts.ScriptTarget.Latest, true);
+  const decl = (file.statements[0] as ts.VariableStatement).declarationList.declarations[0];
+  return decl.initializer as ts.ArrowFunction;
+}
+
+test('AD-7 ratchet detector: what counts as an up-front guard', async (t) => {
+  // Each snippet is the body of a resolver. A mutation check of the detector is this table: weaken
+  // `isFlowBarrier`, `catchTerminates` or the `'blocked'` propagation and a row below goes red.
+  const guarded: Record<string, string> = {
+    'guard first, then work': `requireAuth(context); return await db.select();`,
+    'guard result kept': `const user = requireModerator(context); await db.select(); return user;`,
+    'plain statements before the guard': `const limit = args.first ?? 10; const offset = 0; requireAuth(context); return await db.select();`,
+    'guard inside a bare block': `{ requireAuth(context); } return await db.select();`,
+    'guard returned directly': `return requireAuth(context);`,
+    'try with a rethrowing catch': `try { requireModerator(context); } catch (e) { throw e; } return await db.select();`,
+    'try with an empty-return catch': `try { requireAuth(context); } catch { return null; } return await db.select();`,
+    'try with a bare-return catch': `try { requireAuth(context); } catch { return; } return await db.select();`,
+    'try/finally': `try { requireAuth(context); } finally { cleanup(); } return await db.select();`,
+  };
+  const notGuarded: Record<string, string> = {
+    'no guard at all': `return await db.select();`,
+    'guard only after an await': `const rows = await db.select(); requireAuth(context); return rows;`,
+    'if returns data before the guard': `if (args.id) return data; requireAuth(context); return await db.select();`,
+    'if throws before the guard': `if (args.id) { throw new Error('x'); } requireAuth(context);`,
+    'for loop before the guard': `for (const a of args.list) { total += a; } requireAuth(context);`,
+    'for-of loop before the guard': `for (const a of args.list) { return a; } requireAuth(context);`,
+    'while loop before the guard': `while (args.x) { break; } requireAuth(context);`,
+    'switch before the guard': `switch (args.kind) { case 'a': return 1; } requireAuth(context);`,
+    'labelled block before the guard': `out: { if (args.x) break out; } requireAuth(context);`,
+    'return before the guard': `return data; requireAuth(context);`,
+    'throw before the guard': `throw new Error('closed'); requireAuth(context);`,
+    'if inside the try block before the guard': `try { if (args.x) return data; requireAuth(context); } catch (e) { throw e; } return await db.select();`,
+    'if inside the try block, guard repeated after it': `try { if (args.x) return data; requireAuth(context); } catch (e) { throw e; } requireAuth(context);`,
+    'guard in a branch only': `if (args.x) { requireAuth(context); } return await db.select();`,
+    'guard behind &&': `args.x && requireAuth(context); return await db.select();`,
+    'guard in a ternary': `args.x ? requireAuth(context) : null; return await db.select();`,
+    'guard in a callback': `[1].forEach(() => requireAuth(context)); return await db.select();`,
+    'catch swallows the failure': `try { requireAuth(context); } catch {} return await db.select();`,
+    'catch that only logs': `try { requireAuth(context); } catch (e) { console.warn(e); } return await db.select();`,
+    'catch serves data': `try { requireAuth(context); } catch { return await db.select(); }`,
+    'catch returns a value': `try { requireAuth(context); } catch { return []; }`,
+    'catch returns data on one path': `try { requireAuth(context); } catch (e) { if (args.x) return rows; throw e; }`,
+    'catch returns data then throws': `try { requireAuth(context); } catch (e) { const f = () => 1; if (f()) { return rows; } throw e; }`,
+  };
+
+  for (const [name, body] of Object.entries(guarded)) {
+    await t.test(`accepts: ${name}`, () => {
+      assert.ok(guardsUpFront(resolverFromBody(body)), `expected a guard up front in:\n${body}`);
+    });
+  }
+  for (const [name, body] of Object.entries(notGuarded)) {
+    await t.test(`rejects: ${name}`, () => {
+      assert.ok(!guardsUpFront(resolverFromBody(body)), `expected NO guard up front in:\n${body}`);
+    });
+  }
+});
+
 test('AD-7 authorization-surface ratchet', async (t) => {
   const schemaFields = readSchemaRootFields();
   const sf = parseSource(resolversPath);
@@ -402,6 +533,7 @@ test('AD-7 authorization-surface ratchet', async (t) => {
     for (const { key, fn } of resolvers.values()) {
       if (!fn || key in PUBLIC_ROOT_FIELDS || key in OPTIONAL_AUTH_ROOT_FIELDS) continue;
       const guard = straightLineAuthCall(fn);
+      if (guardsUpFront(fn)) continue;
       if (!guard) {
         const anywhere = allAuthCalls(fn).length > 0;
         violations.push(
