@@ -2,7 +2,7 @@
 title: 'Attended decision loop: a moderator accepts or skips each escalated pair from a popup (FIND-119)'
 type: 'feature'
 created: '2026-11-06'
-status: 'in-review'
+status: 'done'
 baseline_commit: '24ef5e65f3135f75e198f2ef4877384b23a19c7e'
 review_loop_iteration: 0
 context:
@@ -80,3 +80,57 @@ The popup replaces `SKILL.md` rule 3's "shadow runs were reviewed" precondition 
 
 **Manual checks:**
 - Read `SKILL.md` end to end: every command it names exists in the reader with those flags.
+
+## Suggested Review Order
+
+**The loop and the rules it lives under (start here)**
+
+- Step 8: start condition, fresh export, triage, validate, popups, one confirmation, live apply, close.
+  [`SKILL.md:156`](../../.claude/skills/moderator-dedup-review/SKILL.md#L156)
+
+- Rules 2 and 3: the loop is the one other way to a live merge, and the popup stands in for "shadows reviewed".
+  [`SKILL.md:17`](../../.claude/skills/moderator-dedup-review/SKILL.md#L17)
+
+**What a moderator sees in the popup**
+
+- `build_brief`: the field limit, schedules and types shrink until the text fits, so the clues are never cut.
+  [`dedup_report.py:753`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L753)
+
+- The shrink tiers: field length, schedules and types shown per tier.
+  [`dedup_report.py:87`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L87)
+
+- `name_clues`: facts from the full unmasked words; "same words" only when it is true.
+  [`dedup_report.py:697`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L697)
+
+- `brief_event`: names, places, dates with end dates, types, links, source accounts.
+  [`dedup_report.py:718`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L718)
+
+- `cmd_brief`: any exported id, every open issue of the pair, cleaned text only.
+  [`dedup_report.py:785`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L785)
+
+- A day gap that cannot be true is refused with the report.
+  [`dedup_report.py:392`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L392)
+
+**What happens after a merge**
+
+- `close-decided`: merge ids from the validated live report; one outcome label; unmerged pairs keep their issue.
+  [`dedup_report.py:970`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L970)
+
+- The fixed comment with the merge id.
+  [`dedup_report.py:964`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L964)
+
+**Docs and rules**
+
+- AD-45 Rule 3: the same floor holds for a moderator's accept; no reject in the loop.
+  [`festgrid-architecture-spine.md:2945`](../planning-artifacts/festgrid-architecture-spine.md#L2945)
+
+- DESIGN.md as built: who decides, what may merge, closing the issue, what is deferred.
+  [`DESIGN.md:211`](../specs/ai-dedup-review/DESIGN.md#L211)
+
+- The runbook entry for the loop.
+  [`7-event-dedup.md:200`](../../docs/infrastructure/7-event-dedup.md#L200)
+
+**Tests**
+
+- The popup, close-decided and the comment, with mutation-checked cases for each rule.
+  [`test_dedup_report.py:890`](../../.claude/skills/moderator-dedup-review/test_dedup_report.py#L890)
