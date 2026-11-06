@@ -145,6 +145,11 @@ export type ApplyReextractionSummary = {
   skippedDeleted: Scalars['Int']['output'];
 };
 
+export type CalendarAdditionChangeInput = {
+  isAddedToCalendar: Scalars['Boolean']['input'];
+  scheduleId: Scalars['ID']['input'];
+};
+
 export type CastVoteInput = {
   accountId?: InputMaybe<Scalars['ID']['input']>;
   handleOrUrl?: InputMaybe<Scalars['String']['input']>;
@@ -607,6 +612,14 @@ export type Mutation = {
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
+  /**
+   * Idempotently sets the calendar state of several schedules of ONE event in a single
+   * transaction (one auth check, one round of queries) -- replaces N parallel
+   * toggleCalendarAddition calls. All-or-nothing: any unknown schedule, a schedule of another
+   * event, or more than 100 changes rejects the whole call. A schedule listed twice takes its
+   * last entry. Returns one result per distinct scheduleId, in first-seen order.
+   */
+  setCalendarAdditions: Array<ToggleCalendarAdditionResult>;
   setImageStorageOptIn: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
@@ -822,6 +835,12 @@ export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
+};
+
+
+export type MutationSetCalendarAdditionsArgs = {
+  changes: Array<CalendarAdditionChangeInput>;
+  eventId: Scalars['ID']['input'];
 };
 
 
@@ -1772,6 +1791,7 @@ export type ResolversTypes = ResolversObject<{
   ApplyReextractionPlacedEvent: ResolverTypeWrapper<ApplyReextractionPlacedEvent>;
   ApplyReextractionSummary: ResolverTypeWrapper<ApplyReextractionSummary>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  CalendarAdditionChangeInput: CalendarAdditionChangeInput;
   CastVoteInput: CastVoteInput;
   Coordinates: ResolverTypeWrapper<CoordinatesParent>;
   CoordinatesInput: CoordinatesInput;
@@ -1912,6 +1932,7 @@ export type ResolversParentTypes = ResolversObject<{
   ApplyReextractionPlacedEvent: ApplyReextractionPlacedEvent;
   ApplyReextractionSummary: ApplyReextractionSummary;
   Boolean: Scalars['Boolean']['output'];
+  CalendarAdditionChangeInput: CalendarAdditionChangeInput;
   CastVoteInput: CastVoteInput;
   Coordinates: CoordinatesParent;
   CoordinatesInput: CoordinatesInput;
@@ -2357,6 +2378,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   saveAIEventFilter?: Resolver<ResolversTypes['AIEventFilter'], ParentType, ContextType, RequireFields<MutationSaveAiEventFilterArgs, 'prompt'>>;
   selectPostsForExtraction?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType, RequireFields<MutationSelectPostsForExtractionArgs, 'postIds'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
+  setCalendarAdditions?: Resolver<Array<ResolversTypes['ToggleCalendarAdditionResult']>, ParentType, ContextType, RequireFields<MutationSetCalendarAdditionsArgs, 'changes' | 'eventId'>>;
   setImageStorageOptIn?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetImageStorageOptInArgs, 'accountId' | 'optedIn'>>;
   submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
   submitReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationSubmitReportArgs, 'eventId' | 'reason'>>;

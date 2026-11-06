@@ -506,7 +506,17 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                     {onAddToCalendar ? (
                       <button
                         type="button"
-                        onClick={() => onAddToCalendar?.([schedule.id])}
+                        onClick={() => {
+                          // onAddToCalendar takes the FULL intended selection (same contract as the
+                          // dialog's confirm): flip only this schedule against what is already added,
+                          // never "just this one", which would un-add every other added schedule.
+                          const addedIds = schedules.filter((s) => s.isAddedToCalendar).map((s) => s.id);
+                          onAddToCalendar?.(
+                            schedule.isAddedToCalendar
+                              ? addedIds.filter((id) => id !== schedule.id)
+                              : [...addedIds, schedule.id],
+                          );
+                        }}
                         className="p-1 -m-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         aria-label={labels.addToCalendarButtonLabel}
                         aria-pressed={!!schedule.isAddedToCalendar}

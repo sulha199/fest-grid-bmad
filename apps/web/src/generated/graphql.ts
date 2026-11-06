@@ -158,6 +158,11 @@ export type ApplyReextractionSummary = {
   skippedDeleted: Scalars['Int']['output'];
 };
 
+export type CalendarAdditionChangeInput = {
+  isAddedToCalendar: Scalars['Boolean']['input'];
+  scheduleId: Scalars['ID']['input'];
+};
+
 export type CastVoteInput = {
   accountId?: InputMaybe<Scalars['ID']['input']>;
   handleOrUrl?: InputMaybe<Scalars['String']['input']>;
@@ -623,6 +628,14 @@ export type Mutation = {
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
+  /**
+   * Idempotently sets the calendar state of several schedules of ONE event in a single
+   * transaction (one auth check, one round of queries) -- replaces N parallel
+   * toggleCalendarAddition calls. All-or-nothing: any unknown schedule, a schedule of another
+   * event, or more than 100 changes rejects the whole call. A schedule listed twice takes its
+   * last entry. Returns one result per distinct scheduleId, in first-seen order.
+   */
+  setCalendarAdditions: Array<ToggleCalendarAdditionResult>;
   setImageStorageOptIn: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
@@ -838,6 +851,12 @@ export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
+};
+
+
+export type MutationSetCalendarAdditionsArgs = {
+  changes: Array<CalendarAdditionChangeInput>;
+  eventId: Scalars['ID']['input'];
 };
 
 
@@ -1743,6 +1762,7 @@ export enum WidgetTheme {
 
 
 
+
 /**
  * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
  * can be selected for extraction.
@@ -1895,6 +1915,14 @@ export type ToggleCalendarAdditionMutationVariables = Exact<{
 
 
 export type ToggleCalendarAdditionMutation = { toggleCalendarAddition: { eventId: string, scheduleId: string, isAddedToCalendar: boolean } };
+
+export type SetCalendarAdditionsMutationVariables = Exact<{
+  eventId: string | number;
+  changes: Array<CalendarAdditionChangeInput> | CalendarAdditionChangeInput;
+}>;
+
+
+export type SetCalendarAdditionsMutation = { setCalendarAdditions: Array<{ eventId: string, scheduleId: string, isAddedToCalendar: boolean }> };
 
 export type ResolveScheduleTimezoneMutationVariables = Exact<{
   scheduleId: string | number;
@@ -3047,6 +3075,33 @@ export const useToggleCalendarAdditionMutation = <
       {
     mutationKey: ['toggleCalendarAddition'],
     mutationFn: (variables?: ToggleCalendarAdditionMutationVariables) => fetcher<ToggleCalendarAdditionMutation, ToggleCalendarAdditionMutationVariables>(client, ToggleCalendarAdditionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const SetCalendarAdditionsDocument = new TypedDocumentString(`
+    mutation setCalendarAdditions($eventId: ID!, $changes: [CalendarAdditionChangeInput!]!) {
+  setCalendarAdditions(eventId: $eventId, changes: $changes) {
+    eventId
+    scheduleId
+    isAddedToCalendar
+  }
+}
+    `);
+
+export const useSetCalendarAdditionsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetCalendarAdditionsMutation, TError, SetCalendarAdditionsMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetCalendarAdditionsMutation, TError, SetCalendarAdditionsMutationVariables, TContext>(
+      {
+    mutationKey: ['setCalendarAdditions'],
+    mutationFn: (variables?: SetCalendarAdditionsMutationVariables) => fetcher<SetCalendarAdditionsMutation, SetCalendarAdditionsMutationVariables>(client, SetCalendarAdditionsDocument, variables, headers)(),
     ...options
   }
     )};
