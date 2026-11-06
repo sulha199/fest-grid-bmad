@@ -353,6 +353,141 @@ test('favorites and calendar additions resolvers integration', async (t) => {
     assert.strictEqual(result3.data.toggleCalendarAddition.isAddedToCalendar, true);
   });
 
+  await t.test('setCalendarAdditions - batch set is idempotent, atomic and validated', async () => {
+    if (!testUser || !testEventId) return;
+
+    const setMutation = `
+      mutation Set($eventId: ID!, $changes: [CalendarAdditionChangeInput!]!) {
+        setCalendarAdditions(eventId: $eventId, changes: $changes) {
+          eventId
+          scheduleId
+          isAddedToCalendar
+        }
+      }
+    `;
+    const run = async (variables: unknown) => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: setMutation, variables }),
+      });
+      return response.json();
+    };
+    const activeIds = async (userId: string) => {
+      const rows = await db.select().from(calendarAdditions)
+        .where(eq(calendarAdditions.userId, userId));
+      return rows.filter((r) => r.deletedAt === null).map((r) => r.scheduleId).sort();
+    };
+
+    const today = new Date().toISOString().slice(0, 10);
+    const [batchA, batchB, batchNeverAdded] = await db.insert(schedules).values([
+      { eventId: testEventId, isMainSchedule: false, eventStartDate: today, location: 'Integration Test, US' },
+      { eventId: testEventId, isMainSchedule: false, eventStartDate: today, location: 'Integration Test, US' },
+      { eventId: testEventId, isMainSchedule: false, eventStartDate: today, location: 'Integration Test, US' },
+    ]).returning();
+    const [otherEvent] = await db.insert(events).values({
+      eventName: `Batch Calendar Other Event ${Date.now()}`,
+      slug: `batch-calendar-other-event-${Date.now()}`,
+      location: 'Integration Test, US',
+    }).returning();
+    const [otherSchedule] = await db.insert(schedules).values({
+      eventId: otherEvent.id, isMainSchedule: true, eventStartDate: today, location: 'Integration Test, US',
+    }).returning();
+
+    try {
+      // Unauthenticated
+      mockUser = null;
+      const unauth = await run({ eventId: testEventId, changes: [{ scheduleId: batchA.id, isAddedToCalendar: true }] });
+      assert.strictEqual(unauth.errors?.[0]?.extensions?.code, 'UNAUTHENTICATED');
+
+      mockUser = { userId: testUser.id, role: testUser.role };
+      const before = await activeIds(testUser.id);
+
+      // Empty batch is a no-op
+      const empty = await run({ eventId: testEventId, changes: [] });
+      assert.deepStrictEqual(empty.data.setCalendarAdditions, []);
+
+      // Add two at once (one call), in request order; duplicate id: last entry wins
+      const addBoth = await run({
+        eventId: testEventId,
+        changes: [
+          { scheduleId: batchA.id, isAddedToCalendar: false },
+          { scheduleId: batchB.id, isAddedToCalendar: true },
+          { scheduleId: batchA.id, isAddedToCalendar: true },
+        ],
+      });
+      assert.ok(!addBoth.errors, JSON.stringify(addBoth.errors));
+      assert.deepStrictEqual(addBoth.data.setCalendarAdditions, [
+        { eventId: testEventId, scheduleId: batchA.id, isAddedToCalendar: true },
+        { eventId: testEventId, scheduleId: batchB.id, isAddedToCalendar: true },
+      ]);
+      assert.deepStrictEqual(await activeIds(testUser.id), [...before, batchA.id, batchB.id].sort());
+
+      // Idempotent: repeating the same set changes nothing (a toggle would have flipped it)
+      const again = await run({
+        eventId: testEventId,
+        changes: [{ scheduleId: batchA.id, isAddedToCalendar: true }, { scheduleId: batchB.id, isAddedToCalendar: true }],
+      });
+      assert.ok(!again.errors);
+      assert.deepStrictEqual(await activeIds(testUser.id), [...before, batchA.id, batchB.id].sort());
+
+      // Mixed remove + untouched: soft-delete A, keep B, and the pre-existing testScheduleId is untouched
+      const mixed = await run({ eventId: testEventId, changes: [{ scheduleId: batchA.id, isAddedToCalendar: false }] });
+      assert.ok(!mixed.errors);
+      assert.deepStrictEqual(await activeIds(testUser.id), [...before, batchB.id].sort());
+
+      // Removing something never added creates no row (and reports it as not added)
+      const rowsBefore = (await db.select().from(calendarAdditions).where(eq(calendarAdditions.userId, testUser.id))).length;
+      const removeNeverAdded = await run({ eventId: testEventId, changes: [{ scheduleId: batchNeverAdded.id, isAddedToCalendar: false }] });
+      assert.ok(!removeNeverAdded.errors);
+      assert.strictEqual(removeNeverAdded.data.setCalendarAdditions[0].isAddedToCalendar, false);
+      assert.strictEqual((await db.select().from(calendarAdditions).where(eq(calendarAdditions.userId, testUser.id))).length, rowsBefore);
+      // Re-adding a soft-deleted row restores it (no second row; unique(user, schedule) holds)
+      const restore = await run({ eventId: testEventId, changes: [{ scheduleId: batchA.id, isAddedToCalendar: true }] });
+      assert.ok(!restore.errors);
+      assert.strictEqual((await db.select().from(calendarAdditions).where(eq(calendarAdditions.userId, testUser.id))).length, rowsBefore);
+      assert.deepStrictEqual(await activeIds(testUser.id), [...before, batchA.id, batchB.id].sort());
+
+      // Atomic: one schedule of another event rejects the whole batch, nothing is written
+      await run({ eventId: testEventId, changes: [{ scheduleId: batchA.id, isAddedToCalendar: false }, { scheduleId: batchB.id, isAddedToCalendar: false }] });
+      const snapshot = await activeIds(testUser.id);
+      const mismatch = await run({
+        eventId: testEventId,
+        changes: [{ scheduleId: batchA.id, isAddedToCalendar: true }, { scheduleId: otherSchedule.id, isAddedToCalendar: true }],
+      });
+      assert.strictEqual(mismatch.errors?.[0]?.extensions?.code, 'BAD_REQUEST');
+      assert.strictEqual(mismatch.errors?.[0]?.message, 'Event ID mismatch');
+      assert.deepStrictEqual(await activeIds(testUser.id), snapshot);
+
+      // Unknown schedule id
+      const missing = await run({
+        eventId: testEventId,
+        changes: [{ scheduleId: batchA.id, isAddedToCalendar: true }, { scheduleId: '00000000-0000-0000-0000-000000000000', isAddedToCalendar: true }],
+      });
+      assert.strictEqual(missing.errors?.[0]?.extensions?.code, 'NOT_FOUND');
+      assert.deepStrictEqual(await activeIds(testUser.id), snapshot);
+
+      // Size cap
+      const tooMany = await run({
+        eventId: testEventId,
+        changes: Array.from({ length: 101 }, () => ({ scheduleId: batchA.id, isAddedToCalendar: true })),
+      });
+      assert.strictEqual(tooMany.errors?.[0]?.extensions?.code, 'BAD_REQUEST');
+
+      // Per-user isolation: another user's state is untouched
+      assert.deepStrictEqual(await activeIds(testUser2.id), []);
+    } finally {
+      await db.delete(calendarAdditions).where(eq(calendarAdditions.eventId, otherEvent.id));
+      await db.delete(schedules).where(eq(schedules.eventId, otherEvent.id));
+      await db.delete(events).where(eq(events.id, otherEvent.id));
+      await db.delete(calendarAdditions).where(eq(calendarAdditions.scheduleId, batchA.id));
+      await db.delete(calendarAdditions).where(eq(calendarAdditions.scheduleId, batchB.id));
+      await db.delete(schedules).where(eq(schedules.id, batchA.id));
+      await db.delete(schedules).where(eq(schedules.id, batchB.id));
+      await db.delete(schedules).where(eq(schedules.id, batchNeverAdded.id));
+    }
+  });
+
   await t.test('events filtering by isAddedToCalendar', async () => {
     if (!testUser || !testEventId) return;
     mockUser = { userId: testUser.id, role: testUser.role };

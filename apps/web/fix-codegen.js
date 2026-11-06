@@ -62,6 +62,9 @@ content = content.replace(/export type ReportSystemErrorInput = \{\r?\n\s+contex
 // Replace duplicate EventLinkInput (Story 4.10: operations-plugin re-declaration of the schema input above)
 content = content.replace(/export type EventLinkInput = \{\r?\n\s+label\?\: string \| null \| undefined[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate CalendarAdditionChangeInput (setCalendarAdditions: operations-plugin re-declaration of the schema input above)
+content = content.replace(/export type CalendarAdditionChangeInput = \{\r?\n\s+isAddedToCalendar\: boolean[\s\S]*?\};\r?\n/g, '');
+
 // Replace duplicate CorrectionSource and CorrectionStatus
 content = content.replace(/export type CorrectionSource =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type CorrectionStatus =[\s\S]*?;\r?\n/g, '');

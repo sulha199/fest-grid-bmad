@@ -288,6 +288,9 @@ function subscriptionActivity(parent: SubscriptionParent): Promise<AccountActivi
   return parent.__activity;
 }
 
+// setCalendarAdditions: bounds one call's work (the event-detail dialog lists a few schedules).
+const MAX_CALENDAR_ADDITION_CHANGES = 100;
+
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
   Coordinates: {
@@ -1357,6 +1360,68 @@ export const resolvers: Resolvers = {
           });
           return { eventId, scheduleId, isAddedToCalendar: true };
         }
+      });
+    },
+    setCalendarAdditions: async (_, { eventId, changes }, context) => {
+      const authUser = requireAuth(context);
+
+      if (changes.length > MAX_CALENDAR_ADDITION_CHANGES) {
+        throw new GraphQLError(`At most ${MAX_CALENDAR_ADDITION_CHANGES} calendar changes per call.`, { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      // A schedule listed twice takes its last entry; Map keeps first-seen insertion order.
+      const desired = new Map<string, boolean>();
+      for (const change of changes) {
+        desired.set(change.scheduleId, change.isAddedToCalendar);
+      }
+      const scheduleIds = [...desired.keys()];
+      if (scheduleIds.length === 0) return [];
+
+      return await db.transaction(async (tx) => {
+        const scheduleRows = await tx.select({ id: schedules.id, eventId: schedules.eventId })
+          .from(schedules)
+          .where(inArray(schedules.id, scheduleIds));
+        if (scheduleRows.length !== scheduleIds.length) {
+          throw new GraphQLError('Schedule not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+        if (scheduleRows.some((row) => row.eventId !== eventId)) {
+          throw new GraphQLError('Event ID mismatch', { extensions: { code: 'BAD_REQUEST' } });
+        }
+
+        const existingRows = await tx.select().from(calendarAdditions)
+          .where(and(eq(calendarAdditions.userId, authUser.userId), inArray(calendarAdditions.scheduleId, scheduleIds)));
+        const existingByScheduleId = new Map(existingRows.map((row) => [row.scheduleId, row]));
+
+        const toInsert: { userId: string; eventId: string; scheduleId: string }[] = [];
+        const toSoftDeleteIds: string[] = [];
+        const toRestoreIds: string[] = [];
+        for (const [scheduleId, isAdded] of desired) {
+          const existing = existingByScheduleId.get(scheduleId);
+          if (!existing) {
+            // Removing something never added is a no-op, not a new (deleted) row.
+            if (isAdded) toInsert.push({ userId: authUser.userId, eventId, scheduleId });
+          } else if (isAdded && existing.deletedAt !== null) {
+            toRestoreIds.push(existing.id);
+          } else if (!isAdded && existing.deletedAt === null) {
+            toSoftDeleteIds.push(existing.id);
+          }
+        }
+
+        if (toInsert.length > 0) {
+          await tx.insert(calendarAdditions).values(toInsert);
+        }
+        if (toRestoreIds.length > 0) {
+          await tx.update(calendarAdditions).set({ deletedAt: null }).where(inArray(calendarAdditions.id, toRestoreIds));
+        }
+        if (toSoftDeleteIds.length > 0) {
+          await tx.update(calendarAdditions).set({ deletedAt: new Date() }).where(inArray(calendarAdditions.id, toSoftDeleteIds));
+        }
+
+        return scheduleIds.map((scheduleId) => ({
+          eventId,
+          scheduleId,
+          isAddedToCalendar: desired.get(scheduleId) as boolean,
+        }));
       });
     },
     resolveScheduleTimezone: async (_, { scheduleId, timezone }, context) => {

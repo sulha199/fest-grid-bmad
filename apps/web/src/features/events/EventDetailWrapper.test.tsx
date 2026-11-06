@@ -148,6 +148,8 @@ const mockGetRelatedEventIdsHandler = vi.fn()
 // Deliberately not "old ± 1" -- proves the UI reads this server-supplied value
 // directly (AC3/BUG-008) rather than computing a local delta.
 let mockToggleFavoriteCount = 42
+// One entry per setCalendarAdditions request the mocked server received (asserts batching).
+const setCalendarAdditionsCalls: { eventId: string; changes: { scheduleId: string; isAddedToCalendar: boolean }[] }[] = []
 
 // Story 3.7i -- the event-detail oEmbed result now arrives via two/three independent
 // GraphQL query documents instead of an embedded field on getEventBySlug. Defaults below
@@ -293,21 +295,26 @@ const handlers = [
       },
     })
   }),
-  api.mutation("toggleCalendarAddition", ({ variables }) => {
-    const { eventId, scheduleId } = variables as any
-    if (scheduleId === "sched_fail") {
+  api.mutation("setCalendarAdditions", ({ variables }) => {
+    const { eventId, changes } = variables as {
+      eventId: string
+      changes: { scheduleId: string; isAddedToCalendar: boolean }[]
+    }
+    setCalendarAdditionsCalls.push({ eventId, changes })
+    // The real mutation is atomic: one failing schedule fails the whole batch.
+    if (changes.some((c) => c.scheduleId === "sched_fail")) {
       return HttpResponse.json({ errors: [{ message: "Mutation failed" }] })
     }
-    if (scheduleId === "sched_null_data") {
-      return HttpResponse.json({ data: { toggleCalendarAddition: null } })
+    if (changes.some((c) => c.scheduleId === "sched_null_data")) {
+      return HttpResponse.json({ data: { setCalendarAdditions: null } })
     }
     return HttpResponse.json({
       data: {
-        toggleCalendarAddition: {
+        setCalendarAdditions: changes.map((c) => ({
           eventId,
-          scheduleId,
-          isAddedToCalendar: true,
-        },
+          scheduleId: c.scheduleId,
+          isAddedToCalendar: c.isAddedToCalendar,
+        })),
       },
     })
   }),
@@ -436,6 +443,7 @@ describe("EventDetailWrapper", () => {
         }
       ] as any,
     }
+    setCalendarAdditionsCalls.length = 0
     mockPosthogCapture.mockClear()
     mockRouterReplace.mockClear()
     mockRouterPush.mockClear()
@@ -698,7 +706,7 @@ describe("EventDetailWrapper", () => {
     });
   })
 
-  it("handles add to calendar flow: toggles only changed, triggers ICS download and analytics", async () => {
+  it("handles add to calendar flow: ONE batched request with only the changed schedule, ICS download and analytics", async () => {
     const assignMock = vi.fn()
     vi.stubGlobal("location", { assign: assignMock })
 
@@ -712,11 +720,16 @@ describe("EventDetailWrapper", () => {
     // leaving sched_2's already-checked box checked.
     await capturedEventDetailViewProps.onAddToCalendar(["sched_1", "sched_2"])
 
-    // Verify mutation called for sched_1 (changed), but NOT sched_2 (unchanged)
-    // Verify download triggered only for sched_1 (transitioned false -> true)
+    // Exactly one request, carrying only sched_1 (changed) -- not sched_2 (unchanged)
+    expect(setCalendarAdditionsCalls).toEqual([
+      { eventId: "evt_1", changes: [{ scheduleId: "sched_1", isAddedToCalendar: true }] },
+    ])
+
+    // Download only for sched_1 (transitioned false -> true)
     await waitFor(() => {
       expect(assignMock).toHaveBeenCalledWith(expect.stringContaining("/api/calendar/ics?eventId=evt_1&scheduleId=sched_1"))
     })
+    expect(assignMock).toHaveBeenCalledTimes(1)
 
     // Analytics capture
     await waitFor(() => {
@@ -729,9 +742,85 @@ describe("EventDetailWrapper", () => {
         scheduleIds: ["sched_1"],
       })
     })
+    expect(toast.success).toHaveBeenCalled()
   })
 
-  it("settles a mixed-outcome multi-schedule confirm per item: dialog stays open, download/analytics scoped to the succeeding id only, no success toast (BUG-007)", async () => {
+  it("sends a multi-schedule confirm (adds and removals together) as ONE request and downloads only the toggled-on schedules", async () => {
+    const assignMock = vi.fn()
+    vi.stubGlobal("location", { assign: assignMock })
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    // sched_1 (not added) -> on, sched_2 (added) -> off
+    await capturedEventDetailViewProps.onAddToCalendar(["sched_1"])
+
+    expect(setCalendarAdditionsCalls).toHaveLength(1)
+    expect(setCalendarAdditionsCalls[0].changes).toEqual([
+      { scheduleId: "sched_1", isAddedToCalendar: true },
+      { scheduleId: "sched_2", isAddedToCalendar: false },
+    ])
+
+    expect(assignMock).toHaveBeenCalledTimes(1)
+    expect(assignMock).toHaveBeenCalledWith(expect.stringContaining("scheduleId=sched_1"))
+    expect(assignMock).not.toHaveBeenCalledWith(expect.stringContaining("scheduleId=sched_2"))
+
+    await waitFor(() => {
+      expect(mockPosthogCapture).toHaveBeenCalledWith("event_removed_from_calendar", {
+        eventId: "evt_1",
+        scheduleId: "sched_2",
+      })
+    })
+  })
+
+  it("never downloads an .ics for a removal-only change", async () => {
+    const assignMock = vi.fn()
+    vi.stubGlobal("location", { assign: assignMock })
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    // sched_2 is added; deselecting it (and leaving sched_1 off) is toggle-OFF only.
+    await capturedEventDetailViewProps.onAddToCalendar([])
+
+    expect(setCalendarAdditionsCalls).toHaveLength(1)
+    expect(assignMock).not.toHaveBeenCalled()
+    // Let the mutation's onSuccess settle before the test ends (this file never unmounts trees).
+    await waitFor(() => {
+      expect(mockPosthogCapture).toHaveBeenCalledWith("event_removed_from_calendar", {
+        eventId: "evt_1",
+        scheduleId: "sched_2",
+      })
+    })
+    expect(mockPosthogCapture).not.toHaveBeenCalledWith("calendar_ics_downloaded", expect.anything())
+  })
+
+  it("starts the .ics download immediately on toggle-on, without waiting for the save to finish", async () => {
+    const assignMock = vi.fn()
+    vi.stubGlobal("location", { assign: assignMock })
+
+    renderComponent()
+
+    expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
+
+    // Not awaited: the download must already have fired synchronously, before any network round trip.
+    const pending = capturedEventDetailViewProps.onAddToCalendar(["sched_1", "sched_2"])
+    expect(assignMock).toHaveBeenCalledWith(expect.stringContaining("/api/calendar/ics?eventId=evt_1&scheduleId=sched_1"))
+    expect(setCalendarAdditionsCalls).toHaveLength(0)
+    await pending
+    expect(setCalendarAdditionsCalls).toHaveLength(1)
+    // Let the mutation's onSuccess settle before the test ends (this file never unmounts trees).
+    await waitFor(() => {
+      expect(mockPosthogCapture).toHaveBeenCalledWith("event_added_to_calendar", {
+        eventId: "evt_1",
+        scheduleId: "sched_1",
+      })
+    })
+  })
+
+  it("a failed batch is atomic: error announced and rejected (dialog stays open), no success toast -- but every toggled-on schedule still downloads its .ics (BUG-007)", async () => {
     const assignMock = vi.fn()
     vi.stubGlobal("location", { assign: assignMock })
 
@@ -764,33 +853,21 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
 
-    // Both schedules selected -- mirrors the old dialog interaction of checking
-    // both checkboxes before confirm. Real UI usage (AddToCalendarDialog's
-    // handleConfirm) awaits onAddToCalendar inside a try/catch and keeps the
-    // dialog open on rejection, so this mirrors that swallow here.
-    await capturedEventDetailViewProps.onAddToCalendar(["sched_ok", "sched_fail"]).catch(() => {})
+    // Real UI usage (AddToCalendarDialog's handleConfirm) awaits onAddToCalendar inside a
+    // try/catch and keeps the dialog open on rejection, so the promise must reject.
+    await expect(capturedEventDetailViewProps.onAddToCalendar(["sched_ok", "sched_fail"])).rejects.toThrow()
 
-    // Error is announced for the failed schedule
     await waitFor(() => {
       expect(screen.getByText("EventDetailsPage.calendarErrorAnnouncement")).toBeInTheDocument()
     })
 
-    // Download/analytics fire, scoped to the succeeding id only -- sched_fail never
-    // appears even though it was part of the same confirm.
-    await waitFor(() => {
-      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining("/api/calendar/ics?eventId=evt_1&scheduleId=sched_ok"))
-    })
-    expect(assignMock).not.toHaveBeenCalledWith(expect.stringContaining("scheduleId=sched_fail"))
+    // Both toggled-on schedules downloaded in one file request, whatever the save did.
+    expect(assignMock).toHaveBeenCalledTimes(1)
+    expect(assignMock).toHaveBeenCalledWith(expect.stringContaining("scheduleId=sched_ok"))
+    expect(assignMock).toHaveBeenCalledWith(expect.stringContaining("scheduleId=sched_fail"))
 
-    await waitFor(() => {
-      expect(mockPosthogCapture).toHaveBeenCalledWith("calendar_ics_downloaded", {
-        eventId: "evt_1",
-        scheduleIds: ["sched_ok"],
-      })
-    })
-
-    // No success toast on a partial failure -- reuses the existing full-failure
-    // messaging path, no new "N of M succeeded" copy.
+    // Nothing was reported as added, and no success toast.
+    expect(mockPosthogCapture).not.toHaveBeenCalledWith("event_added_to_calendar", expect.anything())
     expect(toast.success).not.toHaveBeenCalled()
   })
 
@@ -822,7 +899,7 @@ describe("EventDetailWrapper", () => {
     })
   })
 
-  it("surfaces an error and keeps the dialog open when toggleCalendarAddition succeeds with null data (BUG-009)", async () => {
+  it("surfaces an error and keeps the dialog open when setCalendarAdditions succeeds with null data (BUG-009)", async () => {
     currentMockEvent.schedules = [
       {
         id: "sched_null_data",
@@ -846,9 +923,8 @@ describe("EventDetailWrapper", () => {
     await capturedEventDetailViewProps.onAddToCalendar(["sched_null_data"]).catch(() => {})
 
     // A null-data "success" response must not be mistaken for a real success: no
-    // false-success toast, no .ics download (this is the Promise.all/try-catch
-    // contract that handleAddToCalendar depends on to know a schedule toggle
-    // actually failed).
+    // false-success toast (this is the rejection contract that handleAddToCalendar
+    // and the dialog's awaited onConfirm depend on to know the change actually failed).
     await waitFor(() => {
       expect(screen.getByText("EventDetailsPage.calendarErrorAnnouncement")).toBeInTheDocument()
     })
