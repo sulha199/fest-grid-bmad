@@ -1,6 +1,19 @@
 type Mutation {
   toggleFavorite(eventId: ID!): ToggleFavoriteResult!
   toggleCalendarAddition(eventId: ID!, scheduleId: ID!): ToggleCalendarAdditionResult!
+  """
+  Idempotently sets the calendar state of several schedules of ONE event in a single
+  transaction (one auth check, one round of queries) -- replaces N parallel
+  toggleCalendarAddition calls. All-or-nothing: any unknown schedule, a schedule of another
+  event, or more than 100 changes rejects the whole call. A schedule listed twice takes its
+  last entry. Returns one result per distinct scheduleId, in first-seen order.
+  """
+  setCalendarAdditions(eventId: ID!, changes: [CalendarAdditionChangeInput!]!): [ToggleCalendarAdditionResult!]!
+}
+
+input CalendarAdditionChangeInput {
+  scheduleId: ID!
+  isAddedToCalendar: Boolean!
 }
 
 type ToggleFavoriteResult {

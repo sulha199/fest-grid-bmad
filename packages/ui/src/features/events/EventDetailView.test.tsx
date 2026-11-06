@@ -151,6 +151,28 @@ describe('EventDetailView', () => {
       expect(onAddToCalendar).toHaveBeenCalledWith(['sched-2']);
     });
 
+    it('sends the FULL intended selection: toggling one schedule on keeps the already-added ones, toggling an added one off removes only it', () => {
+      const onAddToCalendar = vi.fn();
+      const testProps = {
+        ...fullProps,
+        schedules: [
+          { ...fullProps.schedules[0], isAddedToCalendar: false },
+          { ...fullProps.schedules[1], isAddedToCalendar: true },
+        ],
+      };
+      render(<EventDetailView {...testProps} onAddToCalendar={onAddToCalendar} />);
+
+      const buttons = screen.getAllByRole('button', { name: 'Add to Calendar' });
+
+      // sched-2 already added: turning sched-1 on must not drop sched-2 (the old call passed just ['sched-1'])
+      fireEvent.click(buttons[0]);
+      expect(onAddToCalendar).toHaveBeenLastCalledWith(['sched-2', 'sched-1']);
+
+      // turning the added sched-2 off leaves nothing else selected
+      fireEvent.click(buttons[1]);
+      expect(onAddToCalendar).toHaveBeenLastCalledWith([]);
+    });
+
     it('reflects isAddedToCalendar via aria-pressed and fill styling', () => {
       const onAddToCalendar = vi.fn();
       const testProps = {
