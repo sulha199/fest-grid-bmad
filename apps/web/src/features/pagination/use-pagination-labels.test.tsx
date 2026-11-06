@@ -39,7 +39,9 @@ describe('usePaginationLabels', () => {
     expect(result.current.total).toBe('0 total');
   });
 
-  it('never reports fewer pages than the current one', () => {
+  it('never reports fewer pages than the current one, e.g. after rows on later pages were resolved', () => {
+    // Page 3 was reached when the list held 41+ rows; resolving rows then shrank the total to 40 (2 pages).
+    // The reader is still on page 3, so the readout must not say "Page 3 of 2".
     const { result } = renderHook(() => usePaginationLabels(3, 40, 20), { wrapper: wrapperFor('en', enMessages) });
     expect(result.current.pageInfo).toBe('Page 3 of 3');
   });

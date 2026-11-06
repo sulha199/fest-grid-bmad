@@ -185,6 +185,13 @@ export function decodeActorRunCursor(cursor: string | null | undefined): number 
   return decoded;
 }
 
+// A cursor names the position AFTER the edge it sits on: `after: <cursor of row i>` resumes at row i + 1,
+// because the next page is read with `.offset(<decoded cursor>)`. Encoding the row's own index here (as
+// these resolvers used to) made the last row of every page the first row of the next one.
+export function encodeActorRunCursor(positionAfterRow: number): string {
+  return Buffer.from(positionAfterRow.toString()).toString('base64');
+}
+
 export function endOfUtcDay(date: Date): Date {
   const d = new Date(date);
   d.setUTCHours(23, 59, 59, 999);
@@ -4523,7 +4530,7 @@ export const resolvers: Resolvers = {
       const hasNextPage = rows.length > (first || 10);
       const edges = rows.slice(0, first || 10).map((row, idx) => ({
         node: row,
-        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        cursor: encodeActorRunCursor(offset + idx + 1),
       }));
 
       const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
@@ -4593,7 +4600,7 @@ export const resolvers: Resolvers = {
       const hasNextPage = rows.length > (first || 10);
       const edges = rows.slice(0, first || 10).map((row, idx) => ({
         node: row,
-        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        cursor: encodeActorRunCursor(offset + idx + 1),
       }));
 
       const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
@@ -4647,7 +4654,7 @@ export const resolvers: Resolvers = {
         }
         return {
           node,
-          cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+          cursor: encodeActorRunCursor(offset + idx + 1),
         };
       });
 
@@ -4701,7 +4708,7 @@ export const resolvers: Resolvers = {
           status: row.status,
           createdAt: row.createdAt.toISOString(),
         },
-        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        cursor: encodeActorRunCursor(offset + idx + 1),
       }));
 
       const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
