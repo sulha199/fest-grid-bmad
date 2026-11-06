@@ -2941,7 +2941,9 @@ This document defines the core architectural invariants for the FestDaily applic
         organizer, or a shared link together with a venue match), no venue conflict, a day gap of 0 (or up
         to 90 with a shared link), every schedule of the new event covered inside that window, names that do
         not contradict. Evidence is recomputed server-side and compared by hash before every merge, and
-        again under row locks. The reviewer never rejects, and never merges what the floor refuses.
+        again under row locks. The reviewer never rejects, and never merges what the floor refuses. The same
+        holds for a pair a moderator accepts in the attended decision loop (`FIND-119`): it is merged only if
+        `validate` calls it eligible, and the loop offers no reject.
     4.  **Bounded.** At most 10 merges a run and 25 AI decisions in 24 hours (undone merges and AI
         rejections count), one run at a time, and a kill switch (`DEDUP_REVIEW_APPLY_DISABLED`, an
         environment variable of `dedup-review-live`) that stops apply unless it is exactly `false` or `0`.
