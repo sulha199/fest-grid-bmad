@@ -4,7 +4,7 @@ import { buildPageMetadata } from "@/lib/metadata"
 import { getEventBySlugCached } from "@/features/events/get-event-by-slug-cached"
 import { EventDetailWrapper } from "@/features/events/EventDetailWrapper"
 import { Suspense } from "react"
-import { RouteLoader } from "@festgrid/ui"
+import { EventDetailLoading } from "@/features/events/EventDetailLoading"
 import { QueryClient, dehydrate, HydrationBoundary } from "@tanstack/react-query"
 
 interface PageProps {
@@ -66,7 +66,7 @@ export default async function EventPage({ params }: PageProps) {
 
   return (
     <HydrationBoundary state={dehydratedState}>
-      <Suspense fallback={<RouteLoader />}>
+      <Suspense fallback={<EventDetailLoading />}>
         <EventDetailWrapper slug={slug} isModal={false} />
       </Suspense>
     </HydrationBoundary>
