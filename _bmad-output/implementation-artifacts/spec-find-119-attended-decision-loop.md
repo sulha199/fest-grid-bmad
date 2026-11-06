@@ -2,8 +2,8 @@
 title: 'Attended decision loop: a moderator accepts or skips each escalated pair from a popup (FIND-119)'
 type: 'feature'
 created: '2026-11-06'
-status: 'draft'
-baseline_commit: 'e11ada84d69303e2a83b6e960ec22b8f7ee6d0b3'
+status: 'in-progress'
+baseline_commit: '24ef5e65f3135f75e198f2ef4877384b23a19c7e'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/specs/ai-dedup-review/DESIGN.md'

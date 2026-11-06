@@ -80,6 +80,9 @@ RATIONALE_FILE_MAX_BYTES = 4096
 TEXT_CAP = 300
 LIST_CAP = 12
 MAX_DECISIONS = 50
+BRIEF_CAP = 1500  # characters of one popup question
+BRIEF_LINE = 120
+BRIEF_WORDS = 6
 MAX_DECISIONS_CHARS = 65535
 MAX_LOG_BYTES = 50_000_000
 ESCALATION_LABEL = 'dedup-escalate'
@@ -87,6 +90,7 @@ SHADOW_SUFFIX = ' (shadow)'
 SUMMARY_KEYS = ('mode', 'exportTag', 'validateTag', 'applyTag', 'entries', 'closedIssues')
 ENTRY_KEYS = ('suggestionId', 'decision', 'reason', 'pattern', 'rationale')
 
+WORD = re.compile(r'[^\W_]+')
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 HEX64 = re.compile(r'[0-9a-f]{64}')
 RUN_TAG = re.compile(r'[A-Za-z0-9._-]{1,64}')
@@ -678,6 +682,98 @@ def cmd_decisions(args):
     return 0
 
 
+# ----------------------------------------------------------------------------- the attended decision loop
+
+
+def brief_words(name):
+    return [word.lower() for word in WORD.findall(public_text(name) or '')]
+
+
+def name_clues(existing_name, new_name):
+    """Facts about how two names differ, from the words alone (no judgement)."""
+    old, new = brief_words(existing_name), brief_words(new_name)
+    only_old = [word for word in dict.fromkeys(old) if word not in new]
+    only_new = [word for word in dict.fromkeys(new) if word not in old]
+    if not only_old and not only_new:
+        return ['the names use the same words']
+    clues = []
+    if only_old:
+        clues.append('only the existing name has: ' + ' '.join(only_old[:BRIEF_WORDS]))
+    if only_new:
+        clues.append('only the new name has: ' + ' '.join(only_new[:BRIEF_WORDS]))
+    numbers = [word for word in only_old + only_new if any(ch.isdigit() for ch in word)]
+    if numbers:
+        clues.append('numbers differ: ' + ' '.join(numbers[:BRIEF_WORDS]))
+    return clues
+
+
+def brief_event(label, event, cuts):
+    """The lines that tell a moderator what one event is: cleaned, masked and capped like public text."""
+    def text(value, limit=BRIEF_LINE):
+        shown, cut = public_text_ex(value, limit)
+        cuts[0] += 1 if cut else 0
+        return shown or '-'
+
+    when = []
+    for schedule in event['schedules'][:4]:
+        start = text(schedule['startDate'])
+        when.append(start + (' ' + text(schedule['startTime'])[:5] if schedule.get('startTime') else ''))
+    extra = len(event['schedules']) - 4
+    cuts[0] += max(0, extra)
+    accounts = sorted({post['accountType'] for post in event['sourcePosts']})
+    links = event['links']
+    return [
+        '%s: %s' % (label, text(event['name'])),
+        '  place: %s' % text(event['location']),
+        '  when: %s%s' % ('; '.join(when) or '-', ' (+%d more)' % extra if extra > 0 else ''),
+        '  link: %s%s' % (text(links[0]) if links else '-', ' (+%d more)' % (len(links) - 1) if len(links) > 1 else ''),
+        '  detail: %s; posts from: %s' % (event['detailLevel'], ', '.join(accounts) or '-'),
+    ]
+
+
+def build_brief(pair, issue_number):
+    """(popup header, popup text, clues, number of strings cut) for one exported pair."""
+    cuts = [0]
+    signals = pair['signals']
+    clues = name_clues(pair['candidate']['name'], pair['newEvent']['name'])
+    gap = signals['minDayDiff']
+    clues.append('day gap: %s' % ('unknown' if gap is None else int(gap) if float(gap).is_integer() else gap))
+    clues.append('venue match: %s, organizer match: %s, shared link: %s, same account: %s' % tuple(
+        'yes' if flag else 'no' for flag in (signals['venueMatch'], signals['organizerMatch'], signals['sharedLink'], pair['sameAccount'])))
+    if pair['undoneMergeCount']:
+        clues.append('a merge of this pair was undone %d time(s) before' % pair['undoneMergeCount'])
+    lines = brief_event('Existing event (a merge keeps it)', pair['candidate'], cuts) + brief_event('New event (a merge folds it in)', pair['newEvent'], cuts)
+    lines.append('Signals: tier %s, score %s, name similarity %s' % (signals['tier'], signals['score'], signals['nameSimilarity']))
+    lines += ['Clue: %s' % clue for clue in clues]
+    lines.append('To reject, use Moderator Items in the app.')
+    question = '\n'.join(lines)
+    if len(question) > BRIEF_CAP:
+        question = question[: BRIEF_CAP - 1] + '…'
+        cuts[0] += 1
+    header = '#%d' % issue_number if issue_number else 'Pair'
+    return header, question, clues, cuts[0]
+
+
+def cmd_brief(args):
+    """The popup text for the given exported pairs, one JSON line each. `--ids` are suggestion uuids from the export."""
+    payload = load_export(args)
+    index = pair_index(payload)
+    ids = parse_ids(args.ids, '--ids')
+    if len(set(ids)) != len(ids):
+        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is listed twice')
+    if any(item not in index for item in ids):
+        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is not among the exported pairs')
+    numbers = {}
+    for row in (load_issues(args.files)[0] if args.files else []):
+        if row['state'] == 'OPEN':
+            numbers.setdefault(row['id'], row['number'])
+    for suggestion_id in ids:
+        header, question, clues, cut = build_brief(index[suggestion_id], numbers.get(suggestion_id))
+        print(json.dumps({'suggestionId': suggestion_id, 'issue': numbers.get(suggestion_id), 'header': header, 'question': question,
+                          'clues': clues, 'truncated': cut}, ensure_ascii=False))
+    return 0
+
+
 # ----------------------------------------------------------------------------- issues listed by GitHub
 
 
@@ -834,6 +930,32 @@ def resolved_comment(status, by):
     who = {'human': 'by a moderator', 'system': 'by the system (an event was deleted or merged away)',
            'reviewer': 'by the reviewer', 'unknown': 'by an unknown actor (before the flag existed)'}[by]
     return 'Resolved: the suggestion was %s %s. Closing this issue.' % (status, who)
+
+
+def decided_comment(merge_id):
+    if not full(UUID, merge_id):
+        raise ReportError(EXIT_BAD_INPUT, '--merge-id must be a merge uuid (from the live apply report)')
+    return 'Resolved: a moderator accepted this suggestion in an attended review session (merge `%s`). Closing this issue.' % merge_id
+
+
+def cmd_close_decided(args):
+    """After a live apply that merged pairs a moderator accepted in the attended loop: the open issues of the merged
+    suggestions, with the label set to send (the outcome label is the moderator's own decision) and the fixed comment.
+    The merge ids come from the validated apply report only. A pair that was not merged keeps its issue."""
+    report = validate_apply(find_report(read_source(args.log), APPLY_BEGIN, APPLY_END), 'live', args.expect_run_tag, parse_ids(args.expect_ids, '--expect-ids'))
+    merges = {result['suggestionId']: result['mergeId'] for result in report['results'] if result['outcome'] == 'merged'}
+    not_merged = [{'id': result['suggestionId'], 'reason': result.get('reason')} for result in report['results'] if result['outcome'] != 'merged']
+    rows, _, _ = load_issues(args.files)
+    close = []
+    for row in rows:
+        if row['state'] != 'OPEN' or row['id'] not in merges:
+            continue
+        labels = list(row['labels']) + ([] if 'outcome:accepted' in row['labels'] else ['outcome:accepted'])
+        close.append({'number': row['number'], 'id': row['id'], 'mergeId': merges[row['id']], 'labels': labels, 'comment': decided_comment(merges[row['id']])})
+    covered = {item['id'] for item in close}
+    print(json.dumps({'close': close, 'closedIds': len(covered), 'notMerged': not_merged,
+                      'mergedWithoutOpenIssue': sorted(set(merges) - covered)}))
+    return 0
 
 
 def cmd_settle(args):
@@ -1006,6 +1128,8 @@ def cmd_comment(args):
     """Comments the skill posts on an escalation issue. Fixed phrases and validated enums only."""
     if args.kind == 'resolved':
         print(resolved_comment(args.status, args.by))
+    elif args.kind == 'decided':
+        print(decided_comment((args.merge_id or '').strip().lower()))
     elif args.kind == 'reopened':
         print('The suggestion is pending again after an undone merge, so this issue is reopened.')
     elif args.kind == 'refused':
@@ -1171,6 +1295,12 @@ def build_parser():
     p = with_log('triage', cmd_triage, 'which exported pairs are new and which a labelled issue covers')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p.add_argument('--live-cleared', action='store_true', help='the owner cleared this run for live: shadow pairs are decided again')
+    p = with_log('brief', cmd_brief, 'the popup text for exported pairs of the attended decision loop')
+    p.add_argument('files', nargs='*', help='list_issues output, one file per page (adds the open issue number)')
+    p.add_argument('--ids', default=None, help='comma-separated suggestion ids of exported pairs')
+    p = with_log('close-decided', cmd_close_decided, 'the open issues to close after a live apply merged pairs a moderator accepted (LOG is the APPLY log)')
+    p.add_argument('files', nargs='+', help='list_issues output, one file per page')
+    p.add_argument('--expect-ids', required=True, help='the suggestion ids that were dispatched, comma-separated')
     p = with_log('settle', cmd_settle, 'the open issues to close because their suggestion was resolved')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p = with_log('issue', cmd_issue, 'title, body and labels of an escalation issue')
@@ -1196,10 +1326,11 @@ def build_parser():
     p.add_argument('--exclude-shadow', action='store_true', help='leave shadow issues out (the owner cleared the run for live)')
     p.set_defaults(handler=cmd_issue_ids)
     p = sub.add_parser('comment', help='a fixed-phrase comment for an issue', allow_abbrev=False)
-    p.add_argument('kind', choices=('resolved', 'reopened', 'refused'))
+    p.add_argument('kind', choices=('resolved', 'reopened', 'refused', 'decided'))
     p.add_argument('--status', default=None)
     p.add_argument('--by', default=None)
     p.add_argument('--reason', default=None)
+    p.add_argument('--merge-id', default=None, help='the merge uuid of a live apply report (for the decided comment)')
     p.set_defaults(handler=cmd_comment)
     return parser
 
