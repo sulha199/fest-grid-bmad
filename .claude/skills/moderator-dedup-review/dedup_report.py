@@ -385,8 +385,13 @@ def validate_signals(signals):
     require('minDayDiff' in signals and (signals['minDayDiff'] is None or is_number(signals['minDayDiff'])), 'a pair needs the signal minDayDiff (a number or null)')
 
 
-def need(payload, key):
-    require(key in payload, "the export has no '%s': it predates this reader (the skill and the export must come from the same commit of master)" % key)
+def need(payload, key, what=None):
+    """A key the new shape always carries. At the top of the export a missing key means an old export; in a
+    row it means a malformed one, so the row-level message does not blame the version."""
+    if what is None:
+        require(key in payload, "the export has no '%s': it predates this reader (the skill and the export must come from the same commit of master)" % key)
+    else:
+        require(key in payload, "%s has no '%s'" % (what, key))
 
 
 def optional_time(value, what):
@@ -398,7 +403,7 @@ def validate_skip_resolved(rows, pair_ids):
     for row in rows:
         require(isinstance(row, dict) and full(UUID, row.get('suggestionId')), 'a skipResolved row has a bad suggestionId')
         for key in ('status', 'resolvedAt', 'resolvedBy'):
-            need(row, key)
+            need(row, key, 'a skipResolved row')
         require(row['status'] in SKIP_STATUSES, 'a skipResolved row has a bad status')
         optional_time(row['resolvedAt'], 'a skipResolved resolvedAt')
         require(row['resolvedBy'] is None or row['resolvedBy'] in RESOLVED_BY, 'a skipResolved row has a bad resolvedBy')

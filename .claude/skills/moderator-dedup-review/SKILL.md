@@ -30,7 +30,7 @@ Every log command needs `--expect-run-tag <the tag you dispatched>`; a log from 
 
 | Command | Use |
 |---|---|
-| `export-header LOG [--sent-file FILE]` | counts and `alerts` of an export, the tally of what became of the ids sent (`skipResolved`), both queue ages in days, `recentlyExpiredCount`; `--sent-file` (the saved `issue-ids` output) checks the export answered for exactly the ids that were sent |
+| `export-header LOG [--sent-file FILE]` | counts and `alerts` of an export, the tally of what became of the ids sent (`skipResolved`), both queue ages in days, `recentlyExpiredCount`; `--sent-file` (the saved `issue-ids` output) checks that the export answered for as many ids as were sent and that every resolved id it lists was one of them (it cannot see which ids are still pending) |
 | `export-pairs LOG A:B` | pairs A to B, cleaned, one JSON per line (read 5 at a time); `truncated > 0` means text or lists were cut |
 | `export-resolved LOG [--ids a,b]` | the recent decisions (accepted, rejected); `--ids` shows those ids' rows, the answer for a sent id (`skipResolved`) first (an empty list shows none) |
 | `issue-ids PAGE... --max CAP --limit N [--exclude-shadow]` | the open suggestion ids to send as `skip_ids` (oldest first, at most CAP; save the output to a file for `export-header --sent-file`), `numbers` (id to issue numbers), `frozen` and why, `duplicates`, `labelledIgnored`, `ignored`, the oldest open issue's time |
@@ -84,7 +84,7 @@ Every log command needs `--expect-run-tag <the tag you dispatched>`; a log from 
 
 ## Step 2: Settle what is already known
 
-The export answers for every id you sent: `skipResolved` says, for each one that is no longer pending, its status, who resolved it and when, whatever the age (or `missing` if the suggestion no longer exists). First check it answered for exactly what you sent: `export-header LOG --expect-run-tag <tag>-x --sent-file sent.json` (exit 7 means the export and your list disagree: report it and do not settle anything).
+The export answers for every id you sent: `skipResolved` says, for each one that is no longer pending, its status, who resolved it and when, whatever the age (or `missing` if the suggestion no longer exists). First check it answered for what you sent: `export-header LOG --expect-run-tag <tag>-x --sent-file sent.json` checks that the count of ids it answered for is the count you sent and that every resolved id it lists was one you sent (it cannot see which of your ids are still pending); exit 7 means the export and your list disagree: report it and do not settle anything.
 
 `settle LOG PAGE... --expect-run-tag <tag>-x` then lists the open issues to close. For **each** entry (twins included): post its `comment` with `add_issue_comment`, then `issue_write` update with `state: closed`, `state_reason: completed` and exactly its `labels` (an update replaces the whole set; the reader adds `outcome:accepted` or `outcome:rejected` only for a decision a human made). Never close an issue that `settle` did not list.
 
