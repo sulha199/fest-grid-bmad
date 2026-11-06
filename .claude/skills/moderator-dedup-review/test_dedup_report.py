@@ -276,6 +276,10 @@ class ExportCommandTests(Base):
         self.assertEqual((code, json.loads(out.splitlines()[-1])['shown']), (0, 0))
         for bad in ('nope', A + ',nope', A + 'x'):
             self.assertEqual(self.cli('export-resolved', path, '--ids', bad)[0], dr.EXIT_BAD_INPUT, repr(bad))
+        pending = '00000000-0000-4000-8000-0000000000bb'
+        summary = json.loads(self.cli('export-resolved', path, '--ids', ','.join([A, pending]))[1].splitlines()[-1])
+        self.assertEqual((summary['shown'], summary['notListed']), (1, [pending]))      # an id with no row is named, not silently dropped
+        self.assertNotIn('notListed', json.loads(self.cli('export-resolved', path)[1].splitlines()[-1]))
         code, out, _ = self.cli('export-resolved', path, '--ids', ' %s \n' % A)  # whitespace around an id is trimmed, then validated
         self.assertEqual(code, 0)
 
@@ -952,6 +956,19 @@ class ExportContractTests(Base):
         code, _, err = self.load(payload)
         self.assertEqual(code, dr.EXIT_BAD_REPORT)
         self.assertIn("a skipResolved row has no 'resolvedAt'", err)
+
+    def test_impossible_times_and_counts_are_refused(self):
+        def refused(payload, rule):
+            code, _, err = self.load(payload)
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, rule)
+            self.assertIn(rule, err)
+
+        refused(dict(export_payload(), oldestPendingAt='2026-13-45T00:00:00.000Z'), 'oldestPendingAt must be an ISO timestamp or null')   # the shape of a time, not a time
+        refused(dict(export_payload(), generatedAt='2026-02-30T00:00:00.000Z'), 'generatedAt must be an ISO timestamp')
+        bad_row = {'suggestionId': B, 'status': 'accepted', 'resolvedBy': 'human', 'resolvedAt': '2026-00-10T00:00:00.000Z'}
+        refused(export_payload(resolved=[bad_row]), 'a resolved row has a bad resolvedAt')
+        refused(dict(export_payload([], total_pending=1, skipped=2), skipIdCount=2), 'more than totalPending')          # more sent ids pending than pending rows
+        refused(dict(export_payload([pair(A), pair(B)], total_pending=2, skipped=1), skipIdCount=1), 'more than totalPending')  # 2 pairs + 1 skipped > 2 pending
 
     def test_an_expiry_in_the_list_of_decisions_is_refused(self):
         expired = {'suggestionId': B, 'status': 'expired', 'resolvedBy': 'system', 'resolvedAt': '2026-11-02T00:00:00.000Z'}

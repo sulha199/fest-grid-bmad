@@ -31,6 +31,8 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
   const TOKEN = 'SECRET_TOKEN_' + suffix;
   const REVIEWER_EMAIL = `ddrx-reviewer-${suffix}@example.com`;
   const HUMAN_EMAIL = `ddrx-human-${suffix}@example.com`;
+  const REVIEWER_NAME = 'Moderator Rho ' + suffix; // names no event or pair in this file uses, so a privacy check on them cannot match pair text
+  const HUMAN_NAME = 'Moderator Eta ' + suffix;
 
   const [account] = await db
     .insert(socialMediaAccountProfiles)
@@ -51,8 +53,8 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
       accountTypeStatus: 'AWAITING_APPROVAL',
     })
     .returning();
-  const [reviewer] = await db.insert(users).values({ email: REVIEWER_EMAIL, name: 'Reviewer', role: 'moderator' }).returning();
-  const [human] = await db.insert(users).values({ email: HUMAN_EMAIL, name: 'Human', role: 'moderator' }).returning();
+  const [reviewer] = await db.insert(users).values({ email: REVIEWER_EMAIL, name: REVIEWER_NAME, role: 'moderator' }).returning();
+  const [human] = await db.insert(users).values({ email: HUMAN_EMAIL, name: HUMAN_NAME, role: 'moderator' }).returning();
   const [plainUser] = await db.insert(users).values({ email: `ddrx-plain-${suffix}@example.com`, name: 'Plain', role: 'user' }).returning();
 
   const eventIds: string[] = [];
@@ -391,7 +393,10 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     assert.deepStrictEqual(row(nobody), { suggestionId: nobody, status: 'missing', resolvedAt: null, resolvedBy: null });
     assert.strictEqual(row(stranger.suggestion.id), undefined, 'a pending id is counted, not listed');
     assert.strictEqual(row(undone.suggestion.id), undefined);
-    assert.ok(report.pairs.every((p) => !sent.includes(p.suggestionId)), 'sent ids never use up the scan');
+    // `stranger` is pending and sent. Put it inside the scan scope: only the exclusion of sent ids keeps it out of the pairs.
+    const scoped = await buildDedupReviewExport(db, { ...base, skipIds: sent, onlySuggestionIds: [high.suggestion.id, stranger.suggestion.id] });
+    assert.deepStrictEqual(scoped.pairs.map((p) => p.suggestionId), [high.suggestion.id], 'a sent id never comes back as a pair, so it never uses up the scan');
+    assert.strictEqual(scoped.skippedCount, 2);
   });
 
   await t.test('the two queue ages are independent minimums: the whole queue, and what nobody has escalated', async () => {
@@ -413,7 +418,9 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
     const withSkip = await buildDedupReviewExport(db, { ...base, skipIds: [ancient.suggestion.id] });
     assert.strictEqual(withSkip.oldestPendingAt, '2001-01-01T00:00:00.000Z', 'the queue-wide age still counts the escalated pair');
     assert.strictEqual(withSkip.oldestUnskippedPendingAt, await independentMin([ancient.suggestion.id]), 'the signal that the daily review stopped ignores what was escalated');
-    assert.ok((withSkip.oldestUnskippedPendingAt ?? '9') > '2001-01-01T00:00:00.000Z' || withSkip.oldestUnskippedPendingAt === null);
+    // Other pending pairs of this file (high, stranger, undone) are never resolved, so this age is never null here.
+    assert.notStrictEqual(withSkip.oldestUnskippedPendingAt, null);
+    assert.ok((withSkip.oldestUnskippedPendingAt as string) > '2001-01-01T00:00:00.000Z', 'the escalated ancient pair is no longer the minimum');
   });
 
   await t.test('the output holds no account username or id, caption, link query token or email; event text is passed through as stored', async () => {
@@ -434,7 +441,7 @@ test('buildDedupReviewExport (AI dedup review, piece B1)', async (t) => {
 
     assert.strictEqual(report.skipResolved.length, 1);
     assert.deepStrictEqual(Object.keys(report.skipResolved[0]).sort(), ['resolvedAt', 'resolvedBy', 'status', 'suggestionId']);
-    for (const secret of [HUMAN_EMAIL, REVIEWER_EMAIL, human.id, reviewer.id, 'Human', 'Reviewer']) {
+    for (const secret of [HUMAN_EMAIL, REVIEWER_EMAIL, human.id, reviewer.id, HUMAN_NAME, REVIEWER_NAME]) {
       assert.ok(!text.includes(secret), `the output must not contain ${secret.slice(0, 12)}...`);
     }
   });

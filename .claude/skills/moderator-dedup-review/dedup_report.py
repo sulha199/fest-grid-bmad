@@ -394,8 +394,13 @@ def need(payload, key, what=None):
         require(key in payload, "%s has no '%s'" % (what, key))
 
 
+def real_time(value):
+    """The right shape AND a real moment (2026-13-45T00:00:00Z has the shape of one)."""
+    return full(ISO_TIME, value) and parse_time(value) is not None
+
+
 def optional_time(value, what):
-    require(value is None or full(ISO_TIME, value), '%s must be an ISO timestamp or null' % what)
+    require(value is None or real_time(value), '%s must be an ISO timestamp or null' % what)
 
 
 def validate_skip_resolved(rows, pair_ids):
@@ -419,7 +424,7 @@ def validate_skip_resolved(rows, pair_ids):
 def validate_export(payload, expected_tag):
     for key in ('skipIdCount', 'skipResolved', 'recentlyExpiredCount', 'oldestPendingAt', 'oldestUnskippedPendingAt'):
         need(payload, key)
-    require(full(ISO_TIME, payload.get('generatedAt')), 'generatedAt must be an ISO timestamp')
+    require(real_time(payload.get('generatedAt')), 'generatedAt must be an ISO timestamp')
     require(payload.get('runTag') is None or full(RUN_TAG, payload['runTag']), 'runTag must be a run tag or null')
     for key in ('limit', 'totalPending', 'staleCount', 'skippedCount'):
         require(is_int(payload.get(key)) and payload[key] >= 0, '%s must be a non-negative integer' % key)
@@ -443,13 +448,15 @@ def validate_export(payload, expected_tag):
         require(isinstance(row, dict) and full(UUID, row.get('suggestionId')), 'a resolved row has a bad suggestionId')
         require(row.get('status') in DECISION_STATUSES, 'a resolved row has a bad status (expiries are counted in recentlyExpiredCount, never listed)')
         require(row.get('resolvedBy') in RESOLVED_BY, 'a resolved row has a bad resolvedBy')
-        require(full(ISO_TIME, row.get('resolvedAt')), 'a resolved row has a bad resolvedAt')
+        require(real_time(row.get('resolvedAt')), 'a resolved row has a bad resolvedAt')
     require(is_int(payload['skipIdCount']) and payload['skipIdCount'] >= 0, 'skipIdCount must be a non-negative integer')
     require(is_int(payload['recentlyExpiredCount']) and payload['recentlyExpiredCount'] >= 0, 'recentlyExpiredCount must be a non-negative integer')
     require(isinstance(payload['skipResolved'], list), 'skipResolved must be a list')
     validate_skip_resolved(payload['skipResolved'], seen)
     require(payload['skippedCount'] + len(payload['skipResolved']) == payload['skipIdCount'],
             'the accounting is off: skippedCount (%d) + skipResolved (%d) is not skipIdCount (%d)' % (payload['skippedCount'], len(payload['skipResolved']), payload['skipIdCount']))
+    require(payload['skippedCount'] <= payload['totalPending'], 'skippedCount (%d) is more than totalPending (%d)' % (payload['skippedCount'], payload['totalPending']))
+    require(payload['skippedCount'] + len(pairs) <= payload['totalPending'], 'the pairs and the skipped ids are more than totalPending')
     optional_time(payload['oldestPendingAt'], 'oldestPendingAt')
     optional_time(payload['oldestUnskippedPendingAt'], 'oldestUnskippedPendingAt')
     require((payload['oldestPendingAt'] is None) == (payload['totalPending'] == 0), 'oldestPendingAt must be null exactly when nothing is pending')
@@ -637,7 +644,10 @@ def cmd_export_resolved(args):
         shown = [known[key] for key in sorted(known)]
     for row in shown:
         print(json.dumps({key: row[key] for key in ('suggestionId', 'status', 'resolvedBy', 'resolvedAt')}))
-    print(json.dumps({'shown': len(shown), 'recentlyResolvedTruncated': payload['recentlyResolvedTruncated'], 'recentlyExpiredCount': payload['recentlyExpiredCount']}))
+    summary = {'shown': len(shown), 'recentlyResolvedTruncated': payload['recentlyResolvedTruncated'], 'recentlyExpiredCount': payload['recentlyExpiredCount']}
+    if args.ids is not None:
+        summary['notListed'] = sorted(wanted - {row['suggestionId'] for row in shown})  # still pending, or an old decision that was not sent
+    print(json.dumps(summary))
     return 0
 
 

@@ -24,6 +24,9 @@ import {
 
 const ID_A = '11111111-1111-4111-8111-111111111111';
 const ID_B = '22222222-2222-4222-8222-222222222222';
+// Hex letters in them: upper-casing changes these, unlike the digit-only ids above, so a test that upper-cases them can fail.
+const ID_HEX_A = 'abcdef01-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const ID_HEX_B = 'bcdef012-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 
 function eventEvidence(overrides: Partial<DedupReviewEventEvidence> = {}): DedupReviewEventEvidence {
   return {
@@ -286,9 +289,14 @@ test('partitionDedupReviewSkipIds - every state lands once: pending is counted, 
 });
 
 test('partitionDedupReviewSkipIds - ids are lower-cased, deduplicated and sorted; rows nobody asked about are ignored', () => {
+  assert.notStrictEqual(ID_HEX_A.toUpperCase(), ID_HEX_A, 'the fixture has letters, so upper-casing it changes it');
   const result = partitionDedupReviewSkipIds(
-    [ID_B.toUpperCase(), ID_A, ID_B, ID_A.toUpperCase()],
-    [skipRow({ id: ID_B, status: 'accepted', resolvedAt: RESOLVED_AT, resolvedVia: 'moderator' }), skipRow({ id: ID_C, status: 'pending' })]
+    [ID_HEX_B.toUpperCase(), ID_HEX_A, ID_HEX_B, ID_HEX_A.toUpperCase()],
+    [
+      // a row id in upper case is matched too (the database returns lower case, but the function does not rely on it)
+      skipRow({ id: ID_HEX_B.toUpperCase(), status: 'accepted', resolvedAt: RESOLVED_AT, resolvedVia: 'moderator' }),
+      skipRow({ id: ID_C, status: 'pending' }),
+    ]
   );
 
   assert.strictEqual(result.skipIdCount, 2);
@@ -296,8 +304,8 @@ test('partitionDedupReviewSkipIds - ids are lower-cased, deduplicated and sorted
   assert.deepStrictEqual(
     result.skipResolved.map((r) => [r.suggestionId, r.status]),
     [
-      [ID_A, 'missing'],
-      [ID_B, 'accepted'],
+      [ID_HEX_A, 'missing'],
+      [ID_HEX_B, 'accepted'],
     ]
   );
 });
