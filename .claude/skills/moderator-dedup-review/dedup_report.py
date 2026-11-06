@@ -455,8 +455,7 @@ def validate_export(payload, expected_tag):
     validate_skip_resolved(payload['skipResolved'], seen)
     require(payload['skippedCount'] + len(payload['skipResolved']) == payload['skipIdCount'],
             'the accounting is off: skippedCount (%d) + skipResolved (%d) is not skipIdCount (%d)' % (payload['skippedCount'], len(payload['skipResolved']), payload['skipIdCount']))
-    require(payload['skippedCount'] <= payload['totalPending'], 'skippedCount (%d) is more than totalPending (%d)' % (payload['skippedCount'], payload['totalPending']))
-    require(payload['skippedCount'] + len(pairs) <= payload['totalPending'], 'the pairs and the skipped ids are more than totalPending')
+    require(payload['skippedCount'] + len(pairs) <= payload['totalPending'], 'the pairs (%d) and the skipped ids (%d) are more than totalPending (%d)' % (len(pairs), payload['skippedCount'], payload['totalPending']))
     optional_time(payload['oldestPendingAt'], 'oldestPendingAt')
     optional_time(payload['oldestUnskippedPendingAt'], 'oldestUnskippedPendingAt')
     require((payload['oldestPendingAt'] is None) == (payload['totalPending'] == 0), 'oldestPendingAt must be null exactly when nothing is pending')

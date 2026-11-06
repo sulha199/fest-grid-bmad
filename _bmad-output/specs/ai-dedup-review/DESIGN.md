@@ -184,7 +184,8 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 - **When the open issues fill `skip_ids`** (its cap is in the export workflow) the skill is frozen: it still exports and
   settles, opens no new issue and stamps the insight issue.
 - **Known gaps.** A pair whose issue a person closed while it is still pending keeps leading every export; only open ids go
-  in `skip_ids` so the count of resolved-but-open issues stays exact (`FIND-117`: the skill reports it and stamps `blocked`).
+  in `skip_ids`, because a closed issue would take a slot for nothing and bring the freeze closer (`FIND-117`: the skill
+  reports it and stamps `blocked`).
   whether issue creation makes a missing label is unverified, so the skill reads the labels back; the owner-token limit
   (AD-45 Rule 6) is text, not enforcement (`FIND-116`).
 
@@ -202,7 +203,7 @@ the pairs the reviewer escalated, which `recentlyResolved` could not.
   `recentlyExpiredCount` for the same 14 days.
 - **Queue age.** `oldestPendingAt` (queue-wide) and `oldestUnskippedPendingAt` (the oldest pending that is not in `skip_ids`).
   The second is the "daily session stopped" signal, because the first is dominated by escalated pairs. The insight issue
-  shows both as exact whole days; the workflow summary prints raw timestamps, no date arithmetic.
+  shows both in days to one decimal (`33.1 days`) with the raw time; the workflow summary prints raw timestamps, no date arithmetic.
 - **Contract.** `schemaVersion` stays 1: the export and the reader ship together. The reader requires every new key and exits
   7 naming the key or the sum. The export stays read-only in one `REPEATABLE READ, READ ONLY` snapshot and the new fields hold
   ids, statuses, timestamps and the class only.

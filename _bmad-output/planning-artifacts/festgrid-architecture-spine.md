@@ -2982,7 +2982,7 @@ This document defines the core architectural invariants for the FestDaily applic
         (`IDEA-113`).
     10. **Nothing private in a public log.** No username, account id, caption or email is read into the
         output; event text passes through as stored on public event pages; an unexpected error prints only
-        its class, SQLSTATE code and a fixed hint. The job summary holds counts and fixed reason codes only;
+        its class, SQLSTATE code and a fixed hint. The job summary holds counts, the two oldest-pending timestamps (raw) and fixed reason codes only;
         the log holds the script's whole report (suggestion ids and merge ids, no more private than the public
         dispatch inputs). The export's report of what became of the pairs the reviewer escalated (`skipResolved`,
         the decisions in `recentlyResolved`, the counts and the two queue ages) holds ids, statuses, timestamps and

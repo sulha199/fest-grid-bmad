@@ -2,7 +2,7 @@
 title: 'Export tells the reviewer what happened to the pairs it escalated (FIND-115)'
 type: 'feature'
 created: '2026-11-05'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '62077e90669bf5d18e27cfe2075b1530013f9ebb'
 review_loop_iteration: 0
 context:
@@ -84,3 +84,74 @@ Filtering expiries alone leaves a pair escalated 20 days ago, or one that expire
 - `cd apps/backend && NODE_ENV=test npx tsx --test src/lib/events/dedup-review-export.test.ts src/dedup-review-workflow.test.ts` -- expected: all pass
 - `python3 -I .claude/skills/moderator-dedup-review/test_dedup_report.py` -- expected: all pass
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: exit 78 with the same failures as clean master, `FIND-115` not flagged
+
+## Suggested Review Order
+
+**The contract and its pure split (start here)**
+
+- The report type: the five new fields, and `recentlyResolved` as decisions only.
+  [`dedup-review-evidence.ts:148`](../../packages/domain/src/events/dedup-review-evidence.ts#L148)
+
+- `toDedupReviewTimestamp`: one place turns a date into the report's time text or null.
+  [`dedup-review-evidence.ts:187`](../../packages/domain/src/events/dedup-review-evidence.ts#L187)
+
+- `partitionDedupReviewSkipIds`: dedupe, lower-case, sort; pending counted, the rest listed, no row is `missing`.
+  [`dedup-review-evidence.ts:210`](../../packages/domain/src/events/dedup-review-evidence.ts#L210)
+
+**The export reads the sent ids once**
+
+- One query for every row of the sent ids, queue-wide, so `onlySuggestionIds` never narrows it.
+  [`dedup-review-export.ts:249`](../../apps/backend/src/lib/events/dedup-review-export.ts#L249)
+
+- The oldest pending that nobody escalated, next to the queue-wide oldest.
+  [`dedup-review-export.ts:262`](../../apps/backend/src/lib/events/dedup-review-export.ts#L262)
+
+- Decisions only, newest first, the id breaks ties; expiries are a count over the same window.
+  [`dedup-review-export.ts:327`](../../apps/backend/src/lib/events/dedup-review-export.ts#L327)
+
+- The wire shape: the two ages and the expiry count.
+  [`dedup-review-export.ts:346`](../../apps/backend/src/lib/events/dedup-review-export.ts#L346)
+
+**The job summary**
+
+- Counts and two raw timestamps, no ids, no date arithmetic.
+  [`dedup-review-export.yml:130`](../../.github/workflows/dedup-review-export.yml#L130)
+
+**The reader holds the export to the new shape**
+
+- A top-level key that is missing means an old export; a row-level one means a malformed row.
+  [`dedup_report.py:388`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L388)
+
+- A time must be a real moment, not only the shape of one.
+  [`dedup_report.py:397`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L397)
+
+- `skipResolved` rows: status, null time and class only for `missing`, sorted, never also a pair.
+  [`dedup_report.py:406`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L406)
+
+- The sum, the null rules for both ages and the counts that cannot be true.
+  [`dedup_report.py:424`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L424)
+
+- `--sent-file`: what it checks (count, and every resolved id was sent), no more.
+  [`dedup_report.py:570`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L570)
+
+**What the skill does with it**
+
+- `export-resolved --ids` names the asked ids that have no row.
+  [`dedup_report.py:635`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L635)
+
+- `settle` closes from `skipResolved`, reports `missing` and never closes it.
+  [`dedup_report.py:839`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L839)
+
+- The insight body shows both queue ages in days with the raw time.
+  [`dedup_report.py:1097`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L1097)
+
+- Step 2 of the skill: check what was answered, then settle.
+  [`SKILL.md:85`](../../.claude/skills/moderator-dedup-review/SKILL.md#L85)
+
+**Docs and board**
+
+- Rule 10 of AD-45: the report of what became of the escalated pairs is private-safe.
+  [`festgrid-architecture-spine.md:2984`](../planning-artifacts/festgrid-architecture-spine.md#L2984)
+
+- The deferral register: `FIND-118` (missing issues, `--sent-file` limit, null `resolved_at`).
+  [`deferred-work.md`](deferred-work.md)

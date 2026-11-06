@@ -2701,6 +2701,14 @@ items:
      touches: [app:backend, pkg:domain, app:infrastructure, cross:process],
      note: "Deferred from: bmad-quick-dev code review of spec-find-104-moderator-dedup-review-skill (2026-11-03). The skill reports the blocked head and stamps the insight issue meanwhile. 4 findings."}
 
+  FIND-118:
+    {type: finding, status: backlog, created: 2026-11-06,
+     impact: latent, effort: s,
+     title: "AI dedup review: an issue for a missing suggestion stays open and holds a skip_ids slot every run",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-115-export-resolution-report.md, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [app:backend, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-find-115-export-resolution-report (2026-11-06). The skill reports a missing id and never closes it (frozen spec), so enough of them freeze the skill. Also: --sent-file cannot see a swapped pending id; null resolved_at rows are invisible. 3 findings."}
+
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
     {type: bug, status: backlog, created: 2026-10-30,
