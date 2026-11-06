@@ -83,8 +83,8 @@ describe('UnprocessedPayloadsContent pagination', () => {
     expect(screen.getByText('payload-on-page-one')).toBeInTheDocument();
     expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
     expect(screen.getByText('45 total')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
   });
 
   it('goes forward and back, fetching each page with its own cursor', () => {
@@ -113,7 +113,7 @@ describe('UnprocessedPayloadsContent pagination', () => {
     expect(filters.source).toBe('APIFY');
     expect(cursor).toBeUndefined();
     expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
   });
 });

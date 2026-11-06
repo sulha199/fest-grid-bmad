@@ -1,5 +1,5 @@
 // Hooks for Unprocessed Payloads GraphQL operations (Story 3-4i)
-import { useQuery, useMutation, queryOptions } from "@tanstack/react-query"
+import { useQuery, useMutation, queryOptions, keepPreviousData } from "@tanstack/react-query"
 import { graphqlClient } from "@/lib/graphql-client"
 import { gql } from "graphql-request"
 import type {
@@ -90,6 +90,11 @@ function unprocessedPayloadsQueryOptions(
       })
     },
     enabled,
+    // The other moderator lists read fresh on every visit (staleTime 0); this one now says so too.
+    staleTime: 0,
+    // Keep the page on screen while the next one loads, so the list and its pagination controls are never
+    // unmounted mid-navigation (an unmounted Next button drops keyboard focus to <body>).
+    placeholderData: keepPreviousData,
   })
 }
 

@@ -43,14 +43,15 @@ export function UnprocessedPayloadsContent() {
   const pagination = useListPaginationController<UnprocessedPayloadFilters, string | undefined>({ filterKey: graphqlFilters, initialCursor: undefined })
 
   // Query unprocessed payloads
-  const { data: payloadsData, isLoading: isLoadingPayloads, error: payloadsError, refetch: refetchPayloads } = useUnprocessedPayloadsQuery(graphqlFilters, pagination.cursor, PAGE_SIZE, authStatus === "authorized")
+  const { data: payloadsData, isLoading: isLoadingPayloads, isPlaceholderData, error: payloadsError, refetch: refetchPayloads } = useUnprocessedPayloadsQuery(graphqlFilters, pagination.cursor, PAGE_SIZE, authStatus === "authorized")
 
   // Mutations
   const { mutateAsync: reprocessPayload, isPending: isReprocessing } = useReprocessPayloadMutation()
   const { mutateAsync: deletePayload, isPending: isDeleting } = useDeleteUnprocessedPayloadMutation()
 
   const queryResult = payloadsData?.queryUnprocessedPayloads
-  useReportConnectionPageMeta(pagination, queryResult)
+  // While the previous page is still on screen as placeholder data its numbers must not be reported for the new one.
+  useReportConnectionPageMeta(pagination, isPlaceholderData ? undefined : queryResult)
   const paginationLabels = usePaginationLabels(pagination.pageIndex, pagination.totalCount, PAGE_SIZE)
 
   if (authStatus === "loading" || authStatus === "unauthenticated" || authStatus === "unauthorized") {
@@ -145,18 +146,19 @@ export function UnprocessedPayloadsContent() {
         )}
 
         {!isEmpty && (
-          <div className="mt-8 space-y-4">
+          <div className={`mt-8 space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
             {edges.map((edge) => (
               <PayloadListItem key={edge.node.id} payload={edge.node} onReprocess={handleReprocess} onDelete={handleDelete} isReprocessing={isReprocessing} isDeleting={isDeleting} />
             ))}
 
             <PaginationControls
               hasPrevPage={pagination.hasPrevPage}
-              hasNextPage={pagination.hasNextPage}
+              hasNextPage={pagination.hasNextPage && Boolean(endCursor)}
               onPrev={pagination.goToPrevPage}
               onNext={() => {
                 if (endCursor) pagination.goToNextPage(endCursor)
               }}
+              disabled={isPlaceholderData}
               labels={paginationLabels}
             />
           </div>

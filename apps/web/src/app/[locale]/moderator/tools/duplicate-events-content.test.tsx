@@ -223,8 +223,8 @@ describe('DuplicateEventsContent', () => {
       expect(screen.getByText('Event on suggestion-page-one')).toBeInTheDocument();
       expect(screen.getByText('Page 1')).toBeInTheDocument();
       expect(screen.queryByText(/total/)).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
     });
 
     it('goes forward to the last page and back, fetching each page with its own cursor', () => {
@@ -234,7 +234,7 @@ describe('DuplicateEventsContent', () => {
       expect(lastCursor()).toBe('c1');
       expect(screen.getByText('Event on suggestion-page-two')).toBeInTheDocument();
       expect(screen.getByText('Page 2')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true');
 
       fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
       expect(lastCursor()).toBeUndefined();

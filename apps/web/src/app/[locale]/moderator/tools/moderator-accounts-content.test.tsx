@@ -329,8 +329,8 @@ describe('ModeratorAccountsContent', () => {
       expect(screen.getByText('Account On Page One')).toBeInTheDocument();
       expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
       expect(screen.getByText('45 total')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
     });
 
     it('goes forward and back, fetching each page with its own cursor', () => {
@@ -340,12 +340,12 @@ describe('ModeratorAccountsContent', () => {
       expect(lastCall()[1]).toBe('c1');
       expect(screen.getByText('Account On Page Two')).toBeInTheDocument();
       expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'false');
 
       fireEvent.click(screen.getByRole('button', { name: 'Next' }));
       expect(lastCall()[1]).toBe('c2');
       expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true');
 
       fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
       expect(lastCall()[1]).toBe('c1');
@@ -354,7 +354,7 @@ describe('ModeratorAccountsContent', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
       expect(lastCall()[1]).toBeUndefined();
       expect(screen.getByText('Account On Page One')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
     });
 
     it('returns to page 1 when the search changes (BUG-019: a filter change must not append to or stay on a later page)', () => {
@@ -369,9 +369,9 @@ describe('ModeratorAccountsContent', () => {
       expect(filters.search).toBe('taylor');
       expect(cursor).toBeUndefined();
       expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
       // Next works again straight away: the reset did not leave the controller thinking there is nothing more.
-      expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
     });
   });
 });

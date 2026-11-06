@@ -144,10 +144,11 @@ export function DuplicateEventsContent() {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const pagination = useListPaginationController<typeof NO_FILTERS, string | undefined>({ filterKey: NO_FILTERS, initialCursor: undefined });
-  const { data, isLoading, error, refetch } = useQuerySuggestedEventMatches(PAGE_SIZE, pagination.cursor, authStatus === 'authorized');
+  const { data, isLoading, isPlaceholderData, error, refetch } = useQuerySuggestedEventMatches(PAGE_SIZE, pagination.cursor, authStatus === 'authorized');
   const queryResult = data?.suggestedEventMatches;
   // The connection has no totalCount, so the readout is "Page N" without a total.
-  useReportConnectionPageMeta(pagination, queryResult);
+  // While the previous page is still on screen as placeholder data its numbers must not be reported for the new one.
+  useReportConnectionPageMeta(pagination, isPlaceholderData ? undefined : queryResult);
   const paginationLabels = usePaginationLabels(pagination.pageIndex, pagination.totalCount, PAGE_SIZE);
   const { mutateAsync: resolveSuggestedEventMatch } = useResolveSuggestedEventMatchMutation();
   const { mutateAsync: undoEventMerge } = useUndoEventMergeMutation();
@@ -248,7 +249,7 @@ export function DuplicateEventsContent() {
       )}
 
       {!isEmpty && (
-        <div className="space-y-4">
+        <div className={`space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
           <div className="space-y-4">
             {edges.map((edge) => {
               const suggestion = edge.node as SuggestedMatch;
@@ -268,9 +269,10 @@ export function DuplicateEventsContent() {
           </div>
           <PaginationControls
             hasPrevPage={pagination.hasPrevPage}
-            hasNextPage={pagination.hasNextPage}
+            hasNextPage={pagination.hasNextPage && Boolean(endCursor)}
             onPrev={pagination.goToPrevPage}
             onNext={() => { if (endCursor) pagination.goToNextPage(endCursor); }}
+            disabled={isPlaceholderData}
             labels={paginationLabels}
           />
         </div>

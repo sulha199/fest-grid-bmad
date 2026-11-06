@@ -29,9 +29,10 @@ export function ModeratorAccountsContent() {
   const [isClearing, setIsClearing] = useState(false);
   const filters: ModeratorAccountProfileFilters = { search: searchTerm.trim() || undefined };
   const pagination = useListPaginationController<ModeratorAccountProfileFilters, string | undefined>({ filterKey: filters, initialCursor: undefined });
-  const { data: accountsData, isLoading: isLoadingAccounts, error: accountsError, refetch: refetchAccounts } = useQueryModeratorAccountProfiles(filters, pagination.cursor, PAGE_SIZE, authStatus === 'authorized');
+  const { data: accountsData, isLoading: isLoadingAccounts, isPlaceholderData, error: accountsError, refetch: refetchAccounts } = useQueryModeratorAccountProfiles(filters, pagination.cursor, PAGE_SIZE, authStatus === 'authorized');
   const queryResult = accountsData?.queryModeratorAccountProfiles;
-  useReportConnectionPageMeta(pagination, queryResult);
+  // While the previous page is still on screen as placeholder data its numbers must not be reported for the new one.
+  useReportConnectionPageMeta(pagination, isPlaceholderData ? undefined : queryResult);
   const paginationLabels = usePaginationLabels(pagination.pageIndex, pagination.totalCount, PAGE_SIZE);
   const { mutateAsync: setImageStorageOptIn } = useSetImageStorageOptInMutation();
   const { mutateAsync: clearAccountDefaultLocation } = useClearAccountDefaultLocationMutation();
@@ -111,7 +112,7 @@ export function ModeratorAccountsContent() {
         </div>
       )}
       {!isEmpty && (
-        <div className="space-y-4">
+        <div className={`space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
           <div className="rounded-lg border border-border divide-y divide-border">
             {edges.map((edge) => {
               const account = edge.node as any;
@@ -165,9 +166,10 @@ export function ModeratorAccountsContent() {
           </div>
           <PaginationControls
             hasPrevPage={pagination.hasPrevPage}
-            hasNextPage={pagination.hasNextPage}
+            hasNextPage={pagination.hasNextPage && Boolean(endCursor)}
             onPrev={pagination.goToPrevPage}
             onNext={() => { if (endCursor) pagination.goToNextPage(endCursor); }}
+            disabled={isPlaceholderData}
             labels={paginationLabels}
           />
         </div>

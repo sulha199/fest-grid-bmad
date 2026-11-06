@@ -57,14 +57,15 @@ export function ActorRunsContent() {
 
   const pagination = useListPaginationController<ActorRunFilters, string | undefined>({ filterKey: graphqlFilters, initialCursor: undefined });
 
-  const { data: runsData, isLoading: isLoadingRuns, error: runsError, refetch: refetchRuns } = useQueryActorRuns(
+  const { data: runsData, isLoading: isLoadingRuns, isPlaceholderData, error: runsError, refetch: refetchRuns } = useQueryActorRuns(
     graphqlFilters,
     pagination.cursor,
     PAGE_SIZE,
     authStatus === 'authorized'
   );
   const queryResult = runsData?.queryActorRuns;
-  useReportConnectionPageMeta(pagination, queryResult);
+  // While the previous page is still on screen as placeholder data its numbers must not be reported for the new one.
+  useReportConnectionPageMeta(pagination, isPlaceholderData ? undefined : queryResult);
   const paginationLabels = usePaginationLabels(pagination.pageIndex, pagination.totalCount, PAGE_SIZE);
 
   const profileOptions = Array.from(
@@ -292,7 +293,7 @@ export function ActorRunsContent() {
         )}
 
         {!isEmpty && (
-          <div className="mt-8 space-y-4">
+          <div className={`mt-8 space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
             {edges.map((edge) => {
               const run = edge.node;
               const isExpanded = expandedRuns[run.id];
@@ -367,9 +368,10 @@ export function ActorRunsContent() {
             <PaginationControls
               className="p-3"
               hasPrevPage={pagination.hasPrevPage}
-              hasNextPage={pagination.hasNextPage}
+              hasNextPage={pagination.hasNextPage && Boolean(endCursor)}
               onPrev={pagination.goToPrevPage}
               onNext={() => { if (endCursor) pagination.goToNextPage(endCursor); }}
+              disabled={isPlaceholderData}
               labels={paginationLabels}
             />
           </div>

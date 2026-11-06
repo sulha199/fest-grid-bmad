@@ -471,7 +471,7 @@ describe('ActorRunsContent', () => {
       expect(screen.getByText(/run-on-page-one/)).toBeInTheDocument();
       expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
       expect(screen.getByText('45 total')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
     });
 
     it('goes forward to the last page and back again', () => {
@@ -481,7 +481,7 @@ describe('ActorRunsContent', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Next' }));
       expect(lastCall()[1]).toBe('c2');
       expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true');
 
       fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
       expect(lastCall()[1]).toBe('c1');
@@ -501,8 +501,8 @@ describe('ActorRunsContent', () => {
       expect(filters.vendor).toBe('APIFY');
       expect(cursor).toBeUndefined();
       expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Next' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
     });
   });
 });
