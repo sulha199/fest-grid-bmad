@@ -22,7 +22,12 @@ import tseslint from "typescript-eslint";
  * invariants pass so the selector cannot drift between the two.
  */
 export const AD8_NO_HAND_WRITTEN_SOFT_DELETE_FILTER = {
-  selector: "CallExpression[callee.name='isNull'] Identifier[name='deletedAt']",
+  // A call to `isNull` (bare, `isNull(...)`, or through a namespace, `d.isNull(...)`) with `deletedAt` anywhere inside
+  // its arguments, as a property (`t.deletedAt`) or a computed key (`t['deletedAt']`, `t["deletedAt"]`).
+  // Known limit: a call through a local alias (`const nul = isNull; nul(t.deletedAt)`) is not seen; a lint selector
+  // cannot follow bindings. Code review and the AD-8 resolver tests cover that.
+  selector:
+    "CallExpression:matches([callee.name='isNull'], [callee.property.name='isNull']) :matches(Identifier[name='deletedAt'], Literal[value='deletedAt'])",
   message:
     "Do not hand-write isNull(table.deletedAt) — import activeOnly(table) from '@festgrid/graphql-select' instead (AD-8 rule 2).",
 };
