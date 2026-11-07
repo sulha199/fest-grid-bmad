@@ -23,8 +23,11 @@ vi.mock('./payload-list-item', () => ({
   PayloadListItem: ({ payload }: { payload: { id: string } }) => <div data-testid="payload-row">{payload.id}</div>,
 }));
 vi.mock('./filter-panel', () => ({
-  FilterPanel: ({ onFilterChange }: { onFilterChange: (f: { source: string }) => void }) => (
-    <button onClick={() => onFilterChange({ source: 'APIFY' })}>pick source</button>
+  FilterPanel: ({ onFilterChange, onClear }: { onFilterChange: (f: { source: string }) => void; onClear?: () => void }) => (
+    <>
+      <button onClick={() => onFilterChange({ source: 'APIFY' })}>pick source</button>
+      <button onClick={() => onClear?.()}>clear filters</button>
+    </>
   ),
 }));
 
@@ -117,6 +120,22 @@ describe('UnprocessedPayloadsContent pagination', () => {
     expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
+  });
+
+  it('"Clear" returns to page 1 even when no filter is set', () => {
+    render(<UnprocessedPayloadsContent />, { wrapper: createWrapper() });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+
+    // No filter was set, so clearing changes no filter value and the controller's filter key stays the same:
+    // without an explicit reset this left the moderator on page 3.
+    fireEvent.click(screen.getByText('clear filters'));
+
+    expect(lastCall()[1]).toBeUndefined();
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+    expect(screen.getByText('payload-on-page-one')).toBeInTheDocument();
   });
 
   it('does not refetch from the filter handler: the new filter changes the query key, which fetches by itself', () => {

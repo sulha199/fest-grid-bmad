@@ -70,6 +70,17 @@ describe("FilterPanel", () => {
     })
   })
 
+  it("calls onClear instead of onFilterChange when the owner supplies one", async () => {
+    const user = userEvent.setup()
+    const onClear = vi.fn()
+    render(<FilterPanel filters={defaultFilters} onFilterChange={mockOnFilterChange} onClear={onClear} />)
+
+    await user.click(screen.getByText("Clear all"))
+
+    expect(onClear).toHaveBeenCalledTimes(1)
+    expect(mockOnFilterChange).not.toHaveBeenCalled()
+  })
+
   it("updates sort order on selection", async () => {
     const user = userEvent.setup()
     render(<FilterPanel filters={defaultFilters} onFilterChange={mockOnFilterChange} />)

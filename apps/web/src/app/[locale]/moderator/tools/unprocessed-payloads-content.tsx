@@ -23,17 +23,19 @@ interface FilterState {
   sortOrder: "newest" | "oldest"
 }
 
+const DEFAULT_FILTERS: FilterState = {
+  source: null,
+  createdAfter: null,
+  createdBefore: null,
+  sortOrder: "newest",
+}
+
 export function UnprocessedPayloadsContent() {
   const t = useTranslations("UnprocessedPayloadsPage")
   const { status: authStatus } = useRequireModerator()
   const posthog = usePostHog()
 
-  const [filters, setFilters] = useState<FilterState>({
-    source: null,
-    createdAfter: null,
-    createdBefore: null,
-    sortOrder: "newest",
-  })
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS)
 
   const graphqlFilters: UnprocessedPayloadFilters = {
     source: filters.source,
@@ -68,6 +70,12 @@ export function UnprocessedPayloadsContent() {
     // from this handler still belongs to the OLD key (state updates after the handler returns), so it only
     // re-requested the page that was about to be replaced.
     setFilters((prev) => ({ ...prev, ...newFilters }))
+  }
+
+  const handleClearFilters = () => {
+    setFilters(DEFAULT_FILTERS)
+    // With no filter set the controller's filter key does not change, so it would not return to page 1 by itself.
+    pagination.resetToFirstPage()
   }
 
   const handleReprocess = async (payloadId: string, parserVersion: string) => {
@@ -119,7 +127,7 @@ export function UnprocessedPayloadsContent() {
           <p className="mt-2 text-muted-foreground">{t("pageDescription")}</p>
         </div>
 
-        <FilterPanel filters={filters} onFilterChange={handleFilterChange} />
+        <FilterPanel filters={filters} onFilterChange={handleFilterChange} onClear={handleClearFilters} />
 
         {payloadsError && (
           <div className="mt-8 rounded-lg border border-destructive/50 bg-destructive/10 p-4">

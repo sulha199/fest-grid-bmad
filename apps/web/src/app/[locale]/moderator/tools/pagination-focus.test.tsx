@@ -297,3 +297,46 @@ describe.each(pages)('$name: a page left empty after its rows were resolved (rea
     expect(screen.queryByText('Nothing is left on this page. Use Previous to go back.')).not.toBeInTheDocument();
   });
 });
+
+// A later page that fails to load: `data` is undefined (placeholder data only shows while a query is pending), so
+// the page has no rows although earlier pages exist. That looks exactly like the end-of-list case above, but it is
+// not one: the list must show its error and must NOT claim "Nothing is left on this page".
+describe.each(pages)('$name: a later page that fails to load (real queries)', ({ name, Component, response, firstRow }) => {
+  beforeEach(() => {
+    pending.length = 0;
+    requests.length = 0;
+    vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    vi.mocked(graphqlClient.request).mockImplementation(((arg: any, vars?: any) => {
+      const variables = arg && typeof arg === 'object' && 'variables' in arg ? arg.variables : vars;
+      const cursor: string | undefined = variables?.after ?? variables?.cursor ?? undefined;
+      requests.push(cursor);
+      if (cursor) return Promise.reject(new Error('page two is down'));
+      return new Promise((resolve) => {
+        pending.push({ cursor, resolve: () => resolve(response(cursor)) });
+      });
+    }) as never);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('shows the error, not the end-of-list notice, and Previous still works', async () => {
+    const user = userEvent.setup();
+    renderPage(Component);
+    await release(undefined);
+    await screen.findByText(firstRow);
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+
+    const headline = (enMessages as unknown as Record<string, Record<string, string>>)[PAGE_NAMESPACE[name]].errorHeadline;
+    expect(await screen.findByText(headline)).toBeInTheDocument();
+    expect(screen.queryByText('Nothing is left on this page. Use Previous to go back.')).not.toBeInTheDocument();
+    // Next has no cursor to follow, so it is unavailable; Previous goes back to the page that loaded.
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'false');
+
+    await user.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(await screen.findByText(firstRow)).toBeInTheDocument();
+  });
+});
