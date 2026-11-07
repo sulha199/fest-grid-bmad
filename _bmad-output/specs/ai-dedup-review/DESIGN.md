@@ -116,7 +116,7 @@ merge (the skill dispatches both workflows, which must exist on `master`).
    unless `--apply`. Reject two decisions touching the same event, or process sequentially. Dry-run output sets
    `dryRun: true` and omits `mergeId`.
 7. **Caps**: per-dispatch cap (10) plus a per-24h cap counted from `event_merges.performed_via = 'ai_skill'` rows **including undone ones** (the journal keeps the flag after an undo; counting only live merges would let a re-merge after an undo bypass the cap) plus `ai_skill` rejections on `event_match_candidates` (a reject writes no journal row, and undo clears the suggestion's flag); a kill-switch
-   variable that makes apply exit without writing.
+   variable that makes apply exit without writing. *Amended 2026-11-07 (FIND-120):* the per-dispatch cap counts merges only, and rejects also have their own 24 h cap of 10 (see "As built in FIND-120").
 8. **Workflows**: export sets `DATABASE_URL` and `BACKEND_PORT: '4001'` (`env.ts` requires it); the workflow writes the
    decisions input to `$RUNNER_TEMP/decisions.json`; a `run_tag` input is echoed in `run-name` and the log so the
    skill can find its run (dispatch returns no run id); decisions input is at most 65,535 chars.
