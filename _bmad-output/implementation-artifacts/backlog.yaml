@@ -2751,8 +2751,8 @@ items:
 
   FIND-124:
     {type: finding, status: backlog, created: 2026-11-07,
-     impact: latent, effort: m,
-     title: "AI dedup review: apply-side floor override, a decision kind that merges a pair the floor refuses",
+     impact: latent, effort: l,
+     title: "AI dedup review: apply-side floor override and owner-tunable caps",
      ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/dedup-review-apply.ts],
      touches: [app:backend, pkg:domain, app:infrastructure, cross:architecture],
      note: "Owner request 2026-11-07, after the attended loop offered pair 146 (name-mismatch) only Reject and Skip. Off until the owner sets DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED. Spec spec-find-124-apply-side-floor-override.md."}

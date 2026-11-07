@@ -13,91 +13,96 @@ context:
 
 ## Intent
 
-**Problem:** A moderator in the attended loop cannot merge a pair the floor refuses (pair #146 was `name-mismatch`): the apply bridge judges every accept by the floor, which was designed for the AI reviewer, while the moderator's own accept in the app has no floor. The moderator must leave the loop for Moderator Items.
+**Problem:** A moderator in the attended loop cannot merge a pair the floor refuses (pair #146 was `name-mismatch`): the apply bridge judges every accept by the floor, which was designed for the AI reviewer, while the moderator's own accept in the app has no floor. The caps (10 merges a run, 25 decisions a day) are code constants, so the owner cannot raise them as the queue grows.
 
-**Approach:** Each decision's `action` gains a third value, `accept-override`. It merges through `resolveSuggestedMatch(..., 'ACCEPT', via: 'ai_skill')` like an accept, judged on state, evidence hash, invoker and caps, with **no floor at all** (tier included, the owner's choice). It ships dark: it needs the workflow input `allow_floor_override` (visible in the run name) and, in `apply`, the owner's variable `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` of `dedup-review-live`. Separately, the three caps become **owner-tunable** (defaults unchanged), so the daily review can keep up as the queue grows without a code change. The loop option is `FIND-125`.
+**Approach:** Each decision's `action` gains a third value, `accept-override`: it merges through `resolveSuggestedMatch(..., 'ACCEPT', via: 'ai_skill')`, judged on state, evidence hash, invoker, shared event and caps, with **no floor** (tier included, the owner's choice). It ships dark behind the workflow input `allow_floor_override` (shown in the run name) and the owner variable `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`. Separately the three caps become owner variables within code-owned ceilings, defaults unchanged. The loop option and the skill's own batch sizes are `FIND-125`.
 
 ## Boundaries & Constraints
 
 **Always:**
-- A decision without `action` is an accept and an accept-only or reject-only run keeps its inputs, results and title byte for byte. `schemaVersion` stays 1.
-- **Off by default, own switch.** A decision with `action: accept-override` needs `allow_floor_override=true`: the `inputs` job and the script refuse it without. An `apply` run (dry or live) that carries `allow_floor_override=true` also needs the variable to be exactly `true` or `1` (no trimming, no case folding, unset is off), checked before any code is fetched or any read, with a fixed message that is not the `disabled` report. `validate` cannot see the variable: `eligible` is not consent. Independent of the reject switch: either may be on alone.
-- The verdict order for an override: state (`unknown-suggestion`, `not-pending`, `stale-pair`), `evidenceHash`, a claimed event (`event-already-in-run`), the per-run cap, the day cap. No floor check and no `already-high` or `low-tier` skip. An override counts like any merge: in the per-run cap and the shared day cap; it has no cap of its own.
-- **Owner-tunable caps.** In `apply` mode the per-run, day and reject caps come from the `dedup-review-live` variables `DEDUP_REVIEW_PER_RUN_CAP`, `DEDUP_REVIEW_PER_DAY_CAP` and `DEDUP_REVIEW_PER_DAY_REJECT_CAP`. Unset or empty means today's defaults (10, 25, 10). Anything else must be plain decimal digits of a positive integer within a ceiling (per run 50, the decisions file's own limit; per day 500; rejects 100), else the run refuses before any read with a fixed message, never a silent fallback. `validate` cannot see variables and judges with the defaults, so it can only be stricter than `apply`. The report's `caps` shows the values used. The ceilings and defaults are code; the owner moves only within them.
-- An override is decided like an accept: suggestion row and both event rows locked in id order, judged again under the locks, then merged. It claims its events like an accept.
-- The merge is undoable through `undoEventMerge`, and the journal row reads `performed_via = 'ai_skill'` like every AI merge; nothing marks it as an override in the database (known gap).
-- `validate` marks an override `eligible`; a dry run rolls back; only a live run reports `merged`. A result's `action` carries `accept-override`; `counts` and `caps` keep their shape (an override counts as `merged`).
+- A decision without `action` is an accept. An accept-only or reject-only run keeps its inputs, results and title byte for byte. `schemaVersion` stays 1.
+- **Override switch.** `accept-override` needs `allow_floor_override=true`. The input and the script flag `--allow-floor-override` exist in the `validate` and the `apply` jobs (so `validate` can judge it); only the variable step is apply-only, and `validate` holds no `vars.`. An `apply` run (dry or live) with the input also needs `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` exactly `true` or `1` (same function as the reject switch), checked in a workflow step before Checkout. The domain function `runDedupReviewApply` asserts the switches itself (`allowFloorOverride`, `floorOverrideEnabled`, default false), so no caller can skip them. Order of refusals: kill switch, then input flag, then variable, then caps; each a fixed message of a class `describeFailure` knows, none echoing a value. Independent of the reject switch.
+- **The judge** skips the floor only when `action === 'accept-override'` exactly; any other value gets the floor. Verdict order: state, hash, claimed event, per-run cap, day cap; no `already-high` or `low-tier` skip. The parser returns the validated action unchanged. An override counts as a merge in every cap, and has a **fixed per-run sub-cap of 10** (not tunable): an 11th override in a run is `skipped: per-run-cap`.
+- Locking: every action but `reject` locks both event rows in id order, then re-judges under the locks. An override claims its events like an accept.
+- **Owner-tunable caps.** In `apply` mode the variables `DEDUP_REVIEW_PER_RUN_CAP`, `DEDUP_REVIEW_PER_DAY_CAP` and `DEDUP_REVIEW_PER_DAY_REJECT_CAP` of `dedup-review-live` set the caps. Unset (or the empty string) is the default 10, 25, 10. Otherwise the value must match `^[1-9][0-9]*$` (ASCII, no leading zero, no whitespace) and be at most its ceiling, inclusive: per run `DEDUP_REVIEW_MAX_DECISIONS` (50), per day 200, rejects 25; else the run refuses before any read. No cross-check between the three (the smaller limit wins). A pure `resolveDedupReviewCaps(env)` does it, an exported `capsForRun(mode, env)` applies it (`validate` ignores the variables and judges with the defaults, so it may be looser or stricter than `apply`), and the library asserts the ceilings on any `caps` it receives. The `disabled` report keeps the defaults. A workflow step before Checkout checks the same values, so a bad value is refused early (the approval click is spent either way); the approver cannot see caps in the run name.
+- A merge by override is undoable with `undoEventMerge`; the journal reads `performed_via = 'ai_skill'`, nothing marks an override (known gap). `validate` marks an override `eligible`; a dry run rolls back; only a live run reports `merged`; `counts` and `caps` keep their shape.
+- **Guard.** `scripts/dedup-review-apply-guard.sh` takes a fifth argument `allow_floor_override` (`validate` passes `false` where it does not hold the input; the workflow passes the input). A result with `action == "accept-override"` while it is not `true` fails the run. Allowed actions: `accept`, `reject`, `accept-override`; `merged` needs `accept` or `accept-override`; `rejected` needs `reject`. The job summary gains `of which overrides: N`, computed from the results.
+- **The `inputs` job** allows: `accept` always; `reject` only with `allow_rejects`; `accept-override` only with `allow_floor_override`; an unknown action keeps today's behaviour (needs `allow_rejects`, then the script refuses it). Both jq checks fail closed on an error.
 - Written only through `resolveSuggestedMatch`; nothing private enters a report or summary.
+- `SKILL.md` gains one sentence: the skill never sets `allow_floor_override` (no step uses it yet), pinned by a test; the reader keeps refusing a report with `accept-override`.
 
-**Ask First:** a change to the floor, to a cap default or ceiling, to the invoker check or `schemaVersion`; a database migration (a marker in the journal needs a new `resolution_source` value).
+**Ask First:** a change to the floor, to a default, ceiling or the override sub-cap, to the invoker check or `schemaVersion`; a database migration (a journal marker needs a new `resolution_source` value).
 
-**Never:** any change to `SKILL.md`, the popup or `dedup_report.py` (`FIND-125`; the reader must keep refusing a report with the new action, which is fail closed); a floor-less path reached by any other action or flag; a write outside the shared function; a change to the export; SQL in a `.ts` string.
+**Never:** any other change to `SKILL.md`, the popup or `dedup_report.py` (`FIND-125`); a floor-less path reached by any other action or flag; a write outside the shared function; a change to the export; SQL in a `.ts` string; `override=true` in `SKILL.md`.
 
 ## I/O & Edge-Case Matrix
 
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |---|---|---|---|
-| Override, switched on | pending, hash matches, `allow_floor_override`, variable on, floor refuses (any code) | `validate` and dry run `eligible`; live `merged`, `action: accept-override`, `resolved_via = ai_skill`, resolver the invoker | N/A |
-| Any tier | `high` or `low` pair | judged like `mid`: no tier skip | N/A |
+| Override, switched on | pending, hash matches, input and variable on, floor refuses | `validate`, dry run `eligible`; live `merged`, `action: accept-override`, resolver the invoker | N/A |
+| Any tier | `high` or `low` pair | no tier skip | N/A |
 | Accept as before | no `action` or `accept` | floor applies as today | N/A |
-| Input off | no `allow_floor_override` | `inputs` job and script refuse; nothing runs | fixed message |
-| Variable off | `apply` with the input, variable not `true`/`1` | run stops before any read | fixed message; `validate` still says `eligible` |
-| Stale or gone | hash differs; not pending; event deleted | `skipped`: `stale-evidence`, `not-pending`, `stale-pair`, `unknown-suggestion` | N/A |
-| Shared event | an earlier eligible accept or override claims an event | `skipped: event-already-in-run`; a reject then an override on a shared event is allowed | N/A |
-| Caps | an 11th merge in a run; shared total 25 (defaults) | `skipped`: `per-run-cap`, `per-day-cap` | N/A |
-| Caps tuned | `apply` with `DEDUP_REVIEW_PER_RUN_CAP=20`, day 100 | 20 merges in a run allowed; report `caps` shows 20 and 100; `validate` still judges with 10 and 25 | N/A |
-| Bad cap value | `0`, `-1`, `1e3`, ` 12`, `abc`, above its ceiling | `apply` refuses before any read; unset or empty is the default | fixed message names the variable, not the value |
-| Mixed file | accepts, rejects and overrides | each judged by its own rule; caps shared as above | N/A |
+| Input off | `accept-override`, no `allow_floor_override` | `inputs` job, script and library refuse | fixed message |
+| Variable off | `apply` with the input, variable not `true`/`1` | stops before any read | fixed message; `validate` still says `eligible` |
+| Override alone, rejects off | override file, only `allow_floor_override` | passes the `inputs` job | N/A |
+| Reject alone, override off | reject file, only `allow_rejects` | passes; an override in it is refused | N/A |
+| Stale or gone | hash differs; not pending; events merged or deleted | `skipped`: `stale-evidence`, `not-pending`, `stale-pair`, `unknown-suggestion` | N/A |
+| Shared event | an earlier eligible merge claims an event | `skipped: event-already-in-run` | N/A |
+| Sub-cap | an 11th override in a run | `skipped: per-run-cap` | N/A |
+| Caps tuned | `apply` with per run 20, day 100 | 20 merges allowed; report `caps` shows 20 and 100; `validate` judges with 10 and 25 | N/A |
+| Bad cap value | `0`, `010`, `+5`, `1e3`, ` 12`, `5\n`, a fullwidth digit, above ceiling, 25 digits | `apply` refuses before any read; unset and empty are defaults; the ceiling itself is accepted | names the variable, not the value |
+| Mixed file | accepts, rejects, overrides | each judged by its rule; merges share caps | N/A |
 | Race or failure | row changes before the lock; the merge fails | `skipped: concurrent-change`; `merge-failed` | no retry |
 | Bad `action` | `Accept-Override`, `override`, `accept-override ` | input error, nothing runs | names the field |
 | Dry run, validate | `live` false | nothing persists | N/A |
-| Guard and reader | `merged` with an action other than `accept` or `accept-override`; override in a run without the input | run fails; the reader refuses a report holding `accept-override` | fixed message |
+| Guard: no input | a result with the override action, input not `true` | run fails | fixed message |
+| Guard: bad outcome | `merged` with another action, `rejected` without `reject` | run fails | fixed message |
+| Reader | a report holding `accept-override`, `merged` and `skipped` | exit 7 | fixed message |
 
 </frozen-after-approval>
 
 ## Code Map
 
-- `packages/domain/src/events/dedup-review-apply.ts` -- `DedupReviewAction`, parser, `judgeDedupReviewDecision`, options, switch helper; test file next to it (100% branches)
-- Caps: a pure `resolveDedupReviewCaps` in the domain file, read by the CLI from the three variables
-- `apps/backend/src/lib/events/dedup-review-apply.ts` -- `decideUnderLocks` (locks for an override like an accept), `processDecisions`, input type; `apps/backend/src/dedup-review-apply.ts` (CLI flag and variable read); `dedup-review-errors.ts`; tests next to each
-- `scripts/dedup-review-apply-guard.sh`, `.github/workflows/dedup-review-apply.yml` (input, `run-name`, `inputs` job, variable step, setup, descriptions), `apps/backend/src/dedup-review-workflow.test.ts`
-- `.claude/skills/moderator-dedup-review/test_dedup_report.py` -- one test only: the reader refuses a report whose result has `action: accept-override`
-- Text to amend: AD-45 (Prevents, Rules 3, 4, 6, 7, 9), AD-30 Rule 7, PRD 3.7, `project-context.md:84`, `DESIGN.md`, `7-event-dedup.md` (switch, setup step, runbook, known gaps), `event-dedup-flow.html`, workflow header comment
+- `packages/domain/src/events/dedup-review-apply.ts` (+ test, 100% branches) -- `DedupReviewAction`, parser, judge, options, `resolveDedupReviewCaps`, ceilings, override sub-cap, comments saying "accepts" now say "merges"
+- `apps/backend/src/lib/events/dedup-review-apply.ts` (+ DB test) -- `decideUnderLocks` (`!== 'reject'` locks), `processDecisions`, `DedupReviewApplyInput` fields, the library's own asserts; `apps/backend/src/dedup-review-apply.ts` (+ test: `capsForRun`, flags, `describeFailure`), `dedup-review-errors.ts`
+- `scripts/dedup-review-apply-guard.sh`, `.github/workflows/dedup-review-apply.yml`, `apps/backend/src/dedup-review-workflow.test.ts` (input count 7, run-name equality, jq strings, setup-step regex naming the new variables, guard tail with its fifth argument and the `run()` helper)
+- `.claude/skills/moderator-dedup-review/SKILL.md` (one sentence), `test_dedup_report.py` (`SkillTextTests.render` and the adjacency test for the new run-name expression, a pin that `override=true` and `allow_floor_override` never appear in any step, the reader refuses a `merged` and a `skipped` override result)
+- Text to amend: AD-45 (Prevents, Rules 3, 4, 6, 7, 9, worst cases), AD-30 Rule 7, PRD 3.7, `project-context.md:84`, `DESIGN.md`, `7-event-dedup.md` (switches, caps, setup step 5 naming all four variables, runbook: turn the variables on only for an attended session, read an override run's log by hand until `FIND-125`), `event-dedup-flow.html`, workflow header; `architecture-diagram.md` needs no change (no service added, CLAUDE.md section 4)
 
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] domain `dedup-review-apply.ts` + test -- `DedupReviewAction` gains `accept-override`; parser takes exactly `accept`, `reject` or `accept-override`; `allowFloorOverride` option and `assertDedupReviewFloorOverrideAllowed`; `isDedupReviewFloorOverrideEnabled` (exactly `true` or `1`); judge: an override skips `checkDedupReviewFloor` and follows the accept order otherwise. Every branch covered, fixtures updated
-- [ ] backend apply + DB tests -- `decideUnderLocks` locks events for an `accept` and an `accept-override`; `processDecisions` treats an override as a merge (claims events, counts `eligibleInRun`, outcome `merged`); tests: floor-refused pair merged live, each floor code, `high` and `low`, hash, stale, shared event, caps shared with accepts, dry run and `validate` persist nothing, race, mixed file
-- [ ] domain + backend CLI + errors + tests -- `resolveDedupReviewCaps(env)` (defaults, digit-only parse, ceilings, refusal that never echoes the value) used by the CLI in `apply` mode only, so `validate` keeps the defaults; `--allow-floor-override` and its variable, both refusing before the database client is imported with fixed messages (`FLOOR_OVERRIDE_DISABLED_MESSAGE`, a caps one); the lost-report error needs no change (overrides are merges)
-- [ ] guard, workflow + workflow test -- input `allow_floor_override`; the three cap variables passed to the apply job's script step only; `run-name` places ` override=true ` after any `rejects=true ` and before `tag=` only when true; the `inputs` job refuses an `accept-override` without the input (and still a `reject` without `allow_rejects`, any other action always); variable step before Checkout; script flag in the apply job only; guard accepts `accept-override` with outcome `merged` only; `validate` holds no `vars.`; setup steps and descriptions
-- [ ] `test_dedup_report.py` -- the reader refuses a report with `accept-override` (exit 7)
-- [ ] docs and board -- the amendments above with dated notes, runbook switch, setup step and known gaps (override indistinguishable from other AI merges, tier included); `FIND-124` done
+- [ ] domain + test -- the action, parser (returns the validated value; a test asserts `accept-override`), judge (floor skipped on exact equality, sub-cap, caps from `DedupReviewCaps`), `allowFloorOverride` option and asserts, the shared enabled-function for both switches, `resolveDedupReviewCaps` and its ceilings; every branch and the cap cases of the matrix
+- [ ] backend lib + DB tests -- locks for every action but `reject` (a recording-executor unit test counts the row locks per action), override as a merge, the library's switch and ceiling asserts, `DedupReviewApplyInput` fields (existing DB tests pass both flags where they use overrides); tests: each floor code, `high` and `low`, stale, shared event, sub-cap, shared caps, dry run, race, mixed file, caps below the defaults
+- [ ] backend CLI + errors + tests -- `--allow-floor-override`, `capsForRun`, refusal order, new fixed-message classes in `describeFailure` (tests like the existing one), `validate` with a bad cap variable does not refuse
+- [ ] guard, workflow + workflow test -- input in both jobs, run-name fragment `${{ inputs.allow_floor_override && 'override=true ' || '' }}` after the rejects one and before `tag=`, the `inputs` rule above (tests retained for `reject`, `Reject`, `delete`; new rows for the matrix), variable and caps step before Checkout, cap and variable env in the apply script step only, guard fifth argument and summary line, setup steps and descriptions, every existing assertion listed in the Code Map updated
+- [ ] `SKILL.md` sentence + `test_dedup_report.py` -- as in the Code Map
+- [ ] docs and board -- the amendments, dated, with the worst cases restated; `FIND-124` done
 
 **Acceptance Criteria:**
-- Given the cap variables set within their ceilings, when a live apply runs, then it uses them and reports them in `caps`; given an invalid value, when `apply` starts, then it refuses before any read; given none set, then the caps are 10, 25 and 10.
 - Given the override switched on and a pending pair the floor refuses, when a live apply runs its override with the right hash, then it is `merged` with `resolved_via = ai_skill` and an undoable journal row; a wrong hash is `skipped: stale-evidence`.
-- Given `allow_floor_override` off, when a decision carries `accept-override`, then the `inputs` job and the script refuse it; given the variable not `true` or `1`, when `apply` runs with the input (dry or live), then it stops before any read.
-- Given a file of accepts, rejects and overrides, when it runs, then each uses its own rule and the per-run and day caps are shared by every merge.
-- Given a `high` or `low` pair, when its override is judged, then it is not skipped for its tier.
-- Given a dry run or `validate`, when it ends, then nothing changed.
-- Given an override run's report, when the old reader checks it, then it refuses it.
+- Given the input off, the variable off, or the guard's argument off, when an override is dispatched, then the `inputs` job, the script, the library or the guard each refuse it.
+- Given override alone, or reject alone, when the `inputs` job runs, then each passes without the other's input.
+- Given cap variables within their ceilings, when a live apply runs, then it uses and reports them; given an invalid value, then `apply` refuses before any read, the workflow before Checkout; given none, the caps are 10, 25 and 10.
+- Given more than 10 overrides in a run, when it runs, then the 11th is `skipped: per-run-cap`.
+- Given `validate`, a dry run, or an old reader, when each sees an override, then nothing persists, nothing persists, and the reader refuses the report.
 
 ## Design Notes
 
-The moderator's own accept in the app has no floor, so this path is not more than a moderator can do by hand: it is the same merge through the AI-assisted entry, recorded under the invoker. The floor existed to bound a mistaken or manipulated AI reviewer. With an override, that bound is gone for the pairs a session chooses to override, and the "attended" rule of the skill is prose: the real bounds are the pending state, the evidence hash, the shared caps (10 a run, 25 a day), the owner's variable and the owner's approval of each run, the last two as strong as AD-45 Rule 6's limit. Worst case with the switch on: ten wrong merges in a run, 25 in a day, each undoable with `undoEventMerge`; with it off, none beyond today's.
+The moderator's own accept in the app has no floor, so this path is no more than a moderator can do by hand; it is the same merge through the AI-assisted entry, recorded under the invoker. The floor existed to bound a mistaken or manipulated AI reviewer, and it also carried `undone-before`, the veto of a moderator who undid that pair: an override drops it, which the owner accepted ("everything"). The skill's "attended" rule is prose, so the real bounds are the pending state, the hash, the caps, the owner's variable and the owner's approval of each run (the approver sees ids and flags, not caps), the last two as strong as AD-45 Rule 6's limit. Worst case with the override on: 10 floor-less merges a run and at most the day cap, each undoable; with it off, none. The runbook says to turn the override and any raised caps on only while an attended session runs: with the variable on, a prompt-injected unattended session that dispatched `allow_floor_override` would be stopped only by the owner's click, so the skill gets its default-deny sentence now.
 
-The caps are what bounds a wrong or manipulated session, so the owner raises them deliberately and in steps, within ceilings the code owns; making them variables lets the daily review keep up with a growing queue without a code change, and the same trust model as the switches applies (a token that can edit the variables defeats them, Rule 6). The skill's own batch sizes and the export `limit` are separate and stay as they are (`FIND-125`).
+Tunable caps let the owner raise merges and rejects within ceilings the code owns (a typo like 250 for 25 is refused). They help owner-run and hand-dispatched applies today; the skill's own batch sizes (`CONFIRM_MAX`, the loop's 10 pairs, the export `limit`) and `validate`'s defaults stay until `FIND-125`, so the daily review does not scale by this change alone. The reject ceiling is 25, above today's 10, so AD-45's worst case ("ten pairs a day") is restated.
 
-Lands first and dark, so there is no window in which the skill's prose is the only thing between a session and a floor-less merge: until `FIND-125` the skill cannot dispatch an override run (its title differs) and the reader refuses its report.
+Lands dark: until `FIND-125` the skill cannot dispatch an override run through its steps, and the reader refuses its report; a live override run commits its merges and the reader exits 7, so the owner reads the log by hand (runbook).
 
-Known gaps: a database row cannot tell an override from another AI merge (a marker needs an enum migration, deferred with `FIND-114`'s run id); the resolver is the moderator the invoker hash names, which is attribution, not authentication.
+Known gaps: the database cannot tell an override from another AI merge (an enum migration, deferred with `FIND-114`'s run id); the resolver is the moderator the invoker hash names (attribution, not authentication).
 
 ## Verification
 
 **Commands:**
 - `pnpm --filter @festgrid/domain test` -- expected: pass, 100% thresholds met
 - `pnpm --filter @festgrid/domain build` -- expected: pass (the backend imports the built `dist`)
-- `cd apps/backend && NODE_ENV=test npx tsx --test src/lib/events/dedup-review-apply.test.ts src/dedup-review-apply.test.ts src/dedup-review-workflow.test.ts src/lib/events/suggested-match-resolve-ratchet.test.ts` -- expected: all pass (needs a migrated database, `DATABASE_URL` and `BACKEND_PORT`)
+- `cd apps/backend && NODE_ENV=test npx tsx --test src/dedup-review-apply.test.ts src/dedup-review-workflow.test.ts` -- expected: pass (bash and jq, no database)
+- `cd apps/backend && NODE_ENV=test npx tsx --test src/lib/events/dedup-review-apply.test.ts src/lib/events/suggested-match-resolve-ratchet.test.ts` -- expected: pass (needs a migrated Postgres, `DATABASE_URL` and `BACKEND_PORT`; not runnable in the cloud sandbox, so CI is its gate)
 - `python3 -I .claude/skills/moderator-dedup-review/test_dedup_report.py` -- expected: all pass
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: exit 78 with the same failures as clean master
