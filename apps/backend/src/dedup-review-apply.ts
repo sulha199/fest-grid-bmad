@@ -1,14 +1,17 @@
 #!/usr/bin/env tsx
 /**
  * AI-assisted dedup review, apply side (`_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece B2b-1):
- * applies the reviewer's ACCEPT decisions that still hold and prints one JSON line between
+ * applies the reviewer's decisions that still hold (an accept merges; a reject, off unless `--allow-rejects`
+ * and, in `apply`, the owner's switch, records a dismissal) and prints one JSON line between
  * `DEDUP_REVIEW_APPLY_BEGIN` and `DEDUP_REVIEW_APPLY_END`.
  *
- *   tsx src/dedup-review-apply.ts --mode <validate|apply> --decisions-file <path> [--live] [--run-tag <tag>]
+ *   tsx src/dedup-review-apply.ts --mode <validate|apply> --decisions-file <path> [--live] [--run-tag <tag>] [--allow-rejects]
  *
  * Environment: `DATABASE_URL`; `DEDUP_REVIEW_INVOKER_HASH` (SHA-256 hex of the lowercased, trimmed
  * Claude account email, matched to exactly one active moderator; never an argument, so it does not
- * sit in a process list); `DEDUP_REVIEW_APPLY_DISABLED` (`1` or `true` is the kill switch).
+ * sit in a process list); `DEDUP_REVIEW_APPLY_DISABLED` (`1` or `true` is the kill switch);
+ * `DEDUP_REVIEW_REJECT_ENABLED` (`true` or `1` switches rejects on for `apply`; read in `apply` mode only,
+ * because `validate` runs where the owner's variable is not visible).
  *
  * - `validate` runs every check in a read-only snapshot and merges nothing; use a read-only role that
  *   bypasses row level security.
@@ -26,18 +29,21 @@ import { readFileSync, statSync } from 'node:fs';
 import {
   DEDUP_REVIEW_MAX_DECISIONS_BYTES,
   DEDUP_REVIEW_PER_DAY_CAP,
+  DEDUP_REVIEW_PER_DAY_REJECT_CAP,
   DEDUP_REVIEW_PER_RUN_CAP,
   DEDUP_REVIEW_APPLY_SCHEMA_VERSION,
   DedupReviewApplyInputError,
+  assertDedupReviewRejectsAllowed,
   formatDedupReviewApplyReport,
   isDedupReviewApplyDisabled,
+  isDedupReviewRejectEnabled,
   parseDedupReviewApplyOptions,
   parseDedupReviewDecisions,
   parseDedupReviewInvokerHash,
   type DedupReviewApplyOptions,
   type DedupReviewApplyReport,
 } from '@festgrid/domain/events';
-import { DedupReviewInvokerError, DedupReviewReportLostError, DedupReviewRoleError } from './lib/events/dedup-review-errors.js';
+import { DedupReviewInvokerError, DedupReviewRejectsDisabledError, DedupReviewReportLostError, DedupReviewRoleError, REJECTS_DISABLED_MESSAGE } from './lib/events/dedup-review-errors.js';
 import { describeUnexpectedFailure } from './lib/events/dedup-review-failure.js';
 
 export interface DedupReviewApplyCliArgs {
@@ -46,7 +52,7 @@ export interface DedupReviewApplyCliArgs {
 }
 
 export function parseCliArgs(argv: string[]): DedupReviewApplyCliArgs {
-  const raw: { mode?: string; runTag?: string; decisionsFile?: string; live?: boolean } = {};
+  const raw: { mode?: string; runTag?: string; decisionsFile?: string; live?: boolean; allowRejects?: boolean } = {};
   const seen = new Set<string>();
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -59,8 +65,12 @@ export function parseCliArgs(argv: string[]): DedupReviewApplyCliArgs {
       raw.live = true;
       continue;
     }
+    if (arg === '--allow-rejects') {
+      raw.allowRejects = true;
+      continue;
+    }
     if (arg !== '--mode' && arg !== '--run-tag' && arg !== '--decisions-file') {
-      throw new DedupReviewApplyInputError('Unknown argument. Usage: --mode <validate|apply> --decisions-file <path> [--live] [--run-tag <tag>]');
+      throw new DedupReviewApplyInputError('Unknown argument. Usage: --mode <validate|apply> --decisions-file <path> [--live] [--run-tag <tag>] [--allow-rejects]');
     }
     const value = argv[++i];
     if (value === undefined) {
@@ -80,7 +90,7 @@ export function parseCliArgs(argv: string[]): DedupReviewApplyCliArgs {
 /** What to print when apply fails: the typed errors' fixed messages, and for anything else only the class, the code and a fixed hint for that code. */
 export function describeFailure(err: unknown): string {
   if (err instanceof DedupReviewApplyInputError) return `Invalid input: ${err.message}`;
-  if (err instanceof DedupReviewRoleError || err instanceof DedupReviewInvokerError) return `Apply refused: ${err.message}`;
+  if (err instanceof DedupReviewRoleError || err instanceof DedupReviewInvokerError || err instanceof DedupReviewRejectsDisabledError) return `Apply refused: ${err.message}`;
   if (err instanceof DedupReviewReportLostError) return err.message;
   return describeUnexpectedFailure(err, 'Apply');
 }
@@ -114,8 +124,8 @@ async function main(): Promise<void> {
       mode: 'disabled',
       killSwitch: true,
       usedLast24h: null,
-      caps: { perRun: DEDUP_REVIEW_PER_RUN_CAP, perDay: DEDUP_REVIEW_PER_DAY_CAP },
-      counts: { eligible: 0, merged: 0, skipped: 0 },
+      caps: { perRun: DEDUP_REVIEW_PER_RUN_CAP, perDay: DEDUP_REVIEW_PER_DAY_CAP, perDayRejects: DEDUP_REVIEW_PER_DAY_REJECT_CAP },
+      counts: { eligible: 0, merged: 0, rejected: 0, skipped: 0 },
       results: [],
     });
     return;
@@ -124,15 +134,30 @@ async function main(): Promise<void> {
   const { options, decisionsFile } = parseCliArgs(process.argv.slice(2));
   const decisions = parseDedupReviewDecisions(readDecisionsFile(decisionsFile));
   const invokerHash = parseDedupReviewInvokerHash(process.env.DEDUP_REVIEW_INVOKER_HASH);
+  // Both reject checks fail before the database client is imported, like every other bad value.
+  assertDedupReviewRejectsAllowed(decisions, options.allowRejects);
+  // Read only for `apply`: `validate` cannot see the owner's variable and checks the flag alone.
+  const rejectsEnabled = options.mode === 'apply' && isDedupReviewRejectEnabled(process.env.DEDUP_REVIEW_REJECT_ENABLED);
+  if (options.mode === 'apply' && !rejectsEnabled && decisions.some((decision) => decision.action === 'reject')) {
+    throw new DedupReviewRejectsDisabledError(REJECTS_DISABLED_MESSAGE);
+  }
 
   const { db } = await import('./db/client.js');
   const { runDedupReviewApply } = await import('./lib/events/dedup-review-apply.js');
-  const report = await runDedupReviewApply(db, { decisions, invokerHash, runTag: options.runTag, mode: options.mode, live: options.live });
+  const report = await runDedupReviewApply(db, {
+    decisions,
+    invokerHash,
+    runTag: options.runTag,
+    mode: options.mode,
+    live: options.live,
+    allowRejects: options.allowRejects,
+    rejectsEnabled,
+  });
   try {
     await print(report);
   } catch {
-    // A failed write after a live commit must not read as "nothing merged": the merges are in.
-    if (report.counts.merged > 0) throw new DedupReviewReportLostError(report.counts.merged);
+    // A failed write after a live commit must not read as "nothing happened": the merges and rejects are in.
+    if (report.counts.merged > 0 || report.counts.rejected > 0) throw new DedupReviewReportLostError(report.counts.merged, report.counts.rejected);
     throw new Error('the report could not be written');
   }
 }
