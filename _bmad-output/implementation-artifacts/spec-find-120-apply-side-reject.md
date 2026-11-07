@@ -2,7 +2,8 @@
 title: 'Apply-side reject path: a decision kind that records a moderator''s reject, off until the owner switches it on (FIND-120)'
 type: 'feature'
 created: '2026-11-06'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: 'd99cdb188fb231106b992603ce2d252c06753847'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/specs/ai-dedup-review/DESIGN.md'
