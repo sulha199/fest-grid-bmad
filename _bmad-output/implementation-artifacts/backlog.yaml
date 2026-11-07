@@ -2749,6 +2749,22 @@ items:
      touches: [web:moderation, cross:process],
      note: "Deferred from: bmad-quick-dev review of spec-find-121-loop-reject-option (2026-11-07). Low: event-already-in-run and day-cap are counted over all candidates; two option tests too weak; small reader nits. 3 findings."}
 
+  FIND-124:
+    {type: finding, status: backlog, created: 2026-11-07,
+     impact: latent, effort: m,
+     title: "AI dedup review: apply-side floor override, a decision kind that merges a pair the floor refuses",
+     ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/dedup-review-apply.ts],
+     touches: [app:backend, pkg:domain, app:infrastructure, cross:architecture],
+     note: "Owner request 2026-11-07, after the attended loop offered pair 146 (name-mismatch) only Reject and Skip. Off until the owner sets DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED. Spec spec-find-124-apply-side-floor-override.md."}
+
+  FIND-125:
+    {type: finding, status: backlog, created: 2026-11-07,
+     impact: internal, effort: s,
+     title: "AI dedup review: Merge regardless of the floor option in the attended loop popup and its issue closing",
+     ref: [implementation-artifacts/deferred-work.md, .claude/skills/moderator-dedup-review/SKILL.md, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [web:moderation, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07). Popup option, decisions flag, close-decided, SKILL.md rule 7 and step 8. Needs FIND-124 first. 1 finding."}
+
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
     {type: bug, status: backlog, created: 2026-10-30,
