@@ -199,19 +199,20 @@ test('dedup-review-apply workflow (text checks)', async (t) => {
   await t.test('rejects are gated three ways: an input visible in the run name, a stricter check before approval, and the owner variable in the apply job only', () => {
     const inputsBlock = topLevelBlock(text, 'on').join('\n');
     assert.match(inputsBlock, /allow_rejects:\n(?:\s+.*\n)*?\s+type: boolean\n\s+default: false/, 'allow_rejects is a boolean that is off by default');
-    assert.strictEqual([...inputsBlock.matchAll(/^ {6}[a-z_]+:$/gm)].length, 6, 'six inputs, under the limit of ten');
+    assert.strictEqual([...inputsBlock.matchAll(/^ {6}[a-z_]+:$/gm)].length, 7, 'seven inputs, under the limit of ten');
 
     const runName = /^run-name: (.*)$/m.exec(text)?.[1] ?? '';
     const suffix = "${{ inputs.allow_rejects && 'rejects=true ' || '' }}";
-    assert.ok(runName.includes("live=${{ inputs.mode == 'apply' && inputs.live }} " + suffix + 'tag='), `rejects=true sits before the tag so a long tag cannot hide it: ${runName}`);
+    const overrideSuffix = "${{ inputs.allow_floor_override && 'override=true ' || '' }}";
+    assert.ok(runName.includes("live=${{ inputs.mode == 'apply' && inputs.live }} " + suffix + overrideSuffix + 'tag='), `rejects=true and override=true sit before the tag so a long tag cannot hide them: ${runName}`);
     assert.strictEqual(
-      runName.replace(suffix, ''),
+      runName.replace(suffix, '').replace(overrideSuffix, ''),
       "Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'apply' && inputs.live }} tag=${{ inputs.run_tag }}",
       'with the suffix empty the title is exactly the title the skill matches for an accept-only run'
     );
 
     assert.ok(jobs.inputs.includes('ALLOW_REJECTS: ${{ inputs.allow_rejects }}'));
-    assert.ok(jobs.inputs.includes('select(has("action") and .action != "accept")'), 'any action but exactly accept needs the input');
+    assert.ok(jobs.inputs.includes('select(has("action") and .action != "accept" and .action != "accept-override")'), 'any action but exactly accept or accept-override needs allow_rejects');
     assert.match(squash(jobs.inputs), /if ! other=\$\(printf '%s' "\$DECISIONS" \| jq -r .*\); then echo "::error::The decisions could not be checked for rejects\."/, 'a jq failure stops the run: the check fails closed');
     assert.ok(!jobs.inputs.includes('vars.') && !jobs.inputs.includes('secrets.'), 'the input check still uses no variable or secret');
     assert.ok(jobs.validate.includes('ALLOW_REJECTS: ${{ inputs.allow_rejects }}') && jobs.validate.includes('args+=(--allow-rejects)'));
@@ -223,12 +224,26 @@ test('dedup-review-apply workflow (text checks)', async (t) => {
     for (const name of ['setup steps 3', 'setup step 5']) {
       assert.ok(raw.includes('DEDUP_REVIEW_REJECT_ENABLED'), name);
     }
-    assert.match(raw, /secrets, of DEDUP_REVIEW_APPLY_DISABLED or of DEDUP_REVIEW_REJECT_ENABLED/, 'step 5 forbids an outer variable of the same name');
+    assert.match(raw, /secrets, of DEDUP_REVIEW_APPLY_DISABLED, DEDUP_REVIEW_REJECT_ENABLED or DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED/, 'step 5 forbids an outer variable of the same name');
+    assert.ok(!raw.toLowerCase().includes('update event_match_candidates'), 'no SQL in the workflow');
+  });
+
+  await t.test('the override is gated like rejects: an input visible in the run name in both jobs, the owner variable in the apply job only, read before any code is fetched', () => {
+    const inputsBlock = topLevelBlock(text, 'on').join('\n');
+    assert.match(inputsBlock, /allow_floor_override:\n(?:\s+.*\n)*?\s+type: boolean\n\s+default: false/, 'allow_floor_override is a boolean that is off by default');
+    assert.ok(jobs.inputs.includes('ALLOW_FLOOR_OVERRIDE: ${{ inputs.allow_floor_override }}'));
+    assert.ok(jobs.validate.includes('ALLOW_FLOOR_OVERRIDE: ${{ inputs.allow_floor_override }}') && jobs.validate.includes('args+=(--allow-floor-override)'), 'validate judges overrides, so it gets the flag');
+    assert.ok(!jobs.validate.includes('DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED') && !jobs.validate.includes('vars.'), 'validate runs where the owner variable is not visible');
+    assert.ok(jobs.apply.includes('FLOOR_OVERRIDE_ENABLED: ${{ vars.DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED }}') && jobs.apply.includes('DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED: ${{ vars.DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED }}'), 'the switch step and the script both get the variable');
+    assert.ok(jobs.apply.includes('args+=(--allow-floor-override)'));
+    const stepAt = jobs.apply.indexOf('- name: Check the floor override switch\n');
+    assert.ok(stepAt > 0 && stepAt < jobs.apply.indexOf('- name: Checkout Repository\n'), 'the switch is read before any code is fetched');
+    assert.match(squash(jobs.apply), /case "\$FLOOR_OVERRIDE_ENABLED" in true \| 1\) ;; \*\)/, 'only an explicit true or 1 switches overrides on');
     assert.ok(!raw.toLowerCase().includes('update event_match_candidates'), 'no SQL in the workflow');
   });
 
   await t.test('each script step captures the status without stopping, and then calls the guard', () => {
-    for (const [name, tail] of [['validate', 'validate false'], ['apply', 'apply "$LIVE"']] as const) {
+    for (const [name, tail] of [['validate', 'validate false "${ALLOW_FLOOR_OVERRIDE:-false}"'], ['apply', 'apply "$LIVE" "${ALLOW_FLOOR_OVERRIDE:-false}"']] as const) {
       const step = extractRunBodies(jobs[name]).find((b) => b.includes('dedup-review-apply.ts')) ?? '';
       assert.ok(step !== '' && /\brc=0\b/.test(step) && step.includes('|| rc=$?'), `${name}: the script's failure is captured with || rc=$?`);
       assert.ok(!/\bset -[a-z]*e/.test(step), `${name}: no set -e in the step`);
@@ -302,12 +317,12 @@ test('dedup-review-apply guard script', async (t) => {
   assert.strictEqual(spawnSync('jq', ['--version']).status, 0, 'jq is required to run these tests');
 
   let n = 0;
-  function run(content: string, rc: number | string, mode: string, live: string) {
+  function run(content: string, rc: number | string, mode: string, live: string, allowOverride?: string) {
     const file = join(dir, `out-${++n}.txt`);
     const summary = join(dir, `summary-${n}.md`);
     writeFileSync(file, content);
     writeFileSync(summary, '');
-    const result = spawnSync('bash', [GUARD, file, String(rc), mode, live], {
+    const result = spawnSync('bash', [GUARD, file, String(rc), mode, live, ...(allowOverride === undefined ? [] : [allowOverride])], {
       env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', GITHUB_STEP_SUMMARY: summary },
       encoding: 'utf8',
     });
@@ -451,6 +466,37 @@ test('dedup-review-apply guard script', async (t) => {
     assert.match(result.out, /::error::The report is inconsistent/);
   });
 
+  await t.test('an override: merged in a live run it counts as a merge and is shown as "of which overrides", and it is accepted only when the run allowed overrides', () => {
+    const ID_B = '22222222-2222-4222-8222-222222222222';
+    const overrideRun = reportOf({
+      counts: { eligible: 0, merged: 2, rejected: 0, skipped: 1 },
+      results: [
+        { suggestionId: ID, action: 'accept', outcome: 'merged', mergeId: MERGE_ID },
+        { suggestionId: ID_B, action: 'accept-override', outcome: 'merged', mergeId: MERGE_ID },
+        { suggestionId: '33333333-3333-4333-8333-333333333333', action: 'accept-override', outcome: 'skipped', reason: 'stale-evidence' },
+      ],
+    });
+    const ok = run(printed(overrideRun), 0, 'apply', 'true', 'true');
+    assert.strictEqual(ok.status, 0);
+    assert.match(ok.summary, /- eligible: 0, merged: 2, rejected: 0, skipped: 1/);
+    assert.match(ok.summary, /- of which overrides: 1/, 'only a merged override counts');
+    assert.ok(!ok.summary.includes(ID_B) && !ok.summary.includes(MERGE_ID), 'no id in the public summary');
+    assert.match(run(printed(reportOf()), 0, 'apply', 'true').summary, /- of which overrides: 0/, 'zero when there is none');
+    for (const allow of [undefined, 'false', '', 'yes']) {
+      const refused = run(printed(overrideRun), 0, 'apply', 'true', allow);
+      assert.strictEqual(refused.status, 1, `allow ${String(allow)}`);
+      assert.match(refused.out, /an override appears in a run that did not allow overrides/);
+    }
+    // A skipped or eligible override result is fine in a run that allowed it (the action is on every result); an outcome that does not fit is not.
+    const eligible = { ...dryRun, results: [{ suggestionId: ID, action: 'accept-override', outcome: 'eligible' }] };
+    assert.strictEqual(run(printed(eligible), 0, 'apply', 'false', 'true').status, 0);
+    assert.strictEqual(run(printed({ ...validated, results: eligible.results }), 0, 'validate', 'false', 'true').status, 0);
+    const rejectedOverride = reportOf({ counts: { eligible: 0, merged: 0, rejected: 1, skipped: 0 }, results: [{ suggestionId: ID, action: 'accept-override', outcome: 'rejected' }] });
+    assert.strictEqual(run(printed(rejectedOverride), 0, 'apply', 'true', 'true').status, 1, 'an override is never a rejected outcome');
+    const overrideInDryRun = { ...dryRun, counts: { eligible: 0, merged: 1, rejected: 0, skipped: 0 }, results: [{ suggestionId: ID, action: 'accept-override', outcome: 'merged', mergeId: MERGE_ID }] };
+    assert.strictEqual(run(printed(overrideInDryRun), 0, 'apply', 'false', 'true').status, 1, 'a dry run cannot report a merge');
+  });
+
   await t.test('a non-zero status is passed on, and a live apply says it is one transaction and where to look', () => {
     const live = run('', 1, 'apply', 'true');
     assert.strictEqual(live.status, 1);
@@ -502,7 +548,7 @@ test('dedup-review-apply workflow steps run the way GitHub runs them (bash -e, a
   const stepBody = (job: string) => extractRunBodies(jobs[job]).find((b) => b.includes('dedup-review-apply.ts')) as string;
 
   let n = 0;
-  function runStep(job: 'validate' | 'apply', opts: { rc: number; output?: string; live?: string; allowRejects?: string }) {
+  function runStep(job: 'validate' | 'apply', opts: { rc: number; output?: string; live?: string; allowRejects?: string; allowFloorOverride?: string }) {
     const script = join(dir, `step-${++n}.sh`);
     const summary = join(dir, `summary-${n}.md`);
     const calls = join(dir, `calls-${n}.txt`);
@@ -521,6 +567,7 @@ test('dedup-review-apply workflow steps run the way GitHub runs them (bash -e, a
         RUN_TAG: 'daily-1',
         LIVE: opts.live ?? 'false',
         ...(opts.allowRejects === undefined ? {} : { ALLOW_REJECTS: opts.allowRejects }),
+        ...(opts.allowFloorOverride === undefined ? {} : { ALLOW_FLOOR_OVERRIDE: opts.allowFloorOverride }),
         FAKE_RC: String(opts.rc),
         FAKE_OUTPUT: opts.output ?? '',
         FAKE_CALLS: calls,
@@ -605,15 +652,78 @@ test('dedup-review-apply workflow steps run the way GitHub runs them (bash -e, a
     for (const allow of [undefined, 'false', '']) {
       assert.strictEqual(check(decision({}), allow).status, 0, `an entry without action, allow ${String(allow)}`);
       assert.strictEqual(check(decision({ action: 'accept' }), allow).status, 0, `an explicit accept, allow ${String(allow)}`);
-      for (const action of ['reject', 'Reject', 'REJECT', 'reject ', 'delete', '', null, 5]) {
+      for (const action of ['reject', 'Reject', 'REJECT', 'reject ', 'delete', '', null, 5, 'Accept-Override', 'accept-override ']) {
         const result = check(decision({ action }), allow);
         assert.strictEqual(result.status, 1, `${JSON.stringify(action)}, allow ${String(allow)}`);
-        assert.match(result.out, /::error::A decision carries an action other than accept, which needs allow_rejects/);
+        assert.match(result.out, /::error::A decision carries an action other than accept or accept-override, which needs allow_rejects/);
       }
     }
     for (const action of ['reject', 'Reject', 'delete']) assert.strictEqual(check(decision({ action }), 'true').status, 0, `${action} with allow_rejects: the script refuses what it does not know`);
     assert.strictEqual(check(JSON.stringify({ schemaVersion: 1, decisions: ['not an object', 5, null] }), undefined).status, 0, 'entries that are not objects do not abort the check (the parser refuses them later)');
     assert.strictEqual(check(JSON.stringify({ schemaVersion: 1, decisions: [] }), undefined).status, 0);
+  });
+
+  // ---- the floor override (FIND-124): the same shape of gate as rejects, with its own input and its own owner variable ----
+  await t.test('allow_floor_override reaches the script as --allow-floor-override only when it is exactly true, in both jobs, and reaches the guard', () => {
+    for (const job of ['validate', 'apply'] as const) {
+      const output = printed(job === 'validate' ? validated : dryRun);
+      assert.ok(runStep(job, { rc: 0, output, allowFloorOverride: 'true' }).calls.includes('--allow-floor-override'), `${job}: true`);
+      for (const off of [undefined, '', 'false', 'True', '1', 'yes']) {
+        const result = runStep(job, { rc: 0, output, allowFloorOverride: off });
+        assert.ok(!result.calls.includes('--allow-floor-override'), `${job}: ${String(off)}`);
+        assert.ok(!result.calls.includes('--allow-rejects'), `${job}: the override flag is not the reject flag`);
+      }
+      // The guard's fifth argument carries the input: a report with an override result passes the run that allowed it and fails the one that did not.
+      const overrideReport = job === 'validate' ? { ...validated, results: [{ suggestionId: ID, action: 'accept-override', outcome: 'eligible' }] } : { ...dryRun, results: [{ suggestionId: ID, action: 'accept-override', outcome: 'eligible' }] };
+      assert.strictEqual(runStep(job, { rc: 0, output: printed(overrideReport), allowFloorOverride: 'true' }).status, 0, `${job}: allowed`);
+      const refused = runStep(job, { rc: 0, output: printed(overrideReport) });
+      assert.strictEqual(refused.status, 1, `${job}: not allowed`);
+      assert.match(refused.out, /an override appears in a run that did not allow overrides/);
+    }
+  });
+
+  await t.test('the floor override switch step: a run that allows overrides needs its own owner variable to be exactly true or 1; the reject variable does not stand in', () => {
+    const body = extractRunBodies(jobs.apply).find((b) => b.includes('FLOOR_OVERRIDE_ENABLED') && b.includes('case')) as string;
+    assert.ok(body, 'the switch step exists');
+    for (const on of ['true', '1']) assert.strictEqual(runBody(body, { ALLOW_FLOOR_OVERRIDE: 'true', FLOOR_OVERRIDE_ENABLED: on }).status, 0, on);
+    for (const off of ['', 'false', '0', 'yes', 'on', 'TRUE', 'tru', ' true']) {
+      const result = runBody(body, { ALLOW_FLOOR_OVERRIDE: 'true', FLOOR_OVERRIDE_ENABLED: off, REJECT_ENABLED: 'true' });
+      assert.strictEqual(result.status, 1, JSON.stringify(off));
+      assert.match(result.out, /::error::The floor override is switched off: the variable DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED/);
+    }
+    for (const allow of ['false', '', 'banana']) assert.strictEqual(runBody(body, { ALLOW_FLOOR_OVERRIDE: allow, FLOOR_OVERRIDE_ENABLED: '' }).status, 0, `allow ${allow}`);
+    assert.strictEqual(runBody(body, { FLOOR_OVERRIDE_ENABLED: '' }).status, 0, 'allow_floor_override unset');
+  });
+
+  await t.test('the inputs check: an accept-override needs allow_floor_override whatever allow_rejects says, and override alone or reject alone each pass without the other input', () => {
+    const body = extractRunBodies(jobs.inputs).find((b) => b.includes('decisions must be JSON')) as string;
+    const HASH = 'a'.repeat(64);
+    const decisions = (...actions: unknown[]) => JSON.stringify({ schemaVersion: 1, decisions: actions.map((action) => ({ suggestionId: ID, evidenceHash: HASH, reasons: [], action })) });
+    const check = (ds: string, allowRejects: string | undefined, allowOverride: string | undefined) =>
+      runBody(body, {
+        MODE: 'apply', LIVE: 'true', INVOKER_HASH: HASH, RUN_TAG: 'daily-1', DECISIONS: ds,
+        ...(allowRejects === undefined ? {} : { ALLOW_REJECTS: allowRejects }),
+        ...(allowOverride === undefined ? {} : { ALLOW_FLOOR_OVERRIDE: allowOverride }),
+      });
+
+    // Override alone (rejects off): passes with its input, fails without.
+    assert.strictEqual(check(decisions('accept-override'), undefined, 'true').status, 0, 'override alone, rejects off');
+    for (const off of [undefined, 'false', '', 'True']) {
+      const result = check(decisions('accept-override'), undefined, off);
+      assert.strictEqual(result.status, 1, `override without its input: ${String(off)}`);
+      assert.match(result.out, /::error::A decision carries the action accept-override, which needs allow_floor_override/);
+    }
+    // The reject input does not stand in for the override input.
+    assert.strictEqual(check(decisions('accept-override'), 'true', undefined).status, 1, 'allow_rejects alone does not allow an override');
+    // Reject alone (override off): passes with its input, an override in the same file does not.
+    assert.strictEqual(check(decisions('reject'), 'true', undefined).status, 0, 'reject alone, override off');
+    assert.strictEqual(check(decisions('reject', 'accept-override'), 'true', undefined).status, 1, 'a file with both needs both inputs');
+    assert.strictEqual(check(decisions('reject', 'accept-override'), undefined, 'true').status, 1, 'and the reject still needs its own');
+    assert.strictEqual(check(decisions('reject', 'accept-override', 'accept'), 'true', 'true').status, 0, 'both inputs allow a mixed file');
+    // An unknown action keeps today's behaviour: allow_rejects lets it through to the script, which refuses it.
+    assert.strictEqual(check(decisions('delete'), 'true', undefined).status, 0);
+    // Entries that are not objects do not abort either check.
+    assert.strictEqual(check(JSON.stringify({ schemaVersion: 1, decisions: ['x', 5, null] }), undefined, undefined).status, 0);
   });
 });
 
