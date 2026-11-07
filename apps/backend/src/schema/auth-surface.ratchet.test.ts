@@ -3,7 +3,7 @@ import * as assert from 'node:assert';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import ts from 'typescript';
-import { parse, Kind } from 'graphql';
+import { parse, Kind, type FieldDefinitionNode, type TypeNode } from 'graphql';
 
 // AD-7 drift guard: the authorization surface of the GraphQL API.
 //
@@ -32,6 +32,9 @@ import { parse, Kind } from 'graphql';
 //   4. No resolver re-implements the check by reading `context.user` itself (AD-7 Rule 3), apart from
 //      the entries in HAND_ROLLED_USER_READS, and no argument or input field lets the client name the
 //      acting user (AD-7 Rule 1).
+//   5. A field on PUBLIC_ROOT_FIELDS has no session, so nothing reachable from its return type may name a
+//      user (`ownerUserId`, `createdByUserId`, ...): a caller who is not signed in must not learn who owns
+//      something. `Query.widgetById` returned `ownerUserId` until it moved to `PublicWidget`.
 //
 // What it does NOT prove: a full control-flow analysis (it reads statement shapes: a guard hidden in a
 // helper function it cannot see through, or an exception thrown by a call before the guard, is not
@@ -183,6 +186,44 @@ function findClientSuppliedIdentityFields(): string[] {
         if (CLIENT_SUPPLIED_IDENTITY.test(field.name.value)) found.push(`input ${def.name.value}.${field.name.value}`);
       }
     }
+  }
+  return found.sort();
+}
+
+/** A field that identifies a person: `userId`, `ownerUserId`, `createdByUserId`, `voter_id`, ... (any suffix). */
+const USER_IDENTIFIER_FIELD = /(user|owner|actor|caller|author|moderator|reporter|voter)_?id$/i;
+
+/**
+ * Every field reachable from the return type of each given Query field whose name identifies a user, as
+ * "Query.widgetById -> Widget.ownerUserId". Walks object, interface and union types.
+ */
+function findUserIdentifiersReachableFrom(rootFields: string[], document = readSchemaDocument()): string[] {
+  const fieldsByType = new Map<string, readonly FieldDefinitionNode[]>();
+  const unionMembers = new Map<string, string[]>();
+  for (const def of document.definitions) {
+    if (def.kind === Kind.OBJECT_TYPE_DEFINITION || def.kind === Kind.OBJECT_TYPE_EXTENSION || def.kind === Kind.INTERFACE_TYPE_DEFINITION) {
+      fieldsByType.set(def.name.value, [...(fieldsByType.get(def.name.value) ?? []), ...(def.fields ?? [])]);
+    }
+    if (def.kind === Kind.UNION_TYPE_DEFINITION) unionMembers.set(def.name.value, (def.types ?? []).map((t) => t.name.value));
+  }
+  const namedType = (t: TypeNode): string => (t.kind === Kind.NAMED_TYPE ? t.name.value : namedType(t.type));
+
+  const found: string[] = [];
+  for (const key of rootFields) {
+    const [root, name] = key.split('.');
+    const field = fieldsByType.get(root)?.find((f) => f.name.value === name);
+    if (!field) continue;
+    const seen = new Set<string>();
+    const walk = (typeName: string) => {
+      if (seen.has(typeName)) return;
+      seen.add(typeName);
+      for (const member of unionMembers.get(typeName) ?? []) walk(member);
+      for (const f of fieldsByType.get(typeName) ?? []) {
+        if (USER_IDENTIFIER_FIELD.test(f.name.value)) found.push(`${key} -> ${typeName}.${f.name.value}`);
+        walk(namedType(f.type));
+      }
+    };
+    walk(namedType(field.type));
   }
   return found.sort();
 }
@@ -505,6 +546,31 @@ test('AD-7 ratchet detector: what counts as an up-front guard', async (t) => {
   }
 });
 
+test('AD-7 ratchet detector: user identifiers reachable from a return type', () => {
+  const schema = parse(`
+    type Owner { id: ID! name: String }
+    type Thing { id: ID! ownerUserId: ID! owner: Owner }
+    type Safe { id: ID! name: String nested: Inner }
+    type Inner { label: String createdByUserId: ID }
+    type Clean { id: ID! accountId: ID! }
+    union Either = Thing | Clean
+    type Query {
+      thing: Thing
+      safe: Safe
+      clean: [Clean!]!
+      either: Either
+      loop: Loop
+    }
+    type Loop { self: Loop voterId: ID }
+  `);
+  const probe = (field: string) => findUserIdentifiersReachableFrom([`Query.${field}`], schema);
+  assert.deepStrictEqual(probe('thing'), ['Query.thing -> Thing.ownerUserId']);
+  assert.deepStrictEqual(probe('safe'), ['Query.safe -> Inner.createdByUserId'], 'found through a nested object type');
+  assert.deepStrictEqual(probe('clean'), [], 'accountId is a social media account, not a person');
+  assert.deepStrictEqual(probe('either'), ['Query.either -> Thing.ownerUserId'], 'found through a union member');
+  assert.deepStrictEqual(probe('loop'), ['Query.loop -> Loop.voterId'], 'a self-referencing type terminates');
+});
+
 test('AD-7 authorization-surface ratchet', async (t) => {
   const schemaFields = readSchemaRootFields();
   const sf = parseSource(resolversPath);
@@ -602,6 +668,13 @@ test('AD-7 authorization-surface ratchet', async (t) => {
 
     const stale = Object.keys(HAND_ROLLED_USER_READS).filter((hit) => !actual.includes(hit));
     none(stale, 'HAND_ROLLED_USER_READS lists a read that no longer exists (remove the entry):');
+  });
+
+  await t.test('nothing reachable from a public field names a user (a caller with no session must not learn who owns what)', () => {
+    none(
+      findUserIdentifiersReachableFrom(Object.keys(PUBLIC_ROOT_FIELDS).filter((key) => key.startsWith('Query.'))),
+      'Public root field returns a type that carries a user identifier. Return a public type without it (see PublicWidget), or argue the exception in review:',
+    );
   });
 
   await t.test('no root argument or input field lets the client name the acting user (AD-7 Rule 1)', () => {

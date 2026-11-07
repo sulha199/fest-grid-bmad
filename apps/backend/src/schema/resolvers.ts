@@ -3399,9 +3399,13 @@ export const resolvers: Resolvers = {
       const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
-    widgetById: async (_, { id }, context) => {
-      const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), activeOnly(widgets)));
-      return (row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null);
+    // Public (Story 6.5a AC6): reads only the columns `PublicWidget` exposes, so the owner never leaves the database.
+    widgetById: async (_, { id }) => {
+      const [row] = await db
+        .select({ id: widgets.id, filters: widgets.filters, displayMode: widgets.displayMode, theme: widgets.theme, createdAt: widgets.createdAt })
+        .from(widgets)
+        .where(and(eq(widgets.id, id), activeOnly(widgets)));
+      return row ? { ...row, createdAt: row.createdAt.toISOString() } : null;
     },
     embedDomainsForWidget: async (_, { widgetId }, context) => {
       const authUser = requireAuth(context);
@@ -4834,6 +4838,11 @@ export const resolvers: Resolvers = {
     expression: (parent) => resolveStoredFilter(parent.filters).expression as FilterNode,
     createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
+  },
+  PublicWidget: {
+    filters: (parent) => resolveStoredFilter(parent.filters).flatFilter as EventFilter | null,
+    expression: (parent) => resolveStoredFilter(parent.filters).expression as FilterNode,
+    createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
   },
   EmbedDomain: {
     createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,

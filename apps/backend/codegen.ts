@@ -20,6 +20,7 @@ const config: CodegenConfig = {
           Event: '../lib/graphql-mappers.js#EventParent',
           Report: '../lib/graphql-mappers.js#ReportParent',
           Widget: '../lib/graphql-mappers.js#WidgetParent',
+          PublicWidget: '../lib/graphql-mappers.js#PublicWidgetParent',
           AIEventFilter: '../lib/graphql-mappers.js#AIEventFilterParent',
           AccountVote: '../lib/graphql-mappers.js#AccountVoteParent',
           EmbedDomain: '../lib/graphql-mappers.js#EmbedDomainParent',

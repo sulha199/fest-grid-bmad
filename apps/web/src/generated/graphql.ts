@@ -1079,6 +1079,16 @@ export type ProposedScheduleCorrectionInput = {
   title?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type PublicWidget = {
+  __typename?: 'PublicWidget';
+  createdAt: Scalars['String']['output'];
+  displayMode: WidgetDisplayMode;
+  expression: FilterNode;
+  filters?: Maybe<EventFilter>;
+  id: Scalars['ID']['output'];
+  theme: WidgetTheme;
+};
+
 export type Query = {
   __typename?: 'Query';
   addressAutocomplete: Array<AddressSuggestion>;
@@ -1139,7 +1149,7 @@ export type Query = {
   suggestedEventMatches: SuggestedEventMatchConnection;
   voteRegionBreakdown: Array<RegionVoteBucket>;
   votedAccountSuggestions: Array<RankedAccountVote>;
-  widgetById?: Maybe<Widget>;
+  widgetById?: Maybe<PublicWidget>;
 };
 
 
@@ -2430,7 +2440,7 @@ export type WidgetByIdQueryVariables = Exact<{
 }>;
 
 
-export type WidgetByIdQuery = { widgetById: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } | null };
+export type WidgetByIdQuery = { widgetById: { id: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } | null };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -5719,7 +5729,6 @@ export const WidgetByIdDocument = new TypedDocumentString(`
     query widgetById($id: ID!) {
   widgetById(id: $id) {
     id
-    ownerUserId
     filters {
       accountId
       types
