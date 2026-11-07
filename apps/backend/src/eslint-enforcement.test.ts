@@ -42,6 +42,39 @@ test('AD-8 rule 2 lint enforcement (Story 0.22)', async (t) => {
     assert.strictEqual(violations.length, 0);
   });
 
+  // The same filter spelled another way is still a hand-written soft-delete filter. These two slipped past the
+  // first selector (it matched only a bare `isNull(...)` call and only an Identifier named deletedAt).
+  const imports = `import { isNull, and, eq } from 'drizzle-orm';\nimport * as d from 'drizzle-orm';\nimport { favorites } from '@festgrid/database';\n`;
+  const FLAGGED_SPELLINGS: Record<string, string> = {
+    'a member call, d.isNull(table.deletedAt)': `const w = d.isNull(favorites.deletedAt);`,
+    "a computed column, isNull(table['deletedAt'])": `const w = isNull(favorites['deletedAt']);`,
+    'a computed column with double quotes': `const w = isNull(favorites["deletedAt"]);`,
+    "both at once, d.isNull(table['deletedAt'])": `const w = d.isNull(favorites['deletedAt']);`,
+    'inside and(...)': `const w = and(eq(favorites.eventId, 'e'), isNull(favorites.deletedAt));`,
+  };
+  for (const [name, code] of Object.entries(FLAGGED_SPELLINGS)) {
+    await t.test(`flags ${name}`, async () => {
+      const results = await eslint.lintText(imports + code + '\n', { filePath: fixturePath });
+      const violations = results[0].messages.filter(m => m.ruleId === 'no-restricted-syntax');
+      assert.strictEqual(violations.length, 1, `expected one AD-8 violation for: ${code}`);
+      assert.strictEqual(violations[0].severity, 2);
+    });
+  }
+
+  const NOT_FLAGGED_SPELLINGS: Record<string, string> = {
+    'd.isNull on another column': `const w = d.isNull(favorites.eventId);`,
+    "isNull on another computed column": `const w = isNull(favorites['eventId']);`,
+    'isNotNull(table.deletedAt), the moderator view of removed rows': `const w = d.isNotNull(favorites.deletedAt);`,
+    "a deletedAt string outside isNull": `const label = 'deletedAt'; const w = eq(favorites.eventId, label);`,
+  };
+  for (const [name, code] of Object.entries(NOT_FLAGGED_SPELLINGS)) {
+    await t.test(`does not flag ${name}`, async () => {
+      const results = await eslint.lintText(imports + code + '\n', { filePath: fixturePath });
+      const violations = results[0].messages.filter(m => m.ruleId === 'no-restricted-syntax');
+      assert.strictEqual(violations.length, 0, `unexpected AD-8 violation for: ${code}`);
+    });
+  }
+
   await t.test('cannot be silenced with an inline eslint-disable comment', async () => {
     const silenced = `import { isNull } from 'drizzle-orm';\nimport { favorites } from '@festgrid/database';\n// eslint-disable-next-line no-restricted-syntax\nconst w = isNull(favorites.deletedAt);\n`;
     const results = await eslint.lintText(silenced, { filePath: fixturePath });
