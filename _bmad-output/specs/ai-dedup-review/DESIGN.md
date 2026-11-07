@@ -22,7 +22,9 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
 ## 2. Decisions already made
 
 - Decider is the cloud Claude session; Actions never runs an LLM (a later option: `claude-code-action`).
-- v1 auto-**ACCEPT** only. Never auto-reject. Everything else is escalated.
+- v1 auto-**ACCEPT** only. Never auto-reject. Everything else is escalated. *Amended 2026-11-07 (FIND-120):* the daily AI
+  review still never rejects; the apply bridge can record a moderator's reject, off until the owner switches it on (see
+  "As built in FIND-120").
 - Shadow mode is the workflow's `validate` mode: every check, no merge, a read-only role, no approval. `apply` (a dry
   run unless `live` is passed explicitly) uses the write credential, so it waits for the owner's approval in the
   `dedup-review-live` environment on every run. (The first draft called the dry run the shadow mode; the two
@@ -56,6 +58,8 @@ GitHub Actions is only the DB bridge (it already holds the DB secrets); the clou
   with no `@` mentions. `review-insights` trusts labels only, never comment text (anyone can comment).
 - Event names, locations and links are untrusted text (prompt injection). The LLM must never widen what apply
   does: apply recomputes the evidence server-side and enforces a deterministic floor; the LLM only narrows.
+  *Amended 2026-11-07 (FIND-120):* a reject has no floor (state, hash, invoker and caps only), so for a reject the bounds are
+  the pending state, the caps, the owner's variable and the owner's approval of each run.
 - The skill dispatches workflows with `ref=master` only. The dedup secrets live in a dedicated GitHub
   environment (e.g. `dedup-review`) whose deployment branches are limited to `master`, so a pushed branch cannot
   run edited code against the secrets. (Environment settings were not verified; the owner configures them.)
@@ -82,7 +86,8 @@ merge (the skill dispatches both workflows, which must exist on `master`).
 1. **Contract in `packages/domain/src/events/`**: decision validator, cap, evidence hash, with 100% tests (project-context
    Testing Rules). Only DB glue stays in `apps/backend`. AJV is a backend dependency; hand-validate in domain or keep
    the AJV schema in backend. Decisions contain ACCEPT entries only (`{suggestionId, evidenceHash, reasons[]}`);
-   escalations never reach apply. `additionalProperties: false`, uuid format, unique suggestion ids, `maxItems`,
+   escalations never reach apply. *Amended 2026-11-07 (FIND-120):* each decision gains an optional `action`, exactly `accept`
+   (default) or `reject`; escalations still never reach apply. `additionalProperties: false`, uuid format, unique suggestion ids, `maxItems`,
    `maxLength` on text. The LLM's field is `reasons` (not `signals`, which is export evidence).
 2. **Evidence hash, not `updatedAt`**: nothing writes `events.updatedAt` on enrichment or merge (`timestamps` is
    `defaultNow()` only). Hash the canonical evidence the LLM saw: names, location, links, detail level, `deletedAt`,
@@ -111,7 +116,7 @@ merge (the skill dispatches both workflows, which must exist on `master`).
    unless `--apply`. Reject two decisions touching the same event, or process sequentially. Dry-run output sets
    `dryRun: true` and omits `mergeId`.
 7. **Caps**: per-dispatch cap (10) plus a per-24h cap counted from `event_merges.performed_via = 'ai_skill'` rows **including undone ones** (the journal keeps the flag after an undo; counting only live merges would let a re-merge after an undo bypass the cap) plus `ai_skill` rejections on `event_match_candidates` (a reject writes no journal row, and undo clears the suggestion's flag); a kill-switch
-   variable that makes apply exit without writing.
+   variable that makes apply exit without writing. *Amended 2026-11-07 (FIND-120):* the per-dispatch cap counts merges only, and rejects also have their own 24 h cap of 10 (see "As built in FIND-120").
 8. **Workflows**: export sets `DATABASE_URL` and `BACKEND_PORT: '4001'` (`env.ts` requires it); the workflow writes the
    decisions input to `$RUNNER_TEMP/decisions.json`; a `run_tag` input is echoed in `run-name` and the log so the
    skill can find its run (dispatch returns no run id); decisions input is at most 65,535 chars.
@@ -122,7 +127,7 @@ merge (the skill dispatches both workflows, which must exist on `master`).
    transaction. Apply (B2): the **owner's suggestion is to reuse the DB user the migration job uses**, which is
    `secrets.DATABASE_URL` in the `production` environment (the table owner, bypasses RLS, can also run DDL). It is
    acceptable for v1 because the protections sit elsewhere: the dedicated `dedup-review` environment limited to `master`,
-   ACCEPT-only decisions, the per-run and per-day caps and the kill switch. It means copying that secret into the
+   ACCEPT-only decisions (*amended 2026-11-07, FIND-120: rejects are possible, off by default*), the per-run and per-day caps and the kill switch. It means copying that secret into the
    `dedup-review` environment (or accepting the `production` environment's protection rules). A narrow role stays the
    better long-term option and costs a role, grants on about nine tables, `BYPASSRLS` and a secret. B2 also gets two modes:
    `validate` (default; runs every check on the read-only secret and runs no merge) and `apply` (the write secret), so
@@ -217,13 +222,50 @@ the pairs the reviewer escalated, which `recentlyResolved` could not.
 - **What it may merge.** Only a pair `validate` calls `eligible` on a fresh export (the escalated pairs among the oldest 10 pending
   ones return because the first export sends no `skip_ids`; a pair that is skipped or refused leads the next export again, so a
   second batch sends the ids already shown): the floor, the hash check and the caps are the apply side's and did not change. A floor-refused pair is listed with
-  its code and issue number; without a reject path it can only be skipped, so it is decided in the app.
+  its code and issue number; without a reject path it can only be skipped, so it is decided in the app (*2026-11-07: the apply-side path exists since FIND-120, off; the loop still offers no reject until FIND-121*).
 - **Invoker.** The session's account email, as always; the owner approves the run once per batch.
 - **Closing the issue.** The apply path records the Accept as an AI-assisted merge, so `settle` would class it as the reviewer's and
   add no label. `close-decided` closes each merged pair's issue at once, from the validated apply report, with the fixed comment and
   `outcome:accepted`, because the moderator in front of the prompt made the decision.
 - **Deferred.** A reject in the loop needs an apply-side reject path and an amendment of AD-45 Rule 3 (`deferred-work.md`,
-  2026-11-06).
+  2026-11-06). *Update 2026-11-07:* the apply-side path is FIND-120 (below); the loop's Reject option is FIND-121.
+
+*As built in FIND-120 (2026-11-07):* an apply-side reject path, shipped dark.
+
+- **What it does.** Each apply decision has an optional `action`: exactly `accept` (default) or `reject`. A reject is judged on
+  the pair's state, the evidence hash, the invoker and the caps, with no floor, except that a `high`-tier pair is skipped
+  `already-high`. It is recorded by `resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')` under the invoker moderator:
+  `status = rejected`, `resolved_via = ai_skill`, no `event_merges` row, events untouched. It locks the suggestion row only and
+  is judged again under that lock. `validate` skips it `event-already-in-run` when an earlier accept in the file claimed one of
+  its events (live reports `stale-pair` or `stale-evidence` after that merge).
+- **Gates.** The workflow input `allow_rejects` (boolean, default false; the run name gets `rejects=true ` before `tag=` only
+  when true; the `inputs` job refuses any `action` that is not exactly `accept` without it; the script needs `--allow-rejects`).
+  For `apply`, dry or live, with `allow_rejects` true, the `dedup-review-live` variable `DEDUP_REVIEW_REJECT_ENABLED` must be
+  exactly `true` or `1` (unset = off; read in the apply job before checkout and again by the script; no repository- or
+  org-level variable of that name). `validate` runs in another environment, cannot see it and checks only `allow_rejects`, so
+  it may say `eligible` while apply refuses: `eligible` is not consent. The approval click is already spent when the variable
+  check refuses.
+- **Caps.** The per-run cap of 10 counts merges only. The shared 25-per-24h cap counts merges (undone ones included) plus AI
+  rejections. Rejects also have their own cap of 10 per 24 h, counted from the suggestion rows (`status = 'rejected' and
+  resolved_via = 'ai_skill'`), so an owner reopening one removes it from the count. Both day checks report `per-day-cap`; a
+  failed reject reuses `merge-failed`.
+- **Report.** Results carry `action`; `counts` gains `rejected`; `caps` gains `perDayRejects`; only a live run reports
+  `rejected`. The guard script and the skill's reader (`dedup_report.py` `validate_apply`, `apply --expect-reject-ids`,
+  `decisions --reject`) check this. `schemaVersion` stays 1 (writer, guard, reader and workflow ship together).
+- **Recovery.** A reject is not undoable in the app (a moderator's own reject is the same). List them with `status = 'rejected'
+  and resolved_via = 'ai_skill'`, newest `resolved_at` first; a lost report after a live commit is checked by that listing as
+  well as `event_merges`. Only the owner reopens one, by the SQL in the runbook (`docs/infrastructure/7-event-dedup.md`), never
+  in code.
+- **Bounds.** The hash and state checks keep a reject on current evidence; they do not stop a malicious decision, since anyone
+  who can read the export can compute a hash. The bounds are the pending state, the caps, the owner's variable and the owner's
+  approval of each run; the last two are only as strong as AD-45 Rule 6's limit. Worst case with the switch on: ten pairs a day
+  hidden from every moderator, reopened only by the owner's SQL; with it off, none.
+- **Unchanged.** The daily AI review still never rejects, `SKILL.md` rule 7 stands, and the attended loop (FIND-119) offers no
+  reject. The loop's Reject option is FIND-121, and the owner turns the variable on together with it. Until then the skill
+  cannot dispatch a reject run (its run title differs) and an old reader refuses a `rejected` outcome (fail closed).
+- **Known gaps.** A reject a person chooses in the loop will read as `reviewer` in the export (`resolved_via = ai_skill`) and
+  earn no `outcome:` label (FIND-121); the resolver recorded is the moderator the invoker hash names, which is attribution, not
+  authentication; `reasons` are dropped and the run id is not stored (`FIND-114`).
 
 ## 7. Facts verified while reviewing
 

@@ -4,7 +4,9 @@ import { eventMatchCandidates, eventMerges, events, users } from '@festgrid/data
 import {
   DEDUP_REVIEW_APPLY_SCHEMA_VERSION,
   DEDUP_REVIEW_PER_DAY_CAP,
+  DEDUP_REVIEW_PER_DAY_REJECT_CAP,
   DEDUP_REVIEW_PER_RUN_CAP,
+  assertDedupReviewRejectsAllowed,
   countDedupReviewResults,
   judgeDedupReviewDecision,
   type DedupReviewApplyReport,
@@ -16,7 +18,7 @@ import {
   type DedupReviewSkipReason,
 } from '@festgrid/domain/events';
 import type { db as appDb } from '../../db/client.js';
-import { DedupReviewInvokerError } from './dedup-review-errors.js';
+import { DedupReviewInvokerError, DedupReviewRejectsDisabledError, REJECTS_DISABLED_MESSAGE } from './dedup-review-errors.js';
 import { assertRoleBypassesRls, buildDedupReviewPair, runInReadOnlyTransaction, runInWriteTransaction } from './dedup-review-export.js';
 import { evaluateBacklogRow } from './drain-match-backlog.js';
 import { EventMergeInvalidStateError } from './merge-events.js';
@@ -26,10 +28,11 @@ import type { DbExecutor } from './set-event-primary-post.js';
 /**
  * AI-assisted dedup review, apply side (`_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece B2b-1).
  *
- * Takes the reviewer's ACCEPT decisions and applies the ones that still hold. Every merge goes
- * through `resolveSuggestedMatch()` with `via: 'ai_skill'`, the function the moderator's own
- * accept uses, so the checks, the row lock and the journal are the same. This module takes an
- * executor and never imports the database client.
+ * Takes the reviewer's decisions and applies the ones that still hold: an ACCEPT merges, a REJECT (off
+ * unless `allowRejects` and, in `apply`, `rejectsEnabled`, FIND-120) records a dismissal. Both go through
+ * `resolveSuggestedMatch()` with `via: 'ai_skill'`, the function the moderator's own accept and reject
+ * use, so the checks, the row lock and the journal are the same. This module takes an executor and
+ * never imports the database client.
  *
  * Three modes, one decision order (the domain's `judgeDedupReviewDecision`):
  * - `validate`: one `REPEATABLE READ, READ ONLY` snapshot, no merge. `eligible` is a verdict before
@@ -69,7 +72,8 @@ export async function resolveInvokerUserId(executor: DbExecutor, invokerHash: st
  * How many AI decisions the last 24 hours (the database's clock) already hold: merges the reviewer
  * made, undone ones included (the journal keeps the flag after an undo, so counting only live merges
  * would let a re-merge after an undo bypass the cap), plus the suggestions it rejected (a reject
- * writes no journal row, and an undo clears the suggestion's flag, so the two sets do not overlap).
+ * writes no journal row, and an undo clears the suggestion's flag, so the two sets rarely overlap: a pair merged,
+ * undone and then rejected has a journal row and a rejected row, and counts twice, which errs on the side of the cap).
  */
 export async function countAiActionsLast24h(executor: DbExecutor): Promise<number> {
   const since = sql`now() - interval '24 hours'`;
@@ -82,6 +86,18 @@ export async function countAiActionsLast24h(executor: DbExecutor): Promise<numbe
     .from(eventMatchCandidates)
     .where(and(eq(eventMatchCandidates.status, 'rejected'), eq(eventMatchCandidates.resolvedVia, 'ai_skill'), sql`${eventMatchCandidates.resolvedAt} >= ${since}`));
   return Number(merges) + Number(rejections);
+}
+
+/**
+ * How many suggestions the reviewer rejected in the last 24 hours (the database's clock). A reject writes no
+ * journal row, so this is the suggestion rows' own count; the owner reopening one takes it out of the count.
+ */
+export async function countAiRejectsLast24h(executor: DbExecutor): Promise<number> {
+  const [{ rejections }] = await executor
+    .select({ rejections: count() })
+    .from(eventMatchCandidates)
+    .where(and(eq(eventMatchCandidates.status, 'rejected'), eq(eventMatchCandidates.resolvedVia, 'ai_skill'), sql`${eventMatchCandidates.resolvedAt} >= now() - interval '24 hours'`));
+  return Number(rejections);
 }
 
 /** The pair behind one suggestion as the export would print it now, or why there is none. */
@@ -112,6 +128,10 @@ export interface DedupReviewApplyInput {
   runTag: string | null;
   mode: 'validate' | 'apply';
   live: boolean;
+  /** The run may hold reject decisions (`--allow-rejects`). Off by default. */
+  allowRejects?: boolean;
+  /** The owner's reject switch is on (`DEDUP_REVIEW_REJECT_ENABLED`). Off by default; `apply` needs it for a reject. */
+  rejectsEnabled?: boolean;
   /** Tests only: the caps default to the domain constants. */
   caps?: Partial<DedupReviewCaps>;
   now?: Date;
@@ -148,13 +168,19 @@ export function isRunFatalDatabaseError(err: unknown): boolean {
   return typeof code === 'string' && RUN_FATAL_SQLSTATE_CLASSES.includes(code.slice(0, 2));
 }
 
+/** What deciding one eligible decision under locks gives: the merge id of an accept, null for a reject, or why it did not happen. */
+type Decided = { mergeId: string | null } | { reason: DedupReviewSkipReason };
+
 /**
- * One eligible decision, merged under locks. Inside a savepoint (so a failure undoes only this
- * decision): lock the suggestion row, then both events in id order; re-read the pair under those
- * locks and judge it again; only then merge. A pair that changed between the plan and the locks is
- * `concurrent-change`.
+ * One eligible decision, decided under locks, inside a savepoint (so a failure undoes only this decision).
  *
- * What the locks cover, honestly: the suggestion row and the two event rows, which keeps another
+ * An accept: lock the suggestion row, then both events in id order; re-read the pair under those locks and
+ * judge it again; only then merge. A pair that changed between the plan and the locks is `concurrent-change`.
+ *
+ * A reject: lock the suggestion row only (a reject changes nothing else, and event locks would be held to the
+ * end of the run for no gain), re-read the pair under that lock, judge it again, then record the dismissal.
+ *
+ * What the locks cover, honestly: the suggestion row and, for an accept, the two event rows, which keeps another
  * writer from resolving or merging this pair while it is judged. The moderator's own accept locks only
  * the suggestion row, and `mergeEvents` itself reads schedules, posts, favorites and links with plain
  * statements, so a row another writer adds to those tables in the few milliseconds between the
@@ -163,13 +189,13 @@ export function isRunFatalDatabaseError(err: unknown): boolean {
  * takes two of the same rows in the opposite order can deadlock with a run; Postgres ends one of them,
  * and `lock_timeout` bounds the wait.
  */
-async function mergeUnderLocks(
+async function decideUnderLocks(
   tx: WriteTx,
   decision: DedupReviewDecision,
   state: DedupReviewRunState,
   caps: DedupReviewCaps,
   moderatorId: string
-): Promise<{ mergeId: string } | { reason: DedupReviewSkipReason }> {
+): Promise<Decided> {
   try {
     return await tx.transaction(async (sp) => {
       const [locked] = await sp
@@ -178,19 +204,25 @@ async function mergeUnderLocks(
         .where(eq(eventMatchCandidates.id, decision.suggestionId))
         .for('update');
       if (!locked) throw new DecisionAborted('concurrent-change');
-      await sp
-        .select({ id: events.id })
-        .from(events)
-        .where(inArray(events.id, [locked.eventId, locked.candidateEventId]))
-        .orderBy(events.id)
-        .for('update');
+      if (decision.action === 'accept') {
+        await sp
+          .select({ id: events.id })
+          .from(events)
+          .where(inArray(events.id, [locked.eventId, locked.candidateEventId]))
+          .orderBy(events.id)
+          .for('update');
+      }
 
       const fresh = await lookupFreshPair(sp, decision.suggestionId);
       if (judgeDedupReviewDecision({ decision, fresh, state, caps }).outcome !== 'eligible') {
         throw new DecisionAborted('concurrent-change');
       }
+      if (decision.action === 'reject') {
+        const { mergeId } = await resolveSuggestedMatch(sp, { id: decision.suggestionId, action: 'REJECT', moderatorId, via: 'ai_skill' });
+        return { mergeId };
+      }
       const { mergeId } = await resolveSuggestedMatch(sp, { id: decision.suggestionId, action: 'ACCEPT', moderatorId, via: 'ai_skill' });
-      return { mergeId: mergeId as string };
+      return { mergeId };
     });
   } catch (err) {
     if (err instanceof DecisionAborted) return { reason: err.reason };
@@ -203,55 +235,74 @@ async function mergeUnderLocks(
 }
 
 /**
- * Judges every decision in file order and, in `apply` mode, merges the eligible ones. Only an eligible
- * decision claims its events and uses up a cap; a skipped one does neither.
+ * Judges every decision in file order and, in `apply` mode, decides the eligible ones. Only an eligible
+ * decision uses up a cap, and only an eligible accept claims its events; a skipped one does neither.
  */
 async function processDecisions(
   executor: DbExecutor,
   input: DedupReviewApplyInput,
   caps: DedupReviewCaps,
-  usedLast24h: number,
-  merge: ((decision: DedupReviewDecision, state: DedupReviewRunState) => Promise<{ mergeId: string } | { reason: DedupReviewSkipReason }>) | null
+  used: { last24h: number; rejectsLast24h: number },
+  decide: ((decision: DedupReviewDecision, state: DedupReviewRunState) => Promise<Decided>) | null
 ): Promise<DedupReviewApplyResult[]> {
   const claimedEventIds = new Set<string>();
   let eligibleInRun = 0;
+  let rejectsInRun = 0;
   const results: DedupReviewApplyResult[] = [];
 
   for (const decision of input.decisions) {
-    const state: DedupReviewRunState = { claimedEventIds, eligibleInRun, usedLast24h };
-    const fresh = await lookupFreshPair(executor, decision.suggestionId);
+    const { suggestionId, action } = decision;
+    const state: DedupReviewRunState = { claimedEventIds, eligibleInRun, rejectsInRun, usedLast24h: used.last24h, usedRejectsLast24h: used.rejectsLast24h };
+    const fresh = await lookupFreshPair(executor, suggestionId);
     const verdict = judgeDedupReviewDecision({ decision, fresh, state, caps });
     if (verdict.outcome === 'skipped') {
-      results.push({ suggestionId: decision.suggestionId, outcome: 'skipped', reason: verdict.reason });
+      results.push({ suggestionId, action, outcome: 'skipped', reason: verdict.reason });
       continue;
     }
     // `fresh` is a pair here: the judge only returns eligible for one.
     const pair = fresh as Extract<DedupReviewFreshLookup, { kind: 'pair' }>;
 
-    if (merge === null) {
-      results.push({ suggestionId: decision.suggestionId, outcome: 'eligible' });
+    if (decide === null) {
+      results.push({ suggestionId, action, outcome: 'eligible' });
     } else {
-      const merged = await merge(decision, state);
-      if ('reason' in merged) {
-        results.push({ suggestionId: decision.suggestionId, outcome: 'skipped', reason: merged.reason });
+      const decided = await decide(decision, state);
+      if ('reason' in decided) {
+        results.push({ suggestionId, action, outcome: 'skipped', reason: decided.reason });
         continue;
       }
-      results.push(input.live ? { suggestionId: decision.suggestionId, outcome: 'merged', mergeId: merged.mergeId } : { suggestionId: decision.suggestionId, outcome: 'eligible' });
+      if (!input.live) results.push({ suggestionId, action, outcome: 'eligible' });
+      else if (action === 'reject') results.push({ suggestionId, action, outcome: 'rejected' });
+      else results.push({ suggestionId, action, outcome: 'merged', mergeId: decided.mergeId as string });
     }
-    claimedEventIds.add(pair.candidateEventId);
-    claimedEventIds.add(pair.newEventId);
-    eligibleInRun += 1;
+    if (action === 'reject') {
+      rejectsInRun += 1;
+    } else {
+      claimedEventIds.add(pair.candidateEventId);
+      claimedEventIds.add(pair.newEventId);
+      eligibleInRun += 1;
+    }
   }
   return results;
 }
 
 /** Runs one invocation of the apply script against `database`; see the module comment for the modes. */
 export async function runDedupReviewApply(database: Pick<typeof appDb, 'transaction'>, input: DedupReviewApplyInput): Promise<DedupReviewApplyReport> {
-  const caps: DedupReviewCaps = { perRun: input.caps?.perRun ?? DEDUP_REVIEW_PER_RUN_CAP, perDay: input.caps?.perDay ?? DEDUP_REVIEW_PER_DAY_CAP };
+  assertDedupReviewRejectsAllowed(input.decisions, input.allowRejects ?? false);
+  // The owner's switch is checked before anything is read: an `apply` run (dry or live) that allows rejects needs it,
+  // whether or not a decision holds one (the workflow's own step reads it the same way).
+  if (input.mode === 'apply' && input.allowRejects && !input.rejectsEnabled) {
+    throw new DedupReviewRejectsDisabledError(REJECTS_DISABLED_MESSAGE);
+  }
+  const caps: DedupReviewCaps = {
+    perRun: input.caps?.perRun ?? DEDUP_REVIEW_PER_RUN_CAP,
+    perDay: input.caps?.perDay ?? DEDUP_REVIEW_PER_DAY_CAP,
+    perDayRejects: input.caps?.perDayRejects ?? DEDUP_REVIEW_PER_DAY_REJECT_CAP,
+  };
   const generatedAt = (input.now ?? new Date()).toISOString();
   const mode = input.mode === 'validate' ? 'validate' : input.live ? 'live' : 'dry-run';
 
   let usedLast24h = 0;
+  let usedRejectsLast24h = 0;
   let results: DedupReviewApplyResult[];
 
   if (input.mode === 'validate') {
@@ -259,7 +310,8 @@ export async function runDedupReviewApply(database: Pick<typeof appDb, 'transact
       await assertRoleBypassesRls(tx);
       await resolveInvokerUserId(tx, input.invokerHash);
       usedLast24h = await countAiActionsLast24h(tx);
-      return processDecisions(tx, input, caps, usedLast24h, null);
+      usedRejectsLast24h = await countAiRejectsLast24h(tx);
+      return processDecisions(tx, input, caps, { last24h: usedLast24h, rejectsLast24h: usedRejectsLast24h }, null);
     });
   } else {
     try {
@@ -269,7 +321,10 @@ export async function runDedupReviewApply(database: Pick<typeof appDb, 'transact
         await tx.execute(sql`SELECT pg_advisory_xact_lock(${DEDUP_REVIEW_APPLY_LOCK_KEY})`);
         const moderatorId = await resolveInvokerUserId(tx, input.invokerHash);
         usedLast24h = await countAiActionsLast24h(tx);
-        const done = await processDecisions(tx, input, caps, usedLast24h, (decision, state) => mergeUnderLocks(tx, decision, state, caps, moderatorId));
+        usedRejectsLast24h = await countAiRejectsLast24h(tx);
+        const done = await processDecisions(tx, input, caps, { last24h: usedLast24h, rejectsLast24h: usedRejectsLast24h }, (decision, state) =>
+          decideUnderLocks(tx, decision, state, caps, moderatorId)
+        );
         // The only way out of a run that is not live is this throw, which rolls the whole transaction back.
         if (!input.live) throw new DryRunRollback(done);
         return done;

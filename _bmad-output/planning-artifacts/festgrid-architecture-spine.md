@@ -1720,7 +1720,8 @@ This document defines the core architectural invariants for the FestDaily applic
         `(post, ordinal)` slot is taken and a re-run skips it, Rule 3) and a suggested-match record
         is queued; approving it *is* a merge (Rule 9), rejecting it is a recorded dismissal. **Amended
         2026-11-01 (AD-45):** an owner-released AI reviewer may also accept a queued mid pair, under AD-45's
-        floor and caps; it never rejects. There is
+        floor and caps; the AI reviewer alone never rejects (**amended 2026-11-07, FIND-120:** the apply bridge
+        can record a reject, see AD-45 Rule 3). There is
         no separate "pending" event state. An event absorbs **at most one item per post**: when two
         items of one post match the same event, the better-scoring one links and the other is
         treated as a lower band. The suggested-match record's shape: see the 2026-10-12 amendment below.
@@ -1949,6 +1950,8 @@ This document defines the core architectural invariants for the FestDaily applic
         the same time, can both pass the mergeable check. A second caller (an operator script or the
         planned AI-assisted review) adopts the same function. **Amended 2026-11-01 (AD-45):** the AI-assisted
         review is that caller, with `via: 'ai_skill'` recorded on the suggestion and the journal row; AD-45 governs when it may run.
+        **Amended 2026-11-07 (AD-45, FIND-120):** the same function also records a reject (`'REJECT'`,
+        `via: 'ai_skill'`), with no journal row and no event touched; AD-45 Rules 3 and 4 govern it.
     10. **Notifications are per event, with one marker.** `events.notified_at` is set by one
         notify helper and nowhere else. An event notifies at ingestion iff its primary post's
         `grouping_reason` is not `roundup` and the post is not curator-sourced (AD-31 Rule 3
@@ -2921,21 +2924,26 @@ This document defines the core architectural invariants for the FestDaily applic
     `dedup-review` and `dedup-review-live`; PRD 3.7 (Matching) and 3.9.3 (Moderator Tools). Design
     record: `_bmad-output/specs/ai-dedup-review/DESIGN.md`. Interacts with AD-30 Rules 7 and 9, AD-34
     (the scrape gate is a separate rule) and AD-40 (a write-free preview, unrelated).
+*   **Amended 2026-11-07 (FIND-120):** the apply-side reject path below is an amendment of this AD, not a new
+    AD. Each amended rule carries its own dated note.
 *   **Prevents:** An AI session holding database credentials. A second, divergent accept path whose
     checks differ from the moderator's. A merge made on evidence that changed after it was reviewed.
     A prompt-injected or mistaken decision merging events the deterministic rules never would. An
     unbounded run. An AI merge that cannot be told from a moderator's. A secret or private text in a
-    public Actions log. Calling the approval click a review of the decisions when it is not.
+    public Actions log. Calling the approval click a review of the decisions when it is not. **Amended 2026-11-07 (FIND-120):** A
+    reject recorded on evidence that changed, past its caps, or without the owner's switch.
 *   **Rule:**
     1.  **The bridge.** An AI reviewer (the `moderator-dedup-review` skill, a cloud session with no database
         credentials) reaches the database only through two manually dispatched workflows: the **export**
-        (read-only, a `READ ONLY` transaction, evidence JSON) and the **apply** (acts on ACCEPT decisions).
-        Actions never runs an LLM. Both run from `master` only, and each prints one JSON line between
+        (read-only, a `READ ONLY` transaction, evidence JSON) and the **apply** (acts on ACCEPT decisions;
+        **amended 2026-11-07, FIND-120:** and, when switched on, on REJECT decisions, Rule 3). Actions never runs an LLM. Both run from `master` only, and each prints one JSON line between
         fixed markers.
     2.  **One accept path.** Every AI merge is `resolveSuggestedMatch(..., via: 'ai_skill')`: the same row
         lock, status check and journal as a moderator's accept. A source-scan test fails if the apply code
         calls `mergeEvents`, updates the table, or writes anything itself, and another fails if the GraphQL
-        resolvers pass or write the flag.
+        resolvers pass or write the flag. **Amended 2026-11-07 (FIND-120):** a reject goes through the same
+        shared function (`resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')`); the source-scan test is
+        unchanged.
     3.  **A floor weaker than the thresholds, strict where it matters.** The reviewer may accept only a
         `mid` pair that passes the floor: no earlier undo, an anchor a public post cannot fake alone (the
         organizer, or a shared link together with a venue match), no venue conflict, a day gap of 0 (or up
@@ -2943,30 +2951,53 @@ This document defines the core architectural invariants for the FestDaily applic
         not contradict. Evidence is recomputed server-side and compared by hash before every merge, and
         again under row locks. The reviewer never rejects, and never merges what the floor refuses. The same
         holds for a pair a moderator accepts in the attended decision loop (`FIND-119`): it is merged only if
-        `validate` calls it eligible, and the loop offers no reject.
+        `validate` calls it eligible, and the loop offers no reject. **Amended 2026-11-07 (FIND-120):** the
+        skill's own rule stands (the daily AI review never rejects), and the sentence "the loop offers no reject"
+        stays true until `FIND-121`. What changed is the bridge: an apply decision may carry `action: reject`
+        (exactly `accept`, the default, or `reject`). A reject is judged on the pair's state, the evidence hash,
+        the invoker and the caps, with no floor, except that a `high`-tier pair is skipped `already-high`. It is
+        recorded by `resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')` under the invoker moderator:
+        `status = rejected`, `resolved_via = ai_skill`, no `event_merges` row, events untouched. It locks the
+        suggestion row only, is judged again under that lock, and `validate` skips it `event-already-in-run`
+        when an earlier accept in the file claimed one of its events (live reports `stale-pair` or
+        `stale-evidence` after that merge). It ships dark: it needs the workflow input `allow_rejects` and, in
+        `apply`, the Rule 7 variable. The hash and state checks keep a reject on current evidence; they do not
+        stop a malicious decision, since anyone who can read the export can compute a hash. The bounds are the
+        pending state, the caps, the owner's variable and the owner's approval of each run; the last two are
+        only as strong as the Rule 6 Limit. Worst case with the switch on: ten pairs a day hidden from every
+        moderator, reopened only by the owner's SQL; with it off, none.
     4.  **Bounded.** At most 10 merges a run and 25 AI decisions in 24 hours (undone merges and AI
         rejections count), one run at a time, and a kill switch (`DEDUP_REVIEW_APPLY_DISABLED`, an
         environment variable of `dedup-review-live`) that stops apply unless it is exactly `false` or `0`.
+        **Amended 2026-11-07 (FIND-120):** the per-run cap of 10 counts merges only; a reject never counts
+        against it. The shared 25-per-24h cap counts merges (undone ones included) plus AI rejections. Rejects
+        also have their own cap of 10 per 24 hours, counted from the suggestion rows (`status = 'rejected'` and
+        `resolved_via = 'ai_skill'`), so an owner reopening one removes it from the count, unlike an undone
+        merge. Both day checks report `per-day-cap`; a failed reject reuses `merge-failed`.
     5.  **Attributed.** The invoker is identified by the SHA-256 of the lowercased Claude account email,
         matched to exactly one active moderator, who is recorded as the actor; `resolved_via` and
-        `performed_via` say the AI made it. This is transparency, not authentication: anyone who can
+        `performed_via` say the AI made it (**amended 2026-11-07, FIND-120:** a reject writes no `performed_via`;
+        its `resolved_via = ai_skill` says the bridge recorded it, not who decided). This is transparency, not authentication: anyone who can
         dispatch the workflow can supply any hash. **Accepted exposures:** the hash, the run tag and the
         decisions (ids, hashes, free-text `reasons`) are public inputs and stay in logs for their retention;
         a refusal versus a clean report tells a guesser whether an address is a moderator's; the skill sends
         `reasons: []`.
     6.  **The gate releases a credential; it does not review decisions.** `apply`, a dry run included, runs in
         `dedup-review-live` and waits for the owner's approval, which releases the write credential. The
-        approver sees ids and hashes and cannot judge a merge from them. `validate`, the skill's shadow mode,
+        approver sees ids and hashes and cannot judge a merge or a reject from them. `validate`, the skill's shadow mode,
         runs in `dedup-review` with a read-only role and needs none. An approval can come after `master` has
         moved, so `apply` refuses unless its commit is still the head of `master`. **Limit:** the gate stops
         anyone but the approver. If the AI session dispatches with a token that belongs to the one required
         reviewer, it can approve its own run through the API, so the gate does not stop that session. To make it
         real the session must dispatch as a separate account that is not a reviewer, with "Prevent self-review"
-        on; until then the gate is only as strong as the separation of that token.
+        on; until then the gate is only as strong as the separation of that token. **Amended 2026-11-07
+        (FIND-120):** the reject switch (`allow_rejects` and the Rule 7 variable) is as strong as this Limit: a
+        token that can dispatch, or an admin token that can edit the variable, defeats it.
     7.  **What protects the credential.** Rules 3 and 4 bound a mistaken or manipulated *decision*. They do
         nothing if the credential leaks. That is covered only to the extent these are in place: both environments
         limited to `master`; the required reviewer; no repository or organization secret or variable of the
-        same name; a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
+        same name (**amended 2026-11-07, FIND-120:** this holds for `DEDUP_REVIEW_REJECT_ENABLED` too, an
+        environment variable of `dedup-review-live`, off unless exactly `true` or `1`); a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
         required, a code owner named in `.github/CODEOWNERS` must approve a change to the workflows, `scripts/`
         and the dedup code, and force pushes and deletion are blocked; the repository admin role bypasses it
         inside a pull request, so it stops everyone but the owner and a session using the owner's token; tested
@@ -2989,7 +3020,13 @@ This document defines the core architectural invariants for the FestDaily applic
         no `pg_read_all_data` and so no `auth` schema; narrowing that to the evidence tables is what remains of
         `FIND-114`. Rotating its password means updating one secret.
     9.  **Reversibility and audit.** A merge is undoable through `undoEventMerge` (AD-30 Rule 9), with the
-        known gap that undo does not refuse when a later merge touched the winner (`FIND-113`). The list to
+        known gap that undo does not refuse when a later merge touched the winner (`FIND-113`). **Amended
+        2026-11-07 (FIND-120):** a reject is not undoable in the app (a moderator's own reject is the same
+        today; no un-reject exists and the only merge entry point is `resolveSuggestedEventMatch` on a pending
+        suggestion). List AI rejects from the database with `status = 'rejected' and resolved_via = 'ai_skill'`
+        (newest `resolved_at` first); a lost report after a live commit is checked by that listing (rejects
+        write no journal row) as well as the `event_merges` listing. The owner reopens one by SQL, which lives
+        in the runbook (`docs/infrastructure/7-event-dedup.md`) and never in code. The list to
         undo from is the database's, not the log: `event_merges` where `performed_via = 'ai_skill'` and
         `undone_at` is null. Actions logs expire (90 days by default) and do not record the approver; storing
         the run id in the journal is deferred (`FIND-114`). Moderators have no screen for AI merges yet
@@ -2998,7 +3035,8 @@ This document defines the core architectural invariants for the FestDaily applic
         output; event text passes through as stored on public event pages; an unexpected error prints only
         its class, SQLSTATE code and a fixed hint. The job summary holds counts, the two oldest-pending timestamps (raw) and fixed reason codes only;
         the log holds the script's whole report (suggestion ids and merge ids, no more private than the public
-        dispatch inputs). The export's report of what became of the pairs the reviewer escalated (`skipResolved`,
+        dispatch inputs). **Amended 2026-11-07 (FIND-120):** `action` joins the public inputs; nothing else does.
+        The export's report of what became of the pairs the reviewer escalated (`skipResolved`,
         the decisions in `recentlyResolved`, the counts and the two queue ages) holds ids, statuses, timestamps and
         the `human`, `reviewer`, `system`, `unknown` class only, and sits outside `evidenceHash` (FIND-115).
 *   **Enforced by:** `dedup-review-workflow.test.ts` (the workflow's text and the guard script's behavior),

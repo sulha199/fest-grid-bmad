@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { DEDUP_REVIEW_APPLY_BEGIN, DEDUP_REVIEW_APPLY_END, DedupReviewApplyInputError } from '@festgrid/domain/events';
 import { describeFailure, parseCliArgs } from './dedup-review-apply.js';
-import { DedupReviewInvokerError, DedupReviewReportLostError, DedupReviewRoleError } from './lib/events/dedup-review-errors.js';
+import { DedupReviewInvokerError, DedupReviewRejectsDisabledError, DedupReviewReportLostError, DedupReviewRoleError, REJECTS_DISABLED_MESSAGE } from './lib/events/dedup-review-errors.js';
 
 const HASH = 'a'.repeat(64);
 const ID = '11111111-1111-4111-8111-111111111111';
@@ -31,11 +31,13 @@ test('dedup-review-apply CLI', async (t) => {
   const valid = file('valid.json', JSON.stringify({ schemaVersion: 1, decisions: [{ suggestionId: ID, evidenceHash: HASH, reasons: [] }] }));
 
   await t.test('arguments: mode and decisions file are required, --live needs apply, a value is needed where one is expected', () => {
-    assert.deepStrictEqual(parseCliArgs(['--mode', 'validate', '--decisions-file', 'd.json']), { options: { mode: 'validate', live: false, runTag: null }, decisionsFile: 'd.json' });
+    assert.deepStrictEqual(parseCliArgs(['--mode', 'validate', '--decisions-file', 'd.json']), { options: { mode: 'validate', live: false, runTag: null, allowRejects: false }, decisionsFile: 'd.json' });
     assert.deepStrictEqual(parseCliArgs(['--mode', 'apply', '--live', '--run-tag', 'daily-1', '--decisions-file', 'd.json']), {
-      options: { mode: 'apply', live: true, runTag: 'daily-1' },
+      options: { mode: 'apply', live: true, runTag: 'daily-1', allowRejects: false },
       decisionsFile: 'd.json',
     });
+    assert.strictEqual(parseCliArgs(['--mode', 'validate', '--allow-rejects', '--decisions-file', 'd.json']).options.allowRejects, true, 'rejects are allowed only when the flag is given');
+    assert.throws(() => parseCliArgs(['--mode', 'apply', '--allow-rejects', '--allow-rejects', '--decisions-file', 'd.json']), /--allow-rejects was given more than once/);
     assert.throws(() => parseCliArgs(['--decisions-file', 'd.json']), /mode must be/);
     assert.throws(() => parseCliArgs(['--mode', 'apply']), /--decisions-file is required/);
     assert.throws(() => parseCliArgs(['--mode', 'validate', '--live', '--decisions-file', 'd.json']), /--live is only valid/);
@@ -60,7 +62,12 @@ test('dedup-review-apply CLI', async (t) => {
     assert.match(describeFailure(Object.assign(new Error('x'), { code: '40P01' })), /Likely cause: a deadlock/);
     assert.match(describeFailure(Object.assign(new Error('x'), { code: '55P03' })), /Likely cause: a lock was not available/);
     const lost = describeFailure(new DedupReviewReportLostError(2));
-    assert.match(lost, /committed 2 merge\(s\), but its report could not be written\. Do not run it again/, 'a lost report after a commit says the merges are in');
+    assert.match(lost, /committed 2 merge\(s\) and 0 reject\(s\), but its report could not be written\. Do not run it again/, 'a lost report after a commit says the merges are in');
+    const lostRejects = describeFailure(new DedupReviewReportLostError(0, 3));
+    assert.match(lostRejects, /committed 0 merge\(s\) and 3 reject\(s\)/);
+    assert.match(lostRejects, /event_match_candidates rows with status = 'rejected' and resolved_via = 'ai_skill'/, 'a run that only rejected points at the suggestion rows, since a reject writes no journal row');
+    assert.ok(!/UPDATE /i.test(lostRejects), 'the reopening SQL lives in the runbook, never in a message');
+    assert.match(describeFailure(new DedupReviewRejectsDisabledError(REJECTS_DISABLED_MESSAGE)), /^Apply refused: Rejects are switched off\. The owner turns them on with the variable DEDUP_REVIEW_REJECT_ENABLED/);
   });
 
   await t.test('the kill switch exits 0 with a disabled report before it reads arguments, the file or the database', () => {
@@ -76,6 +83,8 @@ test('dedup-review-apply CLI', async (t) => {
       assert.strictEqual(report.mode, 'disabled');
       assert.deepStrictEqual(report.results, []);
       assert.strictEqual(report.usedLast24h, null);
+      assert.deepStrictEqual(report.counts, { eligible: 0, merged: 0, rejected: 0, skipped: 0 }, 'the disabled report has the new counts shape');
+      assert.strictEqual(report.caps.perDayRejects, 10);
     }
   });
 
@@ -104,6 +113,29 @@ test('dedup-review-apply CLI', async (t) => {
       assert.strictEqual(result.status, 1, label);
       assert.match(result.stderr, expected, label);
       assert.ok(!result.stderr.includes('SECRET-TEXT') && !result.stderr.includes(HASH) && !result.stderr.includes(dir), `${label}: nothing echoed`);
+    }
+  });
+
+  await t.test('a reject needs --allow-rejects, and apply (dry or live) also needs the owner variable: both refuse before any connection', () => {
+    const rejects = file('rejects.json', JSON.stringify({ schemaVersion: 1, decisions: [{ suggestionId: ID, evidenceHash: HASH, reasons: [], action: 'reject' }] }));
+    const bad = file('bad-action.json', JSON.stringify({ schemaVersion: 1, decisions: [{ suggestionId: ID, evidenceHash: HASH, reasons: [], action: 'Reject' }] }));
+    const env = { DEDUP_REVIEW_INVOKER_HASH: HASH };
+    const refused = (args: string[], extra: Record<string, string>, expected: RegExp, label: string) => {
+      const result = runCli(args, { ...env, ...extra });
+      assert.strictEqual(result.status, 1, label);
+      assert.match(result.stderr, expected, label);
+      assert.ok(!result.stderr.includes(HASH) && !result.stderr.includes(dir), `${label}: nothing echoed`);
+    };
+
+    refused(['--mode', 'validate', '--decisions-file', rejects], {}, /Invalid input: a reject decision needs --allow-rejects/, 'validate without the flag');
+    refused(['--mode', 'apply', '--decisions-file', rejects], { DEDUP_REVIEW_REJECT_ENABLED: 'true' }, /Invalid input: a reject decision needs --allow-rejects/, 'the variable cannot stand in for the flag');
+    refused(['--mode', 'validate', '--allow-rejects', '--decisions-file', bad], {}, /Invalid input: action must be "accept" or "reject"/, 'no case folding');
+    for (const off of [undefined, '', '0', 'false', 'yes', 'on', 'tru', 'TRUE', ' true', '1 ']) {
+      const extra: Record<string, string> = off === undefined ? {} : { DEDUP_REVIEW_REJECT_ENABLED: off };
+      refused(['--mode', 'apply', '--allow-rejects', '--decisions-file', rejects], extra, /Apply refused: Rejects are switched off\./, `apply, variable ${JSON.stringify(off)}`);
+      refused(['--mode', 'apply', '--live', '--allow-rejects', '--decisions-file', rejects], extra, /Apply refused: Rejects are switched off\./, `live, variable ${JSON.stringify(off)}`);
+      // The run that allows rejects needs the switch whether or not a decision holds one, as the workflow's own step reads it.
+      refused(['--mode', 'apply', '--allow-rejects', '--decisions-file', valid], extra, /Apply refused: Rejects are switched off\./, `an accept-only run that allows rejects, variable ${JSON.stringify(off)}`);
     }
   });
 });

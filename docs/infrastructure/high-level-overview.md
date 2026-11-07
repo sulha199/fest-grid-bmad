@@ -110,7 +110,7 @@ graph TD
     S3_Backup -- newest dump --> GHA_Restore
     GHA_Restore -- read-only row and object counts --> Supabase
     GHA_DedupExport -- read-only evidence queries, READ ONLY transaction --> Supabase
-    GHA_DedupApply -- validate: read-only; apply: guarded merges, write role, approval --> Supabase
+    GHA_DedupApply -- validate: read-only; apply: guarded merges (rejects exist but are off until the owner switches them on), write role, approval --> Supabase
     AI_Skill -- dispatches the export, reads its report from the job log --> GHA_DedupExport
     AI_Skill -- dispatches validate; apply only when the owner says so --> GHA_DedupApply
     AI_Skill -- opens and closes labelled issues --> GH_Issues
