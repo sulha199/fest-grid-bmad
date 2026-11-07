@@ -617,7 +617,9 @@ class TextBuilderTests(Base):
                        [{'suggestionId': A, 'decision': 'dropped', 'reason': 'unsure\n'}],
                        [{'suggestionId': A, 'decision': 'dropped', 'rationale': 'y' * 201}],
                        [{'suggestionId': A, 'decision': 'merged', 'mergeId': MERGE}],          # a merge id is never typed in
-                       [{'suggestionId': A, 'decision': 'dropped', 'export_tag': 'x'}])        # an unknown key is refused, not ignored
+                       [{'suggestionId': A, 'decision': 'dropped', 'export_tag': 'x'}],        # an unknown key is refused, not ignored
+                       [{'suggestionId': A, 'decision': 'dropped'}, {'suggestionId': A, 'decision': 'deferred'}],   # one pair twice, contradictory
+                       [{'suggestionId': A, 'decision': 'dropped'}, {'suggestionId': A.upper(), 'decision': 'dropped'}])
         for entries in bad_entries:
             self.assertEqual(self.cli('insight-comment', path, '--summary', self.summary(entries=entries))[0], dr.EXIT_BAD_INPUT, entries)
         for field in ({'exportTag': 'bad tag!'}, {'exportTag': 'ok\n'}, {'unknownCount': -1}, {'closedIssues': [0]},
@@ -1204,12 +1206,13 @@ class LoopRejectTests(Base):
         return code, (json.loads(out) if out.strip() else None), err
 
     def test_the_confirmation_names_each_pair_costs_a_reject_and_carries_the_exact_decisions(self):
-        page = self.page(self.row(146, A), self.row(147, B), self.row(148, B, shadow=True))
+        page = self.page(self.row(146, A), self.row(147, B), self.row(148, B, shadow=True), self.row(149, HEXY))
         code, result, _ = self.confirm(A, '%s,%s' % (B, HEXY), pages=(page,))
         self.assertEqual(code, 0)
         question = result['question']
-        self.assertIn('Accept (merge) 1 pair(s): #146 (id %s).' % A[:8], question)
-        self.assertIn('Reject 2 pair(s): #147, #148 (id %s); pair (id %s).' % (B[:8], HEXY[:8]), question)   # twins together, a pair with no open issue by its id
+        names = '"%s" and "%s"' % (pair(A)['candidate']['name'], pair(A)['newEvent']['name'])
+        self.assertIn('Accept (merge) 1 pair(s): #146 (id %s) %s.' % (A[:8], names), question)           # the pair's two event names are in the question
+        self.assertIn('Reject 2 pair(s): #147, #148 (id %s) %s; #149 (id %s) %s.' % (B[:8], names, HEXY[:8], names), question)   # twins together
         self.assertIn('cannot be undone in the app', question)
         self.assertIn('recorded as AI-assisted under your moderator account', question)
         self.assertIn('whole run is refused, the accepts included', question)
@@ -1223,9 +1226,10 @@ class LoopRejectTests(Base):
         self.assertEqual([d.get('action') for d in json.loads(printed)['decisions']], ['reject', 'reject', None])
 
     def test_the_confirmation_only_mentions_what_the_batch_holds(self):
-        accept_only = self.confirm(A, '')[1]['question']
+        pages = (self.page(self.row(146, A), self.row(147, B)),)
+        accept_only = self.confirm(A, '', pages=pages)[1]['question']
         self.assertNotIn('reject', accept_only.lower())                                  # no reject cost, no switch talk for an accept-only batch
-        reject_only = self.confirm('', B)[1]['question']
+        reject_only = self.confirm('', B, pages=pages)[1]['question']
         self.assertNotIn('Accept (merge)', reject_only)
         self.assertIn('Reject 1 pair(s)', reject_only)
 
@@ -1238,11 +1242,20 @@ class LoopRejectTests(Base):
                 ids = ','.join(p['suggestionId'] for p in many)
                 code, result, _ = self.confirm('', ids, pairs=many)
             else:
-                code, result, _ = self.confirm(*argv)
+                code, result, _ = self.confirm(*argv, pages=(self.page(self.row(1, A), self.row(2, B), self.row(3, C)),))
             self.assertEqual((code, result), (dr.EXIT_BAD_INPUT, None), label)
         log = self.write(export_log(export_payload([pair(A), pair(B, tier='low'), pair(C, tier='high')])))
         self.assertEqual(self.cli('decisions', log, '--reject', C)[0], dr.EXIT_BAD_INPUT)   # `decisions` refuses a high reject too
         self.assertEqual(self.cli('decisions', log, C)[0], 0)                                # but an accept of one is the daily review's business
+
+    def test_confirm_refuses_a_pair_the_popups_did_not_show_and_an_accept_that_is_not_mid(self):
+        page = self.page(self.row(1, A), self.row(2, B))
+        self.assertEqual(self.confirm(A, B, pages=(page,))[0], 0)                          # control: both have open issues
+        self.assertEqual(self.confirm(A, B)[0], dr.EXIT_BAD_INPUT)                         # no issue pages: nothing shows the pair was a candidate
+        self.assertEqual(self.confirm(A, HEXY, pages=(page,))[0], dr.EXIT_BAD_INPUT)       # a reject of a pair with no open issue
+        closed = self.page(self.row(1, A), self.row(2, B, state='CLOSED'))
+        self.assertEqual(self.confirm(A, B, pages=(closed,))[0], dr.EXIT_BAD_INPUT)        # a closed issue is not an open candidate
+        self.assertEqual(self.confirm(B, '', pages=(self.page(self.row(1, A), self.row(2, B)),))[0], dr.EXIT_BAD_INPUT)   # an accept at tier low (B), open issue
 
     # ---- close-decided with rejects
     def decided(self, results, issues, rejects=None, ids=None, tag='t1a'):
@@ -1255,7 +1268,7 @@ class LoopRejectTests(Base):
         results = [{'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE},
                    {'suggestionId': B, 'action': 'reject', 'outcome': 'rejected'},
                    {'suggestionId': C, 'action': 'reject', 'outcome': 'skipped', 'reason': 'per-day-cap'}]
-        issues = [self.row(1, A), self.row(2, B, labels=('dedup-escalate', 'outcome:accepted', 'dedup-learned')), self.row(3, B, shadow=True),
+        issues = [self.row(1, A), self.row(2, B, labels=('dedup-escalate', 'outcome:accepted', 'dedup-learned')), self.row(3, B, shadow=True, labels=('dedup-escalate', 'Outcome:accepted')),
                   self.row(4, B, state='CLOSED'), self.row(5, C)]
         code, out, _ = self.decided(results, issues, rejects='%s,%s' % (B, C))
         self.assertEqual(code, 0)
@@ -1269,6 +1282,7 @@ class LoopRejectTests(Base):
             self.assertNotIn('mergeId', item)                                              # a reject has no merge
             self.assertEqual(item['comment'], 'Resolved: a moderator rejected this suggestion in an attended review session. Closing this issue.')
         self.assertEqual(by_number[2]['labels'], ['dedup-escalate', 'dedup-learned', 'outcome:rejected'])  # the contradicting outcome label is replaced
+        self.assertEqual(by_number[3]['labels'], ['dedup-escalate', 'outcome:rejected'])   # a label's case does not hide it (GitHub names are case-insensitive)
         self.assertEqual(result['closedIds'], 2)
         self.assertEqual(result['notApplied'], [{'id': C, 'action': 'reject', 'reason': 'per-day-cap'}])
         self.assertEqual((result['mergedWithoutOpenIssue'], result['rejectedWithoutOpenIssue']), ([], []))
@@ -1364,6 +1378,16 @@ class SkillTextTests(unittest.TestCase):
                 self.assertNotIn('allow_rejects', line, 'step %d: %s' % (number, line[:80]))
         self.assertIsNotNone(re.search(r'(?<![\w-])--reject\b', self.steps[8]))
         self.assertIn('allow_rejects', self.steps[8])
+
+    def test_a_reject_offer_is_only_made_in_step_eight_and_the_rules_default_to_unattended(self):
+        for number, body in self.steps.items():
+            if number != 8:
+                self.assertNotIn('--offer', body, 'step %d' % number)
+        self.assertIn('--offer OFFER', self.steps[8])
+        rules = self.text.split('## Step 0')[0]
+        self.assertIn('Default-deny: for a reject, treat the session as unattended unless you can positively show', rules)
+        self.assertIn('if you cannot show the session is attended, it is not', rules)
+        self.assertIn('accepts-only mode', self.steps[8])
 
     def test_the_titles_in_the_skill_are_what_the_workflow_renders(self):
         accept_validate = 'Dedup Review Apply mode=validate live=false tag=<tag>-v'

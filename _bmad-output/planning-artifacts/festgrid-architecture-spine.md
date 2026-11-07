@@ -2968,15 +2968,17 @@ This document defines the core architectural invariants for the FestDaily applic
         only as strong as the Rule 6 Limit. Worst case with the switch on: ten pairs a day hidden from every
         moderator, reopened only by the owner's SQL; with it off, none. **Amended 2026-11-07 (FIND-121):**
         the sentence "the loop offers no reject" no longer holds: the attended decision loop now offers Reject
-        (popup options Accept, Reject, Skip) for a non-`high` pair that `validate` calls eligible or that the
-        floor refuses, with the same bridge, the same variable and the owner's approval. A reject counts as
+        (popup options Accept, Reject, Skip) for a non-`high` pair: both options when `validate` calls it
+        eligible, Reject and Skip only when the floor refuses it or it hit the per-run cap or an earlier accept's
+        event, with the same bridge, the same variable and the owner's approval. A reject counts as
         attended only when the user's message asked for the loop, the reader built the popup, and the session's
         own popup answer was exactly the Reject label followed by a final Yes; a session started by
         `create_session`, a subagent, `claude -p`, a mailbox or a webhook is unattended and never rejects.
         This is prose the platform does not enforce (Rule 6, `FIND-116`); the independent checks are the
         owner's variable and the owner's approval of each run. The daily AI review still never rejects. The
-        loop's reject reads as `reviewer` in the export, so `close-decided` closes its issue with
-        `outcome:rejected`. The variable is set by the owner (reported on 2026-11-07, not verifiable here).
+        loop's reject reads as `reviewer` in the export, so the loop's `close-decided`, which works from the
+        validated apply report, closes its issue with `outcome:rejected`. The variable is the owner's to set (the
+        owner reported setting it on 2026-11-07; a session cannot verify that).
     4.  **Bounded.** At most 10 merges a run and 25 AI decisions in 24 hours (undone merges and AI
         rejections count), one run at a time, and a kill switch (`DEDUP_REVIEW_APPLY_DISABLED`, an
         environment variable of `dedup-review-live`) that stops apply unless it is exactly `false` or `0`.

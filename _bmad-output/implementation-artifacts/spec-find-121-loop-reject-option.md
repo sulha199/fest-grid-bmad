@@ -2,7 +2,7 @@
 title: 'Reject option in the attended decision loop: a moderator rejects a pair from the popup (FIND-121)'
 type: 'feature'
 created: '2026-11-07'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'ceebbececf5508da4a2ac6cc49c34c2e9879b84a'
 review_loop_iteration: 0
 context:
@@ -95,3 +95,15 @@ No pre-check that skips the loop's `validate` is added: none exists today, and t
 - `python3 -I .claude/skills/moderator-dedup-review/test_dedup_report.py` -- expected: all pass
 - `grep -rn "offers no reject\|until .FIND-121\|may only Accept or Skip" _bmad-output docs .claude .github` -- expected: only history (specs, deferred-work) or amended notes
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: exit 78 with the same failures as clean master
+
+## Spec Change Log
+
+- 2026-11-07, review loop 1 (blind + edge-case, no frozen-block change): patched `confirm` (names both events per pair, refuses a pair with no open issue in the given pages and an accept at a tier other than `mid`), the summary gate (a `suggestionId` twice is refused), the case of the `outcome:` label strip, SKILL.md (default-deny attended test for a reject, accepts-only mode, no result code means no popup, `already-high` after the export, stale repeats items 1 to 4, `skip_ids` of a second batch) and the docs that overstated the variable's state. Deferred as `FIND-123`; rejected: none. Deviation from the matrix: a day-cap pair is listed with no popup (a popup needs two options), not "popup Skip only".
+
+## Suggested Review Order
+
+1. `.claude/skills/moderator-dedup-review/SKILL.md` -- rule 7 (the three conditions, default-deny) and step 8 (offer, answers, `-w` validate, confirmation, close).
+2. `.claude/skills/moderator-dedup-review/dedup_report.py` -- `options_for` and `cmd_brief` (what is offered), `check_batch`, `decisions_text` and `cmd_confirm` (what is confirmed), then `cmd_close_decided` and `rejected_comment` (what is closed).
+3. `.claude/skills/moderator-dedup-review/test_dedup_report.py` -- `LoopRejectTests` and `SkillTextTests`.
+4. `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` -- AD-45 Rule 3 amendment (and Rules 7 of AD-30 and 9 of AD-45), then `docs/infrastructure/7-event-dedup.md` and `_bmad-output/specs/ai-dedup-review/DESIGN.md` ("As built in FIND-121").
+5. `_bmad-output/implementation-artifacts/backlog.yaml` and `deferred-work.md` -- FIND-121 done, FIND-123 deferred loose ends.

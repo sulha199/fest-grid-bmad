@@ -2741,6 +2741,14 @@ items:
      touches: [app:backend, cross:process],
      note: "Deferred from: bmad-quick-dev review of spec-find-120-apply-side-reject (2026-11-07). Low: reject time from the runner clock; one reason code for two caps; close-decided cosmetic. 3 findings."}
 
+  FIND-123:
+    {type: finding, status: backlog, created: 2026-11-07,
+     impact: internal, effort: xs,
+     title: "AI dedup review loop: later pair's Accept lost when an earlier one is skipped, weak option tests",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-121-loop-reject-option.md, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [web:moderation, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-find-121-loop-reject-option (2026-11-07). Low: event-already-in-run and day-cap are counted over all candidates; two option tests too weak; small reader nits. 3 findings."}
+
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
     {type: bug, status: backlog, created: 2026-10-30,

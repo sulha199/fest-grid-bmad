@@ -897,9 +897,17 @@ def cmd_confirm(args):
     index = check_batch(payload, accepts, rejects, CONFIRM_MAX)
     numbers = open_issue_numbers(args.files)
 
+    for suggestion_id in accepts + rejects:
+        if not numbers.get(suggestion_id):
+            raise ReportError(EXIT_BAD_INPUT, 'a pair to confirm has no open escalation issue in the given pages: pass the issue pages, and confirm only pairs the popups showed')
+    for suggestion_id in accepts:
+        if index[suggestion_id]['signals']['tier'] != 'mid':
+            raise ReportError(EXIT_BAD_INPUT, 'only a pair at tier mid is confirmed as an accept')
+
     def named(suggestion_id):
-        issues = ', '.join('#%d' % number for number in numbers.get(suggestion_id, [])) or 'pair'
-        return '%s (id %s)' % (issues, suggestion_id[:8])
+        pair = index[suggestion_id]
+        issues = ', '.join('#%d' % number for number in numbers[suggestion_id])
+        return '%s (id %s) "%s" and "%s"' % (issues, suggestion_id[:8], clean_text(pair['candidate']['name'], 60), clean_text(pair['newEvent']['name'], 60))
 
     lines = []
     if accepts:
@@ -1106,7 +1114,7 @@ def cmd_close_decided(args):
             entry = {'action': 'reject', 'outcome': 'outcome:rejected', 'comment': rejected_comment()}
         else:
             continue
-        labels = [label for label in row['labels'] if not label.startswith('outcome:')] + [entry.pop('outcome')]  # one outcome label: the moderator's
+        labels = [label for label in row['labels'] if not label.lower().startswith('outcome:')] + [entry.pop('outcome')]  # one outcome label: the moderator's
         close.append(dict({'number': row['number'], 'id': row['id']}, labels=labels, **entry))
     covered = {item['id'] for item in close}
     print(json.dumps({'close': close, 'closedIds': len(covered), 'notApplied': not_applied,
@@ -1316,9 +1324,13 @@ def load_summary(path):
     entries = data.get('entries')
     if not isinstance(entries, list) or len(entries) > MAX_DECISIONS:
         raise ReportError(EXIT_BAD_INPUT, 'entries must be a list of at most %d' % MAX_DECISIONS)
+    seen_entries = set()
     for entry in entries:
         if not (isinstance(entry, dict) and full(UUID, entry.get('suggestionId'))):
             raise ReportError(EXIT_BAD_INPUT, 'an entry has a bad suggestionId')
+        if entry['suggestionId'].lower() in seen_entries:
+            raise ReportError(EXIT_BAD_INPUT, 'a suggestionId appears twice in the entries')
+        seen_entries.add(entry['suggestionId'].lower())
         extra = sorted(set(entry) - set(ENTRY_KEYS))
         if extra:
             raise ReportError(EXIT_BAD_INPUT, 'an entry has keys this reader does not use (%s); a merge id comes from the apply report, never from the summary' % ', '.join(clean_text(k, 40) for k in extra))
