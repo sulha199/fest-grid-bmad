@@ -2,7 +2,7 @@
 title: 'Apply-side floor override: a decision kind that merges a pair the floor refuses, off until the owner switches it on (FIND-124)'
 type: 'feature'
 created: '2026-11-07'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'ab5fc81d2bf830d719c338dd25e001d946a30879'
 review_loop_iteration: 0
 context:
@@ -103,3 +103,16 @@ Known gaps: the database cannot tell an override from another AI merge (an enum 
 - `cd apps/backend && NODE_ENV=test npx tsx --test src/lib/events/dedup-review-apply.test.ts src/lib/events/suggested-match-resolve-ratchet.test.ts` -- expected: pass (needs a migrated Postgres, `DATABASE_URL` and `BACKEND_PORT`; not runnable in the cloud sandbox, so CI is its gate)
 - `python3 -I .claude/skills/moderator-dedup-review/test_dedup_report.py` -- expected: all pass
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: exit 78 with the same failures as clean master
+
+## Spec Change Log
+
+- 2026-11-07, review loop 1 (blind + edge-case, no frozen-block change): patched the override switch into its own function (not an alias of the reject one), the guard summary (`override decisions in this report: N` for every outcome, beside the merged count), the library (any mode but `validate` is a write run that needs the switches), stale wording in AD-45, the PRD, DESIGN, the runbook and the workflow header, and added database tests for an override raced against a lock (resolved and edited), a deleted event (`stale-pair`) and an out-of-type mode. Deferred as `FIND-127`; rejected: none. Deviations from the spec text: the guard prints one extra summary line (`override decisions in this report`); the library's switch check is `mode !== 'validate'` instead of `=== 'apply'`.
+
+## Suggested Review Order
+
+1. `packages/domain/src/events/dedup-review-apply.ts` -- the action, the parser, `judgeDedupReviewDecision` (the floor skipped only for exactly `accept-override`), the two assert functions and the switch function.
+2. `apps/backend/src/lib/events/dedup-review-apply.ts` -- `decideUnderLocks` (locks for every action but `reject`) and `runDedupReviewApply` (flag and variable asserts before any read); then `apps/backend/src/dedup-review-apply.ts` and `dedup-review-errors.ts` (the CLI flag and the refusal order).
+3. `.github/workflows/dedup-review-apply.yml` -- the run name, the input, the `inputs` job rules, the variable step before Checkout; `scripts/dedup-review-apply-guard.sh` -- the fifth argument and the exact action and outcome rule.
+4. `.claude/skills/moderator-dedup-review/SKILL.md` rule 7 and `test_dedup_report.py` -- the skill never sets the input, and the reader refuses an override report.
+5. Tests: `packages/domain/src/events/dedup-review-apply.test.ts`, `apps/backend/src/lib/events/dedup-review-apply.test.ts`, `dedup-review-apply.test.ts`, `dedup-review-workflow.test.ts`.
+6. `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-45 amendments), `docs/infrastructure/7-event-dedup.md` (runbook, floor override), `_bmad-output/specs/ai-dedup-review/DESIGN.md` ("As built in FIND-124"), `backlog.yaml` and `deferred-work.md`.

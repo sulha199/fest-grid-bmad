@@ -2773,6 +2773,14 @@ items:
      touches: [app:backend, pkg:domain, app:infrastructure, cross:architecture],
      note: "Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07). Cap variables, ceilings, validate keeps defaults, override sub-cap, early workflow check. Owner: fixed caps stop the daily review scaling. 1 finding."}
 
+  FIND-127:
+    {type: finding, status: backlog, created: 2026-11-07,
+     impact: internal, effort: xs,
+     title: "AI dedup review floor override: test gaps and refusal wording",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-124-apply-side-floor-override.md, apps/backend/src/lib/events/dedup-review-apply.test.ts],
+     touches: [app:backend, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-find-124-apply-side-floor-override (2026-11-07). Low: no DB test for high-tier or undone-before overrides; inputs-job wording for a mistyped override; kill-switch ordering; one weak reader test. 4 findings."}
+
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
     {type: bug, status: backlog, created: 2026-10-30,
