@@ -44,7 +44,7 @@ cat "$file"
 
 if [ "$rc" -ne 0 ]; then
   if [ "$live" = true ]; then
-    echo "::error::The live apply exited with status $rc. The run is one transaction, so this usually means it rolled back. The one exception is a report lost after the commit, which the script says on its error output above; if it does, do not run it again for these decisions: list event_merges rows with performed_via = 'ai_skill' (newest first) to see what was merged."
+    echo "::error::The live apply exited with status $rc. The run is one transaction, so this usually means it rolled back. The one exception is a report lost after the commit, which the script says on its error output above; if it does, do not run it again for these decisions: list event_merges rows with performed_via = 'ai_skill' (newest first) to see what was merged, and event_match_candidates rows with status = 'rejected' and resolved_via = 'ai_skill' to see what was rejected."
   else
     echo "::error::The apply script exited with status $rc. It changed nothing that persists (a dry run rolls back and validate cannot write)."
   fi
@@ -71,8 +71,8 @@ json=$(sed -n "$((begin_line + 1))p" "$file")
 if ! printf '%s\n' "$json" | jq -e '
     (.mode | type == "string") and (.killSwitch | type == "boolean")
     and (.usedLast24h == null or (.usedLast24h | type == "number"))
-    and (.caps.perRun | type == "number") and (.caps.perDay | type == "number")
-    and (.counts.eligible | type == "number") and (.counts.merged | type == "number") and (.counts.skipped | type == "number")
+    and (.caps.perRun | type == "number") and (.caps.perDay | type == "number") and (.caps.perDayRejects | type == "number")
+    and (.counts.eligible | type == "number") and (.counts.merged | type == "number") and (.counts.rejected | type == "number") and (.counts.skipped | type == "number")
     and (.results | type == "array")' >/dev/null 2>&1; then
   echo "::error::The apply script's report is missing fields or has the wrong shape."
   exit 1
@@ -92,14 +92,18 @@ if [ "$actual" != disabled ]; then
     echo "::error::The report says mode '$actual' but this run asked for '$expected'."
     exit 1
   fi
-  # The counts must match the results, and only a live run may have merged anything.
+  # The counts must match the results, only a live run may have merged or rejected anything, every result says
+  # what it asked for, and an outcome fits its action (a merge is an accept, a reject is a reject).
   if ! printf '%s\n' "$json" | jq -e '
       ([.results[] | select(.outcome == "merged")] | length) as $m
+      | ([.results[] | select(.outcome == "rejected")] | length) as $r
       | ([.results[] | select(.outcome == "eligible")] | length) as $e
       | ([.results[] | select(.outcome == "skipped")] | length) as $s
-      | (.counts.merged == $m and .counts.eligible == $e and .counts.skipped == $s)
-        and (if .mode == "live" then true else $m == 0 end)' >/dev/null 2>&1; then
-    echo "::error::The report is inconsistent: its counts do not match its results, or a run that is not live reports a merge."
+      | (.counts.merged == $m and .counts.rejected == $r and .counts.eligible == $e and .counts.skipped == $s)
+        and (if .mode == "live" then true else ($m == 0 and $r == 0) end)
+        and all(.results[]; .action == "accept" or .action == "reject")
+        and all(.results[]; (.outcome != "merged" or .action == "accept") and (.outcome != "rejected" or .action == "reject"))' >/dev/null 2>&1; then
+    echo "::error::The report is inconsistent: its counts do not match its results, a result lacks its action or has an outcome that does not fit it, or a run that is not live reports a merge or a reject."
     exit 1
   fi
 fi
@@ -109,8 +113,8 @@ if ! text=$(printf '%s\n' "$json" | jq -r '
     "- run tag: `\(.runTag // "none")`",
     "- kill switch: \(.killSwitch)",
     "- AI decisions in the last 24 hours before this run: \(if .usedLast24h == null then "n/a" else .usedLast24h end)",
-    "- caps: \(.caps.perRun) per run, \(.caps.perDay) per day",
-    "- eligible: \(.counts.eligible), merged: \(.counts.merged), skipped: \(.counts.skipped)",
+    "- caps: \(.caps.perRun) per run, \(.caps.perDay) per day, \(.caps.perDayRejects) rejects per day",
+    "- eligible: \(.counts.eligible), merged: \(.counts.merged), rejected: \(.counts.rejected), skipped: \(.counts.skipped)",
     "- skipped by reason: \(([.results[] | select(.reason) | .reason] | group_by(.) | map("\(.[0]): \(length)") | join(", ")) as $r | if $r == "" then "none" else $r end)"' 2>/dev/null); then
   echo "::error::The summary could not be built from the apply script's report."
   exit 1

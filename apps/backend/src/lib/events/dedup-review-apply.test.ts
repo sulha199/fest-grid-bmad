@@ -289,7 +289,7 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     const a = await makePair('Cap A', '2027-04-01');
     const b = await makePair('Cap B', '2027-04-02');
     const c = await makePair('Cap C', '2027-04-03');
-    const decisions = [
+    const decisions: DedupReviewApplyInput['decisions'] = [
       { suggestionId: a.suggestion.id, evidenceHash: await hashOf(a.suggestion.id), action: 'accept' },
       { suggestionId: b.suggestion.id, evidenceHash: await hashOf(b.suggestion.id), action: 'accept' },
       { suggestionId: c.suggestion.id, evidenceHash: await hashOf(c.suggestion.id), action: 'accept' },
@@ -313,7 +313,7 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
       .values({ eventId: secondNew.event.id, candidateEventId: first.candidate.event.id, score: 0.6, postId: secondNew.post.id })
       .returning();
 
-    const decisions = [
+    const decisions: DedupReviewApplyInput['decisions'] = [
       { suggestionId: first.suggestion.id, evidenceHash: await hashOf(first.suggestion.id), action: 'accept' },
       { suggestionId: second.id, evidenceHash: await hashOf(second.id), action: 'accept' },
     ];
@@ -341,7 +341,7 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
 
   await t.test('a moderator who resolves the suggestion while apply waits for its lock turns the decision into concurrent-change', async () => {
     const p = await makePair('Race', '2027-04-07');
-    const decisions = [{ suggestionId: p.suggestion.id, evidenceHash: await hashOf(p.suggestion.id), action: 'accept' }];
+    const decisions: DedupReviewApplyInput['decisions'] = [{ suggestionId: p.suggestion.id, evidenceHash: await hashOf(p.suggestion.id), action: 'accept' }];
     const holder = postgres(loadBackendEnv().databaseUrl as string, { max: 1, prepare: false });
     try {
       let applied: ReturnType<typeof runDedupReviewApply> | undefined;
