@@ -68,7 +68,7 @@ ESCALATION_REASONS = FLOOR_REASONS + ('unsure',)
 OTHER_REASONS = ('stale-evidence', 'not-pending', 'stale-pair', 'unknown-suggestion', 'per-run-cap',
                  'per-day-cap', 'event-already-in-run', 'concurrent-change', 'merge-failed')
 ALL_REASONS = ESCALATION_REASONS + OTHER_REASONS
-DECISIONS = ('escalated', 'shadow-eligible', 'merged', 'deferred', 'dropped')
+DECISIONS = ('escalated', 'shadow-eligible', 'merged', 'rejected', 'deferred', 'dropped')
 RESOLVED_STATUSES = ('accepted', 'rejected', 'expired')
 DECISION_STATUSES = ('accepted', 'rejected')  # what `recentlyResolved` lists; expiries are counted
 SKIP_STATUSES = RESOLVED_STATUSES + ('missing',)  # what `skipResolved` lists
@@ -84,6 +84,19 @@ BRIEF_CAP = 1500  # characters of one popup question
 BRIEF_LINE = 120
 BRIEF_WORDS = 6
 BRIEF_WORD_CAP = 20
+CONFIRM_MAX = 10  # pairs in one confirmation: the per-run cap of merges, and the reject cap of a day
+# The popup's options are constants, never worded by the model; only a selected option's exact label counts as that answer.
+LABEL_ACCEPT, LABEL_REJECT, LABEL_SKIP = 'Accept (merge)', 'Reject', 'Skip'
+LABEL_YES, LABEL_NO = 'Yes, dispatch the live apply', 'No'
+REJECT_COST = 'A reject hides this pair from every moderator and cannot be undone in the app; only the owner can reopen it, by SQL.'
+OPTION_DESCRIPTIONS = {
+    LABEL_ACCEPT: 'Merge the new event into the existing one. A merge can be undone in the app.',
+    LABEL_REJECT: REJECT_COST,
+    LABEL_SKIP: 'Leave this pair as it is.',
+    LABEL_YES: 'Dispatch the live apply for exactly the pairs listed above. The owner still approves the run in the Actions tab.',
+    LABEL_NO: 'Dispatch nothing.',
+}
+OFFER_TOKENS = ('accept', 'reject')
 BRIEF_TIERS = ((BRIEF_LINE, 4, 5), (80, 3, 3), (50, 2, 2), (30, 1, 1))  # field length, schedules and types shown: the text shrinks until it fits
 MAX_DECISIONS_CHARS = 65535
 MAX_LOG_BYTES = 50_000_000
@@ -665,13 +678,19 @@ def cmd_export_resolved(args):
     return 0
 
 
-def cmd_apply(args):
-    payload = find_report(read_source(args.log), APPLY_BEGIN, APPLY_END)
-    expected_ids = parse_ids(args.expect_ids, '--expect-ids')
-    # Not given means every dispatched id was an accept: a report that holds a reject is then refused.
+def read_expected_rejects(args, expected_ids):
+    """`--expect-reject-ids`, for `apply` and `close-decided`: omitted means every dispatched id was an accept, so a report
+    that holds a reject is refused; an id that was not dispatched at all is a bad input (exit 9)."""
     rejects = parse_ids(args.expect_reject_ids, '--expect-reject-ids', allow_empty=True) if args.expect_reject_ids is not None else []
     if not set(rejects) <= set(expected_ids):
         raise ReportError(EXIT_BAD_INPUT, '--expect-reject-ids must be among --expect-ids')
+    return rejects
+
+
+def cmd_apply(args):
+    payload = find_report(read_source(args.log), APPLY_BEGIN, APPLY_END)
+    expected_ids = parse_ids(args.expect_ids, '--expect-ids')
+    rejects = read_expected_rejects(args, expected_ids)
     validate_apply(payload, args.expect_mode, args.expect_run_tag, expected_ids, rejects)
     print(json.dumps(payload, indent=2))
     return 0
@@ -679,26 +698,14 @@ def cmd_apply(args):
 
 def cmd_decisions(args):
     """The decisions input for the apply workflow: the positional ids are accepts (no `action` key, as always), the
-    ids of `--reject` are rejects (`"action":"reject"`, which the workflow refuses unless `allow_rejects` is true)."""
+    ids of `--reject` are rejects (`"action":"reject"`, which the workflow refuses unless `allow_rejects` is true).
+    Rejects come first: a reject claims no event, so an accept after one on a shared event still stands, while an
+    accept before it would make `validate` skip the reject as `event-already-in-run`."""
     payload = load_export(args)
-    index = pair_index(payload)
     accepts = [raw.strip().lower() for raw in args.ids]
     rejects = parse_ids(args.reject, '--reject') if args.reject is not None else []
-    ids = accepts + rejects
-    if len(set(ids)) != len(ids):
-        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is listed twice (an id cannot be both an accept and a reject)')
-    if any(suggestion_id not in index for suggestion_id in ids):
-        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is not among the exported pairs')
-    if not ids or len(ids) > MAX_DECISIONS:
-        raise ReportError(EXIT_BAD_INPUT, 'give between 1 and %d suggestion ids' % MAX_DECISIONS)
-    # Rejects first: a reject claims no event, so an accept after it on a shared event still stands, while an accept
-    # before it would make `validate` skip the reject as `event-already-in-run`.
-    decisions = [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': [], 'action': 'reject'} for i in rejects]
-    decisions += [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': []} for i in accepts]
-    text = json.dumps({'schemaVersion': 1, 'decisions': decisions}, separators=(',', ':'))
-    if len(text) > MAX_DECISIONS_CHARS:
-        raise ReportError(EXIT_BAD_INPUT, 'the decisions are longer than a workflow input may be')
-    print(text)
+    index = check_batch(payload, accepts, rejects, MAX_DECISIONS)
+    print(decisions_text(index, accepts, rejects))
     return 0
 
 
@@ -767,7 +774,7 @@ def day_gap_text(gap):
     return str(int(gap)) if float(gap).is_integer() else str(round(gap, 1))
 
 
-def build_brief(pair, issue_numbers):
+def build_brief(pair, issue_numbers, offer=('accept',)):
     """(popup header, popup text, clues, number of strings cut) for one exported pair. The decisive lines (signals, clues)
     sit before the long ones' tail, and every line is capped: the field limit shrinks until the whole text fits, so the cap
     never cuts the clues."""
@@ -781,15 +788,17 @@ def build_brief(pair, issue_numbers):
     question, cuts = '', 0
     for limit, schedules, kinds in BRIEF_TIERS:
         counter = [0]
-        lines = (brief_event('Existing event (a merge keeps it)', pair['candidate'], counter, limit, schedules, kinds)
-                 + brief_event('New event (a merge folds it in)', pair['newEvent'], counter, limit, schedules, kinds))
+        merge_words = 'accept' in offer  # a reject-only popup does not talk about merging
+        lines = (brief_event('Existing event (a merge keeps it)' if merge_words else 'Existing event', pair['candidate'], counter, limit, schedules, kinds)
+                 + brief_event('New event (a merge folds it in)' if merge_words else 'New event', pair['newEvent'], counter, limit, schedules, kinds))
         lines.append('Signals: tier %s, score %s, name similarity %s' % (signals['tier'], signals['score'], signals['nameSimilarity']))
         if counter[0]:
             lines.append('Text was cut for length in %d place(s): open the event pages for the full text.' % counter[0])
         lines += ['Clue: %s' % clue for clue in clues]
         if len(issue_numbers) > 1:
             lines.append('Open issues for this pair: %s' % ', '.join('#%d' % number for number in issue_numbers))
-        lines.append('To reject, use Moderator Items in the app.')
+        if 'reject' not in offer:
+            lines.append('To reject, use Moderator Items in the app.')
         question, cuts = '\n'.join(lines), counter[0]
         if len(question) <= BRIEF_CAP:
             break
@@ -799,8 +808,26 @@ def build_brief(pair, issue_numbers):
     return header, question, clues, cuts
 
 
+def parse_offer(text):
+    """The options to offer: `accept`, `reject` or both, exact lower-case tokens; the default is `accept` (today's popup)."""
+    if text is None:
+        return ('accept',)
+    tokens = text.split(',')
+    if any(token not in OFFER_TOKENS for token in tokens) or len(set(tokens)) != len(tokens):
+        raise ReportError(EXIT_BAD_INPUT, '--offer must be accept, reject or accept,reject (skip is always offered)')
+    return tuple(token for token in OFFER_TOKENS if token in tokens)
+
+
+def options_for(offer):
+    labels = ([LABEL_ACCEPT] if 'accept' in offer else []) + ([LABEL_REJECT] if 'reject' in offer else []) + [LABEL_SKIP]
+    return [{'label': label, 'description': OPTION_DESCRIPTIONS[label]} for label in labels]
+
+
 def cmd_brief(args):
-    """The popup text for the given exported pairs, one JSON line each. `--ids` are suggestion uuids from the export."""
+    """The popup text for the given exported pairs, one JSON line each. `--ids` are suggestion uuids from the export.
+    `--offer` names the options (the same for every id of the call): the reader refuses a reject for a pair at tier
+    `high` (the drain's) and an accept for a pair that is not `mid`, before it prints anything. Whether the accept
+    `validate` allowed the offer is the skill's to judge; the exact-set `validate` is the backstop."""
     payload = load_export(args)
     index = pair_index(payload)
     ids = parse_ids(args.ids, '--ids')
@@ -808,15 +835,91 @@ def cmd_brief(args):
         raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is listed twice')
     if any(item not in index for item in ids):
         raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is not among the exported pairs')
-    numbers = {}
-    for row in (load_issues(args.files)[0] if args.files else []):
-        if row['state'] == 'OPEN':
-            numbers.setdefault(row['id'], []).append(row['number'])
+    offer = parse_offer(args.offer)
+    for suggestion_id in ids:
+        tier = index[suggestion_id]['signals']['tier']
+        if 'reject' in offer and tier == 'high':
+            raise ReportError(EXIT_BAD_INPUT, 'a pair at tier high is the drain\'s: it is not offered a reject')
+        if 'accept' in offer and tier != 'mid':
+            raise ReportError(EXIT_BAD_INPUT, 'only a pair at tier mid is offered an accept')
+    numbers = open_issue_numbers(args.files)
     for suggestion_id in ids:
         open_numbers = numbers.get(suggestion_id, [])
-        header, question, clues, cut = build_brief(index[suggestion_id], open_numbers)
+        header, question, clues, cut = build_brief(index[suggestion_id], open_numbers, offer)
         print(json.dumps({'suggestionId': suggestion_id, 'issue': open_numbers[0] if open_numbers else None, 'issues': open_numbers,
-                          'header': header, 'question': question, 'clues': clues, 'truncated': cut}, ensure_ascii=False))
+                          'header': header, 'question': question, 'options': options_for(offer), 'clues': clues, 'truncated': cut}, ensure_ascii=False))
+    return 0
+
+
+def open_issue_numbers(files):
+    numbers = {}
+    for row in (load_issues(files)[0] if files else []):
+        if row['state'] == 'OPEN':
+            numbers.setdefault(row['id'], []).append(row['number'])
+    return numbers
+
+
+def check_batch(payload, accepts, rejects, cap):
+    """One check for every command that takes a batch (`decisions`, `confirm`): the ids are distinct across both lists,
+    exported, between 1 and `cap`, and no reject is for a pair at tier `high`. Exit 9 for each."""
+    index = pair_index(payload)
+    ids = accepts + rejects
+    if len(set(ids)) != len(ids):
+        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is listed twice (an id cannot be both an accept and a reject)')
+    if any(suggestion_id not in index for suggestion_id in ids):
+        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is not among the exported pairs')
+    if not ids or len(ids) > cap:
+        raise ReportError(EXIT_BAD_INPUT, 'give between 1 and %d suggestion ids' % cap)
+    if any(index[suggestion_id]['signals']['tier'] == 'high' for suggestion_id in rejects):
+        raise ReportError(EXIT_BAD_INPUT, 'a pair at tier high is the drain\'s: it is not rejected')
+    return index
+
+
+def decisions_text(index, accepts, rejects):
+    """The decisions input, exactly: rejects first (a reject claims no event), an accept carries no `action`."""
+    decisions = [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': [], 'action': 'reject'} for i in rejects]
+    decisions += [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': []} for i in accepts]
+    text = json.dumps({'schemaVersion': 1, 'decisions': decisions}, separators=(',', ':'))
+    if len(text) > MAX_DECISIONS_CHARS:
+        raise ReportError(EXIT_BAD_INPUT, 'the decisions are longer than a workflow input may be')
+    return text
+
+
+def cmd_confirm(args):
+    """The final confirmation of the attended loop, built from the exact ids: each pair by issue number and the first
+    8 characters of its id, what a reject costs, what happens if the owner has not switched rejects on, and the
+    `decisions` string to dispatch verbatim. Both lists are required (either may be empty)."""
+    payload = load_export(args)
+    if args.accept is None or args.reject is None:
+        raise ReportError(EXIT_BAD_INPUT, '--accept and --reject are both required (an empty value is none)')
+    accepts = parse_ids(args.accept, '--accept', allow_empty=True)
+    rejects = parse_ids(args.reject, '--reject', allow_empty=True)
+    index = check_batch(payload, accepts, rejects, CONFIRM_MAX)
+    numbers = open_issue_numbers(args.files)
+
+    for suggestion_id in accepts + rejects:
+        if not numbers.get(suggestion_id):
+            raise ReportError(EXIT_BAD_INPUT, 'a pair to confirm has no open escalation issue in the given pages: pass the issue pages, and confirm only pairs the popups showed')
+    for suggestion_id in accepts:
+        if index[suggestion_id]['signals']['tier'] != 'mid':
+            raise ReportError(EXIT_BAD_INPUT, 'only a pair at tier mid is confirmed as an accept')
+
+    def named(suggestion_id):
+        pair = index[suggestion_id]
+        issues = ', '.join('#%d' % number for number in numbers[suggestion_id])
+        return '%s (id %s) "%s" and "%s"' % (issues, suggestion_id[:8], clean_text(pair['candidate']['name'], 60), clean_text(pair['newEvent']['name'], 60))
+
+    lines = []
+    if accepts:
+        lines.append('Accept (merge) %d pair(s): %s.' % (len(accepts), '; '.join(named(i) for i in accepts)))
+    if rejects:
+        lines.append('Reject %d pair(s): %s.' % (len(rejects), '; '.join(named(i) for i in rejects)))
+        lines += [REJECT_COST,
+                  'It is recorded as AI-assisted under your moderator account.',
+                  'A reject runs only if the owner has switched rejects on; otherwise the whole run is refused, the accepts included.']
+    lines.append('The owner still approves the run in the Actions tab.')
+    print(json.dumps({'header': 'Dispatch?', 'question': '\n'.join(lines), 'options': [{'label': label, 'description': OPTION_DESCRIPTIONS[label]} for label in (LABEL_YES, LABEL_NO)],
+                      'accept': accepts, 'reject': rejects, 'decisions': decisions_text(index, accepts, rejects)}, ensure_ascii=False))
     return 0
 
 
@@ -978,6 +1081,10 @@ def resolved_comment(status, by):
     return 'Resolved: the suggestion was %s %s. Closing this issue.' % (status, who)
 
 
+def rejected_comment():
+    return 'Resolved: a moderator rejected this suggestion in an attended review session. Closing this issue.'
+
+
 def decided_comment(merge_id):
     if not full(UUID, merge_id):
         raise ReportError(EXIT_BAD_INPUT, '--merge-id must be a merge uuid (from the live apply report)')
@@ -985,22 +1092,33 @@ def decided_comment(merge_id):
 
 
 def cmd_close_decided(args):
-    """After a live apply that merged pairs a moderator accepted in the attended loop: the open issues of the merged
+    """After a live apply that merged or rejected pairs a moderator chose in the attended loop: the open issues of those
     suggestions, with the label set to send (the outcome label is the moderator's own decision) and the fixed comment.
-    The merge ids come from the validated apply report only. A pair that was not merged keeps its issue."""
-    report = validate_apply(find_report(read_source(args.log), APPLY_BEGIN, APPLY_END), 'live', args.expect_run_tag, parse_ids(args.expect_ids, '--expect-ids'))
+    The merge ids come from the validated apply report only; `--expect-reject-ids` says which dispatched ids were rejects
+    (omitted: none). A pair that was skipped keeps its issue, and is listed in `notApplied` with its action and reason."""
+    expected_ids = parse_ids(args.expect_ids, '--expect-ids')
+    rejects = read_expected_rejects(args, expected_ids)
+    report = validate_apply(find_report(read_source(args.log), APPLY_BEGIN, APPLY_END), 'live', args.expect_run_tag, expected_ids, rejects)
     merges = {result['suggestionId']: result['mergeId'] for result in report['results'] if result['outcome'] == 'merged'}
-    not_merged = [{'id': result['suggestionId'], 'reason': result.get('reason')} for result in report['results'] if result['outcome'] != 'merged']
+    rejected = {result['suggestionId'] for result in report['results'] if result['outcome'] == 'rejected'}
+    not_applied = [{'id': result['suggestionId'], 'action': result['action'], 'reason': result.get('reason')}
+                   for result in report['results'] if result['outcome'] not in ('merged', 'rejected')]
     rows, _, _ = load_issues(args.files)
     close = []
     for row in rows:
-        if row['state'] != 'OPEN' or row['id'] not in merges:
+        if row['state'] != 'OPEN':
             continue
-        labels = [label for label in row['labels'] if not label.startswith('outcome:')] + ['outcome:accepted']  # one outcome label, the moderator's accept
-        close.append({'number': row['number'], 'id': row['id'], 'mergeId': merges[row['id']], 'labels': labels, 'comment': decided_comment(merges[row['id']])})
+        if row['id'] in merges:
+            entry = {'action': 'accept', 'mergeId': merges[row['id']], 'outcome': 'outcome:accepted', 'comment': decided_comment(merges[row['id']])}
+        elif row['id'] in rejected:
+            entry = {'action': 'reject', 'outcome': 'outcome:rejected', 'comment': rejected_comment()}
+        else:
+            continue
+        labels = [label for label in row['labels'] if not label.lower().startswith('outcome:')] + [entry.pop('outcome')]  # one outcome label: the moderator's
+        close.append(dict({'number': row['number'], 'id': row['id']}, labels=labels, **entry))
     covered = {item['id'] for item in close}
-    print(json.dumps({'close': close, 'closedIds': len(covered), 'notMerged': not_merged,
-                      'mergedWithoutOpenIssue': sorted(set(merges) - covered)}))
+    print(json.dumps({'close': close, 'closedIds': len(covered), 'notApplied': not_applied,
+                      'mergedWithoutOpenIssue': sorted(set(merges) - covered), 'rejectedWithoutOpenIssue': sorted(rejected - covered)}))
     return 0
 
 
@@ -1175,7 +1293,10 @@ def cmd_comment(args):
     if args.kind == 'resolved':
         print(resolved_comment(args.status, args.by))
     elif args.kind == 'decided':
-        print(decided_comment((args.merge_id or '').strip().lower()))
+        # Exactly one: an accept names its merge, a reject has none. Neither, or both, is a bad input (exit 9).
+        if args.rejected == (args.merge_id is not None):
+            raise ReportError(EXIT_BAD_INPUT, 'give exactly one of --merge-id (an accept) and --rejected (a reject)')
+        print(rejected_comment() if args.rejected else decided_comment(args.merge_id.strip().lower()))
     elif args.kind == 'reopened':
         print('The suggestion is pending again after an undone merge, so this issue is reopened.')
     elif args.kind == 'refused':
@@ -1203,9 +1324,13 @@ def load_summary(path):
     entries = data.get('entries')
     if not isinstance(entries, list) or len(entries) > MAX_DECISIONS:
         raise ReportError(EXIT_BAD_INPUT, 'entries must be a list of at most %d' % MAX_DECISIONS)
+    seen_entries = set()
     for entry in entries:
         if not (isinstance(entry, dict) and full(UUID, entry.get('suggestionId'))):
             raise ReportError(EXIT_BAD_INPUT, 'an entry has a bad suggestionId')
+        if entry['suggestionId'].lower() in seen_entries:
+            raise ReportError(EXIT_BAD_INPUT, 'a suggestionId appears twice in the entries')
+        seen_entries.add(entry['suggestionId'].lower())
         extra = sorted(set(entry) - set(ENTRY_KEYS))
         if extra:
             raise ReportError(EXIT_BAD_INPUT, 'an entry has keys this reader does not use (%s); a merge id comes from the apply report, never from the summary' % ', '.join(clean_text(k, 40) for k in extra))
@@ -1227,14 +1352,18 @@ def cmd_insight_comment(args):
     payload = load_export(args)
     data = load_summary(args.summary)
     merged_ids = {entry['suggestionId'] for entry in data['entries'] if entry['decision'] == 'merged'}
+    rejected_ids = {entry['suggestionId'] for entry in data['entries'] if entry['decision'] == 'rejected'}
     merges = {}
-    if merged_ids or args.apply_log:
+    if merged_ids or rejected_ids or args.apply_log:
         if data['mode'] != 'live' or not args.apply_log or not args.apply_run_tag:
-            raise ReportError(EXIT_BAD_INPUT, 'merged entries need mode live and the apply run: give --apply-log and --apply-run-tag')
+            raise ReportError(EXIT_BAD_INPUT, 'merged or rejected entries need mode live and the apply run: give --apply-log and --apply-run-tag')
         report = validate_apply(find_report(read_source(args.apply_log), APPLY_BEGIN, APPLY_END), 'live', args.apply_run_tag, None)
         merges = {result['suggestionId']: result['mergeId'] for result in report['results'] if result['outcome'] == 'merged'}
+        rejections = {result['suggestionId'] for result in report['results'] if result['outcome'] == 'rejected'}
         if set(merges) != merged_ids:
             raise ReportError(EXIT_BAD_INPUT, 'the merged entries (%d) do not match the merges in the apply report (%d)' % (len(merged_ids), len(merges)))
+        if rejections != rejected_ids:
+            raise ReportError(EXIT_BAD_INPUT, 'the rejected entries (%d) do not match the rejects in the apply report (%d)' % (len(rejected_ids), len(rejections)))
     counts = {name: sum(1 for entry in data['entries'] if entry['decision'] == name) for name in DECISIONS}
     by_status = {}
     for row in payload['skipResolved']:
@@ -1245,7 +1374,7 @@ def cmd_insight_comment(args):
         '',
         '- Pending in the queue: %d. Exported: %d. Skipped (already escalated): %d. Stale: %d. Scan limit reached: %s.' % (
             payload['totalPending'], len(payload['pairs']), payload['skippedCount'], payload['staleCount'], payload['scanLimited']),
-        '- Shadow-eligible: %(shadow-eligible)d. Escalated: %(escalated)d. Merged: %(merged)d. Deferred: %(deferred)d. Dropped: %(dropped)d.' % counts,
+        '- Shadow-eligible: %(shadow-eligible)d. Escalated: %(escalated)d. Merged: %(merged)d. Rejected: %(rejected)d. Deferred: %(deferred)d. Dropped: %(dropped)d.' % counts,
         '- Workflow runs: validate `%s`, apply `%s`.' % (data.get('validateTag') or 'none', data.get('applyTag') or 'none'),
         '- Issues closed this run: %s.' % (', '.join('#%d' % n for n in data.get('closedIssues', [])) or 'none'),
         '- Sent ids no longer pending: %d of %d%s. Decisions in the last 14 days: %d (more existed: %s). Expired in the last 14 days: %d.' % (
@@ -1340,15 +1469,21 @@ def build_parser():
     p = with_log('decisions', cmd_decisions, 'the decisions input for the apply workflow')
     p.add_argument('ids', nargs='*', help='the ids to accept')
     p.add_argument('--reject', default=None, help='comma-separated ids to reject (needs allow_rejects in the workflow)')
+    p = with_log('confirm', cmd_confirm, 'the final confirmation of the attended loop, built from the exact ids')
+    p.add_argument('files', nargs='*', help='list_issues output, one file per page (names each pair by its open issue number)')
+    p.add_argument('--accept', default=None, help='comma-separated ids to accept (an empty value is none); required')
+    p.add_argument('--reject', default=None, help='comma-separated ids to reject (an empty value is none); required')
     p = with_log('triage', cmd_triage, 'which exported pairs are new and which a labelled issue covers')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p.add_argument('--live-cleared', action='store_true', help='the owner cleared this run for live, or the attended loop is running: shadow pairs return for a fresh decision')
     p = with_log('brief', cmd_brief, 'the popup text for exported pairs of the attended decision loop')
     p.add_argument('files', nargs='*', help='list_issues output, one file per page (adds the open issue number)')
     p.add_argument('--ids', default=None, help='comma-separated suggestion ids of exported pairs')
+    p.add_argument('--offer', default=None, help='the options to offer: accept (the default), reject or accept,reject; skip is always offered')
     p = with_log('close-decided', cmd_close_decided, 'the open issues to close after a live apply merged pairs a moderator accepted (LOG is the APPLY log)')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p.add_argument('--expect-ids', required=True, help='the suggestion ids that were dispatched, comma-separated')
+    p.add_argument('--expect-reject-ids', default=None, help='the dispatched ids that were rejects (omitted: none were)')
     p = with_log('settle', cmd_settle, 'the open issues to close because their suggestion was resolved')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p = with_log('issue', cmd_issue, 'title, body and labels of an escalation issue')
@@ -1378,7 +1513,8 @@ def build_parser():
     p.add_argument('--status', default=None)
     p.add_argument('--by', default=None)
     p.add_argument('--reason', default=None)
-    p.add_argument('--merge-id', default=None, help='the merge uuid of a live apply report (for the decided comment)')
+    p.add_argument('--merge-id', default=None, help='the merge uuid of a live apply report (the decided comment of an accept)')
+    p.add_argument('--rejected', action='store_true', help='the decided comment of a reject (no merge id)')
     p.set_defaults(handler=cmd_comment)
     return parser
 
