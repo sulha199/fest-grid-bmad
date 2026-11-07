@@ -2,7 +2,7 @@
 title: 'Apply-side floor override: a decision kind that merges a pair the floor refuses, off until the owner switches it on (FIND-124)'
 type: 'feature'
 created: '2026-11-07'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: 'ab5fc81d2bf830d719c338dd25e001d946a30879'
 review_loop_iteration: 0
 context:
