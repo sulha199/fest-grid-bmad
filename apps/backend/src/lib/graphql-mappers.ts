@@ -58,6 +58,8 @@ export type EventParent = OptimizedRow<typeof events> & {
 
 export type ReportParent = OptimizedRow<typeof reports> & { id: string; eventId: string };
 export type WidgetParent = WithTimestamps<OptimizedRow<typeof widgets>>;
+// What `Query.widgetById` selects: no owner and no deletion state, because the query needs no session.
+export type PublicWidgetParent = Pick<WidgetParent, 'id' | 'filters' | 'displayMode' | 'theme' | 'createdAt'>;
 export type AIEventFilterParent = WithTimestamps<OptimizedRow<typeof aiEventFilters>>;
 
 // Stored rows hold Date columns, while mutations return the same shape with ISO strings already applied;

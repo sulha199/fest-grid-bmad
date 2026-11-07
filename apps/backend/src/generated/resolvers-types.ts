@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
-import { SocialMediaAccountProfileParent, SubscriptionParent, EventParent, ReportParent, WidgetParent, AIEventFilterParent, AccountVoteParent, EmbedDomainParent, RankedAccountVoteParent, CoordinatesParent, ScheduleParent, UnprocessedScraperPayloadParent, PayloadContextParent } from '../lib/graphql-mappers.js';
+import { SocialMediaAccountProfileParent, SubscriptionParent, EventParent, ReportParent, WidgetParent, PublicWidgetParent, AIEventFilterParent, AccountVoteParent, EmbedDomainParent, RankedAccountVoteParent, CoordinatesParent, ScheduleParent, UnprocessedScraperPayloadParent, PayloadContextParent } from '../lib/graphql-mappers.js';
 import { GraphQLContext } from '../lib/auth/context.js';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
@@ -1061,6 +1061,16 @@ export type ProposedScheduleCorrectionInput = {
   title?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type PublicWidget = {
+  __typename?: 'PublicWidget';
+  createdAt: Scalars['String']['output'];
+  displayMode: WidgetDisplayMode;
+  expression: FilterNode;
+  filters?: Maybe<EventFilter>;
+  id: Scalars['ID']['output'];
+  theme: WidgetTheme;
+};
+
 export type Query = {
   __typename?: 'Query';
   addressAutocomplete: Array<AddressSuggestion>;
@@ -1121,7 +1131,7 @@ export type Query = {
   suggestedEventMatches: SuggestedEventMatchConnection;
   voteRegionBreakdown: Array<RegionVoteBucket>;
   votedAccountSuggestions: Array<RankedAccountVote>;
-  widgetById?: Maybe<Widget>;
+  widgetById?: Maybe<PublicWidget>;
 };
 
 
@@ -1858,6 +1868,7 @@ export type ResolversTypes = ResolversObject<{
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ResolverTypeWrapper<ProposedScheduleCorrectionData>;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
+  PublicWidget: ResolverTypeWrapper<PublicWidgetParent>;
   Query: ResolverTypeWrapper<{}>;
   RankedAccountVote: ResolverTypeWrapper<RankedAccountVoteParent>;
   ReextractionDedupTier: ReextractionDedupTier;
@@ -1981,6 +1992,7 @@ export type ResolversParentTypes = ResolversObject<{
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ProposedScheduleCorrectionData;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
+  PublicWidget: PublicWidgetParent;
   Query: {};
   RankedAccountVote: RankedAccountVoteParent;
   ReextractionPreviewDedup: ReextractionPreviewDedup;
@@ -2490,6 +2502,16 @@ export type ProposedScheduleCorrectionDataResolvers<ContextType = GraphQLContext
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PublicWidgetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PublicWidget'] = ResolversParentTypes['PublicWidget']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  displayMode?: Resolver<ResolversTypes['WidgetDisplayMode'], ParentType, ContextType>;
+  expression?: Resolver<ResolversTypes['FilterNode'], ParentType, ContextType>;
+  filters?: Resolver<Maybe<ResolversTypes['EventFilter']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  theme?: Resolver<ResolversTypes['WidgetTheme'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
   addressAutocomplete?: Resolver<Array<ResolversTypes['AddressSuggestion']>, ParentType, ContextType, RequireFields<QueryAddressAutocompleteArgs, 'input'>>;
   embedDomainsForWidget?: Resolver<Array<ResolversTypes['EmbedDomain']>, ParentType, ContextType, RequireFields<QueryEmbedDomainsForWidgetArgs, 'widgetId'>>;
@@ -2527,7 +2549,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   suggestedEventMatches?: Resolver<ResolversTypes['SuggestedEventMatchConnection'], ParentType, ContextType, Partial<QuerySuggestedEventMatchesArgs>>;
   voteRegionBreakdown?: Resolver<Array<ResolversTypes['RegionVoteBucket']>, ParentType, ContextType, RequireFields<QueryVoteRegionBreakdownArgs, 'accountId'>>;
   votedAccountSuggestions?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryVotedAccountSuggestionsArgs>>;
-  widgetById?: Resolver<Maybe<ResolversTypes['Widget']>, ParentType, ContextType, RequireFields<QueryWidgetByIdArgs, 'id'>>;
+  widgetById?: Resolver<Maybe<ResolversTypes['PublicWidget']>, ParentType, ContextType, RequireFields<QueryWidgetByIdArgs, 'id'>>;
 }>;
 
 export type RankedAccountVoteResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RankedAccountVote'] = ResolversParentTypes['RankedAccountVote']> = ResolversObject<{
@@ -2886,6 +2908,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   PostReextractionPreviewStatus?: PostReextractionPreviewStatusResolvers<ContextType>;
   ProposedEventCorrectionData?: ProposedEventCorrectionDataResolvers<ContextType>;
   ProposedScheduleCorrectionData?: ProposedScheduleCorrectionDataResolvers<ContextType>;
+  PublicWidget?: PublicWidgetResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   RankedAccountVote?: RankedAccountVoteResolvers<ContextType>;
   ReextractionPreviewDedup?: ReextractionPreviewDedupResolvers<ContextType>;
