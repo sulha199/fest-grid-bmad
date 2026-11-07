@@ -232,14 +232,14 @@ the pairs the reviewer escalated, which `recentlyResolved` could not.
 
 *As built in FIND-120 (2026-11-07):* an apply-side reject path, shipped dark.
 
-- **What it does.** Each apply decision has an optional `action`: exactly `accept` (default) or `reject`. A reject is judged on
+- **What it does.** Each apply decision has an optional `action`: exactly `accept` (default) or `reject` (*FIND-124 adds `accept-override`, see "As built in FIND-124"*). A reject is judged on
   the pair's state, the evidence hash, the invoker and the caps, with no floor, except that a `high`-tier pair is skipped
   `already-high`. It is recorded by `resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')` under the invoker moderator:
   `status = rejected`, `resolved_via = ai_skill`, no `event_merges` row, events untouched. It locks the suggestion row only and
   is judged again under that lock. `validate` skips it `event-already-in-run` when an earlier accept in the file claimed one of
   its events (live reports `stale-pair` or `stale-evidence` after that merge).
 - **Gates.** The workflow input `allow_rejects` (boolean, default false; the run name gets `rejects=true ` before `tag=` only
-  when true; the `inputs` job refuses any `action` that is not exactly `accept` without it; the script needs `--allow-rejects`).
+  when true; the `inputs` job refuses any `action` that is not exactly `accept` or `accept-override` without it (*FIND-124: `accept-override` has its own input*); the script needs `--allow-rejects`).
   For `apply`, dry or live, with `allow_rejects` true, the `dedup-review-live` variable `DEDUP_REVIEW_REJECT_ENABLED` must be
   exactly `true` or `1` (unset = off; read in the apply job before checkout and again by the script; no repository- or
   org-level variable of that name). `validate` runs in another environment, cannot see it and checks only `allow_rejects`, so

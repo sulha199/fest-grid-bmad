@@ -304,11 +304,12 @@ export async function runDedupReviewApply(database: Pick<typeof appDb, 'transact
   assertDedupReviewFloorOverrideAllowed(input.decisions, input.allowFloorOverride ?? false);
   // The owner's switch is checked before anything is read: an `apply` run (dry or live) that allows rejects needs it,
   // whether or not a decision holds one (the workflow's own step reads it the same way).
-  if (input.mode === 'apply' && input.allowRejects && !input.rejectsEnabled) {
+  // Any mode but `validate` is a write run, so a mode outside the type (a cast caller) cannot skip the switches.
+  if (input.mode !== 'validate' && input.allowRejects && !input.rejectsEnabled) {
     throw new DedupReviewRejectsDisabledError(REJECTS_DISABLED_MESSAGE);
   }
   // The same for the override switch, and after the reject one so the order of refusals is flag, variable (rejects, then override).
-  if (input.mode === 'apply' && input.allowFloorOverride && !input.floorOverrideEnabled) {
+  if (input.mode !== 'validate' && input.allowFloorOverride && !input.floorOverrideEnabled) {
     throw new DedupReviewFloorOverrideDisabledError(FLOOR_OVERRIDE_DISABLED_MESSAGE);
   }
   const caps: DedupReviewCaps = {

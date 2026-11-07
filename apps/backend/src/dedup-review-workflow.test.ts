@@ -483,7 +483,7 @@ test('dedup-review-apply guard script', async (t) => {
     assert.match(ok.summary, /- override decisions in this report: 2/, 'every override decision is shown, a skipped one too');
     assert.ok(!ok.summary.includes(ID_B) && !ok.summary.includes(MERGE_ID), 'no id in the public summary');
     assert.match(run(printed(reportOf()), 0, 'apply', 'true').summary, /- of which overrides: 0/, 'zero when there is none');
-    for (const allow of [undefined, 'false', '', 'yes']) {
+    for (const allow of [undefined, 'false', '', 'yes', 'TRUE', '1', ' true']) {
       const refused = run(printed(overrideRun), 0, 'apply', 'true', allow);
       assert.strictEqual(refused.status, 1, `allow ${String(allow)}`);
       assert.match(refused.out, /an override appears in a run that did not allow overrides/);

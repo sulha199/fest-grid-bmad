@@ -673,6 +673,56 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     assert.strictEqual((await suggestionRow(second.id)).status, 'pending');
   });
 
+  await t.test('an override is judged again under the lock without the floor: a row resolved while apply waits is concurrent-change; an edit while it waits is too, and merges are never done on stale evidence', async () => {
+    for (const [label, change, expected] of [
+      ['resolved', (id: string) => `UPDATE event_match_candidates SET status = 'accepted', resolved_at = now() WHERE id = '${id}'`, 'accepted'],
+      ['edited', (_id: string, candidateId?: string) => `UPDATE events SET event_name = 'Festival Kuliner Nusantara Edited While Waiting' WHERE id = '${candidateId}'`, 'pending'],
+    ] as const) {
+      const p = await makePair('Override Race ' + label, label === 'resolved' ? '2027-07-22' : '2027-07-23', { newAccountId: otherAccount.id });
+      const decisions = [await overrideOf(p.suggestion.id)];
+      const holder = postgres(loadBackendEnv().databaseUrl as string, { max: 1, prepare: false });
+      try {
+        let applied: ReturnType<typeof runDedupReviewApply> | undefined;
+        await holder.begin(async (tx) => {
+          await tx`SELECT id FROM event_match_candidates WHERE id = ${p.suggestion.id} FOR UPDATE`;
+          applied = runDedupReviewApply(db, overrideInput(decisions, { live: true }));
+          const deadline = Date.now() + 15_000;
+          for (;;) {
+            const waiting = await tx`SELECT 1 FROM pg_locks w WHERE w.locktype = 'transactionid' AND NOT w.granted AND w.transactionid IN (SELECT transactionid FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'transactionid' AND granted)`;
+            if (waiting.length > 0) break;
+            assert.ok(Date.now() < deadline, 'apply never reached the lock wait');
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+          await tx.unsafe(change(p.suggestion.id, p.candidate.event.id));
+        });
+        const report = await (applied as ReturnType<typeof runDedupReviewApply>);
+        assert.deepStrictEqual(report.results, [{ suggestionId: p.suggestion.id, action: 'accept-override', outcome: 'skipped', reason: 'concurrent-change' }], label);
+        const row = await suggestionRow(p.suggestion.id);
+        assert.strictEqual(row.status, expected, `${label}: nothing was merged by the reviewer`);
+        assert.strictEqual(row.resolvedVia, null, `${label}: the reviewer wrote nothing`);
+      } finally {
+        await holder.end();
+      }
+    }
+  });
+
+  await t.test('an override on a pair whose event was deleted is stale-pair, and nothing merges', async () => {
+    const p = await makePair('Override Deleted', '2027-07-24', { newAccountId: otherAccount.id });
+    const decisions = [await overrideOf(p.suggestion.id)];
+    await db.update(events).set({ deletedAt: new Date() }).where(eq(events.id, p.newSide.event.id));
+    const report = await runDedupReviewApply(db, overrideInput(decisions, { live: true }));
+    assert.deepStrictEqual(report.results, [{ suggestionId: p.suggestion.id, action: 'accept-override', outcome: 'skipped', reason: 'stale-pair' }]);
+    assert.strictEqual((await suggestionRow(p.suggestion.id)).status, 'pending');
+  });
+
+  await t.test('a mode outside the type cannot skip the switches: anything but validate is a write run that needs them', async () => {
+    const p = await makePair('Override Odd Mode', '2027-07-25', { newAccountId: otherAccount.id });
+    const decisions = [await overrideOf(p.suggestion.id)];
+    await assert.rejects(runDedupReviewApply(db, baseInput(decisions, { mode: 'bogus' as never, allowFloorOverride: true, live: true })), DedupReviewFloorOverrideDisabledError);
+    await assert.rejects(runDedupReviewApply(db, baseInput([await rejectOf(p.suggestion.id)], { mode: 'bogus' as never, allowRejects: true, live: true })), DedupReviewRejectsDisabledError);
+    assert.strictEqual((await suggestionRow(p.suggestion.id)).status, 'pending');
+  });
+
   await t.test('overrides share the caps with merges: the per-run cap counts accepts and overrides together, and the day cap counts rejects too', async () => {
     const a = await makePair('Cap Accept', '2027-07-10');
     const o1 = await makePair('Cap Override 1', '2027-07-11', { newAccountId: otherAccount.id });

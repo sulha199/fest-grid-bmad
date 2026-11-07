@@ -2954,12 +2954,12 @@ This document defines the core architectural invariants for the FestDaily applic
         organizer, or a shared link together with a venue match), no venue conflict, a day gap of 0 (or up
         to 90 with a shared link), every schedule of the new event covered inside that window, names that do
         not contradict. Evidence is recomputed server-side and compared by hash before every merge, and
-        again under row locks. The reviewer never rejects, and never merges what the floor refuses. The same
+        again under row locks. The reviewer never rejects, and never merges what the floor refuses (**amended 2026-11-07, FIND-124:** except as a moderator's `accept-override`, below). The same
         holds for a pair a moderator accepts in the attended decision loop (`FIND-119`): it is merged only if
         `validate` calls it eligible, and the loop offers no reject. **Amended 2026-11-07 (FIND-120):** the
         skill's own rule stands (the daily AI review never rejects), and the sentence "the loop offers no reject"
         stayed true until `FIND-121` (next paragraph). What changed is the bridge: an apply decision may carry `action: reject`
-        (exactly `accept`, the default, or `reject`). A reject is judged on the pair's state, the evidence hash,
+        (exactly `accept`, the default, `reject` or, since FIND-124, `accept-override`). A reject is judged on the pair's state, the evidence hash,
         the invoker and the caps, with no floor, except that a `high`-tier pair is skipped `already-high`. It is
         recorded by `resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')` under the invoker moderator:
         `status = rejected`, `resolved_via = ai_skill`, no `event_merges` row, events untouched. It locks the
