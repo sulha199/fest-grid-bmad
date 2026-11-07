@@ -2759,7 +2759,7 @@ items:
 
   FIND-125:
     {type: finding, status: backlog, created: 2026-11-07,
-     impact: internal, effort: s,
+     impact: internal, effort: m,
      title: "AI dedup review: Merge regardless of the floor option in the attended loop popup and its issue closing",
      ref: [implementation-artifacts/deferred-work.md, .claude/skills/moderator-dedup-review/SKILL.md, .claude/skills/moderator-dedup-review/dedup_report.py],
      touches: [web:moderation, cross:process],
