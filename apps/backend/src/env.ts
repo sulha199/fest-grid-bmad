@@ -31,6 +31,8 @@ export interface BackendEnv {
   // 10-minute rolling-fixed window per user -- see that story's Dev Notes decision 3 for why.
   promptFilterRateLimitMaxRequests: number;
   promptFilterRateLimitWindowMinutes: number;
+  systemErrorAlertMaxEmails: number;
+  systemErrorAlertWindowMinutes: number;
   webAppBaseUrl: string;
   // Batch cap for how many additional carousel (Sidecar) slide images are sent to Gemini in a
   // single extraction request, beyond the cover image (Story 3.6l). Keeps the AI Processor
@@ -281,6 +283,20 @@ export function loadBackendEnv(): BackendEnv {
       // eslint-disable-next-line turbo/no-undeclared-env-vars
       process.env.PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES,
       'PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES',
+      10
+    ),
+    // `Mutation.reportSystemError` is public: at most this many alert emails per window (default 10 per
+    // 10 minutes); further reports are logged, not emailed. See alert-email-budget-store.ts.
+    systemErrorAlertMaxEmails: parsePositiveInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.SYSTEM_ERROR_ALERT_MAX_EMAILS,
+      'SYSTEM_ERROR_ALERT_MAX_EMAILS',
+      10
+    ),
+    systemErrorAlertWindowMinutes: parsePositiveInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.SYSTEM_ERROR_ALERT_WINDOW_MINUTES,
+      'SYSTEM_ERROR_ALERT_WINDOW_MINUTES',
       10
     ),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

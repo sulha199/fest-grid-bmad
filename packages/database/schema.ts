@@ -1191,3 +1191,14 @@ export const promptFilterRateLimits = pgTable('prompt_filter_rate_limits', {
   windowStartAt: timestamp('window_start_at', { withTimezone: true }).defaultNow().notNull(),
   ...timestamps,
 });
+
+// One fixed window of alert-email sends per named channel (2026-11-07). `Mutation.reportSystemError` is public (no
+// session, so no per-user key) and every call used to email the alert address: this table is what lets it send at
+// most N emails per window and log the rest. `key` names the channel, so one channel's flood cannot use up another's
+// budget. Server-only, like prompt_filter_rate_limits: RLS on, no policy (migration 0084).
+export const alertEmailRateLimits = pgTable('alert_email_rate_limits', {
+  key: text('key').primaryKey(),
+  sendCount: integer('send_count').default(0).notNull(),
+  windowStartAt: timestamp('window_start_at', { withTimezone: true }).defaultNow().notNull(),
+  ...timestamps,
+});
