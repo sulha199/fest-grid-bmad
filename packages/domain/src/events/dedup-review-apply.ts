@@ -32,14 +32,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const RUN_TAG = /^[A-Za-z0-9._-]{1,64}$/;
 
-/** What a decision does: merge the pair (the default) or record a reject. */
-export type DedupReviewAction = 'accept' | 'reject';
+/**
+ * What a decision does: merge the pair judged by the floor (the default), record a reject, or merge the pair
+ * with no floor (`accept-override`, FIND-124: a moderator's merge of a pair the floor refuses).
+ */
+export type DedupReviewAction = 'accept' | 'reject' | 'accept-override';
 
 /** The one reviewer-chosen thing apply acts on; `reasons` are validated and then dropped. */
 export interface DedupReviewDecision {
   suggestionId: string;
   evidenceHash: string;
-  /** Always set by the parser: an entry without `action` is an accept. */
+  /** Always set by the parser to the validated value: an entry without `action` is an accept. */
   action: DedupReviewAction;
 }
 
@@ -59,7 +62,7 @@ function hasKeys(value: Record<string, unknown>, required: string[], optional: s
 
 /**
  * Parses the decisions file: `{"schemaVersion":1,"decisions":[{suggestionId, evidenceHash, reasons, action?}]}`.
- * `action` is exactly `accept` or `reject` (no case folding, no trimming) and defaults to `accept`.
+ * `action` is exactly `accept`, `reject` or `accept-override` (no case folding, no trimming) and defaults to `accept`.
  * Every failure throws the same kind of fixed message (a JSON syntax error can quote its input), and
  * `reasons` never leaves this function.
  */
@@ -87,10 +90,10 @@ export function parseDedupReviewDecisions(raw: string): DedupReviewDecision[] {
     if (!isPlainObject(entry) || !hasKeys(entry, ['suggestionId', 'evidenceHash', 'reasons'], ['action'])) {
       throw new DedupReviewApplyInputError('each decision must hold suggestionId, evidenceHash and reasons, and may hold action');
     }
-    if (Object.hasOwn(entry, 'action') && entry.action !== 'accept' && entry.action !== 'reject') {
-      throw new DedupReviewApplyInputError('action must be "accept" or "reject"');
+    if (Object.hasOwn(entry, 'action') && entry.action !== 'accept' && entry.action !== 'reject' && entry.action !== 'accept-override') {
+      throw new DedupReviewApplyInputError('action must be "accept", "reject" or "accept-override"');
     }
-    const action: DedupReviewAction = entry.action === 'reject' ? 'reject' : 'accept';
+    const action: DedupReviewAction = Object.hasOwn(entry, 'action') ? (entry.action as DedupReviewAction) : 'accept';
     const suggestionId = typeof entry.suggestionId === 'string' ? entry.suggestionId.toLowerCase() : '';
     if (!UUID.test(suggestionId)) {
       throw new DedupReviewApplyInputError('suggestionId must be a uuid');
@@ -132,9 +135,17 @@ export interface DedupReviewApplyOptions {
   runTag: string | null;
   /** The run may hold reject decisions (`--allow-rejects`). Off by default. */
   allowRejects: boolean;
+  /** The run may hold `accept-override` decisions (`--allow-floor-override`). Off by default. */
+  allowFloorOverride: boolean;
 }
 
-export function parseDedupReviewApplyOptions(input: { mode?: string | null; live?: boolean; runTag?: string | null; allowRejects?: boolean }): DedupReviewApplyOptions {
+export function parseDedupReviewApplyOptions(input: {
+  mode?: string | null;
+  live?: boolean;
+  runTag?: string | null;
+  allowRejects?: boolean;
+  allowFloorOverride?: boolean;
+}): DedupReviewApplyOptions {
   if (input.mode !== 'validate' && input.mode !== 'apply') {
     throw new DedupReviewApplyInputError('mode must be "validate" or "apply"');
   }
@@ -146,13 +157,20 @@ export function parseDedupReviewApplyOptions(input: { mode?: string | null; live
   if (rawTag && !RUN_TAG.test(rawTag)) {
     throw new DedupReviewApplyInputError('run_tag must be 1 to 64 letters, digits, ".", "_" or "-"');
   }
-  return { mode: input.mode, live, runTag: rawTag || null, allowRejects: input.allowRejects === true };
+  return { mode: input.mode, live, runTag: rawTag || null, allowRejects: input.allowRejects === true, allowFloorOverride: input.allowFloorOverride === true };
 }
 
 /** A reject needs `--allow-rejects`, whatever the mode: the message names the flag and echoes nothing. */
 export function assertDedupReviewRejectsAllowed(decisions: readonly DedupReviewDecision[], allowRejects: boolean): void {
   if (!allowRejects && decisions.some((decision) => decision.action === 'reject')) {
     throw new DedupReviewApplyInputError('a reject decision needs --allow-rejects');
+  }
+}
+
+/** An `accept-override` needs `--allow-floor-override`, whatever the mode: the message names the flag and echoes nothing. */
+export function assertDedupReviewFloorOverrideAllowed(decisions: readonly DedupReviewDecision[], allowFloorOverride: boolean): void {
+  if (!allowFloorOverride && decisions.some((decision) => decision.action === 'accept-override')) {
+    throw new DedupReviewApplyInputError('an accept-override decision needs --allow-floor-override');
   }
 }
 
@@ -164,6 +182,9 @@ export function assertDedupReviewRejectsAllowed(decisions: readonly DedupReviewD
 export function isDedupReviewRejectEnabled(raw: string | undefined): boolean {
   return raw === 'true' || raw === '1';
 }
+
+/** The floor-override switch (`DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`) reads exactly like the reject switch: one rule for both owner switches. */
+export const isDedupReviewFloorOverrideEnabled = isDedupReviewRejectEnabled;
 
 /**
  * The kill switch fails closed: apply is only enabled when the variable is unset, empty, `0` or `false`
@@ -248,9 +269,9 @@ export function checkDedupReviewFloor(fresh: DedupReviewFreshPair): DedupReviewS
 }
 
 export interface DedupReviewRunState {
-  /** Events already claimed by an eligible accept in this run. */
+  /** Events already claimed by an eligible merge (accept or override) in this run. */
   claimedEventIds: ReadonlySet<string>;
-  /** Accepts already judged eligible in this run (merges only: the per-run cap counts nothing else). */
+  /** Merges (accepts and overrides) already judged eligible in this run (the per-run cap counts nothing else). */
   eligibleInRun: number;
   /** Rejects already judged eligible in this run. */
   rejectsInRun: number;
@@ -270,11 +291,12 @@ export type DedupReviewVerdict = { outcome: 'eligible' } | { outcome: 'skipped';
 
 /**
  * One decision's verdict, in a fixed order. An accept: the pair's state, the evidence hash, the floor, a
- * shared event, the per-run cap, the day cap. A reject: the pair's state, the evidence hash, `already-high`
+ * shared event, the per-run cap, the day cap. An `accept-override` is the same without the floor (FIND-124:
+ * no tier skip either; it counts as a merge in both caps). A reject: the pair's state, the evidence hash, `already-high`
  * (the drain merges those, so nothing rejects them), a shared event claimed by an earlier accept (read
  * only: a reject claims none), the reject cap, the day cap. There is no floor for a reject: it limits what
- * may be merged, and a reject merges nothing. The day cap is `used + accepts + rejects`; the per-run cap
- * counts accepts only. The caller adds an eligible decision to the state; a skipped one claims and consumes
+ * may be merged, and a reject merges nothing. The day cap is `used + merges + rejects`; the per-run cap
+ * counts merges only. The caller adds an eligible decision to the state; a skipped one claims and consumes
  * nothing.
  */
 export function judgeDedupReviewDecision(input: {
@@ -295,8 +317,11 @@ export function judgeDedupReviewDecision(input: {
     if (dayTotal >= caps.perDay) return { outcome: 'skipped', reason: 'per-day-cap' };
     return { outcome: 'eligible' };
   }
-  const floor = checkDedupReviewFloor(fresh);
-  if (floor !== null) return { outcome: 'skipped', reason: floor };
+  // The floor is skipped only for exactly `accept-override`: any other value, a malformed one included, gets it.
+  if (decision.action !== 'accept-override') {
+    const floor = checkDedupReviewFloor(fresh);
+    if (floor !== null) return { outcome: 'skipped', reason: floor };
+  }
   if (sharesClaimedEvent) return { outcome: 'skipped', reason: 'event-already-in-run' };
   if (state.eligibleInRun >= caps.perRun) return { outcome: 'skipped', reason: 'per-run-cap' };
   if (dayTotal >= caps.perDay) return { outcome: 'skipped', reason: 'per-day-cap' };
@@ -310,7 +335,7 @@ export interface DedupReviewApplyResult {
   suggestionId: string;
   /** What the decision asked for; set on every result, a skipped one included. */
   action: DedupReviewAction;
-  /** `merged` is an accept and `rejected` a reject, and only a live run reports either. */
+  /** `merged` is an accept or an override and `rejected` a reject, and only a live run reports either. */
   outcome: 'eligible' | 'merged' | 'rejected' | 'skipped';
   reason?: DedupReviewSkipReason;
   /** Only on a merge that was committed (live). */

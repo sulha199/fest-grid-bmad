@@ -9,11 +9,13 @@ import {
   DEDUP_REVIEW_PER_DAY_REJECT_CAP,
   DEDUP_REVIEW_PER_RUN_CAP,
   DedupReviewApplyInputError,
+  assertDedupReviewFloorOverrideAllowed,
   assertDedupReviewRejectsAllowed,
   checkDedupReviewFloor,
   countDedupReviewResults,
   formatDedupReviewApplyReport,
   isDedupReviewApplyDisabled,
+  isDedupReviewFloorOverrideEnabled,
   isDedupReviewRejectEnabled,
   judgeDedupReviewDecision,
   parseDedupReviewApplyOptions,
@@ -141,9 +143,10 @@ test('parseDedupReviewDecisions - every malformed file is refused with a message
   }
 });
 
-test('parseDedupReviewDecisions - action is exactly accept or reject, accept when absent, and nothing else is tolerated', () => {
+test('parseDedupReviewDecisions - action is exactly accept, reject or accept-override, accept when absent, and nothing else is tolerated', () => {
+  const ID_D = '44444444-4444-4444-8444-444444444445';
   const parsed = parseDedupReviewDecisions(
-    decisionsJson([entry({ action: 'reject' }), entry({ suggestionId: ID_B, action: 'accept' }), entry({ suggestionId: ID_C })])
+    decisionsJson([entry({ action: 'reject' }), entry({ suggestionId: ID_B, action: 'accept' }), entry({ suggestionId: ID_C }), entry({ suggestionId: ID_D, action: 'accept-override' })])
   );
   assert.deepStrictEqual(
     parsed.map((decision) => [decision.suggestionId, decision.action]),
@@ -151,10 +154,11 @@ test('parseDedupReviewDecisions - action is exactly accept or reject, accept whe
       [ID_A, 'reject'],
       [ID_B, 'accept'],
       [ID_C, 'accept'],
+      [ID_D, 'accept-override'],
     ]
   );
   const secret = 'SECRET-ACTION-TEXT';
-  for (const bad of ['delete', '', 'Reject', 'REJECT', 'reject ', ' accept', 5, null, true, ['reject'], {}, secret]) {
+  for (const bad of ['delete', '', 'Reject', 'REJECT', 'reject ', ' accept', 5, null, true, ['reject'], {}, secret, 'Accept-Override', 'override', 'accept-override ', 'accept_override', 'ACCEPT-OVERRIDE']) {
     assert.throws(
       () => parseDedupReviewDecisions(decisionsJson([entry({ action: bad })])),
       (err: unknown) => err instanceof DedupReviewApplyInputError && /action must be/.test(err.message) && !err.message.includes(secret),
@@ -173,6 +177,25 @@ test('assertDedupReviewRejectsAllowed - a reject needs the flag, an accept never
   assert.throws(() => assertDedupReviewRejectsAllowed([accept, reject], false), (err: unknown) => err instanceof DedupReviewApplyInputError && /--allow-rejects/.test(err.message));
 });
 
+test('assertDedupReviewFloorOverrideAllowed - an accept-override needs the flag, an accept or a reject never does', () => {
+  const accept: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept' };
+  const reject: DedupReviewDecision = { suggestionId: ID_C, evidenceHash: HASH, action: 'reject' };
+  const override: DedupReviewDecision = { suggestionId: ID_B, evidenceHash: HASH, action: 'accept-override' };
+  assert.doesNotThrow(() => assertDedupReviewFloorOverrideAllowed([accept, reject], false));
+  assert.doesNotThrow(() => assertDedupReviewFloorOverrideAllowed([], false));
+  assert.doesNotThrow(() => assertDedupReviewFloorOverrideAllowed([accept, override], true));
+  assert.throws(
+    () => assertDedupReviewFloorOverrideAllowed([accept, override], false),
+    (err: unknown) => err instanceof DedupReviewApplyInputError && /--allow-floor-override/.test(err.message)
+  );
+});
+
+test('isDedupReviewFloorOverrideEnabled - the same fail-closed rule as the reject switch: only exactly true and 1', () => {
+  assert.strictEqual(isDedupReviewFloorOverrideEnabled, isDedupReviewRejectEnabled, 'one function reads both owner switches');
+  for (const on of ['true', '1']) assert.strictEqual(isDedupReviewFloorOverrideEnabled(on), true, on);
+  for (const off of [undefined, '', '0', 'false', 'TRUE', ' true', 'yes']) assert.strictEqual(isDedupReviewFloorOverrideEnabled(off), false, JSON.stringify(off));
+});
+
 test('isDedupReviewRejectEnabled - the switch fails closed: only exactly true and 1 turn rejects on, as the workflow reads it', () => {
   for (const on of ['true', '1']) assert.strictEqual(isDedupReviewRejectEnabled(on), true, on);
   for (const off of [undefined, '', '  ', '0', 'false', 'yes', 'on', 'enabled', 'tru', 'true1', '11', 'TRUE', 'True', ' true', 'true ', ' 1\n', '1 ']) assert.strictEqual(isDedupReviewRejectEnabled(off), false, JSON.stringify(off));
@@ -186,9 +209,11 @@ test('parseDedupReviewInvokerHash - 64 hex characters, trimmed and lower-cased, 
 });
 
 test('parseDedupReviewApplyOptions - mode is required, --live needs apply, the run tag is checked', () => {
-  assert.deepStrictEqual(parseDedupReviewApplyOptions({ mode: 'validate' }), { mode: 'validate', live: false, runTag: null, allowRejects: false });
-  assert.deepStrictEqual(parseDedupReviewApplyOptions({ mode: 'apply', live: true, runTag: ' run-1 ' }), { mode: 'apply', live: true, runTag: 'run-1', allowRejects: false });
-  assert.deepStrictEqual(parseDedupReviewApplyOptions({ mode: 'apply', live: false, runTag: '' }), { mode: 'apply', live: false, runTag: null, allowRejects: false });
+  assert.deepStrictEqual(parseDedupReviewApplyOptions({ mode: 'validate' }), { mode: 'validate', live: false, runTag: null, allowRejects: false, allowFloorOverride: false });
+  assert.deepStrictEqual(parseDedupReviewApplyOptions({ mode: 'apply', live: true, runTag: ' run-1 ' }), { mode: 'apply', live: true, runTag: 'run-1', allowRejects: false, allowFloorOverride: false });
+  assert.deepStrictEqual(parseDedupReviewApplyOptions({ mode: 'apply', live: false, runTag: '' }), { mode: 'apply', live: false, runTag: null, allowRejects: false, allowFloorOverride: false });
+  assert.strictEqual(parseDedupReviewApplyOptions({ mode: 'apply', allowFloorOverride: true }).allowFloorOverride, true, 'the override is allowed only when asked for');
+  assert.strictEqual(parseDedupReviewApplyOptions({ mode: 'apply', allowFloorOverride: false }).allowFloorOverride, false);
   assert.strictEqual(parseDedupReviewApplyOptions({ mode: 'apply', allowRejects: true }).allowRejects, true, 'rejects are allowed only when asked for');
   assert.strictEqual(parseDedupReviewApplyOptions({ mode: 'apply', allowRejects: false }).allowRejects, false);
   for (const mode of [undefined, null, '', 'live']) {
@@ -308,6 +333,53 @@ test('judgeDedupReviewDecision - a shared event, the per-run cap and the per-day
   assert.deepStrictEqual(judge({ ...EMPTY_STATE, rejectsInRun: 5, usedLast24h: 20 }), { outcome: 'skipped', reason: 'per-day-cap' }, 'rejects in this run count against the shared day cap of an accept');
   assert.deepStrictEqual(judge({ ...EMPTY_STATE, rejectsInRun: 10 }), { outcome: 'eligible' }, 'rejects never use up the per-run cap of merges');
   assert.deepStrictEqual(judge({ ...EMPTY_STATE, usedRejectsLast24h: 10 }), { outcome: 'eligible' }, 'the reject cap does not bind an accept');
+});
+
+test('judgeDedupReviewDecision - an accept-override: no floor and no tier skip, but state, hash, a claimed event and both merge caps', () => {
+  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept-override' };
+  const lookup = (overrides: Partial<DedupReviewFreshPair> = {}): DedupReviewFreshLookup => ({ kind: 'pair', ...fresh(overrides) });
+  const judge = (fresh: DedupReviewFreshLookup, state: DedupReviewRunState = EMPTY_STATE, caps = CAPS) => judgeDedupReviewDecision({ decision, fresh, state, caps });
+
+  for (const kind of ['unknown-suggestion', 'not-pending', 'stale-pair'] as const) {
+    assert.deepStrictEqual(judge({ kind }), { outcome: 'skipped', reason: kind }, kind);
+  }
+  assert.deepStrictEqual(judge(lookup({ pair: pair({ evidenceHash: 'b'.repeat(64) }) })), { outcome: 'skipped', reason: 'stale-evidence' });
+  assert.deepStrictEqual(judge(lookup()), { outcome: 'eligible' });
+
+  // Every pair the floor refuses is eligible: each floor code, and both tiers the floor sets aside.
+  const refusedByTheFloor: Array<[string, DedupReviewFreshLookup]> = [
+    ['a high tier', lookup({ pair: pair({}, { tier: 'high' }) })],
+    ['a low tier', lookup({ pair: pair({}, { tier: 'low' }) })],
+    ['an earlier undo', lookup({ pair: pair({ undoneMergeCount: 1 }) })],
+    ['no anchor', lookup({ pair: pair({}, { organizerMatch: false }) })],
+    ['a venue conflict', lookup({ venueConflict: true })],
+    ['outside the window', lookup({ pair: pair({}, { minDayDiff: null }) })],
+    ['a schedule the window does not cover', lookup({ pair: pair({ newEvent: eventEvidence({ slug: 'ig_p_def', schedules: [{ isMain: true, startDate: '2027-03-01', endDate: null, startTime: null, endTime: null, timezone: null, title: null, location: null }] }) }) })],
+    ['names that contradict', lookup({ pair: pair({ newEvent: eventEvidence({ slug: 'ig_p_def', name: 'GembiRun Loka 2026 Part 2' }), candidate: eventEvidence({ name: 'GembiRun Loka 2026 Part 1' }) }) })],
+  ];
+  for (const [label, input] of refusedByTheFloor) {
+    assert.deepStrictEqual(judge(input), { outcome: 'eligible' }, label);
+    assert.notStrictEqual(judgeDedupReviewDecision({ decision: { ...decision, action: 'accept' }, fresh: input, state: EMPTY_STATE, caps: CAPS }).outcome, 'eligible', `${label}: the same pair is refused as an accept`);
+  }
+  // Only the exact value skips the floor: any other action (a malformed one from a future caller included) gets it.
+  const floorRefused = lookup({ pair: pair({}, { organizerMatch: false }) });
+  for (const action of ['accept', 'Accept-Override', 'override', ''] as const) {
+    assert.deepStrictEqual(
+      judgeDedupReviewDecision({ decision: { ...decision, action: action as DedupReviewDecision['action'] }, fresh: floorRefused, state: EMPTY_STATE, caps: CAPS }),
+      { outcome: 'skipped', reason: 'no-anchor' },
+      JSON.stringify(action)
+    );
+  }
+
+  // Shared event and the merge caps, in the accept's order.
+  assert.deepStrictEqual(judge(lookup(), { ...EMPTY_STATE, claimedEventIds: new Set([EVENT_X]) }), { outcome: 'skipped', reason: 'event-already-in-run' });
+  assert.deepStrictEqual(judge(lookup(), { ...EMPTY_STATE, claimedEventIds: new Set([EVENT_Z]) }), { outcome: 'eligible' });
+  assert.deepStrictEqual(judge(lookup(), { ...EMPTY_STATE, eligibleInRun: 10 }), { outcome: 'skipped', reason: 'per-run-cap' }, 'an override uses the per-run cap of merges');
+  assert.deepStrictEqual(judge(lookup(), { ...EMPTY_STATE, eligibleInRun: 9 }), { outcome: 'eligible' });
+  assert.deepStrictEqual(judge(lookup(), { ...EMPTY_STATE, usedLast24h: 25 }), { outcome: 'skipped', reason: 'per-day-cap' }, 'and the shared day cap');
+  assert.deepStrictEqual(judge(lookup(), { ...EMPTY_STATE, usedLast24h: 20, rejectsInRun: 5 }), { outcome: 'skipped', reason: 'per-day-cap' }, 'rejects in the run count against it');
+  assert.deepStrictEqual(judge(lookup(), { ...EMPTY_STATE, eligibleInRun: 10, usedLast24h: 25 }), { outcome: 'skipped', reason: 'per-run-cap' }, 'the per-run cap is reported first');
+  assert.deepStrictEqual(judge(lookup(), { ...EMPTY_STATE, usedRejectsLast24h: 10 }), { outcome: 'eligible' }, 'the reject cap does not bind an override');
 });
 
 test('judgeDedupReviewDecision - a reject: state, hash, high tier, a claimed event, the reject cap and the day cap, and no floor', () => {

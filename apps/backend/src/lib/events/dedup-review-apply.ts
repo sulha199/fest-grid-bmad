@@ -6,6 +6,7 @@ import {
   DEDUP_REVIEW_PER_DAY_CAP,
   DEDUP_REVIEW_PER_DAY_REJECT_CAP,
   DEDUP_REVIEW_PER_RUN_CAP,
+  assertDedupReviewFloorOverrideAllowed,
   assertDedupReviewRejectsAllowed,
   countDedupReviewResults,
   judgeDedupReviewDecision,
@@ -18,7 +19,13 @@ import {
   type DedupReviewSkipReason,
 } from '@festgrid/domain/events';
 import type { db as appDb } from '../../db/client.js';
-import { DedupReviewInvokerError, DedupReviewRejectsDisabledError, REJECTS_DISABLED_MESSAGE } from './dedup-review-errors.js';
+import {
+  DedupReviewFloorOverrideDisabledError,
+  DedupReviewInvokerError,
+  DedupReviewRejectsDisabledError,
+  FLOOR_OVERRIDE_DISABLED_MESSAGE,
+  REJECTS_DISABLED_MESSAGE,
+} from './dedup-review-errors.js';
 import { assertRoleBypassesRls, buildDedupReviewPair, runInReadOnlyTransaction, runInWriteTransaction } from './dedup-review-export.js';
 import { evaluateBacklogRow } from './drain-match-backlog.js';
 import { EventMergeInvalidStateError } from './merge-events.js';
@@ -28,8 +35,9 @@ import type { DbExecutor } from './set-event-primary-post.js';
 /**
  * AI-assisted dedup review, apply side (`_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece B2b-1).
  *
- * Takes the reviewer's decisions and applies the ones that still hold: an ACCEPT merges, a REJECT (off
- * unless `allowRejects` and, in `apply`, `rejectsEnabled`, FIND-120) records a dismissal. Both go through
+ * Takes the reviewer's decisions and applies the ones that still hold: an ACCEPT merges, an `accept-override`
+ * merges with no floor (off unless `allowFloorOverride` and, in `apply`, `floorOverrideEnabled`, FIND-124), a
+ * REJECT (off unless `allowRejects` and, in `apply`, `rejectsEnabled`, FIND-120) records a dismissal. All go through
  * `resolveSuggestedMatch()` with `via: 'ai_skill'`, the function the moderator's own accept and reject
  * use, so the checks, the row lock and the journal are the same. This module takes an executor and
  * never imports the database client.
@@ -132,6 +140,10 @@ export interface DedupReviewApplyInput {
   allowRejects?: boolean;
   /** The owner's reject switch is on (`DEDUP_REVIEW_REJECT_ENABLED`). Off by default; `apply` needs it for a reject. */
   rejectsEnabled?: boolean;
+  /** The run may hold `accept-override` decisions (`--allow-floor-override`). Off by default. */
+  allowFloorOverride?: boolean;
+  /** The owner's override switch is on (`DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`). Off by default; `apply` needs it when the run allows overrides. */
+  floorOverrideEnabled?: boolean;
   /** Tests only: the caps default to the domain constants. */
   caps?: Partial<DedupReviewCaps>;
   now?: Date;
@@ -174,13 +186,13 @@ type Decided = { mergeId: string | null } | { reason: DedupReviewSkipReason };
 /**
  * One eligible decision, decided under locks, inside a savepoint (so a failure undoes only this decision).
  *
- * An accept: lock the suggestion row, then both events in id order; re-read the pair under those locks and
- * judge it again; only then merge. A pair that changed between the plan and the locks is `concurrent-change`.
+ * An accept or an `accept-override`: lock the suggestion row, then both events in id order; re-read the pair
+ * under those locks and judge it again (an override without the floor); only then merge. A pair that changed between the plan and the locks is `concurrent-change`.
  *
  * A reject: lock the suggestion row only (a reject changes nothing else, and event locks would be held to the
  * end of the run for no gain), re-read the pair under that lock, judge it again, then record the dismissal.
  *
- * What the locks cover, honestly: the suggestion row and, for an accept, the two event rows, which keeps another
+ * What the locks cover, honestly: the suggestion row and, for a merge, the two event rows, which keeps another
  * writer from resolving or merging this pair while it is judged. The moderator's own accept locks only
  * the suggestion row, and `mergeEvents` itself reads schedules, posts, favorites and links with plain
  * statements, so a row another writer adds to those tables in the few milliseconds between the
@@ -204,7 +216,8 @@ async function decideUnderLocks(
         .where(eq(eventMatchCandidates.id, decision.suggestionId))
         .for('update');
       if (!locked) throw new DecisionAborted('concurrent-change');
-      if (decision.action === 'accept') {
+      // Every action but a reject merges, so it locks the events: a future action locks by default.
+      if (decision.action !== 'reject') {
         await sp
           .select({ id: events.id })
           .from(events)
@@ -288,10 +301,15 @@ async function processDecisions(
 /** Runs one invocation of the apply script against `database`; see the module comment for the modes. */
 export async function runDedupReviewApply(database: Pick<typeof appDb, 'transaction'>, input: DedupReviewApplyInput): Promise<DedupReviewApplyReport> {
   assertDedupReviewRejectsAllowed(input.decisions, input.allowRejects ?? false);
+  assertDedupReviewFloorOverrideAllowed(input.decisions, input.allowFloorOverride ?? false);
   // The owner's switch is checked before anything is read: an `apply` run (dry or live) that allows rejects needs it,
   // whether or not a decision holds one (the workflow's own step reads it the same way).
   if (input.mode === 'apply' && input.allowRejects && !input.rejectsEnabled) {
     throw new DedupReviewRejectsDisabledError(REJECTS_DISABLED_MESSAGE);
+  }
+  // The same for the override switch, and after the reject one so the order of refusals is flag, variable (rejects, then override).
+  if (input.mode === 'apply' && input.allowFloorOverride && !input.floorOverrideEnabled) {
+    throw new DedupReviewFloorOverrideDisabledError(FLOOR_OVERRIDE_DISABLED_MESSAGE);
   }
   const caps: DedupReviewCaps = {
     perRun: input.caps?.perRun ?? DEDUP_REVIEW_PER_RUN_CAP,
