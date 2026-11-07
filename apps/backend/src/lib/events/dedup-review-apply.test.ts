@@ -420,6 +420,8 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
       await assert.rejects(runDedupReviewApply(db, baseInput(decisions, { allowRejects: true, live, invokerHash: sha256('nobody-' + suffix) })), DedupReviewRejectsDisabledError);
     }
     assert.strictEqual((await suggestionRow(p.suggestion.id)).status, 'pending');
+    // The switch is read from the run, not from the decisions: an accept-only run that allows rejects needs it too (as the workflow's step does).
+    await assert.rejects(runDedupReviewApply(db, baseInput([await acceptOf(p.suggestion.id)], { allowRejects: true })), DedupReviewRejectsDisabledError);
     // An accept-only run needs neither.
     const accept = await runDedupReviewApply(db, baseInput([await acceptOf(p.suggestion.id)], { mode: 'validate' }));
     assert.deepStrictEqual(reasonsOf(accept), ['eligible']);

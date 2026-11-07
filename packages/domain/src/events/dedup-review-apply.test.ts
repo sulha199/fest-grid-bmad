@@ -173,9 +173,9 @@ test('assertDedupReviewRejectsAllowed - a reject needs the flag, an accept never
   assert.throws(() => assertDedupReviewRejectsAllowed([accept, reject], false), (err: unknown) => err instanceof DedupReviewApplyInputError && /--allow-rejects/.test(err.message));
 });
 
-test('isDedupReviewRejectEnabled - the switch fails closed: only true and 1 turn rejects on', () => {
-  for (const on of ['true', 'TRUE', ' True ', '1', ' 1\n']) assert.strictEqual(isDedupReviewRejectEnabled(on), true, on);
-  for (const off of [undefined, '', '  ', '0', 'false', 'yes', 'on', 'enabled', 'tru', 'true1', '11']) assert.strictEqual(isDedupReviewRejectEnabled(off), false, String(off));
+test('isDedupReviewRejectEnabled - the switch fails closed: only exactly true and 1 turn rejects on, as the workflow reads it', () => {
+  for (const on of ['true', '1']) assert.strictEqual(isDedupReviewRejectEnabled(on), true, on);
+  for (const off of [undefined, '', '  ', '0', 'false', 'yes', 'on', 'enabled', 'tru', 'true1', '11', 'TRUE', 'True', ' true', 'true ', ' 1\n', '1 ']) assert.strictEqual(isDedupReviewRejectEnabled(off), false, JSON.stringify(off));
 });
 
 test('parseDedupReviewInvokerHash - 64 hex characters, trimmed and lower-cased, nothing else', () => {

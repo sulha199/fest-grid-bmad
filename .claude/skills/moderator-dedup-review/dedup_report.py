@@ -691,8 +691,10 @@ def cmd_decisions(args):
         raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is not among the exported pairs')
     if not ids or len(ids) > MAX_DECISIONS:
         raise ReportError(EXIT_BAD_INPUT, 'give between 1 and %d suggestion ids' % MAX_DECISIONS)
-    decisions = [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': []} for i in accepts]
-    decisions += [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': [], 'action': 'reject'} for i in rejects]
+    # Rejects first: a reject claims no event, so an accept after it on a shared event still stands, while an accept
+    # before it would make `validate` skip the reject as `event-already-in-run`.
+    decisions = [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': [], 'action': 'reject'} for i in rejects]
+    decisions += [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': []} for i in accepts]
     text = json.dumps({'schemaVersion': 1, 'decisions': decisions}, separators=(',', ':'))
     if len(text) > MAX_DECISIONS_CHARS:
         raise ReportError(EXIT_BAD_INPUT, 'the decisions are longer than a workflow input may be')

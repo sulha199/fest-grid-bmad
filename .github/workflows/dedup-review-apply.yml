@@ -157,9 +157,16 @@ jobs:
           fi
           # A reject needs allow_rejects. This check is stricter than the script's own: any action other than
           # exactly "accept" counts, so a wrong-case value cannot slip past it. The script stays the authority.
-          if [ "${ALLOW_REJECTS:-}" != true ] && printf '%s' "$DECISIONS" | jq -e '[.decisions[]? | objects | select(has("action") and .action != "accept")] | length > 0' > /dev/null 2>&1; then
-            echo "::error::A decision carries an action other than accept, which needs allow_rejects. Dispatch again with allow_rejects true to send a reject."
-            exit 1
+          if [ "${ALLOW_REJECTS:-}" != true ]; then
+            # Fail closed: if jq cannot read the decisions here, the run stops instead of slipping past the check.
+            if ! other=$(printf '%s' "$DECISIONS" | jq -r '[.decisions[]? | objects | select(has("action") and .action != "accept")] | length'); then
+              echo "::error::The decisions could not be checked for rejects."
+              exit 1
+            fi
+            if [ "$other" != 0 ]; then
+              echo "::error::A decision carries an action other than accept, which needs allow_rejects. Dispatch again with allow_rejects true to send a reject."
+              exit 1
+            fi
           fi
 
   validate:

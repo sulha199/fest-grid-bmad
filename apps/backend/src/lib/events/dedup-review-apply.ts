@@ -72,7 +72,8 @@ export async function resolveInvokerUserId(executor: DbExecutor, invokerHash: st
  * How many AI decisions the last 24 hours (the database's clock) already hold: merges the reviewer
  * made, undone ones included (the journal keeps the flag after an undo, so counting only live merges
  * would let a re-merge after an undo bypass the cap), plus the suggestions it rejected (a reject
- * writes no journal row, and an undo clears the suggestion's flag, so the two sets do not overlap).
+ * writes no journal row, and an undo clears the suggestion's flag, so the two sets rarely overlap: a pair merged,
+ * undone and then rejected has a journal row and a rejected row, and counts twice, which errs on the side of the cap).
  */
 export async function countAiActionsLast24h(executor: DbExecutor): Promise<number> {
   const since = sql`now() - interval '24 hours'`;
@@ -287,8 +288,9 @@ async function processDecisions(
 /** Runs one invocation of the apply script against `database`; see the module comment for the modes. */
 export async function runDedupReviewApply(database: Pick<typeof appDb, 'transaction'>, input: DedupReviewApplyInput): Promise<DedupReviewApplyReport> {
   assertDedupReviewRejectsAllowed(input.decisions, input.allowRejects ?? false);
-  // The owner's switch is checked before anything is read: an `apply` run (dry or live) that holds a reject needs it.
-  if (input.mode === 'apply' && !input.rejectsEnabled && input.decisions.some((decision) => decision.action === 'reject')) {
+  // The owner's switch is checked before anything is read: an `apply` run (dry or live) that allows rejects needs it,
+  // whether or not a decision holds one (the workflow's own step reads it the same way).
+  if (input.mode === 'apply' && input.allowRejects && !input.rejectsEnabled) {
     throw new DedupReviewRejectsDisabledError(REJECTS_DISABLED_MESSAGE);
   }
   const caps: DedupReviewCaps = {

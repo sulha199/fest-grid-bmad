@@ -212,6 +212,7 @@ test('dedup-review-apply workflow (text checks)', async (t) => {
 
     assert.ok(jobs.inputs.includes('ALLOW_REJECTS: ${{ inputs.allow_rejects }}'));
     assert.ok(jobs.inputs.includes('select(has("action") and .action != "accept")'), 'any action but exactly accept needs the input');
+    assert.match(squash(jobs.inputs), /if ! other=\$\(printf '%s' "\$DECISIONS" \| jq -r .*\); then echo "::error::The decisions could not be checked for rejects\."/, 'a jq failure stops the run: the check fails closed');
     assert.ok(!jobs.inputs.includes('vars.') && !jobs.inputs.includes('secrets.'), 'the input check still uses no variable or secret');
     assert.ok(jobs.validate.includes('ALLOW_REJECTS: ${{ inputs.allow_rejects }}') && jobs.validate.includes('args+=(--allow-rejects)'));
     assert.ok(!jobs.validate.includes('DEDUP_REVIEW_REJECT_ENABLED'), 'validate runs where the owner variable is not visible');

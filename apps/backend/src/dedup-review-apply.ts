@@ -138,7 +138,7 @@ async function main(): Promise<void> {
   assertDedupReviewRejectsAllowed(decisions, options.allowRejects);
   // Read only for `apply`: `validate` cannot see the owner's variable and checks the flag alone.
   const rejectsEnabled = options.mode === 'apply' && isDedupReviewRejectEnabled(process.env.DEDUP_REVIEW_REJECT_ENABLED);
-  if (options.mode === 'apply' && !rejectsEnabled && decisions.some((decision) => decision.action === 'reject')) {
+  if (options.mode === 'apply' && options.allowRejects && !rejectsEnabled) {
     throw new DedupReviewRejectsDisabledError(REJECTS_DISABLED_MESSAGE);
   }
 

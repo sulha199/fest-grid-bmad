@@ -158,11 +158,11 @@ export function assertDedupReviewRejectsAllowed(decisions: readonly DedupReviewD
 
 /**
  * The reject switch fails closed, the other way round from the kill switch: rejects are enabled only when
- * the variable is exactly `true` or `1` (any case). Unset, empty or anything else keeps them off.
+ * the variable is exactly `true` or `1`, as the workflow's own check reads it: no trimming, no case folding.
+ * Unset, empty or anything else (`TRUE`, ` true`) keeps them off.
  */
 export function isDedupReviewRejectEnabled(raw: string | undefined): boolean {
-  const value = raw?.trim().toLowerCase() ?? '';
-  return value === 'true' || value === '1';
+  return raw === 'true' || raw === '1';
 }
 
 /**

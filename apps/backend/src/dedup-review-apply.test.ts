@@ -130,10 +130,12 @@ test('dedup-review-apply CLI', async (t) => {
     refused(['--mode', 'validate', '--decisions-file', rejects], {}, /Invalid input: a reject decision needs --allow-rejects/, 'validate without the flag');
     refused(['--mode', 'apply', '--decisions-file', rejects], { DEDUP_REVIEW_REJECT_ENABLED: 'true' }, /Invalid input: a reject decision needs --allow-rejects/, 'the variable cannot stand in for the flag');
     refused(['--mode', 'validate', '--allow-rejects', '--decisions-file', bad], {}, /Invalid input: action must be "accept" or "reject"/, 'no case folding');
-    for (const off of [undefined, '', '0', 'false', 'yes', 'on', 'tru']) {
+    for (const off of [undefined, '', '0', 'false', 'yes', 'on', 'tru', 'TRUE', ' true', '1 ']) {
       const extra: Record<string, string> = off === undefined ? {} : { DEDUP_REVIEW_REJECT_ENABLED: off };
-      refused(['--mode', 'apply', '--allow-rejects', '--decisions-file', rejects], extra, /Apply refused: Rejects are switched off\./, `apply, variable ${String(off)}`);
-      refused(['--mode', 'apply', '--live', '--allow-rejects', '--decisions-file', rejects], extra, /Apply refused: Rejects are switched off\./, `live, variable ${String(off)}`);
+      refused(['--mode', 'apply', '--allow-rejects', '--decisions-file', rejects], extra, /Apply refused: Rejects are switched off\./, `apply, variable ${JSON.stringify(off)}`);
+      refused(['--mode', 'apply', '--live', '--allow-rejects', '--decisions-file', rejects], extra, /Apply refused: Rejects are switched off\./, `live, variable ${JSON.stringify(off)}`);
+      // The run that allows rejects needs the switch whether or not a decision holds one, as the workflow's own step reads it.
+      refused(['--mode', 'apply', '--allow-rejects', '--decisions-file', valid], extra, /Apply refused: Rejects are switched off\./, `an accept-only run that allows rejects, variable ${JSON.stringify(off)}`);
     }
   });
 });

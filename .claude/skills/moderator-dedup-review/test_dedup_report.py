@@ -1119,8 +1119,8 @@ class RejectReportTests(Base):
         code, out, _ = self.cli('decisions', path, A.upper(), '--reject', HEXY.upper())
         self.assertEqual(code, 0)
         decisions = json.loads(out)['decisions']
-        self.assertEqual(decisions[0], {'suggestionId': A, 'evidenceHash': HASH, 'reasons': []})   # an accept carries no action
-        self.assertEqual(decisions[1], {'suggestionId': HEXY, 'evidenceHash': HASH, 'reasons': [], 'action': 'reject'})
+        self.assertEqual(decisions[0], {'suggestionId': HEXY, 'evidenceHash': HASH, 'reasons': [], 'action': 'reject'})   # rejects come first: they claim no event
+        self.assertEqual(decisions[1], {'suggestionId': A, 'evidenceHash': HASH, 'reasons': []})                          # an accept carries no action
         self.assertNotIn(' ', out)
 
         only_rejects = self.cli('decisions', path, '--reject', B)
