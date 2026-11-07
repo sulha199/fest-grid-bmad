@@ -56,6 +56,8 @@ test('uploadFaceBlurThumbnail integration/unit tests', async (t) => {
     apiKeyUsageCycleDays: 30,
     promptFilterRateLimitMaxRequests: 10,
     promptFilterRateLimitWindowMinutes: 10,
+    systemErrorAlertMaxEmails: 10,
+    systemErrorAlertWindowMinutes: 10,
     webAppBaseUrl: 'http://localhost:3000',
     locationInferenceConfidenceThreshold: 0.5,
     scrapeResultsLimit: 10,

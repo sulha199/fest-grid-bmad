@@ -645,6 +645,13 @@
       "when": 1793453060394,
       "tag": "0091_profile_lookup_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "6",
+      "when": 1794020669273,
+      "tag": "0092_alert_email_rate_limits",
+      "breakpoints": true
     }
   ]
 }
