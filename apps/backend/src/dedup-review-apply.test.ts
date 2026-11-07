@@ -131,7 +131,7 @@ test('dedup-review-apply CLI', async (t) => {
     refused(['--mode', 'apply', '--decisions-file', rejects], { DEDUP_REVIEW_REJECT_ENABLED: 'true' }, /Invalid input: a reject decision needs --allow-rejects/, 'the variable cannot stand in for the flag');
     refused(['--mode', 'validate', '--allow-rejects', '--decisions-file', bad], {}, /Invalid input: action must be "accept" or "reject"/, 'no case folding');
     for (const off of [undefined, '', '0', 'false', 'yes', 'on', 'tru']) {
-      const extra = off === undefined ? {} : { DEDUP_REVIEW_REJECT_ENABLED: off };
+      const extra: Record<string, string> = off === undefined ? {} : { DEDUP_REVIEW_REJECT_ENABLED: off };
       refused(['--mode', 'apply', '--allow-rejects', '--decisions-file', rejects], extra, /Apply refused: Rejects are switched off\./, `apply, variable ${String(off)}`);
       refused(['--mode', 'apply', '--live', '--allow-rejects', '--decisions-file', rejects], extra, /Apply refused: Rejects are switched off\./, `live, variable ${String(off)}`);
     }
