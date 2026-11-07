@@ -217,12 +217,12 @@ the pairs the reviewer escalated, which `recentlyResolved` could not.
 
 - **Who decides.** Only a session where the user asked for it. A popup per pair, built by the reader (`brief`), shows both events,
   the signals and deterministic clues (the words and numbers only one name has, the day gap, venue, organizer and link match, an
-  earlier undo). The options are Accept and Skip; any other answer is a skip. One final confirmation covers the batch. The popup
+  earlier undo). The options are Accept and Skip (*2026-11-07: Accept, Reject and Skip since FIND-121, see "As built in FIND-121"*); any other answer is a skip. One final confirmation covers the batch. The popup
   stands in for "the shadow runs were reviewed" for those pairs only.
 - **What it may merge.** Only a pair `validate` calls `eligible` on a fresh export (the escalated pairs among the oldest 10 pending
   ones return because the first export sends no `skip_ids`; a pair that is skipped or refused leads the next export again, so a
   second batch sends the ids already shown): the floor, the hash check and the caps are the apply side's and did not change. A floor-refused pair is listed with
-  its code and issue number; without a reject path it can only be skipped, so it is decided in the app (*2026-11-07: the apply-side path exists since FIND-120, off; the loop still offers no reject until FIND-121*).
+  its code and issue number; without a reject path it can only be skipped, so it is decided in the app (*2026-11-07: the apply-side path exists since FIND-120; the loop offers a reject since FIND-121*).
 - **Invoker.** The session's account email, as always; the owner approves the run once per batch.
 - **Closing the issue.** The apply path records the Accept as an AI-assisted merge, so `settle` would class it as the reviewer's and
   add no label. `close-decided` closes each merged pair's issue at once, from the validated apply report, with the fixed comment and
@@ -260,12 +260,30 @@ the pairs the reviewer escalated, which `recentlyResolved` could not.
   who can read the export can compute a hash. The bounds are the pending state, the caps, the owner's variable and the owner's
   approval of each run; the last two are only as strong as AD-45 Rule 6's limit. Worst case with the switch on: ten pairs a day
   hidden from every moderator, reopened only by the owner's SQL; with it off, none.
-- **Unchanged.** The daily AI review still never rejects, `SKILL.md` rule 7 stands, and the attended loop (FIND-119) offers no
-  reject. The loop's Reject option is FIND-121, and the owner turns the variable on together with it. Until then the skill
-  cannot dispatch a reject run (its run title differs) and an old reader refuses a `rejected` outcome (fail closed).
-- **Known gaps.** A reject a person chooses in the loop will read as `reviewer` in the export (`resolved_via = ai_skill`) and
-  earn no `outcome:` label (FIND-121); the resolver recorded is the moderator the invoker hash names, which is attribution, not
+- **Unchanged.** The daily AI review still never rejects. *Update 2026-11-07:* `SKILL.md` rule 7 was rewritten by FIND-121 and
+  the attended loop (FIND-119) offers Reject (below). An old reader still refuses a `rejected` outcome (fail closed).
+- **Known gaps.** A reject a person chooses in the loop reads as `reviewer` in the export (`resolved_via = ai_skill`), so a plain
+  `settle` adds no `outcome:` label; FIND-121's `close-decided` closes its issue with `outcome:rejected` itself; the resolver recorded is the moderator the invoker hash names, which is attribution, not
   authentication; `reasons` are dropped and the run id is not stored (`FIND-114`).
+
+### As built in FIND-121 (2026-11-07)
+
+The attended loop of the `moderator-dedup-review` skill (step 8) offers **Accept (merge), Reject and Skip**.
+
+- **Who gets what.** Accept and Reject for a pair `validate` calls `eligible`; Reject and Skip only for a pair the floor refuses
+  (`low-tier`, `undone-before`, `no-anchor`, `venue-conflict`, `outside-window`, `schedule-uncovered`, `name-mismatch`) or that hit
+  `per-run-cap` or `event-already-in-run`. A `high` pair (`already-high`), a gone pair and a `per-day-cap` pair are listed with no
+  popup (a popup needs at least two options). Any answer that is not exactly an offered label is a skip.
+- **The reader builds it.** `brief --offer` makes the popup (options and costs; Reject's description says it cannot be undone in
+  the app), `confirm` makes the final question, `decisions` takes the accepts and `--reject` ids (exact sets, `action: reject`),
+  and `apply`/`close-decided` take `--expect-reject-ids`. The exact set is validated first under the run tag `<tag>-w` with
+  `allow_rejects` true when it holds a reject; the live run adds `rejects=true` to its name.
+- **Attended.** A reject needs three things together: the user's message asked for the loop, the popup was the reader's, and this
+  session's own AskUserQuestion answer was exactly the Reject label followed by a final Yes. Sessions made by `create_session`, a
+  subagent, `claude -p`, a mailbox or a webhook are unattended and never reject. The popup cannot prove a human answered; the
+  owner's variable `DEDUP_REVIEW_REJECT_ENABLED` and the owner's approval are the independent gates (AD-45 Rule 6).
+- **Closing.** `close-decided` closes an accepted pair's issue with `outcome:accepted` and a rejected one with `outcome:rejected`.
+- **Deviation.** The first spec said a day-cap pair gets a "Skip only" popup; it is listed instead, for the reason above.
 
 ## 7. Facts verified while reviewing
 

@@ -1721,7 +1721,8 @@ This document defines the core architectural invariants for the FestDaily applic
         is queued; approving it *is* a merge (Rule 9), rejecting it is a recorded dismissal. **Amended
         2026-11-01 (AD-45):** an owner-released AI reviewer may also accept a queued mid pair, under AD-45's
         floor and caps; the AI reviewer alone never rejects (**amended 2026-11-07, FIND-120:** the apply bridge
-        can record a reject, see AD-45 Rule 3). There is
+        can record a reject, see AD-45 Rule 3; **FIND-121, 2026-11-07:** the attended decision loop offers a
+        moderator that reject). There is
         no separate "pending" event state. An event absorbs **at most one item per post**: when two
         items of one post match the same event, the better-scoring one links and the other is
         treated as a lower band. The suggested-match record's shape: see the 2026-10-12 amendment below.
@@ -2953,7 +2954,7 @@ This document defines the core architectural invariants for the FestDaily applic
         holds for a pair a moderator accepts in the attended decision loop (`FIND-119`): it is merged only if
         `validate` calls it eligible, and the loop offers no reject. **Amended 2026-11-07 (FIND-120):** the
         skill's own rule stands (the daily AI review never rejects), and the sentence "the loop offers no reject"
-        stays true until `FIND-121`. What changed is the bridge: an apply decision may carry `action: reject`
+        stayed true until `FIND-121` (next paragraph). What changed is the bridge: an apply decision may carry `action: reject`
         (exactly `accept`, the default, or `reject`). A reject is judged on the pair's state, the evidence hash,
         the invoker and the caps, with no floor, except that a `high`-tier pair is skipped `already-high`. It is
         recorded by `resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')` under the invoker moderator:
@@ -2965,7 +2966,17 @@ This document defines the core architectural invariants for the FestDaily applic
         stop a malicious decision, since anyone who can read the export can compute a hash. The bounds are the
         pending state, the caps, the owner's variable and the owner's approval of each run; the last two are
         only as strong as the Rule 6 Limit. Worst case with the switch on: ten pairs a day hidden from every
-        moderator, reopened only by the owner's SQL; with it off, none.
+        moderator, reopened only by the owner's SQL; with it off, none. **Amended 2026-11-07 (FIND-121):**
+        the sentence "the loop offers no reject" no longer holds: the attended decision loop now offers Reject
+        (popup options Accept, Reject, Skip) for a non-`high` pair that `validate` calls eligible or that the
+        floor refuses, with the same bridge, the same variable and the owner's approval. A reject counts as
+        attended only when the user's message asked for the loop, the reader built the popup, and the session's
+        own popup answer was exactly the Reject label followed by a final Yes; a session started by
+        `create_session`, a subagent, `claude -p`, a mailbox or a webhook is unattended and never rejects.
+        This is prose the platform does not enforce (Rule 6, `FIND-116`); the independent checks are the
+        owner's variable and the owner's approval of each run. The daily AI review still never rejects. The
+        loop's reject reads as `reviewer` in the export, so `close-decided` closes its issue with
+        `outcome:rejected`. The variable is set by the owner (reported on 2026-11-07, not verifiable here).
     4.  **Bounded.** At most 10 merges a run and 25 AI decisions in 24 hours (undone merges and AI
         rejections count), one run at a time, and a kill switch (`DEDUP_REVIEW_APPLY_DISABLED`, an
         environment variable of `dedup-review-live`) that stops apply unless it is exactly `false` or `0`.
@@ -3026,7 +3037,8 @@ This document defines the core architectural invariants for the FestDaily applic
         suggestion). List AI rejects from the database with `status = 'rejected' and resolved_via = 'ai_skill'`
         (newest `resolved_at` first); a lost report after a live commit is checked by that listing (rejects
         write no journal row) as well as the `event_merges` listing. The owner reopens one by SQL, which lives
-        in the runbook (`docs/infrastructure/7-event-dedup.md`) and never in code. The list to
+        in the runbook (`docs/infrastructure/7-event-dedup.md`) and never in code (**FIND-121:** this holds for a
+        reject chosen in the attended loop too, so the loop asks a final Yes that names the one-way effect). The list to
         undo from is the database's, not the log: `event_merges` where `performed_via = 'ai_skill'` and
         `undone_at` is null. Actions logs expire (90 days by default) and do not record the approver; storing
         the run id in the journal is deferred (`FIND-114`). Moderators have no screen for AI merges yet

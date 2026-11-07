@@ -49,8 +49,8 @@ run-name: Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'ap
 #      that start afterwards; to stop a run that has started, cancel it (a live run that is cancelled before
 #      its commit rolls back). Rejects are OFF until you also set the VARIABLE `DEDUP_REVIEW_REJECT_ENABLED` to
 #      `true` or `1` here (unset, empty or anything else keeps them off, for a dry run as well as a live one;
-#      `validate` cannot see it and checks only `allow_rejects`). Set it only together with the skill change that
-#      uses rejects (FIND-121): a reject cannot be undone in the app.
+#      `validate` cannot see it and checks only `allow_rejects`). The skill's attended decision loop uses rejects
+#      (FIND-121): a reject cannot be undone in the app, so set it only if you accept that.
 #   4. In `dedup-review-live`, the SECRET `DEDUP_REVIEW_APPLY_DATABASE_URL`: the URL of the narrow role
 #      `dedup_review_apply` (BYPASSRLS, no DDL, update and insert only on the tables a merge changes; the script
 #      refuses a role that does not bypass row level security). It is not the owner role. The owner decided

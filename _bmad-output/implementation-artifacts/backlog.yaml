@@ -2726,12 +2726,12 @@ items:
      note: "Deferred from: bmad-quick-dev split of spec-find-119-attended-decision-loop (2026-11-06). Built 2026-11-07, off until the owner sets DEDUP_REVIEW_REJECT_ENABLED. 1 finding."}
 
   FIND-121:
-    {type: finding, status: backlog, created: 2026-11-06,
+    {type: finding, status: done, created: 2026-11-06,
      impact: internal, effort: s,
      title: "AI dedup review: Reject option in the attended loop popup and its issue closing",
      ref: [implementation-artifacts/deferred-work.md, .claude/skills/moderator-dedup-review/SKILL.md, .claude/skills/moderator-dedup-review/dedup_report.py],
      touches: [web:moderation, cross:process],
-     note: "Deferred from: bmad-quick-dev split of spec-find-120-apply-side-reject (2026-11-06). Popup Reject, decisions action, close with outcome:rejected, SKILL.md rule 7 and step 8. Needs FIND-120 first. 1 finding."}
+     note: "Deferred from: bmad-quick-dev split of spec-find-120-apply-side-reject (2026-11-06). Built 2026-11-07: popup Reject, decisions action, close with outcome:rejected, SKILL.md rule 7 and step 8. 1 finding."}
 
   FIND-122:
     {type: finding, status: backlog, created: 2026-11-07,
