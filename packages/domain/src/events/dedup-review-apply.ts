@@ -22,6 +22,8 @@ export const DEDUP_REVIEW_MAX_REASON_LENGTH = 200;
 export const DEDUP_REVIEW_PER_RUN_CAP = 10;
 /** How many AI decisions (merges, including undone ones, and rejections) the last 24 hours may hold. */
 export const DEDUP_REVIEW_PER_DAY_CAP = 25;
+/** How many of those may be rejections (a reject is not undoable in the app, so it has a cap of its own). */
+export const DEDUP_REVIEW_PER_DAY_REJECT_CAP = 10;
 
 /** A bad input. The message names the field and never echoes a value, which is untrusted text. */
 export class DedupReviewApplyInputError extends Error {}
@@ -30,10 +32,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 const RUN_TAG = /^[A-Za-z0-9._-]{1,64}$/;
 
+/** What a decision does: merge the pair (the default) or record a reject. */
+export type DedupReviewAction = 'accept' | 'reject';
+
 /** The one reviewer-chosen thing apply acts on; `reasons` are validated and then dropped. */
 export interface DedupReviewDecision {
   suggestionId: string;
   evidenceHash: string;
+  /** Always set by the parser: an entry without `action` is an accept. */
+  action: DedupReviewAction;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -45,8 +52,14 @@ function hasExactlyKeys(value: Record<string, unknown>, keys: string[]): boolean
   return own.length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 }
 
+/** Every required key is present and no key outside the required and optional ones is. */
+function hasKeys(value: Record<string, unknown>, required: string[], optional: string[]): boolean {
+  return required.every((key) => Object.hasOwn(value, key)) && Object.keys(value).every((key) => required.includes(key) || optional.includes(key));
+}
+
 /**
- * Parses the decisions file: `{"schemaVersion":1,"decisions":[{suggestionId, evidenceHash, reasons}]}`.
+ * Parses the decisions file: `{"schemaVersion":1,"decisions":[{suggestionId, evidenceHash, reasons, action?}]}`.
+ * `action` is exactly `accept` or `reject` (no case folding, no trimming) and defaults to `accept`.
  * Every failure throws the same kind of fixed message (a JSON syntax error can quote its input), and
  * `reasons` never leaves this function.
  */
@@ -71,9 +84,13 @@ export function parseDedupReviewDecisions(raw: string): DedupReviewDecision[] {
 
   const seen = new Set<string>();
   return entries.map((entry): DedupReviewDecision => {
-    if (!isPlainObject(entry) || !hasExactlyKeys(entry, ['suggestionId', 'evidenceHash', 'reasons'])) {
-      throw new DedupReviewApplyInputError('each decision must hold exactly suggestionId, evidenceHash and reasons');
+    if (!isPlainObject(entry) || !hasKeys(entry, ['suggestionId', 'evidenceHash', 'reasons'], ['action'])) {
+      throw new DedupReviewApplyInputError('each decision must hold suggestionId, evidenceHash and reasons, and may hold action');
     }
+    if (Object.hasOwn(entry, 'action') && entry.action !== 'accept' && entry.action !== 'reject') {
+      throw new DedupReviewApplyInputError('action must be "accept" or "reject"');
+    }
+    const action: DedupReviewAction = entry.action === 'reject' ? 'reject' : 'accept';
     const suggestionId = typeof entry.suggestionId === 'string' ? entry.suggestionId.toLowerCase() : '';
     if (!UUID.test(suggestionId)) {
       throw new DedupReviewApplyInputError('suggestionId must be a uuid');
@@ -94,7 +111,7 @@ export function parseDedupReviewDecisions(raw: string): DedupReviewDecision[] {
     ) {
       throw new DedupReviewApplyInputError(`reasons must be at most ${DEDUP_REVIEW_MAX_REASONS} strings of at most ${DEDUP_REVIEW_MAX_REASON_LENGTH} characters`);
     }
-    return { suggestionId, evidenceHash };
+    return { suggestionId, evidenceHash, action };
   });
 }
 
@@ -113,9 +130,11 @@ export interface DedupReviewApplyOptions {
   mode: DedupReviewApplyMode;
   live: boolean;
   runTag: string | null;
+  /** The run may hold reject decisions (`--allow-rejects`). Off by default. */
+  allowRejects: boolean;
 }
 
-export function parseDedupReviewApplyOptions(input: { mode?: string | null; live?: boolean; runTag?: string | null }): DedupReviewApplyOptions {
+export function parseDedupReviewApplyOptions(input: { mode?: string | null; live?: boolean; runTag?: string | null; allowRejects?: boolean }): DedupReviewApplyOptions {
   if (input.mode !== 'validate' && input.mode !== 'apply') {
     throw new DedupReviewApplyInputError('mode must be "validate" or "apply"');
   }
@@ -127,7 +146,23 @@ export function parseDedupReviewApplyOptions(input: { mode?: string | null; live
   if (rawTag && !RUN_TAG.test(rawTag)) {
     throw new DedupReviewApplyInputError('run_tag must be 1 to 64 letters, digits, ".", "_" or "-"');
   }
-  return { mode: input.mode, live, runTag: rawTag || null };
+  return { mode: input.mode, live, runTag: rawTag || null, allowRejects: input.allowRejects === true };
+}
+
+/** A reject needs `--allow-rejects`, whatever the mode: the message names the flag and echoes nothing. */
+export function assertDedupReviewRejectsAllowed(decisions: readonly DedupReviewDecision[], allowRejects: boolean): void {
+  if (!allowRejects && decisions.some((decision) => decision.action === 'reject')) {
+    throw new DedupReviewApplyInputError('a reject decision needs --allow-rejects');
+  }
+}
+
+/**
+ * The reject switch fails closed, the other way round from the kill switch: rejects are enabled only when
+ * the variable is exactly `true` or `1`, as the workflow's own check reads it: no trimming, no case folding.
+ * Unset, empty or anything else (`TRUE`, ` true`) keeps them off.
+ */
+export function isDedupReviewRejectEnabled(raw: string | undefined): boolean {
+  return raw === 'true' || raw === '1';
 }
 
 /**
@@ -213,25 +248,34 @@ export function checkDedupReviewFloor(fresh: DedupReviewFreshPair): DedupReviewS
 }
 
 export interface DedupReviewRunState {
-  /** Events already claimed by an eligible decision in this run. */
+  /** Events already claimed by an eligible accept in this run. */
   claimedEventIds: ReadonlySet<string>;
-  /** Decisions already judged eligible in this run. */
+  /** Accepts already judged eligible in this run (merges only: the per-run cap counts nothing else). */
   eligibleInRun: number;
+  /** Rejects already judged eligible in this run. */
+  rejectsInRun: number;
   /** AI merges (including undone) and AI rejections in the last 24 hours, before this run. */
   usedLast24h: number;
+  /** AI rejections alone in the last 24 hours, before this run. */
+  usedRejectsLast24h: number;
 }
 
 export interface DedupReviewCaps {
   perRun: number;
   perDay: number;
+  perDayRejects: number;
 }
 
 export type DedupReviewVerdict = { outcome: 'eligible' } | { outcome: 'skipped'; reason: DedupReviewSkipReason };
 
 /**
- * One decision's verdict, in a fixed order: the pair's state, the evidence hash, the floor, a shared
- * event, the per-run cap, the per-day cap. The caller adds an eligible decision's events and count to
- * the state; a skipped decision claims and consumes nothing.
+ * One decision's verdict, in a fixed order. An accept: the pair's state, the evidence hash, the floor, a
+ * shared event, the per-run cap, the day cap. A reject: the pair's state, the evidence hash, `already-high`
+ * (the drain merges those, so nothing rejects them), a shared event claimed by an earlier accept (read
+ * only: a reject claims none), the reject cap, the day cap. There is no floor for a reject: it limits what
+ * may be merged, and a reject merges nothing. The day cap is `used + accepts + rejects`; the per-run cap
+ * counts accepts only. The caller adds an eligible decision to the state; a skipped one claims and consumes
+ * nothing.
  */
 export function judgeDedupReviewDecision(input: {
   decision: DedupReviewDecision;
@@ -242,13 +286,20 @@ export function judgeDedupReviewDecision(input: {
   const { decision, fresh, state, caps } = input;
   if (fresh.kind !== 'pair') return { outcome: 'skipped', reason: fresh.kind };
   if (fresh.pair.evidenceHash !== decision.evidenceHash) return { outcome: 'skipped', reason: 'stale-evidence' };
+  const sharesClaimedEvent = state.claimedEventIds.has(fresh.candidateEventId) || state.claimedEventIds.has(fresh.newEventId);
+  const dayTotal = state.usedLast24h + state.eligibleInRun + state.rejectsInRun;
+  if (decision.action === 'reject') {
+    if (fresh.pair.signals.tier === 'high') return { outcome: 'skipped', reason: 'already-high' };
+    if (sharesClaimedEvent) return { outcome: 'skipped', reason: 'event-already-in-run' };
+    if (state.usedRejectsLast24h + state.rejectsInRun >= caps.perDayRejects) return { outcome: 'skipped', reason: 'per-day-cap' };
+    if (dayTotal >= caps.perDay) return { outcome: 'skipped', reason: 'per-day-cap' };
+    return { outcome: 'eligible' };
+  }
   const floor = checkDedupReviewFloor(fresh);
   if (floor !== null) return { outcome: 'skipped', reason: floor };
-  if (state.claimedEventIds.has(fresh.candidateEventId) || state.claimedEventIds.has(fresh.newEventId)) {
-    return { outcome: 'skipped', reason: 'event-already-in-run' };
-  }
+  if (sharesClaimedEvent) return { outcome: 'skipped', reason: 'event-already-in-run' };
   if (state.eligibleInRun >= caps.perRun) return { outcome: 'skipped', reason: 'per-run-cap' };
-  if (state.usedLast24h + state.eligibleInRun >= caps.perDay) return { outcome: 'skipped', reason: 'per-day-cap' };
+  if (dayTotal >= caps.perDay) return { outcome: 'skipped', reason: 'per-day-cap' };
   return { outcome: 'eligible' };
 }
 
@@ -257,7 +308,10 @@ export type DedupReviewApplyRunMode = 'validate' | 'dry-run' | 'live' | 'disable
 
 export interface DedupReviewApplyResult {
   suggestionId: string;
-  outcome: 'eligible' | 'merged' | 'skipped';
+  /** What the decision asked for; set on every result, a skipped one included. */
+  action: DedupReviewAction;
+  /** `merged` is an accept and `rejected` a reject, and only a live run reports either. */
+  outcome: 'eligible' | 'merged' | 'rejected' | 'skipped';
   reason?: DedupReviewSkipReason;
   /** Only on a merge that was committed (live). */
   mergeId?: string;
@@ -272,7 +326,7 @@ export interface DedupReviewApplyReport {
   /** Null when the run stopped before counting (kill switch). */
   usedLast24h: number | null;
   caps: DedupReviewCaps;
-  counts: { eligible: number; merged: number; skipped: number };
+  counts: { eligible: number; merged: number; rejected: number; skipped: number };
   results: DedupReviewApplyResult[];
 }
 
@@ -280,6 +334,7 @@ export function countDedupReviewResults(results: DedupReviewApplyResult[]): Dedu
   return {
     eligible: results.filter((r) => r.outcome === 'eligible').length,
     merged: results.filter((r) => r.outcome === 'merged').length,
+    rejected: results.filter((r) => r.outcome === 'rejected').length,
     skipped: results.filter((r) => r.outcome === 'skipped').length,
   };
 }

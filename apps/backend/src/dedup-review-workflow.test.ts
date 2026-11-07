@@ -196,6 +196,37 @@ test('dedup-review-apply workflow (text checks)', async (t) => {
     assert.ok(body.includes('-gt 65535'));
   });
 
+  await t.test('rejects are gated three ways: an input visible in the run name, a stricter check before approval, and the owner variable in the apply job only', () => {
+    const inputsBlock = topLevelBlock(text, 'on').join('\n');
+    assert.match(inputsBlock, /allow_rejects:\n(?:\s+.*\n)*?\s+type: boolean\n\s+default: false/, 'allow_rejects is a boolean that is off by default');
+    assert.strictEqual([...inputsBlock.matchAll(/^ {6}[a-z_]+:$/gm)].length, 6, 'six inputs, under the limit of ten');
+
+    const runName = /^run-name: (.*)$/m.exec(text)?.[1] ?? '';
+    const suffix = "${{ inputs.allow_rejects && 'rejects=true ' || '' }}";
+    assert.ok(runName.includes("live=${{ inputs.mode == 'apply' && inputs.live }} " + suffix + 'tag='), `rejects=true sits before the tag so a long tag cannot hide it: ${runName}`);
+    assert.strictEqual(
+      runName.replace(suffix, ''),
+      "Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'apply' && inputs.live }} tag=${{ inputs.run_tag }}",
+      'with the suffix empty the title is exactly the title the skill matches for an accept-only run'
+    );
+
+    assert.ok(jobs.inputs.includes('ALLOW_REJECTS: ${{ inputs.allow_rejects }}'));
+    assert.ok(jobs.inputs.includes('select(has("action") and .action != "accept")'), 'any action but exactly accept needs the input');
+    assert.match(squash(jobs.inputs), /if ! other=\$\(printf '%s' "\$DECISIONS" \| jq -r .*\); then echo "::error::The decisions could not be checked for rejects\."/, 'a jq failure stops the run: the check fails closed');
+    assert.ok(!jobs.inputs.includes('vars.') && !jobs.inputs.includes('secrets.'), 'the input check still uses no variable or secret');
+    assert.ok(jobs.validate.includes('ALLOW_REJECTS: ${{ inputs.allow_rejects }}') && jobs.validate.includes('args+=(--allow-rejects)'));
+    assert.ok(!jobs.validate.includes('DEDUP_REVIEW_REJECT_ENABLED'), 'validate runs where the owner variable is not visible');
+    assert.ok(jobs.apply.includes('REJECT_ENABLED: ${{ vars.DEDUP_REVIEW_REJECT_ENABLED }}') && jobs.apply.includes('DEDUP_REVIEW_REJECT_ENABLED: ${{ vars.DEDUP_REVIEW_REJECT_ENABLED }}'), 'the switch step and the script both get the variable');
+    assert.ok(jobs.apply.includes('args+=(--allow-rejects)'));
+    assert.ok(jobs.apply.indexOf('- name: Check the reject switch\n') > 0 && jobs.apply.indexOf('- name: Check the reject switch\n') < jobs.apply.indexOf('- name: Checkout Repository\n'), 'the switch is read before any code is fetched');
+    assert.match(squash(jobs.apply), /case "\$REJECT_ENABLED" in true \| 1\) ;; \*\)/, 'only an explicit true or 1 switches rejects on');
+    for (const name of ['setup steps 3', 'setup step 5']) {
+      assert.ok(raw.includes('DEDUP_REVIEW_REJECT_ENABLED'), name);
+    }
+    assert.match(raw, /secrets, of DEDUP_REVIEW_APPLY_DISABLED or of DEDUP_REVIEW_REJECT_ENABLED/, 'step 5 forbids an outer variable of the same name');
+    assert.ok(!raw.toLowerCase().includes('update event_match_candidates'), 'no SQL in the workflow');
+  });
+
   await t.test('each script step captures the status without stopping, and then calls the guard', () => {
     for (const [name, tail] of [['validate', 'validate false'], ['apply', 'apply "$LIVE"']] as const) {
       const step = extractRunBodies(jobs[name]).find((b) => b.includes('dedup-review-apply.ts')) ?? '';
@@ -205,11 +236,13 @@ test('dedup-review-apply workflow (text checks)', async (t) => {
     }
     assert.ok(jobs.apply.includes('args+=(--live)') && jobs.apply.includes('if [ "$LIVE" = true ]'));
     assert.ok(!jobs.validate.includes('--live'));
+    assert.ok(!jobs.validate.includes('--mode apply'), 'validate never asks for apply');
   });
 
   await t.test('a failed or cancelled apply job prints the committed-or-not hint', () => {
     assert.match(jobs.apply, /if: failure\(\) \|\| cancelled\(\)/);
     assert.ok(jobs.apply.includes("performed_via = 'ai_skill'"));
+    assert.ok(jobs.apply.includes("status = 'rejected' and resolved_via = 'ai_skill'"), 'a run that only rejected leaves no journal row, so the hint names the suggestions');
   });
 
   await t.test('actions that are not pinned by SHA are exactly the known list, and the write secret warning stays until it is empty', () => {
@@ -250,18 +283,18 @@ const reportOf = (overrides: Partial<DedupReviewApplyReport> = {}): DedupReviewA
   mode: 'live',
   killSwitch: false,
   usedLast24h: 3,
-  caps: { perRun: 10, perDay: 25 },
-  counts: { eligible: 0, merged: 1, skipped: 2 },
+  caps: { perRun: 10, perDay: 25, perDayRejects: 10 },
+  counts: { eligible: 0, merged: 1, rejected: 0, skipped: 2 },
   results: [
-    { suggestionId: ID, outcome: 'merged', mergeId: MERGE_ID },
-    { suggestionId: '22222222-2222-4222-8222-222222222222', outcome: 'skipped', reason: 'no-anchor' },
-    { suggestionId: '33333333-3333-4333-8333-333333333333', outcome: 'skipped', reason: 'no-anchor' },
+    { suggestionId: ID, action: 'accept', outcome: 'merged', mergeId: MERGE_ID },
+    { suggestionId: '22222222-2222-4222-8222-222222222222', action: 'accept', outcome: 'skipped', reason: 'no-anchor' },
+    { suggestionId: '33333333-3333-4333-8333-333333333333', action: 'accept', outcome: 'skipped', reason: 'no-anchor' },
   ],
   ...overrides,
 });
 const printed = (r: unknown) => ['DEDUP_REVIEW_APPLY_BEGIN', JSON.stringify(r), 'DEDUP_REVIEW_APPLY_END'].join('\n') + '\n';
-const dryRun = reportOf({ mode: 'dry-run', counts: { eligible: 1, merged: 0, skipped: 0 }, results: [{ suggestionId: ID, outcome: 'eligible' }] });
-const validated = reportOf({ mode: 'validate', counts: { eligible: 1, merged: 0, skipped: 0 }, results: [{ suggestionId: ID, outcome: 'eligible' }] });
+const dryRun = reportOf({ mode: 'dry-run', counts: { eligible: 1, merged: 0, rejected: 0, skipped: 0 }, results: [{ suggestionId: ID, action: 'accept', outcome: 'eligible' }] });
+const validated = reportOf({ mode: 'validate', counts: { eligible: 1, merged: 0, rejected: 0, skipped: 0 }, results: [{ suggestionId: ID, action: 'accept', outcome: 'eligible' }] });
 
 test('dedup-review-apply guard script', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'ddap-guard-'));
@@ -292,7 +325,8 @@ test('dedup-review-apply guard script', async (t) => {
     assert.ok(result.out.includes(content.trim()), 'the output goes into the log');
     assert.match(result.summary, /- mode: `live`/);
     assert.match(result.summary, /- run tag: `daily-1`/);
-    assert.match(result.summary, /- eligible: 0, merged: 1, skipped: 2/);
+    assert.match(result.summary, /- eligible: 0, merged: 1, rejected: 0, skipped: 2/);
+    assert.match(result.summary, /- caps: 10 per run, 25 per day, 10 rejects per day/);
     assert.match(result.summary, /- skipped by reason: no-anchor: 2/);
     assert.match(result.summary, /- AI decisions in the last 24 hours before this run: 3/);
     assert.ok(!result.summary.includes(ID) && !result.summary.includes(MERGE_ID), 'no id in the public summary');
@@ -301,7 +335,7 @@ test('dedup-review-apply guard script', async (t) => {
   await t.test('validate and a dry run expect their own mode', () => {
     assert.strictEqual(run(printed(validated), 0, 'validate', 'false').status, 0);
     assert.strictEqual(run(printed(dryRun), 0, 'apply', 'false').status, 0);
-    assert.match(run(printed(reportOf({ mode: 'dry-run', results: [], counts: { eligible: 0, merged: 0, skipped: 0 } })), 0, 'apply', 'false').summary, /skipped by reason: none/);
+    assert.match(run(printed(reportOf({ mode: 'dry-run', results: [], counts: { eligible: 0, merged: 0, rejected: 0, skipped: 0 } })), 0, 'apply', 'false').summary, /skipped by reason: none/);
     assert.strictEqual(run(printed(validated), 0, 'validate', 'true').status, 0, 'a validate run is never live, whatever the flag says');
   });
 
@@ -314,7 +348,7 @@ test('dedup-review-apply guard script', async (t) => {
   });
 
   await t.test('a disabled report fails the job after writing the summary: the merges the run asked for did not happen', () => {
-    const disabled = reportOf({ mode: 'disabled', killSwitch: true, usedLast24h: null, runTag: null, counts: { eligible: 0, merged: 0, skipped: 0 }, results: [] });
+    const disabled = reportOf({ mode: 'disabled', killSwitch: true, usedLast24h: null, runTag: null, counts: { eligible: 0, merged: 0, rejected: 0, skipped: 0 }, results: [] });
     for (const [mode, live] of [['validate', 'false'], ['apply', 'false'], ['apply', 'true']] as const) {
       const result = run(printed(disabled), 0, mode, live);
       assert.strictEqual(result.status, 1, `${mode} live=${live}`);
@@ -350,7 +384,9 @@ test('dedup-review-apply guard script', async (t) => {
       'results null': { ...dryRun, results: null },
       'caps a string': { ...dryRun, caps: 'x' },
       'kill switch a string': { ...dryRun, killSwitch: 'no' },
-      'counts not numbers': { ...dryRun, counts: { eligible: '1', merged: 0, skipped: 0 } },
+      'counts not numbers': { ...dryRun, counts: { eligible: '1', merged: 0, rejected: 0, skipped: 0 } },
+      'no rejected count': { ...dryRun, counts: { eligible: 1, merged: 0, skipped: 0 } },
+      'no reject cap': { ...dryRun, caps: { perRun: 10, perDay: 25 } },
     };
     for (const [label, value] of Object.entries(wrongShape)) {
       const result = run(printed(value), 0, 'apply', 'false');
@@ -359,14 +395,60 @@ test('dedup-review-apply guard script', async (t) => {
       assert.strictEqual(result.summary, '', `${label}: no half-written summary`);
     }
     const inconsistent: Record<string, unknown> = {
-      'counts do not match the results': { ...dryRun, counts: { eligible: 5, merged: 0, skipped: 0 } },
-      'a dry run that reports a merge': { ...dryRun, counts: { eligible: 0, merged: 1, skipped: 0 }, results: [{ suggestionId: ID, outcome: 'merged', mergeId: MERGE_ID }] },
+      'counts do not match the results': { ...dryRun, counts: { eligible: 5, merged: 0, rejected: 0, skipped: 0 } },
+      'a dry run that reports a merge': { ...dryRun, counts: { eligible: 0, merged: 1, rejected: 0, skipped: 0 }, results: [{ suggestionId: ID, action: 'accept', outcome: 'merged', mergeId: MERGE_ID }] },
+      'a dry run that reports a reject': { ...dryRun, counts: { eligible: 0, merged: 0, rejected: 1, skipped: 0 }, results: [{ suggestionId: ID, action: 'reject', outcome: 'rejected' }] },
+      'a result without its action': { ...dryRun, results: [{ suggestionId: ID, outcome: 'eligible' }] },
+      'a result with an action that is neither': { ...dryRun, results: [{ suggestionId: ID, action: 'delete', outcome: 'eligible' }] },
     };
     for (const [label, value] of Object.entries(inconsistent)) {
       const result = run(printed(value), 0, 'apply', 'false');
       assert.strictEqual(result.status, 1, label);
       assert.match(result.out, /::error::The report is inconsistent/, label);
     }
+    // Live reports: the outcome must fit the action, and the counts must be the results.
+    const inconsistentLive: Record<string, unknown> = {
+      'a rejected count that is not the rejected results': { ...reportOf(), counts: { eligible: 0, merged: 1, rejected: 1, skipped: 2 } },
+      'a merge of a reject': reportOf({ results: [{ suggestionId: ID, action: 'reject', outcome: 'merged', mergeId: MERGE_ID }, ...reportOf().results.slice(1)] }),
+      'a reject of an accept': reportOf({ counts: { eligible: 0, merged: 0, rejected: 1, skipped: 2 }, results: [{ suggestionId: ID, action: 'accept', outcome: 'rejected' }, ...reportOf().results.slice(1)] }),
+    };
+    for (const [label, value] of Object.entries(inconsistentLive)) {
+      const result = run(printed(value), 0, 'apply', 'true');
+      assert.strictEqual(result.status, 1, label);
+      assert.match(result.out, /::error::The report is inconsistent/, label);
+    }
+  });
+
+  await t.test('a live run with rejects: the summary counts them and names no id; the disabled report of the script still passes the new shape', () => {
+    const rejectedRun = reportOf({
+      counts: { eligible: 0, merged: 1, rejected: 2, skipped: 0 },
+      results: [
+        { suggestionId: ID, action: 'accept', outcome: 'merged', mergeId: MERGE_ID },
+        { suggestionId: '22222222-2222-4222-8222-222222222222', action: 'reject', outcome: 'rejected' },
+        { suggestionId: '33333333-3333-4333-8333-333333333333', action: 'reject', outcome: 'rejected' },
+      ],
+    });
+    const result = run(printed(rejectedRun), 0, 'apply', 'true');
+    assert.strictEqual(result.status, 0);
+    assert.match(result.summary, /- eligible: 0, merged: 1, rejected: 2, skipped: 0/);
+    assert.ok(!result.summary.includes(ID) && !result.summary.includes('22222222'), 'no id in the public summary');
+    assert.strictEqual(run(printed(reportOf({ mode: 'dry-run', counts: { eligible: 1, merged: 0, rejected: 0, skipped: 0 }, results: [{ suggestionId: ID, action: 'reject', outcome: 'eligible' }] })), 0, 'apply', 'false').status, 0, 'a dry run may judge a reject eligible');
+    // The script's own kill-switch report, as the CLI prints it now (it must keep passing the shape check, then fail on `disabled`).
+    const disabled = run(printed({ ...reportOf(), mode: 'disabled', killSwitch: true, usedLast24h: null, runTag: null, counts: { eligible: 0, merged: 0, rejected: 0, skipped: 0 }, results: [] }), 0, 'apply', 'true');
+    assert.match(disabled.out, /::error::The script reports that its kill switch is on/, 'it got past the shape check');
+  });
+
+  await t.test('a failed live run points at both places a run leaves a trace: the merge journal and the rejected suggestions', () => {
+    const live = run('', 1, 'apply', 'true');
+    assert.match(live.out, /event_match_candidates rows with status = 'rejected' and resolved_via = 'ai_skill'/);
+    assert.ok(!/UPDATE /i.test(live.out), 'the reopening SQL is in the runbook, not in a log line');
+  });
+
+  await t.test('a validate report that says a reject happened is refused, whatever the flag', () => {
+    const lie = { ...validated, counts: { eligible: 0, merged: 0, rejected: 1, skipped: 0 }, results: [{ suggestionId: ID, action: 'reject', outcome: 'rejected' }] };
+    const result = run(printed(lie), 0, 'validate', 'false');
+    assert.strictEqual(result.status, 1);
+    assert.match(result.out, /::error::The report is inconsistent/);
   });
 
   await t.test('a non-zero status is passed on, and a live apply says it is one transaction and where to look', () => {
@@ -420,7 +502,7 @@ test('dedup-review-apply workflow steps run the way GitHub runs them (bash -e, a
   const stepBody = (job: string) => extractRunBodies(jobs[job]).find((b) => b.includes('dedup-review-apply.ts')) as string;
 
   let n = 0;
-  function runStep(job: 'validate' | 'apply', opts: { rc: number; output?: string; live?: string }) {
+  function runStep(job: 'validate' | 'apply', opts: { rc: number; output?: string; live?: string; allowRejects?: string }) {
     const script = join(dir, `step-${++n}.sh`);
     const summary = join(dir, `summary-${n}.md`);
     const calls = join(dir, `calls-${n}.txt`);
@@ -438,6 +520,7 @@ test('dedup-review-apply workflow steps run the way GitHub runs them (bash -e, a
         DECISIONS: '{"schemaVersion":1,"decisions":[]}',
         RUN_TAG: 'daily-1',
         LIVE: opts.live ?? 'false',
+        ...(opts.allowRejects === undefined ? {} : { ALLOW_REJECTS: opts.allowRejects }),
         FAKE_RC: String(opts.rc),
         FAKE_OUTPUT: opts.output ?? '',
         FAKE_CALLS: calls,
@@ -477,6 +560,60 @@ test('dedup-review-apply workflow steps run the way GitHub runs them (bash -e, a
     assert.strictEqual(ok.status, 0);
     assert.match(ok.summary, /- mode: `validate`/);
     assert.ok(ok.calls.includes('--mode validate') && !ok.calls.includes('--live'));
+  });
+
+  await t.test('allow_rejects reaches the script as --allow-rejects only when it is exactly true, in both jobs', () => {
+    for (const job of ['validate', 'apply'] as const) {
+      const output = printed(job === 'validate' ? validated : dryRun);
+      assert.ok(runStep(job, { rc: 0, output, allowRejects: 'true' }).calls.includes('--allow-rejects'), `${job}: true`);
+      for (const off of [undefined, '', 'false', 'True', '1', 'yes']) {
+        assert.ok(!runStep(job, { rc: 0, output, allowRejects: off }).calls.includes('--allow-rejects'), `${job}: ${String(off)}`);
+      }
+    }
+  });
+
+  // The two steps below hold the gate that keeps rejects off; they are run for real, with the env GitHub would give them.
+  const runBody = (body: string, env: Record<string, string>) => {
+    const script = join(dir, `body-${++n}.sh`);
+    writeFileSync(script, body);
+    const result = spawnSync('bash', ['-e', script], { env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', ...env }, encoding: 'utf8' });
+    return { status: result.status, out: result.stdout + result.stderr };
+  };
+
+  await t.test('the reject switch step: a run that allows rejects needs the owner variable to be exactly true or 1', () => {
+    const body = extractRunBodies(jobs.apply).find((b) => b.includes('REJECT_ENABLED')) as string;
+    assert.ok(body, 'the switch step exists');
+    for (const on of ['true', '1']) assert.strictEqual(runBody(body, { ALLOW_REJECTS: 'true', REJECT_ENABLED: on }).status, 0, on);
+    for (const off of ['', 'false', '0', 'yes', 'on', 'TRUE', 'tru', ' true']) {
+      const result = runBody(body, { ALLOW_REJECTS: 'true', REJECT_ENABLED: off });
+      assert.strictEqual(result.status, 1, JSON.stringify(off));
+      assert.match(result.out, /::error::Rejects are switched off: the variable DEDUP_REVIEW_REJECT_ENABLED/);
+    }
+    // A run that does not allow rejects never looks at the variable, so an accept-only run is not blocked by a missing one.
+    for (const allow of ['false', '', 'banana']) assert.strictEqual(runBody(body, { ALLOW_REJECTS: allow, REJECT_ENABLED: '' }).status, 0, `allow ${allow}`);
+    assert.strictEqual(runBody(body, { REJECT_ENABLED: '' }).status, 0, 'allow_rejects unset');
+  });
+
+  await t.test('the inputs check: a decision with any action but exactly accept needs allow_rejects, before anyone approves', () => {
+    const body = extractRunBodies(jobs.inputs).find((b) => b.includes('decisions must be JSON')) as string;
+    assert.ok(body, 'the input check exists');
+    const HASH = 'a'.repeat(64);
+    const decision = (extra: Record<string, unknown>) => JSON.stringify({ schemaVersion: 1, decisions: [{ suggestionId: ID, evidenceHash: HASH, reasons: [], ...extra }] });
+    const check = (decisions: string, allow: string | undefined) =>
+      runBody(body, { MODE: 'apply', LIVE: 'true', INVOKER_HASH: HASH, RUN_TAG: 'daily-1', DECISIONS: decisions, ...(allow === undefined ? {} : { ALLOW_REJECTS: allow }) });
+
+    for (const allow of [undefined, 'false', '']) {
+      assert.strictEqual(check(decision({}), allow).status, 0, `an entry without action, allow ${String(allow)}`);
+      assert.strictEqual(check(decision({ action: 'accept' }), allow).status, 0, `an explicit accept, allow ${String(allow)}`);
+      for (const action of ['reject', 'Reject', 'REJECT', 'reject ', 'delete', '', null, 5]) {
+        const result = check(decision({ action }), allow);
+        assert.strictEqual(result.status, 1, `${JSON.stringify(action)}, allow ${String(allow)}`);
+        assert.match(result.out, /::error::A decision carries an action other than accept, which needs allow_rejects/);
+      }
+    }
+    for (const action of ['reject', 'Reject', 'delete']) assert.strictEqual(check(decision({ action }), 'true').status, 0, `${action} with allow_rejects: the script refuses what it does not know`);
+    assert.strictEqual(check(JSON.stringify({ schemaVersion: 1, decisions: ['not an object', 5, null] }), undefined).status, 0, 'entries that are not objects do not abort the check (the parser refuses them later)');
+    assert.strictEqual(check(JSON.stringify({ schemaVersion: 1, decisions: [] }), undefined).status, 0);
   });
 });
 

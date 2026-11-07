@@ -77,9 +77,10 @@ def skip_row(suggestion_id, status='accepted', by='human', at='2026-11-02T00:00:
 
 def apply_payload(mode='validate', results=None, run_tag=TAG, counts=None):
     results = results if results is not None else [{'suggestionId': A, 'outcome': 'eligible'}]
-    tally = {k: sum(1 for r in results if r['outcome'] == k) for k in ('eligible', 'merged', 'skipped')}
+    results = [dict({'action': 'accept'}, **r) for r in results]  # an accept unless the test says otherwise
+    tally = {k: sum(1 for r in results if r['outcome'] == k) for k in ('eligible', 'merged', 'rejected', 'skipped')}
     return {'schemaVersion': 1, 'generatedAt': '2026-11-03T03:00:56.321Z', 'runTag': run_tag, 'mode': mode,
-            'killSwitch': False, 'usedLast24h': 0, 'caps': {'perRun': 10, 'perDay': 25}, 'counts': counts or tally,
+            'killSwitch': False, 'usedLast24h': 0, 'caps': {'perRun': 10, 'perDay': 25, 'perDayRejects': 10}, 'counts': counts or tally,
             'results': results}
 
 
@@ -1049,6 +1050,97 @@ class DecisionLoopTests(Base):
         for bad in (None, 'nope', MERGE + '`; rm -rf'):
             argv = ['comment', 'decided'] + (['--merge-id', bad] if bad else [])
             self.assertEqual(self.run_cli(*argv)[0], dr.EXIT_BAD_INPUT, bad)
+
+
+class RejectReportTests(Base):
+    """What the reader does with the apply side's reject path (FIND-120): the report check, `apply` and `decisions`."""
+
+    def apply(self, payload, mode='live', ids=None, rejects=None, tag='t1a'):
+        log = self.write(apply_log(payload))
+        wanted = ids if ids is not None else ','.join(r['suggestionId'] for r in payload['results'])
+        extra = ['--expect-reject-ids', rejects] if rejects is not None else []
+        return self.run_cli('apply', log, '--expect-run-tag', tag, '--expect-mode', mode, '--expect-ids', wanted, *extra)
+
+    def live(self, results):
+        return apply_payload('live', results, run_tag='t1a')
+
+    def test_a_live_report_with_rejects_is_read_when_it_says_which_ids_were_rejects(self):
+        payload = self.live([{'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE},
+                             {'suggestionId': B, 'action': 'reject', 'outcome': 'rejected'},
+                             {'suggestionId': C, 'action': 'reject', 'outcome': 'skipped', 'reason': 'already-high'}])
+        code, out, err = self.apply(payload, rejects='%s,%s' % (B, C))
+        self.assertEqual((code, err), (0, ''))
+        self.assertEqual(json.loads(out)['counts'], {'eligible': 0, 'merged': 1, 'rejected': 1, 'skipped': 1})
+
+    def test_an_action_that_is_not_what_was_dispatched_is_refused(self):
+        payload = self.live([{'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE}, {'suggestionId': B, 'action': 'reject', 'outcome': 'rejected'}])
+        self.assertEqual(self.apply(payload)[0], dr.EXIT_BAD_REPORT)                               # not told about the reject: refused
+        self.assertEqual(self.apply(payload, rejects='')[0], dr.EXIT_BAD_REPORT)                    # told there were none
+        self.assertEqual(self.apply(payload, rejects=A)[0], dr.EXIT_BAD_REPORT)                     # the wrong id
+        self.assertEqual(self.apply(payload, rejects='%s,%s' % (A, B))[0], dr.EXIT_BAD_REPORT)      # one too many
+        code, _, err = self.apply(payload, rejects=B)
+        self.assertEqual((code, err), (0, ''))
+        self.assertEqual(self.apply(payload, rejects='%s,%s' % (B, C))[0], dr.EXIT_BAD_INPUT)       # C was not dispatched at all
+        self.assertEqual(self.apply(payload, rejects='nope')[0], dr.EXIT_BAD_INPUT)
+
+    def test_the_outcome_must_fit_the_action_and_the_mode(self):
+        cases = {  # label: (report, which ids were dispatched as rejects, the rule that must fire)
+            'a merge of a reject': (self.live([{'suggestionId': A, 'action': 'reject', 'outcome': 'merged', 'mergeId': MERGE}]), A, 'must be an accept'),
+            'a reject of an accept': (self.live([{'suggestionId': A, 'action': 'accept', 'outcome': 'rejected'}]), '', 'must be a reject'),
+            'a reject with a merge id': (self.live([{'suggestionId': A, 'action': 'reject', 'outcome': 'rejected', 'mergeId': MERGE}]), A, 'only a merged result'),
+            'no action at all': (self.live([{'suggestionId': A, 'outcome': 'skipped', 'reason': 'no-anchor', 'action': None}]), '', 'no action of accept or reject'),
+            'an action that is neither': (self.live([{'suggestionId': A, 'action': 'delete', 'outcome': 'skipped', 'reason': 'no-anchor'}]), '', 'no action of accept or reject'),
+        }
+        for label, (payload, dispatched_as_rejects, rule) in cases.items():
+            code, _, err = self.apply(payload, rejects=dispatched_as_rejects)
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, label)
+            self.assertIn(rule, err, label)
+        for mode in ('validate', 'dry-run'):                                                        # only a live run may have rejected anything
+            payload = apply_payload(mode, [{'suggestionId': A, 'action': 'reject', 'outcome': 'rejected'}], run_tag='t1a')
+            code, _, err = self.apply(payload, mode=mode, rejects=A)
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, mode)
+            self.assertIn('not live reports a reject', err)
+        ok = apply_payload('validate', [{'suggestionId': A, 'action': 'reject', 'outcome': 'eligible'}], run_tag='t1a')
+        self.assertEqual(self.apply(ok, mode='validate', rejects=A)[0], 0)                          # validate may judge a reject eligible
+
+    def test_the_counts_and_the_caps_must_say_rejected(self):
+        payload = self.live([{'suggestionId': A, 'action': 'reject', 'outcome': 'rejected'}])
+        wrong = dict(payload, counts={'eligible': 0, 'merged': 0, 'rejected': 0, 'skipped': 1})
+        self.assertEqual(self.apply(wrong, rejects=A)[0], dr.EXIT_BAD_REPORT)
+        old_counts = dict(payload, counts={'eligible': 0, 'merged': 0, 'skipped': 0})
+        self.assertEqual(self.apply(old_counts, rejects=A)[0], dr.EXIT_BAD_REPORT)                  # an old report has no `rejected` count
+        old_caps = dict(payload, caps={'perRun': 10, 'perDay': 25})
+        self.assertEqual(self.apply(old_caps, rejects=A)[0], dr.EXIT_BAD_REPORT)
+
+    def test_decisions_builds_accepts_without_an_action_and_rejects_with_one(self):
+        d, e = ('00000000-0000-4000-8000-00000000000%d' % i for i in (4, 5))
+        path = self.write(export_log(export_payload([pair(A), pair(B), pair(HEXY)])))
+        self.assertEqual(self.cli('decisions', path, '--reject', '%s,%s' % (HEXY, HEXY.upper()))[0], dr.EXIT_BAD_INPUT, 'the same id twice in --reject')
+        code, out, _ = self.cli('decisions', path, A.upper(), '--reject', HEXY.upper())
+        self.assertEqual(code, 0)
+        decisions = json.loads(out)['decisions']
+        self.assertEqual(decisions[0], {'suggestionId': HEXY, 'evidenceHash': HASH, 'reasons': [], 'action': 'reject'})   # rejects come first: they claim no event
+        self.assertEqual(decisions[1], {'suggestionId': A, 'evidenceHash': HASH, 'reasons': []})                          # an accept carries no action
+        self.assertNotIn(' ', out)
+
+        only_rejects = self.cli('decisions', path, '--reject', B)
+        self.assertEqual(only_rejects[0], 0)                                                         # a reject-only input is allowed
+        self.assertEqual(json.loads(only_rejects[1])['decisions'], [{'suggestionId': B, 'evidenceHash': HASH, 'reasons': [], 'action': 'reject'}])
+        for label, argv in {'no ids at all': [], 'an id both accepted and rejected': [A, '--reject', A.upper()], 'a reject that is not exported': ['--reject', d],
+                            'an accept that is not exported': [e], 'a bad reject id': ['--reject', 'nope'], 'an empty reject list': ['--reject', '']}.items():
+            self.assertEqual(self.cli('decisions', path, *argv)[0], dr.EXIT_BAD_INPUT, label)
+
+    def test_close_decided_leaves_a_rejected_pair_alone_until_the_loop_knows_about_rejects(self):
+        payload = self.live([{'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE}, {'suggestionId': B, 'action': 'reject', 'outcome': 'rejected'}])
+        log = self.write(apply_log(payload))
+        page = self.write(json.dumps({'issues': [
+            {'number': 1, 'title': 'Dedup review: ' + A, 'state': 'OPEN', 'labels': ['dedup-escalate'], 'created_at': '2026-11-01T00:00:00Z'},
+            {'number': 2, 'title': 'Dedup review: ' + B, 'state': 'OPEN', 'labels': ['dedup-escalate'], 'created_at': '2026-11-01T00:00:00Z'}]}), 'page.json')
+        code, out, _ = self.run_cli('close-decided', log, page, '--expect-run-tag', 't1a', '--expect-ids', '%s,%s' % (A, B))
+        self.assertEqual(code, 0)
+        result = json.loads(out)
+        self.assertEqual([item['number'] for item in result['close']], [1])                         # only the merged pair's issue
+        self.assertEqual(result['notMerged'], [{'id': B, 'reason': None}])                          # the rejected one is reported, not closed
 
 
 class ExportContractTests(Base):
