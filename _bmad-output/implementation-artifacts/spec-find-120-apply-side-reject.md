@@ -2,7 +2,7 @@
 title: 'Apply-side reject path: a decision kind that records a moderator''s reject, off until the owner switches it on (FIND-120)'
 type: 'feature'
 created: '2026-11-06'
-status: 'in-review'
+status: 'done'
 baseline_commit: 'd99cdb188fb231106b992603ce2d252c06753847'
 review_loop_iteration: 0
 context:
@@ -96,3 +96,69 @@ Known gaps: a reject a person chooses in the loop reads as `reviewer` in the exp
 - `cd apps/backend && NODE_ENV=test npx tsx --test src/lib/events/dedup-review-apply.test.ts src/dedup-review-apply.test.ts src/dedup-review-workflow.test.ts src/lib/events/suggested-match-resolve-ratchet.test.ts` -- expected: all pass (needs a migrated database, `DATABASE_URL` and `BACKEND_PORT`)
 - `python3 -I .claude/skills/moderator-dedup-review/test_dedup_report.py` -- expected: all pass
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: exit 78 with the same failures as clean master
+
+## Suggested Review Order
+
+**The decision and the verdict (start here)**
+
+- `parseDedupReviewDecisions`: an optional `action`, exactly `accept` or `reject`, always normalised.
+  [`dedup-review-apply.ts:66`](../../packages/domain/src/events/dedup-review-apply.ts#L66)
+
+- `judgeDedupReviewDecision`: a reject has no floor, but `already-high`, a claimed event, both caps.
+  [`dedup-review-apply.ts:280`](../../packages/domain/src/events/dedup-review-apply.ts#L280)
+
+- The flag check and the owner switch, both exact and fail-closed.
+  [`dedup-review-apply.ts:153`](../../packages/domain/src/events/dedup-review-apply.ts#L153)
+
+**Deciding under locks**
+
+- `decideUnderLocks`: a reject locks the suggestion row only and is judged again under that lock.
+  [`dedup-review-apply.ts:192`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L192)
+
+- `processDecisions`: merges and rejects counted apart; a reject claims no event.
+  [`dedup-review-apply.ts:241`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L241)
+
+- The reject cap counts from the suggestion rows, beside the shared count.
+  [`dedup-review-apply.ts:95`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L95)
+
+- A run that allows rejects stops before any read unless the owner switched them on.
+  [`dedup-review-apply.ts:293`](../../apps/backend/src/lib/events/dedup-review-apply.ts#L293)
+
+- The CLI refuses the same way before it imports the database client.
+  [`dedup-review-apply.ts:141`](../../apps/backend/src/dedup-review-apply.ts#L141)
+
+**Keeping rejects off in the workflow**
+
+- The run name shows `rejects=true` before the tag; accept-only titles stay identical.
+  [`dedup-review-apply.yml:8`](../../.github/workflows/dedup-review-apply.yml#L8)
+
+- The `inputs` check, before anyone approves: any action but `accept` needs `allow_rejects`, and a jq failure stops the run.
+  [`dedup-review-apply.yml:162`](../../.github/workflows/dedup-review-apply.yml#L162)
+
+- The owner switch is read before any code is fetched.
+  [`dedup-review-apply.yml:283`](../../.github/workflows/dedup-review-apply.yml#L283)
+
+- The guard: counts, `rejected` only live, an action on every result that fits its outcome.
+  [`dedup-review-apply-guard.sh:102`](../../scripts/dedup-review-apply-guard.sh#L102)
+
+**The reader**
+
+- `validate_apply`: an action on every result, `rejected` only live, counts and caps.
+  [`dedup_report.py:475`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L475)
+
+- `apply --expect-reject-ids`: each result's action must be what was dispatched.
+  [`dedup_report.py:668`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L668)
+
+- `decisions --reject`: rejects first, so an accept after one on a shared event still stands.
+  [`dedup_report.py:680`](../../.claude/skills/moderator-dedup-review/dedup_report.py#L680)
+
+**Rules, runbook, tests**
+
+- AD-45 as amended: a reject, off by default, with the bounds said plainly.
+  [`festgrid-architecture-spine.md:2927`](../planning-artifacts/festgrid-architecture-spine.md#L2927)
+
+- The runbook for rejects: the switch, the listing, the owner's SQL, the known gaps.
+  [`7-event-dedup.md:190`](../../docs/infrastructure/7-event-dedup.md#L190)
+
+- The database tests: every mode, both caps, a shared event, both races.
+  [`dedup-review-apply.test.ts:379`](../../apps/backend/src/lib/events/dedup-review-apply.test.ts#L379)
