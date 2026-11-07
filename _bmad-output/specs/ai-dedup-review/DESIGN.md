@@ -232,14 +232,14 @@ the pairs the reviewer escalated, which `recentlyResolved` could not.
 
 *As built in FIND-120 (2026-11-07):* an apply-side reject path, shipped dark.
 
-- **What it does.** Each apply decision has an optional `action`: exactly `accept` (default) or `reject`. A reject is judged on
+- **What it does.** Each apply decision has an optional `action`: exactly `accept` (default) or `reject` (*FIND-124 adds `accept-override`, see "As built in FIND-124"*). A reject is judged on
   the pair's state, the evidence hash, the invoker and the caps, with no floor, except that a `high`-tier pair is skipped
   `already-high`. It is recorded by `resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')` under the invoker moderator:
   `status = rejected`, `resolved_via = ai_skill`, no `event_merges` row, events untouched. It locks the suggestion row only and
   is judged again under that lock. `validate` skips it `event-already-in-run` when an earlier accept in the file claimed one of
   its events (live reports `stale-pair` or `stale-evidence` after that merge).
 - **Gates.** The workflow input `allow_rejects` (boolean, default false; the run name gets `rejects=true ` before `tag=` only
-  when true; the `inputs` job refuses any `action` that is not exactly `accept` without it; the script needs `--allow-rejects`).
+  when true; the `inputs` job refuses any `action` that is not exactly `accept` or `accept-override` without it (*FIND-124: `accept-override` has its own input*); the script needs `--allow-rejects`).
   For `apply`, dry or live, with `allow_rejects` true, the `dedup-review-live` variable `DEDUP_REVIEW_REJECT_ENABLED` must be
   exactly `true` or `1` (unset = off; read in the apply job before checkout and again by the script; no repository- or
   org-level variable of that name). `validate` runs in another environment, cannot see it and checks only `allow_rejects`, so
@@ -284,6 +284,27 @@ The attended loop of the `moderator-dedup-review` skill (step 8) offers **Accept
   owner's variable `DEDUP_REVIEW_REJECT_ENABLED` and the owner's approval are the independent gates (AD-45 Rule 6).
 - **Closing.** `close-decided` closes an accepted pair's issue with `outcome:accepted` and a rejected one with `outcome:rejected`.
 - **Deviation.** The first spec said a day-cap pair gets a "Skip only" popup; it is listed instead, for the reason above.
+
+### As built in FIND-124 (2026-11-07)
+
+The apply side can **merge a pair the floor refuses**, as a moderator's decision. The loop option is `FIND-125`; owner-tunable
+caps are `FIND-126`.
+
+- **The decision.** `action: accept-override` (exactly that string; the parser takes `accept`, `reject` or it and returns the value
+  unchanged). It merges through `resolveSuggestedMatch(..., 'ACCEPT', via: 'ai_skill')` like an accept: the same row lock, the
+  event locks in id order, a second judgement under the locks, the same journal row, undoable with `undoEventMerge`.
+- **What it skips.** The whole floor and the tier rule: a `high` or `low` pair is not skipped for its tier, and `undone-before`
+  no longer vetoes (the owner's choice: a moderator's own accept in the app has no floor either). The judge skips the floor only
+  for exactly that action; any other value gets it. State, evidence hash, invoker, a claimed event and both merge caps stay.
+- **The switch.** A workflow input `allow_floor_override` (in the run name as `override=true` after any `rejects=true`; in `validate`
+  too, which can judge it) and, in `apply`, the owner variable `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` (exactly `true` or `1`, read
+  before any code is fetched). The library asserts both itself. Independent of the reject switch.
+- **The guard.** A fifth argument carries the input; a result with the override action in a run that did not allow it fails, and
+  the summary says `of which overrides: N`.
+- **Daily review.** `SKILL.md` rule 7 says the skill never sets `allow_floor_override`, pinned by a test; until `FIND-125` no step
+  dispatches it, and the reader refuses a report with the action (fail closed).
+- **Known gaps.** The database cannot tell an override from another AI merge (a marker needs an enum migration, with `FIND-114`);
+  the resolver is the moderator the invoker hash names (attribution, not authentication).
 
 ## 7. Facts verified while reviewing
 

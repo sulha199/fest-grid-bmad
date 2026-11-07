@@ -16,6 +16,13 @@ export const REJECTS_DISABLED_MESSAGE = 'Rejects are switched off. The owner tur
 /** A run holds a reject while the owner's reject switch (`DEDUP_REVIEW_REJECT_ENABLED`) is off: nothing was read or changed. */
 export class DedupReviewRejectsDisabledError extends Error {}
 
+/** What a run says when it holds an accept-override and the owner has not switched it on. Fixed text: no value of the run is in it. */
+export const FLOOR_OVERRIDE_DISABLED_MESSAGE =
+  'The floor override is switched off. The owner turns it on with the variable DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED of the dedup-review-live environment.';
+
+/** A run allows overrides while the owner's switch (`DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`) is off: nothing was read or changed. */
+export class DedupReviewFloorOverrideDisabledError extends Error {}
+
 /**
  * A live run committed its merges or rejects but its report could not be written (a closed pipe), so the caller must not
  * read the exit code as "nothing happened". The message names where each kind is found: merges in the journal, rejects only

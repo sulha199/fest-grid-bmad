@@ -1136,6 +1136,23 @@ class RejectReportTests(Base):
             self.assertEqual(self.cli('decisions', path, *argv)[0], dr.EXIT_BAD_INPUT, label)
 
 
+class FloorOverrideReportTests(Base):
+    """The apply side's `accept-override` (FIND-124) is not read by this reader yet (FIND-125): a report that holds one is refused, which is fail closed."""
+
+    def test_a_report_with_an_override_result_is_refused_whatever_its_outcome(self):
+        cases = {
+            'a merged override, live': ('live', 't1a', [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'merged', 'mergeId': MERGE}]),
+            'a skipped override, live': ('live', 't1a', [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'skipped', 'reason': 'stale-evidence'}]),
+            'an eligible override, validate': ('validate', TAG, [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'eligible'}]),
+        }
+        for label, (mode, tag, results) in cases.items():
+            log = self.write(apply_log(apply_payload(mode, results, run_tag=tag)))
+            code, out, err = self.run_cli('apply', log, '--expect-run-tag', tag, '--expect-mode', mode, '--expect-ids', A)
+            self.assertEqual(code, dr.EXIT_BAD_REPORT, label)
+            self.assertIn('no action of accept or reject', err, label)
+            self.assertEqual(out.strip(), '', label)
+
+
 class LoopRejectTests(Base):
     """The Reject option of the attended loop (FIND-121): `brief --offer`, `confirm`, `close-decided`, `comment`, `insight-comment`."""
 
@@ -1362,6 +1379,7 @@ class SkillTextTests(unittest.TestCase):
         name = self.run_name()
         name = name.replace("${{ inputs.mode == 'apply' && inputs.live }}", live)
         name = name.replace("${{ inputs.allow_rejects && 'rejects=true ' || '' }}", 'rejects=true ' if rejects else '')
+        name = name.replace("${{ inputs.allow_floor_override && 'override=true ' || '' }}", '')  # the skill never sets it (FIND-124)
         return name.replace('${{ inputs.mode }}', mode).replace('${{ inputs.run_tag }}', tag)
 
     def test_the_steps_are_found(self):
@@ -1378,6 +1396,16 @@ class SkillTextTests(unittest.TestCase):
                 self.assertNotIn('allow_rejects', line, 'step %d: %s' % (number, line[:80]))
         self.assertIsNotNone(re.search(r'(?<![\w-])--reject\b', self.steps[8]))
         self.assertIn('allow_rejects', self.steps[8])
+
+    def test_the_skill_never_sets_the_floor_override(self):
+        # No step uses it (FIND-125 will add its own step 8 text and this test then changes with it), and no title the skill writes carries its token.
+        for number, body in self.steps.items():
+            self.assertNotIn('allow_floor_override', body, 'step %d' % number)
+            self.assertNotIn('override=true', body, 'step %d' % number)
+        self.assertNotIn('override=true', self.text)
+        rules = self.text.split('## Step 0')[0]
+        self.assertIn('**Never set `allow_floor_override`**', rules)
+        self.assertEqual(self.render('apply', 'true', True, '<tag>-a').count('override'), 0, 'the rendered title of a run the skill dispatches has no override token')
 
     def test_a_reject_offer_is_only_made_in_step_eight_and_the_rules_default_to_unattended(self):
         for number, body in self.steps.items():
@@ -1405,7 +1433,7 @@ class SkillTextTests(unittest.TestCase):
         self.assertIn(self.render('validate', 'false', False, '<tag>-w'), self.steps[8])  # and the accept-only one of the exact-set check
 
     def test_the_run_name_puts_rejects_before_the_tag(self):
-        self.assertIn("${{ inputs.allow_rejects && 'rejects=true ' || '' }}tag=${{ inputs.run_tag }}", self.run_name())
+        self.assertIn("${{ inputs.allow_rejects && 'rejects=true ' || '' }}${{ inputs.allow_floor_override && 'override=true ' || '' }}tag=${{ inputs.run_tag }}", self.run_name())
 
     def test_step_eight_uses_the_readers_labels(self):
         for label in (dr.LABEL_ACCEPT, dr.LABEL_REJECT, dr.LABEL_YES):

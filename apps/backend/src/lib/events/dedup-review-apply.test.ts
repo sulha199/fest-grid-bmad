@@ -18,7 +18,7 @@ import {
   users,
 } from '@festgrid/database';
 import { DedupReviewApplyInputError } from '@festgrid/domain/events';
-import { DedupReviewInvokerError, DedupReviewRejectsDisabledError } from './dedup-review-errors.js';
+import { DedupReviewFloorOverrideDisabledError, DedupReviewInvokerError, DedupReviewRejectsDisabledError } from './dedup-review-errors.js';
 import { countAiActionsLast24h, countAiRejectsLast24h, isRunFatalDatabaseError, lookupFreshPair, resolveInvokerUserId, runDedupReviewApply, type DedupReviewApplyInput } from './dedup-review-apply.js';
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -580,6 +580,233 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     }
     assert.ok((await countAiRejectsLast24h(db)) - afterOld <= 1, 'an old reject and three human rejects add nothing (one unrelated writer may add a row)');
     assert.ok((await countAiActionsLast24h(db)) - beforeAll >= 1, 'the shared count includes the reject');
+  });
+
+  // ---- floor override (FIND-124): `accept-override` merges with no floor; off unless the run allows it and, in `apply`, the owner's switch is on ----
+  const overrideOf = async (suggestionId: string) => ({ suggestionId, evidenceHash: await hashOf(suggestionId), action: 'accept-override' as const });
+  const overrideInput = (decisions: DedupReviewApplyInput['decisions'], overrides: Partial<DedupReviewApplyInput> = {}) =>
+    baseInput(decisions, { allowFloorOverride: true, floorOverrideEnabled: true, ...overrides });
+  /** One pair per floor code the DB fixtures can build, on dates no other test uses. */
+  const floorRefused = async () => ({
+    'low-tier': await makePair('Override Stranger', '2027-07-01', { newAccountId: otherAccount.id }),
+    'outside-window': await makePair('Override Drift', '2027-07-03', { newDate: '2027-07-04' }),
+    'name-mismatch': await makePair('Override Names', '2027-07-05', { candidateName: 'Festival Kuliner Nusantara Part 1', newName: 'Nusantara Culinary Festival Part 2' }),
+  });
+
+  await t.test('an override: validate and a dry run are eligible and change nothing; live merges a pair the floor refuses, under the invoker, as an undoable journal row', async () => {
+    const refused = await floorRefused();
+    for (const [code, p] of Object.entries(refused)) {
+      const asAccept = await runDedupReviewApply(db, baseInput([await acceptOf(p.suggestion.id)], { mode: 'validate' }));
+      assert.deepStrictEqual(reasonsOf(asAccept), [code], `${code}: the same pair is refused as an accept`);
+    }
+    const decisions = [await overrideOf(refused['low-tier'].suggestion.id), await overrideOf(refused['outside-window'].suggestion.id), await overrideOf(refused['name-mismatch'].suggestion.id)];
+
+    const validated = await runDedupReviewApply(db, overrideInput(decisions, { mode: 'validate', floorOverrideEnabled: false }));
+    assert.deepStrictEqual(reasonsOf(validated), ['eligible', 'eligible', 'eligible'], 'validate cannot see the owner variable and needs only the flag');
+    assert.deepStrictEqual(validated.results.map((r) => r.action), ['accept-override', 'accept-override', 'accept-override']);
+
+    const dry = await runDedupReviewApply(db, overrideInput(decisions));
+    assert.deepStrictEqual(reasonsOf(dry), ['eligible', 'eligible', 'eligible']);
+    for (const p of Object.values(refused)) assert.strictEqual((await suggestionRow(p.suggestion.id)).status, 'pending', 'a dry run rolled the merge back');
+
+    const live = await runDedupReviewApply(db, overrideInput(decisions, { live: true }));
+    assert.deepStrictEqual(live.results.map((r) => [r.action, r.outcome]), [['accept-override', 'merged'], ['accept-override', 'merged'], ['accept-override', 'merged']]);
+    assert.deepStrictEqual(live.counts, { eligible: 0, merged: 3, rejected: 0, skipped: 0 }, 'an override counts as a merge');
+    for (const [result, p] of live.results.map((r, i) => [r, Object.values(refused)[i]] as const)) {
+      const row = await suggestionRow(p.suggestion.id);
+      assert.strictEqual(row.status, 'accepted');
+      assert.strictEqual(row.resolvedVia, 'ai_skill');
+      assert.strictEqual(row.resolvedByModeratorId, moderator.id);
+      const [journal] = await db.select().from(eventMerges).where(eq(eventMerges.id, result.mergeId as string));
+      assert.strictEqual(journal.performedVia, 'ai_skill', 'nothing marks an override in the journal (known gap)');
+      assert.strictEqual(journal.undoneAt, null, 'the merge is undoable');
+      const [loser] = await db.select().from(events).where(eq(events.id, p.newSide.event.id));
+      assert.strictEqual(loser.mergedIntoEventId, p.candidate.event.id);
+    }
+  });
+
+  await t.test('overrides are off by default: without the flag any run refuses, and in apply without the owner switch the run stops before it reads; the reject switch does not stand in', async () => {
+    const p = await makePair('Override Off', '2027-07-06');
+    const decisions = [await overrideOf(p.suggestion.id)];
+
+    for (const mode of ['validate', 'apply'] as const) {
+      await assert.rejects(runDedupReviewApply(db, baseInput(decisions, { mode, live: mode === 'apply', floorOverrideEnabled: true })), DedupReviewApplyInputError, `${mode} without allowFloorOverride`);
+    }
+    await assert.rejects(runDedupReviewApply(db, baseInput(decisions, { allowRejects: true, rejectsEnabled: true })), DedupReviewApplyInputError, 'the reject flag and switch do not allow overrides');
+    for (const live of [false, true]) {
+      await assert.rejects(runDedupReviewApply(db, baseInput(decisions, { allowFloorOverride: true, live, rejectsEnabled: true })), DedupReviewFloorOverrideDisabledError, `apply, live ${live}, without the switch`);
+      // The switch is checked before the invoker is looked up: the wrong invoker gives the same refusal.
+      await assert.rejects(runDedupReviewApply(db, baseInput(decisions, { allowFloorOverride: true, live, invokerHash: sha256('nobody-' + suffix) })), DedupReviewFloorOverrideDisabledError);
+    }
+    assert.strictEqual((await suggestionRow(p.suggestion.id)).status, 'pending');
+    // The switch is read from the run, not from the decisions: an accept-only run that allows overrides needs it too.
+    await assert.rejects(runDedupReviewApply(db, baseInput([await acceptOf(p.suggestion.id)], { allowFloorOverride: true })), DedupReviewFloorOverrideDisabledError);
+    // The order of refusals: the reject switch is checked first.
+    await assert.rejects(runDedupReviewApply(db, baseInput(decisions, { allowRejects: true, allowFloorOverride: true })), DedupReviewRejectsDisabledError);
+    // `validate` with the flag needs no switch, and an accept-only run needs neither.
+    assert.deepStrictEqual(reasonsOf(await runDedupReviewApply(db, baseInput(decisions, { mode: 'validate', allowFloorOverride: true }))), ['eligible']);
+    assert.deepStrictEqual(reasonsOf(await runDedupReviewApply(db, baseInput([await acceptOf(p.suggestion.id)], { mode: 'validate' }))), ['eligible']);
+  });
+
+  await t.test('an override is skipped when the pair is gone or stale, or an earlier merge claimed an event, like an accept', async () => {
+    const stale = await makePair('Override Stale', '2027-07-07', { newAccountId: otherAccount.id });
+    const reviewed = await hashOf(stale.suggestion.id);
+    await db.update(events).set({ eventName: 'Festival Kuliner Nusantara Renamed' }).where(eq(events.id, stale.candidate.event.id));
+    const gone = await makePair('Override Gone', '2027-07-08', { newAccountId: otherAccount.id });
+    const goneDecision = await overrideOf(gone.suggestion.id);
+    await db.update(eventMatchCandidates).set({ status: 'rejected', resolvedAt: new Date() }).where(eq(eventMatchCandidates.id, gone.suggestion.id));
+    const report = await runDedupReviewApply(
+      db,
+      overrideInput([{ suggestionId: stale.suggestion.id, evidenceHash: reviewed, action: 'accept-override' }, goneDecision, { suggestionId: '00000000-0000-4000-8000-0000000000aa', evidenceHash: 'a'.repeat(64), action: 'accept-override' }], { live: true })
+    );
+    assert.deepStrictEqual(reasonsOf(report), ['stale-evidence', 'not-pending', 'unknown-suggestion']);
+
+    // Two pairs on one winner: the first merge claims it. In validate the second is event-already-in-run; live, it is stale after the merge.
+    const first = await makePair('Override Shared', '2027-07-09', { newAccountId: otherAccount.id });
+    const secondNew = await makeEvent({ accountId: otherAccount.id, name: 'Nusantara Culinary Festival Again', date: '2027-07-09' });
+    const [second] = await db.insert(eventMatchCandidates).values({ eventId: secondNew.event.id, candidateEventId: first.candidate.event.id, score: 0.6, postId: secondNew.post.id }).returning();
+    const both = [await overrideOf(first.suggestion.id), await overrideOf(second.id)];
+    assert.deepStrictEqual(reasonsOf(await runDedupReviewApply(db, overrideInput(both, { mode: 'validate' }))), ['eligible', 'event-already-in-run']);
+    const live = await runDedupReviewApply(db, overrideInput(both, { live: true }));
+    assert.strictEqual(live.results[0].outcome, 'merged');
+    assert.ok(['stale-evidence', 'stale-pair'].includes(live.results[1].reason as string));
+    assert.strictEqual((await suggestionRow(second.id)).status, 'pending');
+  });
+
+  await t.test('an override is judged again under the lock without the floor: a row resolved while apply waits is concurrent-change; an edit while it waits is too, and merges are never done on stale evidence', async () => {
+    for (const [label, change, expected] of [
+      ['resolved', (id: string) => `UPDATE event_match_candidates SET status = 'accepted', resolved_at = now() WHERE id = '${id}'`, 'accepted'],
+      ['edited', (_id: string, candidateId?: string) => `UPDATE events SET event_name = 'Festival Kuliner Nusantara Edited While Waiting' WHERE id = '${candidateId}'`, 'pending'],
+    ] as const) {
+      const p = await makePair('Override Race ' + label, label === 'resolved' ? '2027-07-22' : '2027-07-23', { newAccountId: otherAccount.id });
+      const decisions = [await overrideOf(p.suggestion.id)];
+      const holder = postgres(loadBackendEnv().databaseUrl as string, { max: 1, prepare: false });
+      try {
+        let applied: ReturnType<typeof runDedupReviewApply> | undefined;
+        await holder.begin(async (tx) => {
+          await tx`SELECT id FROM event_match_candidates WHERE id = ${p.suggestion.id} FOR UPDATE`;
+          applied = runDedupReviewApply(db, overrideInput(decisions, { live: true }));
+          const deadline = Date.now() + 15_000;
+          for (;;) {
+            const waiting = await tx`SELECT 1 FROM pg_locks w WHERE w.locktype = 'transactionid' AND NOT w.granted AND w.transactionid IN (SELECT transactionid FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'transactionid' AND granted)`;
+            if (waiting.length > 0) break;
+            assert.ok(Date.now() < deadline, 'apply never reached the lock wait');
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+          await tx.unsafe(change(p.suggestion.id, p.candidate.event.id));
+        });
+        const report = await (applied as ReturnType<typeof runDedupReviewApply>);
+        assert.deepStrictEqual(report.results, [{ suggestionId: p.suggestion.id, action: 'accept-override', outcome: 'skipped', reason: 'concurrent-change' }], label);
+        const row = await suggestionRow(p.suggestion.id);
+        assert.strictEqual(row.status, expected, `${label}: nothing was merged by the reviewer`);
+        assert.strictEqual(row.resolvedVia, null, `${label}: the reviewer wrote nothing`);
+      } finally {
+        await holder.end();
+      }
+    }
+  });
+
+  await t.test('an override on a pair whose event was deleted is stale-pair, and nothing merges', async () => {
+    const p = await makePair('Override Deleted', '2027-07-24', { newAccountId: otherAccount.id });
+    const decisions = [await overrideOf(p.suggestion.id)];
+    await db.update(events).set({ deletedAt: new Date() }).where(eq(events.id, p.newSide.event.id));
+    const report = await runDedupReviewApply(db, overrideInput(decisions, { live: true }));
+    assert.deepStrictEqual(report.results, [{ suggestionId: p.suggestion.id, action: 'accept-override', outcome: 'skipped', reason: 'stale-pair' }]);
+    assert.strictEqual((await suggestionRow(p.suggestion.id)).status, 'pending');
+  });
+
+  await t.test('a mode outside the type cannot skip the switches: anything but validate is a write run that needs them', async () => {
+    const p = await makePair('Override Odd Mode', '2027-07-25', { newAccountId: otherAccount.id });
+    const decisions = [await overrideOf(p.suggestion.id)];
+    await assert.rejects(runDedupReviewApply(db, baseInput(decisions, { mode: 'bogus' as never, allowFloorOverride: true, live: true })), DedupReviewFloorOverrideDisabledError);
+    await assert.rejects(runDedupReviewApply(db, baseInput([await rejectOf(p.suggestion.id)], { mode: 'bogus' as never, allowRejects: true, live: true })), DedupReviewRejectsDisabledError);
+    assert.strictEqual((await suggestionRow(p.suggestion.id)).status, 'pending');
+  });
+
+  await t.test('overrides share the caps with merges: the per-run cap counts accepts and overrides together, and the day cap counts rejects too', async () => {
+    const a = await makePair('Cap Accept', '2027-07-10');
+    const o1 = await makePair('Cap Override 1', '2027-07-11', { newAccountId: otherAccount.id });
+    const o2 = await makePair('Cap Override 2', '2027-07-12', { newAccountId: otherAccount.id });
+    const decisions = [await acceptOf(a.suggestion.id), await overrideOf(o1.suggestion.id), await overrideOf(o2.suggestion.id)];
+    const perRun = await runDedupReviewApply(db, overrideInput(decisions, { mode: 'validate', caps: { perRun: 2 } }));
+    assert.deepStrictEqual(reasonsOf(perRun), ['eligible', 'eligible', 'per-run-cap'], 'the accept and the first override use the per-run cap of merges');
+    const used = await countAiActionsLast24h(db); // the database is shared with earlier tests: the day cap is measured from what is already used
+    const perDay = await runDedupReviewApply(db, overrideInput(decisions, { mode: 'validate', caps: { perDay: used + 2 } }));
+    assert.deepStrictEqual(reasonsOf(perDay), ['eligible', 'eligible', 'per-day-cap'], 'and the shared day cap');
+    const rejectFirst = await runDedupReviewApply(
+      db,
+      overrideInput([await rejectOf(a.suggestion.id), await overrideOf(o1.suggestion.id), await overrideOf(o2.suggestion.id)], { mode: 'validate', allowRejects: true, rejectsEnabled: true, caps: { perDay: used + 2 } })
+    );
+    assert.deepStrictEqual(reasonsOf(rejectFirst), ['eligible', 'eligible', 'per-day-cap'], 'a reject in the run counts against the day cap an override uses');
+  });
+
+  await t.test('a mixed file judges each action by its own rule: the accept by the floor, the override without it, the reject without it either', async () => {
+    const ok = await makePair('Mixed OK', '2027-07-13');
+    const refused = await makePair('Mixed Refused', '2027-07-14', { newAccountId: otherAccount.id });
+    const reject = await makePair('Mixed Reject', '2027-07-15', { newAccountId: otherAccount.id });
+    const asAccept = await runDedupReviewApply(db, overrideInput([await acceptOf(ok.suggestion.id), await acceptOf(refused.suggestion.id)], { mode: 'validate' }));
+    assert.deepStrictEqual(reasonsOf(asAccept), ['eligible', 'low-tier'], 'an accept of a floor-refused pair is still refused in a run that allows overrides');
+    const mixed = await runDedupReviewApply(
+      db,
+      overrideInput([await acceptOf(ok.suggestion.id), await overrideOf(refused.suggestion.id), await rejectOf(reject.suggestion.id)], { live: true, allowRejects: true, rejectsEnabled: true })
+    );
+    assert.deepStrictEqual(mixed.results.map((r) => [r.action, r.outcome]), [['accept', 'merged'], ['accept-override', 'merged'], ['reject', 'rejected']]);
+    assert.deepStrictEqual(mixed.counts, { eligible: 0, merged: 2, rejected: 1, skipped: 0 });
+  });
+
+  await t.test('an override locks the suggestion row and both event rows like an accept; a reject locks the suggestion row only', async () => {
+    /** Wraps a database so every `.select().from(table)...for('update')` of the run is recorded, by table name. */
+    const locked: string[] = [];
+    const tableName = (table: unknown) => (table === events ? 'events' : table === eventMatchCandidates ? 'event_match_candidates' : 'other');
+    const trace = <T extends object>(target: T, chain: { from?: string } = {}): T =>
+      new Proxy(target, {
+        get(obj, prop) {
+          const value = Reflect.get(obj, prop, obj);
+          if (typeof value !== 'function') return value;
+          return (...args: unknown[]) => {
+            if (prop === 'from') chain.from = tableName(args[0]);
+            if (prop === 'for' && args[0] === 'update') locked.push(chain.from ?? 'unknown');
+            const result = value.apply(obj, args);
+            if (prop === 'select') return trace(result as object, {});
+            if (prop === 'transaction' && typeof args[0] === 'function') return result;
+            return result !== null && typeof result === 'object' && prop !== 'then' && !(result instanceof Promise) ? trace(result as object, chain) : result;
+          };
+        },
+      });
+    const withLockLog = (database: typeof db) =>
+      ({
+        transaction: (work: (tx: unknown) => unknown, config?: unknown) =>
+          database.transaction((tx) => {
+            const traced = new Proxy(tx as object, {
+              get(obj, prop) {
+                const value = Reflect.get(obj, prop, obj);
+                if (prop === 'select') return trace(value.bind(obj) as object);
+                if (prop === 'transaction') return (inner: (sp: unknown) => unknown) => (value as (cb: (sp: never) => unknown) => unknown).call(obj, (sp: never) => inner(trace(sp as object)));
+                return typeof value === 'function' ? value.bind(obj) : value;
+              },
+            });
+            return work(traced) as never;
+          }, config as never),
+      }) as unknown as typeof db;
+
+    const lockedBy = async (decide: (id: string) => Promise<DedupReviewApplyInput['decisions'][number]>, input: Partial<DedupReviewApplyInput>) => {
+      const p = await makePair('Lock ' + Math.random(), '2027-07-20', { newAccountId: otherAccount.id });
+      locked.length = 0;
+      await runDedupReviewApply(withLockLog(db), baseInput([await decide(p.suggestion.id)], { live: true, ...input }));
+      return [...locked];
+    };
+    const accepting = await lockedBy(acceptOf, {});
+    const overriding = await lockedBy(overrideOf, { allowFloorOverride: true, floorOverrideEnabled: true });
+    const rejecting = await lockedBy(rejectOf, { allowRejects: true, rejectsEnabled: true });
+    // An accept of this floor-refused pair never reaches the locks (it is skipped), so lock it with a pair the floor passes.
+    const passing = await makePair('Lock Passing', '2027-07-21');
+    locked.length = 0;
+    await runDedupReviewApply(withLockLog(db), baseInput([await acceptOf(passing.suggestion.id)], { live: true }));
+    const accepted = [...locked];
+    assert.deepStrictEqual(accepting, [], 'a floor-refused accept is skipped before any lock');
+    assert.ok(accepted.includes('event_match_candidates') && accepted.filter((n) => n === 'events').length === 1, `an accept locks the suggestion and the events: ${accepted.join(',')}`);
+    assert.deepStrictEqual(overriding, accepted, 'an override locks exactly what an accept locks');
+    assert.deepStrictEqual([...new Set(rejecting)], ['event_match_candidates'], 'a reject locks the suggestion row only (twice: the decision, then the shared resolve function)');
   });
 
   await t.test('isRunFatalDatabaseError: write refused, privilege, connection, deadlock and lock timeout stop the run; a unique violation is the decision\'s own', () => {
