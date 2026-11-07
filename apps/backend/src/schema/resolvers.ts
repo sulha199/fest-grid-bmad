@@ -23,6 +23,7 @@ import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
 import { checkAndRecordPromptFilterRateLimit } from '../lib/ai-event-filters/prompt-filter-rate-limit-store.js';
+import { REPORT_SYSTEM_ERROR_ALERT_KEY, takeAlertEmailBudget } from '../lib/alerts/alert-email-budget-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { startPostReextractionPreview } from '../lib/extraction/start-post-reextraction-preview.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
@@ -1517,14 +1518,23 @@ export const resolvers: Resolvers = {
       const env = loadBackendEnv();
       if (env.systemErrorAlertEmail) {
         try {
-          await sendTemplatedEmail('SYSTEM_ERROR_ALERT', env.systemErrorAlertEmail, {
-            source: input.source,
-            message: input.message,
-            context: input.context ?? 'None provided',
-            timestamp: new Date().toISOString()
-          });
+          // Public mutation: anyone can call it, so the alert address gets at most a fixed number of emails
+          // per window. Over the budget, the report goes to the log only (CloudWatch) and the caller still gets
+          // `true`: it must not learn the limit, and a failed sign-in still reports without error. A database
+          // error here lands in the catch below, which also sends nothing: failing closed keeps a flood that
+          // overloads the database from turning into a flood of emails.
+          if (await takeAlertEmailBudget(REPORT_SYSTEM_ERROR_ALERT_KEY)) {
+            await sendTemplatedEmail('SYSTEM_ERROR_ALERT', env.systemErrorAlertEmail, {
+              source: input.source,
+              message: input.message,
+              context: input.context ?? 'None provided',
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            console.error('[reportSystemError] alert email suppressed: budget for this window is spent', input);
+          }
         } catch (err) {
-          console.error('[reportSystemError] failed to send alert email', err);
+          console.error('[reportSystemError] failed to send alert email', err, input);
         }
       } else {
         console.error('[reportSystemError] SYSTEM_ERROR_ALERT_EMAIL not configured; error not alerted', input);

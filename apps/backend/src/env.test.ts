@@ -107,3 +107,23 @@ test('loadBackendEnv rejects a prompt-filter rate-limit knob that is not a plain
     /PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES must be a positive integer/
   );
 });
+
+// The alert-email budget for the public reportSystemError mutation: same rules as the knobs above.
+test('loadBackendEnv defaults the alert-email budget to 10 per 10 minutes and reads whole-number overrides', () => {
+  assert.strictEqual(withRateLimitEnv('SYSTEM_ERROR_ALERT_MAX_EMAILS', undefined, () => loadBackendEnv().systemErrorAlertMaxEmails), 10);
+  assert.strictEqual(withRateLimitEnv('SYSTEM_ERROR_ALERT_WINDOW_MINUTES', undefined, () => loadBackendEnv().systemErrorAlertWindowMinutes), 10);
+  assert.strictEqual(withRateLimitEnv('SYSTEM_ERROR_ALERT_MAX_EMAILS', ' 3 ', () => loadBackendEnv().systemErrorAlertMaxEmails), 3);
+  assert.strictEqual(withRateLimitEnv('SYSTEM_ERROR_ALERT_WINDOW_MINUTES', '30', () => loadBackendEnv().systemErrorAlertWindowMinutes), 30);
+});
+
+test('loadBackendEnv rejects an alert-email budget knob that is not a plain positive integer', () => {
+  for (const name of ['SYSTEM_ERROR_ALERT_MAX_EMAILS', 'SYSTEM_ERROR_ALERT_WINDOW_MINUTES']) {
+    for (const bad of ['0', '-3', '1e3', '10abc', '1.5']) {
+      assert.throws(
+        () => withRateLimitEnv(name, bad, () => loadBackendEnv()),
+        new RegExp(`${name} must be a positive integer`),
+        `${name}=${JSON.stringify(bad)}`
+      );
+    }
+  }
+});
