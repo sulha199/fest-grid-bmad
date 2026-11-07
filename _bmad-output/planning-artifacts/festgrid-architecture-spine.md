@@ -2926,18 +2926,22 @@ This document defines the core architectural invariants for the FestDaily applic
     record: `_bmad-output/specs/ai-dedup-review/DESIGN.md`. Interacts with AD-30 Rules 7 and 9, AD-34
     (the scrape gate is a separate rule) and AD-40 (a write-free preview, unrelated).
 *   **Amended 2026-11-07 (FIND-120):** the apply-side reject path below is an amendment of this AD, not a new
-    AD. Each amended rule carries its own dated note.
+    AD. Each amended rule carries its own dated note. **Amended 2026-11-07 (FIND-124):** the same for the floor
+    override, a decision kind that merges a pair the floor refuses.
 *   **Prevents:** An AI session holding database credentials. A second, divergent accept path whose
     checks differ from the moderator's. A merge made on evidence that changed after it was reviewed.
     A prompt-injected or mistaken decision merging events the deterministic rules never would. An
     unbounded run. An AI merge that cannot be told from a moderator's. A secret or private text in a
     public Actions log. Calling the approval click a review of the decisions when it is not. **Amended 2026-11-07 (FIND-120):** A
-    reject recorded on evidence that changed, past its caps, or without the owner's switch.
+    reject recorded on evidence that changed, past its caps, or without the owner's switch. **Amended 2026-11-07
+    (FIND-124):** A floor-less merge made without its own input and its own owner switch, or reachable by the daily or
+    an unattended review.
 *   **Rule:**
     1.  **The bridge.** An AI reviewer (the `moderator-dedup-review` skill, a cloud session with no database
         credentials) reaches the database only through two manually dispatched workflows: the **export**
         (read-only, a `READ ONLY` transaction, evidence JSON) and the **apply** (acts on ACCEPT decisions;
-        **amended 2026-11-07, FIND-120:** and, when switched on, on REJECT decisions, Rule 3). Actions never runs an LLM. Both run from `master` only, and each prints one JSON line between
+        **amended 2026-11-07, FIND-120:** and, when switched on, on REJECT decisions, Rule 3; **FIND-124:** and, when
+        its own switch is on, on `accept-override` decisions, which merge with no floor, Rule 3). Actions never runs an LLM. Both run from `master` only, and each prints one JSON line between
         fixed markers.
     2.  **One accept path.** Every AI merge is `resolveSuggestedMatch(..., via: 'ai_skill')`: the same row
         lock, status check and journal as a moderator's accept. A source-scan test fails if the apply code
@@ -2966,7 +2970,20 @@ This document defines the core architectural invariants for the FestDaily applic
         stop a malicious decision, since anyone who can read the export can compute a hash. The bounds are the
         pending state, the caps, the owner's variable and the owner's approval of each run; the last two are
         only as strong as the Rule 6 Limit. Worst case with the switch on: ten pairs a day hidden from every
-        moderator, reopened only by the owner's SQL; with it off, none. **Amended 2026-11-07 (FIND-121):**
+        moderator, reopened only by the owner's SQL; with it off, none. **Amended 2026-11-07 (FIND-124):** an apply
+        decision may also carry `action: accept-override` (exactly that string), a merge of a pair the floor refuses:
+        the same shared function (`resolveSuggestedMatch(..., 'ACCEPT', via: 'ai_skill')`), judged on the pair's
+        state, the evidence hash, the invoker, a shared event and the Rule 4 caps, with **no floor and no tier
+        skip** (the owner's choice: a moderator's own accept in the app has no floor either). The judge skips the
+        floor only for exactly that value. It needs the workflow input `allow_floor_override` (shown as
+        `override=true` in the run name, also in `validate`, which can judge it) and, in `apply`, the owner's
+        variable `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` (exactly `true` or `1`, read before any code is fetched,
+        independent of the reject switch); the library asserts both itself. It is undoable with `undoEventMerge`;
+        the journal reads `performed_via = 'ai_skill'` and nothing marks an override (a marker needs an enum
+        migration, deferred with `FIND-114`). It drops the floor's `undone-before` veto too. The daily and any
+        unattended review never use it: `SKILL.md` says so and a test pins it, and until `FIND-125` no step of the
+        skill dispatches it. Worst case with the switch on: ten floor-less merges in a run and the day cap in a
+        day, each undoable; with it off, none. **Amended 2026-11-07 (FIND-121):**
         the sentence "the loop offers no reject" no longer holds: the attended decision loop now offers Reject
         (popup options Accept, Reject, Skip) for a non-`high` pair: both options when `validate` calls it
         eligible, Reject and Skip only when the floor refuses it or it hit the per-run cap or an earlier accept's
@@ -2982,6 +2999,8 @@ This document defines the core architectural invariants for the FestDaily applic
     4.  **Bounded.** At most 10 merges a run and 25 AI decisions in 24 hours (undone merges and AI
         rejections count), one run at a time, and a kill switch (`DEDUP_REVIEW_APPLY_DISABLED`, an
         environment variable of `dedup-review-live`) that stops apply unless it is exactly `false` or `0`.
+        **Amended 2026-11-07 (FIND-124):** an `accept-override` is a merge: it counts in the per-run cap of 10 and the
+        shared day cap of 25 like any other, and has no cap of its own (owner-tunable caps are `FIND-126`).
         **Amended 2026-11-07 (FIND-120):** the per-run cap of 10 counts merges only; a reject never counts
         against it. The shared 25-per-24h cap counts merges (undone ones included) plus AI rejections. Rejects
         also have their own cap of 10 per 24 hours, counted from the suggestion rows (`status = 'rejected'` and
@@ -3005,12 +3024,17 @@ This document defines the core architectural invariants for the FestDaily applic
         real the session must dispatch as a separate account that is not a reviewer, with "Prevent self-review"
         on; until then the gate is only as strong as the separation of that token. **Amended 2026-11-07
         (FIND-120):** the reject switch (`allow_rejects` and the Rule 7 variable) is as strong as this Limit: a
-        token that can dispatch, or an admin token that can edit the variable, defeats it.
+        token that can dispatch, or an admin token that can edit the variable, defeats it. **Amended 2026-11-07
+        (FIND-124):** the same holds for the override switch (`allow_floor_override` and
+        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`). It removes the floor, so the owner turns the variable on only while an
+        attended session runs and off again after: with it on, a prompt-injected unattended session that dispatched
+        the input would be stopped only by the owner's click on a run named `override=true`.
     7.  **What protects the credential.** Rules 3 and 4 bound a mistaken or manipulated *decision*. They do
         nothing if the credential leaks. That is covered only to the extent these are in place: both environments
         limited to `master`; the required reviewer; no repository or organization secret or variable of the
         same name (**amended 2026-11-07, FIND-120:** this holds for `DEDUP_REVIEW_REJECT_ENABLED` too, an
-        environment variable of `dedup-review-live`, off unless exactly `true` or `1`); a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
+        environment variable of `dedup-review-live`, off unless exactly `true` or `1`; **FIND-124:** and for
+        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`, by the same rule); a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
         required, a code owner named in `.github/CODEOWNERS` must approve a change to the workflows, `scripts/`
         and the dedup code, and force pushes and deletion are blocked; the repository admin role bypasses it
         inside a pull request, so it stops everyone but the owner and a session using the owner's token; tested
@@ -3040,7 +3064,9 @@ This document defines the core architectural invariants for the FestDaily applic
         (newest `resolved_at` first); a lost report after a live commit is checked by that listing (rejects
         write no journal row) as well as the `event_merges` listing. The owner reopens one by SQL, which lives
         in the runbook (`docs/infrastructure/7-event-dedup.md`) and never in code (**FIND-121:** this holds for a
-        reject chosen in the attended loop too, so the loop asks a final Yes that names the one-way effect). The list to
+        reject chosen in the attended loop too, so the loop asks a final Yes that names the one-way effect). **FIND-124:** a merge made by an override is undone
+        like any other with `undoEventMerge`; until `FIND-125` the skill's reader refuses an override run's report
+        (it fails closed), so the owner reads that run's log by hand, as for a lost report. The list to
         undo from is the database's, not the log: `event_merges` where `performed_via = 'ai_skill'` and
         `undone_at` is null. Actions logs expire (90 days by default) and do not record the approver; storing
         the run id in the journal is deferred (`FIND-114`). Moderators have no screen for AI merges yet

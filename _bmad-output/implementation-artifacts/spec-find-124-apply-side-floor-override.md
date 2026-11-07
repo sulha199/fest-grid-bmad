@@ -70,12 +70,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] domain + test -- the action, parser (returns the validated value; a test asserts `accept-override`), judge (floor skipped on exact equality), `allowFloorOverride` option and asserts, the shared enabled-function for both switches; every branch and the matrix
-- [ ] backend lib + DB tests -- locks for every action but `reject` (a recording-executor unit test counts the row locks per action), override as a merge, the library's switch asserts, `DedupReviewApplyInput` fields (existing DB tests that use overrides pass both flags); tests: each floor code, `high` and `low`, stale, shared event, shared caps, dry run, race, mixed file
-- [ ] backend CLI + errors + tests -- `--allow-floor-override`, refusal order, new fixed-message class in `describeFailure` (test like the existing one)
-- [ ] guard, workflow + workflow test -- input in both jobs, run-name fragment `${{ inputs.allow_floor_override && 'override=true ' || '' }}` after the rejects one and before `tag=`, the `inputs` rule above (tests retained for `reject`, `Reject`, `delete`; new rows for the matrix), variable step before Checkout, guard fifth argument and summary line, setup steps and descriptions, every existing assertion listed in the Code Map updated
-- [ ] `SKILL.md` sentence + `test_dedup_report.py` -- as in the Code Map
-- [ ] docs and board -- the amendments, dated, with the worst case restated; `FIND-124` done
+- [x] domain + test -- the action, parser (returns the validated value; a test asserts `accept-override`), judge (floor skipped on exact equality), `allowFloorOverride` option and asserts, the shared enabled-function for both switches; every branch and the matrix
+- [x] backend lib + DB tests -- locks for every action but `reject` (a recording-executor unit test counts the row locks per action), override as a merge, the library's switch asserts, `DedupReviewApplyInput` fields (existing DB tests that use overrides pass both flags); tests: each floor code, `high` and `low`, stale, shared event, shared caps, dry run, race, mixed file
+- [x] backend CLI + errors + tests -- `--allow-floor-override`, refusal order, new fixed-message class in `describeFailure` (test like the existing one)
+- [x] guard, workflow + workflow test -- input in both jobs, run-name fragment `${{ inputs.allow_floor_override && 'override=true ' || '' }}` after the rejects one and before `tag=`, the `inputs` rule above (tests retained for `reject`, `Reject`, `delete`; new rows for the matrix), variable step before Checkout, guard fifth argument and summary line, setup steps and descriptions, every existing assertion listed in the Code Map updated
+- [x] `SKILL.md` sentence + `test_dedup_report.py` -- as in the Code Map
+- [x] docs and board -- the amendments, dated, with the worst case restated; `FIND-124` done
 
 **Acceptance Criteria:**
 - Given the override switched on and a pending pair the floor refuses, when a live apply runs its override with the right hash, then it is `merged` with `resolved_via = ai_skill` and an undoable journal row; a wrong hash is `skipped: stale-evidence`.

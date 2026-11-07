@@ -731,7 +731,7 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
               get(obj, prop) {
                 const value = Reflect.get(obj, prop, obj);
                 if (prop === 'select') return trace(value.bind(obj) as object);
-                if (prop === 'transaction') return (inner: (sp: unknown) => unknown) => (value as typeof tx.transaction).call(obj, (sp: unknown) => inner(trace(sp as object)));
+                if (prop === 'transaction') return (inner: (sp: unknown) => unknown) => (value as (cb: (sp: never) => unknown) => unknown).call(obj, (sp: never) => inner(trace(sp as object)));
                 return typeof value === 'function' ? value.bind(obj) : value;
               },
             });
