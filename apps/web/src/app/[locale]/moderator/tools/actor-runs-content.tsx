@@ -10,6 +10,7 @@ import { useQueryActorRuns, useReplayActorRunMutation } from './actor-runs-hooks
 import type { ActorRunFilters } from '@/gql/graphql';
 import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
 import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
+import { EmptyPageNotice } from '@/features/pagination/empty-page-notice';
 import { Button } from '@festgrid/ui';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -256,6 +257,9 @@ export function ActorRunsContent() {
                   createdBefore: null,
                   profileId: null,
                 });
+                // The controller returns to page 1 on its own when the filters change; with none set the key is
+                // unchanged and it would not, so "Clear" would leave the moderator on page 3.
+                pagination.resetToFirstPage();
               }}
               variant="outline"
               size="sm"
@@ -294,6 +298,7 @@ export function ActorRunsContent() {
 
         {!isEmpty && (
           <div className={`mt-8 space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
+            {edges.length === 0 && !runsError && <EmptyPageNotice />}
             {edges.map((edge) => {
               const run = edge.node;
               const isExpanded = expandedRuns[run.id];

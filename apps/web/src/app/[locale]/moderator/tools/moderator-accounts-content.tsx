@@ -11,6 +11,7 @@ import { SetDefaultLocationDialog } from '../../settings/account/set-default-loc
 import type { ModeratorAccountProfileFilters } from '@/gql/graphql';
 import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
 import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
+import { EmptyPageNotice } from '@/features/pagination/empty-page-notice';
 
 const PAGE_SIZE = 20;
 
@@ -113,6 +114,7 @@ export function ModeratorAccountsContent() {
       )}
       {!isEmpty && (
         <div className={`space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
+          {edges.length === 0 && !accountsError && <EmptyPageNotice />}
           <div className="rounded-lg border border-border divide-y divide-border">
             {edges.map((edge) => {
               const account = edge.node as any;

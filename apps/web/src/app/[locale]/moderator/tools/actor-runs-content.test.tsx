@@ -504,5 +504,21 @@ describe('ActorRunsContent', () => {
       expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
       expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
     });
+
+    it('"Clear all" returns to page 1 even when no filter is set', () => {
+      render(<ActorRunsContent />, { wrapper: createWrapper() });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+
+      // No filter was ever set, so clearing changes no filter and the controller's filter key stays the same:
+      // without an explicit reset this click left the moderator on page 3.
+      fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+
+      expect(lastCall()[1]).toBeUndefined();
+      expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+      expect(screen.getByText(/run-on-page-one/)).toBeInTheDocument();
+    });
   });
 });

@@ -1044,6 +1044,7 @@
     "next": "Next",
     "pageOfPages": "Page {page} of {pages}",
     "page": "Page {page}",
-    "total": "{count, number} total"
+    "total": "{count, number} total",
+    "emptyPage": "Nothing is left on this page. Use Previous to go back."
   }
 }
