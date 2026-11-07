@@ -12,6 +12,7 @@ import { FilterPanel } from "./filter-panel"
 import type { UnprocessedPayloadFilters } from "./types"
 import { usePaginationLabels } from "@/features/pagination/use-pagination-labels"
 import { useReportConnectionPageMeta } from "@/features/pagination/use-report-connection-page-meta"
+import { EmptyPageNotice } from "@/features/pagination/empty-page-notice"
 
 const PAGE_SIZE = 20
 
@@ -63,8 +64,10 @@ export function UnprocessedPayloadsContent() {
   }
 
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
+    // No refetch here: a changed filter changes the query key, so the query refetches by itself. A refetch called
+    // from this handler still belongs to the OLD key (state updates after the handler returns), so it only
+    // re-requested the page that was about to be replaced.
     setFilters((prev) => ({ ...prev, ...newFilters }))
-    refetchPayloads()
   }
 
   const handleReprocess = async (payloadId: string, parserVersion: string) => {
@@ -147,6 +150,7 @@ export function UnprocessedPayloadsContent() {
 
         {!isEmpty && (
           <div className={`mt-8 space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
+            {edges.length === 0 && !payloadsError && <EmptyPageNotice />}
             {edges.map((edge) => (
               <PayloadListItem key={edge.node.id} payload={edge.node} onReprocess={handleReprocess} onDelete={handleDelete} isReprocessing={isReprocessing} isDeleting={isDeleting} />
             ))}

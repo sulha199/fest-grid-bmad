@@ -38,7 +38,11 @@ describe('useReportConnectionPageMeta', () => {
     expect(result.current.hasNextPage).toBe(false);
   });
 
-  it('re-reports after a filter change even when the new page reports the very same numbers', () => {
+  // This one does NOT guard the `resetToken` dependency (removing it leaves this test green): `connection` flips from
+  // undefined to a page, so `hasConnection` changes and the effect re-runs on its own. It guards the clearing
+  // itself: a filter change wipes the old page's numbers, and the next page re-reports them. The `resetToken`
+  // dependency is guarded by "when the new page is already cached" below, where `connection` never goes empty.
+  it('clears on a filter change, then re-reports when the new page arrives with the very same numbers', () => {
     const { result, rerender } = renderHook((props) => useHarness(props), { initialProps: { filter: 'a', connection: page(true, 93) } });
     expect(result.current.hasNextPage).toBe(true);
 
@@ -48,13 +52,15 @@ describe('useReportConnectionPageMeta', () => {
     expect(result.current.hasNextPage).toBe(false);
     expect(result.current.totalCount).toBeUndefined();
 
-    // The new page arrives and says exactly what the old one said. Without resetToken as a
-    // dependency nothing would change and Next would stay disabled.
+    // The new page arrives and says exactly what the old one said.
     rerender({ filter: 'b', connection: page(true, 93) });
     expect(result.current.hasNextPage).toBe(true);
     expect(result.current.totalCount).toBe(93);
   });
 
+  // The `resetToken` guard: the new page is available at once (cached), so `connection` never goes empty and the
+  // numbers are identical, so none of the other dependencies changes. Only the token makes the effect run again;
+  // without it Next stays disabled on a page that has more.
   it('re-reports when the filter changes and the new page is already cached', () => {
     const { result, rerender } = renderHook((props) => useHarness(props), { initialProps: { filter: 'a', connection: page(true, 93) } });
     rerender({ filter: 'b', connection: page(true, 93) });

@@ -18,6 +18,7 @@ import {
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
 import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
 import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
+import { EmptyPageNotice } from '@/features/pagination/empty-page-notice';
 import {
   useQuerySuggestedEventMatches,
   useResolveSuggestedEventMatchMutation,
@@ -250,6 +251,7 @@ export function DuplicateEventsContent() {
 
       {!isEmpty && (
         <div className={`space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
+          {edges.length === 0 && !error && <EmptyPageNotice />}
           <div className="space-y-4">
             {edges.map((edge) => {
               const suggestion = edge.node as SuggestedMatch;

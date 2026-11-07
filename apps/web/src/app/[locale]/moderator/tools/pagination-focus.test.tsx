@@ -237,3 +237,63 @@ describe('moderator accounts: the search box keeps focus while the list refilter
     expect(search).toHaveFocus();
   });
 });
+
+// A page past the end of the list: the moderator resolved or removed every row on the last page while standing on
+// it, so the next fetch of that page returns no rows although earlier pages exist. The list used to render an empty
+// block with only the controls; now it says so, and Previous brings the earlier page back.
+const PAGE_NAMESPACE: Record<string, string> = {
+  'actor runs': 'ActorRunsPage',
+  'moderator accounts': 'ModeratorAccountsPage',
+  'unprocessed payloads': 'UnprocessedPayloadsPage',
+  'duplicate events': 'DuplicateEventsPage',
+};
+
+describe.each(pages)('$name: a page left empty after its rows were resolved (real queries)', ({ name, Component, response, firstRow }) => {
+  const noRows = { edges: [], pageInfo: { hasNextPage: false, endCursor: null }, totalCount: 20 };
+
+  beforeEach(() => {
+    pending.length = 0;
+    requests.length = 0;
+    vi.stubGlobal('matchMedia', vi.fn().mockImplementation(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    stubRequests((cursor) => {
+      const first = response(undefined) as Record<string, unknown>;
+      return cursor ? { [Object.keys(first)[0]]: noRows } : first;
+    });
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('says so, keeps the controls, and goes back with Previous', async () => {
+    const user = userEvent.setup();
+    renderPage(Component);
+    await release(undefined);
+    await screen.findByText(firstRow);
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await release('c1');
+
+    const notice = await screen.findByText('Nothing is left on this page. Use Previous to go back.');
+    expect(notice).toHaveAttribute('role', 'status');
+    expect(screen.queryByText(firstRow)).not.toBeInTheDocument();
+    // Previous stays available, Next does not.
+    expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'false');
+    expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(await screen.findByText(firstRow)).toBeInTheDocument();
+    expect(screen.queryByText('Nothing is left on this page. Use Previous to go back.')).not.toBeInTheDocument();
+  });
+
+  it('does not show the notice on an empty first page: the list\'s own empty state covers it', async () => {
+    stubRequests(() => ({ [Object.keys(response(undefined) as Record<string, unknown>)[0]]: noRows }));
+    renderPage(Component);
+    await release(undefined);
+
+    // The page's own empty state is up (so the data has arrived), and the end-of-list notice is not.
+    const headline = (enMessages as unknown as Record<string, Record<string, string>>)[PAGE_NAMESPACE[name]].emptyHeadline;
+    expect(await screen.findByText(headline)).toBeInTheDocument();
+    expect(screen.queryByText('Nothing is left on this page. Use Previous to go back.')).not.toBeInTheDocument();
+  });
+});

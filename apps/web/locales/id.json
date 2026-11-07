@@ -1044,6 +1044,7 @@
     "next": "Berikutnya",
     "pageOfPages": "Halaman {page} dari {pages}",
     "page": "Halaman {page}",
-    "total": "{count, number} total"
+    "total": "{count, number} total",
+    "emptyPage": "Tidak ada lagi yang tersisa di halaman ini. Gunakan Sebelumnya untuk kembali."
   }
 }

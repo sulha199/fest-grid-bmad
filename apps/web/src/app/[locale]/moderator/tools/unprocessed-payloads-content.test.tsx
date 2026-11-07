@@ -41,6 +41,8 @@ const createWrapper = () => {
   };
 };
 
+const refetchSpy = vi.fn();
+
 // Story 0.i5c / AD-18: three pages of 20 over 45 payloads; the cursor each page is fetched with picks the page.
 const pages: Record<string, { id: string; hasNextPage: boolean; endCursor: string | null }> = {
   first: { id: 'payload-on-page-one', hasNextPage: true, endCursor: 'c1' },
@@ -64,7 +66,7 @@ describe('UnprocessedPayloadsContent pagination', () => {
             totalCount: 45,
           },
         },
-        isLoading: false, error: null, refetch: vi.fn(),
+        isLoading: false, error: null, refetch: refetchSpy,
       };
     }) as never);
   });
@@ -115,5 +117,13 @@ describe('UnprocessedPayloadsContent pagination', () => {
     expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
+  });
+
+  it('does not refetch from the filter handler: the new filter changes the query key, which fetches by itself', () => {
+    render(<UnprocessedPayloadsContent />, { wrapper: createWrapper() });
+    fireEvent.click(screen.getByText('pick source'));
+    expect(lastCall()[0].source).toBe('APIFY');
+    // `refetch` is bound to the query being replaced; calling it from the handler re-requested the old page.
+    expect(refetchSpy).not.toHaveBeenCalled();
   });
 });
