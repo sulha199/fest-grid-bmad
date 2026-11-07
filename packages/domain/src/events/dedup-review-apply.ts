@@ -183,8 +183,13 @@ export function isDedupReviewRejectEnabled(raw: string | undefined): boolean {
   return raw === 'true' || raw === '1';
 }
 
-/** The floor-override switch (`DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`) reads exactly like the reject switch: one rule for both owner switches. */
-export const isDedupReviewFloorOverrideEnabled = isDedupReviewRejectEnabled;
+/**
+ * The floor-override switch (`DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`) follows the same rule as the reject switch, in a function of
+ * its own so that loosening one never loosens the other (the workflow's `case` statements are separate copies too).
+ */
+export function isDedupReviewFloorOverrideEnabled(raw: string | undefined): boolean {
+  return raw === 'true' || raw === '1';
+}
 
 /**
  * The kill switch fails closed: apply is only enabled when the variable is unset, empty, `0` or `false`

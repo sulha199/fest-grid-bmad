@@ -10,7 +10,7 @@ run-name: Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'ap
 # AI-assisted dedup review, apply side (design: _bmad-output/specs/ai-dedup-review/DESIGN.md, piece B2b-2;
 # architecture decision AD-45). Manual-only: it takes the reviewer's decisions (an AI session that has no
 # database credentials of its own) and runs apps/backend/src/dedup-review-apply.ts on them. A decision is an
-# ACCEPT (it merges) unless it says `action: reject`; a reject is off unless `allow_rejects` is true and, for
+# ACCEPT (it merges, judged by the floor) unless it says `action: reject` or `action: accept-override`; a reject is off unless `allow_rejects` is true and, for
 # `apply`, the owner has set the variable DEDUP_REVIEW_REJECT_ENABLED (see setup step 3). `action: accept-override`
 # merges with no floor (FIND-124): off unless `allow_floor_override` is true and, for `apply`, the owner has set
 # DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED (setup step 3).

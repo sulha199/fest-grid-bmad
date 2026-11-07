@@ -480,6 +480,7 @@ test('dedup-review-apply guard script', async (t) => {
     assert.strictEqual(ok.status, 0);
     assert.match(ok.summary, /- eligible: 0, merged: 2, rejected: 0, skipped: 1/);
     assert.match(ok.summary, /- of which overrides: 1/, 'only a merged override counts');
+    assert.match(ok.summary, /- override decisions in this report: 2/, 'every override decision is shown, a skipped one too');
     assert.ok(!ok.summary.includes(ID_B) && !ok.summary.includes(MERGE_ID), 'no id in the public summary');
     assert.match(run(printed(reportOf()), 0, 'apply', 'true').summary, /- of which overrides: 0/, 'zero when there is none');
     for (const allow of [undefined, 'false', '', 'yes']) {
@@ -490,6 +491,8 @@ test('dedup-review-apply guard script', async (t) => {
     // A skipped or eligible override result is fine in a run that allowed it (the action is on every result); an outcome that does not fit is not.
     const eligible = { ...dryRun, results: [{ suggestionId: ID, action: 'accept-override', outcome: 'eligible' }] };
     assert.strictEqual(run(printed(eligible), 0, 'apply', 'false', 'true').status, 0);
+    assert.match(run(printed(eligible), 0, 'apply', 'false', 'true').summary, /- override decisions in this report: 1/, 'a dry run shows its override decisions to the approver');
+    assert.match(run(printed(reportOf()), 0, 'apply', 'true').summary, /- override decisions in this report: 0/);
     assert.strictEqual(run(printed({ ...validated, results: eligible.results }), 0, 'validate', 'false', 'true').status, 0);
     const rejectedOverride = reportOf({ counts: { eligible: 0, merged: 0, rejected: 1, skipped: 0 }, results: [{ suggestionId: ID, action: 'accept-override', outcome: 'rejected' }] });
     assert.strictEqual(run(printed(rejectedOverride), 0, 'apply', 'true', 'true').status, 1, 'an override is never a rejected outcome');

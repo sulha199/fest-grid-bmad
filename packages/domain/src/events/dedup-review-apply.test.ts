@@ -190,8 +190,10 @@ test('assertDedupReviewFloorOverrideAllowed - an accept-override needs the flag,
   );
 });
 
-test('isDedupReviewFloorOverrideEnabled - the same fail-closed rule as the reject switch: only exactly true and 1', () => {
-  assert.strictEqual(isDedupReviewFloorOverrideEnabled, isDedupReviewRejectEnabled, 'one function reads both owner switches');
+test('isDedupReviewFloorOverrideEnabled - the same fail-closed rule as the reject switch, in its own function: only exactly true and 1', () => {
+  for (const input of [undefined, '', '0', 'false', 'TRUE', ' true', 'yes', '1 ', 'true1']) {
+    assert.strictEqual(isDedupReviewFloorOverrideEnabled(input), isDedupReviewRejectEnabled(input), `the two switches agree on ${JSON.stringify(input)}`);
+  }
   for (const on of ['true', '1']) assert.strictEqual(isDedupReviewFloorOverrideEnabled(on), true, on);
   for (const off of [undefined, '', '0', 'false', 'TRUE', ' true', 'yes']) assert.strictEqual(isDedupReviewFloorOverrideEnabled(off), false, JSON.stringify(off));
 });

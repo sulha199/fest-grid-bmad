@@ -2934,8 +2934,8 @@ This document defines the core architectural invariants for the FestDaily applic
     unbounded run. An AI merge that cannot be told from a moderator's. A secret or private text in a
     public Actions log. Calling the approval click a review of the decisions when it is not. **Amended 2026-11-07 (FIND-120):** A
     reject recorded on evidence that changed, past its caps, or without the owner's switch. **Amended 2026-11-07
-    (FIND-124):** A floor-less merge made without its own input and its own owner switch, or reachable by the daily or
-    an unattended review.
+    (FIND-124):** A floor-less merge made without its own input and its own owner switch, or one the daily or an unattended review
+    can reach without the owner's switch and approval (the skill's rule is prose; the switch and the approval are the gates).
 *   **Rule:**
     1.  **The bridge.** An AI reviewer (the `moderator-dedup-review` skill, a cloud session with no database
         credentials) reaches the database only through two manually dispatched workflows: the **export**

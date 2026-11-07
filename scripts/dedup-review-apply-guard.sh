@@ -124,6 +124,7 @@ if ! text=$(printf '%s\n' "$json" | jq -r '
     "- caps: \(.caps.perRun) per run, \(.caps.perDay) per day, \(.caps.perDayRejects) rejects per day",
     "- eligible: \(.counts.eligible), merged: \(.counts.merged), rejected: \(.counts.rejected), skipped: \(.counts.skipped)",
     "- of which overrides: \([.results[] | select(.action == "accept-override" and .outcome == "merged")] | length)",
+    "- override decisions in this report: \([.results[] | select(.action == "accept-override")] | length)",
     "- skipped by reason: \(([.results[] | select(.reason) | .reason] | group_by(.) | map("\(.[0]): \(length)") | join(", ")) as $r | if $r == "" then "none" else $r end)"' 2>/dev/null); then
   echo "::error::The summary could not be built from the apply script's report."
   exit 1
