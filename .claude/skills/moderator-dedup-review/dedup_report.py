@@ -472,8 +472,9 @@ def validate_export(payload, expected_tag):
     return payload
 
 
-def validate_apply(payload, expected_mode, expected_tag, expected_ids):
-    """`expected_ids` None skips the exact-set check (used when only the merges matter)."""
+def validate_apply(payload, expected_mode, expected_tag, expected_ids, expected_reject_ids=None):
+    """`expected_ids` None skips the exact-set check (used when only the merges matter). `expected_reject_ids` None skips
+    the check of each result's action; a list says exactly which dispatched ids were rejects (an empty list: none were)."""
     mode = payload.get('mode')
     if mode == 'disabled':
         raise ReportError(EXIT_REFUSED, 'the report says the kill switch is on: apply did nothing')
@@ -482,23 +483,30 @@ def validate_apply(payload, expected_mode, expected_tag, expected_ids):
     require(full(ISO_TIME, payload.get('generatedAt')), 'generatedAt must be an ISO timestamp')
     require(isinstance(payload.get('killSwitch'), bool) and is_int(payload.get('usedLast24h')), 'the report has bad kill switch or usage fields')
     caps = payload.get('caps')
-    require(isinstance(caps, dict) and is_int(caps.get('perRun')) and is_int(caps.get('perDay')), 'the report has bad caps')
+    require(isinstance(caps, dict) and is_int(caps.get('perRun')) and is_int(caps.get('perDay')) and is_int(caps.get('perDayRejects')), 'the report has bad caps')
     counts, results = payload.get('counts'), payload.get('results')
     require(isinstance(counts, dict) and isinstance(results, list), 'the report has bad counts or results')
-    tally = {'eligible': 0, 'merged': 0, 'skipped': 0}
+    tally = {'eligible': 0, 'merged': 0, 'rejected': 0, 'skipped': 0}
     seen = []
     for result in results:
         require(isinstance(result, dict) and full(UUID, result.get('suggestionId')), 'a result has a bad suggestionId')
         seen.append(result['suggestionId'])
         outcome = result.get('outcome')
         require(outcome in tally, 'a result has a bad outcome')
+        require(result.get('action') in ('accept', 'reject'), 'a result has no action of accept or reject (the report is from before rejects existed, or damaged)')
+        if expected_reject_ids is not None:
+            require((result['action'] == 'reject') == (result['suggestionId'] in expected_reject_ids), 'a result has an action that is not what was dispatched for it')
         tally[outcome] += 1
         if outcome == 'skipped':
             require(result.get('reason') in ALL_REASONS, 'a skipped result has a reason this reader does not know: add it to the skill first')
         if outcome == 'merged':
             require(mode == 'live', 'a run that is not live reports a merge')
+            require(result['action'] == 'accept', 'a merged result must be an accept')
             require(full(UUID, result.get('mergeId')), 'a merged result has a bad mergeId')
-        elif 'mergeId' in result:
+        elif outcome == 'rejected':
+            require(mode == 'live', 'a run that is not live reports a reject')
+            require(result['action'] == 'reject', 'a rejected result must be a reject')
+        if outcome != 'merged' and 'mergeId' in result:
             raise ReportError(EXIT_BAD_REPORT, 'only a merged result may carry a mergeId')
         if mode == 'live':
             require(outcome != 'eligible', 'a live run reports an eligible result')
@@ -659,26 +667,33 @@ def cmd_export_resolved(args):
 
 def cmd_apply(args):
     payload = find_report(read_source(args.log), APPLY_BEGIN, APPLY_END)
-    validate_apply(payload, args.expect_mode, args.expect_run_tag, parse_ids(args.expect_ids, '--expect-ids'))
+    expected_ids = parse_ids(args.expect_ids, '--expect-ids')
+    # Not given means every dispatched id was an accept: a report that holds a reject is then refused.
+    rejects = parse_ids(args.expect_reject_ids, '--expect-reject-ids', allow_empty=True) if args.expect_reject_ids is not None else []
+    if not set(rejects) <= set(expected_ids):
+        raise ReportError(EXIT_BAD_INPUT, '--expect-reject-ids must be among --expect-ids')
+    validate_apply(payload, args.expect_mode, args.expect_run_tag, expected_ids, rejects)
     print(json.dumps(payload, indent=2))
     return 0
 
 
 def cmd_decisions(args):
+    """The decisions input for the apply workflow: the positional ids are accepts (no `action` key, as always), the
+    ids of `--reject` are rejects (`"action":"reject"`, which the workflow refuses unless `allow_rejects` is true)."""
     payload = load_export(args)
     index = pair_index(payload)
-    ids = []
-    for raw in args.ids:
-        suggestion_id = raw.strip().lower()
-        if suggestion_id in ids:
-            raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is listed twice')
-        if suggestion_id not in index:
-            raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is not among the exported pairs')
-        ids.append(suggestion_id)
+    accepts = [raw.strip().lower() for raw in args.ids]
+    rejects = parse_ids(args.reject, '--reject') if args.reject is not None else []
+    ids = accepts + rejects
+    if len(set(ids)) != len(ids):
+        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is listed twice (an id cannot be both an accept and a reject)')
+    if any(suggestion_id not in index for suggestion_id in ids):
+        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is not among the exported pairs')
     if not ids or len(ids) > MAX_DECISIONS:
         raise ReportError(EXIT_BAD_INPUT, 'give between 1 and %d suggestion ids' % MAX_DECISIONS)
-    body = {'schemaVersion': 1, 'decisions': [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': []} for i in ids]}
-    text = json.dumps(body, separators=(',', ':'))
+    decisions = [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': []} for i in accepts]
+    decisions += [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': [], 'action': 'reject'} for i in rejects]
+    text = json.dumps({'schemaVersion': 1, 'decisions': decisions}, separators=(',', ':'))
     if len(text) > MAX_DECISIONS_CHARS:
         raise ReportError(EXIT_BAD_INPUT, 'the decisions are longer than a workflow input may be')
     print(text)
@@ -1319,8 +1334,10 @@ def build_parser():
     p = with_log('apply', cmd_apply, 'a validated apply report')
     p.add_argument('--expect-mode', required=True, choices=('validate', 'dry-run', 'live'))
     p.add_argument('--expect-ids', required=True, help='the suggestion ids that were dispatched, comma-separated')
+    p.add_argument('--expect-reject-ids', default=None, help='the dispatched ids that were rejects (a result must say reject exactly for these); omitted: none were')
     p = with_log('decisions', cmd_decisions, 'the decisions input for the apply workflow')
-    p.add_argument('ids', nargs='+')
+    p.add_argument('ids', nargs='*', help='the ids to accept')
+    p.add_argument('--reject', default=None, help='comma-separated ids to reject (needs allow_rejects in the workflow)')
     p = with_log('triage', cmd_triage, 'which exported pairs are new and which a labelled issue covers')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p.add_argument('--live-cleared', action='store_true', help='the owner cleared this run for live, or the attended loop is running: shadow pairs return for a fresh decision')
