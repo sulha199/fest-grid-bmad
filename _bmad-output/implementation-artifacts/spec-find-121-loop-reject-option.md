@@ -2,7 +2,8 @@
 title: 'Reject option in the attended decision loop: a moderator rejects a pair from the popup (FIND-121)'
 type: 'feature'
 created: '2026-11-07'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: 'ceebbececf5508da4a2ac6cc49c34c2e9879b84a'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/implementation-artifacts/spec-find-120-apply-side-reject.md'
