@@ -1324,6 +1324,82 @@ class LoopRejectTests(Base):
         self.assertEqual(code, 0)                                                                         # a reject-only run is recorded
 
 
+class SkillTextTests(unittest.TestCase):
+    """The prose of SKILL.md and the workflow's run name are one contract: the skill finds its runs by exact title and its
+    safety rules are prose. Nothing else reads the file, so this pins what must not drift (FIND-121)."""
+
+    SKILL = os.path.join(HERE, 'SKILL.md')
+    WORKFLOW = os.path.join(HERE, '..', '..', '..', '.github', 'workflows', 'dedup-review-apply.yml')
+
+    @classmethod
+    def setUpClass(cls):
+        with open(cls.SKILL, encoding='utf-8') as handle:
+            cls.text = handle.read()
+        with open(cls.WORKFLOW, encoding='utf-8') as handle:
+            cls.workflow = handle.read()
+        parts = re.split(r'^(## Step (\d+)[^\n]*)$', cls.text, flags=re.M)
+        cls.steps = {int(parts[i + 1]): parts[i] + parts[i + 2] for i in range(1, len(parts) - 2, 3)}
+
+    def run_name(self):
+        return re.search(r'^run-name: (.*)$', self.workflow, re.M).group(1)
+
+    def render(self, mode, live, rejects, tag):
+        """What GitHub makes of the run-name template for the given inputs (only the expressions this file uses)."""
+        name = self.run_name()
+        name = name.replace("${{ inputs.mode == 'apply' && inputs.live }}", live)
+        name = name.replace("${{ inputs.allow_rejects && 'rejects=true ' || '' }}", 'rejects=true ' if rejects else '')
+        return name.replace('${{ inputs.mode }}', mode).replace('${{ inputs.run_tag }}', tag)
+
+    def test_the_steps_are_found(self):
+        self.assertEqual(sorted(self.steps), [0, 1, 2, 3, 4, 5, 6, 7, 8])
+
+    def test_the_reject_flags_and_allow_rejects_appear_in_no_step_but_eight(self):
+        for number, body in self.steps.items():
+            if number == 8:
+                continue
+            for line in body.split('\n'):
+                if line.startswith('|'):
+                    continue  # a table row documents a command
+                self.assertIsNone(re.search(r'(?<![\w-])--reject\b', line), 'step %d: %s' % (number, line[:80]))
+                self.assertNotIn('allow_rejects', line, 'step %d: %s' % (number, line[:80]))
+        self.assertIsNotNone(re.search(r'(?<![\w-])--reject\b', self.steps[8]))
+        self.assertIn('allow_rejects', self.steps[8])
+
+    def test_the_titles_in_the_skill_are_what_the_workflow_renders(self):
+        accept_validate = 'Dedup Review Apply mode=validate live=false tag=<tag>-v'
+        accept_apply = 'Dedup Review Apply mode=apply live=true tag=<tag>-a'
+        self.assertEqual(self.render('validate', 'false', False, '<tag>-v'), accept_validate)
+        self.assertEqual(self.render('apply', 'true', False, '<tag>-a'), accept_apply)
+        self.assertIn(accept_validate, self.steps[4])                                  # steps 4 and 6 stay accept-only
+        self.assertIn('mode=apply live=true tag=<tag>-a', self.steps[6])
+        for number in (4, 6):
+            self.assertNotIn('rejects=true', self.steps[number], 'step %d is accept-only' % number)
+        for mode, live, tag in (('validate', 'false', '<tag>-w'), ('apply', 'true', '<tag>-a')):
+            title = self.render(mode, live, True, tag)
+            self.assertIn('rejects=true tag=', title)
+            self.assertIn(title, self.steps[8], title)                                 # step 8 writes the title with a reject exactly
+        self.assertIn(self.render('validate', 'false', False, '<tag>-w'), self.steps[8])  # and the accept-only one of the exact-set check
+
+    def test_the_run_name_puts_rejects_before_the_tag(self):
+        self.assertIn("${{ inputs.allow_rejects && 'rejects=true ' || '' }}tag=${{ inputs.run_tag }}", self.run_name())
+
+    def test_step_eight_uses_the_readers_labels(self):
+        for label in (dr.LABEL_ACCEPT, dr.LABEL_REJECT, dr.LABEL_YES):
+            self.assertIn(label, self.steps[8])
+
+    def test_rule_seven_names_the_three_conditions_and_the_unattended_case(self):
+        rule = next(line for line in self.text.split('\n') if line.startswith('7. '))
+        for needle in ('AskUserQuestion', dr.LABEL_REJECT, 'unattended', 'user message of this conversation', 'brief', 'confirm', 'Yes',
+                       'a relayed popup is not an answer'.capitalize(), 'The one exception is step 8', 'independent check'):
+            self.assertIn(needle, rule)
+        self.assertIn('the platform does not enforce it', rule)
+
+    def test_the_old_wording_that_denied_the_loop_a_reject_is_gone(self):
+        for old in ('may only Accept or Skip', 'exactly two options', 'a reject happens in Moderator Items', 'a reject stays in Moderator Items',
+                    'this skill sends none yet', 'This skill dispatches no reject yet'):
+            self.assertNotIn(old, self.text)
+
+
 class ExportContractTests(Base):
     """The rules the reader holds a report to: every new key, the sum, the shape of skipResolved, the null rules."""
 
