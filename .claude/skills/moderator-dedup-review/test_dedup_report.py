@@ -1137,20 +1137,62 @@ class RejectReportTests(Base):
 
 
 class FloorOverrideReportTests(Base):
-    """The apply side's `accept-override` (FIND-124) is not read by this reader yet (FIND-125): a report that holds one is refused, which is fail closed."""
+    """Reading the apply side's `accept-override` (FIND-124) in the reader (FIND-125): the ids dispatched as overrides decide
+    which results may carry the action; without them a report that holds one is refused (fail closed)."""
 
-    def test_a_report_with_an_override_result_is_refused_whatever_its_outcome(self):
+    def report(self, results, mode='live', tag='t1a'):
+        return self.write(apply_log(apply_payload(mode, results, run_tag=tag)), 'apply-%s.txt' % mode)
+
+    def apply(self, results, ids, mode='live', tag='t1a', rejects=None, overrides=None):
+        extra = (['--expect-reject-ids', rejects] if rejects is not None else []) + (['--expect-override-ids', overrides] if overrides is not None else [])
+        return self.run_cli('apply', self.report(results, mode, tag), '--expect-run-tag', tag, '--expect-mode', mode, '--expect-ids', ids, *extra)
+
+    def test_without_the_dispatched_override_ids_a_report_with_an_override_is_refused_whatever_its_outcome(self):
         cases = {
             'a merged override, live': ('live', 't1a', [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'merged', 'mergeId': MERGE}]),
             'a skipped override, live': ('live', 't1a', [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'skipped', 'reason': 'stale-evidence'}]),
             'an eligible override, validate': ('validate', TAG, [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'eligible'}]),
         }
         for label, (mode, tag, results) in cases.items():
-            log = self.write(apply_log(apply_payload(mode, results, run_tag=tag)))
-            code, out, err = self.run_cli('apply', log, '--expect-run-tag', tag, '--expect-mode', mode, '--expect-ids', A)
-            self.assertEqual(code, dr.EXIT_BAD_REPORT, label)
-            self.assertIn('no action of accept or reject', err, label)
-            self.assertEqual(out.strip(), '', label)
+            for extra in ({}, {'overrides': ''}):                                          # omitted, and an empty list: none were dispatched
+                code, out, err = self.apply(results, A, mode, tag, **extra)
+                self.assertEqual(code, dr.EXIT_BAD_REPORT, label)
+                self.assertIn('an action that is not what was dispatched', err, label)
+                self.assertEqual(out.strip(), '', label)
+
+    def test_with_the_ids_exactly_those_results_may_be_overrides(self):
+        results = [{'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE},
+                   {'suggestionId': B, 'action': 'accept-override', 'outcome': 'merged', 'mergeId': MERGE},
+                   {'suggestionId': C, 'action': 'reject', 'outcome': 'rejected'}]
+        ids = '%s,%s,%s' % (A, B, C)
+        self.assertEqual(self.apply(results, ids, rejects=C, overrides=B)[0], 0)
+        self.assertEqual(self.apply(results, ids, rejects=C, overrides=B.upper())[0], 0, 'ids are lower-cased')
+        self.assertEqual(self.apply(results, ids, rejects=C)[0], dr.EXIT_BAD_REPORT, 'the override was not announced')
+        self.assertEqual(self.apply(results, ids, rejects=C, overrides=A)[0], dr.EXIT_BAD_REPORT, 'a plain accept announced as an override')
+        self.assertEqual(self.apply(results, ids, rejects=C, overrides='%s,%s' % (A, B))[0], dr.EXIT_BAD_REPORT, 'an announced override that came back as an accept')
+        eligible = [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'eligible'}]
+        self.assertEqual(self.apply(eligible, A, 'validate', TAG, overrides=A)[0], 0, 'validate judges an override too')
+        skipped = [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'skipped', 'reason': 'event-already-in-run'}]
+        self.assertEqual(self.apply(skipped, A, overrides=A)[0], 0)
+
+    def test_the_ids_are_checked_as_input(self):
+        results = [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'merged', 'mergeId': MERGE}]
+        self.assertEqual(self.apply(results, A, overrides=B)[0], dr.EXIT_BAD_INPUT, 'an override id that was not dispatched')
+        self.assertEqual(self.apply(results, '%s,%s' % (A, B), rejects=A, overrides=A)[0], dr.EXIT_BAD_INPUT, 'an id cannot be a reject and an override')
+        self.assertEqual(self.apply(results, A, overrides='nope')[0], dr.EXIT_BAD_INPUT)
+
+    def test_a_merged_override_still_needs_its_merge_id_and_a_live_run(self):
+        no_id = [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'merged'}]
+        self.assertEqual(self.apply(no_id, A, overrides=A)[0], dr.EXIT_BAD_REPORT)
+        dry = [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'merged', 'mergeId': MERGE}]
+        self.assertEqual(self.apply(dry, A, 'dry-run', 't1a', overrides=A)[0], dr.EXIT_BAD_REPORT, 'a run that is not live cannot have merged')
+        rejected = [{'suggestionId': A, 'action': 'accept-override', 'outcome': 'rejected'}]
+        self.assertEqual(self.apply(rejected, A, overrides=A)[0], dr.EXIT_BAD_REPORT, 'an override is never a rejected outcome')
+
+    def test_an_unknown_action_is_still_refused_with_the_old_wording(self):
+        code, _, err = self.apply([{'suggestionId': A, 'action': 'delete', 'outcome': 'skipped', 'reason': 'no-anchor'}], A, overrides=A)
+        self.assertEqual(code, dr.EXIT_BAD_REPORT)
+        self.assertIn('no action of accept or reject', err)
 
 
 class LoopRejectTests(Base):
@@ -1212,13 +1254,15 @@ class LoopRejectTests(Base):
         self.assertIn(dr.REJECT_COST, row['options'][1]['description'])
 
     # ---- confirm
-    def confirm(self, accept, reject, pairs=None, pages=()):
+    def confirm(self, accept, reject, pairs=None, pages=(), override=''):
         log = self.write(export_log(export_payload(pairs if pairs is not None else [pair(A), pair(B, tier='low'), pair(HEXY), pair(C, tier='high')])))
         argv = []
         if accept is not None:
             argv += ['--accept', accept]
         if reject is not None:
             argv += ['--reject', reject]
+        if override is not None:
+            argv += ['--override', override]
         code, out, err = self.cli('confirm', log, *pages, *argv)
         return code, (json.loads(out) if out.strip() else None), err
 
@@ -1228,11 +1272,11 @@ class LoopRejectTests(Base):
         self.assertEqual(code, 0)
         question = result['question']
         names = '"%s" and "%s"' % (pair(A)['candidate']['name'], pair(A)['newEvent']['name'])
-        self.assertIn('Accept (merge) 1 pair(s): #146 (id %s) %s.' % (A[:8], names), question)           # the pair's two event names are in the question
+        self.assertIn('Merge 1 pair(s): #146 (id %s) %s.' % (A[:8], names), question)           # the pair's two event names are in the question
         self.assertIn('Reject 2 pair(s): #147, #148 (id %s) %s; #149 (id %s) %s.' % (B[:8], names, HEXY[:8], names), question)   # twins together
         self.assertIn('cannot be undone in the app', question)
         self.assertIn('recorded as AI-assisted under your moderator account', question)
-        self.assertIn('whole run is refused, the accepts included', question)
+        self.assertIn('whole run is refused, the rest of the batch included', question)
         self.assertIn('The owner still approves the run in the Actions tab.', question)
         self.assertEqual([o['label'] for o in result['options']], [dr.LABEL_YES, dr.LABEL_NO])
         self.assertEqual((result['accept'], result['reject']), ([A], [B, HEXY]))
@@ -1247,7 +1291,7 @@ class LoopRejectTests(Base):
         accept_only = self.confirm(A, '', pages=pages)[1]['question']
         self.assertNotIn('reject', accept_only.lower())                                  # no reject cost, no switch talk for an accept-only batch
         reject_only = self.confirm('', B, pages=pages)[1]['question']
-        self.assertNotIn('Accept (merge)', reject_only)
+        self.assertNotIn('Merge', reject_only)
         self.assertIn('Reject 1 pair(s)', reject_only)
 
     def test_confirm_refuses_what_decisions_refuses_with_the_same_exit(self):
@@ -1353,6 +1397,193 @@ class LoopRejectTests(Base):
         only_path = self.write(apply_log(only), 'only.txt')
         code, out, _ = self.cli('insight-comment', log, '--summary', summary([{'suggestionId': B, 'decision': 'rejected'}]), '--apply-log', only_path, '--apply-run-tag', 't1a')
         self.assertEqual(code, 0)                                                                         # a reject-only run is recorded
+
+
+    # ---- the floor override in the loop (FIND-125)
+    def vlog(self, *results, tag='t1v'):
+        """The `<tag>-v` accept-validate report of the loop: each result is (suggestion id, reason or None for eligible)."""
+        rows = [{'suggestionId': i, 'outcome': 'eligible'} if reason is None else {'suggestionId': i, 'outcome': 'skipped', 'reason': reason} for i, reason in results]
+        return self.write(apply_log(apply_payload('validate', rows, run_tag=tag)), 'vlog.txt')
+
+    def override_brief(self, ids, offer='override,reject', results=((A, 'name-mismatch'),), pairs=None, pages=(), tag='t1v', log=True, with_tag=True):
+        export = self.write(export_log(export_payload(pairs if pairs is not None else [pair(A), pair(B, tier='low'), pair(C, tier='high')])), 'export.txt')
+        argv = ['--ids', ids, '--offer', offer]
+        if log:
+            argv += ['--validate-log', self.vlog(*results, tag=tag)]
+        if with_tag:
+            argv += ['--validate-tag', tag]
+        code, out, err = self.cli('brief', export, *pages, *argv)
+        return code, [json.loads(line) for line in out.splitlines() if line.strip()], err
+
+    def test_the_override_popup_names_the_check_the_floor_failed_and_offers_override_reject_skip(self):
+        code, rows, _ = self.override_brief(A)
+        self.assertEqual(code, 0)
+        row = rows[0]
+        self.assertEqual([o['label'] for o in row['options']], [dr.LABEL_OVERRIDE, dr.LABEL_REJECT, dr.LABEL_SKIP])
+        self.assertEqual(dr.LABEL_OVERRIDE, 'Merge regardless of the floor')
+        question = row['question']
+        line = 'Floor refuses (name-mismatch): the names differ in a number or a qualifier. Merging anyway skips it.'
+        self.assertIn(line, question)
+        self.assertLess(question.index('Signals:'), question.index(line), 'the refusal line sits right after the signals')
+        self.assertLess(question.index(line), question.index('Clue: day gap'), 'and before the clues')
+        self.assertIn('Existing event (a merge keeps it)', question, 'an override popup talks about merging')
+        self.assertNotIn('To reject, use Moderator Items', question)
+        self.assertIn('the floor\'s checks are skipped', row['options'][0]['description'])
+        self.assertIn('can be undone in the app', row['options'][0]['description'])
+
+    def test_every_floor_code_has_its_fixed_words_and_a_high_pair_gets_the_override_and_skip_only(self):
+        self.assertEqual(sorted(dr.REFUSAL_WORDS), sorted(dr.FLOOR_REASONS), 'one text for each floor code')
+        self.assertTrue(all(len(words) <= 70 for words in dr.REFUSAL_WORDS.values()))
+        for code in dr.FLOOR_REASONS:
+            tier_id, tier = (C, 'high') if code == 'already-high' else (B, 'low') if code == 'low-tier' else (A, 'mid')
+            offer = 'override' if tier == 'high' else 'override,reject'
+            code_, rows, err = self.override_brief(tier_id, offer, results=((tier_id, code),))
+            self.assertEqual(code_, 0, '%s: %s' % (code, err))
+            self.assertIn('Floor refuses (%s): %s.' % (code, dr.REFUSAL_WORDS[code]), rows[0]['question'])
+        high = self.override_brief(C, 'override', results=((C, 'already-high'),))[1][0]
+        self.assertEqual([o['label'] for o in high['options']], [dr.LABEL_OVERRIDE, dr.LABEL_SKIP])
+        self.assertEqual(self.override_brief(C, 'override,reject', results=((C, 'already-high'),))[0], dr.EXIT_BAD_INPUT, 'the drain\'s pair is never rejected')
+
+    def test_an_override_is_offered_only_on_the_evidence_of_the_validate_report(self):
+        for label, kwargs in {
+            'no log at all': dict(log=False, with_tag=False),
+            'a log without its tag': dict(with_tag=False),
+            'a pair the report calls eligible': dict(results=((A, None),)),
+            'a cap': dict(results=((A, 'per-run-cap'),)),
+            'a shared event': dict(results=((A, 'event-already-in-run'),)),
+            'a stale pair': dict(results=((A, 'stale-evidence'),)),
+            'a pair that is not in the report': dict(results=((B, 'no-anchor'),)),
+            'already-high for a mid pair': dict(results=((A, 'already-high'),)),
+            'low-tier for a mid pair': dict(results=((A, 'low-tier'),)),
+            'a mid-pair code for a high pair': dict(ids=C, offer='override', results=((C, 'no-anchor'),)),
+            'a mid-pair code for a low pair': dict(ids=B, results=((B, 'no-anchor'),)),
+            'two ids': dict(ids='%s,%s' % (A, B), results=((A, 'no-anchor'), (B, 'low-tier'))),
+            'accept with override': dict(offer='accept,override'),
+            'an unknown token': dict(offer='override,merge'),
+        }.items():
+            args = dict(ids=A)
+            args.update(kwargs)
+            ids = args.pop('ids')
+            code, rows, _ = self.override_brief(ids, **args)
+            self.assertEqual((code, rows), (dr.EXIT_BAD_INPUT, []), label)                    # nothing printed before the refusal
+        code, rows, _ = self.override_brief(A, tag='t1v', results=((A, 'no-anchor'),))
+        self.assertEqual(code, 0)
+        wrong_tag = self.cli('brief', self.write(export_log(export_payload([pair(A)])), 'export.txt'), '--ids', A, '--offer', 'override', '--validate-log', self.vlog((A, 'no-anchor'), tag='t1v'), '--validate-tag', 'other')
+        self.assertEqual(wrong_tag[0], dr.EXIT_BAD_REPORT, 'a log of another run is refused as any report is')
+        # The validate flags belong to the override only.
+        export = self.write(export_log(export_payload([pair(A)])), 'export.txt')
+        self.assertEqual(self.cli('brief', export, '--ids', A, '--offer', 'accept,reject', '--validate-log', self.vlog((A, 'no-anchor')), '--validate-tag', 't1v')[0], dr.EXIT_BAD_INPUT)
+
+    def test_the_override_popup_fits_the_cap_and_keeps_the_refusal_line_and_every_clue_at_the_worst_case(self):
+        wide = dict(schedules=[dict(event()['schedules'][0], startDate='2026-11-%02d' % (i + 1), endDate='2026-12-%02d' % (i + 1)) for i in range(9)],
+                    location='L' * 400, links=['l' * 400] * 5)
+        worst = pair(A, candidate=event(' '.join('old%d%s' % (i, 'x' * 45) for i in range(6)), **wide), new=event(' '.join('new%d%s' % (i, 'y' * 45) for i in range(6)), **wide), undone=2)
+        pages = (self.page(self.row(1, A), self.row(2, A), self.row(3, A, shadow=True)),)
+        for offer in ('override,reject', 'override'):
+            for code in ('no-anchor', 'schedule-uncovered', 'undone-before'):
+                row = self.override_brief(A, offer, results=((A, code),), pairs=[worst], pages=pages)[1][0]
+                question = row['question']
+                self.assertLessEqual(len(question), dr.BRIEF_CAP, (offer, code))
+                self.assertIn('Floor refuses (%s): %s.' % (code, dr.REFUSAL_WORDS[code]), question)
+                for clue in row['clues']:
+                    self.assertIn('Clue: %s' % clue, question, 'a clue is never cut: %s' % clue)
+                self.assertIn('Open issues for this pair: #1, #2, #3', question)
+
+    def test_the_decisions_string_carries_overrides_last_with_their_action_and_refuses_overlaps(self):
+        log = self.write(export_log(export_payload([pair(A), pair(B, tier='low'), pair(C, tier='high'), pair(HEXY)])))
+        out = self.cli('decisions', log, HEXY, '--reject', B, '--override', '%s,%s' % (A, C))
+        self.assertEqual(out[0], 0)
+        decisions = json.loads(out[1])['decisions']
+        self.assertEqual([(d['suggestionId'], d.get('action')) for d in decisions], [(B, 'reject'), (HEXY, None), (A, 'accept-override'), (C, 'accept-override')])
+        self.assertEqual(self.cli('decisions', log, '--override', C)[0], 0, 'an override alone, of a high pair: no tier rule in the reader')
+        self.assertEqual(self.cli('decisions', log, C)[0], 0, 'an accept of a high pair is validated by step 8 item 3')
+        for label, argv in {'an id in two lists': [A, '--override', A.upper()], 'a reject and an override': ['--reject', A, '--override', A],
+                            'an empty override list': ['--override', ''], 'a bad override id': ['--override', 'nope'], 'an unexported override': ['--override', '00000000-0000-4000-8000-0000000000ee'],
+                            'a high reject beside an override': ['--reject', C, '--override', A], 'no ids at all': []}.items():
+            self.assertEqual(self.cli('decisions', log, *argv)[0], dr.EXIT_BAD_INPUT, label)
+
+    def test_the_confirmation_lists_merges_overrides_and_rejects_apart_with_each_cost_once(self):
+        page = self.page(self.row(1, A), self.row(2, B), self.row(3, HEXY), self.row(4, C))
+        everything = self.confirm(HEXY, B, pages=(page,), override='%s,%s' % (A, C), pairs=[pair(A), pair(B, tier='low'), pair(HEXY), pair(C, tier='high')])
+        self.assertEqual(everything[0], 0, everything[2])
+        result = everything[1]
+        question = result['question']
+        self.assertIn('Merge 1 pair(s): #3 (id %s)' % HEXY[:8], question)
+        self.assertIn('Merge regardless of the floor 2 pair(s): #1 (id %s)' % A[:8], question)
+        self.assertIn("its checks do not apply to them: this can merge a pair the reviewer would have refused", question.replace('The floor refuses these pairs and ', ''))
+        self.assertIn('A floor override runs only if the owner has switched it on; otherwise the whole run is refused, the rest of the batch included.', question)
+        self.assertIn('A reject runs only if the owner has switched rejects on; otherwise the whole run is refused, the rest of the batch included.', question)
+        self.assertIn(dr.REJECT_COST, question)
+        self.assertEqual(question.count('recorded as AI-assisted under your moderator account'), 1)
+        self.assertEqual((result['accept'], result['reject'], result['override']), ([HEXY], [B], [A, C]))
+        printed = self.cli('decisions', self.write(export_log(export_payload([pair(A), pair(B, tier='low'), pair(HEXY), pair(C, tier='high')])), 'again.txt'), HEXY, '--reject', B, '--override', '%s,%s' % (A, C))[1].strip()
+        self.assertEqual(result['decisions'], printed, 'the string to dispatch is exactly what `decisions` prints')
+        # Only what the batch holds: an override-only batch says nothing about rejects, an accept-only batch has neither word.
+        only = self.confirm('', '', pages=(page,), override=A)[1]['question']
+        self.assertIn('A floor override runs only', only)
+        self.assertNotIn('reject', only.lower().replace('reviewer would have refused', ''))
+        plain = self.confirm(A, '', pages=(page,))[1]['question']
+        for word in ('reject', 'override', 'floor'):
+            self.assertNotIn(word, plain.lower(), word)
+
+    def test_confirm_needs_all_three_lists_and_refuses_what_decisions_refuses(self):
+        page = self.page(self.row(1, A), self.row(2, B))
+        log = self.write(export_log(export_payload([pair(A), pair(B, tier='low'), pair(C, tier='high')])))
+        self.assertEqual(self.cli('confirm', log, page, '--accept', '', '--reject', '')[0], dr.EXIT_BAD_INPUT, 'no --override flag')
+        self.assertEqual(self.confirm('', '', pages=(page,), override='')[0], dr.EXIT_BAD_INPUT, 'all three empty')
+        self.assertEqual(self.confirm(A, B, pages=(page,), override=A)[0], dr.EXIT_BAD_INPUT, 'an id in two lists')
+        self.assertEqual(self.confirm('', '', pages=(page,), override=C)[0], dr.EXIT_BAD_INPUT, 'an override with no open issue')
+        self.assertEqual(self.confirm('', '', override=A)[0], dr.EXIT_BAD_INPUT, 'no issue pages')
+        many = [pair('00000000-0000-4000-8000-0000000000%02d' % i) for i in range(11)]
+        ids = ','.join(p['suggestionId'] for p in many)
+        self.assertEqual(self.confirm('', '', pairs=many, override=ids)[0], dr.EXIT_BAD_INPUT, 'more than ten')
+        self.assertEqual(self.confirm('', '', pages=(page,), override=B)[0], 0, 'an override of a low pair is fine: no tier rule')
+
+    def test_close_decided_closes_an_overridden_merge_with_its_own_comment_and_the_accepted_outcome(self):
+        results = [{'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE},
+                   {'suggestionId': B, 'action': 'accept-override', 'outcome': 'merged', 'mergeId': '22222222-2222-4222-8222-222222222222'},
+                   {'suggestionId': C, 'action': 'accept-override', 'outcome': 'skipped', 'reason': 'event-already-in-run'}]
+        issues = [self.row(1, A), self.row(2, B), self.row(3, B, shadow=True), self.row(4, B, state='CLOSED'), self.row(5, C)]
+        log = self.write(apply_log(apply_payload('live', results, run_tag='t1a')))
+        args = ('close-decided', log, self.page(*issues), '--expect-run-tag', 't1a', '--expect-ids', '%s,%s,%s' % (A, B, C))
+        code, out, _ = self.run_cli(*args, '--expect-override-ids', '%s,%s' % (B, C))
+        self.assertEqual(code, 0)
+        result = json.loads(out)
+        by_number = {item['number']: item for item in result['close']}
+        self.assertEqual(sorted(by_number), [1, 2, 3], 'the skipped override (5) and the closed twin (4) are left alone')
+        self.assertEqual((by_number[1]['action'], by_number[1]['comment'].startswith('Resolved: a moderator accepted')), ('accept', True))
+        for number in (2, 3):
+            item = by_number[number]
+            self.assertEqual(item['action'], 'accept-override')
+            self.assertEqual(item['comment'], 'Resolved: a moderator merged this suggestion regardless of the floor in an attended review session (merge `22222222-2222-4222-8222-222222222222`). Closing this issue.')
+            self.assertEqual(item['labels'][-1], 'outcome:accepted')
+            self.assertEqual(item['mergeId'], '22222222-2222-4222-8222-222222222222')
+        self.assertEqual(result['notApplied'], [{'id': C, 'action': 'accept-override', 'reason': 'event-already-in-run'}])
+        self.assertEqual(self.run_cli(*args)[0], dr.EXIT_BAD_REPORT, 'without the override ids the report is refused')
+        self.assertEqual(self.run_cli(*args, '--expect-override-ids', '%s,%s' % (A, B))[0], dr.EXIT_BAD_REPORT, 'an accept announced as an override')
+
+    def test_the_decided_comment_of_an_override_names_the_merge_and_needs_a_merge_id(self):
+        code, out, _ = self.run_cli('comment', 'decided', '--merge-id', MERGE.upper(), '--override')
+        self.assertEqual(code, 0)
+        self.assertEqual(out.strip(), 'Resolved: a moderator merged this suggestion regardless of the floor in an attended review session (merge `%s`). Closing this issue.' % MERGE)
+        self.assertIn('a moderator accepted this suggestion', self.run_cli('comment', 'decided', '--merge-id', MERGE)[1], 'the plain accept comment is unchanged')
+        self.assertEqual(self.run_cli('comment', 'decided', '--override')[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.run_cli('comment', 'decided', '--rejected', '--override')[0], dr.EXIT_BAD_INPUT)
+
+    def test_the_insight_comment_marks_an_overridden_merge_and_keeps_the_merged_count(self):
+        log = self.write(export_log())
+        report = apply_payload('live', [{'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE},
+                                        {'suggestionId': B, 'action': 'accept-override', 'outcome': 'merged', 'mergeId': '22222222-2222-4222-8222-222222222222'}], run_tag='t1a')
+        apply_path = self.write(apply_log(report), 'apply.txt')
+        summary = self.write(json.dumps({'mode': 'live', 'exportTag': TAG, 'validateTag': 't1w', 'applyTag': 't1a', 'closedIssues': [],
+                                         'entries': [{'suggestionId': A, 'decision': 'merged'}, {'suggestionId': B, 'decision': 'merged'}]}), 'sum.json')
+        code, out, _ = self.cli('insight-comment', log, '--summary', summary, '--apply-log', apply_path, '--apply-run-tag', 't1a')
+        self.assertEqual(code, 0)
+        self.assertIn('Merged: 2.', out)
+        rows = {line.split('|')[1].strip(): line for line in out.splitlines() if line.startswith('| `')}
+        self.assertIn('`%s`' % MERGE, rows['`%s`' % A])
+        self.assertNotIn('floor overridden', rows['`%s`' % A])
+        self.assertIn('`22222222-2222-4222-8222-222222222222` (floor overridden)', rows['`%s`' % B])
 
 
 class SkillTextTests(unittest.TestCase):

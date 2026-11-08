@@ -2,7 +2,8 @@
 title: 'Attended loop: the "Merge regardless of the floor" option, the reader and SKILL.md side of the floor override (FIND-125)'
 type: 'feature'
 created: '2026-11-07'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '611544244b48615475e04bc28e1dd0154d1b682f'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/specs/ai-dedup-review/DESIGN.md'
