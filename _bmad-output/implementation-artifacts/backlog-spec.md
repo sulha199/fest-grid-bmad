@@ -418,6 +418,13 @@ board — worse than running no check at all.
     `backlog/<ID>-slug.md` file. Leave one fact — the thing that changes how the row is read —
     behind in `note`. Never summarize-and-discard: move the full text verbatim first, trim
     second, so a bad one-liner is always recoverable from its new home.
+16. **Header `last_updated` too long** — the file header's `last_updated` exceeds the note length
+    limit; it must stay a bare date (the same regrowth guard as check 15, applied to the header).
+17. **Duplicate row ID** — a row ID defined more than once in `backlog.yaml`. `yaml.safe_load`
+    keeps only the last copy of a repeated key, so without this check the earlier row vanishes
+    and every other check still reports clean (found 2026-11-08: a merge of master met this
+    branch's rows under FIND-114 to FIND-121). Read from the raw text. On a hit, renumber the
+    **newer** row: IDs are immutable (§4), so the one already merged to master keeps its number.
 
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —

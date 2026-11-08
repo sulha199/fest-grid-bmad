@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic runner for the backlog board's integrity checks and lenses.
 
-Implements checks 1-16 and the lens table from
+Implements checks 1-17 and the lens table from
 `_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-13 follow
 `planning-artifacts/epic-formation-gate.md`; check 14 enforces §12's deferral-intake rule;
 check 15 is the mechanical backstop for §3's "note is one line" rule; check 16 is the
@@ -9,6 +9,9 @@ same rule applied to the board's own header `last_updated` field -- see
 `scripts/sprint-status-comment-check.py`'s docstring for the sibling problem both mirror:
 `sprint-status.yaml`'s `last_updated` comment grew the same way before that guardrail existed,
 and this board's own `last_updated` field grew the same way before check 16 existed).
+check 17 fails on a row ID defined twice: `yaml.safe_load` keeps only the last copy of a repeated
+mapping key, so a merge that brings in a second `FIND-119:` would otherwise make the first row
+vanish while every other check still reports clean (2026-11-08, FIND-114 to FIND-121).
 `bmad-sprint-status` runs this rather than re-deriving the checks from prose: a subtly wrong
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
@@ -71,6 +74,22 @@ def load_board():
     return board["items"], tags, board.get("last_updated")
 
 
+def find_duplicate_row_ids(path=None):
+    """Row IDs that `backlog.yaml` defines more than once, as {id: [line numbers]}.
+
+    Read from the raw text, because `yaml.safe_load` silently keeps only the last of two
+    identical mapping keys: by the time `load_board` returns, the first row is already gone.
+    A row header is a two-space-indented `ID:` line on its own (`  FIND-119:`).
+    """
+    seen = defaultdict(list)
+    with open(path or BOARD, encoding="utf-8") as fh:
+        for n, line in enumerate(fh, start=1):
+            m = re.match(r"^  ([A-Z]+-\d+):\s*$", line)
+            if m:
+                seen[m.group(1)].append(n)
+    return {k: v for k, v in seen.items() if len(v) > 1}
+
+
 def load_sprint_status():
     """Story key -> status. Two-space-indented scalars under development_status."""
     status = {}
@@ -131,7 +150,7 @@ def tag_prefix(tag: str) -> str:
     return tag.split("/", 1)[0]
 
 
-def run_checks(items, tags, stories, last_updated=None):
+def run_checks(items, tags, stories, last_updated=None, duplicate_ids=None):
     failures = []
 
     def fail(num, row, msg):
@@ -299,6 +318,14 @@ def run_checks(items, tags, stories, last_updated=None):
         fail(16, "-",
              f"last_updated is {len(str(last_updated))} chars > {NOTE_MAX_LEN} -- it must be a "
              f"bare ISO timestamp only (git history already has the narrative)")
+
+    # Check 17 -- a row ID defined twice. safe_load keeps only the last copy, so every check
+    # above ran on a board that had silently lost the other row. Renumber the NEWER row
+    # (IDs are immutable, backlog-spec.md section 4); master's already-merged ID stays.
+    for row_id, lines in sorted((duplicate_ids or {}).items()):
+        fail(17, row_id,
+             f"row ID defined {len(lines)} times (backlog.yaml lines "
+             f"{', '.join(map(str, lines))}); only the last survives parsing -- renumber the newer row")
 
     return failures
 
@@ -474,13 +501,13 @@ def main():
         print_clusters(items, SPRINT_STATUS)
         return 0
 
-    failures = run_checks(items, tags, SPRINT_STATUS, last_updated)
+    failures = run_checks(items, tags, SPRINT_STATUS, last_updated, find_duplicate_row_ids())
     if failures:
         print("CHECK FAILURES")
         for num, row, msg in sorted(failures):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        print("checks 1-15: clean")
+        print("checks 1-17: clean")
 
     if args.quiet:
         return len(failures)
