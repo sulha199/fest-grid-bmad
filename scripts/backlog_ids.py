@@ -35,8 +35,10 @@ LEGACY_CEILING = {"BUG": 99, "IDEA": 113, "CC": 32, "FIND": 127}
 SUFFIX_ALPHABET = string.ascii_lowercase + string.digits
 SUFFIX_LEN = 3
 
-LEGACY_RE = re.compile(r"^(BUG|IDEA|CC|FIND)-(\d{3})$")
-NEW_RE = re.compile(r"^(BUG|IDEA|CC|FIND)-(\d{6})-([a-z0-9]{%d})$" % SUFFIX_LEN)
+# ASCII only and matched with fullmatch: a bare `\d` accepts other scripts' digits and `$` accepts a
+# trailing newline, and either would let a lookalike key through as a valid ID.
+LEGACY_RE = re.compile(r"(BUG|IDEA|CC|FIND)-(\d{3})", re.ASCII)
+NEW_RE = re.compile(r"(BUG|IDEA|CC|FIND)-(\d{6})-([a-z0-9]{%d})" % SUFFIX_LEN, re.ASCII)
 
 MASTER_REF = "origin/master"
 MINT_ATTEMPTS = 1000
@@ -56,10 +58,10 @@ def parse_id(raw) -> BacklogId | None:
     """The parsed ID, or None when `raw` is neither a legacy nor a new-format ID."""
     if not isinstance(raw, str):
         return None
-    m = LEGACY_RE.match(raw)
+    m = LEGACY_RE.fullmatch(raw)
     if m:
         return BacklogId(raw, m.group(1), "legacy", number=int(m.group(2)))
-    m = NEW_RE.match(raw)
+    m = NEW_RE.fullmatch(raw)
     if m:
         return BacklogId(raw, m.group(1), "new", yymmdd=m.group(2), suffix=m.group(3))
     return None
@@ -95,6 +97,9 @@ def mint_id(type_: str, day: _dt.date, taken, choose=secrets.choice) -> str:
     """A new-format ID for `day` that is not in `taken` (re-rolls the suffix on a hit)."""
     if type_ not in TYPES:
         raise ValueError(f"unknown type {type_!r}; expected one of {', '.join(TYPES)}")
+    if not 2000 <= day.year <= 2099:
+        # YYMMDD decodes as 20YY: another year would mint an ID that check 17 then rejects.
+        raise ValueError(f"year {day.year} cannot be written as YYMMDD; use 2000-2099")
     prefix = f"{type_}-{day:%y%m%d}-"
     for _ in range(MINT_ATTEMPTS):
         candidate = prefix + "".join(choose(SUFFIX_ALPHABET) for _ in range(SUFFIX_LEN))
@@ -145,8 +150,9 @@ def load_board_text(text: str):
 
 
 def item_ids(data) -> frozenset:
-    items = (data or {}).get("items") or {}
-    return frozenset(str(k) for k in items)
+    """The row keys of a loaded board; empty when the board is not a mapping with an `items` mapping."""
+    items = data.get("items") if isinstance(data, dict) else None
+    return frozenset(str(k) for k in items) if isinstance(items, dict) else frozenset()
 
 
 # ── what git knows ──────────────────────────────────────────────────────────────────────
@@ -184,6 +190,8 @@ def _ids_at(repo: str, ref: str, board_rel: str) -> frozenset | None:
         data, _ = load_board_text(text)
     except yaml.YAMLError:
         return None
+    if not isinstance(data, dict) or not isinstance(data.get("items"), dict):
+        return None  # unreadable as a board: a problem, never an empty set that flags every row
     return item_ids(data)
 
 
@@ -213,7 +221,7 @@ def taken_ids(tree_ids, remote: RemoteIds) -> frozenset:
 
 # ── check 17 ────────────────────────────────────────────────────────────────────────────
 
-def _rename_recipe(parsed: BacklogId | None, key) -> str:
+def _rename_recipe(parsed: BacklogId | None) -> str:
     if parsed is None:
         return "remove the repeated key"
     return (f"keep one row and re-mint the other with `scripts/backlog-new-id.py {parsed.type} "
@@ -237,9 +245,12 @@ def check_ids(items, duplicates=(), remote: RemoteIds | None = None,
     for key, first, again in duplicates:
         row = str(key) if parse_id(key) else "-"
         findings.append((row, f"duplicate key {key!r} at lines {first} and {again}: "
-                              f"{_rename_recipe(parse_id(key), key)}"))
+                              f"{_rename_recipe(parse_id(key))}"))
 
     for key, row in items.items():
+        if not isinstance(row, dict):
+            findings.append((str(key), f"row is not a mapping ({type(row).__name__}): check its flow-mapping braces"))
+            continue
         parsed = parse_id(key)
         if parsed is None:
             findings.append((str(key), f"malformed ID {key!r}: expected legacy TYPE-NNN "
@@ -251,7 +262,7 @@ def check_ids(items, duplicates=(), remote: RemoteIds | None = None,
             if day is None:
                 findings.append((key, f"ID date {parsed.yymmdd} is not a real calendar date"))
             else:
-                created = str((row or {}).get("created"))
+                created = str(row.get("created"))
                 if created != day.isoformat():
                     findings.append((key, f"ID date is {day.isoformat()} but created is "
                                           f"{created}: derive `created` from the ID, not the clock"))

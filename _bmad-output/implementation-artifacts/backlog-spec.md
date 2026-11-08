@@ -361,7 +361,10 @@ uv run --python 3.11 --with pyyaml scripts/backlog-check.py --lens cheap-wins
 uv run --python 3.11 --with pyyaml scripts/backlog-check.py --only 17     # the ID rules alone (what CI gates on)
 ```
 
-Exit code is the failure count, so it can gate a commit. The checks and the §11 lens
+Exit code is the failure count, capped at 255 because an operating system keeps only 8 bits of an
+exit status (an exact multiple of 256 would otherwise read as clean), so it can gate a commit.
+`--only` takes check numbers from 1 to 17 and rejects anything else, so a typo cannot make a
+vacuous gate; `--only 17` also skips the other checks and `sprint-status.yaml` entirely. The checks and the §11 lens
 table are prose here and executable there; when they disagree, this document is
 authoritative and the script is the bug. Re-deriving these checks from prose each
 session is how a subtly wrong reimplementation comes to report "clean" on a broken

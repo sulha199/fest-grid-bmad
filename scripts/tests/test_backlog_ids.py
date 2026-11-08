@@ -46,7 +46,9 @@ class ParseIdTests(unittest.TestCase):
 
     def test_rejects_everything_else(self):
         for bad in ["find-127", "FIND-12", "FIND-1234", "FIND-26118-k3x", "FIND-261108-K3X",
-                    "FIND-261108-k3", "FIND-261108-k3xy", "TASK-001", "FIND-261108", "", None, 127]:
+                    "FIND-261108-k3", "FIND-261108-k3xy", "TASK-001", "FIND-261108", "", None, 127,
+                    "FIND-127\n", "FIND-261108-k3x\n", "FIND-\u0661\u0662\u0663",
+                    "FIND-\uff11\uff12\uff17"]:
             self.assertIsNone(b.parse_id(bad), bad)
 
     def test_impossible_calendar_dates(self):
@@ -86,6 +88,20 @@ class MintTests(unittest.TestCase):
     def test_unknown_type(self):
         with self.assertRaises(ValueError):
             b.mint_id("TASK", dt.date(2026, 11, 8), set())
+
+    def test_a_year_that_cannot_round_trip_is_refused(self):
+        for day in (dt.date(1999, 12, 31), dt.date(2100, 1, 1)):
+            with self.assertRaises(ValueError, msg=str(day)):
+                b.mint_id("FIND", day, set())
+        for day in (dt.date(2000, 1, 1), dt.date(2099, 12, 31)):
+            self.assertEqual(b.yymmdd_to_date(b.mint_id("FIND", day, set()).split("-")[1]), day)
+
+
+class ItemIdsTests(unittest.TestCase):
+    def test_only_a_mapping_with_an_items_mapping_has_ids(self):
+        self.assertEqual(b.item_ids({"items": {"FIND-001": {}, 7: {}}}), frozenset({"FIND-001", "7"}))
+        for bad in (None, [], ["a"], "x", {}, {"items": ["x", "y"]}, {"items": None}):
+            self.assertEqual(b.item_ids(bad), frozenset(), repr(bad))
 
 
 class DuplicateLoaderTests(unittest.TestCase):
@@ -150,6 +166,12 @@ class CheckIdsWithoutGitTests(unittest.TestCase):
         self.assertEqual([r for r, _m in findings], [over])
         self.assertIn("backlog-new-id.py FIND", findings[0][1])
 
+    def test_a_row_that_is_not_a_mapping_is_a_finding_not_a_crash(self):
+        for bad_row in ("oops", ["a"], 7, None):
+            findings, _ = self.run_check({"FIND-261108-k3x": bad_row, "FIND-001": bad_row})
+            self.assertEqual(sorted(r for r, _m in findings), ["FIND-001", "FIND-261108-k3x"], repr(bad_row))
+            self.assertIn("not a mapping", findings[0][1])
+
     def test_prefix_is_not_compared_with_type(self):
         findings, _ = self.run_check({"BUG-261108-k3x": row(type="idea")})
         self.assertEqual(findings, [])  # reclassification keeps the ID (spec §4)
@@ -208,9 +230,16 @@ class CheckIdsWithGitTests(unittest.TestCase):
         self.assertEqual(b.check_ids(items, remote=remote)[0], [])
 
 
+def clean_env():
+    """The environment without CI and without any GIT_* variable (a hook exports GIT_DIR and friends,
+    which would point the temporary repositories below at the real one)."""
+    return {k: v for k, v in os.environ.items() if k != "CI" and not k.startswith("GIT_")}
+
+
 def git(repo, *args):
     subprocess.run(["git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@example.com",
-                    "-c", "commit.gpgsign=false", *args], check=True, capture_output=True, text=True)
+                    "-c", "commit.gpgsign=false", *args], check=True, capture_output=True, text=True,
+                   env=clean_env())
 
 
 def board_text(*ids):
@@ -262,6 +291,16 @@ class RemoteIdsGitTests(unittest.TestCase):
         self.assertIn("origin/master is not available", remote.problem)
         self.assertIsNone(remote.base)
 
+    def test_a_board_that_is_not_a_board_at_a_ref_is_a_problem_not_a_crash_or_an_empty_set(self):
+        repo = self.make_repo()
+        with open(os.path.join(repo, BOARD_REL), "w", encoding="utf-8") as fh:
+            fh.write("- not\n- a board\n")
+        git(repo, "commit", "-q", "-am", "list at top level")
+        git(repo, "update-ref", "refs/remotes/origin/master", "HEAD")
+        remote = b.load_remote_ids(repo, BOARD_REL)
+        self.assertIsNone(remote.master)
+        self.assertIn("could not read", remote.problem)
+
     def test_board_absent_at_the_ref_reads_as_empty(self):
         repo = self.make_repo()
         git(repo, "rm", "-q", BOARD_REL)
@@ -288,10 +327,6 @@ class RealBoardTests(unittest.TestCase):
         self.assertEqual(top, b.LEGACY_CEILING)
 
 
-def clean_env():
-    return {k: v for k, v in os.environ.items() if k != "CI"}
-
-
 class CliTests(unittest.TestCase):
     def run_script(self, name, *args):
         return subprocess.run([sys.executable, os.path.join(SCRIPTS, name), *args],
@@ -315,6 +350,49 @@ class CliTests(unittest.TestCase):
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(board_text(*ids))
         return tmp.name, path
+
+    def test_new_id_refuses_dates_that_cannot_be_an_id(self):
+        future = (dt.datetime.now(dt.timezone.utc).date() + dt.timedelta(days=30)).isoformat()
+        for bad in ("1999-12-31", "2100-01-01", future):
+            done = self.run_script("backlog-new-id.py", "FIND", "--date", bad)
+            self.assertEqual(done.returncode, 2, bad)
+            self.assertEqual(done.stdout, "")
+
+    def test_new_id_reports_an_unreadable_board_instead_of_a_traceback(self):
+        repo, board = self.synthetic_board(["FIND-001"])
+        done = self.run_script("backlog-new-id.py", "FIND", "--board", os.path.join(repo, "missing.yaml"),
+                               "--repo", repo)
+        self.assertEqual(done.returncode, 2)
+        self.assertIn("cannot read the board", done.stderr)
+        self.assertNotIn("Traceback", done.stderr)
+        with open(board, "w", encoding="utf-8") as fh:
+            fh.write("items: [unclosed\n")
+        done = self.run_script("backlog-new-id.py", "FIND", "--board", board, "--repo", repo)
+        self.assertEqual(done.returncode, 2)
+        self.assertNotIn("Traceback", done.stderr)
+
+    def test_only_rejects_unknown_or_empty_check_numbers(self):
+        repo, board = self.synthetic_board(["FIND-261108-k3x"])
+        for bad in ("71", "99", "0", "", "15,99", "x"):
+            done = self.run_script("backlog-check.py", "--only", bad, "--board", board, "--repo", repo)
+            self.assertEqual(done.returncode, 2, repr(bad))
+            self.assertIn("--only", done.stderr)
+            self.assertNotIn("clean", done.stdout)
+
+    def test_the_exit_status_never_wraps_to_zero(self):
+        repo, board = self.synthetic_board([f"bogus-{n}" for n in range(256)])
+        done = self.run_script("backlog-check.py", "--only", "17", "--board", board, "--repo", repo)
+        self.assertEqual(done.returncode, 255, "256 failures must not read as exit 0")
+        self.assertEqual(done.stdout.count("malformed ID"), 256)
+
+    def test_only_17_does_not_need_checks_1_to_16_or_the_sprint_file(self):
+        repo, board = self.synthetic_board(["FIND-261108-k3x"])
+        with open(board, "a", encoding="utf-8") as fh:
+            fh.write("  FIND-261108-zzz: {type: finding, status: backlog, created: 2026-11-08, touches: 7}\n")
+        done = self.run_script("backlog-check.py", "--only", "17", "--board", board, "--repo", repo)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)  # a bad `touches` is check 3's business
+        self.assertNotIn("Traceback", done.stderr)
+        self.assertIn("ID collision rules NOT run", done.stdout)
 
     def test_only_17_counts_just_check_17(self):
         repo, board = self.synthetic_board(["FIND-261108-k3x", "bogus-1"])

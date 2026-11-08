@@ -18,7 +18,9 @@ Usage:
     uv run --python 3.11 --with pyyaml scripts/backlog-check.py [--lens NAME] [--cluster] [--quiet]
                                                                 [--only N[,N]] [--require-remote]
 
-Exit code is the number of check failures (0 = clean), so it can gate a commit.
+Exit code is the number of check failures (0 = clean), capped at 255 because the operating
+system keeps only 8 bits of an exit status: an exact multiple of 256 would otherwise read as
+0 = clean. It can gate a commit.
 
 `--only 17` runs just the ID check and counts only its failures: it is what CI gates on,
 because checks 1-16 carry a pre-existing backlog of failures that CI must not inherit.
@@ -460,11 +462,22 @@ def lenses(items):
     }
 
 
+KNOWN_CHECKS = frozenset(range(1, 18))  # checks 1-17; keep in step with backlog-spec.md §9
+MAX_EXIT = 255
+
+
 def _check_numbers(text):
+    """`--only` value -> a non-empty set of real check numbers. A typo must not make a vacuous gate."""
     try:
-        return {int(part) for part in text.split(",") if part.strip()}
+        numbers = {int(part) for part in text.split(",") if part.strip()}
     except ValueError:
         raise argparse.ArgumentTypeError(f"--only takes check numbers like 17 or 15,17, got {text!r}")
+    unknown = sorted(numbers - KNOWN_CHECKS)
+    if not numbers or unknown:
+        raise argparse.ArgumentTypeError(
+            f"--only needs check numbers from 1 to {max(KNOWN_CHECKS)}, got {text!r}"
+            + (f" (unknown: {', '.join(map(str, unknown))})" if unknown else ""))
+    return numbers
 
 
 def main():
@@ -484,7 +497,11 @@ def main():
     args = ap.parse_args()
 
     items, tags, last_updated, duplicates = load_board(args.board)
-    SPRINT_STATUS = load_sprint_status()
+    # `--only 17` is the CI gate: it must not depend on checks 1-16 or on sprint-status.yaml, so a
+    # malformed row or a broken sprint file elsewhere cannot crash it (it would still go red, but for
+    # the wrong reason).
+    id_only = args.only is not None and args.only <= {17}
+    SPRINT_STATUS = {} if id_only else load_sprint_status()
 
     lens_table = lenses(items)
     if args.lens:
@@ -507,8 +524,11 @@ def main():
     for warning in id_warnings:
         print(f"warning: {warning}", file=sys.stderr)
 
-    failures = run_checks(items, tags, SPRINT_STATUS, last_updated, id_findings)
-    if args.only:
+    if id_only:
+        failures = [(17, row, msg) for row, msg in id_findings]
+    else:
+        failures = run_checks(items, tags, SPRINT_STATUS, last_updated, id_findings)
+    if args.only is not None:
         failures = [f for f in failures if f[0] in args.only]
         args.quiet = True
     if failures:
@@ -516,11 +536,12 @@ def main():
         for num, row, msg in sorted(failures, key=lambda f: (f[0], backlog_ids.id_sort_key(f[1]), f[2])):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        label = ",".join(str(n) for n in sorted(args.only)) if args.only else "1-17"
-        print(f"checks {label}: clean")
+        label = ",".join(str(n) for n in sorted(args.only)) if args.only is not None else "1-17"
+        skipped = " (ID collision rules NOT run: no origin/master history, see warning)" if id_warnings else ""
+        print(f"checks {label}: clean{skipped}")
 
     if args.quiet:
-        return len(failures)
+        return min(len(failures), MAX_EXIT)
 
     by_status, by_type = defaultdict(int), defaultdict(int)
     for row in items.values():
@@ -542,7 +563,7 @@ def main():
         if hits:
             print(f"  {name:12} ({len(hits):2})  {', '.join(hits)}")
 
-    return len(failures)
+    return min(len(failures), MAX_EXIT)
 
 
 if __name__ == "__main__":

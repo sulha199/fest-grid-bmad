@@ -20,6 +20,8 @@ import datetime as dt
 import os
 import sys
 
+import yaml
+
 import backlog_ids
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -46,13 +48,25 @@ def main(argv=None) -> int:
         print(f"--date must be YYYY-MM-DD, got {args.date!r}", file=sys.stderr)
         return 2
 
-    with open(args.board, encoding="utf-8") as fh:
-        data, _ = backlog_ids.load_board_text(fh.read())
+    if day > backlog_ids.utc_today() + dt.timedelta(days=1):
+        print(f"--date {day.isoformat()} is in the future; an ID is dated when its row is created",
+              file=sys.stderr)
+        return 2
+    try:
+        with open(args.board, encoding="utf-8") as fh:
+            data, _ = backlog_ids.load_board_text(fh.read())
+    except (OSError, yaml.YAMLError) as err:
+        print(f"cannot read the board {args.board}: {err}", file=sys.stderr)
+        return 2
     remote = backlog_ids.load_remote_ids(args.repo, os.path.relpath(args.board, args.repo))
     if remote.problem:
         print(f"note: {remote.problem}; checked this tree only", file=sys.stderr)
 
-    new_id = backlog_ids.mint_id(type_, day, backlog_ids.taken_ids(backlog_ids.item_ids(data), remote))
+    try:
+        new_id = backlog_ids.mint_id(type_, day, backlog_ids.taken_ids(backlog_ids.item_ids(data), remote))
+    except ValueError as err:
+        print(str(err), file=sys.stderr)
+        return 2
     print(f"created: {day.isoformat()}", file=sys.stderr)
     print(new_id)
     return 0

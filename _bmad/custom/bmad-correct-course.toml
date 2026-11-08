@@ -11,7 +11,8 @@ Register this Sprint Change Proposal on the backlog board before exiting. Follow
 
 1. Mint this proposal's id: run `uv run --python 3.11 --with pyyaml scripts/backlog-new-id.py CC` (add `--date YYYY-MM-DD` with the date in
    this proposal's filename if that is not today, UTC). It prints one id such as
-   `CC-261108-k3x`, free in this tree, at the merge-base and on origin/master. **Never take
+   `CC-261108-k3x`, free in this tree and, when git history is available, at the merge-base and on
+   origin/master (a `note:` on stderr says when it was not; check 17 in CI is the backstop). **Never take
    "the next number" by hand**: two branches doing that mint the same id, and git merges
    both rows into one file where the YAML loader silently keeps only the last. Ids are
    immutable and never reused (backlog-spec.md §4).
@@ -58,6 +59,7 @@ Register this Sprint Change Proposal on the backlog board before exiting. Follow
    registry, every open row carries an `impact` and an `effort` whose values are in the
    §3 enums, every `blocks` id exists and is not already terminal, every `ref` path exists
    on disk, and the proposal's frontmatter `backlog_id` matches its row key. Run
-   `uv run --python 3.11 --with pyyaml scripts/backlog-check.py --only 17` and confirm it is
-   clean. Report to the user which id was assigned and how many child rows were carved out.
+   `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` and confirm that no failure it
+   prints names a row you wrote (older failures predate you; do not fix them here) and that
+   `--only 17` is clean. Report to the user which id was assigned and how many child rows were carved out.
 """
