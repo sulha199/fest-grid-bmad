@@ -127,6 +127,7 @@ This document defines the core architectural invariants for the FestDaily applic
     3.  **Single enforcement surface:** `requireAuth`/`requireModerator` (exported once from the backend's auth-context layer) are the only sanctioned way for a resolver to enforce "caller must be logged in" / "caller must be a moderator." Individual resolvers must import and call these rather than re-implementing equivalent checks.
     4.  **Role model:** Application-level authorization uses the `users.role` column (`user` | `moderator`, assigned manually via direct database access per the PRD's MVP scope — no self-service promotion). This is distinct from Supabase's own JWT `role` claim, which reflects the caller's Postgres role (`authenticated`/`anon`/`service_role`) for Supabase's Row Level Security and must never be used for application-level authorization decisions.
     5.  **New moderator-gated resources extend, not bypass, this surface:** e.g. accepting/reverting a `DefaultLocationChangeRequest` (PRD Section 4.14) is gated by the same `requireModerator` check as report moderation — a new resource type, not a new enforcement mechanism.
+*   **Enforced by (added 2026-11-04):** `apps/backend/src/schema/auth-surface.ratchet.test.ts`, a source-scan ratchet over the TypeScript AST of `src/schema/resolvers.ts` and the merged `.graphql` files. Rule 3: every `Query`/`Mutation` field must call `requireAuth`/`requireModerator` on a top-level statement before its first `await`, with no `if`, loop, `switch`, label, `return` or `throw` ahead of it (`if (x) return data; requireAuth(c)` fails), or be listed in the test's `PUBLIC_ROOT_FIELDS` (never guarded) or `OPTIONAL_AUTH_ROOT_FIELDS` (guarded only inside a branch), each entry carrying a reason and a source and failing the moment it goes stale. A `try` block counts only when its `catch` ends in `throw` or an empty `return` (`return`, `return null`, `return undefined`) and returns no data earlier: `try { requireAuth(c) } catch {}` swallows the failure and `catch { return await db.select() }` serves the failed caller, so neither is a guard. The check reads statement shapes, not a full control-flow graph (a guard hidden inside a helper, or a call that throws before the guard, is not modelled), and the detector is pinned by a table of accepted and rejected snippets in the same file. Hand-rolled reads of `context.user` are held to a shrink-only list. Rule 1: no root argument or input field may name the acting user (`userId`, `ownerId`, ...). Related (added 2026-11-07): nothing reachable from the return type of a `PUBLIC_ROOT_FIELDS` query may carry a user identifier field (`ownerUserId`, `createdByUserId`, ...), because a caller with no session must not learn who owns something; `Query.widgetById` returns `PublicWidget` (no owner, no `deletedAt`) for that reason. Not covered: full path analysis, that a resolver checks ownership of the *resource*, and object-type field resolvers (`Event.*`, `Report.*`). Those stay with the resolvers' own integration tests.
 
 ---
 
@@ -140,7 +141,7 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Prevents:** Hard deletes on bound tables, and any read path that bypasses the active-rows-only default — which would silently resurface data a user removed or a moderator reverted. Also prevents each soft-delete-capable resource from inventing its own bespoke restore mechanism (rule 4), and prevents a mutation from claiming rule-4 compliance by signature alone without the underlying table/resolver actually supporting a reachable restore.
 *   **Rule:**
     1.  **Field:** Each bound table carries `deletedAt: timestamp | null`. `null`/absent means the row is active.
-    2.  **Query default (target — not yet the current state, found during this AD's 2026-08-06 reviewer pass):** The `Unified Query DSL` (AD-1) and `Unified Event Querying` (AD-2) are intended to apply an implicit `deletedAt IS NULL` condition on bound tables for every query, enforced once in the shared query-building layer — never per-resolver. **As shipped today, this is not true:** `packages/graphql-select`'s `buildDrizzleWhere`/`buildOptimizedDrizzleSelect` have no `deletedAt` awareness at all; `favorites`/`calendarAdditions` filtering is hand-written `isNull(...)` at six separate call sites in `apps/backend/src/schema/resolvers.ts`; and `myLocations` is a hand-written query that doesn't go through the DSL at all. This is exactly the divergence this rule exists to prevent, already present in shipped code. **Required fix (tracked as follow-up, not built in this AD's session):** a single shared `activeOnly(table)` Drizzle where-fragment helper, exported from `@festgrid/graphql-select`, imported by every resolver — DSL-based or hand-written — in place of inline `isNull(...)` calls. Retrofit the six existing `favorites`/`calendarAdditions` call sites and add it to `myLocations`, in the same follow-up story that migrates `deleteUserLocation` (rule 4). A caller must explicitly opt in to see soft-deleted rows (e.g., the Moderator Items screen).
+    2.  **Query default (partly built; status updated 2026-11-07):** The intent is that every read of a bound table applies an implicit `deletedAt IS NULL`, enforced once in the shared query-building layer, never per-resolver. **Current state:** the single helper exists, `activeOnly(table)` in `packages/graphql-select/active-only.ts` (Story 0.22), and the resolvers, DSL-based or hand-written, read active rows through it (dozens of call sites in `apps/backend/src/schema/resolvers.ts`, `myLocations` included). **No hand-written `isNull(table.deletedAt)` remains in the backend**, and `lint:invariants` (`apps/backend/eslint.invariants.config.mjs`, added 2026-11-04) fails the build on one, including the spellings `d.isNull(t.deletedAt)`, `isNull(t['deletedAt'])` and `isNull(t["deletedAt"])` (selector widened 2026-11-07). **What is still not true:** the shared builders, `buildDrizzleWhere` and `buildOptimizedDrizzleSelect`, have no `deletedAt` awareness at all, so the default is applied by each resolver *calling* `activeOnly`, not by the layer. The lint rule catches a hand-written filter; it cannot catch a resolver that reads a bound table with no filter at all, and it does not follow a local alias of `isNull` (`const nul = isNull; nul(t.deletedAt)`). Those two gaps are what code review and the per-resolver tests cover until the builders apply the filter themselves. A caller must explicitly opt in to see soft-deleted rows (e.g., the Moderator Items screen).
     3.  **Indexing:** Use Postgres partial indexes scoped to active rows (`WHERE deleted_at IS NULL`) on each table's hot lookup columns, rather than a bare index on `deleted_at`. **Known tooling limitation (verified 2026-08-06):** the installed `drizzle-kit@^0.21.2`/`drizzle-orm@^0.30.10` does not emit the `WHERE` predicate for partial indexes in generated migration SQL, even when declared correctly as `.where(sql\`deleted_at IS NULL\`)` in `schema.ts` — confirmed against this project's own generated migration (`packages/database/migrations/0004_optimal_frog_thor.sql`, no `WHERE` clause present) and matching still-open upstream issues ([drizzle-orm#3349](https://github.com/drizzle-team/drizzle-orm/issues/3349), [drizzle-kit-mirror#461](https://github.com/drizzle-team/drizzle-kit-mirror/issues/461)). The two indexes already in `schema.ts` claiming to be partial (`idx_favorites_active`, `idx_calendar_additions_active`) are therefore live in Postgres today as full, non-partial indexes. Until upstream fixes this (recheck on the next `drizzle-kit` upgrade), any migration adding one of these indexes must hand-edit the generated SQL file to append the `WHERE deleted_at IS NULL` clause before running it, with a comment noting the hand-edit and linking the tracked issue; a follow-up migration should correct the two already-shipped indexes to match. Use the real table/column identifiers, not the PRD's singular domain names:
 
         ```sql
@@ -842,9 +843,26 @@ This document defines the core architectural invariants for the FestDaily applic
         `useState` cursor that must be remembered to reset on filter change. This is what
         structurally prevents BUG-019's failure mode from recurring at a new call site.
         - **Enforced by:** `packages/ui/src/hooks/useListPaginationController.test.ts` (Story
-          0.i5a) proves the reset-on-filter-change contract in isolation; adoption at concrete
-          call sites (Discovery's `home-content.tsx`, moderator tools) and the CI-enforced
-          no-local-pagination-state ratchet land in Stories 0.i5b/0.i5c/0.i5d/0.i5z.
+          0.i5a) proves the reset-on-filter-change contract in isolation. Every paged list
+          (Discovery, Feed, Favorites, the post-events page and the four moderator-tools pages) now
+          uses the controller, and `packages/ui/src/__tests__/ad18-list-pagination.ratchet.test.ts`
+          (Story 0.i5z, added 2026-11-05) fails if any file under `packages/ui/src` or
+          `apps/web/src` declares state named like pagination state (`cursor`, `endCursor`,
+          `hasNextPage`, `pageIndex`, `page`, `after`, `skip`, ...) with `useState` or `useReducer`,
+          also when kept inside an object, as a `<name>Ref`, or as `useQueryState('page' | 'cursor' |
+          'offset' | ...)`, or if one of those eight lists stops calling the controller (read from the
+          syntax tree, so commented-out code does not count). It works by name and shape, so it is a
+          tripwire and not a proof: it does not see pagination state wrapped in a custom hook or a
+          store, nor a name outside its list, and `offset` as *component* state is deliberately
+          allowed (`swipe-to-reveal.tsx` keeps a gesture offset in `useState`). It does not try to
+          ban local *filter* state (a list's filters are the controller's
+          `filterKey`, and "is this a filter?" has no reliable static test); a filter change
+          resetting to page 1 is proved by the controller's test and by the `pagination` suite of
+          each moderator page (BUG-019's exact case). The moderator pages page with
+          `PaginationControls` (`packages/ui/src/core/pagination-controls.tsx`, Story 0.i5c) and
+          report `hasNextPage`/`totalCount` through `useReportConnectionPageMeta`
+          (`apps/web/src/features/pagination/`), which re-reports on `resetToken` so a cleared
+          controller is never left at "no next page" when the new page reports the same numbers.
 
 ---
 
@@ -1708,7 +1726,9 @@ This document defines the core architectural invariants for the FestDaily applic
         `(post, ordinal)` slot is taken and a re-run skips it, Rule 3) and a suggested-match record
         is queued; approving it *is* a merge (Rule 9), rejecting it is a recorded dismissal. **Amended
         2026-11-01 (AD-45):** an owner-released AI reviewer may also accept a queued mid pair, under AD-45's
-        floor and caps; it never rejects. There is
+        floor and caps; the AI reviewer alone never rejects (**amended 2026-11-07, FIND-120:** the apply bridge
+        can record a reject, see AD-45 Rule 3; **FIND-121, 2026-11-07:** the attended decision loop offers a
+        moderator that reject). There is
         no separate "pending" event state. An event absorbs **at most one item per post**: when two
         items of one post match the same event, the better-scoring one links and the other is
         treated as a lower band. The suggested-match record's shape: see the 2026-10-12 amendment below.
@@ -1937,6 +1957,8 @@ This document defines the core architectural invariants for the FestDaily applic
         the same time, can both pass the mergeable check. A second caller (an operator script or the
         planned AI-assisted review) adopts the same function. **Amended 2026-11-01 (AD-45):** the AI-assisted
         review is that caller, with `via: 'ai_skill'` recorded on the suggestion and the journal row; AD-45 governs when it may run.
+        **Amended 2026-11-07 (AD-45, FIND-120):** the same function also records a reject (`'REJECT'`,
+        `via: 'ai_skill'`), with no journal row and no event touched; AD-45 Rules 3 and 4 govern it.
     10. **Notifications are per event, with one marker.** `events.notified_at` is set by one
         notify helper and nowhere else. An event notifies at ingestion iff its primary post's
         `grouping_reason` is not `roundup` and the post is not curator-sourced (AD-31 Rule 3
@@ -2909,75 +2931,160 @@ This document defines the core architectural invariants for the FestDaily applic
     `dedup-review` and `dedup-review-live`; PRD 3.7 (Matching) and 3.9.3 (Moderator Tools). Design
     record: `_bmad-output/specs/ai-dedup-review/DESIGN.md`. Interacts with AD-30 Rules 7 and 9, AD-34
     (the scrape gate is a separate rule) and AD-40 (a write-free preview, unrelated).
+*   **Amended 2026-11-07 (FIND-120):** the apply-side reject path below is an amendment of this AD, not a new
+    AD. Each amended rule carries its own dated note. **Amended 2026-11-07 (FIND-124):** the same for the floor
+    override, a decision kind that merges a pair the floor refuses.
 *   **Prevents:** An AI session holding database credentials. A second, divergent accept path whose
     checks differ from the moderator's. A merge made on evidence that changed after it was reviewed.
     A prompt-injected or mistaken decision merging events the deterministic rules never would. An
     unbounded run. An AI merge that cannot be told from a moderator's. A secret or private text in a
-    public Actions log. Calling the approval click a review of the decisions when it is not.
+    public Actions log. Calling the approval click a review of the decisions when it is not. **Amended 2026-11-07 (FIND-120):** A
+    reject recorded on evidence that changed, past its caps, or without the owner's switch. **Amended 2026-11-07
+    (FIND-124):** A floor-less merge made without its own input and its own owner switch, or one the daily or an unattended review
+    can reach without the owner's switch and approval (the skill's rule is prose; the switch and the approval are the gates).
 *   **Rule:**
     1.  **The bridge.** An AI reviewer (the `moderator-dedup-review` skill, a cloud session with no database
         credentials) reaches the database only through two manually dispatched workflows: the **export**
-        (read-only, a `READ ONLY` transaction, evidence JSON) and the **apply** (acts on ACCEPT decisions).
-        Actions never runs an LLM. Both run from `master` only, and each prints one JSON line between
+        (read-only, a `READ ONLY` transaction, evidence JSON) and the **apply** (acts on ACCEPT decisions;
+        **amended 2026-11-07, FIND-120:** and, when switched on, on REJECT decisions, Rule 3; **FIND-124:** and, when
+        its own switch is on, on `accept-override` decisions, which merge with no floor, Rule 3). Actions never runs an LLM. Both run from `master` only, and each prints one JSON line between
         fixed markers.
     2.  **One accept path.** Every AI merge is `resolveSuggestedMatch(..., via: 'ai_skill')`: the same row
         lock, status check and journal as a moderator's accept. A source-scan test fails if the apply code
         calls `mergeEvents`, updates the table, or writes anything itself, and another fails if the GraphQL
-        resolvers pass or write the flag.
+        resolvers pass or write the flag. **Amended 2026-11-07 (FIND-120):** a reject goes through the same
+        shared function (`resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')`); the source-scan test is
+        unchanged.
     3.  **A floor weaker than the thresholds, strict where it matters.** The reviewer may accept only a
         `mid` pair that passes the floor: no earlier undo, an anchor a public post cannot fake alone (the
         organizer, or a shared link together with a venue match), no venue conflict, a day gap of 0 (or up
         to 90 with a shared link), every schedule of the new event covered inside that window, names that do
         not contradict. Evidence is recomputed server-side and compared by hash before every merge, and
-        again under row locks. The reviewer never rejects, and never merges what the floor refuses.
+        again under row locks. The reviewer never rejects, and never merges what the floor refuses (**amended 2026-11-07, FIND-124:** except as a moderator's `accept-override`, below). The same
+        holds for a pair a moderator accepts in the attended decision loop (`FIND-119`): it is merged only if
+        `validate` calls it eligible, and the loop offers no reject. **Amended 2026-11-07 (FIND-120):** the
+        skill's own rule stands (the daily AI review never rejects), and the sentence "the loop offers no reject"
+        stayed true until `FIND-121` (next paragraph). What changed is the bridge: an apply decision may carry `action: reject`
+        (exactly `accept`, the default, `reject` or, since FIND-124, `accept-override`). A reject is judged on the pair's state, the evidence hash,
+        the invoker and the caps, with no floor, except that a `high`-tier pair is skipped `already-high`. It is
+        recorded by `resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')` under the invoker moderator:
+        `status = rejected`, `resolved_via = ai_skill`, no `event_merges` row, events untouched. It locks the
+        suggestion row only, is judged again under that lock, and `validate` skips it `event-already-in-run`
+        when an earlier accept in the file claimed one of its events (live reports `stale-pair` or
+        `stale-evidence` after that merge). It ships dark: it needs the workflow input `allow_rejects` and, in
+        `apply`, the Rule 7 variable. The hash and state checks keep a reject on current evidence; they do not
+        stop a malicious decision, since anyone who can read the export can compute a hash. The bounds are the
+        pending state, the caps, the owner's variable and the owner's approval of each run; the last two are
+        only as strong as the Rule 6 Limit. Worst case with the switch on: ten pairs a day hidden from every
+        moderator, reopened only by the owner's SQL; with it off, none. **Amended 2026-11-07 (FIND-124):** an apply
+        decision may also carry `action: accept-override` (exactly that string), a merge of a pair the floor refuses:
+        the same shared function (`resolveSuggestedMatch(..., 'ACCEPT', via: 'ai_skill')`), judged on the pair's
+        state, the evidence hash, the invoker, a shared event and the Rule 4 caps, with **no floor and no tier
+        skip** (the owner's choice: a moderator's own accept in the app has no floor either). The judge skips the
+        floor only for exactly that value. It needs the workflow input `allow_floor_override` (shown as
+        `override=true` in the run name, also in `validate`, which can judge it) and, in `apply`, the owner's
+        variable `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` (exactly `true` or `1`, read before any code is fetched,
+        independent of the reject switch); the library asserts both itself. It is undoable with `undoEventMerge`;
+        the journal reads `performed_via = 'ai_skill'` and nothing marks an override (a marker needs an enum
+        migration, deferred with `FIND-114`). It drops the floor's `undone-before` veto too. The daily and any
+        unattended review never use it: `SKILL.md` says so and a test pins it, and until `FIND-125` no step of the
+        skill dispatches it. Worst case with the switch on: ten floor-less merges in a run and the day cap in a
+        day, each undoable; with it off, none. **Amended 2026-11-07 (FIND-121):**
+        the sentence "the loop offers no reject" no longer holds: the attended decision loop now offers Reject
+        (popup options Accept, Reject, Skip) for a non-`high` pair: both options when `validate` calls it
+        eligible, Reject and Skip only when the floor refuses it or it hit the per-run cap or an earlier accept's
+        event, with the same bridge, the same variable and the owner's approval. A reject counts as
+        attended only when the user's message asked for the loop, the reader built the popup, and the session's
+        own popup answer was exactly the Reject label followed by a final Yes; a session started by
+        `create_session`, a subagent, `claude -p`, a mailbox or a webhook is unattended and never rejects.
+        This is prose the platform does not enforce (Rule 6, `FIND-116`); the independent checks are the
+        owner's variable and the owner's approval of each run. The daily AI review still never rejects. The
+        loop's reject reads as `reviewer` in the export, so the loop's `close-decided`, which works from the
+        validated apply report, closes its issue with `outcome:rejected`. The variable is the owner's to set (the
+        owner reported setting it on 2026-11-07; a session cannot verify that).
     4.  **Bounded.** At most 10 merges a run and 25 AI decisions in 24 hours (undone merges and AI
         rejections count), one run at a time, and a kill switch (`DEDUP_REVIEW_APPLY_DISABLED`, an
         environment variable of `dedup-review-live`) that stops apply unless it is exactly `false` or `0`.
+        **Amended 2026-11-07 (FIND-124):** an `accept-override` is a merge: it counts in the per-run cap of 10 and the
+        shared day cap of 25 like any other, and has no cap of its own (owner-tunable caps are `FIND-126`).
+        **Amended 2026-11-07 (FIND-120):** the per-run cap of 10 counts merges only; a reject never counts
+        against it. The shared 25-per-24h cap counts merges (undone ones included) plus AI rejections. Rejects
+        also have their own cap of 10 per 24 hours, counted from the suggestion rows (`status = 'rejected'` and
+        `resolved_via = 'ai_skill'`), so an owner reopening one removes it from the count, unlike an undone
+        merge. Both day checks report `per-day-cap`; a failed reject reuses `merge-failed`.
     5.  **Attributed.** The invoker is identified by the SHA-256 of the lowercased Claude account email,
         matched to exactly one active moderator, who is recorded as the actor; `resolved_via` and
-        `performed_via` say the AI made it. This is transparency, not authentication: anyone who can
+        `performed_via` say the AI made it (**amended 2026-11-07, FIND-120:** a reject writes no `performed_via`;
+        its `resolved_via = ai_skill` says the bridge recorded it, not who decided). This is transparency, not authentication: anyone who can
         dispatch the workflow can supply any hash. **Accepted exposures:** the hash, the run tag and the
         decisions (ids, hashes, free-text `reasons`) are public inputs and stay in logs for their retention;
         a refusal versus a clean report tells a guesser whether an address is a moderator's; the skill sends
         `reasons: []`.
     6.  **The gate releases a credential; it does not review decisions.** `apply`, a dry run included, runs in
         `dedup-review-live` and waits for the owner's approval, which releases the write credential. The
-        approver sees ids and hashes and cannot judge a merge from them. `validate`, the skill's shadow mode,
+        approver sees ids and hashes and cannot judge a merge or a reject from them. `validate`, the skill's shadow mode,
         runs in `dedup-review` with a read-only role and needs none. An approval can come after `master` has
         moved, so `apply` refuses unless its commit is still the head of `master`. **Limit:** the gate stops
         anyone but the approver. If the AI session dispatches with a token that belongs to the one required
         reviewer, it can approve its own run through the API, so the gate does not stop that session. To make it
         real the session must dispatch as a separate account that is not a reviewer, with "Prevent self-review"
-        on; until then the gate is only as strong as the separation of that token.
+        on; until then the gate is only as strong as the separation of that token. **Amended 2026-11-07
+        (FIND-120):** the reject switch (`allow_rejects` and the Rule 7 variable) is as strong as this Limit: a
+        token that can dispatch, or an admin token that can edit the variable, defeats it. **Amended 2026-11-07
+        (FIND-124):** the same holds for the override switch (`allow_floor_override` and
+        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`). It removes the floor, so the owner turns the variable on only while an
+        attended session runs and off again after: with it on, a prompt-injected unattended session that dispatched
+        the input would be stopped only by the owner's click on a run named `override=true`.
     7.  **What protects the credential.** Rules 3 and 4 bound a mistaken or manipulated *decision*. They do
         nothing if the credential leaks. That is covered only to the extent these are in place: both environments
         limited to `master`; the required reviewer; no repository or organization secret or variable of the
-        same name; a reviewed `master` (a ruleset requiring a pull request, and CODEOWNERS over the workflows
-        and the dedup code, decided by the owner); and the supply chain of the apply job (no dependency
-        lifecycle scripts, no persisted checkout token, no restored cache, actions pinned by commit SHA).
-        **At the time of writing the ruleset, CODEOWNERS and the SHA pins do not exist.** `--ignore-scripts`
+        same name (**amended 2026-11-07, FIND-120:** this holds for `DEDUP_REVIEW_REJECT_ENABLED` too, an
+        environment variable of `dedup-review-live`, off unless exactly `true` or `1`; **FIND-124:** and for
+        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`, by the same rule); a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
+        required, a code owner named in `.github/CODEOWNERS` must approve a change to the workflows, `scripts/`
+        and the dedup code, and force pushes and deletion are blocked; the repository admin role bypasses it
+        inside a pull request, so it stops everyone but the owner and a session using the owner's token; tested
+        2026-11-03: a direct push and a branch deletion are refused even for the owner, but a pull request that
+        touches an owned path merges with a plain `gh pr merge`, the bypass being automatic); and
+        the supply chain of the apply job (no dependency lifecycle scripts, no persisted checkout token, no
+        restored cache, actions pinned by commit SHA). **The apply workflow's actions have been pinned by SHA
+        since 2026-11-03.** `--ignore-scripts`
         stops lifecycle scripts only: a dependency's own code still runs when it is built (a step without the
         credential) and when the script imports it (a step with it). The read-only secret has the same exposure:
-        `backup_ro` reads every table, the export and `validate` hold it with tag-pinned actions, and `validate`
-        needs no approval (`FIND-109`). **Precondition (owner decision 2026-11-01):** the write
-        secret is created only after the actions in the apply workflow are pinned by SHA; until then only
-        `validate` runs. The owner role is already in `production` and used by other workflows without a
-        reviewer; this adds a gated copy and does not reduce that exposure.
-    8.  **The write role is a time-boxed exception.** For v1 the secret holds the migration (owner) role,
-        which can run DDL. That exception expires **2026-12-31**, when a narrow role (write on the dedup
-        tables, `BYPASSRLS`, no DDL, no `auth` schema) replaces it (`FIND-114`). Rotating the owner password
-        means updating both copies.
+        `backup_ro` reads every table, the export holds it with tag-pinned actions (`FIND-109`), `validate` holds
+        it with SHA-pinned ones, and `validate` needs no approval. **Precondition (owner decision 2026-11-01),
+        met 2026-11-03:** the write secret is created only after the actions in the apply workflow are pinned
+        by SHA. The owner role is already in `production` and used by other workflows without a reviewer; the
+        write secret holds a different, narrower role (Rule 8), so this does not add a copy of it.
+    8.  **The write role is a narrow role, not the owner role.** The secret holds `dedup_review_apply`
+        (created 2026-11-03): `BYPASSRLS`, no DDL, `UPDATE` and `INSERT` only on the tables a merge changes
+        (grants in `3-database.md`). The time-boxed use of the migration (owner) role that this rule first
+        allowed, expiring 2026-12-31, was not taken. Its read grant is `SELECT` on the tables in `public`, with
+        no `pg_read_all_data` and so no `auth` schema; narrowing that to the evidence tables is what remains of
+        `FIND-114`. Rotating its password means updating one secret.
     9.  **Reversibility and audit.** A merge is undoable through `undoEventMerge` (AD-30 Rule 9), with the
-        known gap that undo does not refuse when a later merge touched the winner (`FIND-113`). The list to
+        known gap that undo does not refuse when a later merge touched the winner (`FIND-113`). **Amended
+        2026-11-07 (FIND-120):** a reject is not undoable in the app (a moderator's own reject is the same
+        today; no un-reject exists and the only merge entry point is `resolveSuggestedEventMatch` on a pending
+        suggestion). List AI rejects from the database with `status = 'rejected' and resolved_via = 'ai_skill'`
+        (newest `resolved_at` first); a lost report after a live commit is checked by that listing (rejects
+        write no journal row) as well as the `event_merges` listing. The owner reopens one by SQL, which lives
+        in the runbook (`docs/infrastructure/7-event-dedup.md`) and never in code (**FIND-121:** this holds for a
+        reject chosen in the attended loop too, so the loop asks a final Yes that names the one-way effect). **FIND-124:** a merge made by an override is undone
+        like any other with `undoEventMerge`; until `FIND-125` the skill's reader refuses an override run's report
+        (it fails closed), so the owner reads that run's log by hand, as for a lost report. The list to
         undo from is the database's, not the log: `event_merges` where `performed_via = 'ai_skill'` and
         `undone_at` is null. Actions logs expire (90 days by default) and do not record the approver; storing
         the run id in the journal is deferred (`FIND-114`). Moderators have no screen for AI merges yet
         (`IDEA-113`).
     10. **Nothing private in a public log.** No username, account id, caption or email is read into the
         output; event text passes through as stored on public event pages; an unexpected error prints only
-        its class, SQLSTATE code and a fixed hint. The job summary holds counts and fixed reason codes only;
+        its class, SQLSTATE code and a fixed hint. The job summary holds counts, the two oldest-pending timestamps (raw) and fixed reason codes only;
         the log holds the script's whole report (suggestion ids and merge ids, no more private than the public
-        dispatch inputs).
+        dispatch inputs). **Amended 2026-11-07 (FIND-120):** `action` joins the public inputs; nothing else does.
+        The export's report of what became of the pairs the reviewer escalated (`skipResolved`,
+        the decisions in `recentlyResolved`, the counts and the two queue ages) holds ids, statuses, timestamps and
+        the `human`, `reviewer`, `system`, `unknown` class only, and sits outside `evidenceHash` (FIND-115).
 *   **Enforced by:** `dedup-review-workflow.test.ts` (the workflow's text and the guard script's behavior),
     `suggested-match-resolve-ratchet.test.ts`, the domain tests of the judge and floor (100% coverage), and
     the apply library's tests against a real database.

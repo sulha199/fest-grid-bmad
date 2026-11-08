@@ -6,7 +6,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../db/client.js';
 import { users, widgets, embedDomains } from '@festgrid/database';
-import { eq, and, inArray, isNull } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
+import { activeOnly } from '@festgrid/graphql-select';
 
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
 const files = fs.readdirSync(schemaDir).filter(f => f.endsWith('.graphql'));
@@ -152,7 +153,7 @@ test('embed domains resolvers integration', async (t) => {
     assert.strictEqual(resultNotAllowed.data.isOriginAllowedForWidget, false);
 
     // 7. Deregister domain (soft delete)
-    const activeRows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widget.id), isNull(embedDomains.deletedAt)));
+    const activeRows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widget.id), activeOnly(embedDomains)));
     const domainToDeregister = activeRows[0];
 
     const resDereg = await yoga.fetch('http://yoga/graphql', {

@@ -3,11 +3,14 @@
 import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
-import { RouteLoader, BlockingLoader, RawJsonViewer } from '@festgrid/ui';
+import { RouteLoader, BlockingLoader, RawJsonViewer, PaginationControls, useListPaginationController } from '@festgrid/ui';
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
 import { toast } from 'sonner';
 import { useQueryActorRuns, useReplayActorRunMutation } from './actor-runs-hooks';
 import type { ActorRunFilters } from '@/gql/graphql';
+import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
+import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
+import { EmptyPageNotice } from '@/features/pagination/empty-page-notice';
 import { Button } from '@festgrid/ui';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -27,6 +30,8 @@ interface ReplayingState {
   [key: string]: boolean;
 }
 
+const PAGE_SIZE = 20;
+
 export function ActorRunsContent() {
   const t = useTranslations('ActorRunsPage');
   const locale = useLocale();
@@ -40,7 +45,6 @@ export function ActorRunsContent() {
     profileId: null,
   });
 
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [expandedRuns, setExpandedRuns] = useState<ExpandedRunId>({});
   const [replayingRuns, setReplayingRuns] = useState<ReplayingState>({});
 
@@ -52,12 +56,18 @@ export function ActorRunsContent() {
     profileId: filters.profileId || undefined,
   };
 
-  const { data: runsData, isLoading: isLoadingRuns, error: runsError, refetch: refetchRuns } = useQueryActorRuns(
+  const pagination = useListPaginationController<ActorRunFilters, string | undefined>({ filterKey: graphqlFilters, initialCursor: undefined });
+
+  const { data: runsData, isLoading: isLoadingRuns, isPlaceholderData, error: runsError, refetch: refetchRuns } = useQueryActorRuns(
     graphqlFilters,
-    cursor,
-    20,
+    pagination.cursor,
+    PAGE_SIZE,
     authStatus === 'authorized'
   );
+  const queryResult = runsData?.queryActorRuns;
+  // While the previous page is still on screen as placeholder data its numbers must not be reported for the new one.
+  useReportConnectionPageMeta(pagination, isPlaceholderData ? undefined : queryResult);
+  const paginationLabels = usePaginationLabels(pagination.pageIndex, pagination.totalCount, PAGE_SIZE);
 
   const profileOptions = Array.from(
     new Set((runsData?.queryActorRuns?.edges ?? []).map((edge) => edge.node.profileId).filter((value): value is string => Boolean(value)))
@@ -75,7 +85,6 @@ export function ActorRunsContent() {
 
   const handleFilterChange = (newFilters: Partial<FilterState>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
-    setCursor(undefined);
   };
 
   const handleReplay = async (runId: string) => {
@@ -102,10 +111,9 @@ export function ActorRunsContent() {
     }));
   };
 
-  const queryResult = runsData?.queryActorRuns;
   const edges = queryResult?.edges || [];
-  const hasNextPage = queryResult?.pageInfo?.hasNextPage || false;
-  const isEmpty = edges.length === 0 && !cursor;
+  const isEmpty = edges.length === 0 && !pagination.hasPrevPage;
+  const endCursor = queryResult?.pageInfo?.endCursor;
 
   const getVendorLabel = (vendor: string) => {
     return vendor === 'APIFY' ? t('apifyBadge') : t('brightdataBadge');
@@ -249,7 +257,9 @@ export function ActorRunsContent() {
                   createdBefore: null,
                   profileId: null,
                 });
-                setCursor(undefined);
+                // The controller returns to page 1 on its own when the filters change; with none set the key is
+                // unchanged and it would not, so "Clear" would leave the moderator on page 3.
+                pagination.resetToFirstPage();
               }}
               variant="outline"
               size="sm"
@@ -287,7 +297,8 @@ export function ActorRunsContent() {
         )}
 
         {!isEmpty && (
-          <div className="mt-8 space-y-4">
+          <div className={`mt-8 space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
+            {edges.length === 0 && !runsError && <EmptyPageNotice />}
             {edges.map((edge) => {
               const run = edge.node;
               const isExpanded = expandedRuns[run.id];
@@ -359,16 +370,15 @@ export function ActorRunsContent() {
               );
             })}
 
-            {hasNextPage && (
-              <button
-                onClick={() => {
-                  setCursor(queryResult?.pageInfo?.endCursor || undefined);
-                }}
-                className="w-full py-3 text-center text-sm font-medium text-primary hover:underline"
-              >
-                {t('loadMoreButton')}
-              </button>
-            )}
+            <PaginationControls
+              className="p-3"
+              hasPrevPage={pagination.hasPrevPage}
+              hasNextPage={pagination.hasNextPage && Boolean(endCursor)}
+              onPrev={pagination.goToPrevPage}
+              onNext={() => { if (endCursor) pagination.goToNextPage(endCursor); }}
+              disabled={isPlaceholderData}
+              labels={paginationLabels}
+            />
           </div>
         )}
       </div>

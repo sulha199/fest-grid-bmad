@@ -23,6 +23,7 @@ import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
 import { checkAndRecordPromptFilterRateLimit } from '../lib/ai-event-filters/prompt-filter-rate-limit-store.js';
+import { REPORT_SYSTEM_ERROR_ALERT_KEY, takeAlertEmailBudget } from '../lib/alerts/alert-email-budget-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { startPostReextractionPreview } from '../lib/extraction/start-post-reextraction-preview.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
@@ -185,6 +186,17 @@ export function decodeActorRunCursor(cursor: string | null | undefined): number 
   return decoded;
 }
 
+// A cursor names the position AFTER the edge it sits on: `after: <cursor of row i>` resumes at row i + 1,
+// because the next page is read with `.offset(<decoded cursor>)`. Encoding the row's own index here (as
+// these resolvers used to) made the last row of every page the first row of the next one.
+// Every list paged with these cursors must end its ORDER BY in a unique key (the row's `id`): the sort keys
+// (`createdAt`, `displayName`) are shared by many rows, and under LIMIT/OFFSET Postgres may break those ties
+// differently for each page, so a row can show on two pages or on none. Rows written in one transaction share
+// `defaultNow()`. Same rule, and same reason, as `Query.events` (project-context.md, BUG-090).
+export function encodeActorRunCursor(positionAfterRow: number): string {
+  return Buffer.from(positionAfterRow.toString()).toString('base64');
+}
+
 export function endOfUtcDay(date: Date): Date {
   const d = new Date(date);
   d.setUTCHours(23, 59, 59, 999);
@@ -280,6 +292,9 @@ function subscriptionActivity(parent: SubscriptionParent): Promise<AccountActivi
   parent.__activity ??= loadAccountActivity(parent.accountId);
   return parent.__activity;
 }
+
+// setCalendarAdditions: bounds one call's work (the event-detail dialog lists a few schedules).
+const MAX_CALENDAR_ADDITION_CHANGES = 100;
 
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
@@ -1352,6 +1367,68 @@ export const resolvers: Resolvers = {
         }
       });
     },
+    setCalendarAdditions: async (_, { eventId, changes }, context) => {
+      const authUser = requireAuth(context);
+
+      if (changes.length > MAX_CALENDAR_ADDITION_CHANGES) {
+        throw new GraphQLError(`At most ${MAX_CALENDAR_ADDITION_CHANGES} calendar changes per call.`, { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      // A schedule listed twice takes its last entry; Map keeps first-seen insertion order.
+      const desired = new Map<string, boolean>();
+      for (const change of changes) {
+        desired.set(change.scheduleId, change.isAddedToCalendar);
+      }
+      const scheduleIds = [...desired.keys()];
+      if (scheduleIds.length === 0) return [];
+
+      return await db.transaction(async (tx) => {
+        const scheduleRows = await tx.select({ id: schedules.id, eventId: schedules.eventId })
+          .from(schedules)
+          .where(inArray(schedules.id, scheduleIds));
+        if (scheduleRows.length !== scheduleIds.length) {
+          throw new GraphQLError('Schedule not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+        if (scheduleRows.some((row) => row.eventId !== eventId)) {
+          throw new GraphQLError('Event ID mismatch', { extensions: { code: 'BAD_REQUEST' } });
+        }
+
+        const existingRows = await tx.select().from(calendarAdditions)
+          .where(and(eq(calendarAdditions.userId, authUser.userId), inArray(calendarAdditions.scheduleId, scheduleIds)));
+        const existingByScheduleId = new Map(existingRows.map((row) => [row.scheduleId, row]));
+
+        const toInsert: { userId: string; eventId: string; scheduleId: string }[] = [];
+        const toSoftDeleteIds: string[] = [];
+        const toRestoreIds: string[] = [];
+        for (const [scheduleId, isAdded] of desired) {
+          const existing = existingByScheduleId.get(scheduleId);
+          if (!existing) {
+            // Removing something never added is a no-op, not a new (deleted) row.
+            if (isAdded) toInsert.push({ userId: authUser.userId, eventId, scheduleId });
+          } else if (isAdded && existing.deletedAt !== null) {
+            toRestoreIds.push(existing.id);
+          } else if (!isAdded && existing.deletedAt === null) {
+            toSoftDeleteIds.push(existing.id);
+          }
+        }
+
+        if (toInsert.length > 0) {
+          await tx.insert(calendarAdditions).values(toInsert);
+        }
+        if (toRestoreIds.length > 0) {
+          await tx.update(calendarAdditions).set({ deletedAt: null }).where(inArray(calendarAdditions.id, toRestoreIds));
+        }
+        if (toSoftDeleteIds.length > 0) {
+          await tx.update(calendarAdditions).set({ deletedAt: new Date() }).where(inArray(calendarAdditions.id, toSoftDeleteIds));
+        }
+
+        return scheduleIds.map((scheduleId) => ({
+          eventId,
+          scheduleId,
+          isAddedToCalendar: desired.get(scheduleId) as boolean,
+        }));
+      });
+    },
     resolveScheduleTimezone: async (_, { scheduleId, timezone }, context) => {
       const authUser = requireAuth(context);
 
@@ -1441,14 +1518,23 @@ export const resolvers: Resolvers = {
       const env = loadBackendEnv();
       if (env.systemErrorAlertEmail) {
         try {
-          await sendTemplatedEmail('SYSTEM_ERROR_ALERT', env.systemErrorAlertEmail, {
-            source: input.source,
-            message: input.message,
-            context: input.context ?? 'None provided',
-            timestamp: new Date().toISOString()
-          });
+          // Public mutation: anyone can call it, so the alert address gets at most a fixed number of emails
+          // per window. Over the budget, the report goes to the log only (CloudWatch) and the caller still gets
+          // `true`: it must not learn the limit, and a failed sign-in still reports without error. A database
+          // error here lands in the catch below, which also sends nothing: failing closed keeps a flood that
+          // overloads the database from turning into a flood of emails.
+          if (await takeAlertEmailBudget(REPORT_SYSTEM_ERROR_ALERT_KEY)) {
+            await sendTemplatedEmail('SYSTEM_ERROR_ALERT', env.systemErrorAlertEmail, {
+              source: input.source,
+              message: input.message,
+              context: input.context ?? 'None provided',
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            console.error('[reportSystemError] alert email suppressed: budget for this window is spent', input);
+          }
         } catch (err) {
-          console.error('[reportSystemError] failed to send alert email', err);
+          console.error('[reportSystemError] failed to send alert email', err, input);
         }
       } else {
         console.error('[reportSystemError] SYSTEM_ERROR_ALERT_EMAIL not configured; error not alerted', input);
@@ -2599,7 +2685,7 @@ export const resolvers: Resolvers = {
     registerEmbedDomain: async (_, { widgetId, pattern }, context) => {
       const authUser = requireAuth(context);
       
-      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       if (!widget) {
         throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
       }
@@ -2782,7 +2868,7 @@ export const resolvers: Resolvers = {
         .where(
           and(
             eq(unprocessedScraperPayloads.id, payloadId),
-            isNull(unprocessedScraperPayloads.deletedAt)
+            activeOnly(unprocessedScraperPayloads)
           )
         )
         .returning({ id: unprocessedScraperPayloads.id });
@@ -3126,7 +3212,7 @@ export const resolvers: Resolvers = {
     rankedVoteAccounts: async (_, { nearMe, locationPreferenceId }, context, info) => {
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
-        .where(isNull(subscriptions.deletedAt));
+        .where(activeOnly(subscriptions));
       const excludedAccountIds = activeSubs.map(s => s.accountId);
 
       let userId: string | null = null;
@@ -3140,13 +3226,13 @@ export const resolvers: Resolvers = {
       let locationPref: typeof userLocations.$inferSelect | null = null;
       if (nearMe && locationPreferenceId && userId) {
         const [loc] = await db.select().from(userLocations)
-          .where(and(eq(userLocations.id, locationPreferenceId), eq(userLocations.userId, userId), isNull(userLocations.deletedAt)));
+          .where(and(eq(userLocations.id, locationPreferenceId), eq(userLocations.userId, userId), activeOnly(userLocations)));
         if (loc) {
           locationPref = loc;
         }
       }
 
-      const conditions = [isNull(accountVotes.deletedAt)];
+      const conditions = [activeOnly(accountVotes)];
       if (excludedAccountIds.length > 0) {
         conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
       }
@@ -3168,7 +3254,7 @@ export const resolvers: Resolvers = {
           weight: sql<number>`MAX(CASE WHEN ${distanceSql} <= ${callerRadiusKm} THEN 10 ELSE 1 END)`.as('weight')
         })
         .from(userLocations)
-        .where(isNull(userLocations.deletedAt))
+        .where(activeOnly(userLocations))
         .groupBy(userLocations.userId)
         .as('voter_weights');
 
@@ -3221,8 +3307,8 @@ export const resolvers: Resolvers = {
         locationDetails: userLocations.locationDetails,
       })
       .from(accountVotes)
-      .leftJoin(userLocations, and(eq(accountVotes.userId, userLocations.userId), isNull(userLocations.deletedAt)))
-      .where(and(eq(accountVotes.accountId, accountId), isNull(accountVotes.deletedAt)));
+      .leftJoin(userLocations, and(eq(accountVotes.userId, userLocations.userId), activeOnly(userLocations)))
+      .where(and(eq(accountVotes.accountId, accountId), activeOnly(accountVotes)));
 
       const voterLocationsMap = new Map<string, { latitude: number; longitude: number; city?: string; province?: string }>();
       for (const row of votes) {
@@ -3267,10 +3353,10 @@ export const resolvers: Resolvers = {
 
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
-        .where(isNull(subscriptions.deletedAt));
+        .where(activeOnly(subscriptions));
       const excludedAccountIds = activeSubs.map(s => s.accountId);
 
-      const conditions = [isNull(accountVotes.deletedAt), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)];
+      const conditions = [activeOnly(accountVotes), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)];
       if (excludedAccountIds.length > 0) {
         conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
       }
@@ -3320,25 +3406,29 @@ export const resolvers: Resolvers = {
     },
     myWidgets: async (_, __, context) => {
       const authUser = requireAuth(context);
-      const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
-    widgetById: async (_, { id }, context) => {
-      const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), isNull(widgets.deletedAt)));
-      return (row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null);
+    // Public (Story 6.5a AC6): reads only the columns `PublicWidget` exposes, so the owner never leaves the database.
+    widgetById: async (_, { id }) => {
+      const [row] = await db
+        .select({ id: widgets.id, filters: widgets.filters, displayMode: widgets.displayMode, theme: widgets.theme, createdAt: widgets.createdAt })
+        .from(widgets)
+        .where(and(eq(widgets.id, id), activeOnly(widgets)));
+      return row ? { ...row, createdAt: row.createdAt.toISOString() } : null;
     },
     embedDomainsForWidget: async (_, { widgetId }, context) => {
       const authUser = requireAuth(context);
-      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       if (!widget) {
         throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
       }
-      const rows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+      const rows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), activeOnly(embedDomains)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
     isOriginAllowedForWidget: async (_, { widgetId, origin }) => {
       const cleanOrigin = origin.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
-      const activePatterns = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+      const activePatterns = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), activeOnly(embedDomains)));
       
       for (const row of activePatterns) {
         const pattern = row.pattern.toLowerCase();
@@ -4356,7 +4446,7 @@ export const resolvers: Resolvers = {
           .innerJoin(events, eq(events.id, eventPosts.eventId))
           .where(and(
             eq(eventPosts.postId, postId),
-            isNull(events.deletedAt),
+            activeOnly(events),
             isNull(events.mergedIntoEventId)
           ));
 
@@ -4377,7 +4467,7 @@ export const resolvers: Resolvers = {
         .where(and(
           eq(ep1.eventId, eventId!),
           ne(eventPosts.eventId, eventId!),
-          isNull(events.deletedAt),
+          activeOnly(events),
           isNull(events.mergedIntoEventId)
         ));
 
@@ -4487,7 +4577,7 @@ export const resolvers: Resolvers = {
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
       const offset = decodeActorRunCursor(after);
 
-      const conditions = [isNull(unprocessedScraperPayloads.deletedAt)];
+      const conditions = [activeOnly(unprocessedScraperPayloads)];
 
       if (filters?.source) {
         conditions.push(
@@ -4516,14 +4606,14 @@ export const resolvers: Resolvers = {
         .select()
         .from(unprocessedScraperPayloads)
         .where(and(...conditions))
-        .orderBy(desc(unprocessedScraperPayloads.createdAt))
+        .orderBy(desc(unprocessedScraperPayloads.createdAt), desc(unprocessedScraperPayloads.id))
         .limit(limit)
         .offset(offset);
 
       const hasNextPage = rows.length > (first || 10);
       const edges = rows.slice(0, first || 10).map((row, idx) => ({
         node: row,
-        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        cursor: encodeActorRunCursor(offset + idx + 1),
       }));
 
       const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
@@ -4586,14 +4676,14 @@ export const resolvers: Resolvers = {
         .select()
         .from(scraperActorRuns)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(scraperActorRuns.createdAt))
+        .orderBy(desc(scraperActorRuns.createdAt), desc(scraperActorRuns.id))
         .limit(limit)
         .offset(offset);
 
       const hasNextPage = rows.length > (first || 10);
       const edges = rows.slice(0, first || 10).map((row, idx) => ({
         node: row,
-        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        cursor: encodeActorRunCursor(offset + idx + 1),
       }));
 
       const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
@@ -4635,7 +4725,7 @@ export const resolvers: Resolvers = {
         .select()
         .from(socialMediaAccountProfiles)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(asc(socialMediaAccountProfiles.displayName))
+        .orderBy(asc(socialMediaAccountProfiles.displayName), asc(socialMediaAccountProfiles.id))
         .limit(limit)
         .offset(offset);
 
@@ -4647,7 +4737,7 @@ export const resolvers: Resolvers = {
         }
         return {
           node,
-          cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+          cursor: encodeActorRunCursor(offset + idx + 1),
         };
       });
 
@@ -4677,7 +4767,7 @@ export const resolvers: Resolvers = {
         .select()
         .from(eventMatchCandidates)
         .where(eq(eventMatchCandidates.status, 'pending'))
-        .orderBy(asc(eventMatchCandidates.createdAt))
+        .orderBy(asc(eventMatchCandidates.createdAt), asc(eventMatchCandidates.id))
         .limit(limit)
         .offset(offset);
 
@@ -4701,7 +4791,7 @@ export const resolvers: Resolvers = {
           status: row.status,
           createdAt: row.createdAt.toISOString(),
         },
-        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        cursor: encodeActorRunCursor(offset + idx + 1),
       }));
 
       const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
@@ -4758,6 +4848,11 @@ export const resolvers: Resolvers = {
     expression: (parent) => resolveStoredFilter(parent.filters).expression as FilterNode,
     createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
+  },
+  PublicWidget: {
+    filters: (parent) => resolveStoredFilter(parent.filters).flatFilter as EventFilter | null,
+    expression: (parent) => resolveStoredFilter(parent.filters).expression as FilterNode,
+    createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
   },
   EmbedDomain: {
     createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,

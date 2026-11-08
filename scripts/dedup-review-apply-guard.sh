@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Guards and summary for the `dedup-review-apply` workflow (AI dedup review, piece B2b-2).
 #
-#   dedup-review-apply-guard.sh <output-file> <exit-status> <mode> <live>
+#   dedup-review-apply-guard.sh <output-file> <exit-status> <mode> <live> [<allow_floor_override>]
 #
 # <output-file> is what the apply script printed on stdout, <exit-status> its exit status (a number), <mode>
-# is `validate` or `apply`, <live> is `true` for a live apply (anything else counts as not live).
+# is `validate` or `apply`, <live> is `true` for a live apply (anything else counts as not live),
+# <allow_floor_override> is `true` when the run was dispatched with that input (anything else, or nothing, is
+# false): a report that holds an `accept-override` result for a run that did not allow it fails (FIND-124).
 #
 # It runs in the same workflow step as the script because a later step cannot see the script's exit
 # status. It prints the output into the log, fails the job when the run cannot be trusted, and writes
@@ -19,6 +21,7 @@ file="${1:-}"
 rc="${2:-}"
 mode="${3:-}"
 live="${4:-false}"
+allow_override="${5:-false}"
 summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 if ! command -v jq >/dev/null 2>&1; then
@@ -39,12 +42,15 @@ esac
 if [ "$mode" = validate ] || [ "$live" != true ]; then
   live=false
 fi
+if [ "$allow_override" != true ]; then
+  allow_override=false
+fi
 
 cat "$file"
 
 if [ "$rc" -ne 0 ]; then
   if [ "$live" = true ]; then
-    echo "::error::The live apply exited with status $rc. The run is one transaction, so this usually means it rolled back. The one exception is a report lost after the commit, which the script says on its error output above; if it does, do not run it again for these decisions: list event_merges rows with performed_via = 'ai_skill' (newest first) to see what was merged."
+    echo "::error::The live apply exited with status $rc. The run is one transaction, so this usually means it rolled back. The one exception is a report lost after the commit, which the script says on its error output above; if it does, do not run it again for these decisions: list event_merges rows with performed_via = 'ai_skill' (newest first) to see what was merged, and event_match_candidates rows with status = 'rejected' and resolved_via = 'ai_skill' to see what was rejected."
   else
     echo "::error::The apply script exited with status $rc. It changed nothing that persists (a dry run rolls back and validate cannot write)."
   fi
@@ -71,8 +77,8 @@ json=$(sed -n "$((begin_line + 1))p" "$file")
 if ! printf '%s\n' "$json" | jq -e '
     (.mode | type == "string") and (.killSwitch | type == "boolean")
     and (.usedLast24h == null or (.usedLast24h | type == "number"))
-    and (.caps.perRun | type == "number") and (.caps.perDay | type == "number")
-    and (.counts.eligible | type == "number") and (.counts.merged | type == "number") and (.counts.skipped | type == "number")
+    and (.caps.perRun | type == "number") and (.caps.perDay | type == "number") and (.caps.perDayRejects | type == "number")
+    and (.counts.eligible | type == "number") and (.counts.merged | type == "number") and (.counts.rejected | type == "number") and (.counts.skipped | type == "number")
     and (.results | type == "array")' >/dev/null 2>&1; then
   echo "::error::The apply script's report is missing fields or has the wrong shape."
   exit 1
@@ -92,14 +98,20 @@ if [ "$actual" != disabled ]; then
     echo "::error::The report says mode '$actual' but this run asked for '$expected'."
     exit 1
   fi
-  # The counts must match the results, and only a live run may have merged anything.
-  if ! printf '%s\n' "$json" | jq -e '
+  # The counts must match the results, only a live run may have merged or rejected anything, every result says
+  # what it asked for, and an outcome fits its action (a merge is an accept or an override, a reject is a reject),
+  # and an override result only appears in a run that allowed overrides.
+  if ! printf '%s\n' "$json" | jq -e --argjson allowOverride "$allow_override" '
       ([.results[] | select(.outcome == "merged")] | length) as $m
+      | ([.results[] | select(.outcome == "rejected")] | length) as $r
       | ([.results[] | select(.outcome == "eligible")] | length) as $e
       | ([.results[] | select(.outcome == "skipped")] | length) as $s
-      | (.counts.merged == $m and .counts.eligible == $e and .counts.skipped == $s)
-        and (if .mode == "live" then true else $m == 0 end)' >/dev/null 2>&1; then
-    echo "::error::The report is inconsistent: its counts do not match its results, or a run that is not live reports a merge."
+      | (.counts.merged == $m and .counts.rejected == $r and .counts.eligible == $e and .counts.skipped == $s)
+        and (if .mode == "live" then true else ($m == 0 and $r == 0) end)
+        and all(.results[]; .action == "accept" or .action == "reject" or .action == "accept-override")
+        and all(.results[]; (.outcome != "merged" or .action == "accept" or .action == "accept-override") and (.outcome != "rejected" or .action == "reject"))
+        and all(.results[]; .action != "accept-override" or $allowOverride)' >/dev/null 2>&1; then
+    echo "::error::The report is inconsistent: its counts do not match its results, a result lacks its action or has an outcome that does not fit it, a run that is not live reports a merge or a reject, or an override appears in a run that did not allow overrides."
     exit 1
   fi
 fi
@@ -109,8 +121,10 @@ if ! text=$(printf '%s\n' "$json" | jq -r '
     "- run tag: `\(.runTag // "none")`",
     "- kill switch: \(.killSwitch)",
     "- AI decisions in the last 24 hours before this run: \(if .usedLast24h == null then "n/a" else .usedLast24h end)",
-    "- caps: \(.caps.perRun) per run, \(.caps.perDay) per day",
-    "- eligible: \(.counts.eligible), merged: \(.counts.merged), skipped: \(.counts.skipped)",
+    "- caps: \(.caps.perRun) per run, \(.caps.perDay) per day, \(.caps.perDayRejects) rejects per day",
+    "- eligible: \(.counts.eligible), merged: \(.counts.merged), rejected: \(.counts.rejected), skipped: \(.counts.skipped)",
+    "- of which overrides: \([.results[] | select(.action == "accept-override" and .outcome == "merged")] | length)",
+    "- override decisions in this report: \([.results[] | select(.action == "accept-override")] | length)",
     "- skipped by reason: \(([.results[] | select(.reason) | .reason] | group_by(.) | map("\(.[0]): \(length)") | join(", ")) as $r | if $r == "" then "none" else $r end)"' 2>/dev/null); then
   echo "::error::The summary could not be built from the apply script's report."
   exit 1

@@ -1,5 +1,5 @@
 {
-  "_note": "Hand-authored plan for the three standalone fixes that sit ahead of Epic 10 (tracker section 1). Sequential, one story in flight. Code runs in the worktree C:/wt/epic10-fixes (cut from d454d905); each fix gets its own branch cut from d454d905 so its PR carries only its own code. Nothing is pushed until the user says go. Prompts live in the orchestrator session's scratchpad (qd-bug-100.txt, qd-find-119.txt, qd-bug-101.txt) and were composed from the rows' backlog/<ID>-*.md evidence files. To resume: check which steps are done below, verify the branch and commit in the worktree, and dispatch the first one still pending. After the last step run the batch-end checks once (run-check.ts --kind lint, build, test with --cwd C:/wt/epic10-fixes) on EACH branch, not just the last, because the branches are independent. Row bookkeeping (status/note on BUG-100, FIND-119, BUG-101) is done on the docs branch after the PRs merge, not by the children.",
+  "_note": "Hand-authored plan for the three standalone fixes that sit ahead of Epic 10 (tracker section 1). Sequential, one story in flight. Code runs in the worktree C:/wt/epic10-fixes (cut from d454d905); each fix gets its own branch cut from d454d905 so its PR carries only its own code. Nothing is pushed until the user says go. Prompts live in the orchestrator session's scratchpad (qd-bug-100.txt, qd-find-119.txt, qd-bug-101.txt) and were composed from the rows' backlog/<ID>-*.md evidence files. To resume: check which steps are done below, verify the branch and commit in the worktree, and dispatch the first one still pending. After the last step run the batch-end checks once (run-check.ts --kind lint, build, test with --cwd C:/wt/epic10-fixes) on EACH branch, not just the last, because the branches are independent. Row bookkeeping (status/note on BUG-100, FIND-128, BUG-101) is done on the docs branch after the PRs merge, not by the children.",
   "config": "all-claude-medium (claude runtime for quick-dev; cline-cli delegation is unreliable in this project)",
   "cwd": "C:/wt/epic10-fixes",
   "mailbox": "../mailbox",
@@ -18,8 +18,8 @@
     },
     {
       "skill": "bmad-quick-dev",
-      "story": "FIND-119",
-      "label": "FIND-119/bmad-quick-dev",
+      "story": "FIND-128",
+      "label": "FIND-128/bmad-quick-dev",
       "branch": "fix/find-119-no-cooldown-without-vendor-call",
       "status": "done",
       "commit": "fb5b77d7 + fec4e050",

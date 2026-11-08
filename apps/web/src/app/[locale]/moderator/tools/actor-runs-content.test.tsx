@@ -277,7 +277,7 @@ describe('ActorRunsContent', () => {
     expect(screen.getByText('Try again')).toBeInTheDocument();
   });
 
-  it('pagination works with load more button', async () => {
+  it('pagination moves to the next page with the Next button', async () => {
     const refetchMock = vi.fn();
     (useRequireModerator as any).mockReturnValue({ status: 'authorized' });
     (useQueryActorRuns as any).mockReturnValue({
@@ -310,9 +310,7 @@ describe('ActorRunsContent', () => {
     });
 
     render(<ActorRunsContent />, { wrapper: createWrapper() });
-    const loadMoreButton = screen.getByText('Load more');
-
-    fireEvent.click(loadMoreButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
     await waitFor(() => {
       expect(useQueryActorRuns).toHaveBeenLastCalledWith(
         expect.any(Object),
@@ -432,6 +430,95 @@ describe('ActorRunsContent', () => {
     await waitFor(() => {
       expect(replayMock).toHaveBeenCalledWith({ actorRunId: '1' });
       expect(toast.error).toHaveBeenCalled();
+    });
+  });
+
+  // Story 0.i5c / AD-18: previous-page navigation, a page/total readout, and a filter change returning to page 1.
+  describe('pagination', () => {
+    const pages: Record<string, { runId: string; hasNextPage: boolean; endCursor: string | null }> = {
+      first: { runId: 'run-on-page-one', hasNextPage: true, endCursor: 'c1' },
+      c1: { runId: 'run-on-page-two', hasNextPage: true, endCursor: 'c2' },
+      c2: { runId: 'run-on-page-three', hasNextPage: false, endCursor: null },
+    };
+
+    beforeEach(() => {
+      (useRequireModerator as any).mockReturnValue({ status: 'authorized' });
+      (useQueryActorRuns as any).mockImplementation((_filters: unknown, cursor: string | undefined) => {
+        const page = pages[cursor ?? 'first'];
+        return {
+          data: {
+            queryActorRuns: {
+              edges: [{
+                node: { id: page.runId, vendor: 'APIFY', triggerMode: 'SYNC', status: 'SUCCEEDED', runId: page.runId, itemCount: 1, rawInput: {}, rawOutput: {}, errorMessage: null, startedAt: new Date().toISOString() },
+                cursor: page.endCursor ?? 'last',
+              }],
+              pageInfo: { hasNextPage: page.hasNextPage, endCursor: page.endCursor },
+              totalCount: 45,
+            },
+          },
+          isLoading: false, error: null, refetch: vi.fn(),
+        };
+      });
+    });
+
+    const lastCall = () => {
+      const calls = (useQueryActorRuns as any).mock.calls;
+      return calls[calls.length - 1] as [{ vendor?: string }, string | undefined, number, boolean];
+    };
+
+    it('shows the current page and the total, with Previous disabled on the first page', () => {
+      render(<ActorRunsContent />, { wrapper: createWrapper() });
+      expect(screen.getByText(/run-on-page-one/)).toBeInTheDocument();
+      expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+      expect(screen.getByText('45 total')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('goes forward to the last page and back again', () => {
+      render(<ActorRunsContent />, { wrapper: createWrapper() });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(lastCall()[1]).toBe('c2');
+      expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+      expect(lastCall()[1]).toBe('c1');
+      expect(screen.getByText(/run-on-page-two/)).toBeInTheDocument();
+      expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
+    });
+
+    it('returns to page 1 when a filter changes (BUG-019)', () => {
+      render(<ActorRunsContent />, { wrapper: createWrapper() });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
+
+      fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'APIFY' } });
+
+      const [filters, cursor] = lastCall();
+      expect(filters.vendor).toBe('APIFY');
+      expect(cursor).toBeUndefined();
+      expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
+    });
+
+    it('"Clear all" returns to page 1 even when no filter is set', () => {
+      render(<ActorRunsContent />, { wrapper: createWrapper() });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+
+      // No filter was ever set, so clearing changes no filter and the controller's filter key stays the same:
+      // without an explicit reset this click left the moderator on page 3.
+      fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+
+      expect(lastCall()[1]).toBeUndefined();
+      expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+      expect(screen.getByText(/run-on-page-one/)).toBeInTheDocument();
     });
   });
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueryModeratorAccountProfilesQuery, useSetImageStorageOptInMutation as useGeneratedSetImageStorageOptInMutation, useClearAccountDefaultLocationMutation as useGeneratedClearAccountDefaultLocationMutation } from '@/generated/graphql';
+import { keepPreviousData } from '@tanstack/react-query';
 import { graphqlClient } from '@/lib/graphql-client';
 import type { ModeratorAccountProfileFilters } from '@/gql/graphql';
 
@@ -13,7 +14,7 @@ export function useQueryModeratorAccountProfiles(
   return useQueryModeratorAccountProfilesQuery(
     graphqlClient,
     { filters: filters || {}, first: pageSize, after: cursor },
-    { enabled, staleTime: 0, gcTime: 1000 * 60 * 5 }
+    { enabled, staleTime: 0, gcTime: 1000 * 60 * 5, placeholderData: keepPreviousData }
   );
 }
 

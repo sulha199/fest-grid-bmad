@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, ne, notInArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, min, notInArray, sql } from 'drizzle-orm';
 import { eventMatchCandidates, eventMerges, eventPosts, events, posts, schedules, socialMediaAccountProfiles } from '@festgrid/database';
 import {
   DEDUP_REVIEW_RECENT_DAYS,
@@ -8,8 +8,10 @@ import {
   canonicalizeDedupEvidence,
   classifyDedupReviewResolvedBy,
   normalizeEventLinkUrl,
+  partitionDedupReviewSkipIds,
   toDedupReviewAccountType,
   toDedupReviewDayDiff,
+  toDedupReviewTimestamp,
   type DedupReviewEventEvidence,
   type DedupReviewExportPair,
   type DedupReviewExportReport,
@@ -46,7 +48,7 @@ export interface BuildDedupReviewExportOptions {
   scanCap?: number;
   /** Tests only: how many resolved suggestions to list (default `DEDUP_REVIEW_RECENT_LIMIT`). */
   recentLimit?: number;
-  /** Restricts the scan to these suggestions (tests: the shared dev DB holds others). */
+  /** Restricts the scan to these suggestions (tests: the shared dev DB holds others). It narrows the scan only: the sent ids' accounting and the queue ages stay queue-wide. */
   onlySuggestionIds?: string[];
 }
 
@@ -220,7 +222,13 @@ export async function buildDedupReviewPair(
 /**
  * Looks at pending suggestions oldest first, dropping stale ones, until `limit` pairs are built or
  * the scan cap is reached. Ids in `skipIds` are filtered out in the query, so they never use up the
- * scan cap, and are counted separately so the count is queue-wide.
+ * scan cap. What became of each of them is read in one query and split by a pure function
+ * (`partitionDedupReviewSkipIds`): still pending (counted), resolved or expired (listed, whatever the age),
+ * or missing, so `skippedCount + skipResolved.length === skipIdCount` by construction.
+ *
+ * `recentlyResolved` lists the last window's decisions only; expiries are counted. The two oldest times
+ * are queue-wide: the oldest pending suggestion, and the oldest among those nobody has escalated
+ * (not in `skipIds`), which is the one that shows the daily review has stopped.
  */
 export async function buildDedupReviewExport(executor: DbExecutor, options: BuildDedupReviewExportOptions): Promise<DedupReviewExportReport> {
   await assertRoleBypassesRls(executor);
@@ -231,16 +239,30 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
   const only = options.onlySuggestionIds;
   const pendingScope = and(eq(eventMatchCandidates.status, 'pending'), only ? inArray(eventMatchCandidates.id, only) : undefined);
 
-  const [{ total }] = await executor.select({ total: count() }).from(eventMatchCandidates).where(eq(eventMatchCandidates.status, 'pending'));
+  const [{ total, oldestPending }] = await executor
+    .select({ total: count(), oldestPending: min(eventMatchCandidates.createdAt) })
+    .from(eventMatchCandidates)
+    .where(eq(eventMatchCandidates.status, 'pending'));
 
-  let skippedCount = 0;
-  if (options.skipIds.length > 0) {
-    const [{ skipped }] = await executor
-      .select({ skipped: count() })
-      .from(eventMatchCandidates)
-      .where(and(pendingScope, inArray(eventMatchCandidates.id, options.skipIds)));
-    skippedCount = Number(skipped);
-  }
+  // Every row of the sent ids, pending included, so an id with no row at all can be told from one that
+  // is pending. Queue-wide on purpose: the test-only `onlySuggestionIds` narrows the scan, not this.
+  const skipRows =
+    options.skipIds.length > 0
+      ? await executor
+          .select({
+            id: eventMatchCandidates.id,
+            status: eventMatchCandidates.status,
+            resolvedAt: eventMatchCandidates.resolvedAt,
+            resolvedVia: eventMatchCandidates.resolvedVia,
+          })
+          .from(eventMatchCandidates)
+          .where(inArray(eventMatchCandidates.id, options.skipIds))
+      : [];
+  const { skipIdCount, skippedCount, skipResolved } = partitionDedupReviewSkipIds(options.skipIds, skipRows);
+  const [{ oldestUnskippedPending }] = await executor
+    .select({ oldestUnskippedPending: min(eventMatchCandidates.createdAt) })
+    .from(eventMatchCandidates)
+    .where(and(eq(eventMatchCandidates.status, 'pending'), options.skipIds.length > 0 ? notInArray(eventMatchCandidates.id, options.skipIds) : undefined));
   const scanScope = and(pendingScope, options.skipIds.length > 0 ? notInArray(eventMatchCandidates.id, options.skipIds) : undefined);
   const scanPage = (offset: number, pageSize: number) =>
     executor
@@ -290,6 +312,9 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
   }
 
   const cutoff = new Date(now.getTime() - DEDUP_REVIEW_RECENT_DAYS * DAY_MS);
+  const inWindow = and(isNotNull(eventMatchCandidates.resolvedAt), gte(eventMatchCandidates.resolvedAt, cutoff));
+  // Decisions only: a day of expiries (one UPDATE gives them one timestamp) must not push a person's
+  // decision out of the cap. The id breaks ties so the list is the same on every run.
   const resolved = await executor
     .select({
       id: eventMatchCandidates.id,
@@ -298,9 +323,13 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
       resolvedVia: eventMatchCandidates.resolvedVia,
     })
     .from(eventMatchCandidates)
-    .where(and(ne(eventMatchCandidates.status, 'pending'), isNotNull(eventMatchCandidates.resolvedAt), gte(eventMatchCandidates.resolvedAt, cutoff)))
-    .orderBy(desc(eventMatchCandidates.resolvedAt))
+    .where(and(inArray(eventMatchCandidates.status, ['accepted', 'rejected']), inWindow))
+    .orderBy(desc(eventMatchCandidates.resolvedAt), asc(eventMatchCandidates.id))
     .limit(recentLimit + 1);
+  const [{ expired }] = await executor
+    .select({ expired: count() })
+    .from(eventMatchCandidates)
+    .where(and(eq(eventMatchCandidates.status, 'expired'), inWindow));
 
   return {
     schemaVersion: 1,
@@ -310,10 +339,14 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
     totalPending: Number(total),
     staleCount,
     skippedCount,
+    skipIdCount,
+    skipResolved,
     scanLimited: pairs.length < options.limit && unscanned,
+    oldestPendingAt: toDedupReviewTimestamp(oldestPending),
+    oldestUnskippedPendingAt: toDedupReviewTimestamp(oldestUnskippedPending),
     pairs,
     recentlyResolved: resolved.slice(0, recentLimit).flatMap((row) =>
-      row.status === 'pending' || row.resolvedAt === null
+      (row.status !== 'accepted' && row.status !== 'rejected') || row.resolvedAt === null
         ? []
         : [
             {
@@ -328,5 +361,6 @@ export async function buildDedupReviewExport(executor: DbExecutor, options: Buil
           ]
     ),
     recentlyResolvedTruncated: resolved.length > recentLimit,
+    recentlyExpiredCount: Number(expired),
   };
 }

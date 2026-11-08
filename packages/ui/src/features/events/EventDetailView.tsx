@@ -3,6 +3,7 @@ import { CalendarDays, CalendarPlus, ExternalLink, Heart, User, DollarSign, More
 import { detectPlatformFromUrl } from '@festgrid/domain';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor, EventDetailViewSourcePost, EventDetailViewRelatedEventGroup, EventDetailViewRelatedEvent } from './EventDetailView.types';
 import { EventImage } from './EventImage';
+import { EventDetailSkeleton } from './EventDetailSkeleton';
 import { InstagramEmbed } from './InstagramEmbed';
 import { SubscribedAccountCard } from '../subscriptions';
 import { PlatformIcon } from '../../core/platform-icon';
@@ -174,29 +175,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   }, [isMenuOpen]);
 
   if (loading) {
-    return (
-      <div className="animate-pulse flex flex-col gap-6" aria-busy="true" aria-label={labels.loadingText}>
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
-          {/* Left Column: Image Skeleton */}
-          <div className="lg:col-span-3 min-w-0">
-            <div className="w-full aspect-video max-h-[70vh] bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
-          </div>
-
-          {/* Right Column: Content Skeleton */}
-          <div className="lg:col-span-2 min-w-0 flex flex-col gap-6">
-            <div className="flex flex-col gap-4">
-              <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
-            </div>
-            <div className="flex gap-2">
-              <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-20"></div>
-              <div className="h-6 bg-gray-200 dark:bg-gray-800 rounded w-24"></div>
-            </div>
-            <div className="h-24 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
-          </div>
-        </div>
-      </div>
-    );
+    return <EventDetailSkeleton label={labels.loadingText} />;
   }
 
   if (error) {
@@ -506,7 +485,17 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                     {onAddToCalendar ? (
                       <button
                         type="button"
-                        onClick={() => onAddToCalendar?.([schedule.id])}
+                        onClick={() => {
+                          // onAddToCalendar takes the FULL intended selection (same contract as the
+                          // dialog's confirm): flip only this schedule against what is already added,
+                          // never "just this one", which would un-add every other added schedule.
+                          const addedIds = schedules.filter((s) => s.isAddedToCalendar).map((s) => s.id);
+                          onAddToCalendar?.(
+                            schedule.isAddedToCalendar
+                              ? addedIds.filter((id) => id !== schedule.id)
+                              : [...addedIds, schedule.id],
+                          );
+                        }}
                         className="p-1 -m-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                         aria-label={labels.addToCalendarButtonLabel}
                         aria-pressed={!!schedule.isAddedToCalendar}

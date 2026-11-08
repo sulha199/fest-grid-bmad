@@ -124,7 +124,6 @@
     "viewEventLabel": "Lihat acara",
     "acceptButton": "Terima",
     "rejectButton": "Tolak",
-    "loadMoreButton": "Muat lebih banyak",
     "mergeConfirmTitle": "Gabungkan acara ini?",
     "mergeConfirmDescription": "Ekstraksi baru akan digabungkan ke acara yang sudah ada. Favorit, entri kalender, dan laporan akan dipindahkan ke acara yang sudah ada, dan tautan lama akan dialihkan ke sana. Anda dapat membatalkan ini untuk waktu singkat setelah mengonfirmasi.",
     "mergeConfirmConfirmLabel": "Gabungkan",
@@ -147,7 +146,6 @@
     "usernameLabel": "Nama Pengguna",
     "emptyHeadline": "Akun tidak ditemukan",
     "emptyMessage": "Tidak ada akun media sosial yang cocok dengan filter pencarian Anda.",
-    "loadMoreButton": "Muat akun lainnya",
     "optInSuccessToast": "Berhasil menyetujui penyimpanan gambar tahan lama untuk {name}",
     "optOutSuccessToast": "Berhasil membatalkan persetujuan penyimpanan gambar tahan lama untuk {name}",
     "toggleErrorToast": "Gagal memperbarui status persetujuan penyimpanan gambar untuk {name}",
@@ -1037,8 +1035,16 @@
     "errorTryAgain": "Coba lagi",
     "filterApplyButton": "Terapkan filter",
     "filterClearButton": "Hapus semua",
-    "loadMoreButton": "Muat lebih banyak",
     "loadingLabel": "Memuat jalankan...",
     "replayingLabel": "Memutar ulang..."
+  },
+  "Pagination": {
+    "navigation": "Navigasi halaman",
+    "previous": "Sebelumnya",
+    "next": "Berikutnya",
+    "pageOfPages": "Halaman {page} dari {pages}",
+    "page": "Halaman {page}",
+    "total": "{count, number} total",
+    "emptyPage": "Tidak ada lagi yang tersisa di halaman ini. Gunakan Sebelumnya untuk kembali."
   }
 }

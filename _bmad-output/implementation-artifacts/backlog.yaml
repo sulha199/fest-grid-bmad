@@ -2308,7 +2308,7 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      stories: [10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep],
      touches: [app:backend, cross:architecture],
-     note: "Deferred from: quick-dev of the moderator re-extract preview (2026-10-18, `bmad-quick-dev`). Finding 1 joined Story 10.1a; findings 2-4 carved to FIND-120."}
+     note: "Deferred from: quick-dev of the moderator re-extract preview (2026-10-18, `bmad-quick-dev`). Finding 1 joined Story 10.1a; findings 2-4 carved to FIND-129."}
 
   # ── 2026-10-23 (code review of Epic 9) ──────────────────────────────────────
   BUG-065:
@@ -2532,7 +2532,22 @@ items:
      title: "Discovery's default order has no tie-breaker, so paging repeats one event and skips another",
      ref: [apps/backend/src/schema/resolvers.ts, apps/backend/src/schema/events-default-order-tiebreak.test.ts, backlog/BUG-090-discovery-order-no-tiebreaker.md],
      touches: [app:backend, web:events],
-     note: "Fixed in PR #115 (merged 2026-10-30): events.id as the last ORDER BY key. 2026-10-30: one pass of 664 rows held 614 distinct events; duplicate counts taken before the fix are inflated."}
+     note: "Fixed in PR 115, merged 2026-10-30 (events.id as the last ORDER BY key). Before it, one pass of 664 rows held 614 distinct events; duplicate counts taken from that list are inflated."}
+
+  # ── 2026-10-30 (dedup matching: tolerant venue match, expiring dead suggestions; rows added 2026-11-03, the work shipped without one) ──
+  IDEA-110:
+    {type: idea, status: done, created: 2026-10-30,
+     title: "Read one venue spelled two ways (\"Ground Floor\" / \"Lantai GF\") as one place in dedup matching",
+     ref: [packages/domain/src/events/venue-text-match.ts, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, pkg:domain, cross:architecture],
+     note: "Shipped in PR 116 (2026-10-30): venueTextsSamePlace ignores floor words and abbreviations for the promotion's venue-conflict test and the stub-repeat venue match. Evaluated on prod data the same day."}
+
+  IDEA-107:
+    {type: idea, status: done, created: 2026-10-30,
+     title: "Expire pending match suggestions whose pair has a dead event or whose events are both over",
+     ref: [apps/backend/src/lib/events/expire-match-suggestions.ts, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, cross:architecture],
+     note: "Shipped in PR 117 (2026-10-30): the operator tool expire-stale-match-suggestions.ts sets such a suggestion to the new status expired (dry run, then --apply). Run on prod 2026-10-30/31."}
 
   # ── 2026-10-30 (Apify monthly cap, repeated posts, late Bright Data results) ──
   BUG-091:
@@ -2616,10 +2631,10 @@ items:
   FIND-114:
     {type: finding, status: backlog, created: 2026-11-01,
      impact: compliance, effort: m,
-     title: "AI dedup review: replace the owner role in the apply secret with a narrow write role by 2026-12-31, and record the run id in the merge journal",
+     title: "AI dedup review: narrow the apply role's reads to the evidence tables, and record the run id in the merge journal",
      ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md],
      touches: [app:backend, pkg:database, app:infrastructure, cross:architecture],
-     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-workflow (2026-11-01). AD-45 Rule 8: the owner role is an exception that expires 2026-12-31."}
+     note: "The write role landed 2026-11-03: dedup_review_apply (BYPASSRLS, writes only the merge tables, SELECT on public) holds the apply secret and merged one pair live; the owner-role exception never started. Left: narrow its reads, put the run id in the journal."}
 
   IDEA-113:
     {type: idea, status: backlog, created: 2026-11-01,
@@ -2635,7 +2650,111 @@ items:
      title: "AI dedup review piece C: daily moderator-dedup-review skill, escalation issues and insight log",
      ref: [implementation-artifacts/deferred-work.md, specs/ai-dedup-review/DESIGN.md],
      touches: [web:moderation, cross:process, cross:ai-extraction],
-     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Needs FIND-107 on master first; requirements in DESIGN.md section 6; review-insights follows later. 1 finding."}
+     note: "Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30). Skill built (spec-find-104); stays open until the owner reviews one shadow run, then goes live. review-insights (C2) follows. 1 finding."}
+
+  FIND-115:
+    {type: finding, status: done, created: 2026-11-03,
+     impact: internal, effort: s,
+     title: "AI dedup review export: recentlyResolved is capped at 200 and shows only expired rows",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-115-export-resolution-report.md, apps/backend/src/lib/events/dedup-review-export.ts],
+     touches: [app:backend, pkg:domain, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-find-104-moderator-dedup-review-skill (2026-11-03). Fixed 2026-11-05: skipResolved answers for the sent ids, recentlyResolved is decisions only, expiries are a count, two queue ages added. 1 finding."}
+
+  FIND-116:
+    {type: finding, status: backlog, created: 2026-11-03,
+     impact: latent, effort: m,
+     title: "Narrow what a session holding the owner's token can reach: own .claude/ and CLAUDE.md",
+     ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:infrastructure, cross:process, cross:architecture],
+     note: "Deferred from: bmad-quick-dev review of spec-find-104-moderator-dedup-review-skill (2026-11-03). Architecture review blocker: AD-45 Rule 6 is prose; the skill carries an allowlist meanwhile. 1 finding."}
+
+  FIND-117:
+    {type: finding, status: backlog, created: 2026-11-03,
+     impact: latent, effort: s,
+     title: "AI dedup review skill: closed-pending issues block the export head, U+2028 in its line, no CI tests",
+     ref: [implementation-artifacts/deferred-work.md, apps/backend/src/lib/events/dedup-review-export.ts, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [app:backend, pkg:domain, app:infrastructure, cross:process],
+     note: "Deferred from: bmad-quick-dev code review of spec-find-104-moderator-dedup-review-skill (2026-11-03). The skill reports the blocked head and stamps the insight issue meanwhile. 4 findings."}
+
+  FIND-118:
+    {type: finding, status: backlog, created: 2026-11-06,
+     impact: latent, effort: s,
+     title: "AI dedup review: an issue for a missing suggestion stays open and holds a skip_ids slot every run",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-115-export-resolution-report.md, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [app:backend, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-find-115-export-resolution-report (2026-11-06). The skill reports a missing id and never closes it (frozen spec), so enough of them freeze the skill. Also: --sent-file cannot see a swapped pending id; null resolved_at rows are invisible. 3 findings."}
+
+  FIND-119:
+    {type: finding, status: done, created: 2026-11-06,
+     impact: internal, effort: s,
+     title: "AI dedup review: attended loop, a moderator accepts or skips each escalated pair from a popup",
+     ref: [implementation-artifacts/spec-find-119-attended-decision-loop.md, .claude/skills/moderator-dedup-review/dedup_report.py, specs/ai-dedup-review/DESIGN.md],
+     touches: [web:moderation, cross:process],
+     note: "Owner-requested 2026-11-06. SKILL.md step 8 plus the reader's brief and close-decided; accept goes through the live apply as the session's email, then the issue closes with outcome:accepted. Reject is FIND-120."}
+
+  FIND-120:
+    {type: finding, status: done, created: 2026-11-06,
+     impact: latent, effort: m,
+     title: "AI dedup review: apply-side reject path, a decision kind that records a moderator's reject",
+     ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/dedup-review-apply.ts],
+     touches: [app:backend, pkg:domain, app:infrastructure, cross:architecture],
+     note: "Deferred from: bmad-quick-dev split of spec-find-119-attended-decision-loop (2026-11-06). Built 2026-11-07, off until the owner sets DEDUP_REVIEW_REJECT_ENABLED. 1 finding."}
+
+  FIND-121:
+    {type: finding, status: done, created: 2026-11-06,
+     impact: internal, effort: s,
+     title: "AI dedup review: Reject option in the attended loop popup and its issue closing",
+     ref: [implementation-artifacts/deferred-work.md, .claude/skills/moderator-dedup-review/SKILL.md, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [web:moderation, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-find-120-apply-side-reject (2026-11-06). Built 2026-11-07: popup Reject, decisions action, close with outcome:rejected, SKILL.md rule 7 and step 8. 1 finding."}
+
+  FIND-122:
+    {type: finding, status: backlog, created: 2026-11-07,
+     impact: latent, effort: xs,
+     title: "AI dedup review reject path: runner-clock resolved_at vs database-clock caps, shared reason codes",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-120-apply-side-reject.md, apps/backend/src/lib/events/dedup-review-apply.ts],
+     touches: [app:backend, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-find-120-apply-side-reject (2026-11-07). Low: reject time from the runner clock; one reason code for two caps; close-decided cosmetic. 3 findings."}
+
+  FIND-123:
+    {type: finding, status: backlog, created: 2026-11-07,
+     impact: internal, effort: xs,
+     title: "AI dedup review loop: later pair's Accept lost when an earlier one is skipped, weak option tests",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-121-loop-reject-option.md, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [web:moderation, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-find-121-loop-reject-option (2026-11-07). Low: event-already-in-run and day-cap are counted over all candidates; two option tests too weak; small reader nits. 3 findings."}
+
+  FIND-124:
+    {type: finding, status: done, created: 2026-11-07,
+     impact: latent, effort: m,
+     title: "AI dedup review: apply-side floor override, a decision kind that merges a pair the floor refuses",
+     ref: [implementation-artifacts/deferred-work.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/events/dedup-review-apply.ts],
+     touches: [app:backend, pkg:domain, app:infrastructure, cross:architecture],
+     note: "Owner request 2026-11-07, after the attended loop offered pair 146 (name-mismatch) only Reject and Skip. Built 2026-11-07, off until the owner sets DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED."}
+
+  FIND-125:
+    {type: finding, status: backlog, created: 2026-11-07,
+     impact: internal, effort: s,
+     title: "AI dedup review: Merge regardless of the floor option in the attended loop popup and its issue closing",
+     ref: [implementation-artifacts/deferred-work.md, .claude/skills/moderator-dedup-review/SKILL.md, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [web:moderation, cross:process],
+     note: "Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07). Popup option, decisions flag, close-decided, SKILL.md rule 7 and step 8. Needs FIND-124 first. 1 finding."}
+
+  FIND-126:
+    {type: finding, status: backlog, created: 2026-11-07,
+     impact: latent, effort: m,
+     title: "AI dedup review: owner-tunable apply caps within code-owned ceilings",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-124-apply-side-floor-override.md, packages/domain/src/events/dedup-review-apply.ts],
+     touches: [app:backend, pkg:domain, app:infrastructure, cross:architecture],
+     note: "Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07). Cap variables, ceilings, validate keeps defaults, override sub-cap, early workflow check. Owner: fixed caps stop the daily review scaling. 1 finding."}
+
+  FIND-127:
+    {type: finding, status: backlog, created: 2026-11-07,
+     impact: internal, effort: xs,
+     title: "AI dedup review floor override: test gaps and refusal wording",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-124-apply-side-floor-override.md, apps/backend/src/lib/events/dedup-review-apply.test.ts],
+     touches: [app:backend, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-find-124-apply-side-floor-override (2026-11-07). Low: no DB test for high-tier or undone-before overrides; inputs-job wording for a mistyped override; kill-switch ordering; one weak reader test. 4 findings."}
 
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
@@ -2693,7 +2812,7 @@ items:
      title: "Workflows with database or cloud secrets run dependency install scripts and tag-pinned third-party actions before the secret step",
      ref: [implementation-artifacts/deferred-work.md, .github/workflows/merge-twin-profiles.yml],
      touches: [app:infrastructure, cross:process],
-     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Install with --ignore-scripts where possible and pin actions by SHA. 1 finding."}
+     note: "Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31). Dedup apply workflow pinned by SHA (PR 137, 2026-11-03); 12 other workflows still use tags, incl. the dedup export (read-only secret). pinact can pin them in one pass."}
 
   # ── 2026-10-31 (bmad-quick-dev: re-extract preview of a carousel roundup showed only the first image's events) ──
   BUG-099:
@@ -2727,7 +2846,7 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      stories: [10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep],
      touches: [app:backend, cross:architecture],
-     note: "Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31). Finding 1 joined Story 10.1a; finding 2 carved to FIND-121."}
+     note: "Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31). Finding 1 joined Story 10.1a; finding 2 carved to FIND-130."}
 
   BUG-098:
     {type: bug, status: done, created: 2026-10-31,
@@ -2763,7 +2882,7 @@ items:
 
   # ── 2026-11-02 (deferral intake backfill for check 14: sections from 2026-09-26 to 2026-10-04 had no row) ──
 
-  FIND-114:
+  FIND-131:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "Sharp-isolation test checks the esbuild graph only, not execution or CDK's real esbuild options",
@@ -2771,7 +2890,7 @@ items:
      touches: [app:infrastructure],
      note: "Deferred from: bmad-quick-dev fix-lambda-sharp-lazy-load review (2026-10-04). 2 findings."}
 
-  FIND-115:
+  FIND-132:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "EventCard keeps dead props and a dead date helper after FIND-053; archive getCardProps is any-typed",
@@ -2779,7 +2898,7 @@ items:
      touches: [pkg:ui, web:events],
      note: "Deferred from: bmad-quick-dev FIND-053 review (2026-09-26). 3 findings."}
 
-  FIND-116:
+  FIND-133:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "Scraper integration tests skip post_account_associations rows, clean up four ways and flaked once",
@@ -2787,7 +2906,7 @@ items:
      touches: [app:backend],
      note: "Deferred from: code review of 3-15-post-account-association-table-lossless-migration.md Story 3.14 scraper-test regression fix (2026-10-02, CC-024 Wave 2B batch-end gate, `bmad-quick-dev`). 3 findings."}
 
-  FIND-117:
+  FIND-134:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "Awaited notification dispatch lacks a regression test and a prod guard; email failures go unchecked",
@@ -2795,7 +2914,7 @@ items:
      touches: [app:backend, cross:notifications],
      note: "Deferred from: code review of FIND-061 fix (await notification dispatch) (2026-10-02, `bmad-quick-dev`). 4 findings."}
 
-  FIND-118:
+  FIND-135:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "Wave 3 gate fixes leave the extraction-ordinal CHECK untested and 9 event fixtures unshared",
@@ -2813,11 +2932,11 @@ items:
      touches: [app:backend, app:infrastructure],
      note: "Seen on prod 2026-10-31 14:32Z in the BUG-099 rescrape. Ship ahead of Epic 10; Story 10.14z ratchets it."}
 
-  FIND-119:
+  FIND-128:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: xs,
      title: "A rescrape failure that spent no vendor credit still starts the 10-minute cooldown",
-     ref: [backlog/FIND-119-rescrape-failure-without-vendor-call-starts-cooldown.md],
+     ref: [backlog/FIND-128-rescrape-failure-without-vendor-call-starts-cooldown.md],
      touches: [app:backend],
      note: "Seen 2026-10-31: the retry 20 s later hit the cooldown. Record a failed rescrape only when a vendor call ran; Story 10.3 has the engine form."}
 
@@ -2870,7 +2989,7 @@ items:
      note: "Epic 10, Story 10.12a. Makes no vendor call, so it uses the engine's non-vendor lane (limit 2). Added at the product owner's request."}
 
   # ── 2026-11-02 (bmad-create-story, Story 10.1a carve-first) ──────────────────
-  FIND-120:
+  FIND-129:
     {type: finding, status: backlog, created: 2026-11-02, parent: FIND-086,
      impact: internal, effort: s,
      title: "Re-extract candidate query: invalid-JSON links abort the match, LIMIT 20 ordering risk, and URL variants bypass the rescrape cooldown",
@@ -2878,7 +2997,7 @@ items:
      touches: [app:backend, cross:architecture],
      note: "Carved from FIND-086 (findings 2-4) when finding 1 (caption sweep) joined Story 10.1a (2026-11-02, carve-first, epic-10-outside-the-epic.md §7). Unrelated to the job engine."}
 
-  FIND-121:
+  FIND-130:
     {type: finding, status: backlog, created: 2026-11-02, parent: FIND-111,
      impact: internal, effort: s,
      title: "Re-extract Apply has no drift check and no stub-to-full reconciliation path",

@@ -124,7 +124,6 @@
     "viewEventLabel": "View event",
     "acceptButton": "Accept",
     "rejectButton": "Reject",
-    "loadMoreButton": "Load more",
     "mergeConfirmTitle": "Merge these events?",
     "mergeConfirmDescription": "The new extraction will be merged into the existing event. Favorites, calendar entries, and reports move to the existing event, and old links will redirect to it. You can undo this for a short time after confirming.",
     "mergeConfirmConfirmLabel": "Merge",
@@ -147,7 +146,6 @@
     "usernameLabel": "Username",
     "emptyHeadline": "No accounts found",
     "emptyMessage": "No social media accounts match your search filters.",
-    "loadMoreButton": "Load more accounts",
     "optInSuccessToast": "Successfully opted in {name} to durable image storage",
     "optOutSuccessToast": "Successfully opted out {name} from future durable image storage",
     "toggleErrorToast": "Failed to update image storage opt-in status for {name}",
@@ -1037,8 +1035,16 @@
     "errorTryAgain": "Try again",
     "filterApplyButton": "Apply filters",
     "filterClearButton": "Clear all",
-    "loadMoreButton": "Load more",
     "loadingLabel": "Loading runs...",
     "replayingLabel": "Replaying..."
+  },
+  "Pagination": {
+    "navigation": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOfPages": "Page {page} of {pages}",
+    "page": "Page {page}",
+    "total": "{count, number} total",
+    "emptyPage": "Nothing is left on this page. Use Previous to go back."
   }
 }

@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
-import { SocialMediaAccountProfileParent, SubscriptionParent, EventParent, ReportParent, WidgetParent, AIEventFilterParent, AccountVoteParent, EmbedDomainParent, RankedAccountVoteParent, CoordinatesParent, ScheduleParent, UnprocessedScraperPayloadParent, PayloadContextParent } from '../lib/graphql-mappers.js';
+import { SocialMediaAccountProfileParent, SubscriptionParent, EventParent, ReportParent, WidgetParent, PublicWidgetParent, AIEventFilterParent, AccountVoteParent, EmbedDomainParent, RankedAccountVoteParent, CoordinatesParent, ScheduleParent, UnprocessedScraperPayloadParent, PayloadContextParent } from '../lib/graphql-mappers.js';
 import { GraphQLContext } from '../lib/auth/context.js';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
@@ -143,6 +143,11 @@ export type ApplyReextractionSummary = {
   queuedForReview: Scalars['Int']['output'];
   reused: Array<ApplyReextractionPlacedEvent>;
   skippedDeleted: Scalars['Int']['output'];
+};
+
+export type CalendarAdditionChangeInput = {
+  isAddedToCalendar: Scalars['Boolean']['input'];
+  scheduleId: Scalars['ID']['input'];
 };
 
 export type CastVoteInput = {
@@ -607,6 +612,14 @@ export type Mutation = {
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
+  /**
+   * Idempotently sets the calendar state of several schedules of ONE event in a single
+   * transaction (one auth check, one round of queries) -- replaces N parallel
+   * toggleCalendarAddition calls. All-or-nothing: any unknown schedule, a schedule of another
+   * event, or more than 100 changes rejects the whole call. A schedule listed twice takes its
+   * last entry. Returns one result per distinct scheduleId, in first-seen order.
+   */
+  setCalendarAdditions: Array<ToggleCalendarAdditionResult>;
   setImageStorageOptIn: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
@@ -822,6 +835,12 @@ export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
+};
+
+
+export type MutationSetCalendarAdditionsArgs = {
+  changes: Array<CalendarAdditionChangeInput>;
+  eventId: Scalars['ID']['input'];
 };
 
 
@@ -1042,6 +1061,16 @@ export type ProposedScheduleCorrectionInput = {
   title?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type PublicWidget = {
+  __typename?: 'PublicWidget';
+  createdAt: Scalars['String']['output'];
+  displayMode: WidgetDisplayMode;
+  expression: FilterNode;
+  filters?: Maybe<EventFilter>;
+  id: Scalars['ID']['output'];
+  theme: WidgetTheme;
+};
+
 export type Query = {
   __typename?: 'Query';
   addressAutocomplete: Array<AddressSuggestion>;
@@ -1102,7 +1131,7 @@ export type Query = {
   suggestedEventMatches: SuggestedEventMatchConnection;
   voteRegionBreakdown: Array<RegionVoteBucket>;
   votedAccountSuggestions: Array<RankedAccountVote>;
-  widgetById?: Maybe<Widget>;
+  widgetById?: Maybe<PublicWidget>;
 };
 
 
@@ -1772,6 +1801,7 @@ export type ResolversTypes = ResolversObject<{
   ApplyReextractionPlacedEvent: ResolverTypeWrapper<ApplyReextractionPlacedEvent>;
   ApplyReextractionSummary: ResolverTypeWrapper<ApplyReextractionSummary>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  CalendarAdditionChangeInput: CalendarAdditionChangeInput;
   CastVoteInput: CastVoteInput;
   Coordinates: ResolverTypeWrapper<CoordinatesParent>;
   CoordinatesInput: CoordinatesInput;
@@ -1838,6 +1868,7 @@ export type ResolversTypes = ResolversObject<{
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ResolverTypeWrapper<ProposedScheduleCorrectionData>;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
+  PublicWidget: ResolverTypeWrapper<PublicWidgetParent>;
   Query: ResolverTypeWrapper<{}>;
   RankedAccountVote: ResolverTypeWrapper<RankedAccountVoteParent>;
   ReextractionDedupTier: ReextractionDedupTier;
@@ -1912,6 +1943,7 @@ export type ResolversParentTypes = ResolversObject<{
   ApplyReextractionPlacedEvent: ApplyReextractionPlacedEvent;
   ApplyReextractionSummary: ApplyReextractionSummary;
   Boolean: Scalars['Boolean']['output'];
+  CalendarAdditionChangeInput: CalendarAdditionChangeInput;
   CastVoteInput: CastVoteInput;
   Coordinates: CoordinatesParent;
   CoordinatesInput: CoordinatesInput;
@@ -1960,6 +1992,7 @@ export type ResolversParentTypes = ResolversObject<{
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ProposedScheduleCorrectionData;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
+  PublicWidget: PublicWidgetParent;
   Query: {};
   RankedAccountVote: RankedAccountVoteParent;
   ReextractionPreviewDedup: ReextractionPreviewDedup;
@@ -2357,6 +2390,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   saveAIEventFilter?: Resolver<ResolversTypes['AIEventFilter'], ParentType, ContextType, RequireFields<MutationSaveAiEventFilterArgs, 'prompt'>>;
   selectPostsForExtraction?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType, RequireFields<MutationSelectPostsForExtractionArgs, 'postIds'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
+  setCalendarAdditions?: Resolver<Array<ResolversTypes['ToggleCalendarAdditionResult']>, ParentType, ContextType, RequireFields<MutationSetCalendarAdditionsArgs, 'changes' | 'eventId'>>;
   setImageStorageOptIn?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetImageStorageOptInArgs, 'accountId' | 'optedIn'>>;
   submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
   submitReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationSubmitReportArgs, 'eventId' | 'reason'>>;
@@ -2468,6 +2502,16 @@ export type ProposedScheduleCorrectionDataResolvers<ContextType = GraphQLContext
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PublicWidgetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PublicWidget'] = ResolversParentTypes['PublicWidget']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  displayMode?: Resolver<ResolversTypes['WidgetDisplayMode'], ParentType, ContextType>;
+  expression?: Resolver<ResolversTypes['FilterNode'], ParentType, ContextType>;
+  filters?: Resolver<Maybe<ResolversTypes['EventFilter']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  theme?: Resolver<ResolversTypes['WidgetTheme'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
   addressAutocomplete?: Resolver<Array<ResolversTypes['AddressSuggestion']>, ParentType, ContextType, RequireFields<QueryAddressAutocompleteArgs, 'input'>>;
   embedDomainsForWidget?: Resolver<Array<ResolversTypes['EmbedDomain']>, ParentType, ContextType, RequireFields<QueryEmbedDomainsForWidgetArgs, 'widgetId'>>;
@@ -2505,7 +2549,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   suggestedEventMatches?: Resolver<ResolversTypes['SuggestedEventMatchConnection'], ParentType, ContextType, Partial<QuerySuggestedEventMatchesArgs>>;
   voteRegionBreakdown?: Resolver<Array<ResolversTypes['RegionVoteBucket']>, ParentType, ContextType, RequireFields<QueryVoteRegionBreakdownArgs, 'accountId'>>;
   votedAccountSuggestions?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryVotedAccountSuggestionsArgs>>;
-  widgetById?: Resolver<Maybe<ResolversTypes['Widget']>, ParentType, ContextType, RequireFields<QueryWidgetByIdArgs, 'id'>>;
+  widgetById?: Resolver<Maybe<ResolversTypes['PublicWidget']>, ParentType, ContextType, RequireFields<QueryWidgetByIdArgs, 'id'>>;
 }>;
 
 export type RankedAccountVoteResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RankedAccountVote'] = ResolversParentTypes['RankedAccountVote']> = ResolversObject<{
@@ -2864,6 +2908,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   PostReextractionPreviewStatus?: PostReextractionPreviewStatusResolvers<ContextType>;
   ProposedEventCorrectionData?: ProposedEventCorrectionDataResolvers<ContextType>;
   ProposedScheduleCorrectionData?: ProposedScheduleCorrectionDataResolvers<ContextType>;
+  PublicWidget?: PublicWidgetResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   RankedAccountVote?: RankedAccountVoteResolvers<ContextType>;
   ReextractionPreviewDedup?: ReextractionPreviewDedupResolvers<ContextType>;
