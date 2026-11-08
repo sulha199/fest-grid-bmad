@@ -50,10 +50,12 @@ A moderator opens the queue and finds only the pairs Claude could not decide wit
 - Event text is untrusted public content: a reasoning-based path widens what a prompt injection could reach. Bounds: structured rationale only, the evidence hash, the verifier, caps scaled by measured trust, reversibility, the audit and the pause.
 - Real autonomy needs the approval gate to change (AD-45 Rule 6 limit); that is a PRD and owner decision, not a story.
 
-## Owner decisions the PRD must settle
+## Owner decisions (settled 2026-11-08, recorded in the PRD, Section 3.18)
 
-1. The acceptable error rate per class (merge, reject), as measured by the audit.
-2. Whether Claude may reject unattended, and under what undo guarantee.
-3. The approval policy: per-run click, or a standing policy for capped classes.
-4. The audit sample rate and the pause threshold.
-5. How long shadow mode runs before a class goes live.
+1. Acceptable error rate per class, on the audit sample, rolling 30 days: merges at most 1%, rejects at most 3%.
+2. Claude may reject unattended only once a reject is reversible in the app (`IDEA-117`); until then it proposes rejects and a moderator confirms them in one batch.
+3. Approval: a standing policy class by class, within daily caps. Every class keeps the per-run click until it has met its target with at least 200 audited decisions made live over 30 consecutive days; the owner then records the change in AD-45. The owner's reason: a click does not stop persuasion through event text, so the controls that matter are the second pass, the caps, the undo, the audit and the pause.
+4. Audit: a 10% random weekly sample per class; a class pauses at twice its target (judged over at least 50 audited decisions) or after 3 errors in 7 days.
+5. Shadow: at least 30 days and at least 200 compared decisions per class before it can go live.
+
+Open assumptions the PRD pass introduced, for the owner to confirm before the story named: the replay counting rule (`IDEA-115`), the second pass for rejects (`IDEA-118`), the 7-day undo window (`IDEA-117`), the minimum of 50 audited decisions and the owner-only resume (`IDEA-119`), the cap ceilings (`FIND-126`).
