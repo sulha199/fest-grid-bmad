@@ -2,7 +2,7 @@
 title: 'Collision-safe backlog IDs (date + random suffix)'
 type: 'chore'
 created: '2026-11-08'
-status: 'in-progress'
+status: 'in-review'
 baseline_commit: '8db8730878d00b8fc685bfd0fb77ec697ae73420'
 review_loop_iteration: 0
 context:
