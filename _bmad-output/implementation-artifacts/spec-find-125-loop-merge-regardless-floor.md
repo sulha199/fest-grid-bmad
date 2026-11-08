@@ -68,11 +68,11 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `dedup_report.py` + test -- labels and descriptions, `OFFER_TOKENS`, `parse_offer`, `options_for`, `brief` with `override` (log-derived refusal, tier consistency, exactly one id, fixed words, `merge_words`, the cap and the worst-case tests)
-- [ ] `dedup_report.py` + test -- `check_batch` with three lists, `decisions --override`, `confirm --override` (the confirmation text), `decisions_text`
-- [ ] `dedup_report.py` + test -- `validate_apply` with `expected_override_ids`, `read_expected_overrides`, `apply` and `close-decided --expect-override-ids`, `overridden_comment`, `comment decided --override`, `insight-comment` marker; the FIND-124 tests change
-- [ ] `SKILL.md` + text-pin tests -- rules 2, 3, 7, description, 5.4, table rows, step 8 (matrix, `brief` with the log, answers, notice, titles, dispatch, confirm, close, insight), pins
-- [ ] docs and board -- the amendments, dated; `FIND-125` done
+- [x] `dedup_report.py` + test -- labels and descriptions, `OFFER_TOKENS`, `parse_offer`, `options_for`, `brief` with `override` (log-derived refusal, tier consistency, exactly one id, fixed words, `merge_words`, the cap and the worst-case tests)
+- [x] `dedup_report.py` + test -- `check_batch` with three lists, `decisions --override`, `confirm --override` (the confirmation text), `decisions_text`
+- [x] `dedup_report.py` + test -- `validate_apply` with `expected_override_ids`, `read_expected_overrides`, `apply` and `close-decided --expect-override-ids`, `overridden_comment`, `comment decided --override`, `insight-comment` marker; the FIND-124 tests change
+- [x] `SKILL.md` + text-pin tests -- rules 2, 3, 7, description, 5.4, table rows, step 8 (matrix, `brief` with the log, answers, notice, titles, dispatch, confirm, close, insight), pins
+- [x] docs and board -- the amendments, dated; `FIND-125` done
 
 **Acceptance Criteria:**
 - Given a floor-refused pair in a valid `-v` report, when the loop builds its popup, then the options are Merge regardless of the floor, Reject and Skip, and a line names the refusing check; a `high` pair gets the override and Skip only; a pair the report calls eligible gets no override.

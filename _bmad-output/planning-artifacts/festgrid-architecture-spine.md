@@ -2987,11 +2987,17 @@ This document defines the core architectural invariants for the FestDaily applic
         independent of the reject switch); the library asserts both itself. It is undoable with `undoEventMerge`;
         the journal reads `performed_via = 'ai_skill'` and nothing marks an override (a marker needs an enum
         migration, deferred with `FIND-114`). It drops the floor's `undone-before` veto too. The daily and any
-        unattended review never use it: `SKILL.md` says so and a test pins it, and until `FIND-125` no step of the
-        skill dispatches it. Worst case with the switch on: ten floor-less merges in a run and the day cap in a
+        unattended review never use it: `SKILL.md` says so and a test pins it. **Amended 2026-11-07 (FIND-125):**
+        only step 8, the attended decision loop, dispatches it: the popup of a pair the first `validate` showed
+        the floor refusing offers **Merge regardless of the floor** (a `high` pair only that and Skip), under the
+        same three attended conditions as a reject (a user message asked for the loop, the pair's popup was the
+        reader's, this session's own answer was exactly that label followed by a Yes on the confirmation). The
+        reader reads the refusal from the validated report, never from the model, and refuses an override
+        offer the report does not support; an unattended session runs the loop with plain merges only. Worst case with the switch on: ten floor-less merges in a run and the day cap in a
         day, each undoable; with it off, none. **Amended 2026-11-07 (FIND-121):**
         the sentence "the loop offers no reject" no longer holds: the attended decision loop now offers Reject
-        (popup options Accept, Reject, Skip) for a non-`high` pair: both options when `validate` calls it
+        (popup options Merge, Reject, Skip; **FIND-125:** the first option was called Accept and a floor-refused pair
+        now gets Merge regardless of the floor instead, see Rule 3) for a non-`high` pair: both options when `validate` calls it
         eligible, Reject and Skip only when the floor refuses it or it hit the per-run cap or an earlier accept's
         event, with the same bridge, the same variable and the owner's approval. A reject counts as
         attended only when the user's message asked for the loop, the reader built the popup, and the session's
@@ -3071,8 +3077,9 @@ This document defines the core architectural invariants for the FestDaily applic
         write no journal row) as well as the `event_merges` listing. The owner reopens one by SQL, which lives
         in the runbook (`docs/infrastructure/7-event-dedup.md`) and never in code (**FIND-121:** this holds for a
         reject chosen in the attended loop too, so the loop asks a final Yes that names the one-way effect). **FIND-124:** a merge made by an override is undone
-        like any other with `undoEventMerge`; until `FIND-125` the skill's reader refuses an override run's report
-        (it fails closed), so the owner reads that run's log by hand, as for a lost report. The list to
+        like any other with `undoEventMerge`; the skill's reader reads an override run's report only when
+        the override ids were dispatched with it (**FIND-125**; otherwise it refuses, failing closed), and the
+        loop's `close-decided` closes an overridden pair's issue with `outcome:accepted` and its own comment. The list to
         undo from is the database's, not the log: `event_merges` where `performed_via = 'ai_skill'` and
         `undone_at` is null. Actions logs expire (90 days by default) and do not record the approver; storing
         the run id in the journal is deferred (`FIND-114`). Moderators have no screen for AI merges yet

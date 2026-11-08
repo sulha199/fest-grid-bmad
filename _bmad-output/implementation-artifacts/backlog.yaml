@@ -2758,12 +2758,12 @@ items:
      note: "Owner request 2026-11-07, after the attended loop offered pair 146 (name-mismatch) only Reject and Skip. Built 2026-11-07, off until the owner sets DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED."}
 
   FIND-125:
-    {type: finding, status: backlog, created: 2026-11-07,
+    {type: finding, status: done, created: 2026-11-07,
      impact: internal, effort: m,
      title: "AI dedup review: Merge regardless of the floor option in the attended loop popup and its issue closing",
      ref: [implementation-artifacts/deferred-work.md, .claude/skills/moderator-dedup-review/SKILL.md, .claude/skills/moderator-dedup-review/dedup_report.py],
      touches: [web:moderation, cross:process],
-     note: "Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07). Popup option, decisions flag, close-decided, SKILL.md rule 7 and step 8. Needs FIND-124 first. 1 finding."}
+     note: "Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07). Built 2026-11-07: popup option, decisions flag, close-decided, SKILL.md rule 7 and step 8. 1 finding."}
 
   FIND-126:
     {type: finding, status: backlog, created: 2026-11-07,

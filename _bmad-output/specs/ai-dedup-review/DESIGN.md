@@ -268,7 +268,7 @@ the pairs the reviewer escalated, which `recentlyResolved` could not.
 
 ### As built in FIND-121 (2026-11-07)
 
-The attended loop of the `moderator-dedup-review` skill (step 8) offers **Accept (merge), Reject and Skip**.
+The attended loop of the `moderator-dedup-review` skill (step 8) offers **Merge** (called Accept (merge) here until FIND-125), **Reject and Skip**; FIND-125 adds **Merge regardless of the floor** (below).
 
 - **Who gets what.** Accept and Reject for a pair `validate` calls `eligible`; Reject and Skip only for a pair the floor refuses
   (`low-tier`, `undone-before`, `no-anchor`, `venue-conflict`, `outside-window`, `schedule-uncovered`, `name-mismatch`) or that hit
@@ -305,6 +305,27 @@ caps are `FIND-126`.
   dispatches it, and the reader refuses a report with the action (fail closed).
 - **Known gaps.** The database cannot tell an override from another AI merge (a marker needs an enum migration, with `FIND-114`);
   the resolver is the moderator the invoker hash names (attribution, not authentication).
+
+### As built in FIND-125 (2026-11-07)
+
+The attended loop offers **Merge regardless of the floor** beside Merge, Reject and Skip.
+
+- **Who gets what.** Merge and Reject for a pair `validate` called `eligible`; Merge regardless of the floor and Reject for a pair the
+  floor refuses with a floor code; Merge regardless of the floor and Skip for a `high` pair (`already-high`); Reject and Skip for
+  `per-run-cap` and `event-already-in-run` (an override would meet the same limit). Merge and the override never appear together.
+  Any other code, or none, gets no popup. The first `validate` is the accept-validate of the loop (`<tag>-v`).
+- **The refusal is read, not told.** `brief --offer override[,reject] --validate-log LOG --validate-tag <tag>-v` reads that pair's
+  result from the validated report, requires a floor code that fits the exported tier (tier `high` iff `already-high`, tier `low`
+  iff `low-tier`), and prints a fixed line after the signals (`Floor refuses (CODE): WORDS. Merging anyway skips it.`). One pair per
+  call; an invented or unsupported offer exits 9.
+- **The batch.** `decisions --override IDS` and `confirm --override IDS` (all three flags required); the string carries
+  `accept-override`, last in the file. `confirm` lists merges, overrides and rejects apart, each with its own costs, and warns that the
+  run is refused whole, the rest of the batch included, if the owner's override variable is off.
+- **Attended.** The same three conditions as a reject, with the override label; an unattended session runs plain merges only.
+  `SKILL.md` rule 7 names the override tokens as step 8's alone, pinned.
+- **Reading.** `apply` and `close-decided` take `--expect-override-ids`; `close-decided` closes an overridden pair's issue (twins and
+  shadows too) with `outcome:accepted` and its own comment; `insight-comment` marks an overridden merge.
+- **Deviation from the deferred row.** An override is not offered for cap or shared-event pairs, nor for gone or stale ones.
 
 ## 7. Facts verified while reviewing
 

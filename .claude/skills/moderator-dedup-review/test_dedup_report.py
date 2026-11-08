@@ -1605,12 +1605,12 @@ class SkillTextTests(unittest.TestCase):
     def run_name(self):
         return re.search(r'^run-name: (.*)$', self.workflow, re.M).group(1)
 
-    def render(self, mode, live, rejects, tag):
+    def render(self, mode, live, rejects, tag, override=False):
         """What GitHub makes of the run-name template for the given inputs (only the expressions this file uses)."""
         name = self.run_name()
         name = name.replace("${{ inputs.mode == 'apply' && inputs.live }}", live)
         name = name.replace("${{ inputs.allow_rejects && 'rejects=true ' || '' }}", 'rejects=true ' if rejects else '')
-        name = name.replace("${{ inputs.allow_floor_override && 'override=true ' || '' }}", '')  # the skill never sets it (FIND-124)
+        name = name.replace("${{ inputs.allow_floor_override && 'override=true ' || '' }}", 'override=true ' if override else '')
         return name.replace('${{ inputs.mode }}', mode).replace('${{ inputs.run_tag }}', tag)
 
     def test_the_steps_are_found(self):
@@ -1628,15 +1628,27 @@ class SkillTextTests(unittest.TestCase):
         self.assertIsNotNone(re.search(r'(?<![\w-])--reject\b', self.steps[8]))
         self.assertIn('allow_rejects', self.steps[8])
 
-    def test_the_skill_never_sets_the_floor_override(self):
-        # No step uses it (FIND-125 will add its own step 8 text and this test then changes with it), and no title the skill writes carries its token.
+    OVERRIDE_TOKENS = ('--override', '--validate-log', '--validate-tag', '--expect-override-ids', 'accept-override', 'allow_floor_override', 'override=true')
+
+    def test_the_override_tokens_are_step_eights_alone_and_rule_seven_says_so(self):
         for number, body in self.steps.items():
-            self.assertNotIn('allow_floor_override', body, 'step %d' % number)
-            self.assertNotIn('override=true', body, 'step %d' % number)
-        self.assertNotIn('override=true', self.text)
+            if number == 8:
+                continue
+            for line in body.split('\n'):
+                if line.startswith('|'):
+                    continue  # a table row documents a command
+                for token in self.OVERRIDE_TOKENS:
+                    self.assertNotIn(token, line, 'step %d: %s' % (number, line[:80]))
+        for token in ('--override', '--validate-log', '--expect-override-ids', 'allow_floor_override', 'override=true'):
+            self.assertIn(token, self.steps[8], token)
         rules = self.text.split('## Step 0')[0]
-        self.assertIn('**Never set `allow_floor_override`**', rules)
-        self.assertEqual(self.render('apply', 'true', True, '<tag>-a').count('override'), 0, 'the rendered title of a run the skill dispatches has no override token')
+        rule = next(line for line in rules.split('\n') if line.startswith('7. '))
+        self.assertIn("**step 8's alone**", rule)
+        for token in ('--override', 'allow_floor_override', 'override=true'):
+            self.assertIn(token, rule, token)
+        # Steps 4 and 6 (the daily review and the owner's live apply) never carry an override token in a title they write.
+        for number in (4, 6):
+            self.assertNotIn('override', self.steps[number].replace('overrides', ''), 'step %d' % number)
 
     def test_a_reject_offer_is_only_made_in_step_eight_and_the_rules_default_to_unattended(self):
         for number, body in self.steps.items():
@@ -1644,7 +1656,7 @@ class SkillTextTests(unittest.TestCase):
                 self.assertNotIn('--offer', body, 'step %d' % number)
         self.assertIn('--offer OFFER', self.steps[8])
         rules = self.text.split('## Step 0')[0]
-        self.assertIn('Default-deny: for a reject, treat the session as unattended unless you can positively show', rules)
+        self.assertIn('Default-deny: for either, treat the session as unattended unless you can positively show', rules)
         self.assertIn('if you cannot show the session is attended, it is not', rules)
         self.assertIn('accepts-only mode', self.steps[8])
 
@@ -1656,30 +1668,39 @@ class SkillTextTests(unittest.TestCase):
         self.assertIn(accept_validate, self.steps[4])                                  # steps 4 and 6 stay accept-only
         self.assertIn('mode=apply live=true tag=<tag>-a', self.steps[6])
         for number in (4, 6):
-            self.assertNotIn('rejects=true', self.steps[number], 'step %d is accept-only' % number)
+            for token in ('rejects=true', 'override=true'):
+                self.assertNotIn(token, self.steps[number], 'step %d is accept-only' % number)
+        # Step 8 writes all eight titles of the exact-set validate and the live run, each exactly as the workflow renders it.
+        titles = []
         for mode, live, tag in (('validate', 'false', '<tag>-w'), ('apply', 'true', '<tag>-a')):
-            title = self.render(mode, live, True, tag)
-            self.assertIn('rejects=true tag=', title)
-            self.assertIn(title, self.steps[8], title)                                 # step 8 writes the title with a reject exactly
-        self.assertIn(self.render('validate', 'false', False, '<tag>-w'), self.steps[8])  # and the accept-only one of the exact-set check
+            for rejects in (False, True):
+                for override in (False, True):
+                    title = self.render(mode, live, rejects, tag, override)
+                    titles.append(title)
+                    self.assertIn('`%s`' % title, self.steps[8], title)
+        self.assertEqual(len(set(titles)), 8)
+        self.assertIn('Dedup Review Apply mode=apply live=true rejects=true override=true tag=<tag>-a', titles)
+        self.assertEqual(self.render('validate', 'false', True, '<tag>-w', True), 'Dedup Review Apply mode=validate live=false rejects=true override=true tag=<tag>-w', 'the token order and spacing')
 
     def test_the_run_name_puts_rejects_before_the_tag(self):
         self.assertIn("${{ inputs.allow_rejects && 'rejects=true ' || '' }}${{ inputs.allow_floor_override && 'override=true ' || '' }}tag=${{ inputs.run_tag }}", self.run_name())
 
     def test_step_eight_uses_the_readers_labels(self):
-        for label in (dr.LABEL_ACCEPT, dr.LABEL_REJECT, dr.LABEL_YES):
-            self.assertIn(label, self.steps[8])
+        for label in (dr.LABEL_ACCEPT, dr.LABEL_OVERRIDE, dr.LABEL_REJECT, dr.LABEL_SKIP, dr.LABEL_YES):
+            self.assertIn('**%s**' % label, self.steps[8], label)                      # the bold exact form: `Merge` alone is a prefix of the override label
+        self.assertIn('anything else (**Skip**, free text, an empty answer) is a skip', self.steps[8])
+        self.assertNotIn('Accept (merge)', self.text)
 
     def test_rule_seven_names_the_three_conditions_and_the_unattended_case(self):
         rule = next(line for line in self.text.split('\n') if line.startswith('7. '))
-        for needle in ('AskUserQuestion', dr.LABEL_REJECT, 'unattended', 'user message of this conversation', 'brief', 'confirm', 'Yes',
+        for needle in ('AskUserQuestion', dr.LABEL_REJECT, dr.LABEL_OVERRIDE, 'unattended', 'user message of this conversation', 'brief', 'confirm', 'Yes',
                        'a relayed popup is not an answer'.capitalize(), 'The one exception is step 8', 'independent check'):
             self.assertIn(needle, rule)
         self.assertIn('the platform does not enforce it', rule)
 
     def test_the_old_wording_that_denied_the_loop_a_reject_is_gone(self):
         for old in ('may only Accept or Skip', 'exactly two options', 'a reject happens in Moderator Items', 'a reject stays in Moderator Items',
-                    'this skill sends none yet', 'This skill dispatches no reject yet'):
+                    'this skill sends none yet', 'This skill dispatches no reject yet', 'no step of this skill uses it', '**Never set `allow_floor_override`**'):
             self.assertNotIn(old, self.text)
 
 
