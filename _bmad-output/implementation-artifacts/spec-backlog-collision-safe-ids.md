@@ -2,7 +2,7 @@
 title: 'Collision-safe backlog IDs (date + random suffix)'
 type: 'chore'
 created: '2026-11-08'
-status: 'in-review'
+status: 'done'
 baseline_commit: '8db8730878d00b8fc685bfd0fb77ec697ae73420'
 review_loop_iteration: 0
 context:
@@ -93,3 +93,83 @@ Collision odds: same type and day, 36^3 = 46,656 suffixes; about 1% per year at 
 - `uv run --python 3.11 --with pyyaml python -m unittest discover -s scripts/tests -t scripts -v` -- expected: all pass
 - `uv run --python 3.11 --with pyyaml scripts/backlog-new-id.py FIND` -- expected: matches `^FIND-\d{6}-[a-z0-9]{3}$`
 - `cd apps/infrastructure && npx tsx --test lib/ci-wiring.test.ts` -- expected: pass
+
+## Suggested Review Order
+
+**The ID rules (entry point)**
+
+- Every rule in one module: shapes, frozen ceilings, minting, duplicate-key loader, check 17.
+  [`backlog_ids.py:33`](../../scripts/backlog_ids.py#L33)
+
+- ASCII `fullmatch`, so a trailing newline or foreign digits cannot pass as an ID.
+  [`backlog_ids.py:40`](../../scripts/backlog_ids.py#L40)
+
+- Silent row loss is caught here: every repeated key in any mapping is recorded, not overwritten.
+  [`backlog_ids.py:121`](../../scripts/backlog_ids.py#L121)
+
+- Merge-base and `origin/master` lookup; an unreadable board is a problem, never an empty set.
+  [`backlog_ids.py:198`](../../scripts/backlog_ids.py#L198)
+
+- Check 17 itself: format, date equals `created`, frozen legacy, removed IDs, branch collisions.
+  [`backlog_ids.py:232`](../../scripts/backlog_ids.py#L232)
+
+- Collision set `(HEAD − base) ∩ (master − base)`: names which branch must re-mint.
+  [`backlog_ids.py:287`](../../scripts/backlog_ids.py#L287)
+
+- Mint: random suffix, re-roll on a hit, years outside 2000-2099 refused.
+  [`backlog_ids.py:96`](../../scripts/backlog_ids.py#L96)
+
+**The runner and the helper**
+
+- `--only` accepts only real check numbers, so a typo cannot make a vacuous gate.
+  [`backlog-check.py:469`](../../scripts/backlog-check.py#L469)
+
+- `--only 17` skips checks 1-16 and the sprint file: the CI gate cannot crash on unrelated data.
+  [`backlog-check.py:503`](../../scripts/backlog-check.py#L503)
+
+- Exit status capped at 255 so 256 failures cannot wrap to "clean".
+  [`backlog-check.py:544`](../../scripts/backlog-check.py#L544)
+
+- Thin CLI: prints only the ID, UTC date, refuses future dates, never a traceback.
+  [`backlog-new-id.py:31`](../../scripts/backlog-new-id.py#L31)
+
+**The repair and the board**
+
+- `IDEA-103` was a duplicate key; the profile-lookup row is re-minted as a new-format ID.
+  [`backlog.yaml:2899`](backlog.yaml#L2899)
+
+- This review's deferred loose ends, registered with an ID from the new helper.
+  [`backlog.yaml:2907`](backlog.yaml#L2907)
+
+**Rules and prompts**
+
+- §4 rewritten: two shapes, frozen legacy set, mint with the helper, `created` from the ID.
+  [`backlog-spec.md:171`](backlog-spec.md#L171)
+
+- Check 17 in the authoritative list, including why CI's gate is the duplicate-key rule.
+  [`backlog-spec.md:446`](backlog-spec.md#L446)
+
+- Agents mint with the helper instead of "highest plus one".
+  [`bmad-correct-course.toml:12`](../../_bmad/custom/bmad-correct-course.toml#L12)
+
+- Deferral rows: mint, copy `created` from the ID, no failure may name your rows.
+  [`bmad-quick-dev.toml:19`](../../_bmad/custom/bmad-quick-dev.toml#L19)
+
+**CI**
+
+- Standalone `Backlog IDs` job: full history, unit tests, then `--only 17`; no `needs`.
+  [`ci.yml:183`](../../.github/workflows/ci.yml#L183)
+
+- Pins the job's shape so it cannot quietly start gating deploys or lose its history.
+  [`ci-wiring.test.ts:81`](../../apps/infrastructure/lib/ci-wiring.test.ts#L81)
+
+**Tests**
+
+- Branch collision, removed ID and legacy reuse against a real temporary git repository.
+  [`test_backlog_ids.py:250`](../../scripts/tests/test_backlog_ids.py#L250)
+
+- Pure rules with injected merge-base and master sets, including the empty merge-ref case.
+  [`test_backlog_ids.py:196`](../../scripts/tests/test_backlog_ids.py#L196)
+
+- CLI behaviour: `--only` validation, exit-status cap, minter refusals, unreadable board.
+  [`test_backlog_ids.py:330`](../../scripts/tests/test_backlog_ids.py#L330)
