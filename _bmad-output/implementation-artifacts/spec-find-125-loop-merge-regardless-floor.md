@@ -2,7 +2,7 @@
 title: 'Attended loop: the "Merge regardless of the floor" option, the reader and SKILL.md side of the floor override (FIND-125)'
 type: 'feature'
 created: '2026-11-07'
-status: 'in-review'
+status: 'done'
 baseline_commit: '611544244b48615475e04bc28e1dd0154d1b682f'
 review_loop_iteration: 0
 context:
@@ -97,3 +97,15 @@ The owner's variable is off by default and `validate` cannot see it, so a batch 
 - no TypeScript, workflow or apply code changes: lint and build are not needed
 
 **Manual checks (cloud session only):** an attended session run of the loop over a floor-refused pair shows the three-option popup and the refusal line; a live `-w` dispatch with `allow_floor_override` true renders its `override=true` title.
+
+## Spec Change Log
+
+- 2026-11-08, review loop 1 (blind + edge-case, no frozen-block change): patched `decisions` and `confirm` to re-check every override id against the validated `-v` report (`--validate-log`, `--validate-tag`, the same helper as `brief`), and the helper to require an accept result, the `-v` tag of this export (`<base>-x` to `<base>-v`) and a report not older than the export; `comment --override` is refused for any kind but `decided`; SKILL.md: `ALL_IDS` defined, the accepts-only exception in the offer bullets, an eligible pair at a tier other than `mid` listed, exit 7 versus 9 of `brief`, a warning that an override can still be dropped by a cap or a shared event, rule 7's full token list, the cap notice wording, "overrides" in the failure sentence; pins for the floor-code list, the token list and the section after step 8; docs. Deferred as `FIND-128`; rejected: none. Deviations from the spec text: `decisions` and `confirm` take the validate flags (the spec named only `brief`), which strengthens the frozen "Never: an override offered without the reader finding the floor refusal in the validated report".
+
+## Suggested Review Order
+
+1. `.claude/skills/moderator-dedup-review/dedup_report.py` -- `load_validate_report`, `refusal_code` and `check_overrides` (the evidence an override rests on), then `cmd_brief`, `parse_offer`, `options_for` and `build_brief` (what is offered and shown).
+2. The same file -- `check_batch`, `decisions_text`, `cmd_decisions` and `cmd_confirm` (what is confirmed and dispatched), then `validate_apply`, `read_expected_overrides`, `cmd_apply`, `cmd_close_decided`, `overridden_comment` and `cmd_insight_comment` (what is read back and closed).
+3. `.claude/skills/moderator-dedup-review/SKILL.md` -- rules 2, 3 and 7, then step 8 (the allow-list, `brief`, the eight titles, `confirm`, close).
+4. `.claude/skills/moderator-dedup-review/test_dedup_report.py` -- `LoopRejectTests` (the override tests), `FloorOverrideReportTests`, `SkillTextTests`.
+5. `_bmad-output/specs/ai-dedup-review/DESIGN.md` ("As built in FIND-125"), `docs/infrastructure/7-event-dedup.md`, `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-45 Rule 3 and 9 amendments), `backlog.yaml` and `deferred-work.md`.

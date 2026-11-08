@@ -270,7 +270,7 @@ the pairs the reviewer escalated, which `recentlyResolved` could not.
 
 The attended loop of the `moderator-dedup-review` skill (step 8) offers **Merge** (called Accept (merge) here until FIND-125), **Reject and Skip**; FIND-125 adds **Merge regardless of the floor** (below).
 
-- **Who gets what.** Accept and Reject for a pair `validate` calls `eligible`; Reject and Skip only for a pair the floor refuses
+- **Who gets what.** Accept (Merge since FIND-125) and Reject for a pair `validate` calls `eligible`; Reject and Skip only (since FIND-125: Merge regardless of the floor and Reject) for a pair the floor refuses
   (`low-tier`, `undone-before`, `no-anchor`, `venue-conflict`, `outside-window`, `schedule-uncovered`, `name-mismatch`) or that hit
   `per-run-cap` or `event-already-in-run`. A `high` pair (`already-high`), a gone pair and a `per-day-cap` pair are listed with no
   popup (a popup needs at least two options). Any answer that is not exactly an offered label is a skip.
@@ -318,7 +318,10 @@ The attended loop offers **Merge regardless of the floor** beside Merge, Reject 
   result from the validated report, requires a floor code that fits the exported tier (tier `high` iff `already-high`, tier `low`
   iff `low-tier`), and prints a fixed line after the signals (`Floor refuses (CODE): WORDS. Merging anyway skips it.`). One pair per
   call; an invented or unsupported offer exits 9.
-- **The batch.** `decisions --override IDS` and `confirm --override IDS` (all three flags required); the string carries
+- **The batch.** `decisions --override IDS` and `confirm --override IDS` (all three id flags required for `confirm`) each take the same
+  `--validate-log` and `--validate-tag` and re-check every override id against the validated report, so an id that was never shown the
+  refusal cannot be dispatched as an override whatever the model passes; the report must be the `<base>-v` run of the `<base>-x` export,
+  an accept result, and not older than the export. The string carries
   `accept-override`, last in the file. `confirm` lists merges, overrides and rejects apart, each with its own costs, and warns that the
   run is refused whole, the rest of the batch included, if the owner's override variable is off.
 - **Attended.** The same three conditions as a reject, with the override label; an unattended session runs plain merges only.

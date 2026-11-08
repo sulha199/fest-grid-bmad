@@ -736,6 +736,7 @@ def cmd_decisions(args):
     rejects = parse_ids(args.reject, '--reject') if args.reject is not None else []
     overrides = parse_ids(args.override, '--override') if args.override is not None else []
     index = check_batch(payload, accepts, rejects, MAX_DECISIONS, overrides)
+    check_overrides(args, payload, index, overrides)
     print(decisions_text(index, accepts, rejects, overrides))
     return 0
 
@@ -857,18 +858,43 @@ def options_for(offer):
     return [{'label': label, 'description': OPTION_DESCRIPTIONS[label]} for label in labels]
 
 
-def refusal_code(log_path, tag, suggestion_id, tier):
-    """The floor code the first accept-validate of the loop (`<tag>-v`) gave this pair, read from its validated report:
-    the pair must be a skipped result with a floor code, and the code must fit the exported tier (tier `high` iff
-    `already-high`, tier `low` iff `low-tier`). An override is offered only on this evidence, never on the model's word."""
+def load_validate_report(payload, log_path, tag):
+    """The first accept-validate of the loop, validated: it must be the `<base>-v` run of this export (`<base>-x`), a validate
+    report, and not older than the export. An override is offered only on this evidence, never on the model's word."""
+    export_tag = payload.get('runTag')
+    if not (isinstance(export_tag, str) and export_tag.endswith('-x')):
+        raise ReportError(EXIT_BAD_INPUT, 'an override needs the loop\'s export: its run tag must end in -x')
+    if tag != export_tag[:-2] + '-v':
+        raise ReportError(EXIT_BAD_INPUT, 'the validate run tag must be the -v tag of this export (%s)' % (export_tag[:-2] + '-v'))
     report = validate_apply(find_report(read_source(log_path), APPLY_BEGIN, APPLY_END), 'validate', tag, None)
+    if parse_time(report['generatedAt']) < parse_time(payload['generatedAt']):
+        raise ReportError(EXIT_BAD_INPUT, 'the validate report is older than the export: it cannot show what the floor says about this evidence')
+    return report
+
+
+def refusal_code(report, suggestion_id, tier):
+    """The floor code the validated accept-validate report gave this pair: the pair must be a skipped accept result with a
+    floor code, and the code must fit the exported tier (tier `high` iff `already-high`, tier `low` iff `low-tier`)."""
     found = [result for result in report['results'] if result['suggestionId'] == suggestion_id]
-    if len(found) != 1 or found[0]['outcome'] != 'skipped' or found[0].get('reason') not in FLOOR_REASONS:
+    if len(found) != 1 or found[0]['action'] != 'accept' or found[0]['outcome'] != 'skipped' or found[0].get('reason') not in FLOOR_REASONS:
         raise ReportError(EXIT_BAD_INPUT, 'the validate report does not show the floor refusing this pair: an override is offered only for a pair the floor refuses')
     code = found[0]['reason']
     if (tier == 'high') != (code == 'already-high') or (tier == 'low') != (code == 'low-tier'):
         raise ReportError(EXIT_BAD_INPUT, 'the floor code in the validate report does not fit the pair\'s tier: list the pair, no popup')
     return code
+
+
+def check_overrides(args, payload, index, overrides):
+    """Every id that is to be merged regardless of the floor must show its refusal in the validate report, for `brief`,
+    `decisions` and `confirm` alike. `--validate-log` and `--validate-tag` go with an override and with nothing else."""
+    if not overrides:
+        if args.validate_log or args.validate_tag:
+            raise ReportError(EXIT_BAD_INPUT, '--validate-log and --validate-tag are only for an override')
+        return {}
+    if not (args.validate_log and args.validate_tag):
+        raise ReportError(EXIT_BAD_INPUT, 'an override needs --validate-log and --validate-tag: the floor refusal is read from the validate report')
+    report = load_validate_report(payload, args.validate_log, args.validate_tag)
+    return {suggestion_id: refusal_code(report, suggestion_id, index[suggestion_id]['signals']['tier']) for suggestion_id in overrides}
 
 
 def cmd_brief(args):
@@ -890,9 +916,7 @@ def cmd_brief(args):
     if 'override' in offer:
         if len(ids) != 1:
             raise ReportError(EXIT_BAD_INPUT, 'an override popup is built for exactly one pair per call')
-        if not (args.validate_log and args.validate_tag):
-            raise ReportError(EXIT_BAD_INPUT, 'an override needs --validate-log and --validate-tag: the floor refusal is read from the validate report')
-        refusal = refusal_code(args.validate_log, args.validate_tag, ids[0], index[ids[0]]['signals']['tier'])
+        refusal = check_overrides(args, payload, index, ids)[ids[0]]
     elif args.validate_log or args.validate_tag:
         raise ReportError(EXIT_BAD_INPUT, '--validate-log and --validate-tag are only for an override offer')
     for suggestion_id in ids:
@@ -957,6 +981,7 @@ def cmd_confirm(args):
     rejects = parse_ids(args.reject, '--reject', allow_empty=True)
     overrides = parse_ids(args.override, '--override', allow_empty=True)
     index = check_batch(payload, accepts, rejects, CONFIRM_MAX, overrides)
+    check_overrides(args, payload, index, overrides)
     numbers = open_issue_numbers(args.files)
 
     for suggestion_id in accepts + rejects + overrides:
@@ -1369,6 +1394,8 @@ def cmd_verify_issue(args):
 
 def cmd_comment(args):
     """Comments the skill posts on an escalation issue. Fixed phrases and validated enums only."""
+    if args.override and args.kind != 'decided':
+        raise ReportError(EXIT_BAD_INPUT, '--override goes with `decided --merge-id`')
     if args.kind == 'resolved':
         print(resolved_comment(args.status, args.by))
     elif args.kind == 'decided':
@@ -1560,11 +1587,15 @@ def build_parser():
     p.add_argument('ids', nargs='*', help='the ids to accept')
     p.add_argument('--reject', default=None, help='comma-separated ids to reject (needs allow_rejects in the workflow)')
     p.add_argument('--override', default=None, help='comma-separated ids to merge regardless of the floor (needs allow_floor_override in the workflow)')
+    p.add_argument('--validate-log', default=None, help='with --override: the log of the <tag>-v accept-validate run; every override id must show the floor refusing it')
+    p.add_argument('--validate-tag', default=None, help='with --override: the run tag of that validate run (the -v tag of this export)')
     p = with_log('confirm', cmd_confirm, 'the final confirmation of the attended loop, built from the exact ids')
     p.add_argument('files', nargs='*', help='list_issues output, one file per page (names each pair by its open issue number)')
     p.add_argument('--accept', default=None, help='comma-separated ids to accept (an empty value is none); required')
     p.add_argument('--reject', default=None, help='comma-separated ids to reject (an empty value is none); required')
     p.add_argument('--override', default=None, help='comma-separated ids to merge regardless of the floor (an empty value is none); required')
+    p.add_argument('--validate-log', default=None, help='with a non-empty --override: the log of the <tag>-v accept-validate run; every override id must show the floor refusing it')
+    p.add_argument('--validate-tag', default=None, help='with a non-empty --override: the run tag of that validate run (the -v tag of this export)')
     p = with_log('triage', cmd_triage, 'which exported pairs are new and which a labelled issue covers')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p.add_argument('--live-cleared', action='store_true', help='the owner cleared this run for live, or the attended loop is running: shadow pairs return for a fresh decision')

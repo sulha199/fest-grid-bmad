@@ -1254,8 +1254,11 @@ class LoopRejectTests(Base):
         self.assertIn(dr.REJECT_COST, row['options'][1]['description'])
 
     # ---- confirm
-    def confirm(self, accept, reject, pairs=None, pages=(), override=''):
-        log = self.write(export_log(export_payload(pairs if pairs is not None else [pair(A), pair(B, tier='low'), pair(HEXY), pair(C, tier='high')])))
+    def confirm(self, accept, reject, pairs=None, pages=(), override='', run_tag=TAG, extra=(), results=None):
+        log = self.write(export_log(export_payload(pairs if pairs is not None else [pair(A), pair(B, tier='low'), pair(HEXY), pair(C, tier='high')], run_tag=run_tag)))
+        if override:  # an override needs the accept-validate report of this export: by default every pair is refused with a fitting code
+            fits = results if results is not None else ((A, 'no-anchor'), (B, 'low-tier'), (C, 'already-high'))
+            extra = ['--validate-log', self.vlog(*fits, tag=run_tag[:-2] + '-v'), '--validate-tag', run_tag[:-2] + '-v', *extra]
         argv = []
         if accept is not None:
             argv += ['--accept', accept]
@@ -1263,7 +1266,7 @@ class LoopRejectTests(Base):
             argv += ['--reject', reject]
         if override is not None:
             argv += ['--override', override]
-        code, out, err = self.cli('confirm', log, *pages, *argv)
+        code, out, err = self.cli('confirm', log, *pages, *argv, *extra, tag=run_tag)
         return code, (json.loads(out) if out.strip() else None), err
 
     def test_the_confirmation_names_each_pair_costs_a_reject_and_carries_the_exact_decisions(self):
@@ -1400,19 +1403,24 @@ class LoopRejectTests(Base):
 
 
     # ---- the floor override in the loop (FIND-125)
-    def vlog(self, *results, tag='t1v'):
-        """The `<tag>-v` accept-validate report of the loop: each result is (suggestion id, reason or None for eligible)."""
-        rows = [{'suggestionId': i, 'outcome': 'eligible'} if reason is None else {'suggestionId': i, 'outcome': 'skipped', 'reason': reason} for i, reason in results]
-        return self.write(apply_log(apply_payload('validate', rows, run_tag=tag)), 'vlog.txt')
+    XTAG, VTAG = 'dr1-x', 'dr1-v'  # the export run tag of the loop, and the -v tag of the accept-validate of that export
 
-    def override_brief(self, ids, offer='override,reject', results=((A, 'name-mismatch'),), pairs=None, pages=(), tag='t1v', log=True, with_tag=True):
-        export = self.write(export_log(export_payload(pairs if pairs is not None else [pair(A), pair(B, tier='low'), pair(C, tier='high')])), 'export.txt')
+    def vlog(self, *results, tag=VTAG, rows=None, generated=None, name='vlog.txt'):
+        """The `<tag>-v` accept-validate report of the loop: each result is (suggestion id, reason or None for eligible)."""
+        rows = rows if rows is not None else [{'suggestionId': i, 'outcome': 'eligible'} if reason is None else {'suggestionId': i, 'outcome': 'skipped', 'reason': reason} for i, reason in results]
+        payload = apply_payload('validate', rows, run_tag=tag)
+        if generated:
+            payload['generatedAt'] = generated
+        return self.write(apply_log(payload), name)
+
+    def override_brief(self, ids, offer='override,reject', results=((A, 'name-mismatch'),), pairs=None, pages=(), tag=VTAG, log=True, with_tag=True, export_tag=XTAG, vlog=None):
+        export = self.write(export_log(export_payload(pairs if pairs is not None else [pair(A), pair(B, tier='low'), pair(C, tier='high')], run_tag=export_tag)), 'export.txt')
         argv = ['--ids', ids, '--offer', offer]
         if log:
-            argv += ['--validate-log', self.vlog(*results, tag=tag)]
+            argv += ['--validate-log', vlog or self.vlog(*results, tag=tag)]
         if with_tag:
             argv += ['--validate-tag', tag]
-        code, out, err = self.cli('brief', export, *pages, *argv)
+        code, out, err = self.cli('brief', export, *pages, *argv, tag=export_tag)
         return code, [json.loads(line) for line in out.splitlines() if line.strip()], err
 
     def test_the_override_popup_names_the_check_the_floor_failed_and_offers_override_reject_skip(self):
@@ -1466,13 +1474,26 @@ class LoopRejectTests(Base):
             ids = args.pop('ids')
             code, rows, _ = self.override_brief(ids, **args)
             self.assertEqual((code, rows), (dr.EXIT_BAD_INPUT, []), label)                    # nothing printed before the refusal
-        code, rows, _ = self.override_brief(A, tag='t1v', results=((A, 'no-anchor'),))
+        code, rows, _ = self.override_brief(A, results=((A, 'no-anchor'),))
         self.assertEqual(code, 0)
-        wrong_tag = self.cli('brief', self.write(export_log(export_payload([pair(A)])), 'export.txt'), '--ids', A, '--offer', 'override', '--validate-log', self.vlog((A, 'no-anchor'), tag='t1v'), '--validate-tag', 'other')
-        self.assertEqual(wrong_tag[0], dr.EXIT_BAD_REPORT, 'a log of another run is refused as any report is')
+        # The report must be the accept-validate (-v) of THIS export, not older than it, and a validate report.
+        for label, (kwargs, expected) in {
+            'another validate tag': (dict(tag='other-v'), dr.EXIT_BAD_INPUT),
+            'the -v tag of another export': (dict(export_tag='dr2-x'), dr.EXIT_BAD_INPUT),
+            'an export that is not the loop\'s (-x)': (dict(export_tag='dr1'), dr.EXIT_BAD_INPUT),
+            'a report older than the export': (dict(vlog=self.vlog((A, 'no-anchor'), generated='2026-11-01T00:00:00.000Z', name='old.txt')), dr.EXIT_BAD_INPUT),
+            'a reject result in the report': (dict(vlog=self.vlog(rows=[{'suggestionId': A, 'action': 'reject', 'outcome': 'skipped', 'reason': 'already-high'}], name='reject.txt')), dr.EXIT_BAD_INPUT),
+            'a reject result with a floor code for a mid pair': (dict(vlog=self.vlog(rows=[{'suggestionId': A, 'action': 'reject', 'outcome': 'skipped', 'reason': 'no-anchor'}], name='reject2.txt')), dr.EXIT_BAD_INPUT),
+            'an export tag that ends in -y with a matching -v tag': (dict(export_tag='dr1-y'), dr.EXIT_BAD_INPUT),
+            'an override result in the report': (dict(vlog=self.vlog(rows=[{'suggestionId': A, 'action': 'accept-override', 'outcome': 'skipped', 'reason': 'no-anchor'}], name='override.txt')), dr.EXIT_BAD_REPORT),
+        }.items():
+            code, rows, _ = self.override_brief(A, **kwargs)
+            self.assertEqual((code, rows), (expected, []), label)
+        wrong_mode = self.write(apply_log(apply_payload('live', [{'suggestionId': A, 'outcome': 'skipped', 'reason': 'no-anchor'}], run_tag=self.VTAG)), 'live.txt')
+        self.assertEqual(self.override_brief(A, vlog=wrong_mode)[0], dr.EXIT_BAD_REPORT, 'a live report is not a validate report')
         # The validate flags belong to the override only.
-        export = self.write(export_log(export_payload([pair(A)])), 'export.txt')
-        self.assertEqual(self.cli('brief', export, '--ids', A, '--offer', 'accept,reject', '--validate-log', self.vlog((A, 'no-anchor')), '--validate-tag', 't1v')[0], dr.EXIT_BAD_INPUT)
+        export = self.write(export_log(export_payload([pair(A)], run_tag=self.XTAG)), 'export.txt')
+        self.assertEqual(self.cli('brief', export, '--ids', A, '--offer', 'accept,reject', '--validate-log', self.vlog((A, 'no-anchor')), '--validate-tag', self.VTAG, tag=self.XTAG)[0], dr.EXIT_BAD_INPUT)
 
     def test_the_override_popup_fits_the_cap_and_keeps_the_refusal_line_and_every_clue_at_the_worst_case(self):
         wide = dict(schedules=[dict(event()['schedules'][0], startDate='2026-11-%02d' % (i + 1), endDate='2026-12-%02d' % (i + 1)) for i in range(9)],
@@ -1490,36 +1511,48 @@ class LoopRejectTests(Base):
                 self.assertIn('Open issues for this pair: #1, #2, #3', question)
 
     def test_the_decisions_string_carries_overrides_last_with_their_action_and_refuses_overlaps(self):
-        log = self.write(export_log(export_payload([pair(A), pair(B, tier='low'), pair(C, tier='high'), pair(HEXY)])))
-        out = self.cli('decisions', log, HEXY, '--reject', B, '--override', '%s,%s' % (A, C))
-        self.assertEqual(out[0], 0)
+        pairs = [pair(A), pair(B, tier='low'), pair(C, tier='high'), pair(HEXY)]
+        log = self.write(export_log(export_payload(pairs, run_tag=self.XTAG)))
+        vlog = self.vlog((A, 'no-anchor'), (C, 'already-high'), (B, 'low-tier'), (HEXY, None))
+        flags = ['--validate-log', vlog, '--validate-tag', self.VTAG]
+        out = self.cli('decisions', log, HEXY, '--reject', B, '--override', '%s,%s' % (A, C), *flags, tag=self.XTAG)
+        self.assertEqual(out[0], 0, out[2])
         decisions = json.loads(out[1])['decisions']
         self.assertEqual([(d['suggestionId'], d.get('action')) for d in decisions], [(B, 'reject'), (HEXY, None), (A, 'accept-override'), (C, 'accept-override')])
-        self.assertEqual(self.cli('decisions', log, '--override', C)[0], 0, 'an override alone, of a high pair: no tier rule in the reader')
-        self.assertEqual(self.cli('decisions', log, C)[0], 0, 'an accept of a high pair is validated by step 8 item 3')
+        self.assertEqual(self.cli('decisions', log, C, tag=self.XTAG)[0], 0, 'an accept of a high pair is validated by step 8 item 3: no tier rule here')
+        # Every override id must show its refusal in the validate report: an eligible pair, an id the report lacks, a code that does not fit.
+        self.assertEqual(self.cli('decisions', log, '--override', HEXY, *flags, tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'a pair the report calls eligible')
+        self.assertEqual(self.cli('decisions', log, '--override', A, '--validate-log', self.vlog((B, 'low-tier')), '--validate-tag', self.VTAG, tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'a pair the report does not hold')
+        self.assertEqual(self.cli('decisions', log, '--override', A, '--validate-log', self.vlog((A, 'low-tier')), '--validate-tag', self.VTAG, tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'a code that does not fit the tier')
+        self.assertEqual(self.cli('decisions', log, '--override', A, tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'no validate report at all')
+        self.assertEqual(self.cli('decisions', log, '--override', A, '--validate-log', vlog, tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'no validate tag')
+        self.assertEqual(self.cli('decisions', log, A, *flags, tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'the validate flags go with an override only')
+        self.assertEqual(self.cli('decisions', log, '--override', A, '--validate-log', vlog, '--validate-tag', 'dr9-v', tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'the -v tag of another export')
         for label, argv in {'an id in two lists': [A, '--override', A.upper()], 'a reject and an override': ['--reject', A, '--override', A],
                             'an empty override list': ['--override', ''], 'a bad override id': ['--override', 'nope'], 'an unexported override': ['--override', '00000000-0000-4000-8000-0000000000ee'],
                             'a high reject beside an override': ['--reject', C, '--override', A], 'no ids at all': []}.items():
-            self.assertEqual(self.cli('decisions', log, *argv)[0], dr.EXIT_BAD_INPUT, label)
+            self.assertEqual(self.cli('decisions', log, *argv, *flags, tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, label)
 
     def test_the_confirmation_lists_merges_overrides_and_rejects_apart_with_each_cost_once(self):
         page = self.page(self.row(1, A), self.row(2, B), self.row(3, HEXY), self.row(4, C))
-        everything = self.confirm(HEXY, B, pages=(page,), override='%s,%s' % (A, C), pairs=[pair(A), pair(B, tier='low'), pair(HEXY), pair(C, tier='high')])
+        everything = self.confirm(HEXY, B, pages=(page,), override='%s,%s' % (A, C), run_tag=self.XTAG, pairs=[pair(A), pair(B, tier='low'), pair(HEXY), pair(C, tier='high')])
         self.assertEqual(everything[0], 0, everything[2])
         result = everything[1]
         question = result['question']
         self.assertIn('Merge 1 pair(s): #3 (id %s)' % HEXY[:8], question)
         self.assertIn('Merge regardless of the floor 2 pair(s): #1 (id %s)' % A[:8], question)
-        self.assertIn("its checks do not apply to them: this can merge a pair the reviewer would have refused", question.replace('The floor refuses these pairs and ', ''))
+        self.assertIn('its checks do not apply to them: this can merge a pair the reviewer would have refused', question)
         self.assertIn('A floor override runs only if the owner has switched it on; otherwise the whole run is refused, the rest of the batch included.', question)
         self.assertIn('A reject runs only if the owner has switched rejects on; otherwise the whole run is refused, the rest of the batch included.', question)
         self.assertIn(dr.REJECT_COST, question)
         self.assertEqual(question.count('recorded as AI-assisted under your moderator account'), 1)
         self.assertEqual((result['accept'], result['reject'], result['override']), ([HEXY], [B], [A, C]))
-        printed = self.cli('decisions', self.write(export_log(export_payload([pair(A), pair(B, tier='low'), pair(HEXY), pair(C, tier='high')])), 'again.txt'), HEXY, '--reject', B, '--override', '%s,%s' % (A, C))[1].strip()
+        again = self.write(export_log(export_payload([pair(A), pair(B, tier='low'), pair(HEXY), pair(C, tier='high')], run_tag=self.XTAG)), 'again.txt')
+        flags = ['--validate-log', self.vlog((A, 'no-anchor'), (B, 'low-tier'), (C, 'already-high')), '--validate-tag', self.VTAG]
+        printed = self.cli('decisions', again, HEXY, '--reject', B, '--override', '%s,%s' % (A, C), *flags, tag=self.XTAG)[1].strip()
         self.assertEqual(result['decisions'], printed, 'the string to dispatch is exactly what `decisions` prints')
         # Only what the batch holds: an override-only batch says nothing about rejects, an accept-only batch has neither word.
-        only = self.confirm('', '', pages=(page,), override=A)[1]['question']
+        only = self.confirm('', '', pages=(page,), override=A, run_tag=self.XTAG)[1]['question']
         self.assertIn('A floor override runs only', only)
         self.assertNotIn('reject', only.lower().replace('reviewer would have refused', ''))
         plain = self.confirm(A, '', pages=(page,))[1]['question']
@@ -1531,13 +1564,21 @@ class LoopRejectTests(Base):
         log = self.write(export_log(export_payload([pair(A), pair(B, tier='low'), pair(C, tier='high')])))
         self.assertEqual(self.cli('confirm', log, page, '--accept', '', '--reject', '')[0], dr.EXIT_BAD_INPUT, 'no --override flag')
         self.assertEqual(self.confirm('', '', pages=(page,), override='')[0], dr.EXIT_BAD_INPUT, 'all three empty')
-        self.assertEqual(self.confirm(A, B, pages=(page,), override=A)[0], dr.EXIT_BAD_INPUT, 'an id in two lists')
-        self.assertEqual(self.confirm('', '', pages=(page,), override=C)[0], dr.EXIT_BAD_INPUT, 'an override with no open issue')
-        self.assertEqual(self.confirm('', '', override=A)[0], dr.EXIT_BAD_INPUT, 'no issue pages')
+        self.assertEqual(self.confirm(A, B, pages=(page,), override=A, run_tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'an id in two lists')
+        self.assertEqual(self.confirm('', '', pages=(page,), override=C, run_tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'an override with no open issue')
+        self.assertEqual(self.confirm('', '', override=A, run_tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'no issue pages')
         many = [pair('00000000-0000-4000-8000-0000000000%02d' % i) for i in range(11)]
         ids = ','.join(p['suggestionId'] for p in many)
-        self.assertEqual(self.confirm('', '', pairs=many, override=ids)[0], dr.EXIT_BAD_INPUT, 'more than ten')
-        self.assertEqual(self.confirm('', '', pages=(page,), override=B)[0], 0, 'an override of a low pair is fine: no tier rule')
+        self.assertEqual(self.confirm('', '', pairs=many, override=ids, run_tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'more than ten')
+        self.assertEqual(self.confirm('', '', pages=(page,), override=B, run_tag=self.XTAG)[0], 0, 'an override of a low pair whose refusal fits is fine')
+        # Every override id must show its refusal in the validate report, as in `brief` and `decisions`.
+        page_all = self.page(self.row(1, A), self.row(2, B), self.row(3, HEXY))
+        self.assertEqual(self.confirm('', '', pages=(page_all,), override=HEXY, run_tag=self.XTAG, results=((HEXY, None),))[0], dr.EXIT_BAD_INPUT, 'a pair the report calls eligible')
+        self.assertEqual(self.confirm('', '', pages=(page_all,), override=A, run_tag=self.XTAG, results=((B, 'low-tier'),))[0], dr.EXIT_BAD_INPUT, 'a pair the report does not hold')
+        self.assertEqual(self.confirm('', '', pages=(page_all,), override=A, run_tag=self.XTAG, results=((A, 'low-tier'),))[0], dr.EXIT_BAD_INPUT, 'a code that does not fit the tier')
+        log = self.write(export_log(export_payload([pair(A)], run_tag=self.XTAG)), 'noflags.txt')
+        self.assertEqual(self.cli('confirm', log, page_all, '--accept', '', '--reject', '', '--override', A, tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'no validate report')
+        self.assertEqual(self.confirm(A, '', pages=(page_all,), extra=('--validate-log', self.vlog((A, 'no-anchor')), '--validate-tag', self.VTAG), run_tag=self.XTAG)[0], dr.EXIT_BAD_INPUT, 'the validate flags go with an override only')
 
     def test_close_decided_closes_an_overridden_merge_with_its_own_comment_and_the_accepted_outcome(self):
         results = [{'suggestionId': A, 'outcome': 'merged', 'mergeId': MERGE},
@@ -1569,6 +1610,9 @@ class LoopRejectTests(Base):
         self.assertIn('a moderator accepted this suggestion', self.run_cli('comment', 'decided', '--merge-id', MERGE)[1], 'the plain accept comment is unchanged')
         self.assertEqual(self.run_cli('comment', 'decided', '--override')[0], dr.EXIT_BAD_INPUT)
         self.assertEqual(self.run_cli('comment', 'decided', '--rejected', '--override')[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.run_cli('comment', 'refused', '--reason', 'no-anchor', '--override')[0], dr.EXIT_BAD_INPUT, '--override is for the decided comment only')
+        self.assertEqual(self.run_cli('comment', 'resolved', '--status', 'accepted', '--by', 'human', '--override')[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.run_cli('comment', 'reopened', '--override')[0], dr.EXIT_BAD_INPUT)
 
     def test_the_insight_comment_marks_an_overridden_merge_and_keeps_the_merged_count(self):
         log = self.write(export_log())
@@ -1644,8 +1688,15 @@ class SkillTextTests(unittest.TestCase):
         rules = self.text.split('## Step 0')[0]
         rule = next(line for line in rules.split('\n') if line.startswith('7. '))
         self.assertIn("**step 8's alone**", rule)
-        for token in ('--override', 'allow_floor_override', 'override=true'):
+        for token in self.OVERRIDE_TOKENS:
             self.assertIn(token, rule, token)
+        # The section "When something is wrong" follows step 8 in the text and is not step 8's: no token in it.
+        after = self.text.split('## When something is wrong')[1]
+        for token in self.OVERRIDE_TOKENS:
+            self.assertNotIn(token, after, token)
+        # Step 8's allow-list names exactly the floor codes the reader knows (the drain's `already-high` has its own bullet).
+        listed = set(re.findall(r'`([a-z-]+)`', next(line for line in self.steps[8].split('\n') if line.lstrip().startswith('* a floor code'))))
+        self.assertEqual(listed - {'a floor code'}, set(dr.FLOOR_REASONS) - {'already-high'})
         # Steps 4 and 6 (the daily review and the owner's live apply) never carry an override token in a title they write.
         for number in (4, 6):
             self.assertNotIn('override', self.steps[number].replace('overrides', ''), 'step %d' % number)

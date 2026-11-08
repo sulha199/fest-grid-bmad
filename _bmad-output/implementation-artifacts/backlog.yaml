@@ -2781,6 +2781,14 @@ items:
      touches: [app:backend, cross:process],
      note: "Deferred from: bmad-quick-dev review of spec-find-124-apply-side-floor-override (2026-11-07). Low: no DB test for high-tier or undone-before overrides; inputs-job wording for a mistyped override; kill-switch ordering; one weak reader test. 4 findings."}
 
+  FIND-128:
+    {type: finding, status: backlog, created: 2026-11-08,
+     impact: internal, effort: xs,
+     title: "AI dedup review loop: popups offered when the day budget is used, long issue lists, exit codes",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-125-loop-merge-regardless-floor.md, .claude/skills/moderator-dedup-review/dedup_report.py],
+     touches: [web:moderation, cross:process],
+     note: "Deferred from: bmad-quick-dev review of spec-find-125-loop-merge-regardless-floor (2026-11-08). Low: override and reject popups offered with the day cap used; popup issue list cut at 40+ issues; exit 7 versus 9 for a bad validate log. 3 findings."}
+
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
     {type: bug, status: backlog, created: 2026-10-30,
