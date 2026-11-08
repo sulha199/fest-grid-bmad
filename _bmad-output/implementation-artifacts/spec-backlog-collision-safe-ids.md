@@ -2,7 +2,8 @@
 title: 'Collision-safe backlog IDs (date + random suffix)'
 type: 'chore'
 created: '2026-11-08'
-status: 'draft'
+status: 'in-progress'
+baseline_commit: '8db8730878d00b8fc685bfd0fb77ec697ae73420'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/project-context.md'
@@ -57,15 +58,15 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `backlog.yaml` + the proposal doc for the renamed row -- repair `IDEA-103`: count citations (`git grep`), give the row with fewer a new-format ID dated 2026-10-31, update its `**Backlog:**` line and unambiguous citations -- precondition for check 17 and CI
-- [ ] `scripts/backlog_ids.py` -- new module: ceilings, `parse_id`, `is_valid_date`, `id_sort_key`, `mint_id`, all-mapping duplicate-detecting loader, `check_ids`, `collisions` as `(HEAD−base) ∩ (master−base)`, removed-ID and legacy-reuse detection
-- [ ] `scripts/backlog-check.py` -- use the module; duplicate-aware load; check 17; `--only N[,N]`; `--require-remote` / `CI=true`; `id_sort_key` ordering; widen lens column; fix "checks 1-15" and the docstring
-- [ ] `scripts/backlog-new-id.py` -- thin CLI over `mint_id`; UTC date; prints only the ID
-- [ ] `scripts/tests/__init__.py`, `scripts/tests/test_backlog_ids.py` -- `unittest` per matrix row; temp git repo (with `-c user.name/user.email`) for collision, removed-ID and legacy-reuse; assert ceilings equal the board's real maxima; `--only 17` via subprocess on the hyphenated script
-- [ ] `backlog-spec.md` -- rewrite §4 (format, freeze, minting, ordering by date then suffix, module constants by name), add check 17 to §9, fix §10 and the §12 `FIND-0NN` example; drop "highest number" and "chronological backfill" wording
-- [ ] `_bmad/custom/*.toml` -- correct-course, quick-dev, dev-auto, code-review: mint with `scripts/backlog-new-id.py <TYPE>`, set `created` from the ID; fix sprint-status stale text
-- [ ] `.github/workflows/ci.yml` + `ci-wiring.test.ts` -- job `name: Backlog IDs`, no `paths:`, not in `needs`, `setup-python` 3.11, pinned `pyyaml`, runs unit tests and `--only 17`; assert the job exists and runs `--only 17`
-- [ ] `README.md` -- check for ID-minting wording; fix if present
+- [x] `backlog.yaml` + the proposal doc for the renamed row -- repair `IDEA-103`: count citations (`git grep`), give the row with fewer a new-format ID dated 2026-10-31, update its `**Backlog:**` line and unambiguous citations -- precondition for check 17 and CI
+- [x] `scripts/backlog_ids.py` -- new module: ceilings, `parse_id`, `is_valid_date`, `id_sort_key`, `mint_id`, all-mapping duplicate-detecting loader, `check_ids`, `collisions` as `(HEAD−base) ∩ (master−base)`, removed-ID and legacy-reuse detection
+- [x] `scripts/backlog-check.py` -- use the module; duplicate-aware load; check 17; `--only N[,N]`; `--require-remote` / `CI=true`; `id_sort_key` ordering; widen lens column; fix "checks 1-15" and the docstring
+- [x] `scripts/backlog-new-id.py` -- thin CLI over `mint_id`; UTC date; prints only the ID
+- [x] `scripts/tests/__init__.py`, `scripts/tests/test_backlog_ids.py` -- `unittest` per matrix row; temp git repo (with `-c user.name/user.email`) for collision, removed-ID and legacy-reuse; assert ceilings equal the board's real maxima; `--only 17` via subprocess on the hyphenated script
+- [x] `backlog-spec.md` -- rewrite §4 (format, freeze, minting, ordering by date then suffix, module constants by name), add check 17 to §9, fix §10 and the §12 `FIND-0NN` example; drop "highest number" and "chronological backfill" wording
+- [x] `_bmad/custom/*.toml` -- correct-course, quick-dev, dev-auto, code-review: mint with `scripts/backlog-new-id.py <TYPE>`, set `created` from the ID; fix sprint-status stale text
+- [x] `.github/workflows/ci.yml` + `ci-wiring.test.ts` -- job `name: Backlog IDs`, no `paths:`, not in `needs`, `setup-python` 3.11, pinned `pyyaml`, runs unit tests and `--only 17`; assert the job exists and runs `--only 17`
+- [x] `README.md` -- check for ID-minting wording; fix if present
 
 **Acceptance Criteria:**
 - Given the repaired board, when `backlog-check.py` runs, then failures do not exceed the 78 baseline, none are check 17, and 319 rows load.

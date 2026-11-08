@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Deterministic runner for the backlog board's integrity checks and lenses.
 
-Implements checks 1-16 and the lens table from
+Implements checks 1-17 and the lens table from
 `_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-13 follow
 `planning-artifacts/epic-formation-gate.md`; check 14 enforces §12's deferral-intake rule;
 check 15 is the mechanical backstop for §3's "note is one line" rule; check 16 is the
-same rule applied to the board's own header `last_updated` field -- see
+same rule applied to the board's own header `last_updated` field; check 17 is §4's ID rules:
+format, frozen legacy counters, duplicate keys and branch collisions, implemented in
+`scripts/backlog_ids.py` -- see
 `scripts/sprint-status-comment-check.py`'s docstring for the sibling problem both mirror:
 `sprint-status.yaml`'s `last_updated` comment grew the same way before that guardrail existed,
 and this board's own `last_updated` field grew the same way before check 16 existed).
@@ -14,14 +16,23 @@ reimplementation reports "clean" on a broken board, which is worse than no check
 
 Usage:
     uv run --python 3.11 --with pyyaml scripts/backlog-check.py [--lens NAME] [--cluster] [--quiet]
+                                                                [--only N[,N]] [--require-remote]
 
 Exit code is the number of check failures (0 = clean), so it can gate a commit.
+
+`--only 17` runs just the ID check and counts only its failures: it is what CI gates on,
+because checks 1-16 carry a pre-existing backlog of failures that CI must not inherit.
+`--require-remote` (implied by `CI=true`) turns "origin/master or its merge-base is
+unavailable" from a stderr warning into a failure, so a shallow checkout cannot silently
+disable the collision check.
 """
 from __future__ import annotations
 import argparse, os, re, sys
 from collections import defaultdict
 
 import yaml
+
+import backlog_ids
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMPL = os.path.join(ROOT, "_bmad-output", "implementation-artifacts")
@@ -64,11 +75,12 @@ ACCUMULATION_MARKERS = re.compile(
 )
 
 
-def load_board():
-    with open(BOARD, encoding="utf-8") as fh:
-        board = yaml.safe_load(fh)
+def load_board(path=BOARD):
+    """`(items, tags, last_updated, duplicates)`; duplicates feed check 17."""
+    with open(path, encoding="utf-8") as fh:
+        board, duplicates = backlog_ids.load_board_text(fh.read())
     tags = {f"{ns}:{s}" for ns, slices in board["tags"].items() for s in slices}
-    return board["items"], tags, board.get("last_updated")
+    return board["items"], tags, board.get("last_updated"), duplicates
 
 
 def load_sprint_status():
@@ -131,8 +143,13 @@ def tag_prefix(tag: str) -> str:
     return tag.split("/", 1)[0]
 
 
-def run_checks(items, tags, stories, last_updated=None):
+def run_checks(items, tags, stories, last_updated=None, id_findings=()):
     failures = []
+
+    # Check 17 -- §4's ID rules. The rules live in scripts/backlog_ids.py (`check_ids`);
+    # the caller passes its findings in because they need git, which this function never touches.
+    for row, msg in id_findings:
+        failures.append((17, row, msg))
 
     def fail(num, row, msg):
         failures.append((num, row, msg))
@@ -338,8 +355,8 @@ def collisions(items):
         if len(members) > 4:
             suppressed += 1
         else:
-            shown.append((len(members), tag, sorted(members)))
-    return sorted(shown), suppressed
+            shown.append((len(members), tag, sorted(members, key=backlog_ids.id_sort_key)))
+    return sorted(shown, key=lambda g: (g[0], g[1])), suppressed
 
 
 def cluster_candidates(items):
@@ -384,7 +401,8 @@ def print_clusters(items, stories):
     print("  CANDIDATES, not clusters — the deciding axis (shared repair shape) is a reading pass")
 
     for axis, groups in axes.items():
-        sized = sorted(((len(v), k, sorted(v)) for k, v in groups.items() if len(v) > 1))
+        sized = sorted(((len(v), k, sorted(v, key=backlog_ids.id_sort_key))
+                        for k, v in groups.items() if len(v) > 1), key=lambda g: (g[0], g[1]))
         keep = [g for g in sized if g[0] <= 6]
         broad = [g for g in sized if g[0] > 6]
         print(f"\n  ── {axis} ──")
@@ -396,8 +414,9 @@ def print_clusters(items, stories):
             print(f"     {name[:34]:34} {size}  too broad to be a candidate")
 
     # Ritual step 4 reads these: only a cost: skip can reopen on price.
-    reopenable = sorted(k for k, r in items.items() if r.get("status") == "skipped"
-                        and (r.get("note") or "").lower().lstrip().startswith("cost:"))
+    reopenable = sorted((k for k, r in items.items() if r.get("status") == "skipped"
+                         and (r.get("note") or "").lower().lstrip().startswith("cost:")),
+                        key=backlog_ids.id_sort_key)
     print(f"\n  ── cost-skipped (re-scoring sweep, §9.2) ──")
     print("     " + (", ".join(reopenable) if reopenable else "(none)"))
 
@@ -441,6 +460,13 @@ def lenses(items):
     }
 
 
+def _check_numbers(text):
+    try:
+        return {int(part) for part in text.split(",") if part.strip()}
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"--only takes check numbers like 17 or 15,17, got {text!r}")
+
+
 def main():
     global SPRINT_STATUS
     ap = argparse.ArgumentParser()
@@ -448,9 +474,16 @@ def main():
     ap.add_argument("--quiet", action="store_true", help="failures only")
     ap.add_argument("--cluster", action="store_true",
                     help="epic-formation candidate axes instead of the full report")
+    ap.add_argument("--only", type=_check_numbers, metavar="N[,N]",
+                    help="count and gate on only these check numbers (CI uses --only 17); implies --quiet")
+    ap.add_argument("--require-remote", action="store_true",
+                    help="fail, not warn, when origin/master or its merge-base is unavailable "
+                         "(implied by CI=true)")
+    ap.add_argument("--board", default=BOARD, help=argparse.SUPPRESS)
+    ap.add_argument("--repo", default=ROOT, help=argparse.SUPPRESS)
     args = ap.parse_args()
 
-    items, tags, last_updated = load_board()
+    items, tags, last_updated, duplicates = load_board(args.board)
     SPRINT_STATUS = load_sprint_status()
 
     lens_table = lenses(items)
@@ -459,22 +492,32 @@ def main():
             print(f"unknown lens {args.lens!r}; known: {', '.join(lens_table)}")
             return 1
         fn = lens_table[args.lens]
-        for key in sorted(k for k, r in items.items() if fn(k, r)):
+        for key in sorted((k for k, r in items.items() if fn(k, r)), key=backlog_ids.id_sort_key):
             r = items[key]
-            print(f"{key:9} {r.get('impact','-'):13} {r.get('effort','-'):3} {r['title']}")
+            print(f"{key:16} {r.get('impact','-'):13} {r.get('effort','-'):3} {r['title']}")
         return 0
 
     if args.cluster:
         print_clusters(items, SPRINT_STATUS)
         return 0
 
-    failures = run_checks(items, tags, SPRINT_STATUS, last_updated)
+    remote = backlog_ids.load_remote_ids(args.repo, os.path.relpath(args.board, args.repo))
+    require_remote = args.require_remote or os.environ.get("CI") == "true"
+    id_findings, id_warnings = backlog_ids.check_ids(items, duplicates, remote, require_remote)
+    for warning in id_warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+
+    failures = run_checks(items, tags, SPRINT_STATUS, last_updated, id_findings)
+    if args.only:
+        failures = [f for f in failures if f[0] in args.only]
+        args.quiet = True
     if failures:
         print("CHECK FAILURES")
-        for num, row, msg in sorted(failures):
+        for num, row, msg in sorted(failures, key=lambda f: (f[0], backlog_ids.id_sort_key(f[1]), f[2])):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        print("checks 1-15: clean")
+        label = ",".join(str(n) for n in sorted(args.only)) if args.only else "1-17"
+        print(f"checks {label}: clean")
 
     if args.quiet:
         return len(failures)
@@ -495,7 +538,7 @@ def main():
 
     print("\nlenses (§11):")
     for name, fn in lens_table.items():
-        hits = sorted(k for k, r in items.items() if fn(k, r))
+        hits = sorted((k for k, r in items.items() if fn(k, r)), key=backlog_ids.id_sort_key)
         if hits:
             print(f"  {name:12} ({len(hits):2})  {', '.join(hits)}")
 

@@ -1,7 +1,7 @@
 [workflow]
 persistent_facts = [
   "Backlog board: this project tracks every Sprint Change Proposal, bug, finding and raw idea as a row in `_bmad-output/implementation-artifacts/backlog.yaml`. Its convention is `_bmad-output/implementation-artifacts/backlog-spec.md` — read that spec before writing to the board. The board is the intake index; `sprint-status.yaml` remains the execution board for anything that already has a story, and exactly one of the two owns an item's state at a time. Never duplicate execution state into the board: an item with stories carries a derived status, not a hand-edited one.",
-  "Proposal identity: every Sprint Change Proposal carries a `backlog_id: CC-NNN` key in its own frontmatter, matching its row in backlog.yaml. Links are bidirectional — a proposal without a row, or a row without a matching file, is a defect the board's checks will flag.",
+  "Proposal identity: every Sprint Change Proposal carries a `backlog_id: <its CC id>` key in its own frontmatter (ids are minted with `scripts/backlog-new-id.py`, never by taking the next number: backlog-spec.md §4), matching its row in backlog.yaml. Links are bidirectional — a proposal without a row, or a row without a matching file, is a defect the board's checks will flag.",
   "Ranking is never stored. The board has no `priority` field and must not grow one — a stored composite score is a hand-maintained derived value, the same failure mode the board's derived `status` exists to prevent, and no check can detect that it went stale. Open un-promoted rows carry two verifiable facts instead: `impact` (`user-visible|compliance|latent|cosmetic|internal`) and `effort` (`xs|s|m|l`), defined in backlog-spec.md §3 'Prioritization fields'. Prioritization happens at read time through the named lenses in §11.",
 ]
 
@@ -9,10 +9,14 @@ on_complete = """
 Register this Sprint Change Proposal on the backlog board before exiting. Follow
 `_bmad-output/implementation-artifacts/backlog-spec.md` for the schema; do not invent fields.
 
-1. Read `_bmad-output/implementation-artifacts/backlog.yaml` and take the next unused
-   `CC-NNN` id (ids are immutable and never reused, so scan for the highest and add one).
+1. Mint this proposal's id: run `uv run --python 3.11 --with pyyaml scripts/backlog-new-id.py CC` (add `--date YYYY-MM-DD` with the date in
+   this proposal's filename if that is not today, UTC). It prints one id such as
+   `CC-261108-k3x`, free in this tree, at the merge-base and on origin/master. **Never take
+   "the next number" by hand**: two branches doing that mint the same id, and git merges
+   both rows into one file where the YAML loader silently keeps only the last. Ids are
+   immutable and never reused (backlog-spec.md §4).
 
-2. Add `backlog_id: CC-NNN` to this proposal's own frontmatter, as the first key. If the
+2. Add `backlog_id: <the id from step 1>` to this proposal's own frontmatter, as the first key. If the
    document has no frontmatter block, create one containing only that key. Leave any
    existing `status:` field exactly as written — it describes the document, not the item.
 
@@ -20,7 +24,8 @@ Register this Sprint Change Proposal on the backlog board before exiting. Follow
    - `type: proposal`
    - `status: triaged` — the proposal exists and is analysed, but no story yet carries its
      changes. Only `bmad-create-story` promotes it, by adding story keys.
-   - `created` — today's date, matching the date in this proposal's filename.
+   - `created` — **the id's date** (`YYYY-MM-DD` from its `YYMMDD`), never the clock; check 17
+     fails a mismatch. It should match the date in this proposal's filename.
    - `title` — one line under 100 chars, understandable without opening the document.
    - `ref` — an ordered list ending with `planning-artifacts/<this proposal's filename>`.
      If this proposal grew out of an existing backlog note, that note comes first.
@@ -37,14 +42,14 @@ Register this Sprint Change Proposal on the backlog board before exiting. Follow
 4. **Carve out every deferred, rejected, or out-of-scope chunk into its own child row.**
    This is the step whose omission created the 2026-09-04 backfill's 16 orphaned items —
    work that was proposed, deferred in prose, and then tracked nowhere. For each one add a
-   row with `parent: CC-NNN`, its own id (`BUG-NNN`, `IDEA-NNN` or `FIND-NNN`), `touches`,
+   row with `parent: <the CC id>`, its own id (minted with `uv run --python 3.11 --with pyyaml scripts/backlog-new-id.py BUG|IDEA|FIND`, one call per row), `touches`,
    and a `note` recording why it was deferred. Use `status: skipped` for something
    deliberately dropped — record the decision rather than deleting it — and
    `status: backlog` for anything still genuinely open.
 
    Every `status: backlog` child also needs `impact` and `effort`; a `skipped` child is
    terminal and needs neither. If a carve-out **gates its own parent** — a design or
-   research pass the parent cannot safely ship without — put `blocks: [CC-NNN]` on the
+   research pass the parent cannot safely ship without — put `blocks: [<the CC id>]` on the
    child. Do not write that dependency as prose in a `note`: a blocker described in prose
    is invisible to every lens and to the board's own checks, which is how IDEA-007 sat
    unnoticed against CC-019.
@@ -52,6 +57,7 @@ Register this Sprint Change Proposal on the backlog board before exiting. Follow
 5. Re-read the rows you wrote and confirm: every `touches` tag resolves against the
    registry, every open row carries an `impact` and an `effort` whose values are in the
    §3 enums, every `blocks` id exists and is not already terminal, every `ref` path exists
-   on disk, and the proposal's frontmatter `backlog_id` matches its row key. Report to the
-   user which id was assigned and how many child rows were carved out.
+   on disk, and the proposal's frontmatter `backlog_id` matches its row key. Run
+   `uv run --python 3.11 --with pyyaml scripts/backlog-check.py --only 17` and confirm it is
+   clean. Report to the user which id was assigned and how many child rows were carved out.
 """

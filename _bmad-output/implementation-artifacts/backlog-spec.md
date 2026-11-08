@@ -170,12 +170,33 @@ the set actually being ranked. A `promoted` item's effort is already legible in
 
 ## 4. IDs
 
-Per-type counters, zero-padded to 3: `BUG-001`, `IDEA-001`, `CC-001`, `FIND-001`.
+Two shapes are valid. The rules live in `scripts/backlog_ids.py` (`NEW_RE`, `LEGACY_RE`,
+`SUFFIX_LEN`, `LEGACY_CEILING`) and this section cites them by name, so a number is never
+written down twice.
 
+- **New IDs (`NEW_RE`):** `<TYPE>-<YYMMDD>-<suffix>`, e.g. `FIND-261108-k3x`. `TYPE` is
+  `BUG`, `IDEA`, `CC` or `FIND`; `YYMMDD` is the row's creation date in UTC; the suffix is
+  `SUFFIX_LEN` random characters from `a-z0-9`. Mint one with
+  `uv run --python 3.11 --with pyyaml scripts/backlog-new-id.py <TYPE> [--date YYYY-MM-DD]`.
+  **Never pick "the next number" by hand**: two branches that do mint the same ID, git
+  merges both rows into one file, and the YAML loader keeps only the last, so a row
+  disappears with no error (`IDEA-103`, 2026-10-31: repaired by re-minting the
+  profile-lookup row as `IDEA-261031-nts`).
+- **Legacy IDs (`LEGACY_RE`):** `TYPE-NNN`, zero-padded to 3 (`BUG-001` ... `FIND-127`).
+  They stay valid and are never renumbered, but the set is **frozen**: no new legacy ID
+  may be added, including an unused gap number. `LEGACY_CEILING` holds each type's highest
+  at the 2026-11-08 change.
+- **`created` equals the ID's `YYMMDD`.** Copy it from the ID, never from the clock: a cloud
+  session's clock is UTC and yours may not be. A retroactive row passes `--date`.
 - **IDs are immutable.** If an item is reclassified, the `type:` field changes and the
   ID does not. A stale prefix is cosmetic; a moving ID breaks every cross-reference.
-- Assign in chronological order during backfill.
-- Never reuse an ID, including for deleted items.
+- Never reuse an ID, and never delete a row: an item that is dropped becomes `skipped` or
+  `superseded` (§5), so its ID stays on the board.
+- **Order** within a type: legacy IDs first by number, then new IDs by date and suffix
+  (`id_sort_key`). The suffix is random, so order within one day means nothing; only the
+  date does.
+- Uniqueness of a new ID is probabilistic (36 to the power `SUFFIX_LEN`, per type per day).
+  Check 17 is the backstop, not a reservation: there is no shared ledger.
 
 ### Ref roots
 
@@ -337,6 +358,7 @@ One-way links rot silently. With both directions, any file resolves to its row, 
 ```
 uv run --python 3.11 --with pyyaml scripts/backlog-check.py          # checks + counts + collisions + lenses
 uv run --python 3.11 --with pyyaml scripts/backlog-check.py --lens cheap-wins
+uv run --python 3.11 --with pyyaml scripts/backlog-check.py --only 17     # the ID rules alone (what CI gates on)
 ```
 
 Exit code is the failure count, so it can gate a commit. The checks and the §11 lens
@@ -415,6 +437,32 @@ board — worse than running no check at all.
     `backlog/<ID>-slug.md` file. Leave one fact — the thing that changes how the row is read —
     behind in `note`. Never summarize-and-discard: move the full text verbatim first, trim
     second, so a bad one-liner is always recoverable from its new home.
+16. **Header regrowth** — the file header's own `last_updated` exceeding 300 chars. It is a
+    bare ISO timestamp and nothing else; the narrative lives in git history. The same rule
+    as check 15, applied to the one field that once grew to a multi-thousand-word log.
+17. **ID rules** (§4; `scripts/backlog_ids.py`, `check_ids`) — fails when any of these holds:
+    - a key matches neither `NEW_RE` nor `LEGACY_RE`;
+    - a new-format ID's date is not a real calendar date, or differs from the row's `created`;
+    - a legacy-format key is not already at the merge-base with `origin/master`. A new
+      number and the reuse of an unused gap both fail. With no git history the fallback is
+      `LEGACY_CEILING`: a number above it fails;
+    - a key appears twice in **any** mapping of the file. The loader reports it instead of
+      silently keeping the last, which is how a row vanishes after a clean git merge;
+    - an ID present at the merge-base is gone (§4: IDs are never reused or deleted);
+    - an ID this branch added is also one `origin/master` added since the fork, so the
+      branch that must re-mint is named. The collision set is
+      `(HEAD ids − base ids) ∩ (master ids − base ids)`.
+
+    It does **not** compare an ID's prefix with `type:`: reclassification keeps the ID (§4).
+    It needs git history. Without `origin/master` or a merge-base it warns on stderr; under
+    `CI=true` or `--require-remote` that becomes a failure, so a shallow checkout cannot
+    silently disable it. CI runs only this check (`--only 17`), because checks 1-16 carry a
+    backlog of failures that a new job must not inherit. On GitHub's merge-ref checkout
+    `HEAD` already contains `master`, so there the **duplicate-key rule is the gate**; the
+    merge-base rules matter for a local pre-push run or a PR-head checkout, where they name
+    which branch must rename. CI is advisory unless the check is a required status (a
+    GitHub ruleset setting, not a file), and a green PR is not re-run when `master` moves,
+    so the push-to-`master` run is the catch-all.
 
 Check 7 finds *candidates*, not conflicts. Semantic contradiction between items that
 touch no common surface is **not mechanically detectable** and needs a reading pass —
@@ -424,8 +472,9 @@ enumerable.
 
 ## 10. Lifecycle
 
-**Capture.** Anything worth not forgetting gets a row immediately: `status: backlog`,
-a title, `touches`, `ref: []`. If there is a raw dump (payloads, screenshots, stream of
+**Capture.** Anything worth not forgetting gets a row immediately: an ID minted with
+`scripts/backlog-new-id.py` (§4), `status: backlog`, a title, `touches`, `ref: []`, and
+`created` copied from the ID's date. If there is a raw dump (payloads, screenshots, stream of
 thought), it becomes `backlog/<ID>-<slug>.md` and the row's only `ref`. Capture is
 cheap by design — a row is one line.
 
@@ -506,8 +555,8 @@ exists for.
 ### Shape
 
 ```yaml
-FIND-0NN:
-  {type: finding, status: backlog, created: <today>,
+<FIND id from scripts/backlog-new-id.py FIND>:
+  {type: finding, status: backlog, created: <the ID's date, YYYY-MM-DD>,
    impact: internal, effort: s,
    title: "<the shared cause, one line>",
    ref: [implementation-artifacts/deferred-work.md],
