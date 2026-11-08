@@ -2789,6 +2789,63 @@ items:
      touches: [web:moderation, cross:process],
      note: "Deferred from: bmad-quick-dev review of spec-find-125-loop-merge-regardless-floor (2026-11-08). Low: override and reject popups offered with the day cap used; popup issue list cut at 40+ issues; exit 7 versus 9 for a bad validate log. 3 findings."}
 
+  # ── 2026-11-08 (owner: minimize manual moderation; AI dedup autonomy, the formation candidates) ──
+  IDEA-114:
+    {type: idea, status: backlog, created: 2026-11-08,
+     impact: internal, effort: m,
+     title: "AI dedup autonomy: record who or what decided each pair, why, and in which run",
+     ref: [planning-artifacts/ai-dedup-autonomy-proposal-2026-11-08.md],
+     touches: [app:backend, pkg:domain, cross:architecture],
+     note: "Mechanism (story a) of the proposed epic. Overlaps FIND-114 (run id not stored). The audit and the measurement read it."}
+
+  IDEA-115:
+    {type: idea, status: backlog, created: 2026-11-08,
+     impact: internal, effort: m, blocks: [IDEA-118, IDEA-120],
+     title: "AI dedup autonomy: replay moderator-resolved pairs through Claude and report agreement",
+     ref: [planning-artifacts/ai-dedup-autonomy-proposal-2026-11-08.md],
+     touches: [app:backend, cross:process],
+     note: "Go/no-go gate of the proposed epic: no behaviour change; sets what autonomy each class of decision may get."}
+
+  IDEA-116:
+    {type: idea, status: backlog, created: 2026-11-08,
+     impact: internal, effort: m,
+     title: "AI dedup autonomy: richer evidence in the export (captions, links, account type, image)",
+     ref: [planning-artifacts/ai-dedup-autonomy-proposal-2026-11-08.md],
+     touches: [app:backend, pkg:domain, cross:architecture],
+     note: "Claude's accuracy depends on evidence, not on rules. Hash and public-log rules apply."}
+
+  IDEA-117:
+    {type: idea, status: backlog, created: 2026-11-08,
+     impact: user-visible, effort: l,
+     title: "AI dedup autonomy: reversible reject, a soft AI-dismissed state or an un-reject in the app",
+     ref: [planning-artifacts/ai-dedup-autonomy-proposal-2026-11-08.md],
+     touches: [app:backend, pkg:domain, web:moderation],
+     note: "Today only the owner reopens a reject, by SQL. Makes unattended rejects cheap to undo."}
+
+  IDEA-118:
+    {type: idea, status: backlog, created: 2026-11-08,
+     impact: user-visible, effort: l,
+     title: "AI dedup autonomy: reasoned decisions beyond the floor, with a second-pass verifier and caps",
+     ref: [planning-artifacts/ai-dedup-autonomy-proposal-2026-11-08.md],
+     touches: [cross:process, app:backend, cross:architecture],
+     note: "Shadow first; live only if IDEA-115 supports the class. Needs the rationale record of IDEA-114."}
+
+  IDEA-119:
+    {type: idea, status: backlog, created: 2026-11-08,
+     impact: user-visible, effort: m,
+     title: "AI dedup autonomy: sampled audit of Claude's decisions, a digest and an automatic pause",
+     ref: [planning-artifacts/ai-dedup-autonomy-proposal-2026-11-08.md],
+     touches: [cross:process, web:moderation],
+     note: "The human role becomes audit and exceptions. Pairs with IDEA-113 (list and badge AI merges)."}
+
+  IDEA-120:
+    {type: idea, status: backlog, created: 2026-11-08,
+     impact: internal, effort: s,
+     title: "AI dedup autonomy: standing approval policy for narrow, capped classes (AD-45 amendment)",
+     ref: [planning-artifacts/ai-dedup-autonomy-proposal-2026-11-08.md],
+     touches: [cross:architecture, app:infrastructure],
+     note: "The per-run owner click limits how little human work is possible; the owner decides the policy."}
+
   # ── 2026-10-30 (review of the shared accept/reject function: pre-existing lock gaps and one sandbox test) ──
   BUG-094:
     {type: bug, status: backlog, created: 2026-10-30,
