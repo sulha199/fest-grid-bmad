@@ -11,22 +11,22 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 
 ## 1. Fix before the epic starts (rows exist; each stands alone)
 
-- [ ] **BUG-261102-00r** (API Lambda registers no scraper adapters, every API-side scrape throws) `xs`. Do first: it is the prod cause of the
+- [x] **BUG-261102-00r** (API Lambda registers no scraper adapters, every API-side scrape throws) `xs`. Do first: it is the prod cause of the
   BUG-099 symptom. Next action: `bmad-quick-dev BUG-261102-00r`. Re-run the sharp-isolation test after. Still unverified after the fix: the
   20 s `getPostByUrl` cap inside the 28 s Lambda limit.
-  **Code done 2026-11-02:** branch `fix/bug-100-api-lambda-registers-scraper-adapters`, commit `2fea660e`, local and not pushed, no PR yet. The
-  regression test was red without the fix and green with it; the sharp-isolation test passed 8 of 8. Stays open until merged and deployed.
+  **Code done 2026-11-02:** branch `fix/bug-100-api-lambda-registers-scraper-adapters`, commit `2fea660e`, merged as PR 182 on 2026-11-09. The
+  regression test was red without the fix and green with it; the sharp-isolation test passed 8 of 8. Closed: merged 2026-11-09, after PR 184.
   Deploying it makes API-side rescrapes spend vendor credit, so ship FIND-261102-4qm with or before it (FIND-103: Apify is capped).
-- [ ] **FIND-261102-4qm** (a rescrape failure that spent no vendor credit still starts the 10-minute cooldown) `xs`.
+- [x] **FIND-261102-4qm** (a rescrape failure that spent no vendor credit still starts the 10-minute cooldown) `xs`.
   **Renumbered twice, 2026-11-08:** this row was FIND-119. Master's AI-dedup-review work took FIND-119 to FIND-121 and FIND-114 to FIND-118, so it moved to FIND-128; then master's collision-safe ID rule (PR #178: `TYPE-YYMMDD-xxx`, legacy counters frozen) required a new-format ID, so it is now FIND-261102-4qm. The same two moves renumbered this branch's other rows: FIND-129 and FIND-130 are FIND-261102-83m and FIND-261102-erb, the five deferral rows (first FIND-114 to FIND-118) are FIND-261102-23t, FIND-261102-02a, FIND-261102-v0e, FIND-261102-gmw and FIND-261102-4ma, BUG-100 and BUG-101 are BUG-261102-00r and BUG-261102-4rm, IDEA-116 to IDEA-120 are IDEA-261102-dkk, -xrx, -v9l, -scl and -tov, and the profile-lookup row (IDEA-115 here, IDEA-103 before) is IDEA-261031-nts, master's repair. The user's local branch and the orchestrator's scratch files keep the old names (`fix/find-119-...`, `fix/bug-100-...`, `fix/bug-101-...`).
-  **Code done 2026-11-02:** branch `fix/find-119-no-cooldown-without-vendor-call`, commits `fb5b77d7` and `fec4e050`, local and not pushed. The
+  **Code done 2026-11-02:** branch `fix/find-119-no-cooldown-without-vendor-call`, commits `fb5b77d7` and `fec4e050`, merged as PR 184 on 2026-11-09 (PR 181 was closed for it after code review found the API-path memory-cap gap; PR 184 adds a typed 402 and real-adapter tests). The
   follow-up commit added the Apify memory-cap and monthly-cap errors to the no-cooldown set (the free-plan cap is the live case) and restored the
-  log line the missing-adapter path had lost. 31 of 31 tests in the file pass. Stays open until merged.
-- [ ] **BUG-261102-4rm** (Apify's slide list repeats the cover, so Gemini receives it twice) `xs`. Fix the adapter and de-duplicate by file name at
+  log line the missing-adapter path had lost. 31 of 31 tests in the file pass. Closed 2026-11-09; Twitter/X left open as FIND-261109-u8q.
+- [x] **BUG-261102-4rm** (Apify's slide list repeats the cover, so Gemini receives it twice) `xs`. Fix the adapter and de-duplicate by file name at
   read time in `build-gemini-request.ts` so the 354 stored Apify posts are covered without a backfill.
-  **Code done 2026-11-02:** branch `fix/bug-101-apify-slide-list-repeats-cover`, commits `311a6b36` and `8e83d9cb`, local and not pushed. One shared
+  **Code done 2026-11-02:** branch `fix/bug-101-apify-slide-list-repeats-cover`, commits `311a6b36` and `8e83d9cb`, merged as PR 183 on 2026-11-09 with one more commit (the BUG-099 test pinned the repeated cover). One shared
   file-name helper in `packages/domain` serves both the adapter and the read-time de-duplication. Adapter 40, request-builder 47 and helper 7 tests pass.
-  Stays open until merged.
+  Closed 2026-11-09.
 
 ## 2. Gates before any Epic 10 story starts
 
@@ -151,4 +151,4 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 - [x] FR116 to FR128 backfilled into `epics.md` (inventory, coverage map, Epic 10 "FRs covered"); FR129 added with Story 10.12a, and FR121 amended (a job over its limit is queued, not refused; vendor jobs limited to 3, extraction-only jobs to 2).
 - [x] Manual post selection (PRD 3.10) was not in the epic; the product owner chose to add it as a job type: Story 10.12a, IDEA-261102-tov. Readiness re-run for that story only (addendum in `epic-readiness/epic-10-readiness.md`).
 - [x] Nine "fix on its PR" rows verified against master and closed or corrected (section 6).
-- [x] Code for BUG-261102-00r, FIND-261102-4qm and BUG-261102-4rm committed on three local branches (section 1); lint and build green on their integration.
+- [x] Code for BUG-261102-00r, FIND-261102-4qm and BUG-261102-4rm merged on 2026-11-09 as PR 183, PR 184 (replacing PR 181) and PR 182, in that order (section 1).

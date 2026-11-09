@@ -2925,28 +2925,28 @@ items:
   # ── 2026-11-02 (epic formation: background vendor jobs, epic-10, and the fixes that ship ahead of it) ──
 
   BUG-261102-00r:
-    {type: bug, status: backlog, created: 2026-11-02,
+    {type: bug, status: done, created: 2026-11-02,
      impact: user-visible, effort: xs,
      title: "The API Lambda registers no scraper adapters, so every API-side scrape throws",
-     ref: [backlog/BUG-261102-00r-api-lambda-registers-no-scraper-adapters.md],
+     ref: [apps/backend/src/server.ts, apps/backend/src/lambdas/api.test.ts, backlog/BUG-261102-00r-api-lambda-registers-no-scraper-adapters.md],
      touches: [app:backend, app:infrastructure],
-     note: "Seen on prod 2026-10-31 14:32Z in the BUG-099 rescrape. Ship ahead of Epic 10; Story 10.14z ratchets it."}
+     note: "Fixed in PR 182, merged 2026-11-09: server.ts imports register-adapters, api.test.ts guards it; Story 10.14z ratchets every Lambda. The API Lambda now spends Apify credit on rescrape, extract-by-URL and vote lookups, with no per-user throttle."}
 
   FIND-261102-4qm:
-    {type: finding, status: backlog, created: 2026-11-02,
+    {type: finding, status: done, created: 2026-11-02,
      impact: internal, effort: xs,
      title: "A rescrape failure that spent no vendor credit still starts the 10-minute cooldown",
-     ref: [backlog/FIND-261102-4qm-rescrape-failure-without-vendor-call-starts-cooldown.md],
+     ref: [apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/backend/src/lib/scraper/instagram-adapter.ts, backlog/FIND-261102-4qm-rescrape-failure-without-vendor-call-starts-cooldown.md],
      touches: [app:backend],
-     note: "Seen 2026-10-31: the retry 20 s later hit the cooldown. Record a failed rescrape only when a vendor call ran; Story 10.3 has the engine form."}
+     note: "Fixed in PR 184, merged 2026-11-09 (replaced PR 181): no cooldown when no vendor call started (no adapter, capacity, DPA gate, Apify memory or monthly cap). Twitter/X still records one: FIND-261109-u8q. Story 10.3 has the engine form."}
 
   BUG-261102-4rm:
-    {type: bug, status: backlog, created: 2026-11-02,
+    {type: bug, status: done, created: 2026-11-02,
      impact: internal, effort: xs,
      title: "Apify's slide list repeats the cover, so Gemini receives it twice",
-     ref: [backlog/BUG-261102-4rm-apify-slide-list-repeats-the-cover.md],
+     ref: [packages/domain/src/posts/image-url-file-name.ts, apps/backend/src/lib/scraper/instagram-adapter.ts, apps/backend/src/lib/ai-processor/build-gemini-request.ts, backlog/BUG-261102-4rm-apify-slide-list-repeats-the-cover.md],
      touches: [app:backend, cross:ai-extraction],
-     note: "354 of 354 stored Apify carousels repeat the cover in additional_image_urls (Bright Data 0 of 629). Fix at the source (Story 10.2) and de-duplicate stored rows at read time."}
+     note: "Fixed in PR 183, merged 2026-11-09: the cover is de-duplicated by file name at ingestion and at read time (shared helper in packages/domain), so the 354 stored Apify posts need no backfill. Story 10.2 keeps it when the mapper moves into the provider chain."}
 
   IDEA-261102-dkk:
     {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
@@ -3029,3 +3029,11 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend],
      note: "Deferred from: bmad-quick-dev gate run of spec-backlog-collision-safe-ids: daily-batch no-targets test has a stale cutoff and shared-DB state (2026-11-09). 1 finding."}
+
+  FIND-261109-u8q:
+    {type: finding, status: backlog, created: 2026-11-09,
+     impact: internal, effort: xs,
+     title: "A Twitter/X re-extract still starts the 10-minute cooldown although its adapter is a stub that never calls a vendor",
+     ref: [apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/backend/src/lib/scraper/twitter-adapter.ts],
+     touches: [app:backend],
+     note: "From the code review of PR 184: the stub throws a plain Error before any vendor call, so isPreVendorCallFailure misses it. Throw a typed error from the stub (or skip unimplemented platforms) and exempt it."}

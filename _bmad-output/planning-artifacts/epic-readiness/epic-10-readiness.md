@@ -76,8 +76,8 @@ ran, not deferred to it:
   manual compliance now, re-verified once those land.
 - **Boundary enforcement:** Story 10.14z's planned boundary test (no resolver imports a vendor client outside the
   engine) and metafile ratchet directly target the exact bug class (BUG-261102-00r) that motivated the epic. One gap:
-  BUG-261102-00r's actual fix is local-only (branch `fix/bug-100-api-lambda-registers-scraper-adapters`, not on master), so
-  by the time 10.14z is built the "red" case it needs may already be fixed on master. **Corrected directly on
+  BUG-261102-00r's fix reached master as PR 182 (2026-11-09), so
+  the "red" case 10.14z needs is already fixed on master. **Corrected directly on
   10.14z:** added guidance to produce the red run either via a committed synthetic bad-fixture (preferred — keeps
   the ratchet self-verifying) or a one-time local revert, documented in Dev Notes, if the fix has already landed.
 

@@ -17,3 +17,7 @@ prod 2026-11-02: all 354 stored Apify posts with slides have slide 0 equal to th
 
 Drop the first child when it equals the cover in the adapter (the source fix lands in Story 10.2's chain), and compare by file name
 at read time in `build-gemini-request.ts` so already-stored rows are covered without a backfill.
+
+## Outcome
+
+Fixed in PR 183, merged 2026-11-09. The full-suite run found that the BUG-099 test in `extraction.test.ts` pinned the repeated cover; it now expects the real slides only.
