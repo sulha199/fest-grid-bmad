@@ -172,6 +172,14 @@ function normalizeApifyError(err: unknown, context: string): Error {
       ? String((err.data as any).error.message)
       : err.message;
 
+    // FIND-261102-4qm -- the API Lambda sets no audit context, so callApifyActor does not wait for memory
+    // there and rethrows the raw 402; wrapped into a plain Error below it would look like a failure
+    // AFTER the vendor call started (and start the moderator re-extract's 10-minute cooldown) although
+    // Apify refused to START the run. Type it here, at the one place every caller's error passes through.
+    if (isApifyMemoryLimitError(err)) {
+      return new ApifyMemoryLimitExhaustedError(0, 1, detail);
+    }
+
     return new Error(`Apify request failed while ${context}: ${detail}`);
   }
 

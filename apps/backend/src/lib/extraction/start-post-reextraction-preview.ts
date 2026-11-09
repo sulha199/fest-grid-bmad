@@ -113,7 +113,7 @@ const SCRAPE_FAILED = {
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * FIND-119 -- true for an error that is known to have been thrown before any vendor run could
+ * FIND-261102-4qm -- true for an error that is known to have been thrown before any vendor run could
  * have started (so no credit could have been spent): our own per-provider capacity gate, the
  * DPA-confirmation gate `callVendor` checks before it ever makes the call, and Apify refusing to
  * START a run because the account's memory cap or monthly usage cap is reached (the free plan's
@@ -276,7 +276,7 @@ export async function startPostReextractionPreview(
       };
     }
 
-    // FIND-119 -- no adapter means no vendor call is even possible, so nothing was spent: no
+    // FIND-261102-4qm -- no adapter means no vendor call is even possible, so nothing was spent: no
     // FAILED row, no cooldown. (BUG-100, a separate branch, is about which platforms have one.)
     if (!isAdapterRegistered(platform)) {
       // Keep the log line the thrown error used to leave: this is how BUG-100 (the API Lambda
@@ -290,7 +290,7 @@ export async function startPostReextractionPreview(
       scraped = await getScraperAdapter(platform).getPostByUrl(url);
     } catch (err) {
       console.error(`[startPostReextractionPreview] Failed to scrape ${url}:`, err);
-      // FIND-119 -- only a failure once the vendor call actually started (so credit may have
+      // FIND-261102-4qm -- only a failure once the vendor call actually started (so credit may have
       // been spent) counts against the cooldown; a gate that refused before the call started
       // leaves no row, so an immediate retry is not refused for no reason.
       if (!isPreVendorCallFailure(err)) {
