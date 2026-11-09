@@ -2,9 +2,40 @@ import type { SQSEvent, Context, SQSBatchResponse } from 'aws-lambda';
 import { processAiJob } from '../lib/ai-processor/process-ai-job.js';
 import { processManualExtractionJob } from '../lib/ai-processor/process-manual-extraction-job.js';
 import { type ProcessingJobMessage, type ManualExtractionInvokePayload } from '@festgrid/domain/posts';
-import { pollAndDrainQueue, hasJobType } from '../lib/aws/poll-and-drain-queue.js';
+import { pollAndDrainQueue, hasJobType, type PollAndDrainQueueOptions } from '../lib/aws/poll-and-drain-queue.js';
+import { loadBackendEnv } from '../env.js';
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
+
+// Measured on prod 2026-11-02..09 (log gaps between consecutive messages, an upper bound): p50 4.6s,
+// p95 22s, p99 40s, max 71s. One message's budget for receive sizing is therefore ~p99.
+const AI_PER_MESSAGE_BUDGET_MS = 45_000;
+// Added on top of the face-blur floor (FACE_BLUR_MIN_REMAINING_TIME_MS): the cover blur, any slide blurs and
+// the Gemini call all happen after a message starts, and the slide blurs and the thumbnail stage each
+// re-check that floor. ~p99 of a message's duration, so all but the slowest ~1% finish above the floor.
+const AI_MESSAGE_WORK_MARGIN_MS = 40_000;
+
+// Without these a message can start with ~30s of the 300s timeout left, below the face-blur floor, and the
+// cover blur then fails closed: the post is extracted text-only, gets no thumbnail and is never retried
+// (380 prod posts, 2026-10-05..11-09). Only applies when face blurring is on and the Lambda context can
+// tell us the remaining time; otherwise the loop keeps its original unbounded behavior.
+function buildDrainBudget(context: Context): PollAndDrainQueueOptions | undefined {
+  const env = loadBackendEnv();
+  if (!env.blurFacesBeforeAi || !context.getRemainingTimeInMillis) {
+    return undefined;
+  }
+  const getRemainingTimeInMillis = context.getRemainingTimeInMillis.bind(context);
+  const minRemainingMs = env.faceBlurMinRemainingTimeMs + AI_MESSAGE_WORK_MARGIN_MS;
+  return {
+    minRemainingMs,
+    getRemainingTimeInMillis,
+    perMessageBudgetMs: AI_PER_MESSAGE_BUDGET_MS,
+    // The last receive must still leave its messages a start at or above `minRemainingMs`: receives size to
+    // floor((budget - elapsed) / perMessage) and stop at 0, so a budget of remaining - min + perMessage makes
+    // the last receive happen no later than (timeout - min).
+    timeBudgetMs: Math.max(0, getRemainingTimeInMillis() - minRemainingMs + AI_PER_MESSAGE_BUDGET_MS),
+  };
+}
 
 export const handler = async (
   event: SQSEvent | PollAndDrainEvent | ManualExtractionInvokePayload,
@@ -28,15 +59,19 @@ export const handler = async (
 
   if (hasJobType(event, 'poll-and-drain')) {
     console.log('Running poll-and-drain for AI processing queue');
-    await pollAndDrainQueue(process.env.AI_PROCESSING_QUEUE_URL!, async (body) => {
-      const message: ProcessingJobMessage = JSON.parse(body);
-      // Story 3.6n (AC5): optional chaining -- real Lambda invocations always provide this,
-      // but existing tests (ai-processor.test.ts) pass a bare `{} as any` context with no
-      // getRemainingTimeInMillis, which must keep working unchanged (defaults to unbounded).
-      await processAiJob(message, {
-        getRemainingTimeInMillis: context.getRemainingTimeInMillis?.bind(context),
-      });
-    });
+    await pollAndDrainQueue(
+      process.env.AI_PROCESSING_QUEUE_URL!,
+      async (body) => {
+        const message: ProcessingJobMessage = JSON.parse(body);
+        // Story 3.6n (AC5): optional chaining -- real Lambda invocations always provide this,
+        // but existing tests (ai-processor.test.ts) pass a bare `{} as any` context with no
+        // getRemainingTimeInMillis, which must keep working unchanged (defaults to unbounded).
+        await processAiJob(message, {
+          getRemainingTimeInMillis: context.getRemainingTimeInMillis?.bind(context),
+        });
+      },
+      buildDrainBudget(context)
+    );
     return;
   }
 
