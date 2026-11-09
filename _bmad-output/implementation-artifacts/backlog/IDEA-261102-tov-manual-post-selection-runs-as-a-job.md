@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-120
+backlog_id: IDEA-261102-tov
 title: "Manual post selection runs as a job and shows on the Jobs page"
 captured: 2026-11-02
 ---
 
-# IDEA-120: Manual post selection runs as a job and shows on the Jobs page
+# IDEA-261102-tov: Manual post selection runs as a job and shows on the Jobs page
 
 ## Capture
 

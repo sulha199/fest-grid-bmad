@@ -2,9 +2,9 @@
 
 **Status:** input to Epic 10, 2026-11-02. Not a PRD and not an architecture decision; the PRD amendment
 (`bmad-prd`) and the new AD (written in Story 10.1a) supersede this where they differ.
-**Backlog rows:** BUG-099 (re-extract drops carousel slides), IDEA-115 (profile lookup background phase),
+**Backlog rows:** BUG-099 (re-extract drops carousel slides), IDEA-261031-nts (profile lookup background phase),
 IDEA-047 (re-scrape in AI correction), IDEA-008 (max 5 subscribed accounts), IDEA-009 (auto-extract on first
-subscribe), BUG-014 (payload reprocessing unbuilt), IDEA-116..119 (created with the epic).
+subscribe), BUG-014 (payload reprocessing unbuilt), IDEA-261102-dkk..119 (created with the epic).
 **Why this file exists:** the investigation that produced the epic ran in a chat. This is what the stories need
 from it, with the queries and numbers that back each claim.
 
@@ -52,7 +52,7 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
 
 | Lambda | Limit | Vendor tokens | Notes |
 |---|---|---|---|
-| API | hard 28 s | Apify and Bright Data tokens, but no `BRIGHTDATA_DATASET_ID` | registers no scraper adapters (BUG-100) |
+| API | hard 28 s | Apify and Bright Data tokens, but no `BRIGHTDATA_DATASET_ID` | registers no scraper adapters (BUG-261102-00r) |
 | AI processor | 300 s | none | bundles sharp and the face-api models |
 | Scraper | 300 s | both, plus `BRIGHTDATA_DATASET_ID` | SQS-driven; the natural worker host (AD-41) |
 
@@ -91,7 +91,7 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
     limit, `MAX_CONCURRENT_EXTRACTION_JOBS_PER_USER` (2), so a long extraction under Gemini's rate limits cannot hold up a
     subscribe. Each job type's registration declares `usesVendor`. Rejected: count every job (one rule, but a large
     selection blocks subscribes); no engine limit for extraction (nothing paces many selections).
-15. (2026-11-02, product owner) **Manual post selection becomes a job type** (Story 10.12a, FR129, IDEA-120) although it makes
+15. (2026-11-02, product owner) **Manual post selection becomes a job type** (Story 10.12a, FR129, IDEA-261102-tov) although it makes
     no vendor call, because the product owner wants every long process in one place. One job per confirmed selection. Progress
     and ending are read from the posts' own `extractionStatus`, which stays the single source of truth; the AI processor's one
     post-finish seam tells the job when the last post is done. Evidence traced 2026-11-02: `selectPostsForExtraction` checks
@@ -102,8 +102,8 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
 
 - FIND-103: Apify is on the free plan ($5/month, cycle resets 2026-11-23). Upgrade, or Bright Data primary? This decides the
   default chain order and interacts with decision 5 (Bright Data images are 640 px).
-- IDEA-115 D1 to D4 (`planning-artifacts/profile-lookup-fallback-and-ux-2026-10-31.md` section 6).
-- Whether and how users are notified when a job finishes (IDEA-119): a PRD question for subscribers; moderators go through
+- IDEA-261031-nts D1 to D4 (`planning-artifacts/profile-lookup-fallback-and-ux-2026-10-31.md` section 6).
+- Whether and how users are notified when a job finishes (IDEA-261102-scl): a PRD question for subscribers; moderators go through
   Epic 0.i1's helper.
 - Story 3-4b (BYOK pooled scraper vendor keys): legally gated; its AC6 means chain credentials must depend on the job type.
 - CC-032: the cost model (platform-paid or user-paid).

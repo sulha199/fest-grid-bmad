@@ -2308,7 +2308,7 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      stories: [10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep],
      touches: [app:backend, cross:architecture],
-     note: "Deferred from: quick-dev of the moderator re-extract preview (2026-10-18, `bmad-quick-dev`). Finding 1 joined Story 10.1a; findings 2-4 carved to FIND-129."}
+     note: "Deferred from: quick-dev of the moderator re-extract preview (2026-10-18, `bmad-quick-dev`). Finding 1 joined Story 10.1a; findings 2-4 carved to FIND-261102-83m."}
 
   # ── 2026-10-23 (code review of Epic 9) ──────────────────────────────────────
   BUG-065:
@@ -2846,7 +2846,7 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      stories: [10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep],
      touches: [app:backend, cross:architecture],
-     note: "Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31). Finding 1 joined Story 10.1a; finding 2 carved to FIND-130."}
+     note: "Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31). Finding 1 joined Story 10.1a; finding 2 carved to FIND-261102-erb."}
 
   BUG-098:
     {type: bug, status: done, created: 2026-10-31,
@@ -2882,7 +2882,7 @@ items:
 
   # ── 2026-11-02 (deferral intake backfill for check 14: sections from 2026-09-26 to 2026-10-04 had no row) ──
 
-  FIND-131:
+  FIND-261102-23t:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "Sharp-isolation test checks the esbuild graph only, not execution or CDK's real esbuild options",
@@ -2890,7 +2890,7 @@ items:
      touches: [app:infrastructure],
      note: "Deferred from: bmad-quick-dev fix-lambda-sharp-lazy-load review (2026-10-04). 2 findings."}
 
-  FIND-132:
+  FIND-261102-02a:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "EventCard keeps dead props and a dead date helper after FIND-053; archive getCardProps is any-typed",
@@ -2898,7 +2898,7 @@ items:
      touches: [pkg:ui, web:events],
      note: "Deferred from: bmad-quick-dev FIND-053 review (2026-09-26). 3 findings."}
 
-  FIND-133:
+  FIND-261102-v0e:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "Scraper integration tests skip post_account_associations rows, clean up four ways and flaked once",
@@ -2906,7 +2906,7 @@ items:
      touches: [app:backend],
      note: "Deferred from: code review of 3-15-post-account-association-table-lossless-migration.md Story 3.14 scraper-test regression fix (2026-10-02, CC-024 Wave 2B batch-end gate, `bmad-quick-dev`). 3 findings."}
 
-  FIND-134:
+  FIND-261102-gmw:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "Awaited notification dispatch lacks a regression test and a prod guard; email failures go unchecked",
@@ -2914,7 +2914,7 @@ items:
      touches: [app:backend, cross:notifications],
      note: "Deferred from: code review of FIND-061 fix (await notification dispatch) (2026-10-02, `bmad-quick-dev`). 4 findings."}
 
-  FIND-135:
+  FIND-261102-4ma:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: s,
      title: "Wave 3 gate fixes leave the extraction-ordinal CHECK untested and 9 event fixtures unshared",
@@ -2924,72 +2924,72 @@ items:
 
   # ── 2026-11-02 (epic formation: background vendor jobs, epic-10, and the fixes that ship ahead of it) ──
 
-  BUG-100:
+  BUG-261102-00r:
     {type: bug, status: backlog, created: 2026-11-02,
      impact: user-visible, effort: xs,
      title: "The API Lambda registers no scraper adapters, so every API-side scrape throws",
-     ref: [backlog/BUG-100-api-lambda-registers-no-scraper-adapters.md],
+     ref: [backlog/BUG-261102-00r-api-lambda-registers-no-scraper-adapters.md],
      touches: [app:backend, app:infrastructure],
      note: "Seen on prod 2026-10-31 14:32Z in the BUG-099 rescrape. Ship ahead of Epic 10; Story 10.14z ratchets it."}
 
-  FIND-128:
+  FIND-261102-4qm:
     {type: finding, status: backlog, created: 2026-11-02,
      impact: internal, effort: xs,
      title: "A rescrape failure that spent no vendor credit still starts the 10-minute cooldown",
-     ref: [backlog/FIND-128-rescrape-failure-without-vendor-call-starts-cooldown.md],
+     ref: [backlog/FIND-261102-4qm-rescrape-failure-without-vendor-call-starts-cooldown.md],
      touches: [app:backend],
      note: "Seen 2026-10-31: the retry 20 s later hit the cooldown. Record a failed rescrape only when a vendor call ran; Story 10.3 has the engine form."}
 
-  BUG-101:
+  BUG-261102-4rm:
     {type: bug, status: backlog, created: 2026-11-02,
      impact: internal, effort: xs,
      title: "Apify's slide list repeats the cover, so Gemini receives it twice",
-     ref: [backlog/BUG-101-apify-slide-list-repeats-the-cover.md],
+     ref: [backlog/BUG-261102-4rm-apify-slide-list-repeats-the-cover.md],
      touches: [app:backend, cross:ai-extraction],
      note: "354 of 354 stored Apify carousels repeat the cover in additional_image_urls (Bright Data 0 of 629). Fix at the source (Story 10.2) and de-duplicate stored rows at read time."}
 
-  IDEA-116:
+  IDEA-261102-dkk:
     {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
      impact: user-visible, effort: m,
      title: "Extract-by-URL runs as a job instead of inside the 28-second request",
-     ref: [backlog/IDEA-116-extract-by-url-runs-as-a-job.md],
+     ref: [backlog/IDEA-261102-dkk-extract-by-url-runs-as-a-job.md],
      touches: [app:backend, web:posts, cross:architecture],
      note: "Epic 10, Story 10.10. Scrape plus Gemini today share the API Lambda's 28 s limit."}
 
-  IDEA-117:
+  IDEA-261102-xrx:
     {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
      impact: user-visible, effort: s,
      title: "\"Refresh now\" for a subscribed account shows progress and re-attaches instead of scraping twice",
-     ref: [backlog/IDEA-117-refresh-now-shows-progress-and-reattaches.md],
+     ref: [backlog/IDEA-261102-xrx-refresh-now-shows-progress-and-reattaches.md],
      touches: [app:backend, web:accounts],
      note: "Epic 10, Story 10.11. The on-demand scrape is queued today but shows no progress."}
 
-  IDEA-118:
+  IDEA-261102-v9l:
     {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
      impact: user-visible, effort: l,
      title: "Long admin operations that are CLI-only today run as moderator-visible jobs",
-     ref: [backlog/IDEA-118-cli-only-admin-operations-run-as-jobs.md],
+     ref: [backlog/IDEA-261102-v9l-cli-only-admin-operations-run-as-jobs.md],
      touches: [app:backend, web:moderation, app:infrastructure],
      note: "Epic 10, Story 10.12; BUG-014 is its first member. Decide per operation which are worth moving."}
 
-  IDEA-119:
+  IDEA-261102-scl:
     {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
      impact: user-visible, effort: m,
      title: "Tell a user or moderator when a long job finishes",
-     ref: [backlog/IDEA-119-tell-the-user-when-a-long-job-finishes.md],
+     ref: [backlog/IDEA-261102-scl-tell-the-user-when-a-long-job-finishes.md],
      touches: [app:backend, cross:notifications, cross:prd],
      note: "Epic 10, Story 10.13. Moderators via Epic 0.i1's helper; notifying subscribers is a PRD question."}
 
-  IDEA-120:
+  IDEA-261102-tov:
     {type: idea, status: triaged, created: 2026-11-02, epic: epic-10,
      impact: user-visible, effort: m,
      title: "Manual post selection runs as a job and shows on the Jobs page",
-     ref: [backlog/IDEA-120-manual-post-selection-runs-as-a-job.md],
+     ref: [backlog/IDEA-261102-tov-manual-post-selection-runs-as-a-job.md],
      touches: [app:backend, web:posts, cross:prd],
      note: "Epic 10, Story 10.12a. Makes no vendor call, so it uses the engine's non-vendor lane (limit 2). Added at the product owner's request."}
 
   # ── 2026-11-02 (bmad-create-story, Story 10.1a carve-first) ──────────────────
-  FIND-129:
+  FIND-261102-83m:
     {type: finding, status: backlog, created: 2026-11-02, parent: FIND-086,
      impact: internal, effort: s,
      title: "Re-extract candidate query: invalid-JSON links abort the match, LIMIT 20 ordering risk, and URL variants bypass the rescrape cooldown",
@@ -2997,7 +2997,7 @@ items:
      touches: [app:backend, cross:architecture],
      note: "Carved from FIND-086 (findings 2-4) when finding 1 (caption sweep) joined Story 10.1a (2026-11-02, carve-first, epic-10-outside-the-epic.md §7). Unrelated to the job engine."}
 
-  FIND-130:
+  FIND-261102-erb:
     {type: finding, status: backlog, created: 2026-11-02, parent: FIND-111,
      impact: internal, effort: s,
      title: "Re-extract Apply has no drift check and no stub-to-full reconciliation path",

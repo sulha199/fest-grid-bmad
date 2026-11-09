@@ -14,7 +14,7 @@
 | Runner | exit 0 before this pass (it was 78 failures before the repair commit); exit 0 after |
 | Check 13 | nothing due |
 
-The repair commit fixed checks 1, 3, 5, 14 and 15 (58 over-long notes moved verbatim; five deferral rows FIND-131 to FIND-135 created; the IDEA-103 duplicate renumbered to IDEA-115) and changed the runner so a parent with an open child derives `promoted` (spec sections 5 and 6 contradicted each other for CC-028 and IDEA-026).
+The repair commit fixed checks 1, 3, 5, 14 and 15 (58 over-long notes moved verbatim; five deferral rows FIND-261102-23t, FIND-261102-02a, FIND-261102-v0e, FIND-261102-gmw and FIND-261102-4ma created; the IDEA-103 duplicate renumbered to IDEA-261031-nts) and changed the runner so a parent with an open child derives `promoted` (spec sections 5 and 6 contradicted each other for CC-028 and IDEA-026).
 
 ## 2. Candidates, per pass
 
@@ -32,7 +32,7 @@ The repair commit fixed checks 1, 3, 5, 14 and 15 (58 over-long notes moved verb
 |---|---|
 | BUG-099 (Moderator re-extract preview drops carousel slides: expired ...) | a moderator sees "0 of 1 images" on a carousel roundup |
 | IDEA-047 (AI-assisted correction should support re-scraping a post whe...) | a moderator cannot correct a post whose caption or images vanished |
-| IDEA-115 (Profile lookup falls back to a background phase on timeout, ...) | a subscriber gets a generic toast and no progress when the lookup is slow |
+| IDEA-261031-nts (Profile lookup falls back to a background phase on timeout, ...) | a subscriber gets a generic toast and no progress when the lookup is slow |
 | IDEA-008 (Max 5 subscribed accounts (normal user), upgrade-account 'co...) | concurrent background subscribes can push a user past the cap |
 | IDEA-009 (Auto-extract posts on first subscribe (respecting Gemini's 5...) | a new subscriber sees no events until the daily batch |
 | BUG-014 (Moderator payload reprocessing remains unbuilt after its fal...) | a moderator triggers a reprocess and nothing happens |
@@ -46,22 +46,22 @@ IDEA-008 is open and the cap is not in app source, so it joins and Story 10.3 bu
 | Row | Route |
 |---|---|
 | BUG-099 | PRD amendment (section 3.9.3); AD-12 and AD-40 amended in Story 10.6 |
-| IDEA-115 | `bmad-ux` and an AD-41 extension (its planning doc section 6 decisions D1 to D4) |
+| IDEA-261031-nts | `bmad-ux` and an AD-41 extension (its planning doc section 6 decisions D1 to D4) |
 | IDEA-008 | none (PRD section 6 already resolved the cap) |
 | IDEA-009 | PRD section 3.11 amendment, `bmad-ux` |
 | IDEA-047 | PRD section 3.9 amendment (narrows Story 3.4o's CURATOR_GUIDE hold) |
 | BUG-014 | internal moderator tooling: none |
-| IDEA-116 to IDEA-118 | PRD amendment where user-visible |
-| IDEA-119 | notifying subscribers is a `bmad-prd` question; moderators go through Epic 0.i1 |
+| IDEA-261102-dkk, IDEA-261102-xrx and IDEA-261102-v9l | PRD amendment where user-visible |
+| IDEA-261102-scl | notifying subscribers is a `bmad-prd` question; moderators go through Epic 0.i1 |
 | Engine | a new `AD-n` written in Story 10.1a; PRD: a new Jobs capability section first (gate section 2) |
 
 **Ratchet `z`:** optional for a feature epic, included because the epic exists to stop features forking the engine: an esbuild-metafile test that every Lambda entry reaching a vendor call also registers the adapters (red first against `lambdas/api.ts`), and a boundary test that no resolver imports a vendor client outside the engine.
 
 ## 4. Rows created at formation
 
-- **Epic members:** IDEA-116 (extract-by-URL runs as a job), IDEA-117 ("refresh now" shows progress), IDEA-118 (CLI-only admin operations run as jobs), IDEA-119 (tell the user when a job finishes).
-- **Fix ahead of the epic, not members:** BUG-100 (API Lambda registers no scraper adapters), FIND-128 (a rescrape failure with no vendor call starts the cooldown), BUG-101 (Apify slide list repeats the cover).
-- **Stamped `epic: epic-10`:** BUG-099, IDEA-115, IDEA-047, IDEA-008, IDEA-009, BUG-014, IDEA-101, IDEA-102.
+- **Epic members:** IDEA-261102-dkk (extract-by-URL runs as a job), IDEA-261102-xrx ("refresh now" shows progress), IDEA-261102-v9l (CLI-only admin operations run as jobs), IDEA-261102-scl (tell the user when a job finishes).
+- **Fix ahead of the epic, not members:** BUG-261102-00r (API Lambda registers no scraper adapters), FIND-261102-4qm (a rescrape failure with no vendor call starts the cooldown), BUG-261102-4rm (Apify slide list repeats the cover).
+- **Stamped `epic: epic-10`:** BUG-099, IDEA-261031-nts, IDEA-047, IDEA-008, IDEA-009, BUG-014, IDEA-101, IDEA-102.
 
 ## 5. Unstarted stories read (23)
 
@@ -77,8 +77,8 @@ None absorbed, none superseded. Twenty-two belong to epics already formed (0.i1,
 
 | Candidate | Failing criterion | Routing |
 |---|---|---|
-| Tag `web:subscriptions` (BUG-059, BUG-081, FIND-022, IDEA-008, IDEA-009, IDEA-115) | 3: BUG-059, BUG-081, FIND-022 are account-identity defects, a different journey | those three to `promote` / `quick-dev` |
-| Tag `cross:notifications` (BUG-003, FIND-134, IDEA-005, IDEA-054) | 2 and 3: different mechanisms | BUG-003 already in Epic 0.i1 |
+| Tag `web:subscriptions` (BUG-059, BUG-081, FIND-022, IDEA-008, IDEA-009, IDEA-261031-nts) | 3: BUG-059, BUG-081, FIND-022 are account-identity defects, a different journey | those three to `promote` / `quick-dev` |
+| Tag `cross:notifications` (BUG-003, FIND-261102-gmw, IDEA-005, IDEA-054) | 2 and 3: different mechanisms | BUG-003 already in Epic 0.i1 |
 | Parent CC-028 (FIND-066, FIND-067, IDEA-057, IDEA-058, IDEA-059) | 3: a privacy and data-terms journey, not jobs | dispositions below |
 | Parents CC-014, CC-024, FIND-088 (2 rows each) | 1 | dispositions below |
 | **Event dedup** (IDEA-062, IDEA-066, IDEA-067, IDEA-056, BUG-094, FIND-113, FIND-104, FIND-107, FIND-108, FIND-112) | not rejected on criteria: a plausible feature epic, **not formed** | FIND-104, FIND-107, FIND-108 and FIND-112 are already sequenced by `spec-ai-dedup-review-pipeline`; run a second pass if wanted (tracked) |
@@ -211,11 +211,11 @@ Read: every open row outside Epic 10 and the 4 `skipped` rows (IDEA-004 `value:`
 - FIND-102 [internal/s] With groupingReason required, the CC-024 roundup post returns 39 events (soft cap 10) in 4 of 9 live runs vs 0 of 9 when optional; code truncation still caps it
 - FIND-105 [internal/xs] trigger-brightdata-for-target capacity test fails in the cloud sandbox (passes in CI)
 - FIND-106 [internal/xs] scraper.test.ts daily-batch cutoff test fails in the cloud sandbox (passes in CI): cutoff one hour earlier than expected
-- FIND-131 [internal/s] Sharp-isolation test checks the esbuild graph only, not execution or CDK's real esbuild options
-- FIND-132 [internal/s] EventCard keeps dead props and a dead date helper after FIND-053; archive getCardProps is any-typed
-- FIND-133 [internal/s] Scraper integration tests skip post_account_associations rows, clean up four ways and flaked once
-- FIND-134 [internal/s] Awaited notification dispatch lacks a regression test and a prod guard; email failures go unchecked
-- FIND-135 [internal/s] Wave 3 gate fixes leave the extraction-ordinal CHECK untested and 9 event fixtures unshared
+- FIND-261102-23t [internal/s] Sharp-isolation test checks the esbuild graph only, not execution or CDK's real esbuild options
+- FIND-261102-02a [internal/s] EventCard keeps dead props and a dead date helper after FIND-053; archive getCardProps is any-typed
+- FIND-261102-v0e [internal/s] Scraper integration tests skip post_account_associations rows, clean up four ways and flaked once
+- FIND-261102-gmw [internal/s] Awaited notification dispatch lacks a regression test and a prod guard; email failures go unchecked
+- FIND-261102-4ma [internal/s] Wave 3 gate fixes leave the extraction-ordinal CHECK untested and 9 event fixtures unshared
 - IDEA-051 [internal/s] Sample hasFaceImage=false posts through face-api.js to measure the pre-filter's real false-negative rate
 - IDEA-052 [internal/s] Move useNavRailItemInteraction onto the shared useHoverFocusTooltip hook (three hand-rolled hover+focus tooltip copies exist)
 - IDEA-058 [internal/s] Eyes-only face redaction for the AI input via the landmark model
@@ -274,7 +274,7 @@ The 14% for `user-visible` is low because the pass was seeded on one capability.
 
 ## Addendum 2026-11-02 (later the same day): one story added, one story rewritten
 
-- **IDEA-120 "Manual post selection runs as a job and shows on the Jobs page"** joins Epic 10 as **Story 10.12a** (FR129). Product owner
+- **IDEA-261102-tov "Manual post selection runs as a job and shows on the Jobs page"** joins Epic 10 as **Story 10.12a** (FR129). Product owner
   decision after asking whether manual extraction was covered: it was not (only AI-assisted correction, extract-by-URL and re-extract
   were). Mechanism shared with the rest of the epic is the engine, the Jobs page and the finish notification; it is the one job type
   that makes no vendor call. Numbered 10.12a so 10.13 and 10.14z keep their numbers. Effort `m`.

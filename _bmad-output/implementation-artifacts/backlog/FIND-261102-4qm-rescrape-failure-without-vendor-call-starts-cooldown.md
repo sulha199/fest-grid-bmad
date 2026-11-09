@@ -1,10 +1,10 @@
 ---
-backlog_id: FIND-128
+backlog_id: FIND-261102-4qm
 title: "A rescrape failure that spent no vendor credit still starts the 10-minute cooldown"
 captured: 2026-11-02
 ---
 
-# FIND-128: A rescrape failure that spent no vendor credit still starts the 10-minute cooldown
+# FIND-261102-4qm: A rescrape failure that spent no vendor credit still starts the 10-minute cooldown
 
 ## Capture
 

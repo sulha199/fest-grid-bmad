@@ -1,10 +1,10 @@
 ---
-backlog_id: BUG-101
+backlog_id: BUG-261102-4rm
 title: "Apify's slide list repeats the cover, so Gemini receives it twice"
 captured: 2026-11-02
 ---
 
-# BUG-101: Apify's slide list repeats the cover, so Gemini receives it twice
+# BUG-261102-4rm: Apify's slide list repeats the cover, so Gemini receives it twice
 
 ## Capture
 

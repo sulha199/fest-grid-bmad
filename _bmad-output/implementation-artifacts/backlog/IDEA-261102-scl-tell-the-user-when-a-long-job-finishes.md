@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-119
+backlog_id: IDEA-261102-scl
 title: "Tell a user or moderator when a long job finishes"
 captured: 2026-11-02
 ---
 
-# IDEA-119: Tell a user or moderator when a long job finishes
+# IDEA-261102-scl: Tell a user or moderator when a long job finishes
 
 ## Capture
 

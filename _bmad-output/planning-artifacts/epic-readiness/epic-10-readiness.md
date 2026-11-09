@@ -25,8 +25,8 @@ addendum_2026_11_02_stories_covered:
 
 Gate 1 (Architecture/Infrastructure Completeness) and Gate 3 (Foundational/Cross-Cutting Dependency Completeness)
 swept once, epic-wide, per `story-split-gate.md`'s Epic-Level Sweep Mode, against all fourteen stories of Epic 10
-(`epics.md`, formed 2026-11-02 by `bmad-form-epics` from BUG-099, IDEA-115, IDEA-047, IDEA-008, IDEA-009, BUG-014,
-plus IDEA-116 to IDEA-119). PRD gate already passed: PRD §3.18 (FR116–FR128) and the Job interface (§4.21) are
+(`epics.md`, formed 2026-11-02 by `bmad-form-epics` from BUG-099, IDEA-261031-nts, IDEA-047, IDEA-008, IDEA-009, BUG-014,
+plus IDEA-261102-dkk, IDEA-261102-xrx, IDEA-261102-v9l and IDEA-261102-scl). PRD gate already passed: PRD §3.18 (FR116–FR128) and the Job interface (§4.21) are
 committed (`c8341998`), and FR116–FR128 are backfilled into `epics.md`'s requirements inventory, FR coverage map
 and Epic 10's "FRs covered" line (verified against lines 129–141, 318–330 and 6099 — all three are mutually
 consistent). Evidence used: `epics.md`'s full Epic 10 section and the Epic 0.i1/0.i2/0.i3/0.i5/0.i6/0.24 stories it
@@ -40,7 +40,7 @@ story).** The three design questions the PRD pass left open were already substan
 ran, not deferred to it:
 - **Worker host:** already decided — the story's own AC1 invokes the scraper Lambda through the AD-41 seam (the
   only Lambda with both vendor tokens and `BRIGHTDATA_DATASET_ID`), not the API Lambda (28 s hard limit, no
-  adapters registered — BUG-100) or the AI-processor Lambda (no vendor tokens at all).
+  adapters registered — BUG-261102-00r) or the AI-processor Lambda (no vendor tokens at all).
 - **Job-table relation to `apify_pending_jobs`, `brightdata_pending_jobs`, `scraper_actor_runs`,
   `vendor_call_locks`:** already decided — AC4 references them, does not replace them; `manual_extraction_jobs` is
   explicitly untouched pending Story 10.9's own decision (OI-4).
@@ -75,8 +75,8 @@ ran, not deferred to it:
   referenced env var... in the same shape Stories 0-i3b/0-i3c will later enforce automatically," satisfied by
   manual compliance now, re-verified once those land.
 - **Boundary enforcement:** Story 10.14z's planned boundary test (no resolver imports a vendor client outside the
-  engine) and metafile ratchet directly target the exact bug class (BUG-100) that motivated the epic. One gap:
-  BUG-100's actual fix is local-only (branch `fix/bug-100-api-lambda-registers-scraper-adapters`, not on master), so
+  engine) and metafile ratchet directly target the exact bug class (BUG-261102-00r) that motivated the epic. One gap:
+  BUG-261102-00r's actual fix is local-only (branch `fix/bug-100-api-lambda-registers-scraper-adapters`, not on master), so
   by the time 10.14z is built the "red" case it needs may already be fixed on master. **Corrected directly on
   10.14z:** added guidance to produce the red run either via a committed synthetic bad-fixture (preferred — keeps
   the ratchet self-verifying) or a one-time local revert, documented in Dev Notes, if the fix has already landed.
@@ -140,13 +140,13 @@ not edited here.)
 | Item | Blocks | Latest decision moment |
 |---|---|---|
 | OI-1 (default provider order / Apify plan, FIND-103) | Story 10.2's default `POST_SCRAPER_PROVIDER_ORDER` | Before Story 10.2 sets the default |
-| OI-2 (IDEA-115 D1, D3, D4 — lookup fallback UX) | Stories 10.4 and 10.7 (background-phase UX) | Before those two stories' `bmad-ux` pass |
+| OI-2 (IDEA-261031-nts D1, D3, D4 — lookup fallback UX) | Stories 10.4 and 10.7 (background-phase UX) | Before those two stories' `bmad-ux` pass |
 | OI-3 (whose vendor credential a job uses — CC-032 / Story 3-4b AC6) | Story 10.2's final credential-selection logic (the design already lets credential depend on job type, so either outcome plugs in without a chain change) | When CC-032 is decided |
 | OI-4 (whether `manual_extraction_jobs` moves onto the engine table) | Story 10.9 (explicitly — it is where the decision is recorded) | During Story 10.9 |
 
 **FR→story traceability (item 6):** Every FR116–FR128 maps to exactly one story (table in `epics.md` lines
 318–330), and every story maps back to an FR or an absorbed backlog row (BUG-099, IDEA-008/009/047/101/102/116–119,
-BUG-014, FIND-079/082/119, BUG-101) — no orphan in either direction. **One AC/FR mismatch found and corrected:**
+BUG-014, FIND-079/082/119, BUG-261102-4rm) — no orphan in either direction. **One AC/FR mismatch found and corrected:**
 FR124's PRD text covers two channels — in-app + push for *every* job owner (the main, already-settled requirement)
 and, additionally, the Epic 0.i1 moderator helper for a moderator owner — but Story 10.13's AC in `epics.md` only
 had the moderator half. **Added the missing in-app/push AC to Story 10.13**, so FR124 is now actually tested by an
@@ -175,7 +175,7 @@ direct corrections. No `sprint-status.yaml` changes were needed: Epic 10's fourt
   (every job owner) and a strengthened moderator bullet requiring 0.i1a to be extended or thinly wrapped for
   single-recipient addressing, not merely "checked."
 - **Story 10.14z:** added guidance for producing the ratchet's first red run via a synthetic fixture (preferred) or
-  a documented one-time local revert, in case BUG-100's fix lands on master before this story is built.
+  a documented one-time local revert, in case BUG-261102-00r's fix lands on master before this story is built.
 - **Epic 10's closing Note:** added a pointer to this sweep summarizing the above, so a reader of `epics.md` alone
   (without this report) sees that the sweep ran and what it changed.
 

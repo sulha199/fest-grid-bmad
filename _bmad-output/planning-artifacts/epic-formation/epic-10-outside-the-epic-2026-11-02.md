@@ -11,18 +11,18 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 
 ## 1. Fix before the epic starts (rows exist; each stands alone)
 
-- [ ] **BUG-100** (API Lambda registers no scraper adapters, every API-side scrape throws) `xs`. Do first: it is the prod cause of the
-  BUG-099 symptom. Next action: `bmad-quick-dev BUG-100`. Re-run the sharp-isolation test after. Still unverified after the fix: the
+- [ ] **BUG-261102-00r** (API Lambda registers no scraper adapters, every API-side scrape throws) `xs`. Do first: it is the prod cause of the
+  BUG-099 symptom. Next action: `bmad-quick-dev BUG-261102-00r`. Re-run the sharp-isolation test after. Still unverified after the fix: the
   20 s `getPostByUrl` cap inside the 28 s Lambda limit.
   **Code done 2026-11-02:** branch `fix/bug-100-api-lambda-registers-scraper-adapters`, commit `2fea660e`, local and not pushed, no PR yet. The
   regression test was red without the fix and green with it; the sharp-isolation test passed 8 of 8. Stays open until merged and deployed.
-  Deploying it makes API-side rescrapes spend vendor credit, so ship FIND-128 with or before it (FIND-103: Apify is capped).
-- [ ] **FIND-128** (a rescrape failure that spent no vendor credit still starts the 10-minute cooldown) `xs`.
-  **Renumbered 2026-11-08:** this row was FIND-119 until master's AI-dedup-review work took FIND-119 to FIND-121 and FIND-114 to FIND-118. This branch's own rows moved to FIND-128 to FIND-130 (re-extract and cooldown rows) and FIND-131 to FIND-135 (the five deferral rows). The user's local branch and the orchestrator's scratch files keep the old name `fix/find-119-...`.
+  Deploying it makes API-side rescrapes spend vendor credit, so ship FIND-261102-4qm with or before it (FIND-103: Apify is capped).
+- [ ] **FIND-261102-4qm** (a rescrape failure that spent no vendor credit still starts the 10-minute cooldown) `xs`.
+  **Renumbered twice, 2026-11-08:** this row was FIND-119. Master's AI-dedup-review work took FIND-119 to FIND-121 and FIND-114 to FIND-118, so it moved to FIND-128; then master's collision-safe ID rule (PR #178: `TYPE-YYMMDD-xxx`, legacy counters frozen) required a new-format ID, so it is now FIND-261102-4qm. The same two moves renumbered this branch's other rows: FIND-129 and FIND-130 are FIND-261102-83m and FIND-261102-erb, the five deferral rows (first FIND-114 to FIND-118) are FIND-261102-23t, FIND-261102-02a, FIND-261102-v0e, FIND-261102-gmw and FIND-261102-4ma, BUG-100 and BUG-101 are BUG-261102-00r and BUG-261102-4rm, IDEA-116 to IDEA-120 are IDEA-261102-dkk, -xrx, -v9l, -scl and -tov, and the profile-lookup row (IDEA-115 here, IDEA-103 before) is IDEA-261031-nts, master's repair. The user's local branch and the orchestrator's scratch files keep the old names (`fix/find-119-...`, `fix/bug-100-...`, `fix/bug-101-...`).
   **Code done 2026-11-02:** branch `fix/find-119-no-cooldown-without-vendor-call`, commits `fb5b77d7` and `fec4e050`, local and not pushed. The
   follow-up commit added the Apify memory-cap and monthly-cap errors to the no-cooldown set (the free-plan cap is the live case) and restored the
   log line the missing-adapter path had lost. 31 of 31 tests in the file pass. Stays open until merged.
-- [ ] **BUG-101** (Apify's slide list repeats the cover, so Gemini receives it twice) `xs`. Fix the adapter and de-duplicate by file name at
+- [ ] **BUG-261102-4rm** (Apify's slide list repeats the cover, so Gemini receives it twice) `xs`. Fix the adapter and de-duplicate by file name at
   read time in `build-gemini-request.ts` so the 354 stored Apify posts are covered without a backfill.
   **Code done 2026-11-02:** branch `fix/bug-101-apify-slide-list-repeats-cover`, commits `311a6b36` and `8e83d9cb`, local and not pushed. One shared
   file-name helper in `packages/domain` serves both the adapter and the read-time de-duplication. Adapter 40, request-builder 47 and helper 7 tests pass.
@@ -30,7 +30,7 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 
 ## 2. Gates before any Epic 10 story starts
 
-- [x] **`bmad-prd`** for the Jobs capability: a new section plus amendments to PRD sections 3.7, 3.9.3 and 3.11; settle IDEA-119's
+- [x] **`bmad-prd`** for the Jobs capability: a new section plus amendments to PRD sections 3.7, 3.9.3 and 3.11; settle IDEA-261102-scl's
   subscriber-notification question and the cap wording (IDEA-008). The gate puts this first for a feature epic.
   **Done 2026-11-02:** new PRD section 3.18 (FR116 to FR124) and Job interface 4.21; amended 3.7, 3.9.1, 3.9.3, 3.10, 3.11, 3.12, 3.13, 3.16,
   4.9, section 5 (new Background Jobs NFR, public-only note), section 6 (reserved slots count) and section 7 (KPI); FR125 to FR128 sit in the
@@ -51,21 +51,21 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
   **Done 2026-11-01:** `epic-readiness/epic-10-readiness.md`. 10.1a validated as one story, AD embedded, not split (one new AC added:
   cross-Lambda phase hand-off). 10.2 to 10.5 validated as-is, not split or reshaped — IDEA-101/IDEA-102's `xs` re-scoring stands, no
   re-examination needed. AC corrections applied directly to 10.1a, 10.4, 10.7, 10.13, 10.14z; no new prerequisite story created.
-- [ ] **`bmad-ux`** for the Jobs page, and for **IDEA-115** (profile lookup falls back to a background phase) before Stories 10.4 and 10.7.
+- [ ] **`bmad-ux`** for the Jobs page, and for **IDEA-261031-nts** (profile lookup falls back to a background phase) before Stories 10.4 and 10.7.
 
 ## 3. Decisions that are the owner's
 
 - [ ] **FIND-103** (Apify is on the free plan, $5 a month, resets 2026-11-23): upgrade, or keep Bright Data primary? Decides the default
   chain order (`apify,brightdata` assumes Apify capacity) and interacts with the low-resolution rule, because Bright Data images are 640 px.
   Written as open item OI-1 in PRD 3.18 (owner: product owner; revisit before Story 10.2 sets the default).
-- [ ] **IDEA-115**'s four open decisions D1 to D4 (`profile-lookup-fallback-and-ux-2026-10-31.md` section 6). **D2 (channel) is answered
+- [ ] **IDEA-261031-nts**'s four open decisions D1 to D4 (`profile-lookup-fallback-and-ux-2026-10-31.md` section 6). **D2 (channel) is answered
   2026-11-02** by PRD FR124 (in-app plus push through the existing push setting, no email). D1, D3 and D4 stay open as OI-2 in PRD 3.18
   (owner: product owner through `bmad-ux`; revisit before Stories 10.4 and 10.7).
 - [ ] **CC-032** (decide the cost model: platform-paid, user-paid or hybrid): decides whose key a vendor call uses. Written as open item OI-3
   in PRD 3.18 (owner: product owner, legal gate; revisit when CC-032 is decided).
 - [ ] **Story 3-4b** (BYOK pooled scraper vendor keys, legally gated): its AC6 (a contributed Apify token is never used for a
   moderator-initiated run) is already a constraint on Story 10.2's credential choice. Same open item, OI-3.
-- [x] **Notifying subscribing users** when a job finishes (IDEA-119): channel, throttling, consent. **Closed 2026-11-02, PRD FR124:** in-app always
+- [x] **Notifying subscribing users** when a job finishes (IDEA-261102-scl): channel, throttling, consent. **Closed 2026-11-02, PRD FR124:** in-app always
   (Jobs menu count) plus push through the existing FCM channel and the existing `pushNotificationsEnabled` setting (default on, no new consent
   screen); no email; one push per job, merged when several end within 10 minutes; the push names the job type and account handle only; sent only
   when the owner was not watching. Story 10.13 still has to check that Epic 0.i1's `notifyAllModerators` can address one moderator (the job's owner).
@@ -112,11 +112,11 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 
 - [ ] **FIND-086** (re-extract preview review deferrals) and **FIND-111** (Apply keeps unapplied previews on the job row): `carve-first`. Split each so the
   retention/sweep finding joins Story 10.1a and the rest stays as its own row. **Carve done** (bmad-create-story, 2026-11-02, Story 10.1a creation):
-  FIND-086/FIND-111 set `promoted` with `stories: [10-1a-...]`; the leftover findings carved to new child rows FIND-129 (parent FIND-086) and FIND-130
+  FIND-086/FIND-111 set `promoted` with `stories: [10-1a-...]`; the leftover findings carved to new child rows FIND-261102-83m (parent FIND-086) and FIND-261102-erb
   (parent FIND-111). This checkbox stays unchecked per this section's own header ("their rows stay open until that story lands") — the carve is done, the
   story itself is not.
 - [ ] **IDEA-101** to Story 10.2, **IDEA-102** to Story 10.5, **FIND-082** (triplicated transient-error classifier) to Story 10.2,
-  **FIND-128** and **BUG-101** to Stories 10.3 and 10.2 (their engine forms), **FIND-079** (public-accounts-only is not enforced) to Story 10.7
+  **FIND-261102-4qm** and **BUG-261102-4rm** to Stories 10.3 and 10.2 (their engine forms), **FIND-079** (public-accounts-only is not enforced) to Story 10.7
   (do it as `quick-dev` if 10.7 is not started).
 
 ## 8. Observed during the investigation but not on the board (say which to log)
@@ -144,11 +144,11 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 ## 9. Done (for the record)
 
 - [x] Board repaired to a clean runner (checks 1, 3, 5, 14, 15; the check-5 versus check-6 contradiction resolved in the runner and spec section 5).
-- [x] The duplicate `IDEA-103` renumbered: "Profile lookup falls back to a background phase" is now **IDEA-115**.
-- [x] Epic 10 formed (14 stories; a fifteenth, 10.12a manual post selection, was added later the same day with IDEA-120), rows IDEA-116 to IDEA-119 and BUG-100, FIND-128, BUG-101 created, eight rows stamped `epic: epic-10`.
+- [x] The duplicate `IDEA-103` renumbered: "Profile lookup falls back to a background phase" is now **IDEA-261031-nts**.
+- [x] Epic 10 formed (14 stories; a fifteenth, 10.12a manual post selection, was added later the same day with IDEA-261102-tov), rows IDEA-261102-dkk, IDEA-261102-xrx, IDEA-261102-v9l and IDEA-261102-scl and BUG-261102-00r, FIND-261102-4qm, BUG-261102-4rm created, eight rows stamped `epic: epic-10`.
 - [x] Spike: one single-post scrape per vendor; both return all 5 slides (numbers in the design notes).
 - [x] PRD amended for the Jobs capability (commit `c8341998`): section 3.18, FR116 to FR128, open items OI-1 to OI-4.
 - [x] FR116 to FR128 backfilled into `epics.md` (inventory, coverage map, Epic 10 "FRs covered"); FR129 added with Story 10.12a, and FR121 amended (a job over its limit is queued, not refused; vendor jobs limited to 3, extraction-only jobs to 2).
-- [x] Manual post selection (PRD 3.10) was not in the epic; the product owner chose to add it as a job type: Story 10.12a, IDEA-120. Readiness re-run for that story only (addendum in `epic-readiness/epic-10-readiness.md`).
+- [x] Manual post selection (PRD 3.10) was not in the epic; the product owner chose to add it as a job type: Story 10.12a, IDEA-261102-tov. Readiness re-run for that story only (addendum in `epic-readiness/epic-10-readiness.md`).
 - [x] Nine "fix on its PR" rows verified against master and closed or corrected (section 6).
-- [x] Code for BUG-100, FIND-128 and BUG-101 committed on three local branches (section 1); lint and build green on their integration.
+- [x] Code for BUG-261102-00r, FIND-261102-4qm and BUG-261102-4rm committed on three local branches (section 1); lint and build green on their integration.

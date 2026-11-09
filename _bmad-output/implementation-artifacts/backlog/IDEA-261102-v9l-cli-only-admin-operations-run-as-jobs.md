@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-118
+backlog_id: IDEA-261102-v9l
 title: "Long admin operations that are CLI-only today run as moderator-visible jobs"
 captured: 2026-11-02
 ---
 
-# IDEA-118: Long admin operations that are CLI-only today run as moderator-visible jobs
+# IDEA-261102-v9l: Long admin operations that are CLI-only today run as moderator-visible jobs
 
 ## Capture
 

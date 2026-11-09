@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-117
+backlog_id: IDEA-261102-xrx
 title: "\"Refresh now\" for a subscribed account shows progress and re-attaches instead of scraping twice"
 captured: 2026-11-02
 ---
 
-# IDEA-117: "Refresh now" for a subscribed account shows progress and re-attaches instead of scraping twice
+# IDEA-261102-xrx: "Refresh now" for a subscribed account shows progress and re-attaches instead of scraping twice
 
 ## Capture
 

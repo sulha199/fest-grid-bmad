@@ -1,10 +1,10 @@
 ---
-backlog_id: BUG-100
+backlog_id: BUG-261102-00r
 title: "The API Lambda registers no scraper adapters, so every API-side scrape throws"
 captured: 2026-11-02
 ---
 
-# BUG-100: The API Lambda registers no scraper adapters, so every API-side scrape throws
+# BUG-261102-00r: The API Lambda registers no scraper adapters, so every API-side scrape throws
 
 ## Capture
 
