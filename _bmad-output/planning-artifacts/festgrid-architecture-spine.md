@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-10-23T00:00:00Z"
+updated: "2026-11-09T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -346,6 +346,11 @@ This document defines the core architectural invariants for the FestDaily applic
         response now carries `events[]`; `minScheduleCount`/`expectedScheduleNames` become
         **per-event** fields and the post-level `minEventCount` joins them. All three stay
         log-only signals under rule 3 — a short event list never triggers another Gemini call.
+    5.  **Amended 2026-11-09 (AD-46):** Rules 1 and 3 are superseded for posts the continue rules of AD-46
+        select (multi-slide roundups, separate-events posts and the one-follow-up lineups): they are extracted in
+        steps (AD-47) and the batched cap proved insufficient (post `DfLcqoqj-al`). Every other post keeps exactly
+        one request. Rule 2 (extraction-time-only images) and the quota rationale of Rule 1 still bind; AD-51 bounds
+        the request count.
 
 ---
 
@@ -1699,6 +1704,9 @@ This document defines the core architectural invariants for the FestDaily applic
         Per-post cap on events (default 10, configurable); timezone inference, private-contact and
         performer-leakage guards (3.6a/3.6i/3.6j) run **per event**; the children's-data filter
         (3.6k) stays post-level.
+        **Amended 2026-11-09 (AD-46):** "one Gemini call per post" and the per-post cap of events hold for the
+        one-request path only. A post selected by AD-46's continue rules is extracted in steps; the per-call cap
+        (about 25) and AD-51's request bound replace the per-post cap there.
         **Grouping rules, in order:** (1) any strong signal — own registration/ticket/fee/sign-up,
         own organizer handle, different venue — ⇒ separate events; (2) two or more weak signals —
         standalone headliner/title, dates more than ~7 days apart, different category ⇒ separate;
@@ -3088,6 +3096,242 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Enforced by:** `dedup-review-workflow.test.ts` (the workflow's text and the guard script's behavior),
     `suggested-match-resolve-ratchet.test.ts`, the domain tests of the judge and floor (100% coverage), and
     the apply library's tests against a real database.
+
+---
+
+### AD-46: Selected Multi-Slide Posts Are Extracted in Steps; the Continue Decision Is Code, Never the Model
+
+*   **Binds:** `apps/backend/src/lib/ai-processor/process-ai-job.ts` and `build-gemini-request.ts`; a new pure
+    decision function in `packages/domain/src/` (the table in
+    `_bmad-output/specs/spec-cursor-extraction/continue-rules.md`); `MAX_CAROUSEL_IMAGES`; the AD-30 Rule 5
+    payload. Spec: `_bmad-output/specs/spec-cursor-extraction/SPEC.md` (CAP-1, CAP-2, CAP-8). Evidence: `evidence.md`
+    in the same folder (post `DfLcqoqj-al`: 8 of about 200 events imported).
+*   **Supersedes:** AD-13 Rule 1 ("one request per post, always") and Rule 3 (the multi-call loop "rejected,
+    revisit if the batched cap proves insufficient"; it did). Amends AD-30 Rule 5 ("one Gemini call per post"; the
+    per-post cap of 10 events). Each carries a dated note below.
+*   **Prevents:** Chunking posts that need one request (138 of the 209 over-cap posts are single-event photo
+    carousels); a loop whose continue or stop is the model's say-so (the model ignored the prompt's cap of 10 in
+    prior runs); two units reading the same post plan differently; a post silently losing most of its items.
+*   **Rule:**
+    1.  **One request stays the default.** The first request of every post is today's: the cover plus up to
+        `MAX_CAROUSEL_IMAGES` slides, the caption, one Gemini call. Posts with 6 images or fewer (95%) never
+        leave this path.
+    2.  **The first request also returns a small post plan** (claimed item count, per-slide role, items per
+        list slide, date range covered, whether more items are likely). The fields are optional in the consumer
+        schema and, before shipping, are verified live against the model-facing schema (growing it once caused
+        whole-request 400 INVALID_ARGUMENT; see `build-gemini-request.ts`).
+    3.  **The decision is a pure function of the cursor and the step's result** (AD-47), evaluated after the first
+        request and after every step, top to bottom, first match wins. The plan fields inform it (density,
+        "known partial" note); they never extend the loop past the unread slides.
+    4.  **Which posts continue** (the table in `continue-rules.md` is the contract): `roundup` and
+        `separate-events` with unread slides chunk further while the last step added at least one new event;
+        `program-lineup` and `dependent-stages` make ONE follow-up request with all remaining slides (up to 10
+        images in total) because their schedules merge into one event; `single-event` with at least one event
+        stops; zero events with slides remaining continues (a text-free cover is not a stop signal), at most 2
+        empty steps. "New event" means not already present for the post by normalized name plus start date.
+    5.  **Per-call event cap.** About 25 events per call, enforced in code, on every request including the first
+        (a post cannot be known to step before its first request returns). With the kill switch on it replaces the
+        per-post cap of 10 (AD-30 Rule 5, `MAX_EXTRACTED_EVENTS_PER_POST`); with the switch off the cap of 10 stays.
+        A first request that reaches the cap is at risk (AD-49) and is split like any window, so no item beyond the
+        cap is lost before the cursor moves past it.
+    5a. **Which label decides.** The first request's `groupingReason` decides the path. Labels returned by later
+        steps are logged and never stop or redirect the loop (a later 1-slide window cannot end a roundup).
+    6.  **Quota trade-off recorded.** Steps multiply requests against the quotas of the keys used (AD-13's quota
+        rationale still binds). AD-51 bounds the multiplication by construction.
+    7.  **Amended 2026-11-09 (supersession).** AD-13 Rule 1 and Rule 3 and AD-30 Rule 5 carry a pointer to this
+        AD; their text is otherwise unchanged.
+*   **Enforced by:** domain unit tests that reproduce every row of the table (CAP-2); the live regression harness
+    over the corpus in `evidence.md`.
+
+---
+
+### AD-47: A Step Is One Queue Message Carrying the Cursor; the Cursor Is Also Persisted; Resume Is Automatic
+
+*   **Binds:** the AI processing queue and the AI processor Lambda (5-minute EventBridge tick,
+    `pollAndDrainQueue`, the PR #180 per-message budget); `posts` (new nullable `extraction_cursor` jsonb, null when
+    no chain is in flight); `extraction_audit_logs` (AD-29); `POST_EXTRACTION_CLAIM_TTL_MINUTES` and
+    `enqueue-post-for-processing.ts` (Story 3.6z claim). Spec: CAP-3, CAP-7.
+*   **Prevents:** A loop inside one Lambda invocation (it would outrun the per-message budget); a post left
+    half-extracted until a human notices; two steps of one post running at once; a redelivered step changing
+    results; readers of "the latest audit row" misreading a step row as the post's final verdict.
+*   **Rule:**
+    1.  **One step, one message.** Each step is a separate message carrying the cursor: post id, next slide index,
+        next free ordinal (AD-48), the dedupe keys of events found by committed steps, the first request's grouping
+        reason, whether the one follow-up was made, empty-step count, step count and lease nonce, window size, total
+        image count, unread slides at the start, requests made so far (AD-51), resume attempts, re-scrape count and
+        time, the image links for the unread slides, last observed items per slide, claimed item count. It is one
+        versioned JSON type in `packages/domain`, read and written by one function. It never holds the caption (Rule 7)
+        and `posts.extraction_cursor` is never exposed through GraphQL (it holds image links).
+        The step must fit the budget of AD-28 and PR #180 (blur floor plus margin); a step that would start below it
+        is left in flight, not run.
+    2.  **Serial per post.** The next step message is enqueued only after the previous step has committed, with a
+        short delay. Steps of different posts run in parallel as today.
+    3.  **The post stays in progress** (`is_extracted` false, the extraction claim held and refreshed by each commit)
+        until the last step. Each step writes its own `extraction_audit_logs` row. Every reader of "the latest audit row"
+        (quality tooling, the moderator preview) is reviewed in the story that ships this and must read the
+        post's last step or all of its rows, never assume one row per post.
+    4.  **One writer, one lease.** Every write of the cursor, including the resume pass's, goes through one function
+        that compare-and-sets on (step count, lease nonce). A step takes its lease by that compare-and-set before its
+        first Gemini request; a copy that cannot take it, a message whose step count is older than the persisted
+        cursor, and a message for a post with a null cursor, `is_extracted` true or no longer existing are dropped.
+        This is how a redelivered or resumed duplicate changes nothing. The resume pass bumps the nonce, never the step
+        count, so it cannot kill a live step after its side effects; a step that loses its lease stops before enqueueing.
+    4a. **Commit order.** A step (1) takes the lease, (2) calls Gemini, (3) reserves its ordinal range by compare-and-set
+        (AD-48), (4) enqueues its ingestion messages, (5) commits: advances the next slide, step count and the dedupe
+        keys in one compare-and-set, then enqueues the next step. A crash before (5) replays the step with a fresh range;
+        a crash before (3) loses nothing.
+    5.  **Resume is automatic.** The tick begins with a resume pass: a post with a cursor, a claim older than the
+        claim TTL, valid images and attempts left (counted in the cursor and never reset, growing delay, starting value
+        6) has its next step re-enqueued from the persisted cursor. The pass reads the kill switch first (AD-51 Rule 2).
+        No human step. The claim TTL must exceed the longest step-message delay. A dead-lettered copy is harmless
+        because steps are idempotent (Rule 4, AD-48).
+    5a. **A non-null cursor is a claim of any age.** `enqueuePostForProcessing` and the PENDING status derivation treat
+        `extraction_cursor IS NOT NULL` as in progress regardless of `queued_for_extraction_at`; only the resume pass may
+        reclaim it. A fresh chain therefore never starts on a post whose chain is alive.
+    5b. **Every stop path is atomic.** It sets the cursor to null, `is_extracted` true and `extraction_partial` (AD-50)
+        according to the outcome in one write: clean end, the follow-up of AD-46 Rule 4 with slides still unread
+        (partial), the AD-51 bound, the kill switch, attempts spent, a slide count that changed. A deleted post or one
+        that fails the AD-34 gate clears the chain and enqueues no ingestion.
+    6.  **Order before giving up.** Queue retries of the step; resume-pass attempts while images are valid; one
+        re-scrape when images expired (AD-51 Rule 4); only then the cursor is cleared and the post is flagged partial
+        for good (AD-50).
+    7.  **The caption never persists.** A step reads the caption from `posts.content` in memory and sends it in its
+        request; the message and the cursor never carry it (AD-40). A post whose caption was already nulled (a curator
+        post, Story 3.4o) takes the image-only path from step 2 on and the step line says so.
+*   **Enforced by:** a test that re-delivers a step message twice and finds the same events once; a test that forces
+    429, 503 and a timeout on one step and finds the chain finished by the next tick.
+
+---
+
+### AD-48: Extraction Ordinals for Stepped Posts Are Per-Step Ranges From a Next-Free Value in the Cursor
+
+*   **Binds:** `packages/domain/src/events/assign-extraction-ordinals.ts` and `pair-post-events.ts`;
+    `event_posts.extraction_ordinal` (`smallint`) and the slug suffix that follows it; `process-ingestion-job.ts`'s
+    `(post, ordinal)` lookup; the re-extract Apply (`assignApplyOrdinals`, `PARKED_ORDINAL_BASE`, AD-40). Interacts
+    with AD-30 Rules 1, 3 and 8.
+*   **Prevents:** Two steps numbering the same slot; a number that changes between two runs of the same step; an
+    event lost because a unique violation was read as an idempotent skip (AD-30 Rule 3); a renumbering of events that
+    already have public slugs.
+*   **Rule:**
+    1.  **The first request numbers as today** (`assignExtractionOrdinals`: 1..n by earliest schedule date). The
+        cursor's next-free ordinal starts at n + 1.
+    2.  **Each later step takes the next range** from the cursor, assigned after the step's window result is final
+        (after any split of AD-49), in the order (earliest start date, normalized name, original index), which is
+        deterministic for a given result. The range is **reserved by compare-and-set on the cursor before the
+        ingestion messages are enqueued** (AD-47 Rule 4a), so a replayed step starts after the reserved range; gaps in
+        the numbering are harmless. The dedupe is against the post's events in the database plus the keys held by the
+        cursor; the slot of a replay never collides with one the first run may still insert. Ranges ascend across steps.
+        The reservation happens under the post-row lock that the re-extract Apply also takes (AD-40), and skips ordinals
+        at or above `PARKED_ORDINAL_BASE`.
+    3.  **Why not the other options.** Numbering by event `created_at` was rejected: ingestion looks up
+        `(post, ordinal)` before inserting, so the number must exist before the event, and `created_at` reflects the
+        race between parallel ingestion consumers, so a redelivered message could number differently. Allocating
+        `max + 1` at insert races between parallel ingestion messages and a unique violation would silently lose an
+        event. A content key replacing the ordinal was rejected: the ordinal drives the slug and AD-30's identity.
+    4.  **Only the cursor allocates.** Ingestion keeps its idempotent skip on an occupied slot (AD-30 Rule 3) and never
+        allocates a number itself; an occupied slot with a different event is logged as `ordinal-slot-conflict` and flags
+        the post partial, never overwritten. With one allocator, write-ahead reservation and the lease, this is
+        unreachable in normal operation and a bug when seen.
+    5.  **The ceiling.** Events per post are at most (requests allowed by AD-51) times the per-call cap of AD-46, far
+        below `PARKED_ORDINAL_BASE` and the `smallint` limit; the story states the derived figure.
+*   **Enforced by:** domain tests for range allocation and determinism; an ingestion test for the conflict path; a
+    replay of `DfRtgnXE_41` (26 events) in 3 steps yielding 26 distinct events.
+
+---
+
+### AD-49: The Gemini Client Reports Truncation and Usage; an Unparseable Response Is Never Dropped
+
+*   **Binds:** `apps/backend/src/lib/ai-gateway/gemini-client.ts` (today it returns only `text`);
+    `process-ai-job.ts` (today a JSON parse failure logs and returns silently); AD-29 audit rows; the response schema
+    in `build-gemini-request.ts`. Spec: CAP-4.
+*   **Prevents:** Losing items silently when the output stops at the token limit; a parse failure that ends the job
+    with no trace; different units inventing their own truncation test.
+*   **Rule:**
+    1.  **The client returns `finishReason` and the token usage** (`usageMetadata.candidatesTokenCount`,
+        `promptTokenCount`) next to `text`, additively: existing callers keep reading `text`.
+    2.  **At risk** means any of: `finishReason` is `MAX_TOKENS`; output tokens at 90% or more of
+        `maxOutputTokens`; events at the per-call cap; the model's `minEventCount` above events plus
+        `skippedItems`; a JSON parse failure with an unterminated string (a truncation seen in the live corpus).
+    3.  **An at-risk window is split and retried** (halved, down to 1 slide; for the first request, down to fewer
+        slides, the cursor then starting after the slides actually read) before the continue rules are consulted. Every
+        retry counts toward the AD-51 bound. A 1-slide window that still truncates keeps its result and marks the post partial. A parse failure
+        on a window of 2 or more slides is treated as at risk; on 1 slide it is retried once, then recorded as a failed
+        step (audit row with the reason) and the post is left retriable by the resume pass, never dropped.
+    3a. **Thinking tokens** are not measured yet; the 90% rule uses reported output tokens and is tuned with the live
+        harness.
+    4.  **The starting values** (25 events per call, 90%, a first window of 2 slides) are code constants tuned by the
+        harness, not environment values (AD-51).
+*   **Enforced by:** client tests with a mocked SDK response for each signal; a process-ai-job test for the
+    parse-failure path.
+
+---
+
+### AD-50: A Post Is "Still Being Finished" or "Partial"; the Roundup Sibling List Is a Separate Read
+
+*   **Binds:** `posts` (`extraction_cursor` from AD-47 and a new `extraction_partial` boolean, default false);
+    `event_posts`; a new read next to `Query.relatedEventIds`; the stub event page. Interacts with AD-30 Rules 4 and
+    10. Spec: CAP-9.
+*   **Prevents:** A permanent "partial" claim on a post that is only waiting for its next step; a join added to
+    `Query.events` or `Query.eventBySlug` (AD-30 Rule 4); a stub page that gives no hint that other items exist;
+    notifications from stubs.
+*   **Rule:**
+    1.  **Two states, one meaning each** (every stop path of AD-47 Rule 5b writes the right one atomically). A non-null cursor means "still being finished". `extraction_partial` true
+        means "will not be finished" (images expired and the re-scrape refused or failed, attempts spent, the slide
+        count changed, or a 1-slide window still truncated), set when the cursor is cleared (AD-47 Rule 6) or when
+        the loop stops with slides unread because of the AD-51 bound or kill switch.
+    2.  **The page note shows for either state,** with different words, and links to the source post.
+        `claimedItemCount` informs the note's wording only.
+    3.  **The sibling list is a read of `event_posts`** for the roundup's post, shown on a roundup stub page only, as
+        its own query (precedent `Query.relatedEventIds`). It adds no join and no field to `Query.events` or
+        `Query.eventBySlug`; an ordinary event page is unchanged.
+    4.  **Stubs never notify** (AD-30 Rule 10) and the new events join the same post as stubs, not as a new post.
+    5.  **Recovery clears the flag.** A successful re-extract Apply (AD-40) sets `extraction_partial` false.
+*   **Enforced by:** a query-plan test that `Query.events` and `Query.eventBySlug` are unchanged; resolver tests for
+    the sibling read and the two states.
+
+---
+
+### AD-51: The Work per Post Is Bounded by Construction; a Kill Switch Turns the Loop Off; Provider Errors and Expired Images Have One Policy
+
+*   **Binds:** the stepped path of `process-ai-job.ts`; one new environment variable `CURSOR_EXTRACTION_ENABLED` in
+    `apps/backend/src/env.ts`; AD-28 (blur per step), AD-14 (geocoding), AD-32 (vendor wrapper), AD-34 (scrape gate),
+    AD-40 (never keep a caption); the FIND-110 one-scrape-per-URL lease; the PR #180 budget. Spec: CAP-6, CAP-7,
+    CAP-10.
+*   **Prevents:** An unbounded request count for one post; a tunable cap that an operator mis-sets; a retry storm
+    against a metered scraper or a rate-limited model; a re-scrape that renumbers events or rewrites the post.
+*   **Rule:**
+    1.  **The bound is structural.** The requests after the first may not exceed twice the post's unread slides at the
+        start of the loop (images beyond the first request's window; a 20-image post: at most 2 x 14 = 28). The first
+        request is not counted but its own splits are. The cursor holds `requestsMade` and the unread count at the
+        start; the counter is incremented and persisted by compare-and-set **before** each Gemini call, so a request
+        that crashed or was redelivered still counts, and resume attempts never reset it. A check before every request
+        logs and stops the loop when the bound would be exceeded and flags the post partial (AD-47 Rule 5b). There is no
+        per-post step cap, event cap or daily limit to tune; the AD-49 constants are code.
+    2.  **The kill switch** `CURSOR_EXTRACTION_ENABLED` (read per message). Off means every post takes the
+        one-request path of AD-46 Rule 1 (with the old cap of 10); a chain already in flight, and the resume pass, stop
+        at the next step and flag the post partial. `[ASSUMPTION]` the code default is off and infra turns it on after the live regression passes (ships
+        dark, like AD-45).
+    3.  **429 and 503.** A step that gets one is retried through the queue with a visibility delay; steps of one post
+        are serial (AD-47 Rule 2), which spaces its requests; no in-Lambda retry loop. Key selection (subscriber BYOK
+        by tier, then the system key) is unchanged.
+    4.  **Re-scrape before giving up.** When the stored image links have expired (read from the URL itself) or a slide
+        fetch fails with 403, 404 or 410 while slides remain, the resume pass re-scrapes: at most 2 per post, at least
+        10 minutes apart (the AD-40 re-scrape cooldown), only through the AD-32 wrapper, the AD-34 gate
+        (`isStoredPostAccountScrapable`) and the FIND-110 lease. It replaces only the image links held in the cursor;
+        progress is untouched, the caption is not stored and `posts` is not rewritten. The re-scrape is recorded where
+        AD-40's cooldown reads its own (one ledger), so a moderator preview and a chain cannot both hit the vendor
+        within the cooldown. The moderator preview and Apply refuse a post with a non-null cursor (`CHAIN_IN_FLIGHT`). The fresh slide list must have the
+        same count and order as the stored one, else the post ends partial. A refused or failed scrape ends the post
+        partial with the reason logged; the scrape is never retried in a loop (the prod Apify account is on a capped plan).
+    5.  **Per-step budgets.** Each step blurs only its own images (AD-28 fail-closed, never sends unblurred bytes) and
+        must fit the per-message budget; geocoding happens at ingestion, about one call per schedule (AD-14), and is not
+        part of the step's budget.
+    6.  **One greppable line per step** (slides read, events added, input and output tokens, `finishReason`, and the
+        stop rule or bound that ended the loop) for operators.
+*   **Enforced by:** a 20-image fixture whose every response forces splits (never above the bound; an injected
+    violation logs and stops); a test with the switch off; a re-scrape test that checks the cursor's progress survives.
+
+---
 
 ---
 
