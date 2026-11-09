@@ -2911,3 +2911,20 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [cross:process],
      note: "Deferred from: bmad-quick-dev review of spec-backlog-collision-safe-ids (2026-11-08). 3 findings."}
+
+  FIND-261109-lwy:
+    {type: finding, status: backlog, created: 2026-11-09,
+     impact: internal, effort: xs,
+     title: "Bright Data trigger test fails whenever a local .env sets cheaper pricing or budget",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: bmad-quick-dev gate run of spec-backlog-collision-safe-ids: Bright Data trigger test depends on a local .env (2026-11-09). 1 finding."}
+
+
+  FIND-261109-cfb:
+    {type: finding, status: backlog, created: 2026-11-09,
+     impact: internal, effort: xs,
+     title: "Daily-batch no-targets test expects a cutoff without the 1h margin and only passes on a fresh seed",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: bmad-quick-dev gate run of spec-backlog-collision-safe-ids: daily-batch no-targets test has a stale cutoff and shared-DB state (2026-11-09). 1 finding."}
