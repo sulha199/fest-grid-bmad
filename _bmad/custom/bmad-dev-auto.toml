@@ -16,8 +16,14 @@ you just wrote there, verbatim; that heading is the only link back to the detail
 `impact` and `effort` from §3 — both are required on an open row and check 8 fails the
 board without them.
 
+Mint each new row's id with `uv run --python 3.11 --with pyyaml scripts/backlog-new-id.py FIND` (or `BUG` when the batch is a genuine
+defect, §12), never by taking the next number, and set `created` to the id's date
+(backlog-spec.md §4; check 17 fails a mismatch).
+
 Then run `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` from the project
-root and confirm it exits clean.
+root and confirm that no failure it prints names a row you added or changed, and that check 17
+is clean (`--only 17`). The full run still carries a backlog of older failures; they predate
+you, so do not fix them here.
 
 This workflow runs unattended, so do not stop to ask about classification: if `impact` is
 genuinely ambiguous, use `internal` and add `note: "impact unverified — needs triage"`.

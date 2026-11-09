@@ -75,6 +75,23 @@ test('CI wiring (Story 0.i3z): the workspace test script reaches the infrastruct
   assert.match(infraPackage.scripts.test, /lib\/\*\*\/\*\.test\.ts/, `${infraPackage.name}'s \`test\` script must glob lib/**/*.test.ts`);
 });
 
+// Backlog ID rules (backlog-spec.md §4, check 17). The job must keep running the unit tests and
+// `--only 17` with full git history, and must stay standalone: no `needs` and no `paths:` filter, so a
+// board typo cannot hold up the migration or deploy and a required check never waits on a skipped run.
+test('CI wiring (backlog IDs): the Backlog IDs job runs check 17 with full history and gates nothing else', () => {
+  const job = jobBlock('backlog-ids');
+  assert.match(job, /^ {4}name: Backlog IDs$/m);
+  assert.match(job, /^ {10}fetch-depth: 0$/m, 'the job needs full history for origin/master and the merge-base');
+  assert.match(job, /^ {8}run: python -m unittest discover -s scripts\/tests -t scripts -v$/m);
+  assert.match(job, /^ {8}run: python scripts\/backlog-check\.py --only 17$/m);
+  assert.doesNotMatch(job, /^ {4}needs:/m, 'the job must not wait on another job');
+  assert.doesNotMatch(job, /^ {4}if:/m, 'the job must always run, so a required check never hangs pending');
+  assert.doesNotMatch(workflow.slice(0, workflow.indexOf('\njobs:')), /\bpaths:/, 'a paths filter would skip the job');
+  for (const jobId of ['db-migrate', 'deploy-infrastructure']) {
+    assert.ok(!needsOf(jobId).includes('backlog-ids'), `job "${jobId}" must not wait on backlog-ids`);
+  }
+});
+
 test('CI wiring (Story 0.i3z): a red check stops the database migration and the AWS deploy', () => {
   for (const jobId of ['db-migrate', 'deploy-infrastructure']) {
     const needs = needsOf(jobId);
