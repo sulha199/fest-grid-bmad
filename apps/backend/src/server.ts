@@ -4,6 +4,13 @@ import { resolve } from 'path';
 import { resolvers } from './schema/resolvers.js';
 import { EnvelopArmor } from '@escape.tech/graphql-armor';
 import { createContext, GraphQLContext } from './lib/auth/context.js';
+// BUG-100: register-adapters.ts populates the registry resolvers.ts (extract-by-URL) and
+// lookupAccountProfile read from. buildServer() is the one function shared by local dev
+// (src/index.ts) and the API Lambda (lambdas/api.ts, which previously imported only
+// buildServer and nothing else from the scraper package) -- importing it here, rather than
+// adding a second import to lambdas/api.ts, guarantees every current and future buildServer()
+// caller gets it instead of relying on each caller to remember to import it separately.
+import './lib/scraper/register-adapters.js';
 
 import { join } from 'path';
 import { readdirSync } from 'fs';

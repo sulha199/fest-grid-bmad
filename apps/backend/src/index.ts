@@ -1,5 +1,4 @@
 import { createServer } from 'node:http';
-import './lib/scraper/register-adapters.js';
 import { buildServer } from './server.js';
 import { loadBackendEnv } from './env.js';
 
