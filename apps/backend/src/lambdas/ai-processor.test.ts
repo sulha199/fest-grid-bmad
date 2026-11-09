@@ -9,6 +9,7 @@ import {
   callGeminiForManualExtractionSeam,
 } from '../lib/ai-processor/process-manual-extraction-job.js';
 import { handler } from './ai-processor.js';
+import { loadBackendEnv } from '../env.js';
 import {
   receiveSqsMessages,
   setReceiveSqsMessages,
@@ -116,6 +117,79 @@ test('ai-processor lambda poll-and-drain branch', async (t) => {
     const result = await handler({ jobType: 'poll-and-drain' } as any, {} as any);
 
     assert.strictEqual(result, undefined);
+  });
+
+  // The drain budget derives from the face-blur floor, so the expected values below do too (rather than
+  // assuming the 60s default, which an environment may override).
+  const blurFloorMs = () => loadBackendEnv().faceBlurMinRemainingTimeMs;
+  const minRemainingMs = () => blurFloorMs() + 40_000; // AI_MESSAGE_WORK_MARGIN_MS in ai-processor.ts
+
+  // Drain budget: with face blurring on, the loop must size receives from a per-message budget and refuse to
+  // start work late in the 300s timeout (message started with <60s left => cover blur fails closed, text-only).
+  await t.test('blur on: receives are sized from the per-message budget, floor((remaining - min + 45000) / 45000)', async () => {
+    const originalBlur = process.env.BLUR_FACES_BEFORE_AI;
+    process.env.BLUR_FACES_BEFORE_AI = 'true';
+    process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.mock-ai-processing-queue';
+    try {
+      const asked: Array<number | undefined> = [];
+      setReceiveSqsMessages(async (_queueUrl, maxMessages) => {
+        asked.push(maxMessages);
+        return [];
+      });
+      setDeleteSqsMessage(async () => {});
+
+      await handler({ jobType: 'poll-and-drain' } as any, { getRemainingTimeInMillis: () => 300_000 } as any);
+
+      assert.deepStrictEqual(asked, [Math.floor((300_000 - minRemainingMs() + 45_000) / 45_000)]);
+    } finally {
+      if (originalBlur === undefined) delete process.env.BLUR_FACES_BEFORE_AI;
+      else process.env.BLUR_FACES_BEFORE_AI = originalBlur;
+    }
+  });
+
+  await t.test('blur on: with less than floor + margin remaining nothing is received or handled', async () => {
+    const originalBlur = process.env.BLUR_FACES_BEFORE_AI;
+    process.env.BLUR_FACES_BEFORE_AI = 'true';
+    process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.mock-ai-processing-queue';
+    try {
+      let receives = 0;
+      setReceiveSqsMessages(async () => {
+        receives += 1;
+        return [];
+      });
+      const originalWarn = console.warn;
+      console.warn = () => {};
+      try {
+        await handler({ jobType: 'poll-and-drain' } as any, { getRemainingTimeInMillis: () => minRemainingMs() - 1 } as any);
+      } finally {
+        console.warn = originalWarn;
+      }
+
+      assert.strictEqual(receives, 0);
+    } finally {
+      if (originalBlur === undefined) delete process.env.BLUR_FACES_BEFORE_AI;
+      else process.env.BLUR_FACES_BEFORE_AI = originalBlur;
+    }
+  });
+
+  await t.test('blur off: the receive is the unchanged unsized one even with a Lambda context', async () => {
+    const originalBlur = process.env.BLUR_FACES_BEFORE_AI;
+    process.env.BLUR_FACES_BEFORE_AI = 'false';
+    process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.mock-ai-processing-queue';
+    try {
+      const asked: Array<number | undefined> = [];
+      setReceiveSqsMessages(async (_queueUrl, maxMessages) => {
+        asked.push(maxMessages);
+        return [];
+      });
+
+      await handler({ jobType: 'poll-and-drain' } as any, { getRemainingTimeInMillis: () => 300_000 } as any);
+
+      assert.deepStrictEqual(asked, [undefined]);
+    } finally {
+      if (originalBlur === undefined) delete process.env.BLUR_FACES_BEFORE_AI;
+      else process.env.BLUR_FACES_BEFORE_AI = originalBlur;
+    }
   });
 });
 

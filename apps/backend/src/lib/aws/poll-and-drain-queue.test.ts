@@ -269,6 +269,153 @@ test('poll-and-drain-queue per-message budget', async (t) => {
   });
 });
 
+test('poll-and-drain-queue remaining-time guard', async (t) => {
+  const originalReceiveSqsMessages = receiveSqsMessages;
+  const originalDeleteSqsMessage = deleteSqsMessage;
+  const originalConsoleWarn = console.warn;
+  let warnings: string[] = [];
+  t.beforeEach(() => {
+    warnings = [];
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(' '));
+    };
+  });
+  t.afterEach(() => {
+    setReceiveSqsMessages(originalReceiveSqsMessages);
+    setDeleteSqsMessage(originalDeleteSqsMessage);
+    console.warn = originalConsoleWarn;
+  });
+
+  const batch = (...names: string[]) => names.map((n) => ({ Body: n, ReceiptHandle: `rh-${n}` }));
+
+  await t.test('handles and deletes every message while remaining time stays at or above the minimum', async () => {
+    let received = false;
+    setReceiveSqsMessages(async () => {
+      if (received) return [];
+      received = true;
+      return batch('a', 'b');
+    });
+    const deleted: string[] = [];
+    setDeleteSqsMessage(async (_q, rh) => {
+      deleted.push(rh);
+    });
+
+    const handled: string[] = [];
+    await pollAndDrainQueue('https://queue', async (body) => { handled.push(body); }, {
+      minRemainingMs: 90_000,
+      getRemainingTimeInMillis: () => 90_000, // exactly the minimum is still enough
+    });
+
+    assert.deepStrictEqual(handled, ['a', 'b']);
+    assert.deepStrictEqual(deleted, ['rh-a', 'rh-b']);
+    assert.deepStrictEqual(warnings, []);
+  });
+
+  await t.test('stops mid-batch when a slow message uses up the time, leaving the rest undeleted and logging it', async () => {
+    let remaining = 200_000;
+    let received = false;
+    setReceiveSqsMessages(async () => {
+      if (received) return [];
+      received = true;
+      return batch('a', 'b', 'c');
+    });
+    const deleted: string[] = [];
+    setDeleteSqsMessage(async (_q, rh) => {
+      deleted.push(rh);
+    });
+
+    const handled: string[] = [];
+    await pollAndDrainQueue('https://queue', async (body) => {
+      handled.push(body);
+      remaining = 80_000; // the first message ran long
+    }, { minRemainingMs: 100_000, getRemainingTimeInMillis: () => remaining });
+
+    assert.deepStrictEqual(handled, ['a']);
+    assert.deepStrictEqual(deleted, ['rh-a']);
+    assert.strictEqual(warnings.length, 1);
+    assert.match(warnings[0], /80000ms/);
+    assert.match(warnings[0], /handled=1/);
+    assert.match(warnings[0], /leftInFlight=2/);
+  });
+
+  await t.test('does not handle even the first message of a batch when the time is already short (long-poll ate it)', async () => {
+    // Plenty of time until the receive returns; the receive itself is what uses it up.
+    let remaining = 200_000;
+    setReceiveSqsMessages(async () => {
+      remaining = 50_000;
+      return batch('a');
+    });
+    let deleted = 0;
+    setDeleteSqsMessage(async () => { deleted += 1; });
+
+    const handled: string[] = [];
+    await pollAndDrainQueue('https://queue', async (body) => { handled.push(body); }, {
+      minRemainingMs: 100_000,
+      getRemainingTimeInMillis: () => remaining,
+    });
+
+    assert.deepStrictEqual(handled, []);
+    assert.strictEqual(deleted, 0);
+    assert.match(warnings[0], /handled=0/);
+    assert.match(warnings[0], /leftInFlight=1/);
+  });
+
+  await t.test('does not even receive when the time is already short', async () => {
+    let receives = 0;
+    setReceiveSqsMessages(async () => {
+      receives += 1;
+      return batch('a');
+    });
+    setDeleteSqsMessage(async () => {});
+
+    await pollAndDrainQueue('https://queue', async () => {}, {
+      minRemainingMs: 100_000,
+      getRemainingTimeInMillis: () => 99_999,
+    });
+
+    assert.strictEqual(receives, 0);
+    assert.strictEqual(warnings.length, 1);
+  });
+
+  await t.test('stops before the next receive once a batch has spent the time', async () => {
+    let remaining = 250_000;
+    let receives = 0;
+    setReceiveSqsMessages(async () => {
+      receives += 1;
+      return batch(`m${receives}`);
+    });
+    setDeleteSqsMessage(async () => {});
+
+    const handled: string[] = [];
+    await pollAndDrainQueue('https://queue', async (body) => {
+      handled.push(body);
+      remaining = 60_000;
+    }, { minRemainingMs: 100_000, getRemainingTimeInMillis: () => remaining });
+
+    assert.strictEqual(receives, 1);
+    assert.deepStrictEqual(handled, ['m1']);
+    assert.strictEqual(warnings.length, 1);
+    assert.match(warnings[0], /60000ms/);
+    assert.match(warnings[0], /handled=1/);
+  });
+
+  await t.test('is disabled unless BOTH options are given', async () => {
+    for (const opts of [{ minRemainingMs: 100_000 }, { getRemainingTimeInMillis: () => 0 }]) {
+      let received = false;
+      setReceiveSqsMessages(async () => {
+        if (received) return [];
+        received = true;
+        return batch('a');
+      });
+      setDeleteSqsMessage(async () => {});
+      const handled: string[] = [];
+      await pollAndDrainQueue('https://queue', async (body) => { handled.push(body); }, opts);
+      assert.deepStrictEqual(handled, ['a']);
+    }
+    assert.deepStrictEqual(warnings, []);
+  });
+});
+
 test('hasJobType', () => {
   // Review Finding (Story 0.40 code review): isPollAndDrainEvent/isStaleJobSweepEvent were
   // copy-pasted verbatim across scraper.ts/ai-processor.ts/ingestor.ts; this shared generic

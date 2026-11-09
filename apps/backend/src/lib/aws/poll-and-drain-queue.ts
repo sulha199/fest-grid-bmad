@@ -56,6 +56,16 @@ export interface PollAndDrainQueueOptions {
    * redelivery spending one of the queue's maxReceiveCount without the message having been tried.
    */
   perMessageBudgetMs?: number;
+  /**
+   * Remaining-time guard, active only when BOTH this and `getRemainingTimeInMillis` are given. The loop
+   * returns (leaving the rest of the queue for the next scheduled tick) instead of starting a receive or a
+   * message when the Lambda's real remaining time is below this. `timeBudgetMs` is measured from the loop's
+   * start and knows nothing about a slow earlier message in an already-received batch, so on its own a
+   * message can still start with too little time left for work that has its own time floor (the AI
+   * processor's face-blur, which fails closed to text-only and is never retried).
+   */
+  minRemainingMs?: number;
+  getRemainingTimeInMillis?: () => number;
 }
 
 /**
@@ -74,14 +84,40 @@ export async function pollAndDrainQueue(
   const deadline = Date.now() + timeBudgetMs;
   const perMessageBudgetMs = opts.perMessageBudgetMs;
   let firstReceive = true;
+  const guardMinRemainingMs = opts.minRemainingMs;
+  const getRemainingMs = opts.getRemainingTimeInMillis;
+  let handled = 0;
 
-  // The first receive always happens regardless of the time budget so a single short-lived
-  // invocation still does useful work; the budget only governs whether the loop continues
-  // past the batch it is currently processing.
+  // True (after logging) when the guard says not to start more work. `leftInFlight` is how many already
+  // received messages of the current batch are being abandoned: they stay invisible for the queue's
+  // visibility timeout and each spent one of its maxReceiveCount. `handled` counts messages whose handler
+  // and delete both succeeded.
+  const guardTripped = (leftInFlight: number): boolean => {
+    if (guardMinRemainingMs === undefined || getRemainingMs === undefined) {
+      return false;
+    }
+    const remaining = getRemainingMs();
+    if (remaining >= guardMinRemainingMs) {
+      return false;
+    }
+    console.warn(
+      `pollAndDrainQueue: stopping, ${remaining}ms of Lambda time remaining is below the ${guardMinRemainingMs}ms ` +
+        `minimum (handled=${handled}, leftInFlight=${leftInFlight})`
+    );
+    return true;
+  };
+
+  // Without the remaining-time guard, the first receive always happens regardless of the time budget so a
+  // single short-lived invocation still does useful work; the budget only governs whether the loop
+  // continues past the batch it is currently processing. With the guard, nothing starts below its minimum,
+  // the first receive included.
   for (;;) {
     let messages: Message[];
     // Only with a per-message budget: how many messages the rest of the time budget can hold.
     let maxMessages: number | undefined;
+    if (guardTripped(0)) {
+      return;
+    }
     if (perMessageBudgetMs !== undefined) {
       const fits = Math.floor((deadline - Date.now()) / perMessageBudgetMs);
       if (fits < 1 && !firstReceive) {
@@ -115,6 +151,11 @@ export async function pollAndDrainQueue(
       if (i > 0 && Date.now() >= deadline) {
         return;
       }
+      // Every message, a batch's first included: the receive above can long-poll for up to 20s, and an
+      // earlier message in the batch may have run past its budget.
+      if (guardTripped(messages.length - i)) {
+        return;
+      }
 
       const message = messages[i];
       if (!message.Body || !message.ReceiptHandle) {
@@ -124,6 +165,7 @@ export async function pollAndDrainQueue(
       try {
         await handleMessage(message.Body);
         await deleteSqsMessage(queueUrl, message.ReceiptHandle);
+        handled += 1;
       } catch (error) {
         console.error('pollAndDrainQueue: failed to process message, leaving it undeleted', error);
       }
