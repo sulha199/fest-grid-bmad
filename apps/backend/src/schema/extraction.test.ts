@@ -405,8 +405,10 @@ test('extractEventDataFromUrl resolver integration', async (t) => {
     const started = result.data.extractEventDataFromUrl;
     assert.ok(started.jobId, `mutation should return a jobId (got ${started.errorCode}: ${started.errorMessage})`);
     const [jobRow] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.id, started.jobId));
+    // BUG-101: Apify's childPosts[0] is the cover re-served, so the stored slide list must NOT repeat
+    // it. BUG-099's point stands (every real slide is forwarded); this used to expect the cover too,
+    // which pinned the bug.
     assert.deepStrictEqual(jobRow.requestPayload.message.additionalImageUrls, [
-      'https://cdn.example.com/cover.jpg',
       'https://cdn.example.com/slide-2.jpg',
       'https://cdn.example.com/slide-3.jpg',
     ]);
