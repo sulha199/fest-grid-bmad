@@ -108,6 +108,14 @@ Recent commit history (`203522c` `fix(cluster-b): stabilize infinite-scroll sent
 - [Source: design-artifacts/UX-festgrid-run-1/DESIGN.md] — confirmed (Gate 2) no location-link/map-affordance component token exists.
 - [Source: design-artifacts/UX-festgrid-run-1/EXPERIENCE.md] — confirmed (Gate 2) "Account Location Field" is the only related-but-distinct pattern (editing, not display-link).
 
+### Board note moved from CC-021 (backlog.yaml, 2026-11-02)
+
+Amends Epic 1 (Stories 1.6d mechanism + 1.6e event-detail-schedule adoption: IDEA-029, IDEA-033) and Epic 0's improvement epic 0.i6 directly (Story 0.i6e: IDEA-032's post-carve Epic-1/3 half) — not Epic 1/3 as event-pages-followthrough-plan.md's Phase 1 table originally framed the choice, since direct code inspection found SubscribedAccountCard is actually owned by Epic 0.i6, not Epic 1 or 3 (see the proposal's Section 2 for the full reasoning and the recorded assumption). Not yet promoted to a story file — bmad-create-story is Phase 3, a separate later session.
+
+### Board note moved from IDEA-029 (backlog.yaml, 2026-11-02)
+
+Reported by user via bmad-help (2026-09-15). New reusable component taking a locationDetailObject prop: renders pin-location-icon + location name as text, always clickable and always opening the map in a new tab. Two confidence-based icon states: confirmed/acceptable confidence → open-in-new-tab icon (straight to the resolved map location); otherwise → search icon that opens the map with a query built from the location name. Fully promoted 2026-09-19 to Story 1.6d (packages/ui/src/core/LocationLink.tsx). Consumers (separate, not-yet-promoted rows): event-detail page + its schedule (IDEA-033, → future Story 1.6e), and the reusable account element (IDEA-032, → future Story 0.i6e).
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Code Organization (Core Primitives), i18n rules (caller-resolved strings), UI component placement conventions.

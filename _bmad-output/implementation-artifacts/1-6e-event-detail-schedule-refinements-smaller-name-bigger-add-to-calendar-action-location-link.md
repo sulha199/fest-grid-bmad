@@ -139,6 +139,10 @@ Recent commit history (`0211b0e` `feat: add Story 1.6d for CC-021 reusable Locat
 - [Source: design-artifacts/UX-festgrid-run-1/DESIGN.md] — confirmed (Gate 2) no event-detail/schedule-item component token exists.
 - [Source: design-artifacts/UX-festgrid-run-1/EXPERIENCE.md] — confirmed (Gate 2) Component Patterns section has no coverage of this page's layout/title-size/icon-affordance details.
 
+### Board note moved from IDEA-033 (backlog.yaml, 2026-11-02)
+
+Reported by user via bmad-help (2026-09-15). Event-detail schedule section, follow-up to IDEA-030's smaller event title: (1) shrink the schedule name by removing the `text-lg` class; (2) replace each schedule item's calendar icon with an add-to-calendar action icon that adds that specific schedule-item to the calendar — made bigger and more visible (distinct from IDEA-030 item 7, which removes the top-of-page icon); (3) show the schedule item's location via the reusable location link component (IDEA-029).
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Code Organization (Core Primitives/`packages/ui` import conventions), Locale-Sensitive Data Rendering (no new locale keys needed, verified), UI Patterns & UX Invariants.

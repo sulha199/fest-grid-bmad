@@ -106,6 +106,10 @@ All three gates were run fresh (no `epic-0-readiness.md`-equivalent sweep exists
 - [Source: packages/database/seed.ts] (real `ticketPrice` examples: `"IDR 150000"`, `"Free"`, `"Free with registration"`)
 - [Source: _bmad-output/implementation-artifacts/0-33-provision-s3-cloudfront-infrastructure-for-post-media.md#Why this story has no epics.md section] (precedent pattern)
 
+### Board note moved from FIND-016 (backlog.yaml, 2026-11-02)
+
+DW-044, DW-046, DW-047, DW-048, DW-050. The enums are hand-maintained in shared-types and generated/graphql.ts with nothing enforcing sync; no e2e proves locale actually flows to EventCard; no test builds the runtime-merged GraphQL schema; ticketPrice's 'From Free' pairing is unresolved. PROMOTED 2026-09-16 (bmad-create-story), split per the confirmed AskUserQuestion answer: DW-044/046/047/050 -> Story 0.34 (enum/schema/locale consistency hardening); DW-048 -> Story 0.35 (EventCard.tsx 'From Free' label-pairing fix). Fully covered, no leftover chunk.
+
 ## Global Rules References
 
 - [x] `project-context.md` — Locale-Sensitive Data Rendering rule (enums must resolve via next-intl namespaces)

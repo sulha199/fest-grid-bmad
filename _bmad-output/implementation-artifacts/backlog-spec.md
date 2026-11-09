@@ -250,6 +250,9 @@ as a "cheap win".
 `status` for items with `stories` is **computed, not hand-edited**:
 
 - any story `backlog`/`ready-for-dev`/`in-progress`/`review` → `promoted`
+- any open child (§6) → `promoted`, even when every story is terminal: a parent cannot be `done`
+  while a child is open (check 5 derives this; added 2026-11-02 after CC-028 and IDEA-026 made
+  checks 5 and 6 contradict each other)
 - all stories terminal (`done` or `wont-do`) **and** no unapplied sections → `done`
 
 `wont-do` is a real terminal value in `sprint-status.yaml` (first used for

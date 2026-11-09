@@ -100,6 +100,10 @@ so that a low-confidence top hit no longer wins over a correct lower-ranked one 
 - [Source: packages/shared-types/src/index.ts#LocationDetails] (`confidence?`/`matchType?` fields this story reads, unchanged)
 - [Source: apidocs.geoapify.com/docs/geocoding/forward-geocoding/] (verified `rank.confidence`/`rank.match_type` semantics and documented `match_type` value list — Design Decision 1)
 
+### Board note moved from BUG-017 (backlog.yaml, 2026-11-02)
+
+PROMOTED (2026-09-13 via bmad-dev-story, user-confirmed): fully covered by Story 0.i7b — selectBestCandidate re-ranks the retained candidate set by confidence (matchType-priority tiebreak) in resolveLocation's ADDRESS branch, so a low-confidence Geoapify top hit no longer wins over a correct, lower-ranked sub-venue. Threshold/filtering and event-detail map-link follow-through remain IDEA-023/Story 0.i7c.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — Code Organization (packages/domain: pure/dependency-free placement confirmed above), Testing Rules (100%-coverage rule for the new domain file; existing-file test-runner-convention rule)

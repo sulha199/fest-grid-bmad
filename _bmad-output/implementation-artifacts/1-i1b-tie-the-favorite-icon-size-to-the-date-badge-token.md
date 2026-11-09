@@ -86,6 +86,10 @@ This is a narrow, surgical adoption story. It re-points **only** the `<Heart>` i
 - [Source: design-artifacts/UX-festgrid-run-1/DESIGN.md#event_card_favorite_count_badge] ("confirmed visually unchanged")
 - [Source: _bmad-output/planning-artifacts/festgrid-architecture-spine.md#AD-15] (binds Story 1.i1b's role: "re-points `EventCard.tsx`'s existing corner-heart at the shared scale token")
 
+### Board note moved from BUG-023 (backlog.yaml, 2026-11-02)
+
+Reported by user via bmad-help. Verified in EventCard.tsx: the favorite button's Heart icon is hardcoded `w-5 h-5` (line ~191), independent of the masonry date badge's `text-xs` (line ~219) — no shared token links them, so the two can visually drift out of proportion. Fix should size the icon relative to the date badge's font size (e.g. an em-based or shared-token size) rather than a fixed pixel class. Promoted 2026-09-13 via bmad-create-story: Story 1.i1b implements this fix in full (surgical <Heart> className swap to Story 1.i1a's eventCardBadgeIconSizeClass token) — no remaining scope, no child row needed.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Components & Scalability rule (Domain Features location unchanged); no state-management/loader/i18n/analytics rules apply (no new async operation, no new text, no new tracked interaction).
