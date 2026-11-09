@@ -293,6 +293,54 @@ test('AI Gateway Adapter - callGemini orchestration', async (t) => {
     }
   });
 
+  await t.test('AD-52: a per-day quota on the first key skips it with no backoff and uses the second key', async () => {
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKey1.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKey2.id));
+    const originalSleep = sleepSeam;
+    const sleeps: number[] = [];
+    setSleepForTest(async (ms) => {
+      sleeps.push(ms);
+    });
+    setCallGeminiGenerateContent(async (apiKey) => {
+      if (apiKey === 'key-1-secret') {
+        throw new GeminiRateLimitedError('429 Quota exceeded for metric ..._requests_PerDay');
+      }
+      return { text: 'second key answered' };
+    });
+
+    try {
+      const result = await callGemini({ provider: 'gemini', subscriberUserIds: [testUser.id], contents: 'Hello' });
+      assert.equal(result.text, 'second key answered');
+      assert.deepEqual(sleeps, [], 'a spent daily quota earns no backoff before the next key');
+    } finally {
+      setSleepForTest(originalSleep);
+    }
+  });
+
+  await t.test('AD-52: after a per-minute 429 the wait before the next key is the server hint plus the policy margin', async () => {
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 2 }).where(eq(apiKeys.id, dbKey1.id));
+    await db.update(apiKeys).set({ invalidAttempts: 0, isValid: true, usageCount: 5 }).where(eq(apiKeys.id, dbKey2.id));
+    const originalSleep = sleepSeam;
+    const sleeps: number[] = [];
+    setSleepForTest(async (ms) => {
+      sleeps.push(ms);
+    });
+    setCallGeminiGenerateContent(async (apiKey) => {
+      if (apiKey === 'key-1-secret') {
+        throw new GeminiRateLimitedError('429', 3);
+      }
+      return { text: 'second key answered' };
+    });
+
+    try {
+      const result = await callGemini({ provider: 'gemini', subscriberUserIds: [testUser.id], contents: 'Hello' });
+      assert.equal(result.text, 'second key answered');
+      assert.deepEqual(sleeps, [4000], '3s hint + 1s margin');
+    } finally {
+      setSleepForTest(originalSleep);
+    }
+  });
+
   await t.test('8 (PR #57 review): a busy key that frees up during the bounded wait is used, no error', async () => {
     const lockKey1 = `gemini:key:${dbKey1.id}`;
     const lockKey2 = `gemini:key:${dbKey2.id}`;

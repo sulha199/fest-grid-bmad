@@ -427,6 +427,8 @@ test('processAiJob orchestrator tests', async (t) => {
     const requestLine = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-extraction]'));
     assert.ok(requestLine?.includes('atRisk=max_tokens,output_near_limit'), 'the per-request line flags the truncation too');
     assert.ok(unparseable.includes('tail='), 'the tail of the response is logged');
+    const decisionLine = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.startsWith('[retry-decision]'));
+    assert.ok(decisionLine?.includes('situation=truncated') && decisionLine.includes('action=split_window'), 'the policy decision is logged');
   });
 
   await t.test('Case D3: an empty response (blocked) is logged with its finishReason and does not throw', async (t) => {
@@ -438,7 +440,7 @@ test('processAiJob orchestrator tests', async (t) => {
       publishedAt: '2026-08-10T12:00:00Z'
     };
     const warn = t.mock.method(console, 'warn', () => {});
-    t.mock.method(console, 'info', () => {});
+    const info = t.mock.method(console, 'info', () => {});
     let markPostExtractedCalled = false;
     setMarkPostExtractedSeam(async () => {
       markPostExtractedCalled = true;
@@ -452,6 +454,8 @@ test('processAiJob orchestrator tests', async (t) => {
     const line = warn.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-response-unparseable]'));
     assert.ok(line?.includes('finishReason=SAFETY'));
     assert.ok(line?.includes('blockReason=none'));
+    const decisionLine = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.startsWith('[retry-decision]'));
+    assert.ok(decisionLine?.includes('situation=blocked') && decisionLine.includes('action=give_up'));
     assert.ok(line?.includes('length=0'));
     assert.ok(line?.includes('atRisk=none'));
   });

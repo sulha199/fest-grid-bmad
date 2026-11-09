@@ -1,5 +1,12 @@
 import { and, eq, sql } from 'drizzle-orm';
-import { computeBackoffDelayMs } from '@festgrid/domain';
+import {
+  MIN_RETRY_ATTEMPT_MS,
+  decideRetry,
+  formatRetryDecisionLog,
+  type ClassifiedFailure,
+  type RetryDecision,
+  type RetrySituation,
+} from '@festgrid/domain/retry';
 import { vendorCallLocks } from '@festgrid/database';
 import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
@@ -56,6 +63,15 @@ export interface CallVendorOptions<T> {
   // VendorCallTimeoutError, VendorKeyBusyError, or VendorDpaNotConfirmedError, which are always
   // immediate and unretried.
   isTransient: (error: unknown) => boolean;
+  // AD-52 Rule 1 (optional): classify a failure into a retry situation. Without it, a failure that
+  // isTransient accepts is `unavailable` and any other is `unknown`, which is the behavior before AD-52.
+  classify?: (error: unknown) => ClassifiedFailure;
+  // AD-52 Rule 3: another credential can serve the call (the caller's key loop owns the switch), so a
+  // rate-limit or rejected-credential failure is handed back instead of waited out here.
+  hasAlternateCredential?: () => boolean;
+  // Called with every retry decision (it is also logged): lets a caller act on `retry_later`,
+  // `switch_credential`, `split_window`, `rescrape` and `give_up`, which this wrapper never executes.
+  onDecision?: (info: { attempt: number; situation: RetrySituation; decision: RetryDecision; error: unknown }) => void;
   // The actual vendor call. Receives this attempt's AbortSignal so a cancellation-aware
   // implementation (e.g. Gemini's SDK) can abort the real underlying request on timeout.
   call: (signal: AbortSignal) => Promise<T>;
@@ -63,8 +79,8 @@ export interface CallVendorOptions<T> {
 
 const DEFAULT_MAX_ATTEMPTS = 3;
 const MIN_LOCK_TTL_MS = 60_000;
-// A retry is only worth starting if at least this much of the overall budget is left after backoff.
-const MIN_RETRY_ATTEMPT_MS = 1_000;
+// MIN_RETRY_ATTEMPT_MS (a retry is only worth starting if that much of the overall budget is left after
+// the wait) now lives with the retry policy in packages/domain.
 
 function assertDpaConfirmed(vendor: VendorName): void {
   // Gemini must have zero branches referencing any DPA flag -- not even a no-op check (AC7).
@@ -199,8 +215,16 @@ export async function callVendor<T>(vendor: VendorName, opts: CallVendorOptions<
   }
 
   const deadlineAt = opts.overallTimeoutMs !== undefined ? Date.now() + opts.overallTimeoutMs : undefined;
+  // A retried attempt is only worth starting with a useful share of its own timeout left (not a bare second).
+  const minAttemptMs = Math.min(opts.timeoutMs, 15_000);
+  // A wait decided in the catch below is served at the top of the next iteration, after the lease is released.
+  let pendingWaitMs = 0;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (pendingWaitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, pendingWaitMs));
+      pendingWaitMs = 0;
+    }
     // (a) DPA gate -- before anything else, never retried, never touches the lock table.
     assertDpaConfirmed(vendor);
 
@@ -233,15 +257,29 @@ export async function callVendor<T>(vendor: VendorName, opts: CallVendorOptions<
         throw error;
       }
 
-      const attemptsRemain = attempt < maxAttempts;
-      if (attemptsRemain && opts.isTransient(error)) {
-        const delayMs = computeBackoffDelayMs(attempt);
-        // Do not start a retry that cannot finish inside the overall budget: surface the real
-        // error now, while there is still time for lease cleanup.
-        if (deadlineAt !== undefined && Date.now() + delayMs + MIN_RETRY_ATTEMPT_MS > deadlineAt) {
-          throw error;
-        }
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      // AD-52 Rules 2-3: the policy decides; this wrapper only executes `retry_now`. Every other
+      // action is logged, reported through `onDecision`, and the original error is rethrown unchanged.
+      const classified: ClassifiedFailure = opts.classify
+        ? opts.classify(error)
+        : { situation: opts.isTransient(error) ? 'unavailable' : 'unknown' };
+      const decision = decideRetry(classified.situation, attempt, {
+        ...(classified.retryAfterSeconds !== undefined ? { retryAfterSeconds: classified.retryAfterSeconds } : {}),
+        // Do not start a retry that cannot finish inside the overall budget: the policy hands it to the
+        // durable layer instead, so the real error surfaces now, while there is time for lease cleanup.
+        ...(deadlineAt !== undefined ? { budgetMs: deadlineAt - Date.now(), minAttemptMs } : {}),
+        hasAlternateCredential: opts.hasAlternateCredential?.() ?? false,
+        maxInCallAttempts: maxAttempts,
+      });
+      console.info(formatRetryDecisionLog(opts.lockKey ?? vendor, classified.situation, attempt, decision));
+      try {
+        opts.onDecision?.({ attempt, situation: classified.situation, decision, error });
+      } catch (callbackError) {
+        // An observer must never replace the real vendor error.
+        console.error('[callVendor] onDecision callback threw; ignored:', callbackError);
+      }
+
+      if (decision.action === 'retry_now' && attempt < maxAttempts) {
+        pendingWaitMs = decision.delayMs ?? 0;
         continue;
       }
 

@@ -58,6 +58,10 @@
       "types": "./dist/users/index.d.ts",
       "default": "./dist/users/index.js"
     },
+    "./retry": {
+      "types": "./dist/retry/index.d.ts",
+      "default": "./dist/retry/index.js"
+    },
     "./shared": {
       "types": "./dist/shared/index.d.ts",
       "default": "./dist/shared/index.js"
