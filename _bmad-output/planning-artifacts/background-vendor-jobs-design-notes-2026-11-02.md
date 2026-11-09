@@ -4,7 +4,7 @@
 (`bmad-prd`) and the new AD (written in Story 10.1a) supersede this where they differ.
 **Backlog rows:** BUG-099 (re-extract drops carousel slides), IDEA-261031-nts (profile lookup background phase),
 IDEA-047 (re-scrape in AI correction), IDEA-008 (max 5 subscribed accounts), IDEA-009 (auto-extract on first
-subscribe), BUG-014 (payload reprocessing unbuilt), IDEA-261102-dkk..119 (created with the epic).
+subscribe), BUG-014 (payload reprocessing unbuilt), IDEA-261102-dkk, IDEA-261102-xrx, IDEA-261102-v9l and IDEA-261102-scl (created with the epic).
 **Why this file exists:** the investigation that produced the epic ran in a chat. This is what the stories need
 from it, with the queries and numbers that back each claim.
 
