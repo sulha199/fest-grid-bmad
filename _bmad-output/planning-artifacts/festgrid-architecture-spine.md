@@ -3335,6 +3335,70 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+### AD-52: One Retry Policy Maps a Classified Failure to a Decision; Durable Retries Live in a Post-Level Attempt Ledger
+
+*   **Binds:** a new pure module `packages/domain/src/retry/` (the situation set and `decideRetry`); the guarded
+    vendor wrapper `callVendor` (AD-32 Rule 4: today a yes/no `isTransient` and a fixed `computeBackoffDelayMs`); the
+    Gemini key loop in `apps/backend/src/lib/ai-gateway/adapter.ts`; `send-sqs-message-with-retry.ts`;
+    `eval-retry-policy.ts` (folds in); `processAiJob`; `posts` (new columns below); the resume pass of AD-47 Rule 5;
+    `derivePostExtractionStatus` and its SQL twin in `post-extraction-status.ts`, the `PostExtractionStatus` GraphQL
+    enum and the moderator extract screen. Consumes AD-49 (finish reasons) and AD-51 (re-scrape). Build slices 1b and
+    1c in `_bmad-output/specs/spec-cursor-extraction/build-slices.md`.
+*   **Prevents:** Each client inventing its own retry rule (four exist today and disagree); retrying what can never
+    succeed (a safety block, a bad request); repeating a request that was cut off at the token limit instead of
+    splitting it; burning attempts against a spent daily quota; a post whose attempt failed looking the same as one never
+    tried; retries that outlive the image links; an in-call loop and a durable loop multiplying each other's attempts.
+*   **Rule:**
+    1.  **Classify, then decide.** A client adapter maps its raw error or response to one `Situation` from a closed set
+        (it never decides to retry itself): `rate_limited` (with the server's retry-after when given), `quota_exhausted_daily`,
+        `unavailable` (5xx, connection reset), `timeout`, `truncated`, `unparseable`, `blocked`, `invalid_credential`,
+        `bad_request`, `image_expired`, `unknown`. The classifier is the only vendor-specific code.
+    2.  **`decideRetry(situation, attempt, hint) -> { action, delayMs?, reason }` is pure** and the only place the table
+        below lives. Actions: `retry_now` (inside the caller's time budget), `retry_later` (durable, with a delay),
+        `switch_credential`, `split_window` (AD-49), `rescrape` (AD-51 Rule 4), `give_up`. Backoff is exponential with
+        jitter and a cap (the shape of `computeBackoffDelayMs`), and a server hint overrides it.
+
+        | Situation | Action |
+        |---|---|
+        | `rate_limited` | The hint plus a margin, else backoff; `switch_credential` when another key exists; `retry_now` only if the delay fits the budget, else `retry_later` |
+        | `quota_exhausted_daily` | `retry_later` at the next quota reset, at most one day out, else `give_up` |
+        | `unavailable`, `timeout` | Exponential backoff with jitter: `retry_now` while the budget allows, else `retry_later` |
+        | `truncated` | Never the same request again: `split_window` (a single slide that still truncates: `give_up`, keep the result) |
+        | `unparseable` (not truncated) | One `retry_now`, then `retry_later` |
+        | `blocked`, `bad_request` | `give_up` now, reason recorded |
+        | `invalid_credential` | `switch_credential`; with no key left `give_up` |
+        | `image_expired` | `rescrape`, then per AD-51 |
+        | `unknown` | One `retry_later`, then `give_up` |
+    3.  **Two layers, one policy, no multiplication.** `callVendor` executes only `retry_now` decisions, inside the
+        caller's overall budget (AD-32). Every other action is returned to the caller as a typed outcome. A post's durable
+        attempts count failed jobs, not in-call retries, so a job that retried twice in-call and then failed counts once.
+    4.  **The post-level ledger.** `posts.extraction_attempts` (integer, default 0), `extraction_failure_reason`
+        (nullable, the situation) and `extraction_next_attempt_at` (nullable timestamp). A failed job writes all three
+        in one update that also releases the claim; success clears them. Starting values (code constants, not env):
+        at most 5 attempts and 24 hours from the first failure, never past the image expiry (AD-51 Rule 4 re-scrapes first).
+        When `decideRetry` returns `give_up` or the attempts run out, `extraction_next_attempt_at` is set to null and the
+        reason stays.
+    5.  **One resume pass.** The resume pass at the start of the AI Lambda's tick (AD-47 Rule 5) also enqueues posts whose
+        `extraction_next_attempt_at` is due, not extracted, with attempts left, through the same atomic claim as
+        `enqueuePostForProcessing`. A post with a cursor (AD-47) is governed by its cursor counters and ends partial
+        (AD-50), not ATTEMPT_FAILED; the ledger governs every other post.
+    6.  **`ATTEMPT_FAILED` is derived.** Not extracted, `extraction_failure_reason` not null and no live claim. It means
+        "retry pending" while `extraction_next_attempt_at` is set and "given up" when it is null. The domain rule, its SQL
+        twin, the GraphQL enum and the moderator filter change together (the existing lockstep test checks every status
+        against both forms). The moderator screen shows the reason and the next attempt time; a moderator's manual
+        selection resets the attempts to 0.
+    7.  **Adoption is per client.** This AD changes no client by itself. Apify, Bright Data, the SQS send and internal API
+        calls adopt it by supplying a classifier, each in its own small change; `eval-retry-policy.ts` becomes a thin
+        reader of the same table.
+    8.  **Every decision leaves one greppable line:** `[retry-decision] subject=<id> situation=<s> action=<a>
+        attempt=<n> delayMs=<ms>`.
+*   **Enforced by:** domain tests over every row of the table (100% coverage like other domain code); the status
+    lockstep test; a test that a job failing after in-call retries increments the ledger once.
+
+---
+
+---
+
 ## Related Documents
 
 - [Infrastructure](../../docs/infrastructure/index.md)
