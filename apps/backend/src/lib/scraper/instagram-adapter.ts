@@ -20,6 +20,7 @@ import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 import { recordSyncActorRun } from './record-actor-run.js';
 import { callVendor, VendorDpaNotConfirmedError, VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
+import { dedupeImageUrlsByFileName } from '@festgrid/domain/posts';
 
 // ============================================================================
 // ACTOR INPUT TYPES
@@ -544,10 +545,18 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
     // Carousel/Sidecar post (AC1/AC2): capture every slide's image URL beyond the cover, in Apify's
     // childPosts slide order, dropping falsy/missing displayUrl entries defensively. Omitted entirely
     // for non-Sidecar items or those with no childPosts (no behavior change for single-image posts).
+    // BUG-101: Apify's childPosts[0] is typically the cover, re-served under a different signed
+    // query -- de-duplicate cover + every child by file name using the same shared
+    // packages/domain helper build-gemini-request.ts uses at read time, so a repeated cover is
+    // dropped regardless of where it appears in childPosts (not just index 0), a non-cover slide
+    // that itself repeats another is also caught, and (per the helper's own fallback) a cover
+    // whose own URL fails to parse still compares by its full URL instead of skipping the check.
     ...(item.type === 'Sidecar' && Array.isArray(item.childPosts) && item.childPosts.length > 0 && (() => {
-      const additionalImageUrls = item.childPosts
+      const childUrls = item.childPosts
         .map((cp: { displayUrl?: string }) => cp.displayUrl)
         .filter((url: string | undefined): url is string => Boolean(url));
+      const deduped = imageUrl ? dedupeImageUrlsByFileName([imageUrl, ...childUrls]) : dedupeImageUrlsByFileName(childUrls);
+      const additionalImageUrls = imageUrl ? deduped.slice(1) : deduped;
       return additionalImageUrls.length > 0 ? { additionalImageUrls } : {};
     })()),
   };
