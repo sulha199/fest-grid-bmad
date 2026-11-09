@@ -362,6 +362,12 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(prompt.includes('do NOT fall back to the account that posted it'));
     assert.ok(!prompt.includes('the account that posted it, or an explicitly'));
     assert.ok(prompt.includes('applicableDaysOfWeek'));
+    // Multi-date rows: one schedule per listed date, never a collapsed range (4c); 4a/4b stay.
+    assert.ok(prompt.includes('4a. Set a schedule\'s applicableDaysOfWeek only when'));
+    assert.ok(prompt.includes('4b. When a schedule runs past midnight'));
+    assert.ok(prompt.includes('4c. When one row or line lists several explicit dates'));
+    assert.ok(prompt.includes('one schedule per listed date'));
+    assert.ok(prompt.includes('never collapse a list of dates into a start-to-end range'));
   });
 
   await t.test('Case P (Story 3.6m, AC1/AC2): geminiExtractionResponseSchema declares hasFaceImage/faceImageCount at the root, optional, and the prompt self-reports both in the once-per-post block', async () => {
