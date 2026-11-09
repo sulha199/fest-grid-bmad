@@ -15,6 +15,19 @@ export interface GeminiCallRequest {
 
 export interface GeminiCallResult {
   text: string;
+  // AD-49 Rule 1 (cursor extraction, slice 1) -- additive and optional so callers and test mocks
+  // that return only `text` keep working. `finishReason` is the first candidate's (STOP,
+  // MAX_TOKENS, SAFETY, ...); `usage` comes from the SDK's usageMetadata.
+  finishReason?: string;
+  // Set when the prompt itself was blocked (no candidate, so no finishReason).
+  blockReason?: string;
+  usage?: GeminiUsage;
+}
+
+export interface GeminiUsage {
+  promptTokens?: number;
+  outputTokens?: number;
+  thinkingTokens?: number;
 }
 
 export class GeminiRateLimitedError extends Error {
@@ -47,7 +60,12 @@ export class GeminiUnknownError extends Error {
 export let generateContentSeam: (
   ai: GoogleGenAI,
   params: { model: string; contents: any; config: Record<string, any> }
-) => Promise<{ text?: string }> = (ai, params) => ai.models.generateContent(params);
+) => Promise<{
+  text?: string;
+  candidates?: Array<{ finishReason?: unknown }>;
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
+  promptFeedback?: { blockReason?: unknown };
+}> = (ai, params) => ai.models.generateContent(params);
 
 export function setGenerateContentSeam(fn: typeof generateContentSeam) {
   generateContentSeam = fn;
@@ -78,9 +96,26 @@ export let callGeminiGenerateContent = async (
       config,
     });
 
-    return {
-      text: response.text || '',
-    };
+    const finishReason = response.candidates?.[0]?.finishReason;
+    const promptTokens = response.usageMetadata?.promptTokenCount;
+    const outputTokens = response.usageMetadata?.candidatesTokenCount;
+    const thinkingTokens = response.usageMetadata?.thoughtsTokenCount;
+    const blockReason = response.promptFeedback?.blockReason;
+    const result: GeminiCallResult = { text: response.text || '' };
+    if (finishReason !== undefined && finishReason !== null) {
+      result.finishReason = String(finishReason);
+    }
+    if (blockReason !== undefined && blockReason !== null) {
+      result.blockReason = String(blockReason);
+    }
+    if (typeof promptTokens === 'number' || typeof outputTokens === 'number' || typeof thinkingTokens === 'number') {
+      result.usage = {
+        ...(typeof promptTokens === 'number' ? { promptTokens } : {}),
+        ...(typeof outputTokens === 'number' ? { outputTokens } : {}),
+        ...(typeof thinkingTokens === 'number' ? { thinkingTokens } : {}),
+      };
+    }
+    return result;
   } catch (error: any) {
     const message = error?.message || String(error);
     const status = error?.status || error?.statusCode || error?.status_code;
