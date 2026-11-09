@@ -10,15 +10,15 @@ flowchart TD
   S --> C
   C -- no --> D[Dedupe against the post's events, allocate ordinals, enqueue ingestion]
   D --> E{Continue rules, in code}
-  E -- stop --> F[Mark extracted, clear the partial flag]
-  E -- kill switch off or invariant exceeded --> G[Stop, log why, flag partial if slides remain]
-  E -- continue --> H[Set partial flag, enqueue next step message with cursor and a short delay]
+  E -- stop --> F[Atomic stop: cursor null, extracted, partial flag per outcome]
+  E -- kill switch off or bound exceeded --> G[Atomic stop, log why, flag partial if slides remain]
+  E -- continue --> H[Reserve ordinals, enqueue ingestion, commit cursor, enqueue next step message with a short delay]
   H --> I[Step: blur only own images, one request]
   I --> C
   I -. 429, 503 or timeout: queue retry with delay .-> I
   I -. retries exhausted .-> R[Resume pass on the 5-minute tick: re-enqueue from the persisted cursor while images are valid and attempts remain]
   R --> I
-  R -. attempts spent .-> P[Clear the cursor, post stays flagged partial, reason logged]
+  R -. attempts spent .-> P[Atomic stop: cursor null, post flagged partial, reason logged]
   R -. images expired or slide fetch 403/404/410, slides unread .-> X[Re-scrape for fresh image links: scrape gate, lease, at most 2 per post, 10 minutes apart]
   X -- fresh links, same slide count --> U[Replace only the links in the cursor, keep all progress] --> I
   X -. refused, failed or slide count changed .-> P
