@@ -1,5 +1,5 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { type ProcessingJobMessage, POST_GROUPING_REASONS, type AiImageInput } from '@festgrid/domain/posts';
+import { type ProcessingJobMessage, POST_GROUPING_REASONS, type AiImageInput, dedupeImageUrlsByFileName } from '@festgrid/domain/posts';
 import { DayOfWeek } from '@festgrid/domain/events';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
 import { renderEventCategoryGlossary } from '../ai-gateway/render-event-category-glossary.js';
@@ -276,6 +276,14 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     ? `Account Name Metadata: "${accountName}"\nPost Content:\n"${message.content}"`
     : message.content;
 
+  // BUG-101 -- a stored post's slide list can repeat the cover (file name, not whole URL,
+  // matches a different signed query) when it was ingested by the pre-fix Apify adapter.
+  // De-duplicate cover + slides by file name here, at read time, so the already-stored rows are
+  // covered without a backfill: a repeated slide is never fetched, never spends one of the
+  // caller's MAX_REEXTRACT_CAROUSEL_IMAGES slots, and is never double-counted in imagesAvailable.
+  const dedupedImageUrls = dedupeImageUrlsByFileName([message.imageUrl, ...(message.additionalImageUrls ?? [])]);
+  const dedupedAdditionalImageUrls = message.imageUrl ? dedupedImageUrls.slice(1) : dedupedImageUrls;
+
   let contents: any = captionWithAccountContext;
   let imageBytes: Buffer | undefined;
   let imageContentType: string | undefined;
@@ -335,8 +343,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   // and switch to text-only). Extracted into a function (BUG-099) so the cover-fetch-failed path of
   // a moderator re-extract can run the same loop; every line of the per-slide behavior is unchanged.
   async function appendSlideImages(): Promise<void> {
-    if (!message.additionalImageUrls?.length) return;
-    const slidesToFetch = message.additionalImageUrls.slice(0, options?.maxCarouselImages ?? env.maxCarouselImages);
+    if (!dedupedAdditionalImageUrls.length) return;
+    const slidesToFetch = dedupedAdditionalImageUrls.slice(0, options?.maxCarouselImages ?? env.maxCarouselImages);
     for (const [slideIndex, slideUrl] of slidesToFetch.entries()) {
       let blurAttempted = false;
       try {
@@ -392,7 +400,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   // BUG-099 (moderator re-extract only) -- no usable cover: try the slides alone. With none inlined
   // the request stays text-only exactly as without this option.
   async function sendSlidesWithoutCover(): Promise<void> {
-    if (!options?.slidesWhenCoverFails || !message.additionalImageUrls?.length) return;
+    if (!options?.slidesWhenCoverFails || !dedupedAdditionalImageUrls.length) return;
     contents = [{ text: captionWithAccountContext }];
     await appendSlideImages();
     if (contents.length === 1) {
@@ -491,7 +499,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     coverFaceCount,
     aiImageInput,
     totalFaceDetectionCount,
-    imagesAvailable: (message.imageUrl ? 1 : 0) + (message.additionalImageUrls?.length ?? 0),
+    // BUG-101 -- counts the de-duplicated list (cover + distinct slides), never a repeated cover twice.
+    imagesAvailable: (message.imageUrl ? 1 : 0) + dedupedAdditionalImageUrls.length,
     imagesSent: Array.isArray(contents) ? contents.length - 1 : 0
   };
 }
