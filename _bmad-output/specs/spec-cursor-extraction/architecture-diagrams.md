@@ -18,7 +18,10 @@ flowchart TD
   I -. 429, 503 or timeout: queue retry with delay .-> I
   I -. retries exhausted .-> R[Resume pass on the 5-minute tick: re-enqueue from the persisted cursor while images are valid and attempts remain]
   R --> I
-  R -. images expired or attempts spent .-> P[Clear the cursor, post stays flagged partial]
+  R -. attempts spent .-> P[Clear the cursor, post stays flagged partial, reason logged]
+  R -. images expired or slide fetch 403/404/410, slides unread .-> X[Re-scrape for fresh image links: scrape gate, lease, at most 2 per post, 10 minutes apart]
+  X -- fresh links, same slide count --> U[Replace only the links in the cursor, keep all progress] --> I
+  X -. refused, failed or slide count changed .-> P
 ```
 
 ## Step message and state

@@ -44,8 +44,8 @@ A pain to solve. Posts with more images than the extraction read cap (cover + 5)
   - **success:** For a 20-image fixture whose every response forces splits (14 unread images after the first request), total extra requests never exceed 2 x 14 (27 in the worst case, about 7 typically), and an injected violation logs and stops instead of continuing; with the kill switch off, a roundup takes the single-request path as today.
 
 - **CAP-7**
-  - **intent:** A post whose extraction is interrupted is finished automatically, with no human action, and a post that can never be finished is visibly partial.
-  - **success:** A forced 429, 503 or Lambda timeout on one step is retried through the queue; when the queue's retries are exhausted, the next 5-minute tick re-enqueues the step from the persisted cursor and the chain completes without repeating earlier steps; when the images expire or the attempts run out, the cursor is cleared and the post stays flagged partial.
+  - **intent:** A post whose extraction is interrupted is finished automatically, with no human action, including when its image links have expired in the meantime; only a post that truly cannot be finished is left visibly partial.
+  - **success:** A forced 429, 503 or Lambda timeout on one step is retried through the queue; when the queue's retries are exhausted, the next 5-minute tick re-enqueues the step from the persisted cursor; when the stored image links have expired with slides unread, one re-scrape replaces only the image links held in the cursor and the chain completes without repeating earlier steps or renumbering events; when the scraper refuses or fails, the slide count changed, or the attempts run out, the cursor is cleared, the post stays flagged partial, and the reason is logged.
 
 - **CAP-8**
   - **intent:** One-event posts with several schedules spread over many slides get all remaining slides in one follow-up request rather than chunking.
@@ -70,7 +70,7 @@ A pain to solve. Posts with more images than the extraction read cap (cover + 5)
 - Face blur stays fail-closed (AD-28): each step blurs only its own images and never sends unblurred bytes. `additionalImageUrls` remain extraction-time-only and never durable (AD-13 Rule 2). Stub events never notify (AD-30 Rule 10).
 - The model is not trusted for limits: caps, the continue decision and the dedupe key are enforced in code; the cursor is advisory input to that code. The prompt's event cap was ignored in prior runs.
 - Added response-schema fields must be verified live before shipping: growing the item schema once made Gemini reject whole requests with 400 INVALID_ARGUMENT.
-- Image URLs expire about 5 days after scraping, so all steps of a post must run, or resume, inside that window.
+- Image URLs expire about 5 days after scraping (the expiry is read from the URL itself). Before giving up on a post whose images expired, or whose slide fetch fails with 403, 404 or 410, with slides still unread, the resume pass re-scrapes it: at most 2 per post, at least 10 minutes apart, only through the guarded vendor-call wrapper (AD-32), the account scrape gate (AD-34) and the one-scrape-per-URL lease. The re-scrape replaces only the image links held in the cursor: progress (next slide, next ordinal, events found, empty steps, attempts) is untouched, the caption is never stored (AD-40) and `posts` is not rewritten. The fresh slide list must have the same count and order as the stored one, otherwise the cursor's slide index is not trustworthy and the post ends partial. Scraper credit is metered (the prod Apify account is on a capped free plan), so a refused or failed re-scrape ends the post partial with the reason logged; the scrape is never retried in a loop.
 
 ## Non-goals
 
@@ -89,6 +89,7 @@ Re-extracting a roundup like `DfLcqoqj-al` (cover + 13 slides) imports the items
 
 - The prompt and schema v2 story (multi-date rows, `locationContext`) lands first, or this work depends only on the cursor/post-plan fields.
 - The evidence is small (21 sampled posts, one run each, noisy); the starting values (25 events per call, 90% output rule, 2-slide step size) are to be tuned with the live regression harness.
+- Re-scrape starting values: at most 2 per post, 10 minutes apart (the AD-40 rescrape cooldown); a fresh scrape renews image validity by about 5 days.
 - Resume starting values: claim TTL 30 minutes (the existing `POST_EXTRACTION_CLAIM_TTL_MINUTES`), up to 6 resume attempts with a growing delay, always bounded by the image expiry (about 5 days).
 - Roundup volume stays near the current 12 per 60 days, so serial steps taking minutes are acceptable.
 
