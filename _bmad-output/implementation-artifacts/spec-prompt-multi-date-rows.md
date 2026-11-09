@@ -80,4 +80,4 @@ One schedule per listed date (not a range plus weekdays) because the poster's da
   [`build-gemini-request.ts:251`](../../apps/backend/src/lib/ai-processor/build-gemini-request.ts#L251)
 
 - Assertions guard 4a/4b/4c wording against accidental edits.
-  [`build-gemini-request.test.ts:365`](../../apps/backend/src/lib/ai-processor/build-gemini-request.test.ts#L365)
+  [`build-gemini-request.test.ts:368`](../../apps/backend/src/lib/ai-processor/build-gemini-request.test.ts#L368)
