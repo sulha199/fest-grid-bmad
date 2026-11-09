@@ -2,7 +2,8 @@
 title: 'One retry policy: classify the failure, decide the action, adopted by the Gemini path'
 type: 'feature'
 created: '2026-11-09'
-status: 'draft'
+status: 'done'
+baseline_commit: 'd9f29394d36b21919d3ee4119a69dd06ef8bead0'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/project-context.md'
@@ -48,10 +49,10 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `packages/domain/src/retry/` -- situations, `decideRetry`, table tests for every row (100% coverage) -- AD-52 Rules 1-2.
-- [ ] Gemini classifier -- map `GeminiRateLimitedError`, `GeminiInvalidKeyError`, 5xx and connection codes, `finishReason`/`blockReason` and parse failure to situations -- the only vendor-specific code.
-- [ ] `guarded-call.ts` -- execute only `retry_now`, keep `isTransient` as a compatible adapter, return other actions as typed outcomes -- AD-52 Rule 3.
-- [ ] `adapter.ts`, `eval-retry-policy.ts` -- read the same table; log the decision line -- one policy.
+- [x] `packages/domain/src/retry/` -- situations, `decideRetry`, table tests for every row (100% coverage) -- AD-52 Rules 1-2.
+- [x] Gemini classifier -- map `GeminiRateLimitedError`, `GeminiInvalidKeyError`, 5xx and connection codes, `finishReason`/`blockReason` and parse failure to situations -- the only vendor-specific code.
+- [x] `guarded-call.ts` -- execute only `retry_now`, keep `isTransient` as a compatible adapter, return other actions as typed outcomes -- AD-52 Rule 3.
+- [x] `adapter.ts`, `eval-retry-policy.ts` -- read the same table; log the decision line -- one policy.
 
 **Acceptance Criteria:**
 - Given each situation in the table, when `decideRetry` runs, then it returns the action and delay the table gives (hint overrides backoff, daily quota never retries within the run).
@@ -60,6 +61,38 @@ context:
 - Given the existing test suites, when they run, then they pass unchanged apart from the eval policy's moved tests.
 
 ## Spec Change Log
+
+## Design Notes
+
+`callVendor` never returns a typed non-retry outcome (that would change the error classes every caller catches). It logs each decision as `[retry-decision]`, reports it through an optional `onDecision` callback, and rethrows the original error for anything but `retry_now`; the durable layer (slice 1c) is the consumer of `retry_later`. A wait decided in the catch is served after the lease is released. `timeout` stays unretried in-call (AD-32 AC5): the policy knows it for the durable layer.
+
+Behavior changes to know: a rate limit on the last key is now waited out in-call (hint plus 1s) when at least `min(timeout, 15s)` of the overall budget remains; the wait before the next key is capped at 60s; a per-day quota skips a key with no backoff; the eval script backs off exponentially instead of linearly; hints that are NaN or negative are ignored.
+
+## Suggested Review Order
+
+**The policy**
+
+- Closed situation set and the one decision table.
+  [`decide-retry.ts:95`](../../packages/domain/src/retry/decide-retry.ts#L95)
+
+- Domain tests over every row and the input guards.
+  [`decide-retry.test.ts:1`](../../packages/domain/src/retry/decide-retry.test.ts#L1)
+
+**The Gemini classifier**
+
+- The only Gemini-specific code: errors and unusable responses to situations.
+  [`gemini-situation.ts:51`](../../apps/backend/src/lib/ai-gateway/gemini-situation.ts#L51)
+
+**Adoption**
+
+- `callVendor` executes only `retry_now`, waits after the lease is released, logs and reports the rest.
+  [`guarded-call.ts:265`](../../apps/backend/src/lib/vendor-gateway/guarded-call.ts#L265)
+
+- The key loop: classifier, alternate-credential check, daily quota skip, bounded wait.
+  [`adapter.ts:126`](../../apps/backend/src/lib/ai-gateway/adapter.ts#L126)
+
+- The eval policy is now a thin reader of the same table.
+  [`eval-retry-policy.ts:29`](../../apps/backend/src/lib/ai-gateway/eval-retry-policy.ts#L29)
 
 ## Verification
 

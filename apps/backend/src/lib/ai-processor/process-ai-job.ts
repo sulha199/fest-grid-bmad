@@ -4,6 +4,8 @@ import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-s
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
 import { classifyGeminiOutput } from '../ai-gateway/gemini-output-signals.js';
+import { classifyGeminiUnusableResponse } from '../ai-gateway/gemini-situation.js';
+import { decideRetry, formatRetryDecisionLog } from '@festgrid/domain/retry';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
 import {
@@ -177,6 +179,16 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     console.warn(
       `[gemini-response-unparseable] post=${message.postId} ${signals} length=${responseText.length} ` +
         `head=${JSON.stringify(responseText.slice(0, 200))} tail=${JSON.stringify(responseText.slice(-100))} error=${errorText}`
+    );
+    // AD-52: what the shared policy would do with this response (log only until the durable retry slice).
+    const unusableSituation = classifyGeminiUnusableResponse({
+      finishReason: result.finishReason,
+      blockReason: result.blockReason,
+      outputNearLimit: atRisk.includes('output_near_limit'),
+    });
+    console.info(
+      `${formatRetryDecisionLog(`post:${message.postId}`, unusableSituation, 1, decideRetry(unusableSituation, 1))} ` +
+        `mode=log-only (nothing is retried here until the durable retry slice)`
     );
     // Return successfully without throwing/enqueueing/marking: the post stays unextracted, so its claim
     // expires and it is claimable again (the status derives PENDING with extraction_started_at set).

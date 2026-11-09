@@ -33,10 +33,12 @@ describe('nextEvalRetryDelayMs', () => {
     assert.equal(nextEvalRetryDelayMs('RESOURCE_EXHAUSTED: requests per day', 1), undefined);
   });
 
-  it('backs off linearly on 503 and connection errors', () => {
-    assert.equal(nextEvalRetryDelayMs('{"status":"UNAVAILABLE"}', 1), 2000);
-    assert.equal(nextEvalRetryDelayMs('fetch failed', 3), 6000);
-    assert.equal(nextEvalRetryDelayMs('read ECONNRESET', 2), 4000);
+  it('backs off exponentially (the shared policy, plus or minus 20% jitter) on 503 and connection errors', () => {
+    const within = (value: number | undefined, base: number) =>
+      value !== undefined && value >= base * 0.8 && value <= base * 1.2;
+    assert.ok(within(nextEvalRetryDelayMs('{"status":"UNAVAILABLE"}', 1), 1000));
+    assert.ok(within(nextEvalRetryDelayMs('fetch failed', 3), 4000));
+    assert.ok(within(nextEvalRetryDelayMs('read ECONNRESET', 2), 2000));
   });
 
   it('never retries other errors', () => {

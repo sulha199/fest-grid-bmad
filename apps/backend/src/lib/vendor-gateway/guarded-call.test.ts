@@ -155,6 +155,157 @@ test('guarded-call: callVendor', async (t) => {
     assert.equal(attempts, 3);
   });
 
+  // AD-52 (retry policy): classification and the retry decision come from the shared policy.
+  await t.test('AD-52: a classified rate limit with an alternate credential is handed back, not waited out', async () => {
+    let attempts = 0;
+    const decisions: string[] = [];
+    await assert.rejects(
+      () =>
+        callVendor('gemini', {
+          timeoutMs: 1000,
+          maxAttempts: 3,
+          isTransient: NEVER_TRANSIENT,
+          classify: () => ({ situation: 'rate_limited', retryAfterSeconds: 30 }),
+          hasAlternateCredential: () => true,
+          onDecision: ({ decision }) => decisions.push(decision.action),
+          call: async () => {
+            attempts++;
+            throw new Error('429 slow down');
+          },
+        }),
+      /429 slow down/
+    );
+    assert.equal(attempts, 1, 'no in-call wait: the key loop owns the switch');
+    assert.deepEqual(decisions, ['switch_credential']);
+  });
+
+  await t.test('AD-52: a classified blocked failure is never retried, whatever isTransient says', async () => {
+    let attempts = 0;
+    const decisions: string[] = [];
+    await assert.rejects(
+      () =>
+        callVendor('gemini', {
+          timeoutMs: 1000,
+          maxAttempts: 3,
+          isTransient: ALWAYS_TRANSIENT,
+          classify: () => ({ situation: 'blocked' }),
+          onDecision: ({ decision }) => decisions.push(decision.action),
+          call: async () => {
+            attempts++;
+            throw new Error('blocked');
+          },
+        }),
+      /blocked/
+    );
+    assert.equal(attempts, 1);
+    assert.deepEqual(decisions, ['give_up']);
+  });
+
+  await t.test('AD-52: a classified daily quota is handed to the durable layer without sleeping', async () => {
+    const decisions: string[] = [];
+    const startedAt = Date.now();
+    await assert.rejects(
+      () =>
+        callVendor('gemini', {
+          timeoutMs: 1000,
+          maxAttempts: 3,
+          isTransient: NEVER_TRANSIENT,
+          classify: () => ({ situation: 'quota_exhausted_daily' }),
+          onDecision: ({ decision }) => decisions.push(decision.action),
+          call: async () => {
+            throw new Error('per day quota');
+          },
+        }),
+      /per day quota/
+    );
+    assert.deepEqual(decisions, ['retry_later']);
+    assert.ok(Date.now() - startedAt < 500);
+  });
+
+  await t.test('AD-52: a classified rate limit with a zero hint and no alternate is retried in-call', async () => {
+    let attempts = 0;
+    const result = await callVendor('gemini', {
+      timeoutMs: 5000,
+      maxAttempts: 3,
+      isTransient: NEVER_TRANSIENT,
+      classify: () => ({ situation: 'rate_limited', retryAfterSeconds: 0 }),
+      call: async () => {
+        attempts++;
+        if (attempts < 2) {
+          throw new Error('429');
+        }
+        return 'ok-after-wait';
+      },
+    });
+    assert.equal(result, 'ok-after-wait');
+    assert.equal(attempts, 2);
+  });
+
+  await t.test('AD-52: the lease is released before an in-call wait, not held through it', async () => {
+    const lockKey = 'test-guarded-call-release-before-wait';
+    await deleteLockRow(lockKey);
+    let attempts = 0;
+    const running = callVendor('gemini', {
+      lockKey,
+      timeoutMs: 5000,
+      maxAttempts: 2,
+      isTransient: NEVER_TRANSIENT,
+      classify: () => ({ situation: 'rate_limited', retryAfterSeconds: 0 }),
+      call: async () => {
+        attempts++;
+        if (attempts === 1) {
+          throw new Error('429');
+        }
+        return 'ok';
+      },
+    });
+    // The first attempt fails at once and the wait is 1s (hint 0 plus the 1s margin); look mid-wait.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const [row] = await db.select().from(vendorCallLocks).where(eq(vendorCallLocks.lockKey, lockKey));
+    assert.ok(row.lockedUntil.getTime() <= Date.now() + 500, 'the lease is already released while waiting');
+    assert.equal(await running, 'ok');
+    assert.equal(attempts, 2);
+    await deleteLockRow(lockKey);
+  });
+
+  await t.test('AD-52: a throwing onDecision never replaces the vendor error', async (st) => {
+    st.mock.method(console, 'error', () => {});
+    await assert.rejects(
+      () =>
+        callVendor('gemini', {
+          timeoutMs: 1000,
+          maxAttempts: 2,
+          isTransient: NEVER_TRANSIENT,
+          classify: () => ({ situation: 'bad_request' }),
+          onDecision: () => {
+            throw new Error('observer broke');
+          },
+          call: async () => {
+            throw new Error('the real error');
+          },
+        }),
+      /the real error/
+    );
+  });
+
+  await t.test('AD-52: every decision is logged as one [retry-decision] line', async (st) => {
+    const info = st.mock.method(console, 'info', () => {});
+    await assert.rejects(() =>
+      callVendor('gemini', {
+        timeoutMs: 1000,
+        maxAttempts: 2,
+        isTransient: NEVER_TRANSIENT,
+        classify: () => ({ situation: 'bad_request' }),
+        call: async () => {
+          throw new Error('bad');
+        },
+      })
+    );
+    const line = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.startsWith('[retry-decision]'));
+    assert.ok(line);
+    assert.ok(line.includes('situation=bad_request') && line.includes('action=give_up') && line.includes('attempt=1'));
+  });
+
   // Story 0.i2z AC4 ratchet — this test is the enforcement for the hung-call-times-out
   // guarantee; do not duplicate it in the new ratchet file.
   await t.test('wrapper-level timeout fires VendorCallTimeoutError on a thunk that never resolves', async () => {
