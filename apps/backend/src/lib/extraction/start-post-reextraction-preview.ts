@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { and, desc, eq, gt, or, sql } from 'drizzle-orm';
 import { manualExtractionJobs, posts } from '@festgrid/database';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
-import { detectPlatformFromUrl, getScraperAdapter } from '@festgrid/domain/scraper';
+import { detectPlatformFromUrl, getScraperAdapter, isAdapterRegistered, ScraperCapacityExceededError } from '@festgrid/domain/scraper';
 import {
   REEXTRACT_RESCRAPE_COOLDOWN_MS,
   isImageUrlExpired,
@@ -19,6 +19,8 @@ import {
   isStoredPostAccountScrapable,
 } from '../scraper/post-scrape-gate.js';
 import { claimPostUrlScrape } from '../scraper/post-url-scrape-lease.js';
+import { ApifyMemoryLimitExhaustedError, ApifyMonthlyUsageLimitError } from '../scraper/instagram-adapter.js';
+import { VendorDpaNotConfirmedError } from '../vendor-gateway/guarded-call.js';
 
 // AD-40 -- starts a moderator re-extract preview. The caller (the resolver) has already enforced
 // `requireModerator`. Nothing here writes to `posts` or `events`: a rescraped caption lives only in
@@ -109,6 +111,24 @@ const SCRAPE_FAILED = {
 } as const;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * FIND-261102-4qm -- true for an error that is known to have been thrown before any vendor run could
+ * have started (so no credit could have been spent): our own per-provider capacity gate, the
+ * DPA-confirmation gate `callVendor` checks before it ever makes the call, and Apify refusing to
+ * START a run because the account's memory cap or monthly usage cap is reached (the free plan's
+ * $5 cap is the live case). All are typed errors raised at the call site, never guessed from a
+ * message. Anything else (including a timeout or a real vendor-side failure) is assumed to have
+ * started the call.
+ */
+function isPreVendorCallFailure(err: unknown): boolean {
+  return (
+    err instanceof ScraperCapacityExceededError ||
+    err instanceof VendorDpaNotConfirmedError ||
+    err instanceof ApifyMemoryLimitExhaustedError ||
+    err instanceof ApifyMonthlyUsageLimitError
+  );
+}
 
 /**
  * A scrape that throws or returns nothing still cost a scraper call, so it must count against the
@@ -256,12 +276,26 @@ export async function startPostReextractionPreview(
       };
     }
 
+    // FIND-261102-4qm -- no adapter means no vendor call is even possible, so nothing was spent: no
+    // FAILED row, no cooldown. (BUG-100, a separate branch, is about which platforms have one.)
+    if (!isAdapterRegistered(platform)) {
+      // Keep the log line the thrown error used to leave: this is how BUG-100 (the API Lambda
+      // registered no adapters) was found in CloudWatch, and a silent fallback would hide a repeat.
+      console.error(`[startPostReextractionPreview] No scraper adapter registered for platform "${platform}"; no rescrape attempted for ${url}`);
+      return scrapeIsOptional ? startStored(post!) : SCRAPE_FAILED;
+    }
+
     let scraped;
     try {
       scraped = await getScraperAdapter(platform).getPostByUrl(url);
     } catch (err) {
       console.error(`[startPostReextractionPreview] Failed to scrape ${url}:`, err);
-      await recordFailedRescrape(userId, url, post?.id ?? null, post?.accountId ?? null);
+      // FIND-261102-4qm -- only a failure once the vendor call actually started (so credit may have
+      // been spent) counts against the cooldown; a gate that refused before the call started
+      // leaves no row, so an immediate retry is not refused for no reason.
+      if (!isPreVendorCallFailure(err)) {
+        await recordFailedRescrape(userId, url, post?.id ?? null, post?.accountId ?? null);
+      }
       return scrapeIsOptional ? startStored(post!) : SCRAPE_FAILED;
     }
     // An image-only post has an empty caption but is still extractable from its image, so only a
