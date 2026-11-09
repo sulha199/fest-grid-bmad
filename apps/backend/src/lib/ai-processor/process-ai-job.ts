@@ -3,6 +3,7 @@ import { EventCategory } from '@festgrid/shared-types';
 import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
+import { classifyGeminiOutput } from '../ai-gateway/gemini-output-signals.js';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
 import {
@@ -147,20 +148,45 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     subscriberUserIds
   });
 
+  // AD-49 (cursor extraction, slice 1): one greppable line per request, and a flag when the output may have
+  // been cut off. Log-only: nothing splits or retries on it yet.
+  const maxOutputTokens = request.maxOutputTokens ?? env.geminiMaxOutputTokens;
+  const atRisk = classifyGeminiOutput({
+    finishReason: result.finishReason,
+    outputTokens: result.usage?.outputTokens,
+    thinkingTokens: result.usage?.thinkingTokens,
+    maxOutputTokens,
+  });
+  const signals =
+    `finishReason=${result.finishReason ?? 'unknown'} blockReason=${result.blockReason ?? 'none'} ` +
+    `promptTokens=${result.usage?.promptTokens ?? 'unknown'} outputTokens=${result.usage?.outputTokens ?? 'unknown'} ` +
+    `thinkingTokens=${result.usage?.thinkingTokens ?? 'unknown'} maxOutputTokens=${maxOutputTokens} ` +
+    `atRisk=${atRisk.length > 0 ? atRisk.join(',') : 'none'}`;
+  console.info(`[gemini-extraction] post=${message.postId} ${signals}`);
+  // The model text is a string; a seam or adapter that returns anything else is treated as empty.
+  const responseText = typeof result.text === 'string' ? result.text : '';
+
   // 4. Parse & validate response with AJV
   let payload: GeminiExtractionPayload;
   try {
-    payload = JSON.parse(result.text);
+    payload = JSON.parse(responseText);
   } catch (err) {
-    console.error(`Failed to parse Gemini response for post ${message.postId}. Raw response:`, result.text, err);
-    // Return successfully without throwing/enqueueing/marking to skip/retry later (AC4/AC8)
+    // The raw text can be thousands of tokens: log its length, a short head and tail, and the cause signals.
+    // V8's parse error can embed model text and newlines, so it is flattened and bounded to keep one line.
+    const errorText = (err instanceof Error ? err.message : String(err)).replace(/\s+/g, ' ').slice(0, 200);
+    console.warn(
+      `[gemini-response-unparseable] post=${message.postId} ${signals} length=${responseText.length} ` +
+        `head=${JSON.stringify(responseText.slice(0, 200))} tail=${JSON.stringify(responseText.slice(-100))} error=${errorText}`
+    );
+    // Return successfully without throwing/enqueueing/marking: the post stays unextracted, so its claim
+    // expires and it is claimable again (the status derives PENDING with extraction_started_at set).
     return;
   }
 
   const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
   const isValid = validate(payload);
   if (!isValid) {
-    console.error(`Gemini response failed AJV validation for post ${message.postId}:`, validate.errors);
+    console.error(`Gemini response failed AJV validation for post ${message.postId} (${signals}):`, validate.errors);
     // Return successfully without throwing/enqueueing/marking to skip/retry later (AC4/AC8)
     return;
   }

@@ -390,6 +390,116 @@ test('processAiJob orchestrator tests', async (t) => {
     assert.ok(!markPostExtractedCalled, 'Should NOT mark post extracted on parse fail');
   });
 
+  // AD-49 (cursor extraction, slice 1): the cause of an unparseable response is logged, not dumped raw.
+  await t.test('Case D2: an unparseable (cut-off) response logs finishReason, tokens and length, not the whole text', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000d2',
+      accountId: profile.id,
+      content: 'Cut off JSON',
+      postUrl: 'https://test.com/p-d2',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const longTail = 'x'.repeat(5000);
+    const warn = t.mock.method(console, 'warn', () => {});
+    const info = t.mock.method(console, 'info', () => {});
+    let markPostExtractedCalled = false;
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+    setCallGeminiSeam(async () => ({
+      text: '{"isEvent": true, "events": [{"eventName": "' + longTail,
+      finishReason: 'MAX_TOKENS',
+      usage: { promptTokens: 5200, outputTokens: 8192 },
+    }));
+
+    await processAiJob(message);
+
+    assert.ok(!markPostExtractedCalled, 'the post stays unextracted');
+    const unparseable = warn.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-response-unparseable]'));
+    assert.ok(unparseable, 'an unparseable-response warning is logged');
+    assert.ok(unparseable.includes(`post=${message.postId}`));
+    assert.ok(unparseable.includes('finishReason=MAX_TOKENS'));
+    assert.ok(unparseable.includes('outputTokens=8192'));
+    assert.ok(unparseable.includes('atRisk=max_tokens,output_near_limit'));
+    assert.ok(unparseable.includes(`length=${('{"isEvent": true, "events": [{"eventName": "' + longTail).length}`));
+    assert.ok(unparseable.length < 1000, 'the raw text is not dumped into the log');
+    const requestLine = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-extraction]'));
+    assert.ok(requestLine?.includes('atRisk=max_tokens,output_near_limit'), 'the per-request line flags the truncation too');
+    assert.ok(unparseable.includes('tail='), 'the tail of the response is logged');
+  });
+
+  await t.test('Case D3: an empty response (blocked) is logged with its finishReason and does not throw', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000d3',
+      accountId: profile.id,
+      content: 'Blocked',
+      postUrl: 'https://test.com/p-d3',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const warn = t.mock.method(console, 'warn', () => {});
+    t.mock.method(console, 'info', () => {});
+    let markPostExtractedCalled = false;
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+    setCallGeminiSeam(async () => ({ text: '', finishReason: 'SAFETY' }));
+
+    await processAiJob(message);
+
+    assert.ok(!markPostExtractedCalled);
+    const line = warn.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-response-unparseable]'));
+    assert.ok(line?.includes('finishReason=SAFETY'));
+    assert.ok(line?.includes('blockReason=none'));
+    assert.ok(line?.includes('length=0'));
+    assert.ok(line?.includes('atRisk=none'));
+  });
+
+  await t.test('Case D5: a non-string text from the adapter is treated as an empty response (no throw inside the log path)', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000d5',
+      accountId: profile.id,
+      content: 'Undefined text',
+      postUrl: 'https://test.com/p-d5',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const warn = t.mock.method(console, 'warn', () => {});
+    t.mock.method(console, 'info', () => {});
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setCallGeminiSeam(async () => ({ text: undefined as any, finishReason: 'OTHER' }));
+
+    await processAiJob(message);
+
+    const line = warn.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-response-unparseable]'));
+    assert.ok(line?.includes('length=0'));
+    assert.ok(!line?.includes('\n'), 'the warning stays on one line');
+  });
+
+  await t.test('Case D4: a normal response logs one request line with tokens and no at-risk flag', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000d4',
+      accountId: profile.id,
+      content: 'Not an event',
+      postUrl: 'https://test.com/p-d4',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const info = t.mock.method(console, 'info', () => {});
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({ isEvent: false, events: [], groupingReason: 'single-event' }),
+      finishReason: 'STOP',
+      usage: { promptTokens: 5000, outputTokens: 40 },
+    }));
+
+    await processAiJob(message);
+
+    const line = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-extraction]'));
+    assert.ok(line, 'one request line is logged');
+    assert.ok(line.includes('finishReason=STOP') && line.includes('promptTokens=5000') && line.includes('outputTokens=40'));
+    assert.ok(line.includes('atRisk=none'));
+  });
+
   await t.test('Case E: AiGatewayExhaustedError propagation (throws, not marked, not enqueued)', async () => {
     const message: ProcessingJobMessage = {
       postId: '00000000-0000-4000-8000-000000000005',
