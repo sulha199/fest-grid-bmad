@@ -41,11 +41,11 @@ A pain to solve. Posts with more images than the extraction read cap (cover + 5)
 
 - **CAP-6**
   - **intent:** The work per post is bounded by construction, and operators can switch the loop off.
-  - **success:** For a 20-slide fixture whose every response forces splits, total requests never exceed twice the post's unread slides, and an injected violation logs and stops instead of continuing; with the kill switch off, a roundup takes the single-request path as today.
+  - **success:** For a 20-image fixture whose every response forces splits (14 unread images after the first request), total extra requests never exceed 2 x 14 (27 in the worst case, about 7 typically), and an injected violation logs and stops instead of continuing; with the kill switch off, a roundup takes the single-request path as today.
 
 - **CAP-7**
-  - **intent:** Transient provider failures do not lose the rest of a post, and a post that cannot be finished is visibly partial and resumable.
-  - **success:** A forced 429 or 503 on one step is retried through the queue with a delay and the chain completes; a step that exhausts its retries leaves the post flagged partial, and redriving that dead-lettered message resumes the chain without repeating earlier steps.
+  - **intent:** A post whose extraction is interrupted is finished automatically, with no human action, and a post that can never be finished is visibly partial.
+  - **success:** A forced 429, 503 or Lambda timeout on one step is retried through the queue; when the queue's retries are exhausted, the next 5-minute tick re-enqueues the step from the persisted cursor and the chain completes without repeating earlier steps; when the images expire or the attempts run out, the cursor is cleared and the post stays flagged partial.
 
 - **CAP-8**
   - **intent:** One-event posts with several schedules spread over many slides get all remaining slides in one follow-up request rather than chunking.
@@ -63,6 +63,7 @@ A pain to solve. Posts with more images than the extraction read cap (cover + 5)
 
 - Only posts selected by the continue rules leave the one-request path; every other post keeps exactly one request. This supersedes AD-13 Rules 1 and 3 and amends AD-30 Rule 5 (one call per post, per-post event cap); the new decision records that.
 - Requests multiply against the quotas of the keys used (subscriber BYOK keys by tier, then the system key). 429 TooManyRequests and 503 ServiceUnavailable are already observed in the key monitoring and in our own calls, so every step tolerates them (queue retry with a delay; the steps of one post run serially, which spaces its requests) and the per-post request bound of CAP-6 is part of the contract. AD-13's quota rationale still binds.
+- Resume is automatic: the cursor is persisted on the post (nullable; null when no chain is in flight), and the AI Lambda's existing 5-minute tick begins with a resume pass that re-enqueues the next step of any post whose claim is older than the claim TTL while its images are valid and attempts remain. No step of resuming needs a human.
 - The first request keeps today's read window (cover + `MAX_CAROUSEL_IMAGES` slides, 6 images) for every post; the cursor starts after it. 95% of posts have 6 images or fewer and stay exactly as they are.
 - No step loops inside one Lambda invocation: each step is a separate queue message carrying the cursor (stateless) that fits the PR #180 per-message budget (45s; blur floor 60s plus a 40s margin). The post stays in progress (not marked extracted, claim held) until its last step; each step writes its own audit row.
 - Event identity `(post, extraction_ordinal)` stays unique and idempotent (AD-30 Rule 3); `extraction_ordinal` is `smallint`; the slug suffix follows the ordinal. Incremental steps need an allocation scheme (open question).
@@ -88,9 +89,9 @@ Re-extracting a roundup like `DfLcqoqj-al` (cover + 13 slides) imports the items
 
 - The prompt and schema v2 story (multi-date rows, `locationContext`) lands first, or this work depends only on the cursor/post-plan fields.
 - The evidence is small (21 sampled posts, one run each, noisy); the starting values (25 events per call, 90% output rule, 2-slide step size) are to be tuned with the live regression harness.
+- Resume starting values: claim TTL 30 minutes (the existing `POST_EXTRACTION_CLAIM_TTL_MINUTES`), up to 6 resume attempts with a growing delay, always bounded by the image expiry (about 5 days).
 - Roundup volume stays near the current 12 per 60 days, so serial steps taking minutes are acceptable.
 
 ## Open Questions
 
-- Ordinal scheme for incremental steps (see `architecture-decisions-needed.md`, AD-48). Recommendation: per-step ordinal ranges from a next-free ordinal carried in the cursor, assigned only after a step's window result is final; steps are serial so ranges cannot collide, and a redelivered step reuses the same numbers. Content-key identity is rejected: allocating "max + 1" at insert races between parallel ingestion messages, and a unique violation is treated as an idempotent skip (AD-30 Rule 3), which would silently lose an event. Confirm?
-- Partial and resume state (AD-47). Recommendation: one boolean on `posts`, set when a chain starts and cleared when the loop ends cleanly (a chain that dies stays flagged), and resume by redriving the dead-lettered step message, which carries the cursor, while the images are valid; no sweep job and no cursor column. Confirm?
+- Ordinal scheme for incremental steps (see `architecture-decisions-needed.md`, AD-48). Recommendation: per-step ordinal ranges from a next-free ordinal carried in the cursor, assigned after a step's window result is final. Numbering by event `created_at` was considered and rejected: the number must exist before the event (ingestion looks up `(post, ordinal)` before inserting), and `created_at` reflects the race between parallel queue consumers, so a redelivered message could be numbered differently; across steps the ranges already ascend in discovery order, and within a step the order is (earliest start date, normalized name, original index), which is deterministic. Allocating "max + 1" at insert races between parallel ingestion messages, and a unique violation is treated as an idempotent skip (AD-30 Rule 3), which would silently lose an event. Confirm?

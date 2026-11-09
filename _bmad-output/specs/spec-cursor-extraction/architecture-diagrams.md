@@ -15,7 +15,10 @@ flowchart TD
   E -- continue --> H[Set partial flag, enqueue next step message with cursor and a short delay]
   H --> I[Step: blur only own images, one request]
   I --> C
-  I -. 429 or 503: queue retry with delay; after the retries, dead-letter .-> P[Post stays flagged partial; redriving the message resumes]
+  I -. 429, 503 or timeout: queue retry with delay .-> I
+  I -. retries exhausted .-> R[Resume pass on the 5-minute tick: re-enqueue from the persisted cursor while images are valid and attempts remain]
+  R --> I
+  R -. images expired or attempts spent .-> P[Clear the cursor, post stays flagged partial]
 ```
 
 ## Step message and state
@@ -39,5 +42,7 @@ sequenceDiagram
     L->>DB: mark post extracted and clear the partial flag
   end
 ```
+
+The cursor is also persisted on the post (written when a step ends and cleared at a clean end), which is what the resume pass reads.
 
 State carried in the message (stateless Lambda): post id, next slide index, next free ordinal, events found so far, empty-step count, step count, last observed items per slide, claimed item count.
