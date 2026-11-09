@@ -1,8 +1,10 @@
+import { eq, sql } from 'drizzle-orm';
 import { schedules, eventMatchCandidates, events } from '@festgrid/database';
 import type { ExtractedEventMessage } from '@festgrid/domain';
 import { insertEventWithPrimaryPost, enrichAndPromoteEvent, type DbExecutor } from '../events/set-event-primary-post.js';
 import type { IngestionMatchEvaluation } from './evaluate-ingestion-match.js';
 import { buildDedupDecisionLog, type DedupDecisionLog } from './build-dedup-decision-log.js';
+import { logIngestScheduleCounts } from '../events/schedule-count-log.js';
 
 type EventRow = typeof events.$inferSelect;
 
@@ -15,6 +17,30 @@ export interface WriteIngestionDecisionResult {
   shouldNotify: boolean;
   /** Logged by the caller only after its transaction commits. */
   dedupDecisionLog: DedupDecisionLog | null;
+}
+
+/**
+ * Diagnostic only (see schedule-count-log.ts): the number of schedules an event has right now, or null if
+ * it could not be read. Runs inside a SAVEPOINT because a failed statement aborts the whole Postgres
+ * transaction, and a diagnostic must never be able to roll back the enrichment it is describing.
+ */
+async function countEventSchedulesSafely(tx: DbExecutor, eventId: string): Promise<number | null> {
+  try {
+    await tx.execute(sql`SAVEPOINT schedule_count_log`);
+    try {
+      const [row] = await tx
+        .select({ total: sql<number>`count(*)`.mapWith(Number) })
+        .from(schedules)
+        .where(eq(schedules.eventId, eventId));
+      await tx.execute(sql`RELEASE SAVEPOINT schedule_count_log`);
+      return row?.total ?? null;
+    } catch {
+      await tx.execute(sql`ROLLBACK TO SAVEPOINT schedule_count_log`);
+      return null;
+    }
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -47,6 +73,21 @@ export async function writeIngestionDecision(
       { additive: match.signals.stubRepeat }
     );
 
+    // Diagnostic only: the message's schedules vs the enriched event's schedules afterwards (a merge, so
+    // they may legitimately differ). The count runs inside a savepoint so a failed count can never abort
+    // the caller's transaction.
+    const finalCount = await countEventSchedulesSafely(tx, enrichedEvent.id);
+    if (finalCount !== null) {
+      logIngestScheduleCounts({
+        path: 'enrich',
+        postId: message.postId,
+        ordinal: extractionOrdinal,
+        received: message.schedules?.length ?? 0,
+        incoming: scheduleValues.length,
+        final: finalCount,
+      });
+    }
+
     return {
       inserted: true,
       event: enrichedEvent,
@@ -73,7 +114,25 @@ export async function writeIngestionDecision(
       eventId: insertedRow.id,
     }));
 
-    await tx.insert(schedules).values(schedulesToInsert);
+    // .returning only to count the rows actually written (diagnostic: see schedule-count-log.ts).
+    const insertedRows = await tx.insert(schedules).values(schedulesToInsert).returning({ id: schedules.id });
+    logIngestScheduleCounts({
+      path: 'insert',
+      postId: message.postId,
+      ordinal: extractionOrdinal,
+      received: message.schedules?.length ?? 0,
+      sent: schedulesToInsert.length,
+      inserted: insertedRows.length,
+    });
+  } else {
+    logIngestScheduleCounts({
+      path: 'insert',
+      postId: message.postId,
+      ordinal: extractionOrdinal,
+      received: message.schedules?.length ?? 0,
+      sent: 0,
+      inserted: 0,
+    });
   }
 
   if (match && match.tier === 'mid') {

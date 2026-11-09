@@ -26,6 +26,7 @@ import { socialMediaAccountProfiles, posts } from '@festgrid/database';
 import { assignExtractionOrdinals } from '@festgrid/domain';
 import { writeExtractionAuditLog } from './write-extraction-audit-log.js';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
+import { logExtractionScheduleCounts, logEnqueueScheduleCounts, logEnqueueTotals } from '../events/schedule-count-log.js';
 // 2026-10-04 prod incident -- these stay a STATIC import, deliberately, unlike the edges cut in
 // enqueue-post-for-processing.ts/build-gemini-request.ts. This file is only ever reachable from
 // apiLambda/scraperLambda via enqueue-post-for-processing.ts's own `await import('./process-ai-job.js')`
@@ -289,6 +290,14 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     });
     eventMessages.push(eventMessage);
     defaultLocationForBackfill = defaultLocation;
+    // Diagnostic only: the model's schedule count vs the built message's (see schedule-count-log.ts).
+    logExtractionScheduleCounts({
+      postId: message.postId,
+      eventIndex: i,
+      eventName: event.eventName,
+      modelSchedules: event.schedules.length,
+      messageSchedules: eventMessage.schedules.length,
+    });
 
     // Per-event completeness logging signal (Story 3.6l, replaces the old single post-level
     // check). Logging-only -- no additional Gemini call, no automatic re-trigger.
@@ -525,6 +534,13 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // start date, then normalized event name, then original index, never raw model-response
   // order, so a re-extraction that yields the same set of events produces the same ordinals.
   const orderedEventMessages = assignExtractionOrdinals(eventMessages);
+  // Diagnostic only: post-level totals, to compare with the ingestor's per-event insert counts.
+  logEnqueueTotals({
+    postId: message.postId,
+    events: orderedEventMessages.length,
+    modelSchedules: events.reduce((total, e) => total + e.schedules.length, 0),
+    enqueuedSchedules: orderedEventMessages.reduce((total, m) => total + m.schedules.length, 0),
+  });
 
   // 8.1. Enqueue to DataIngestionQueue (or process inline in local dev) -- one message per
   // event (AC1). Best-effort (AC7): attempts every event's send even after one fails, retrying
@@ -537,7 +553,16 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     const enqueueErrors: unknown[] = [];
     for (const eventMessage of orderedEventMessages) {
       try {
-        await sendSqsMessageWithRetry(env.dataIngestionQueueUrl, JSON.stringify(eventMessage), {
+        // Built once: the exact string sent is also what the diagnostic body size is measured on.
+        const body = JSON.stringify(eventMessage);
+        logEnqueueScheduleCounts({
+          postId: message.postId,
+          ordinal: eventMessage.extractionOrdinal,
+          eventName: eventMessage.eventName,
+          schedules: eventMessage.schedules.length,
+          bodyBytes: Buffer.byteLength(body, 'utf8'),
+        });
+        await sendSqsMessageWithRetry(env.dataIngestionQueueUrl, body, {
           onAttemptFailed: (attempt, maxAttempts, err) =>
             console.warn(
               `[processAiJob] Enqueue attempt ${attempt}/${maxAttempts} failed for post ${message.postId}, ` +
