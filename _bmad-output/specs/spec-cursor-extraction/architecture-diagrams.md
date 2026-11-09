@@ -4,18 +4,18 @@
 
 ```mermaid
 flowchart TD
-  A[Scraped post enqueued] --> B[First request: cover + window, caption, post plan]
+  A[Scraped post enqueued] --> B[First request: cover + today's window of 5 slides, caption, post plan]
   B --> C{Signals at risk?}
   C -- yes --> S[Split window, retry, down to 1 slide]
   S --> C
   C -- no --> D[Dedupe against the post's events, allocate ordinals, enqueue ingestion]
   D --> E{Continue rules, in code}
-  E -- stop --> F[Mark extracted]
-  E -- cap fired --> G[Mark extracted and partial, log the cap]
-  E -- continue --> H[Enqueue next step message with cursor]
+  E -- stop --> F[Mark extracted, clear the partial flag]
+  E -- kill switch off or invariant exceeded --> G[Stop, log why, flag partial if slides remain]
+  E -- continue --> H[Set partial flag, enqueue next step message with cursor and a short delay]
   H --> I[Step: blur only own images, one request]
   I --> C
-  I -. fails after retries .-> P[Mark partial, keep cursor, resumable]
+  I -. 429 or 503: queue retry with delay; after the retries, dead-letter .-> P[Post stays flagged partial; redriving the message resumes]
 ```
 
 ## Step message and state
@@ -36,7 +36,7 @@ sequenceDiagram
   alt continue rules say continue
     L->>Q: next step message with updated cursor
   else stop or cap
-    L->>DB: mark post extracted, partial if a cap fired
+    L->>DB: mark post extracted and clear the partial flag
   end
 ```
 
