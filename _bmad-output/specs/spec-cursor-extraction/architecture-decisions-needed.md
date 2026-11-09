@@ -1,0 +1,14 @@
+# Architecture decisions needed
+
+For `bmad-architecture` to follow. The highest existing decision in `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` is AD-45, so new numbers start at AD-46 (proposed; re-check before writing). Read the existing sections with `python3 scripts/md-outline.py find "^AD-N:" <file>`.
+
+| Proposed | Decision | Why it needs a decision | Existing text it touches |
+|---|---|---|---|
+| AD-46 | Multi-step (cursor) extraction for selected posts | Reverses AD-13 Rule 1 ("one request per post, always") and Rule 3 (loop rejected, revisit if the cap proves insufficient). Defines which posts leave the one-request path (`continue-rules.md`) and records the quota trade-off. Amends AD-30 Rule 5 ("one Gemini call per post", per-post event cap default 10) and the soft cap's role. | AD-13, AD-30 Rule 5 |
+| AD-47 | Step message contract, in-progress state and resume | Cursor lives in the queue message; one audit row per step (queries that read "the latest audit row" must be reviewed); `posts.is_extracted` and the extraction claim stay in progress until the last step; a failed step leaves a resumable partial post; who triggers a resume (sweep, AD-40 Apply). | AD-29 audit table, Story 3.6z claim TTL, AD-40 |
+| AD-48 | Extraction ordinals for incremental steps | `(post, extraction_ordinal)` is unique, idempotent (AD-30 Rule 3), `smallint`, and drives the slug suffix, but ordinals are assigned once, globally, by earliest date. Options: (a) per-step ranges from a next-free ordinal carried in the cursor (precedent: AD-30 Rule 8 "next free ordinal, max + 1"; `assignApplyOrdinals` and `PARKED_ORDINAL_BASE` in the re-extract Apply); (b) content-key idempotency (normalized name + start date) replacing the ordinal. Also the cross-step dedupe key. | AD-30 Rules 1, 3, 8; AD-40 Apply |
+| AD-49 | Gemini client contract: truncation and usage signals | `finishReason` and `candidatesTokenCount` are exposed; truncation and at-risk rules; a parse failure is retried or recorded, not dropped; whether the response schema can carry the post plan without a Gemini 400. | `gemini-client.ts`, AD-30 Rule 5 payload, AD-29 |
+| AD-50 | Partial posts and the roundup UX read model | Where "partial" lives (a `posts` column or derived); the sibling list as a read that adds no join to `Query.events` / `Query.eventBySlug` (AD-30 Rule 4; precedent `Query.relatedEventIds`). | AD-30 Rules 4 and 10 |
+| AD-51 | Caps and quota policy | Defaults and env names for max extra steps and max events per post; how request count is bounded against subscriber BYOK and system key quotas; per-step blur and geocoding budgets (about one geocode call per schedule). | AD-13 rationale, AD-28, AD-14 |
+
+Not decisions of this spec (do not fold in): the prompt and schema v2 story (multi-date rows, `locationContext`), the geocoding fix, recovery of already-stored posts.
