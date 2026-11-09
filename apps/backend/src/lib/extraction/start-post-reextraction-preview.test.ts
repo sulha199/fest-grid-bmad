@@ -4,11 +4,13 @@ import { eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { apiKeys, manualExtractionJobs, posts, socialMediaAccountProfiles, users } from '@festgrid/database';
 import type { ManualExtractionRequestPayload } from '@festgrid/domain/posts';
-import { clearRegisteredAdapters, registerScraperAdapter } from '@festgrid/domain/scraper';
+import { clearRegisteredAdapters, registerScraperAdapter, ScraperCapacityExceededError } from '@festgrid/domain/scraper';
 import type { ScrapedPost } from '@festgrid/domain/scraper';
 import { startPostReextractionPreview } from './start-post-reextraction-preview.js';
+import { ApifyMemoryLimitExhaustedError, ApifyMonthlyUsageLimitError } from '../scraper/instagram-adapter.js';
 import { getManualExtractionJobStatus } from './manual-extraction-job.js';
 import { claimPostUrlScrape } from '../scraper/post-url-scrape-lease.js';
+import { VendorDpaNotConfirmedError } from '../vendor-gateway/guarded-call.js';
 
 // AD-40 -- the API-Lambda half of the moderator re-extract preview. The AI Lambda invoke is not
 // configured under test, so a job that gets as far as starting fails to start and is marked FAILED:
@@ -48,6 +50,9 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     return post;
   }
 
+  const fakeAdapter = (getPostByUrl: (url: string) => Promise<ScrapedPost | null>) =>
+    registerScraperAdapter('instagram', { getPostByUrl } as any);
+
   await t.test('unknown post id -> NOT_FOUND', async () => {
     const result = await startPostReextractionPreview(user.id, { postId: '00000000-0000-4000-8000-0000000000aa' });
     assert.deepStrictEqual(result, { errorCode: 'NOT_FOUND', errorMessage: 'Post not found.' });
@@ -58,15 +63,100 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.deepStrictEqual(result, { errorCode: 'NOT_FOUND', errorMessage: 'Post not found.' });
   });
 
-  await t.test('a failed rescrape still counts against the cooldown (no unlimited retries on a post that never scrapes)', async () => {
-    const post = await makePost(null);
+  // ── FIND-119: a failure before any vendor call started must not start the cooldown ──────────
+
+  await t.test('FIND-119: no adapter registered for the platform -> SCRAPE_FAILED, no FAILED row, no cooldown on retry', async () => {
+    const post = await makePost(null); // no adapter is registered yet at this point in the file
     const first = await startPostReextractionPreview(user.id, { postId: post.id });
     assert.ok('errorCode' in first);
-    assert.strictEqual(first.errorCode, 'SCRAPE_FAILED'); // no scraper adapter under test
+    assert.strictEqual(first.errorCode, 'SCRAPE_FAILED');
 
+    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
+    assert.strictEqual(rows.length, 0, 'no vendor call could even start, so no FAILED row was recorded');
+
+    // An immediate retry must not be refused: nothing started a cooldown.
     const second = await startPostReextractionPreview(user.id, { postId: post.id });
     assert.ok('errorCode' in second);
-    assert.strictEqual(second.errorCode, 'RATE_LIMITED');
+    assert.strictEqual(second.errorCode, 'SCRAPE_FAILED', 'not RATE_LIMITED: still no adapter, but not cooled down either');
+    const rowsAfter = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
+    assert.strictEqual(rowsAfter.length, 0);
+  });
+
+  await t.test('FIND-119: capacity exhausted before the vendor call -> SCRAPE_FAILED, no FAILED row, no cooldown on retry', async () => {
+    const post = await makePost(null);
+    fakeAdapter(async () => {
+      throw new ScraperCapacityExceededError('capacity exceeded');
+    });
+    let first, second;
+    try {
+      first = await startPostReextractionPreview(user.id, { postId: post.id });
+      second = await startPostReextractionPreview(user.id, { postId: post.id });
+    } finally {
+      clearRegisteredAdapters();
+    }
+    assert.ok('errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
+    assert.ok('errorCode' in second && second.errorCode === 'SCRAPE_FAILED', 'the immediate retry is not RATE_LIMITED');
+    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
+    assert.strictEqual(rows.length, 0, 'a capacity refusal spends no vendor credit, so no row is recorded');
+  });
+
+  await t.test('FIND-119: the DPA gate refuses before the vendor call -> SCRAPE_FAILED, no FAILED row, no cooldown on retry', async () => {
+    const post = await makePost(null);
+    fakeAdapter(async () => {
+      throw new VendorDpaNotConfirmedError('DPA not confirmed for vendor "apify"');
+    });
+    let first, second;
+    try {
+      first = await startPostReextractionPreview(user.id, { postId: post.id });
+      second = await startPostReextractionPreview(user.id, { postId: post.id });
+    } finally {
+      clearRegisteredAdapters();
+    }
+    assert.ok('errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
+    assert.ok('errorCode' in second && second.errorCode === 'SCRAPE_FAILED', 'the immediate retry is not RATE_LIMITED');
+    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
+    assert.strictEqual(rows.length, 0, 'a DPA-gate refusal spends no vendor credit, so no row is recorded');
+  });
+
+  // Apify refusing to START a run (account memory cap, or the monthly spend cap the free plan hit on
+  // 2026-10-29) means no run exists and no credit was spent: same rule as the gates above.
+  for (const [label, makeError] of [
+    ['the Apify memory cap outlasts the wait', () => new ApifyMemoryLimitExhaustedError(20000, 4, '402 actor-memory-limit-exceeded')],
+    ['the Apify monthly usage cap is reached', () => new ApifyMonthlyUsageLimitError('403 platform-feature-disabled')],
+  ] as const) {
+    await t.test(`FIND-119: ${label} (no run started) -> SCRAPE_FAILED, no FAILED row, no cooldown on retry`, async () => {
+      const post = await makePost(null);
+      fakeAdapter(async () => {
+        throw makeError();
+      });
+      let first, second;
+      try {
+        first = await startPostReextractionPreview(user.id, { postId: post.id });
+        second = await startPostReextractionPreview(user.id, { postId: post.id });
+      } finally {
+        clearRegisteredAdapters();
+      }
+      assert.ok('errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
+      assert.ok('errorCode' in second && second.errorCode === 'SCRAPE_FAILED', 'the immediate retry is not RATE_LIMITED');
+      const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
+      assert.strictEqual(rows.length, 0, 'a refusal to start a run spends no vendor credit, so no row is recorded');
+    });
+  }
+
+  await t.test('FIND-119: a throw once the vendor call started still records the FAILED row and the cooldown still applies', async () => {
+    const post = await makePost(null);
+    fakeAdapter(async () => {
+      throw new Error('vendor call failed mid-flight');
+    });
+    let first, second;
+    try {
+      first = await startPostReextractionPreview(user.id, { postId: post.id });
+      second = await startPostReextractionPreview(user.id, { postId: post.id });
+    } finally {
+      clearRegisteredAdapters();
+    }
+    assert.ok('errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
+    assert.ok('errorCode' in second && second.errorCode === 'RATE_LIMITED', 'a real vendor-call failure still starts the cooldown');
 
     const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
     for (const r of rows) jobIds.push(r.id);
@@ -179,9 +269,6 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     postIds.push(post.id);
     return post;
   }
-
-  const fakeAdapter = (getPostByUrl: (url: string) => Promise<ScrapedPost | null>) =>
-    registerScraperAdapter('instagram', { getPostByUrl } as any);
 
   async function payloadsFor(url: string) {
     const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, url));
