@@ -169,6 +169,41 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # Backlog ID rules (backlog-spec.md §4, check 17): the unit tests for scripts/backlog_ids.py, then
+  # `backlog-check.py --only 17` over backlog.yaml. Two parallel branches that mint the same id merge
+  # cleanly into one file with a duplicate key, which YAML silently resolves by dropping a row; this
+  # job is what turns that into a red run, and the run on a push to master is the catch-all for a PR
+  # that went green before another one merged. Deliberately standalone: no `needs` and no `paths:`
+  # filter (see apps/infrastructure/lib/ci-wiring.test.ts), so a board typo cannot hold up
+  # db-migrate or deploy-infrastructure and a required check can never wait on a skipped run. Full
+  # history (fetch-depth 0) gives it origin/master and a merge-base; CI=true makes a missing one a
+  # failure, so a shallow checkout cannot quietly switch the collision rules off. Only check 17 gates
+  # here: checks 1-16 carry a backlog of older failures this job must not inherit. Whether a red run
+  # blocks a merge is the GitHub ruleset's "Require status checks" rule, which no file can assert.
+  backlog-ids:
+    name: Backlog IDs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PyYAML
+        run: python -m pip install pyyaml==6.0.2
+
+      - name: Backlog ID unit tests
+        run: python -m unittest discover -s scripts/tests -t scripts -v
+
+      - name: Backlog ID rules (check 17)
+        run: python scripts/backlog-check.py --only 17
+
   db-migrate:
     name: Database Migrations
     needs: [ci, e2e]

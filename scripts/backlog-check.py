@@ -5,26 +5,36 @@ Implements checks 1-17 and the lens table from
 `_bmad-output/implementation-artifacts/backlog-spec.md` (checks 10-13 follow
 `planning-artifacts/epic-formation-gate.md`; check 14 enforces §12's deferral-intake rule;
 check 15 is the mechanical backstop for §3's "note is one line" rule; check 16 is the
-same rule applied to the board's own header `last_updated` field -- see
+same rule applied to the board's own header `last_updated` field; check 17 is §4's ID rules:
+format, frozen legacy counters, duplicate keys and branch collisions, implemented in
+`scripts/backlog_ids.py` -- see
 `scripts/sprint-status-comment-check.py`'s docstring for the sibling problem both mirror:
 `sprint-status.yaml`'s `last_updated` comment grew the same way before that guardrail existed,
 and this board's own `last_updated` field grew the same way before check 16 existed).
-check 17 fails on a row ID defined twice: `yaml.safe_load` keeps only the last copy of a repeated
-mapping key, so a merge that brings in a second `FIND-119:` would otherwise make the first row
-vanish while every other check still reports clean (2026-11-08, FIND-114 to FIND-121).
 `bmad-sprint-status` runs this rather than re-deriving the checks from prose: a subtly wrong
 reimplementation reports "clean" on a broken board, which is worse than no check.
 
 Usage:
     uv run --python 3.11 --with pyyaml scripts/backlog-check.py [--lens NAME] [--cluster] [--quiet]
+                                                                [--only N[,N]] [--require-remote]
 
-Exit code is the number of check failures (0 = clean), so it can gate a commit.
+Exit code is the number of check failures (0 = clean), capped at 255 because the operating
+system keeps only 8 bits of an exit status: an exact multiple of 256 would otherwise read as
+0 = clean. It can gate a commit.
+
+`--only 17` runs just the ID check and counts only its failures: it is what CI gates on,
+because checks 1-16 carry a pre-existing backlog of failures that CI must not inherit.
+`--require-remote` (implied by `CI=true`) turns "origin/master or its merge-base is
+unavailable" from a stderr warning into a failure, so a shallow checkout cannot silently
+disable the collision check.
 """
 from __future__ import annotations
 import argparse, os, re, sys
 from collections import defaultdict
 
 import yaml
+
+import backlog_ids
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMPL = os.path.join(ROOT, "_bmad-output", "implementation-artifacts")
@@ -67,27 +77,12 @@ ACCUMULATION_MARKERS = re.compile(
 )
 
 
-def load_board():
-    with open(BOARD, encoding="utf-8") as fh:
-        board = yaml.safe_load(fh)
+def load_board(path=BOARD):
+    """`(items, tags, last_updated, duplicates)`; duplicates feed check 17."""
+    with open(path, encoding="utf-8") as fh:
+        board, duplicates = backlog_ids.load_board_text(fh.read())
     tags = {f"{ns}:{s}" for ns, slices in board["tags"].items() for s in slices}
-    return board["items"], tags, board.get("last_updated")
-
-
-def find_duplicate_row_ids(path=None):
-    """Row IDs that `backlog.yaml` defines more than once, as {id: [line numbers]}.
-
-    Read from the raw text, because `yaml.safe_load` silently keeps only the last of two
-    identical mapping keys: by the time `load_board` returns, the first row is already gone.
-    A row header is a two-space-indented `ID:` line on its own (`  FIND-119:`).
-    """
-    seen = defaultdict(list)
-    with open(path or BOARD, encoding="utf-8") as fh:
-        for n, line in enumerate(fh, start=1):
-            m = re.match(r"^  ([A-Z]+-\d+):\s*$", line)
-            if m:
-                seen[m.group(1)].append(n)
-    return {k: v for k, v in seen.items() if len(v) > 1}
+    return board["items"], tags, board.get("last_updated"), duplicates
 
 
 def load_sprint_status():
@@ -150,8 +145,13 @@ def tag_prefix(tag: str) -> str:
     return tag.split("/", 1)[0]
 
 
-def run_checks(items, tags, stories, last_updated=None, duplicate_ids=None):
+def run_checks(items, tags, stories, last_updated=None, id_findings=()):
     failures = []
+
+    # Check 17 -- §4's ID rules. The rules live in scripts/backlog_ids.py (`check_ids`);
+    # the caller passes its findings in because they need git, which this function never touches.
+    for row, msg in id_findings:
+        failures.append((17, row, msg))
 
     def fail(num, row, msg):
         failures.append((num, row, msg))
@@ -319,14 +319,6 @@ def run_checks(items, tags, stories, last_updated=None, duplicate_ids=None):
              f"last_updated is {len(str(last_updated))} chars > {NOTE_MAX_LEN} -- it must be a "
              f"bare ISO timestamp only (git history already has the narrative)")
 
-    # Check 17 -- a row ID defined twice. safe_load keeps only the last copy, so every check
-    # above ran on a board that had silently lost the other row. Renumber the NEWER row
-    # (IDs are immutable, backlog-spec.md section 4); master's already-merged ID stays.
-    for row_id, lines in sorted((duplicate_ids or {}).items()):
-        fail(17, row_id,
-             f"row ID defined {len(lines)} times (backlog.yaml lines "
-             f"{', '.join(map(str, lines))}); only the last survives parsing -- renumber the newer row")
-
     return failures
 
 
@@ -371,8 +363,8 @@ def collisions(items):
         if len(members) > 4:
             suppressed += 1
         else:
-            shown.append((len(members), tag, sorted(members)))
-    return sorted(shown), suppressed
+            shown.append((len(members), tag, sorted(members, key=backlog_ids.id_sort_key)))
+    return sorted(shown, key=lambda g: (g[0], g[1])), suppressed
 
 
 def cluster_candidates(items):
@@ -417,7 +409,8 @@ def print_clusters(items, stories):
     print("  CANDIDATES, not clusters — the deciding axis (shared repair shape) is a reading pass")
 
     for axis, groups in axes.items():
-        sized = sorted(((len(v), k, sorted(v)) for k, v in groups.items() if len(v) > 1))
+        sized = sorted(((len(v), k, sorted(v, key=backlog_ids.id_sort_key))
+                        for k, v in groups.items() if len(v) > 1), key=lambda g: (g[0], g[1]))
         keep = [g for g in sized if g[0] <= 6]
         broad = [g for g in sized if g[0] > 6]
         print(f"\n  ── {axis} ──")
@@ -429,8 +422,9 @@ def print_clusters(items, stories):
             print(f"     {name[:34]:34} {size}  too broad to be a candidate")
 
     # Ritual step 4 reads these: only a cost: skip can reopen on price.
-    reopenable = sorted(k for k, r in items.items() if r.get("status") == "skipped"
-                        and (r.get("note") or "").lower().lstrip().startswith("cost:"))
+    reopenable = sorted((k for k, r in items.items() if r.get("status") == "skipped"
+                         and (r.get("note") or "").lower().lstrip().startswith("cost:")),
+                        key=backlog_ids.id_sort_key)
     print(f"\n  ── cost-skipped (re-scoring sweep, §9.2) ──")
     print("     " + (", ".join(reopenable) if reopenable else "(none)"))
 
@@ -474,6 +468,24 @@ def lenses(items):
     }
 
 
+KNOWN_CHECKS = frozenset(range(1, 18))  # checks 1-17; keep in step with backlog-spec.md §9
+MAX_EXIT = 255
+
+
+def _check_numbers(text):
+    """`--only` value -> a non-empty set of real check numbers. A typo must not make a vacuous gate."""
+    try:
+        numbers = {int(part) for part in text.split(",") if part.strip()}
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"--only takes check numbers like 17 or 15,17, got {text!r}")
+    unknown = sorted(numbers - KNOWN_CHECKS)
+    if not numbers or unknown:
+        raise argparse.ArgumentTypeError(
+            f"--only needs check numbers from 1 to {max(KNOWN_CHECKS)}, got {text!r}"
+            + (f" (unknown: {', '.join(map(str, unknown))})" if unknown else ""))
+    return numbers
+
+
 def main():
     global SPRINT_STATUS
     ap = argparse.ArgumentParser()
@@ -481,10 +493,21 @@ def main():
     ap.add_argument("--quiet", action="store_true", help="failures only")
     ap.add_argument("--cluster", action="store_true",
                     help="epic-formation candidate axes instead of the full report")
+    ap.add_argument("--only", type=_check_numbers, metavar="N[,N]",
+                    help="count and gate on only these check numbers (CI uses --only 17); implies --quiet")
+    ap.add_argument("--require-remote", action="store_true",
+                    help="fail, not warn, when origin/master or its merge-base is unavailable "
+                         "(implied by CI=true)")
+    ap.add_argument("--board", default=BOARD, help=argparse.SUPPRESS)
+    ap.add_argument("--repo", default=ROOT, help=argparse.SUPPRESS)
     args = ap.parse_args()
 
-    items, tags, last_updated = load_board()
-    SPRINT_STATUS = load_sprint_status()
+    items, tags, last_updated, duplicates = load_board(args.board)
+    # `--only 17` is the CI gate: it must not depend on checks 1-16 or on sprint-status.yaml, so a
+    # malformed row or a broken sprint file elsewhere cannot crash it (it would still go red, but for
+    # the wrong reason).
+    id_only = args.only is not None and args.only <= {17}
+    SPRINT_STATUS = {} if id_only else load_sprint_status()
 
     lens_table = lenses(items)
     if args.lens:
@@ -492,25 +515,39 @@ def main():
             print(f"unknown lens {args.lens!r}; known: {', '.join(lens_table)}")
             return 1
         fn = lens_table[args.lens]
-        for key in sorted(k for k, r in items.items() if fn(k, r)):
+        for key in sorted((k for k, r in items.items() if fn(k, r)), key=backlog_ids.id_sort_key):
             r = items[key]
-            print(f"{key:9} {r.get('impact','-'):13} {r.get('effort','-'):3} {r['title']}")
+            print(f"{key:16} {r.get('impact','-'):13} {r.get('effort','-'):3} {r['title']}")
         return 0
 
     if args.cluster:
         print_clusters(items, SPRINT_STATUS)
         return 0
 
-    failures = run_checks(items, tags, SPRINT_STATUS, last_updated, find_duplicate_row_ids())
+    remote = backlog_ids.load_remote_ids(args.repo, os.path.relpath(args.board, args.repo))
+    require_remote = args.require_remote or os.environ.get("CI") == "true"
+    id_findings, id_warnings = backlog_ids.check_ids(items, duplicates, remote, require_remote)
+    for warning in id_warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+
+    if id_only:
+        failures = [(17, row, msg) for row, msg in id_findings]
+    else:
+        failures = run_checks(items, tags, SPRINT_STATUS, last_updated, id_findings)
+    if args.only is not None:
+        failures = [f for f in failures if f[0] in args.only]
+        args.quiet = True
     if failures:
         print("CHECK FAILURES")
-        for num, row, msg in sorted(failures):
+        for num, row, msg in sorted(failures, key=lambda f: (f[0], backlog_ids.id_sort_key(f[1]), f[2])):
             print(f"  check {num}  [{row}] {msg}")
     else:
-        print("checks 1-17: clean")
+        label = ",".join(str(n) for n in sorted(args.only)) if args.only is not None else "1-17"
+        skipped = " (ID collision rules NOT run: no origin/master history, see warning)" if id_warnings else ""
+        print(f"checks {label}: clean{skipped}")
 
     if args.quiet:
-        return len(failures)
+        return min(len(failures), MAX_EXIT)
 
     by_status, by_type = defaultdict(int), defaultdict(int)
     for row in items.values():
@@ -528,11 +565,11 @@ def main():
 
     print("\nlenses (§11):")
     for name, fn in lens_table.items():
-        hits = sorted(k for k, r in items.items() if fn(k, r))
+        hits = sorted((k for k, r in items.items() if fn(k, r)), key=backlog_ids.id_sort_key)
         if hits:
             print(f"  {name:12} ({len(hits):2})  {', '.join(hits)}")
 
-    return len(failures)
+    return min(len(failures), MAX_EXIT)
 
 
 if __name__ == "__main__":
