@@ -145,8 +145,8 @@ not edited here.)
 | OI-4 (whether `manual_extraction_jobs` moves onto the engine table) | Story 10.9 (explicitly — it is where the decision is recorded) | During Story 10.9 |
 
 **FR→story traceability (item 6):** Every FR116–FR128 maps to exactly one story (table in `epics.md` lines
-318–330), and every story maps back to an FR or an absorbed backlog row (BUG-099, IDEA-008/009/047/101/102/116–119,
-BUG-014, FIND-079/082/119, BUG-261102-4rm) — no orphan in either direction. **One AC/FR mismatch found and corrected:**
+318–330), and every story maps back to an FR or an absorbed backlog row (BUG-099, IDEA-008, IDEA-009, IDEA-047, IDEA-101, IDEA-102, IDEA-261102-dkk, IDEA-261102-xrx, IDEA-261102-v9l, IDEA-261102-scl,
+BUG-014, FIND-079, FIND-082, FIND-261102-4qm, BUG-261102-4rm) — no orphan in either direction. **One AC/FR mismatch found and corrected:**
 FR124's PRD text covers two channels — in-app + push for *every* job owner (the main, already-settled requirement)
 and, additionally, the Epic 0.i1 moderator helper for a moderator owner — but Story 10.13's AC in `epics.md` only
 had the moderator half. **Added the missing in-app/push AC to Story 10.13**, so FR124 is now actually tested by an
