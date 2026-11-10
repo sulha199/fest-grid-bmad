@@ -233,6 +233,32 @@ test('applyPostReextraction (AD-40 Apply)', async (t) => {
     assert.strictEqual((await linkRows(post.id)).length, 3, 'nothing was created twice');
   });
 
+  await t.test('location keywords of a previewed event are normalized and persisted on the new event and its schedules', async () => {
+    const post = await makePost();
+    const name = `Samsat Keliling ${suffix}`;
+    const raw = {
+      ...rawEvent(name, '2026-11-02'),
+      location: 'Kabupaten Sleman',
+      locationKeywords: ['Berbagai lokasi', ' Sleman ', 'sleman'],
+      schedules: [
+        { isMainSchedule: true, eventStartDate: '2026-11-02', title: 'Pasar Porosjayan', location: 'Pasar Porosjayan', locationKeywords: ['Pasar Porosjayan', 'Gamping', 'Sleman'] },
+        { isMainSchedule: false, eventStartDate: '2026-11-07', title: 'Kalurahan Caturtunggal', location: 'Kalurahan Caturtunggal' },
+      ],
+    };
+    const job = await makeJob(post, [raw]);
+    const result = await applyPostReextraction(moderator.id, job.id);
+    assert.ok('summary' in result, JSON.stringify(result));
+
+    const rows = await linkRows(post.id);
+    assert.strictEqual(rows.length, 1);
+    const [event] = await db.select().from(events).where(eq(events.id, rows[0].eventId));
+    assert.deepStrictEqual(event.locationKeywords, ['Sleman'], 'generic and duplicate entries are dropped');
+    const scheduleRows = await db.select().from(schedules).where(eq(schedules.eventId, event.id));
+    const byDate = new Map(scheduleRows.map((r) => [r.eventStartDate, r]));
+    assert.deepStrictEqual(byDate.get('2026-11-02')?.locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+    assert.strictEqual(byDate.get('2026-11-07')?.locationKeywords, null, 'a schedule without keywords stays null');
+  });
+
   await t.test('an item matching an event a moderator soft-deleted is skipped, never recreated (PRD 3.7), and its slot stays reserved', async () => {
     const post = await makePost();
     const gone = `Deleted Fest ${suffix}`;

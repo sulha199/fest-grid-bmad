@@ -16,6 +16,10 @@ export interface GeminiSchedulePayload {
   title?: string;
   performers?: string[];
   location?: string;
+  /** Place names to search for, most specific first (venue, area, city). Optional; see `normalizeLocationKeywords`. */
+  locationKeywords?: string[];
+  /** ISO-2 country of `location`, set by the keywords generator for the geocoder. Carried in the re-extract preview's raw events to Apply; never stored on events or schedules and not on the message. */
+  locationCountryCode?: string;
   ticketPrice?: string;
   // Story 3.6s (BUG-026) — populated only when the source text states the schedule recurs on
   // specific weekdays within a date span. Reuses the existing DayOfWeek enum values
@@ -31,6 +35,10 @@ export interface GeminiEventPayload {
   categories: string[];
   schedules: GeminiSchedulePayload[];
   location?: string;
+  /** Place names to search for, most specific first (venue, area, city). Optional; see `normalizeLocationKeywords`. */
+  locationKeywords?: string[];
+  /** ISO-2 country of `location`, set by the keywords generator for the geocoder. Carried in the re-extract preview's raw events to Apply; never stored on events or schedules and not on the message. */
+  locationCountryCode?: string;
   organizerName?: string;
   contactInfo?: string;
   hasPrivateContact?: boolean;
@@ -126,6 +134,8 @@ export interface ExtractedScheduleMessage {
   title?: string;
   performers?: string[];
   location?: string;
+  /** Place names to search for, most specific first (venue, area, city). Optional; see `normalizeLocationKeywords`. */
+  locationKeywords?: string[];
   ticketPrice?: string;
   locationDetails?: LocationDetails;
   timezone?: string;
@@ -143,6 +153,8 @@ export interface ExtractedEventMessage {
   categories: EventCategory[];
   schedules: ExtractedScheduleMessage[];
   location?: string;
+  /** Place names to search for, most specific first (venue, area, city). Optional; see `normalizeLocationKeywords`. */
+  locationKeywords?: string[];
   organizerName?: string;
   contactInfo?: string;
   hasPrivateContact?: boolean;
@@ -178,6 +190,8 @@ export interface EventInsertValues {
   types: string[];
   categories: string[];
   location: string;
+  /** Search keywords for `location` (most specific first); null when the extraction gave none. */
+  locationKeywords?: string[] | null;
   organizerName?: string | null;
   contactInfo?: string | null;
   hasPrivateContact: boolean;
@@ -210,6 +224,8 @@ export interface ScheduleInsertValues {
   title?: string | null;
   performers?: string[] | null;
   location?: string | null;
+  /** Search keywords for `location` (most specific first); null when the extraction gave none. */
+  locationKeywords?: string[] | null;
   ticketPrice?: string | null;
   locationDetails?: LocationDetails | null;
   latitude?: number | null;

@@ -336,6 +336,9 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok('organizerHandle' in eventItemSchema.properties);
     const scheduleItemSchema: any = eventItemSchema.properties.schedules.items;
     assert.ok('applicableDaysOfWeek' in scheduleItemSchema.properties);
+    // Location keywords come from the separate keywords call, never from this response schema.
+    assert.ok(!('locationKeywords' in scheduleItemSchema.properties));
+    assert.ok(!('locationKeywords' in eventItemSchema.properties));
   });
 
   await t.test('Case O (Story 3.6s, AC2): system prompt encodes the ordered grouping rules and roundup cap', async () => {
@@ -368,6 +371,12 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(prompt.includes('4c. When one row or line lists several explicit dates'));
     assert.ok(prompt.includes('one schedule per listed date'));
     assert.ok(prompt.includes('never collapse a list of dates into a start-to-end range'));
+    // Per-date places (4d) and the event-level common-area rule (5): the Samsat flyer case.
+    assert.ok(prompt.includes("4d. A schedule's location is the place of THAT date or session"));
+    assert.ok(prompt.includes('the event-level location is the area they share'));
+    assert.ok(prompt.includes('performers (array), location, ticketPrice'));
+    // Keywords are asked of the separate keywords call only: asking the main call collapsed multi-place posts.
+    assert.ok(!prompt.includes('locationKeywords'));
   });
 
   await t.test('AD-46 Rule 2 (cursor extraction): the post plan is optional flat root fields in the response schema and described once in the prompt', async () => {

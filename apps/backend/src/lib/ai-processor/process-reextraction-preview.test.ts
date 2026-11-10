@@ -334,6 +334,60 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
     assert.deepStrictEqual((row.resultData as ReextractionPreviewResult).events, []);
   });
 
+  // Location keywords: generated HERE (one text-only call after the extraction), so Apply never needs a model call.
+  async function runKeywordsPreview(opts: { storedKeywords?: string[]; keywordsCallFails?: boolean }) {
+    const post = await makePost('Fun run at the zoo');
+    if (opts.storedKeywords) {
+      const stored = await makeEvent(post.id, [{ url: 'http://www.reex-run.example/' }], '2026-11-08');
+      await db.update(events).set({ locationKeywords: opts.storedKeywords }).where(eq(events.id, stored.id));
+    }
+    const requests: any[] = [];
+    setCallGeminiForManualExtractionSeam(async (req: any) => {
+      requests.push(req);
+      if (requests.length === 1) {
+        return { text: JSON.stringify({ isEvent: true, groupingReason: 'single-event', events: [previewEvent('2026-11-08')] }) } as any;
+      }
+      if (opts.keywordsCallFails) throw new Error('503 busy');
+      return { text: JSON.stringify([{ id: 's0', locationKeywords: ['Reex Zoo', 'Sleman'], countryCode: 'id' }]) } as any;
+    });
+    const id = await insertJob({
+      message: message(post, 'Fun run at the zoo'),
+      existingPostAccountId: account.id,
+      mode: 'REEXTRACT_PREVIEW',
+      postStored: true,
+      rescraped: false,
+    });
+    await processManualExtractionJob(id);
+    const row = await readJob(id);
+    return { row, requests, extracted: (row.resultData as any).extracted };
+  }
+
+  await t.test('location keywords: one text-only call fills the preview events that Apply will persist', async () => {
+    const { row, requests, extracted } = await runKeywordsPreview({});
+    assert.strictEqual(row.status, 'SUCCEEDED');
+    assert.strictEqual(requests.length, 2, 'the extraction plus one keywords call');
+    assert.ok(!('responseSchema' in requests[0] && JSON.stringify(requests[0].responseSchema).includes('locationKeywords')));
+    assert.strictEqual(requests[1].contents.split('\n').length, 1, 'the event and its schedule share one text, sent once');
+    assert.deepStrictEqual(extracted.events[0].locationKeywords, ['Reex Zoo', 'Sleman']);
+    assert.deepStrictEqual(extracted.events[0].schedules[0].locationKeywords, ['Reex Zoo', 'Sleman']);
+    assert.strictEqual(extracted.events[0].locationCountryCode, 'ID');
+  });
+
+  await t.test('location keywords: stored keywords are never reused, the text is regenerated so a re-extract can fix bad ones', async () => {
+    const { row, requests, extracted } = await runKeywordsPreview({ storedKeywords: ['Kebun Binatang Reex', 'Bantul'] });
+    assert.strictEqual(row.status, 'SUCCEEDED');
+    assert.strictEqual(requests.length, 2, 'the keywords call runs although the stored rows have keywords');
+    assert.deepStrictEqual(extracted.events[0].locationKeywords, ['Reex Zoo', 'Sleman']);
+  });
+
+  await t.test('location keywords: a failing keywords call never fails the preview', async () => {
+    const { row, requests, extracted } = await runKeywordsPreview({ keywordsCallFails: true });
+    assert.strictEqual(row.status, 'SUCCEEDED');
+    assert.strictEqual(requests.length, 2);
+    assert.strictEqual(extracted.events[0].locationKeywords, undefined);
+  });
+
+
   await t.test('BUG-099: a carousel with an expired cover reads up to the preview cap of slides and reports the shortfall', async () => {
     const post = await makePost('Roundup caption, schedules on later slides');
     const originalFetch = globalThis.fetch;
@@ -351,7 +405,8 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
 
     let sentContents: any;
     setCallGeminiForManualExtractionSeam(async (req: any) => {
-      sentContents = req.contents;
+      // Only the extraction request: the keywords call that follows it must not replace what was captured.
+      sentContents ??= req.contents;
       return { text: JSON.stringify({ isEvent: true, groupingReason: 'roundup', events: [previewEvent('2026-11-08', name + ' slide')] }) } as any;
     });
 

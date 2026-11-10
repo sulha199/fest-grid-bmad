@@ -489,6 +489,9 @@ export const events = pgTable('events', {
   categories: text('categories').array(),
   // High-level summary of location (e.g. "Chicago, IL"). Specific coordinates are in schedules[n].locationDetails
   location: text('location').notNull(),
+  // Place names for searching `location` (most specific first), from the extraction; null when it gave none. Slice 1 of the
+  // location-keywords feature only stores them; the geocoder and the map link read them in slice 2.
+  locationKeywords: text('location_keywords').array(),
   // Organizer name, NOT a reference to users.id
   organizerName: text('organizer_name'),
   contactInfo: text('contact_info'),
@@ -747,6 +750,8 @@ export const schedules = pgTable('schedules', {
   title: text('title'),
   performers: text('performers').array(),
   location: text('location'),
+  // Place names for searching `location` (most specific first); null when the extraction gave none.
+  locationKeywords: text('location_keywords').array(),
   // Kept as text to support free-form extracted data from posters (e.g., "$10-$20" or "Free before 9 PM")
   ticketPrice: text('ticket_price'),
   locationDetails: jsonb('location_details').$type<LocationDetails>(),

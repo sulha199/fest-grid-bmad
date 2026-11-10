@@ -319,6 +319,140 @@ test('enrichAndPromoteEvent integration tests', async (t) => {
     assert.strictEqual(updatedSchedule.location, 'New Location Should Not Win');
   });
 
+  await t.test('location keywords follow the location text: replaced with the new ones, null when the new extraction has none, kept when the text is not replaced', async () => {
+    const { event: candidate, schedule } = await makeCandidate({ accountId: organizerAccount.id, postIdSuffix: 'kw-candidate' });
+    await db.update(events).set({ locationKeywords: ['Old Hall', 'Old District'] }).where(eq(events.id, candidate.id));
+    await db.update(schedules).set({ locationKeywords: ['Old Hall', 'Old District'] }).where(eq(schedules.id, schedule.id));
+    const [fresh] = await db.select().from(events).where(eq(events.id, candidate.id));
+
+    // 1) New text with new keywords: both replaced.
+    const post1 = await makePost(curatorAccount.id, 'kw-new-1');
+    await enrichAndPromoteEvent(
+      db,
+      fresh,
+      newEventValues({ location: 'New Hall', locationKeywords: ['New Hall', 'Sleman'] }),
+      [{ isMainSchedule: true, eventStartDate: '2026-05-01', location: 'New Hall', locationKeywords: ['New Hall', 'Sleman'] }],
+      post1.id,
+      0
+    );
+    let [ev] = await db.select().from(events).where(eq(events.id, candidate.id));
+    let [sch] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.deepStrictEqual(ev.locationKeywords, ['New Hall', 'Sleman']);
+    assert.deepStrictEqual(sch.locationKeywords, ['New Hall', 'Sleman']);
+
+    // 2) New text, no keywords: the old keywords must not stay next to the new text.
+    const post2 = await makePost(curatorAccount.id, 'kw-new-2');
+    await enrichAndPromoteEvent(
+      db,
+      ev,
+      newEventValues({ location: 'Another Hall' }),
+      [{ isMainSchedule: true, eventStartDate: '2026-05-01', location: 'Another Hall' }],
+      post2.id,
+      0
+    );
+    [ev] = await db.select().from(events).where(eq(events.id, candidate.id));
+    [sch] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.strictEqual(ev.location, 'Another Hall');
+    assert.strictEqual(ev.locationKeywords, null);
+    assert.strictEqual(sch.locationKeywords, null);
+
+    // 3) The schedule's text is not replaced (the new extraction names no location for it): its keywords stay.
+    await db.update(schedules).set({ locationKeywords: ['Kept Hall'] }).where(eq(schedules.id, schedule.id));
+    const post3 = await makePost(curatorAccount.id, 'kw-new-3');
+    await enrichAndPromoteEvent(
+      db,
+      ev,
+      newEventValues({ location: 'Another Hall' }),
+      [{ isMainSchedule: true, eventStartDate: '2026-05-01', title: 'Only a title' }],
+      post3.id,
+      0
+    );
+    [sch] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.strictEqual(sch.title, 'Only a title');
+    assert.deepStrictEqual(sch.locationKeywords, ['Kept Hall']);
+  });
+
+  await t.test('location keywords: the same place respelled (case, spacing) keeps its keywords when the repeat gives none', async () => {
+    const { event: candidate, schedule } = await makeCandidate({ accountId: organizerAccount.id, postIdSuffix: 'kw-respell', location: 'Kabupaten Sleman' });
+    await db.update(events).set({ locationKeywords: ['Sleman'] }).where(eq(events.id, candidate.id));
+    await db.update(schedules).set({ locationKeywords: ['Kabupaten Sleman'] }).where(eq(schedules.id, schedule.id));
+    const [fresh] = await db.select().from(events).where(eq(events.id, candidate.id));
+    const post = await makePost(curatorAccount.id, 'kw-respell-1');
+    await enrichAndPromoteEvent(
+      db,
+      fresh,
+      newEventValues({ location: 'KABUPATEN  sleman' }),
+      [{ isMainSchedule: true, eventStartDate: '2026-05-01', location: 'KABUPATEN  sleman' }],
+      post.id,
+      0
+    );
+    const [ev] = await db.select().from(events).where(eq(events.id, candidate.id));
+    const [sch] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.deepStrictEqual(ev.locationKeywords, ['Sleman']);
+    assert.deepStrictEqual(sch.locationKeywords, ['Kabupaten Sleman']);
+  });
+
+  await t.test('location keywords: the same location text again without keywords keeps the old ones, with keywords refreshes them', async () => {
+    const { event: candidate, schedule } = await makeCandidate({ accountId: organizerAccount.id, postIdSuffix: 'kw-same', location: 'Kabupaten Sleman' });
+    await db.update(events).set({ locationKeywords: ['Sleman'] }).where(eq(events.id, candidate.id));
+    await db.update(schedules).set({ locationKeywords: ['Hall', 'Sleman'] }).where(eq(schedules.id, schedule.id));
+    let [fresh] = await db.select().from(events).where(eq(events.id, candidate.id));
+
+    // The model is not deterministic: a repeat names the same place but gives no keywords this time.
+    const post1 = await makePost(curatorAccount.id, 'kw-same-1');
+    await enrichAndPromoteEvent(
+      db,
+      fresh,
+      newEventValues({ location: 'Kabupaten Sleman' }),
+      [{ isMainSchedule: true, eventStartDate: '2026-05-01', location: 'Kabupaten Sleman' }],
+      post1.id,
+      0
+    );
+    let [ev] = await db.select().from(events).where(eq(events.id, candidate.id));
+    let [sch] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.deepStrictEqual(ev.locationKeywords, ['Sleman'], 'event keywords survive a repeat that omits them');
+    assert.deepStrictEqual(sch.locationKeywords, ['Hall', 'Sleman'], 'schedule keywords too (the schedule text is unchanged)');
+
+    // The same text with keywords: refreshed.
+    [fresh] = await db.select().from(events).where(eq(events.id, candidate.id));
+    const post2 = await makePost(curatorAccount.id, 'kw-same-2');
+    await enrichAndPromoteEvent(
+      db,
+      fresh,
+      newEventValues({ location: 'Kabupaten Sleman', locationKeywords: ['Sleman', 'Yogyakarta'] }),
+      [{ isMainSchedule: true, eventStartDate: '2026-05-01', location: 'Kabupaten Sleman', locationKeywords: ['Kabupaten Sleman'] }],
+      post2.id,
+      0
+    );
+    [ev] = await db.select().from(events).where(eq(events.id, candidate.id));
+    [sch] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.deepStrictEqual(ev.locationKeywords, ['Sleman', 'Yogyakarta']);
+    assert.deepStrictEqual(sch.locationKeywords, ['Kabupaten Sleman']);
+  });
+
+  await t.test('location keywords, additive repeat: fills keywords a row that predates them lacks, never overwrites ones it has', async () => {
+    const { event: legacy, schedule: legacySchedule } = await makeCandidate({ accountId: organizerAccount.id, postIdSuffix: 'kw-additive-legacy', location: 'Kabupaten Sleman' });
+    const { event: filled, schedule: filledSchedule } = await makeCandidate({ accountId: organizerAccount.id, postIdSuffix: 'kw-additive-filled', location: 'Kabupaten Sleman' });
+    await db.update(events).set({ locationKeywords: ['Kept'] }).where(eq(events.id, filled.id));
+    await db.update(schedules).set({ locationKeywords: ['Kept'] }).where(eq(schedules.id, filledSchedule.id));
+    const [legacyRow] = await db.select().from(events).where(eq(events.id, legacy.id));
+    const [filledRow] = await db.select().from(events).where(eq(events.id, filled.id));
+
+    const incoming = newEventValues({ location: 'Kabupaten Sleman', locationKeywords: ['Sleman', 'Yogyakarta'] });
+    const incomingSchedules = [{ isMainSchedule: true, eventStartDate: '2026-05-01', location: 'Kabupaten Sleman', locationKeywords: ['Sleman'] }];
+    await enrichAndPromoteEvent(db, legacyRow, incoming, incomingSchedules, (await makePost(curatorAccount.id, 'kw-additive-new-1')).id, 0, { additive: true });
+    await enrichAndPromoteEvent(db, filledRow, incoming, incomingSchedules, (await makePost(curatorAccount.id, 'kw-additive-new-2')).id, 0, { additive: true });
+
+    const [legacyAfter] = await db.select().from(events).where(eq(events.id, legacy.id));
+    const [legacyScheduleAfter] = await db.select().from(schedules).where(eq(schedules.id, legacySchedule.id));
+    assert.deepStrictEqual(legacyAfter.locationKeywords, ['Sleman', 'Yogyakarta']);
+    assert.deepStrictEqual(legacyScheduleAfter.locationKeywords, ['Sleman']);
+    const [filledAfter] = await db.select().from(events).where(eq(events.id, filled.id));
+    const [filledScheduleAfter] = await db.select().from(schedules).where(eq(schedules.id, filledSchedule.id));
+    assert.deepStrictEqual(filledAfter.locationKeywords, ['Kept']);
+    assert.deepStrictEqual(filledScheduleAfter.locationKeywords, ['Kept']);
+  });
+
   await t.test('primary flips: new post is organizer-authored, candidate was curator-sourced -- re-slug + alias written, event_posts gains exactly one row', async () => {
     const { event: candidate } = await makeCandidate({
       accountId: curatorAccount.id,

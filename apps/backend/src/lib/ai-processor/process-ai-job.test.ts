@@ -281,6 +281,59 @@ test('processAiJob orchestrator tests', async (t) => {
     }
   });
 
+  await t.test('Case A-kw: the keywords call fills location keywords on the enqueued event; a failing one changes nothing', async () => {
+    const baseMessage = {
+      accountId: profile.id,
+      content: 'Pasar rakyat #sleman',
+      postUrl: 'https://test.com/p-kw',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const extraction = JSON.stringify({
+      isEvent: true,
+      events: [{
+        eventName: 'Pasar Rakyat',
+        types: ['FESTIVAL'],
+        categories: ['OTHER'],
+        location: 'Pasar Porosjayan, Gamping',
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15', location: 'Pasar Porosjayan, Gamping' }],
+        confidenceScore: 0.95
+      }]
+    });
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {});
+    // No real geocoder call from a unit test: the lookup is a best-effort miss (and no default-location side effects on the fixture account).
+    setResolveLocationSeam(async () => {
+      throw new Error('no geocoder in this test');
+    });
+
+    for (const keywordsCallFails of [false, true]) {
+      let call = 0;
+      let sqsBody: any = null;
+      setCallGeminiSeam(async () => {
+        call++;
+        if (call === 1) return { text: extraction };
+        if (keywordsCallFails) throw new Error('503 busy');
+        return { text: JSON.stringify([{ id: 's0', locationKeywords: ['Pasar Porosjayan', 'Gamping', 'Sleman'], countryCode: 'ID' }]) };
+      });
+      setSendSqsMessage(async (_queueUrl, body) => {
+        sqsBody = JSON.parse(body);
+      });
+
+      await processAiJob({ ...baseMessage, postId: keywordsCallFails ? '00000000-0000-4000-8000-0000000000a2' : '00000000-0000-4000-8000-0000000000a1' });
+
+      assert.strictEqual(call, 2, 'the extraction plus exactly one keywords call, however many schedules share the text');
+      assert.ok(sqsBody, 'the event is enqueued either way');
+      if (keywordsCallFails) {
+        assert.strictEqual(sqsBody.locationKeywords, undefined);
+        assert.strictEqual(sqsBody.schedules[0].locationKeywords, undefined);
+      } else {
+        assert.deepStrictEqual(sqsBody.locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+        assert.deepStrictEqual(sqsBody.schedules[0].locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+        assert.strictEqual(sqsBody.locationCountryCode, undefined);
+      }
+    }
+  });
+
   await t.test('Case B: isEvent: false path (marked, not enqueued)', async () => {
     const message: ProcessingJobMessage = {
       postId: '00000000-0000-4000-8000-000000000002',

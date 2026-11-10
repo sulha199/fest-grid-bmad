@@ -962,3 +962,36 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-backlog-collision-safe-ids.md`
   summary: The `the batch row records why a cycle found no targets, and only then` test in `apps/backend/src/lambdas/scraper.test.ts` is stale and depends on database state. When the cycle finds no targets it asserts the reason matches `since 2000-01-01T00:00:00.000Z`, but a scheduled cycle subtracts `SCHEDULED_SCRAPE_DUE_MARGIN_MS` (1 hour, `packages/domain/src/scraper/resolve-scrape-due-cutoff.ts`), so the real text says `since 1999-12-31T23:00:00.000Z`. The assertion only runs when no profile is due. A fresh seed holds a never-scraped profile, so the test takes its other branch and passes; once earlier runs stamp `lastScrapedAt` on the seeded profiles, nothing is due and the stale regex fails. Fix direction: expect the event time minus the margin (import the constant) and make the test own its data (seed or clear a never-scraped profile) so it always takes the same branch.
   evidence: Reproduced on 2026-11-09: the test passed on a fresh seed and failed after repeated full runs on the same database (`2 subscribed profile(s) eligible: 2 skipped as scraped since 1999-12-31T23:00:00.000Z`), then passed again after re-seeding. Master's CI passes because each run starts from a fresh seed. Low: a latent test defect that surfaces only on a reused database, but it makes a local re-run of the backend suite fail for a reason unrelated to the change under test.
+
+## Deferred from: bmad-quick-dev review of spec-location-keywords-extraction: corrections drop keywords, placeholder overwrites a real location (2026-11-10)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: An AI-assisted correction (`extractEventDataFromUrl` then `submitCorrection`) that changes `location` clears the row's `location_keywords` and never receives the fresh ones, because `ProposedEventCorrection` and its GraphQL input carry no keywords (`map-extraction-payload-to-proposed-correction.ts` copies only `location`), so a corrected event has null keywords for good and the slice 2 link and geocoder fall back to the display text.
+  evidence: Both reviewers traced `resolvers.ts` `submitCorrection` (keywords cleared when the text differs) and the mapper; slice 1 deliberately keeps keywords out of the correction types (spec Never), and `location` becomes a protected field after a correction so enrichment never refills them.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: Non-additive enrichment in `set-event-primary-post.ts` overwrites a real event `location` with the "Location not specified" placeholder when a thin re-extraction has no location (the placeholder is non-null), and the keywords now go with it.
+  evidence: Edge-case review of `enrichAndPromoteEvent`: `buildEventInsertValues` maps an absent location to `LOCATION_NOT_SPECIFIED`, which passes the `value === null` guard in the field loop; the overwrite predates the keywords work (additive mode already guards placeholders through `UNFILLED_PLACEHOLDERS`).
+
+
+## Deferred from: bmad-quick-dev review of spec-location-keywords-extraction (separate keywords call) (2026-11-11)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: The keywords call's 10 s timeout abandons the gateway request instead of cancelling it, and its tokens are not in the extraction audit log.
+  evidence: `withTimeout` in `generate-location-keywords.ts` races the promise; `callGemini` takes no `AbortSignal`, so the request (and any gateway retries or busy waits) keeps running and spending key quota; `writeExtractionAuditLog` only records the extraction call's tokens.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: A keywords answer cut off at the output cap fails to parse, so the whole batch is dropped though most items were complete.
+  evidence: `JSON.parse` of the full text in `generateLocationKeywords`; the cap is `2048 + 200 * strings` (max 8192) and there is no salvage of complete objects.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: A replayed cursor step repeats its keywords call (a paid call, up to 10 s) because the step's keywords are not recorded before the cursor commit.
+  evidence: `process-extraction-step.ts` calls `generateLocationKeywords(fresh, ...)` before the compare-and-set commit; SQS redelivery re-runs it.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: `submitCorrection` clears keywords with `lower(btrim(...))` while enrichment and the generator compare with `normalizeLocationText` (NFC, collapsed whitespace), so a whitespace-only correction clears keywords the other paths would keep.
+  evidence: `schema/resolvers.ts` CASE expressions vs `set-event-primary-post.ts` `resolveKeywordsPatch`; the cost is only that slice 2 falls back to the text ladder for that row.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: The prompt rule against "various locations" as an event `location` is the only guard; a stored `events.location` of "Berbagai lokasi ..." is not checked in code (only keywords are).
+  evidence: `SUMMARY_OF_PLACES` in `normalize-location-keywords.ts` is applied to keywords only; the Samsat failure came from exactly this string in `location`.

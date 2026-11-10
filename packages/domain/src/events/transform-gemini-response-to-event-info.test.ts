@@ -39,6 +39,52 @@ describe('transformGeminiResponseToEventInfo', () => {
     assert.strictEqual(result.schedules[0].title, 'Main Show');
   });
 
+  it('carries normalized locationKeywords on the event and on each schedule, and leaves the key out when there are none', () => {
+    const payload: GeminiEventPayload = {
+      eventName: 'Bus Samsat Keliling',
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [
+        { isMainSchedule: true, eventStartDate: '2026-11-02', location: 'Pasar Porosjayan', locationKeywords: [' Pasar Porosjayan ', 'Gamping', 'gamping', 'Sleman'] },
+        { isMainSchedule: false, eventStartDate: '2026-11-07', location: 'Kalurahan Caturtunggal', locationKeywords: ['Berbagai lokasi'] },
+        { isMainSchedule: false, eventStartDate: '2026-11-14', location: 'Kalurahan Wedomartani' },
+        { isMainSchedule: false, eventStartDate: '2026-11-21', locationKeywords: ['Gamping'] },
+        { isMainSchedule: false, eventStartDate: '2026-11-28', location: '   ', locationKeywords: ['Gamping'] }
+      ],
+      location: 'Kabupaten Sleman',
+      locationKeywords: ['Sleman', 'sleman'],
+      confidenceScore: 0.9
+    };
+
+    const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+    assert.deepStrictEqual(result.locationKeywords, ['Sleman']);
+    assert.deepStrictEqual(result.schedules[0].locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+    assert.ok(!('locationKeywords' in result.schedules[1]), 'only generic keywords: key absent');
+    assert.ok(!('locationKeywords' in result.schedules[2]), 'no keywords: key absent');
+    assert.ok(!('locationKeywords' in result.schedules[3]), 'keywords without a schedule location are dropped (nothing for them to describe)');
+    assert.ok(!('locationKeywords' in result.schedules[4]), 'a blank location counts as none');
+  });
+
+  it('drops event keywords when the event location is the account default (they would describe other text)', () => {
+    const payload: GeminiEventPayload = {
+      eventName: 'Open Mic',
+      types: ['PERFORMANCE'],
+      categories: ['MUSIC'],
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-02' }],
+      locationKeywords: ['Sleman'],
+      confidenceScore: 0.9
+    };
+
+    const result = transformGeminiResponseToEventInfo(payload, {
+      ...dummyContext,
+      defaultLocation: { coordinates: { latitude: -7.7, longitude: 110.3 }, formattedAddress: 'Sleman, DIY' }
+    });
+
+    assert.strictEqual(result.location, 'Sleman, DIY');
+    assert.ok(!('locationKeywords' in result));
+  });
+
   it('should filter invalid enum values and fallback to OTHER if empty', () => {
     const payload: GeminiEventPayload = {
       eventName: 'Weird Festival',

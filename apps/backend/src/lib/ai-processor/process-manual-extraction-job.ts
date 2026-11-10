@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { manualExtractionJobs } from '@festgrid/database';
-import { mapExtractionPayloadToProposedCorrection } from '@festgrid/domain/events';
+import { mapExtractionPayloadToProposedCorrection, stripMalformedLocationKeywords } from '@festgrid/domain/events';
 import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
@@ -9,6 +9,7 @@ import { callGemini as defaultCallGemini, AiGatewayExhaustedError, AiGatewayBusy
 import { getActiveSubscriberUserIds } from '../subscriptions/get-active-subscriber-user-ids.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { buildReextractionPreview } from './build-reextraction-preview.js';
+import { generateLocationKeywords } from './generate-location-keywords.js';
 import { blankManualJobPayloadContent } from '../extraction/blank-manual-job-payload.js';
 
 // Story 4.2b -- runs inside the AI Lambda (the only Lambda with the image-processing runtime for
@@ -134,6 +135,8 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
     } catch {
       throw new ManualExtractionFailure('EXTRACTION_FAILED', 'The extracted content could not be validated.');
     }
+    // Optional, advisory fields must not fail the whole preview (the other two extraction paths do the same).
+    stripMalformedLocationKeywords(payload);
     if (!validateExtractedEvent(payload)) {
       throw new ManualExtractionFailure('EXTRACTION_FAILED', 'The extracted content could not be validated.');
     }
@@ -141,6 +144,15 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
       // AD-40 -- preview: report grouping, every event and its dry-run dedup outcome. "Not an
       // event" is a valid, informative preview (zero events), not a failure.
       const previewEvents = payload.isEvent === false || !Array.isArray(payload.events) ? [] : payload.events;
+      // Search keywords for the geocoder and the map link, generated HERE so Apply (the API Lambda, 28 s) never calls a model: the
+      // preview's raw events carry them to Apply. Best-effort, never throws. Always regenerated, never taken from the post's
+      // stored rows: a moderator who re-extracts because the keywords were wrong must get fresh ones.
+      await generateLocationKeywords(previewEvents, {
+        callGemini: callGeminiForManualExtractionSeam,
+        subscriberUserIds: [job.requestedByUserId],
+        sourceText: message.content,
+        postId: message.postId,
+      });
       const preview = await buildReextractionPreview({
         executor: db,
         payload: { events: previewEvents, groupingReason: payload.groupingReason, postTitle: payload.postTitle },

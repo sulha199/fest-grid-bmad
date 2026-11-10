@@ -336,6 +336,8 @@ export type Event = {
   isHiddenForCurrentUser: Scalars['Boolean']['output'];
   links?: Maybe<Array<EventLink>>;
   location?: Maybe<Scalars['String']['output']>;
+  /** Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected. */
+  locationKeywords?: Maybe<Array<Scalars['String']['output']>>;
   organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
@@ -1460,6 +1462,8 @@ export type Schedule = {
   isMainSchedule: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   locationDetails?: Maybe<LocationDetails>;
+  /** Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected. */
+  locationKeywords?: Maybe<Array<Scalars['String']['output']>>;
   performers?: Maybe<Array<Scalars['String']['output']>>;
   registrationUrl?: Maybe<Scalars['String']['output']>;
   ticketPrice?: Maybe<Scalars['String']['output']>;
