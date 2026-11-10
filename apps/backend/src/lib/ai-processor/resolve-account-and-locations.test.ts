@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import * as assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
@@ -63,6 +63,37 @@ test('resolveAccountAndLocations integration tests', async (t) => {
       assert.ok(!('proximity' in queries[0]) || queries[0].proximity === undefined);
     } finally {
       await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, bare.id));
+    }
+  });
+
+  await t.test('looks each distinct address up once: 20 schedules on 2 addresses (and the event-level fallback) make 2 lookups', async () => {
+    const asked: string[] = [];
+    setResolveLocationSeam(async (query) => {
+      asked.push(query.kind === 'ADDRESS' ? query.address : '?');
+      if (query.kind === 'ADDRESS' && query.address === 'Various places') throw new Error('No geolocation match found');
+      return { coordinates: { latitude: 41.86, longitude: -87.61 }, formattedAddress: 'Resolved ' + (query.kind === 'ADDRESS' ? query.address : '') };
+    });
+    const errors: unknown[][] = [];
+    const errorMock = mock.method(console, 'error', (...args: unknown[]) => {
+      errors.push(args);
+    });
+    try {
+      const schedules = Array.from({ length: 20 }, (_, i) => ({
+        isMainSchedule: i === 0,
+        eventStartDate: '2026-11-' + String(i + 1).padStart(2, '0'),
+        // 10 dates name a hall, 10 name nothing and take the event-level fallback (which does not resolve).
+        ...(i % 2 === 0 ? { location: 'Hall A' } : {}),
+      }));
+      const result = await resolveAccountAndLocations(profile.id, schedules, 'Various places');
+      assert.deepStrictEqual(asked, ['Hall A', 'Various places']);
+      // The resolved hall is shared by its 10 schedules; the unresolved address by none.
+      assert.deepStrictEqual([...result.resolvedScheduleLocations.keys()], [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]);
+      assert.equal(result.resolvedScheduleLocations.get(18)?.formattedAddress, 'Resolved Hall A');
+      // One log line for the address that did not resolve, naming every schedule it affected.
+      assert.equal(errors.length, 1);
+      assert.match(String(errors[0][0]), /schedule index 1, 3, 5, 7, 9, 11, 13, 15, 17, 19 with address "Various places"/);
+    } finally {
+      errorMock.mock.restore();
     }
   });
 

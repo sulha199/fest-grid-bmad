@@ -428,6 +428,20 @@ This document defines the core architectural invariants for the FestDaily applic
           `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the bias parameter) +
           `adapter.test.ts` (far candidates dropped, local one kept, none left is not found, nothing
           filtered without a point) + `resolve-account-and-locations.test.ts` (the point is sent).
+    5.  **A synchronous request pays for each distinct address once, and "not found" is cached for a day
+        (added 2026-11-10).** The moderator re-extract Apply geocodes every schedule inside the API
+        Lambda's 28 s budget (API Gateway cuts at 29 s). `resolveAccountAndLocations` therefore makes one
+        lookup per distinct address in a call (schedules that share a venue, or fall back to the event-level
+        location, share the answer), and `resolveLocation` stores a definite "no match" in
+        `geolocation_cache` (the `result` holds `{ notFound: true }`, no schema change) and serves it for
+        `NOT_FOUND_TTL_MS` (24 h, measured from `updated_at`); a later hit replaces it. Only
+        `GeolocationNotFoundError` is cached, never an outage, a rate limit or a bad key. Positive entries
+        still never expire. Trigger: a re-extract of a Sleman flyer (20 dates, event-level location "Berbagai
+        lokasi di Kabupaten Sleman") geocoded that text 20 times in a row and timed out four times.
+        - **Enforced by:** `apps/backend/src/lib/geolocation/cache-store.test.ts` (the not-found entry,
+          its window) + `adapter.test.ts` (a repeat is served from the cache, an expired miss is retried, an
+          outage is not cached) + `resolve-account-and-locations.test.ts` (20 schedules on 2 addresses make
+          2 lookups, one log line per unresolved address).
 
 ---
 ### AD-15: Event Card Media Primitive
