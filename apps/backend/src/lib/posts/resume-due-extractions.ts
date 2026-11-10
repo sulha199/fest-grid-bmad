@@ -12,7 +12,7 @@ import { enqueuePostForProcessing } from './enqueue-post-for-processing.js';
 import { recordExtractionFailure } from './extraction-ledger.js';
 
 // AD-52 Rule 5 -- the resume pass. The AI Lambda runs it at the start of every 5-minute tick: posts whose recorded
-// failure has a retry due are re-enqueued through the same atomic claim as any other enqueue.
+// failure has a retry due are re-enqueued through the same atomic claim every other enqueue uses.
 //
 // A retry that is enqueued gets a watchdog: `extraction_next_attempt_at` is moved past the claim TTL, so a job
 // that dies without recording anything (a Lambda timeout, a crash) is found again, counted as a failed attempt
