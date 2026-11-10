@@ -2,6 +2,7 @@ import { db } from "../../db/client.js";
 import { posts } from "@festgrid/database";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
 import { loadBackendEnv } from "../../env.js";
+import { CLEAN_EXTRACTION_LEDGER } from "./extraction-ledger.js";
 import { sendSqsMessage } from "../aws/send-sqs-message.js";
 import {
   PostNotFoundError,
@@ -18,7 +19,10 @@ import {
  * auto-enqueue). See the story's Dev Notes "Design note: why the claim needs a TTL, not just a
  * boolean" for why a non-expiring claim would be strictly worse than the gap it replaces.
  */
-export async function enqueuePostForProcessing(postId: string): Promise<void> {
+export async function enqueuePostForProcessing(
+  postId: string,
+  options: { resetLedger?: boolean } = {}
+): Promise<void> {
   const env = loadBackendEnv();
   const now = new Date();
   const cutoff = computeClaimCutoff(env.postExtractionClaimTtlMinutes, now);
@@ -28,7 +32,9 @@ export async function enqueuePostForProcessing(postId: string): Promise<void> {
   // already used by mark-post-extracted.ts/set-event-primary-post.ts in this codebase.
   const [claimedPost] = await db
     .update(posts)
-    .set({ queuedForExtractionAt: now })
+    // AD-52 Rule 6: a moderator's manual selection starts the attempts over (`resetLedger`); the automatic
+    // resume pass keeps them, so its retries stay bounded.
+    .set({ queuedForExtractionAt: now, ...(options.resetLedger ? CLEAN_EXTRACTION_LEDGER : {}) })
     .where(
       and(
         eq(posts.id, postId),

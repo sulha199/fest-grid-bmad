@@ -102,6 +102,7 @@ describe('StatusBadge Component', () => {
   it.each([
     ['queued', 'text-sky-800'],
     ['extracting', 'text-violet-800'],
+    ['attemptFailed', 'text-red-800'],
     ['promoted', 'text-green-800'],
     ['notEvent', 'text-slate-800'],
   ] as const)('renders the %s extraction-status variant', (variant, expectedClass) => {

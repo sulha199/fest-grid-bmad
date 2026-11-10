@@ -480,6 +480,125 @@ test('processAiJob orchestrator tests', async (t) => {
     assert.ok(!line?.includes('\n'), 'the warning stays on one line');
   });
 
+  // AD-52 (durable post retry): a failed Gemini stage or an unusable response is recorded on the post.
+  const makeLedgerPost = async (tag: string) => {
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: 'ledger ' + tag,
+        postUrl: `https://instagram.com/p/ledger_job_${tag}_${Date.now()}`,
+        publishedAt: new Date('2026-08-10T12:00:00Z'),
+        queuedForExtractionAt: new Date(),
+      })
+      .returning();
+    return post;
+  };
+  const messageFor = (post: { id: string; postUrl: string }): ProcessingJobMessage => ({
+    postId: post.id,
+    accountId: profile.id,
+    content: 'ledger',
+    postUrl: post.postUrl,
+    publishedAt: '2026-08-10T12:00:00Z',
+  });
+
+  await t.test('Case L1: an unparseable response on a real post is recorded (attempt 1, retry scheduled, claim released)', async (t) => {
+    t.mock.method(console, 'warn', () => {});
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('unparseable');
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => ({ text: '{"isEvent": tru', finishReason: 'STOP' }));
+    setMarkPostExtractedSeam(async () => ({}) as any);
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.extractionAttempts, 1);
+    assert.strictEqual(row.extractionFailureReason, 'unparseable');
+    assert.ok(row.extractionNextAttemptAt, 'a retry is scheduled');
+    assert.strictEqual(row.queuedForExtractionAt, null, 'the claim is released');
+    assert.strictEqual(row.isExtracted, false);
+  });
+
+  await t.test('Case L2: a blocked response is recorded as given up (no next attempt)', async (t) => {
+    t.mock.method(console, 'warn', () => {});
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('blocked');
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => ({ text: '', finishReason: 'SAFETY' }));
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.extractionFailureReason, 'blocked');
+    assert.strictEqual(row.extractionNextAttemptAt, null);
+  });
+
+  await t.test('Case L3: an AJV-invalid response on a real post is recorded as unparseable', async (t) => {
+    t.mock.method(console, 'error', () => {});
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('ajv');
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => ({ text: JSON.stringify({ not: 'the schema' }) }));
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.extractionFailureReason, 'unparseable');
+  });
+
+  await t.test('Case L4: a Gemini stage error on a real post is recorded and does not throw (the resume pass owns the retry)', async (t) => {
+    t.mock.method(console, 'warn', () => {});
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('gateway');
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => {
+      throw new AiGatewayExhaustedError('All candidate API keys are exhausted, rate-limited, or invalid.');
+    });
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.extractionFailureReason, 'rate_limited');
+    assert.strictEqual(row.extractionAttempts, 1);
+    assert.ok(row.extractionNextAttemptAt);
+  });
+
+  await t.test('Case L5: a successful non-event extraction clears an earlier failure on the same post', async (t) => {
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('recovers');
+    await db
+      .update(posts)
+      .set({ extractionAttempts: 2, extractionFailureReason: 'unavailable', extractionFirstFailureAt: new Date() })
+      .where(eq(posts.id, post.id));
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({ isEvent: false, events: [], groupingReason: 'single-event' }),
+      finishReason: 'STOP',
+    }));
+    setMarkPostExtractedSeam(originalMarkPostExtractedSeam);
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.isExtracted, true);
+    assert.deepStrictEqual(
+      [row.extractionAttempts, row.extractionFailureReason, row.extractionNextAttemptAt],
+      [0, null, null]
+    );
+  });
+
   await t.test('Case D4: a normal response logs one request line with tokens and no at-risk flag', async (t) => {
     const message: ProcessingJobMessage = {
       postId: '00000000-0000-4000-8000-0000000000d4',

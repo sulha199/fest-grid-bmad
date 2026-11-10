@@ -9,6 +9,7 @@ const labels = {
   PENDING: 'Pending',
   QUEUED: 'Queued',
   EXTRACTING: 'Extracting',
+  ATTEMPT_FAILED: 'Attempt failed',
   PROMOTED: 'Promoted to event',
   NOT_EVENT: 'Not an event',
 } as Record<PostExtractionStatus, string>
@@ -20,7 +21,7 @@ describe('ExtractionStatusFilter', () => {
     render(<ExtractionStatusFilter value={['PENDING']} onChange={() => {}} groupLabel="Filter by status" labels={labels} />)
     const group = screen.getByRole('group', { name: 'Filter by status' })
     const buttons = Array.from(group.querySelectorAll('button')).map((b) => b.textContent)
-    expect(buttons).toEqual(['Pending', 'Queued', 'Extracting', 'Promoted to event', 'Not an event'])
+    expect(buttons).toEqual(['Pending', 'Queued', 'Extracting', 'Attempt failed', 'Promoted to event', 'Not an event'])
     expect(screen.getByRole('button', { name: 'Pending' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Queued' })).toHaveAttribute('aria-pressed', 'false')
   })

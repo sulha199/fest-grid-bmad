@@ -1,7 +1,7 @@
 import React from "react";
 
 export interface StatusBadgeProps {
-  variant: "active" | "invalid" | "pending" | "upheld" | "dismissed" | "pendingReview" | "accepted" | "reverted" | "expired" | "superseded" | "removedByModeration" | "hiddenByMe" | "lowConfidence" | "classificationFailed" | "queued" | "extracting" | "promoted" | "notEvent";
+  variant: "active" | "invalid" | "pending" | "upheld" | "dismissed" | "pendingReview" | "accepted" | "reverted" | "expired" | "superseded" | "removedByModeration" | "hiddenByMe" | "lowConfidence" | "classificationFailed" | "queued" | "extracting" | "attemptFailed" | "promoted" | "notEvent";
   label: string;
 }
 
@@ -18,6 +18,7 @@ export function StatusBadge({ variant, label }: StatusBadgeProps) {
     case "reverted":
     case "removedByModeration":
     case "classificationFailed":
+    case "attemptFailed":
       classes = "text-xs bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 px-2 py-0.5 rounded font-medium shrink-0";
       break;
     case "pending":

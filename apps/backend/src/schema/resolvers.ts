@@ -331,14 +331,14 @@ export const resolvers: Resolvers = {
       return profile;
     },
     // Posts the user can still select on the manual extract screen: every post the account owns or is
-    // associated with that is Pending (PRD 3.10).
+    // associated with that is Pending or Attempt failed (PRD 3.10; a failed post used to read as Pending).
     pendingExtractionCount: async (parent: SubscriptionParent) => {
       const rows = await db.select({ count: count() })
         .from(posts)
         .where(
           and(
             postsAssociatedWithAccount(parent.accountId),
-            postExtractionStatusCondition(['PENDING'], loadBackendEnv().postExtractionClaimTtlMinutes)
+            postExtractionStatusCondition(['PENDING', 'ATTEMPT_FAILED'], loadBackendEnv().postExtractionClaimTtlMinutes)
           )
         );
       return rows[0]?.count ?? 0;
@@ -2401,7 +2401,8 @@ export const resolvers: Resolvers = {
       }
 
       const enqueueResults = await Promise.allSettled(
-        postIds.map((id: string) => enqueuePostForProcessing(id).then(() => id))
+        // AD-52 Rule 6: a moderator's selection starts a failed post's attempts over.
+        postIds.map((id: string) => enqueuePostForProcessing(id, { resetLedger: true }).then(() => id))
       );
 
       const succeededIds: string[] = [];
@@ -2438,7 +2439,8 @@ export const resolvers: Resolvers = {
       );
       return updatedPosts.map(p => ({
         ...p,
-        publishedAt: p.publishedAt.toISOString()
+        publishedAt: p.publishedAt.toISOString(),
+        extractionNextAttemptAt: p.extractionNextAttemptAt?.toISOString() ?? null
       }));
     },
     castVote: async (_, { input }, context) => {
@@ -3051,7 +3053,8 @@ export const resolvers: Resolvers = {
       return {
         items: itemsWithStatus.map(p => ({
           ...p,
-          publishedAt: p.publishedAt.toISOString()
+          publishedAt: p.publishedAt.toISOString(),
+          extractionNextAttemptAt: p.extractionNextAttemptAt?.toISOString() ?? null
         })),
         nextCursor,
         hasMore

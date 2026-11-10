@@ -140,6 +140,32 @@ beforeEach(() => {
       extractionStatus: 'PROMOTED',
       publishedAt: '2026-08-10T12:00:00.000Z',
     },
+    {
+      id: 'post-4',
+      accountId: 'acc-1',
+      content: 'Post 4 content (Failed, retry pending)',
+      imageUrl: null,
+      postUrl: 'https://instagram.com/p/post4',
+      originalPostUrl: null,
+      isExtracted: false,
+      extractionStatus: 'ATTEMPT_FAILED',
+      extractionFailureReason: 'unavailable',
+      extractionNextAttemptAt: '2026-08-10T13:30:00.000Z',
+      publishedAt: '2026-08-10T12:00:00.000Z',
+    },
+    {
+      id: 'post-5',
+      accountId: 'acc-1',
+      content: 'Post 5 content (Failed, given up)',
+      imageUrl: null,
+      postUrl: 'https://instagram.com/p/post5',
+      originalPostUrl: null,
+      isExtracted: false,
+      extractionStatus: 'ATTEMPT_FAILED',
+      extractionFailureReason: 'blocked',
+      extractionNextAttemptAt: null,
+      publishedAt: '2026-08-10T12:00:00.000Z',
+    },
   ];
   mockQuota = { limit: 5, used: 2, remaining: 1 }; // Remaining quota is 1
   forceError = false;
@@ -434,7 +460,7 @@ describe('PostsSelectContent integration', () => {
       expect(card).toHaveTextContent('Promoted to event');
       // Only Pending posts carry a checkbox; this one cannot be selected.
       expect(card.querySelector('input[type="checkbox"]')).toBeNull();
-      expect(processed.closest('[title]')).toHaveAttribute('title', 'Only pending posts can be selected.');
+      expect(processed.closest('[title]')).toHaveAttribute('title', 'Only pending or failed posts can be selected.');
       // The still-pending posts keep their checkbox.
       expect((screen.getByText('Post 1 content').closest('article') as HTMLElement).querySelector('input[type="checkbox"]')).not.toBeNull();
 
@@ -442,6 +468,25 @@ describe('PostsSelectContent integration', () => {
         .filter((call: any) => String(call[0]?.document ?? call[0]).includes('getPostsByAccount'))
         .map((call: any) => (call[0] as any).variables.statuses);
       expect(statusRequests).toContainEqual(['PENDING', 'PROMOTED']);
+    });
+
+    it('shows a failed attempt with its reason and next retry, and keeps it selectable (AD-52)', async () => {
+      renderComponent();
+      await screen.findByText('Post 1 content');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Attempt failed' }));
+
+      const retrying = await screen.findByText('Post 4 content (Failed, retry pending)');
+      const retryingCard = retrying.closest('article') as HTMLElement;
+      expect(retryingCard).toHaveTextContent('Attempt failed');
+      expect(retryingCard).toHaveTextContent('Reason: AI service unavailable');
+      expect(retryingCard).toHaveTextContent('Retrying automatically around');
+      expect(retryingCard.querySelector('input[type="checkbox"]')).not.toBeNull();
+
+      const givenUpCard = screen.getByText('Post 5 content (Failed, given up)').closest('article') as HTMLElement;
+      expect(givenUpCard).toHaveTextContent('Reason: Blocked by the AI provider');
+      expect(givenUpCard).toHaveTextContent('No further automatic retries');
+      expect(givenUpCard.querySelector('input[type="checkbox"]')).not.toBeNull();
     });
 
     it('keeps at least one status selected', async () => {

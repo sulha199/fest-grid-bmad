@@ -5,6 +5,8 @@ import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
 import { classifyGeminiOutput } from '../ai-gateway/gemini-output-signals.js';
 import { classifyGeminiUnusableResponse } from '../ai-gateway/gemini-situation.js';
+import { classifyAiJobError } from './classify-ai-job-error.js';
+import { recordExtractionFailure } from '../posts/extraction-ledger.js';
 import { decideRetry, formatRetryDecisionLog } from '@festgrid/domain/retry';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
@@ -144,11 +146,32 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   );
 
   // 3. Call Gemini via AI Gateway
-  const result = await callGeminiSeam({
-    ...request,
-    provider: 'gemini',
-    subscriberUserIds
-  });
+  let result: Awaited<ReturnType<typeof callGeminiSeam>>;
+  try {
+    result = await callGeminiSeam({
+      ...request,
+      provider: 'gemini',
+      subscriberUserIds
+    });
+  } catch (error) {
+    // AD-52 Rule 4: a failure of the Gemini stage is recorded on the post (attempts, reason, next attempt, claim
+    // released) and the retry is owned by the resume pass, not by the queue. When there is nothing to record
+    // (the post is unknown or already extracted) the error propagates as before.
+    const classified = classifyAiJobError(error);
+    const plan = await recordExtractionFailure({
+      postId: message.postId,
+      situation: classified.situation,
+      ...(classified.retryAfterSeconds !== undefined ? { hint: { retryAfterSeconds: classified.retryAfterSeconds } } : {}),
+    });
+    if (!plan) {
+      throw error;
+    }
+    console.warn(
+      `[processAiJob] Gemini stage failed for post ${message.postId} (${classified.situation}); failure recorded:`,
+      error instanceof Error ? error.message : error
+    );
+    return;
+  }
 
   // AD-49 (cursor extraction, slice 1): one greppable line per request, and a flag when the output may have
   // been cut off. Log-only: nothing splits or retries on it yet.
@@ -180,18 +203,19 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       `[gemini-response-unparseable] post=${message.postId} ${signals} length=${responseText.length} ` +
         `head=${JSON.stringify(responseText.slice(0, 200))} tail=${JSON.stringify(responseText.slice(-100))} error=${errorText}`
     );
-    // AD-52: what the shared policy would do with this response (log only until the durable retry slice).
+    // AD-52: the shared policy decides, the failure is recorded on the post (attempts, reason, next attempt, claim
+    // released) and the resume pass retries it. `recorded=no` means nothing could be recorded (unknown post).
     const unusableSituation = classifyGeminiUnusableResponse({
       finishReason: result.finishReason,
       blockReason: result.blockReason,
       outputNearLimit: atRisk.includes('output_near_limit'),
     });
+    const plan = await recordExtractionFailure({ postId: message.postId, situation: unusableSituation });
     console.info(
       `${formatRetryDecisionLog(`post:${message.postId}`, unusableSituation, 1, decideRetry(unusableSituation, 1))} ` +
-        `mode=log-only (nothing is retried here until the durable retry slice)`
+        `recorded=${plan ? 'yes' : 'no'}`
     );
-    // Return successfully without throwing/enqueueing/marking: the post stays unextracted, so its claim
-    // expires and it is claimable again (the status derives PENDING with extraction_started_at set).
+    // Return successfully without throwing/enqueueing/marking: the post stays unextracted.
     return;
   }
 
@@ -199,7 +223,9 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   const isValid = validate(payload);
   if (!isValid) {
     console.error(`Gemini response failed AJV validation for post ${message.postId} (${signals}):`, validate.errors);
-    // Return successfully without throwing/enqueueing/marking to skip/retry later (AC4/AC8)
+    // AD-52: recorded like an unparseable response, so the resume pass retries it and the status shows it.
+    await recordExtractionFailure({ postId: message.postId, situation: 'unparseable' });
+    // Return successfully without throwing/enqueueing/marking (AC4/AC8)
     return;
   }
 

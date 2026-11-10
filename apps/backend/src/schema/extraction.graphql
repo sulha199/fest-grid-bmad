@@ -65,13 +65,16 @@ type ExtractionJobStatus {
 }
 
 """
-Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
-can be selected for extraction.
+Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
+ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
+job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
+or cannot help.
 """
 enum PostExtractionStatus {
   PENDING
   QUEUED
   EXTRACTING
+  ATTEMPT_FAILED
   PROMOTED
   NOT_EVENT
 }
@@ -85,6 +88,10 @@ type Post {
   originalPostUrl: String
   isExtracted: Boolean!
   extractionStatus: PostExtractionStatus!
+  "The reason code of the last failed attempt (for example unavailable, blocked); null when none is on record."
+  extractionFailureReason: String
+  "When the automatic retry of a failed attempt is due (ISO 8601); null when none is scheduled."
+  extractionNextAttemptAt: String
   publishedAt: String!
 }
 
