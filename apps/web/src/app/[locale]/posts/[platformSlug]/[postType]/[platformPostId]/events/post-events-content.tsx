@@ -149,9 +149,23 @@ export default function PostEventsContent({ postId, account }: PostEventsContent
       ? "error"
       : "success"
 
+  // AD-50: say so when the post's list of events may be incomplete (still being added, or partial).
+  const extractionProgress = idSnapshotData?.relatedEventIds[0]?.extractionProgress
+  const incompleteNote =
+    extractionProgress === "PARTIAL"
+      ? t("relatedEventsPartialNote")
+      : extractionProgress === "IN_PROGRESS"
+        ? t("relatedEventsInProgressNote")
+        : null
+
   return (
     <PageContainer>
       <PageHeader title={title} />
+      {incompleteNote ? (
+        <p className="text-sm text-muted-foreground" data-testid="post-events-incomplete-note">
+          {incompleteNote}
+        </p>
+      ) : null}
 
       <EventListView
         status={listStatus}

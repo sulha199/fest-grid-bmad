@@ -176,6 +176,8 @@ export interface EventDetailViewRelatedEventGroup {
   totalCount: number;
   seeAllHref?: string | null;
   isLoading?: boolean;
+  /** AD-50: a short note under the heading when the post's list may be incomplete (still being added, or partial). */
+  note?: string | null;
 }
 
 /**

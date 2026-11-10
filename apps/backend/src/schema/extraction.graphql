@@ -12,6 +12,7 @@ enum ExtractionErrorCode {
   NOT_STORED # a preview of a post that is not in the database cannot be applied (AD-40 Apply)
   NOTHING_TO_APPLY # a preview that found no events has nothing to apply (AD-40 Apply)
   APPLY_FAILED # the apply was rolled back; nothing changed (AD-40 Apply)
+  CHAIN_IN_FLIGHT # the post is still being extracted in steps; a preview or apply would race the chain (AD-51 Rule 4)
 }
 
 type ProposedScheduleCorrectionData {

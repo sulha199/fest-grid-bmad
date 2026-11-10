@@ -260,6 +260,8 @@
     "sourcePostsPrimaryLabel": "Primary",
     "relatedEventsGroupLabel": "Events from {account}",
     "relatedEventsGroupTitleLabel": "Events from {title}",
+    "relatedEventsPartialNote": "This list may be incomplete: not every page of the original post could be read.",
+    "relatedEventsInProgressNote": "More events from this post are still being added.",
     "relatedEventsSeeAllLabel": "See all {count} events",
     "relatedEventsSectionAriaLabel": "Related events"
   },

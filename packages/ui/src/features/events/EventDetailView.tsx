@@ -876,6 +876,11 @@ const RelatedEventsGroupSection: React.FC<RelatedEventsGroupSectionProps> = ({
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{group.accountLabel}</h2>
+      {group.note ? (
+        <p className="text-xs text-gray-500 dark:text-gray-400" data-testid="related-events-note">
+          {group.note}
+        </p>
+      ) : null}
       <ol className="flex flex-col gap-2">
         {group.isLoading
           ? [0, 1].map((i) => (

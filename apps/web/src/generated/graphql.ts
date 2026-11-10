@@ -465,6 +465,7 @@ export type ExtractEventDataFromUrlResult = {
 export enum ExtractionErrorCode {
   AccountNotScrapable = 'ACCOUNT_NOT_SCRAPABLE',
   ApplyFailed = 'APPLY_FAILED',
+  ChainInFlight = 'CHAIN_IN_FLIGHT',
   Expired = 'EXPIRED',
   ExtractionFailed = 'EXTRACTION_FAILED',
   NothingToApply = 'NOTHING_TO_APPLY',
@@ -992,6 +993,16 @@ export type PostConnection = {
 };
 
 /**
+ * Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
+ * events), or PARTIAL (it ended without reading every slide and will not be finished).
+ */
+export enum PostEventsCompleteness {
+  Complete = 'COMPLETE',
+  InProgress = 'IN_PROGRESS',
+  Partial = 'PARTIAL'
+}
+
+/**
  * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
  * ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
  * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
@@ -1365,6 +1376,7 @@ export type RegionVoteBucket = {
 export type RelatedEventGroup = {
   __typename?: 'RelatedEventGroup';
   eventIds: Array<Scalars['ID']['output']>;
+  extractionProgress: PostEventsCompleteness;
   postId: Scalars['ID']['output'];
 };
 
@@ -1781,6 +1793,11 @@ export enum WidgetTheme {
 
 
 /**
+ * Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
+ * events), or PARTIAL (it ended without reading every slide and will not be finished).
+ */
+
+/**
  * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
  * ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
  * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
@@ -2003,14 +2020,14 @@ export type GetRelatedEventIdsQueryVariables = Exact<{
 }>;
 
 
-export type GetRelatedEventIdsQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string> }> };
+export type GetRelatedEventIdsQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string>, extractionProgress: PostEventsCompleteness }> };
 
 export type GetRelatedEventIdsByPostQueryVariables = Exact<{
   postId: string | number;
 }>;
 
 
-export type GetRelatedEventIdsByPostQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string> }> };
+export type GetRelatedEventIdsByPostQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string>, extractionProgress: PostEventsCompleteness }> };
 
 export type GetPostByPlatformIdentifiersQueryVariables = Exact<{
   platform: string;
@@ -3545,6 +3562,7 @@ export const GetRelatedEventIdsDocument = new TypedDocumentString(`
   relatedEventIds(eventId: $eventId) {
     postId
     eventIds
+    extractionProgress
   }
 }
     `);
@@ -3572,6 +3590,7 @@ export const GetRelatedEventIdsByPostDocument = new TypedDocumentString(`
   relatedEventIds(postId: $postId) {
     postId
     eventIds
+    extractionProgress
   }
 }
     `);

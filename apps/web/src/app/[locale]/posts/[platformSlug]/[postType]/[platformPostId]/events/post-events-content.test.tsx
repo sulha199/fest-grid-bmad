@@ -125,6 +125,23 @@ describe('PostEventsContent', () => {
     expect(await screen.findByRole('heading', { name: 'Events from Some Account' })).toBeInTheDocument();
   });
 
+  it('says so under the title when the list of the post may be incomplete (AD-50), and shows no note otherwise', async () => {
+    mockRelatedEventIdsResult = [{ postId: 'post_1', eventIds: [], extractionProgress: 'PARTIAL' }];
+    renderWithProviders(<PostEventsContent postId="post_1" account={ACCOUNT} />);
+    expect(await screen.findByTestId('post-events-incomplete-note')).toHaveTextContent('This list may be incomplete');
+    cleanup();
+
+    mockRelatedEventIdsResult = [{ postId: 'post_1', eventIds: [], extractionProgress: 'IN_PROGRESS' }];
+    renderWithProviders(<PostEventsContent postId="post_1" account={ACCOUNT} />);
+    expect(await screen.findByTestId('post-events-incomplete-note')).toHaveTextContent('still being added');
+    cleanup();
+
+    mockRelatedEventIdsResult = [{ postId: 'post_1', eventIds: [], extractionProgress: 'COMPLETE' }];
+    renderWithProviders(<PostEventsContent postId="post_1" account={ACCOUNT} />);
+    await screen.findByText(/./);
+    expect(screen.queryByTestId('post-events-incomplete-note')).not.toBeInTheDocument();
+  });
+
   it('renders the empty state when the post has no live linked events', async () => {
     mockRelatedEventIdsResult = [{ postId: 'post_1', eventIds: [] }];
 

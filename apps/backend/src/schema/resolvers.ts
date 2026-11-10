@@ -17,6 +17,7 @@ import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/post
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
 import { resolveProfileByUsername } from '../lib/accounts/resolve-profile-by-username.js';
 import { postExtractionStatusCondition, withExtractionStatus } from '../lib/posts/post-extraction-status.js';
+import { postExtractionProgressByPostId } from '../lib/posts/post-extraction-progress.js';
 import { loadAccountActivity, type AccountActivity } from '../lib/accounts/load-account-activity.js';
 import type { EventParent, SocialMediaAccountProfileParent, SubscriptionParent } from '../lib/graphql-mappers.js';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
@@ -4457,7 +4458,8 @@ export const resolvers: Resolvers = {
           return [];
         }
 
-        return [{ postId, eventIds: rows.map((row) => row.eventId) }];
+        const progress = await postExtractionProgressByPostId([postId]);
+        return [{ postId, eventIds: rows.map((row) => row.eventId), extractionProgress: progress.get(postId) ?? 'COMPLETE' }];
       }
 
       const ep1 = alias(eventPosts, 'ep1');
@@ -4481,7 +4483,12 @@ export const resolvers: Resolvers = {
         groups.set(row.postId, list);
       }
 
-      return [...groups.entries()].map(([postId, eventIds]) => ({ postId, eventIds }));
+      const progress = await postExtractionProgressByPostId([...groups.keys()]);
+      return [...groups.entries()].map(([postId, eventIds]) => ({
+        postId,
+        eventIds,
+        extractionProgress: progress.get(postId) ?? 'COMPLETE',
+      }));
     },
     // Story 3.6x (AC1) — backend-only lookup powering the Post Collection Page route's
     // generateMetadata/content fetch. Reuses the existing EventSourcePost type (Story 3.6u);

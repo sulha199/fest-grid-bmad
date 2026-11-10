@@ -448,6 +448,7 @@ export type ExtractEventDataFromUrlResult = {
 export type ExtractionErrorCode =
   | 'ACCOUNT_NOT_SCRAPABLE'
   | 'APPLY_FAILED'
+  | 'CHAIN_IN_FLIGHT'
   | 'EXPIRED'
   | 'EXTRACTION_FAILED'
   | 'NOTHING_TO_APPLY'
@@ -976,6 +977,15 @@ export type PostConnection = {
 };
 
 /**
+ * Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
+ * events), or PARTIAL (it ended without reading every slide and will not be finished).
+ */
+export type PostEventsCompleteness =
+  | 'COMPLETE'
+  | 'IN_PROGRESS'
+  | 'PARTIAL';
+
+/**
  * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
  * ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
  * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
@@ -1346,6 +1356,7 @@ export type RegionVoteBucket = {
 export type RelatedEventGroup = {
   __typename?: 'RelatedEventGroup';
   eventIds: Array<Scalars['ID']['output']>;
+  extractionProgress: PostEventsCompleteness;
   postId: Scalars['ID']['output'];
 };
 
@@ -1867,6 +1878,7 @@ export type ResolversTypes = ResolversObject<{
   PayloadContext: ResolverTypeWrapper<PayloadContextParent>;
   Post: ResolverTypeWrapper<Post>;
   PostConnection: ResolverTypeWrapper<PostConnection>;
+  PostEventsCompleteness: PostEventsCompleteness;
   PostExtractionStatus: PostExtractionStatus;
   PostGroupingReason: PostGroupingReason;
   PostReextractionPreview: ResolverTypeWrapper<PostReextractionPreview>;
@@ -2609,6 +2621,7 @@ export type RegionVoteBucketResolvers<ContextType = GraphQLContext, ParentType e
 
 export type RelatedEventGroupResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RelatedEventGroup'] = ResolversParentTypes['RelatedEventGroup']> = ResolversObject<{
   eventIds?: Resolver<Array<ResolversTypes['ID']>, ParentType, ContextType>;
+  extractionProgress?: Resolver<ResolversTypes['PostEventsCompleteness'], ParentType, ContextType>;
   postId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;

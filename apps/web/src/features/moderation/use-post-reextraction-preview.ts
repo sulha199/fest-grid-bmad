@@ -30,7 +30,7 @@ export interface ReextractionApplyState {
 }
 
 /** Apply refusals that no retry can fix; only `APPLY_FAILED` (rolled back) and a thrown/network error can be retried. */
-const NON_RETRYABLE_APPLY_CODES: ReadonlySet<ExtractionErrorCode | null> = new Set(['EXPIRED', 'NOT_FOUND', 'NOT_STORED', 'NOTHING_TO_APPLY'] as ExtractionErrorCode[]);
+const NON_RETRYABLE_APPLY_CODES: ReadonlySet<ExtractionErrorCode | null> = new Set(['EXPIRED', 'NOT_FOUND', 'NOT_STORED', 'NOTHING_TO_APPLY', 'CHAIN_IN_FLIGHT'] as ExtractionErrorCode[]);
 
 export interface UsePostReextractionPreviewResult {
   /** Start a preview for exactly one of a stored post id or a post URL. */

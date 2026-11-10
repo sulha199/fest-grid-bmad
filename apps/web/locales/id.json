@@ -260,6 +260,8 @@
     "sourcePostsPrimaryLabel": "Utama",
     "relatedEventsGroupLabel": "Acara dari {account}",
     "relatedEventsGroupTitleLabel": "Acara dari {title}",
+    "relatedEventsPartialNote": "Daftar ini mungkin belum lengkap: tidak semua halaman postingan asli dapat dibaca.",
+    "relatedEventsInProgressNote": "Acara lain dari postingan ini masih ditambahkan.",
     "relatedEventsSeeAllLabel": "Lihat semua {count} acara",
     "relatedEventsSectionAriaLabel": "Acara terkait"
   },
