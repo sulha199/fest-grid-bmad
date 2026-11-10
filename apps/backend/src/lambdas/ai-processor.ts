@@ -5,6 +5,7 @@ import { type ProcessingJobMessage, type ManualExtractionInvokePayload } from '@
 import { pollAndDrainQueue, hasJobType, type PollAndDrainQueueOptions } from '../lib/aws/poll-and-drain-queue.js';
 import { loadBackendEnv } from '../env.js';
 import { resumeDueExtractions } from '../lib/posts/resume-due-extractions.js';
+import { resumeStalledChains } from '../lib/ai-processor/resume-stalled-chains.js';
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
 
@@ -66,6 +67,12 @@ export const handler = async (
       await resumeDueExtractions();
     } catch (error) {
       console.error('[ai-processor] resume pass failed; continuing with the drain:', error);
+    }
+    // AD-47 Rules 5-6: stalled stepped extractions are resumed (after one re-scrape when their images expired).
+    try {
+      await resumeStalledChains();
+    } catch (error) {
+      console.error('[ai-processor] chain resume pass failed; continuing with the drain:', error);
     }
     await pollAndDrainQueue(
       process.env.AI_PROCESSING_QUEUE_URL!,
