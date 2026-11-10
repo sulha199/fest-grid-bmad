@@ -6,3 +6,4 @@ export * from "./post-images-need-refresh.js";
 export * from "./image-url-file-name.js";
 export * from "./extraction-retry.js";
 export * from "./extraction-cursor.js";
+export * from "./extraction-cursor-schema.js";

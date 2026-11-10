@@ -362,6 +362,15 @@ export const posts = pgTable('posts', {
   extractionFailureReason: text('extraction_failure_reason'),
   extractionNextAttemptAt: timestamp('extraction_next_attempt_at', { withTimezone: true }),
   extractionFirstFailureAt: timestamp('extraction_first_failure_at', { withTimezone: true }),
+  // AD-47 Rule 1 -- the persisted cursor of a stepped extraction (an `ExtractionCursor` from @festgrid/domain/posts,
+  // validated on read, never trusted); null when no chain is in flight. It holds image links, so it is never exposed
+  // through GraphQL, and never a caption (AD-40). A non-null cursor is a claim of any age (AD-47 Rule 5a). Written
+  // only through lib/posts/extraction-cursor-store.ts, with a raw `::text::jsonb` cast: the driver would otherwise
+  // store a JSON string (the double-encoding seen on older jsonb columns).
+  extractionCursor: jsonb('extraction_cursor'),
+  // AD-50 Rule 1 -- true means "will not be finished": a chain ended with slides unread (the bound, the kill switch,
+  // spent attempts, a changed slide count, a truncated leaf). A pending cursor means "still being finished".
+  extractionPartial: boolean('extraction_partial').default(false).notNull(),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),

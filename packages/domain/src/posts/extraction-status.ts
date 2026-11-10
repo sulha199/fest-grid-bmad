@@ -28,10 +28,16 @@ export interface PostExtractionFacts {
    * SQL filter says ATTEMPT_FAILED.
    */
   extractionFailureReason: string | null;
+  /**
+   * `posts.extraction_cursor IS NOT NULL` (AD-47 Rule 5a): a stepped extraction is in flight. A cursor is a claim of
+   * any age, so such a post is EXTRACTING whatever the claim timestamp says.
+   */
+  hasExtractionCursor: boolean;
 }
 
 /**
  * - extracted: PROMOTED if it produced an event, else NOT_EVENT;
+ * - not extracted with a persisted cursor (a stepped extraction in flight): EXTRACTING, regardless of the claim age;
  * - not extracted, no live claim and a recorded failure reason (AD-52 Rule 6): ATTEMPT_FAILED, whether a
  *   retry is still pending or the attempts are spent. Selectable, like PENDING;
  * - not extracted and no live claim (never queued, or the claim outlived its TTL): PENDING, selectable. A post
@@ -49,6 +55,10 @@ export function derivePostExtractionStatus(
 ): PostExtractionStatus {
   if (facts.isExtracted) {
     return facts.hasEvent ? "PROMOTED" : "NOT_EVENT";
+  }
+
+  if (facts.hasExtractionCursor) {
+    return "EXTRACTING";
   }
 
   const claimedAt = facts.queuedForExtractionAt;

@@ -39,6 +39,9 @@ export async function enqueuePostForProcessing(
       and(
         eq(posts.id, postId),
         eq(posts.isExtracted, false),
+        // AD-47 Rule 5a: a stepped extraction in flight (a persisted cursor) is a claim of any age; only its own resume
+        // pass may continue it, so a fresh chain never starts on a post whose chain is alive.
+        isNull(posts.extractionCursor),
         // Unclaimed, or claimed but past its TTL (reclaimable).
         or(isNull(posts.queuedForExtractionAt), lt(posts.queuedForExtractionAt, cutoff))
       )

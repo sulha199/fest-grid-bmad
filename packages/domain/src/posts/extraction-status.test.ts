@@ -6,7 +6,7 @@ const now = new Date("2026-01-01T01:00:00.000Z");
 const TTL = 30;
 const minutesAgo = (m: number) => new Date(now.getTime() - m * 60 * 1000);
 
-const base = { isExtracted: false, queuedForExtractionAt: null, extractionStartedAt: null, hasEvent: false, extractionFailureReason: null };
+const base = { isExtracted: false, queuedForExtractionAt: null, extractionStartedAt: null, hasEvent: false, extractionFailureReason: null, hasExtractionCursor: false };
 
 test("lists the six statuses in display order", () => {
   assert.deepEqual(
@@ -95,4 +95,21 @@ test("a retry in flight (live claim) shows QUEUED or EXTRACTING even with a fail
 
 test("an extracted post is never ATTEMPT_FAILED, even with a stale failure reason", () => {
   assert.equal(derivePostExtractionStatus({ ...base, isExtracted: true, hasEvent: true, extractionFailureReason: "x" }, TTL, now), "PROMOTED");
+});
+
+test("a persisted cursor means EXTRACTING whatever the claim says (AD-47 Rule 5a)", () => {
+  assert.equal(derivePostExtractionStatus({ ...base, hasExtractionCursor: true }, TTL, now), "EXTRACTING");
+  assert.equal(
+    derivePostExtractionStatus({ ...base, hasExtractionCursor: true, queuedForExtractionAt: minutesAgo(600) }, TTL, now),
+    "EXTRACTING",
+    "an old claim does not make the post reclaimable"
+  );
+  assert.equal(
+    derivePostExtractionStatus({ ...base, hasExtractionCursor: true, extractionFailureReason: "unavailable" }, TTL, now),
+    "EXTRACTING"
+  );
+});
+
+test("an extracted post with a leftover cursor is still PROMOTED or NOT_EVENT", () => {
+  assert.equal(derivePostExtractionStatus({ ...base, isExtracted: true, hasEvent: true, hasExtractionCursor: true }, TTL, now), "PROMOTED");
 });

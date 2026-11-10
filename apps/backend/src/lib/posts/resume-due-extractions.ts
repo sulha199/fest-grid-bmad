@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, lte } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, lte } from 'drizzle-orm';
 import { posts } from '@festgrid/database';
 import {
   PostAlreadyExtractedError,
@@ -45,6 +45,8 @@ export async function resumeDueExtractions(now: Date = new Date()): Promise<Resu
     .where(
       and(
         eq(posts.isExtracted, false),
+        // A post with a cursor is governed by its cursor counters, not this ledger (AD-52 Rule 5).
+        isNull(posts.extractionCursor),
         isNotNull(posts.extractionFailureReason),
         isNotNull(posts.extractionNextAttemptAt),
         lte(posts.extractionNextAttemptAt, now)

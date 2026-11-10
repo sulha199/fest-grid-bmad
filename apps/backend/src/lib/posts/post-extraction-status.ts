@@ -26,18 +26,22 @@ function hasEventSql(): SQL {
 function statusCondition(status: PostExtractionStatus, cutoffIso: string): SQL {
   const cutoff = sql`${cutoffIso}::timestamptz`;
   switch (status) {
+    // AD-47 Rule 5a: a persisted cursor is a claim of any age, so a post holding one is EXTRACTING and none of the
+    // other unextracted statuses (every one of them requires `extraction_cursor is null`).
     case 'PENDING':
-      return sql`(not ${posts.isExtracted} and (${posts.queuedForExtractionAt} is null or ${posts.queuedForExtractionAt} < ${cutoff})
+      return sql`(not ${posts.isExtracted} and ${posts.extractionCursor} is null
+        and (${posts.queuedForExtractionAt} is null or ${posts.queuedForExtractionAt} < ${cutoff})
         and ${posts.extractionFailureReason} is null)`;
     case 'ATTEMPT_FAILED':
-      return sql`(not ${posts.isExtracted} and (${posts.queuedForExtractionAt} is null or ${posts.queuedForExtractionAt} < ${cutoff})
+      return sql`(not ${posts.isExtracted} and ${posts.extractionCursor} is null
+        and (${posts.queuedForExtractionAt} is null or ${posts.queuedForExtractionAt} < ${cutoff})
         and ${posts.extractionFailureReason} is not null)`;
     case 'QUEUED':
-      return sql`(not ${posts.isExtracted} and ${posts.queuedForExtractionAt} >= ${cutoff}
+      return sql`(not ${posts.isExtracted} and ${posts.extractionCursor} is null and ${posts.queuedForExtractionAt} >= ${cutoff}
         and (${posts.extractionStartedAt} is null or ${posts.extractionStartedAt} < ${posts.queuedForExtractionAt}))`;
     case 'EXTRACTING':
-      return sql`(not ${posts.isExtracted} and ${posts.queuedForExtractionAt} >= ${cutoff}
-        and ${posts.extractionStartedAt} >= ${posts.queuedForExtractionAt})`;
+      return sql`(not ${posts.isExtracted} and (${posts.extractionCursor} is not null
+        or (${posts.queuedForExtractionAt} >= ${cutoff} and ${posts.extractionStartedAt} >= ${posts.queuedForExtractionAt})))`;
     case 'PROMOTED':
       return sql`(${posts.isExtracted} and ${hasEventSql()})`;
     case 'NOT_EVENT':
@@ -62,6 +66,7 @@ type PostStatusRow = {
   extractionStartedAt: Date | null;
   extractedEventCount: number | null;
   extractionFailureReason: string | null;
+  extractionCursor: unknown;
 };
 
 /** Of the given posts, the ids that produced at least one event. */
@@ -96,6 +101,7 @@ export async function withExtractionStatus<T extends PostStatusRow>(
         extractionStartedAt: row.extractionStartedAt,
         hasEvent: idsWithEvents.has(row.id),
         extractionFailureReason: row.extractionFailureReason,
+        hasExtractionCursor: row.extractionCursor !== null && row.extractionCursor !== undefined,
       },
       claimTtlMinutes,
       now
