@@ -40,6 +40,11 @@ export async function resolveAccountAndLocations(
 
   // 2. Resolve schedule locations
   const resolvedScheduleLocations = new Map<number, LocationDetails>();
+  // One lookup per distinct address. Roundup posts put many dates on one venue, or on the event-level fallback (the model's
+  // "Berbagai lokasi di Kabupaten Sleman" for a flyer with a different place per date), and the schedules were geocoded one
+  // after the other, the same text 20 times: a re-extract Apply of that post outlasted the API Lambda's 28 s. `null` is a miss.
+  const lookups = new Map<string, Promise<LocationDetails | null>>();
+  const missedAddresses = new Map<string, { indices: number[]; error: unknown }>();
 
   for (let i = 0; i < schedules.length; i++) {
     const schedule = schedules[i];
@@ -49,8 +54,10 @@ export async function resolveAccountAndLocations(
       (defaultLocation ? (defaultLocation.formattedAddress ?? defaultLocation.placeName) : undefined);
 
     if (addressString && addressString.trim() !== '') {
-      try {
-        const resolved = await resolveLocationSeam({
+      const addressKey = addressString.trim();
+      let lookup = lookups.get(addressKey);
+      if (!lookup) {
+        lookup = resolveLocationSeam({
           kind: 'ADDRESS',
           address: addressString,
           // Bias Geoapify search toward the account's own country so a same-named venue
@@ -61,16 +68,28 @@ export async function resolveAccountAndLocations(
           // And bias toward the account's own location: a market or a hall with a common name is, far more often than not, the
           // one near the account that posted it (the venue name alone put "Pasar Porosjayan" in Palu).
           ...(defaultLocation?.coordinates ? { proximity: defaultLocation.coordinates } : {})
+        }).catch((error: unknown) => {
+          // Do not fail the whole process, AC6 is best-effort enrichment
+          missedAddresses.set(addressKey, { indices: [], error });
+          return null;
         });
+        lookups.set(addressKey, lookup);
+      }
+      const resolved = await lookup;
+      if (resolved) {
         resolvedScheduleLocations.set(i, resolved);
-      } catch (error) {
-        console.error(
-          `Best-effort resolveLocation failed for schedule index ${i} with address "${addressString}":`,
-          error
-        );
-        // Do not fail the whole process, AC6 is best-effort enrichment
+      } else {
+        missedAddresses.get(addressKey)?.indices.push(i);
       }
     }
+  }
+
+  // One line per address that did not resolve (not one per schedule), with the schedules it affected.
+  for (const [address, { indices, error }] of missedAddresses) {
+    console.error(
+      `Best-effort resolveLocation failed for schedule index ${indices.join(', ')} with address "${address}":`,
+      error
+    );
   }
 
   return {

@@ -1,21 +1,55 @@
 import { GeolocationQuery, buildLocationCacheKey, meetsAutocompleteInputThreshold, AddressPrediction, selectBestCandidate, filterPlausibleCandidates } from '@festgrid/domain/geolocation';
 import { LocationDetails } from '@festgrid/shared-types';
-import { getCached, setCached, GeolocationQueryType } from './cache-store.js';
+import { getCacheEntry, getCached, setCached, setCachedNotFound, GeolocationQueryType } from './cache-store.js';
 import { GeolocationNotFoundError, geocodeAddress, reverseGeocode, getPlaceDetails, getAddressPredictions as getClientPredictions } from './geoapify-client.js';
 
 export async function resolveLocation(query: GeolocationQuery): Promise<LocationDetails> {
   const cacheKey = buildLocationCacheKey(query);
-  
-  const cached = await getCached(cacheKey);
-  if (cached) {
-    return cached;
+
+  const cached = await getCacheEntry(cacheKey);
+  if (cached?.kind === 'hit') {
+    return cached.location;
   }
-  
-  let result: LocationDetails;
-  let queryType: GeolocationQueryType;
-  
+  if (cached?.kind === 'not-found') {
+    // The geocoder found nothing for this exact query within the last day: do not pay for the same answer again.
+    throw new GeolocationNotFoundError('No geolocation match found (cached)');
+  }
+
+  let outcome: { result: LocationDetails; queryType: GeolocationQueryType };
+  try {
+    outcome = await geocodeUncached(query);
+  } catch (error) {
+    // Only a definite "no match" is remembered; an outage, a rate limit or a bad key must be retried, not cached.
+    if (error instanceof GeolocationNotFoundError) {
+      await setCachedNotFound(cacheKey, queryTypeOf(query));
+    }
+    throw error;
+  }
+
+  await setCached(cacheKey, outcome.queryType, outcome.result);
+
+  return outcome.result;
+}
+
+function queryTypeOf(query: GeolocationQuery): GeolocationQueryType {
   switch (query.kind) {
     case 'ADDRESS':
+      return 'GEOCODE';
+    case 'COORDINATES':
+      return 'REVERSE_GEOCODE';
+    case 'PLACE_ID':
+      return 'PLACE_DETAILS';
+    default: {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _exhaustiveCheck: never = query;
+      throw new Error(`Unhandled query kind: ${(query as { kind: string }).kind}`);
+    }
+  }
+}
+
+async function geocodeUncached(query: GeolocationQuery): Promise<{ result: LocationDetails; queryType: GeolocationQueryType }> {
+  switch (query.kind) {
+    case 'ADDRESS': {
       // geocodeAddress returns up to 5 ranked candidates; re-rank them by the
       // Geoapify confidence signal (with a matchType-priority tiebreak) instead of
       // blindly taking Geoapify's first result, so a low-confidence top hit doesn't
@@ -27,27 +61,18 @@ export async function resolveLocation(query: GeolocationQuery): Promise<Location
       if (plausible.length === 0) {
         throw new GeolocationNotFoundError('Every candidate is far from the account and low confidence');
       }
-      result = selectBestCandidate(plausible);
-      queryType = 'GEOCODE';
-      break;
+      return { result: selectBestCandidate(plausible), queryType: 'GEOCODE' };
+    }
     case 'COORDINATES':
-      result = await reverseGeocode(query.coordinates);
-      queryType = 'REVERSE_GEOCODE';
-      break;
+      return { result: await reverseGeocode(query.coordinates), queryType: 'REVERSE_GEOCODE' };
     case 'PLACE_ID':
-      result = await getPlaceDetails(query.placeId);
-      queryType = 'PLACE_DETAILS';
-      break;
+      return { result: await getPlaceDetails(query.placeId), queryType: 'PLACE_DETAILS' };
     default: {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _exhaustiveCheck: never = query;
       throw new Error(`Unhandled query kind: ${(query as { kind: string }).kind}`);
     }
   }
-  
-  await setCached(cacheKey, queryType, result);
-  
-  return result;
 }
 
 export async function getAddressPredictions(input: string): Promise<AddressPrediction[]> {
