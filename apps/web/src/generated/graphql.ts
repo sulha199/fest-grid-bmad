@@ -971,6 +971,10 @@ export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
   content?: Maybe<Scalars['String']['output']>;
+  /** The reason code of the last failed attempt (for example unavailable, blocked); null when none is on record. */
+  extractionFailureReason?: Maybe<Scalars['String']['output']>;
+  /** When the automatic retry of a failed attempt is due (ISO 8601); null when none is scheduled. */
+  extractionNextAttemptAt?: Maybe<Scalars['String']['output']>;
   extractionStatus: PostExtractionStatus;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
@@ -988,10 +992,13 @@ export type PostConnection = {
 };
 
 /**
- * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
- * can be selected for extraction.
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
+ * ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
+ * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
+ * or cannot help.
  */
 export enum PostExtractionStatus {
+  AttemptFailed = 'ATTEMPT_FAILED',
   Extracting = 'EXTRACTING',
   NotEvent = 'NOT_EVENT',
   Pending = 'PENDING',
@@ -1774,8 +1781,10 @@ export enum WidgetTheme {
 
 
 /**
- * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
- * can be selected for extraction.
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
+ * ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
+ * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
+ * or cannot help.
  */
 
 
@@ -2263,7 +2272,7 @@ export type GetPostsByAccountQueryVariables = Exact<{
 }>;
 
 
-export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string | null, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, extractionStatus: PostExtractionStatus, publishedAt: string }> } };
+export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string | null, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, extractionStatus: PostExtractionStatus, extractionFailureReason: string | null, extractionNextAttemptAt: string | null, publishedAt: string }> } };
 
 export type GetMyExtractionQuotaQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -4892,6 +4901,8 @@ export const GetPostsByAccountDocument = new TypedDocumentString(`
       originalPostUrl
       isExtracted
       extractionStatus
+      extractionFailureReason
+      extractionNextAttemptAt
       publishedAt
     }
     nextCursor

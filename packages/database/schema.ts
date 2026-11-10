@@ -353,12 +353,25 @@ export const posts = pgTable('posts', {
   // at or after the latest claim). Observational only: nothing gates on it, and a re-enqueue makes the
   // new queued_for_extraction_at newer than it, which reads as QUEUED again. No index, no backfill.
   extractionStartedAt: timestamp('extraction_started_at', { withTimezone: true }),
+  // AD-52 Rule 4 -- the post-level attempt ledger. A failed extraction job writes all four in one update that
+  // also releases the claim (queued_for_extraction_at = null); a successful extraction clears them. `attempts`
+  // counts failed jobs, not in-call retries. `failure_reason` is the retry situation of the last failure and
+  // drives the derived ATTEMPT_FAILED status. `next_attempt_at` set = a retry is due then; null with a reason =
+  // given up. `first_failure_at` anchors the 24 hour retry window. No backfill: every existing row is clean.
+  extractionAttempts: integer('extraction_attempts').default(0).notNull(),
+  extractionFailureReason: text('extraction_failure_reason'),
+  extractionNextAttemptAt: timestamp('extraction_next_attempt_at', { withTimezone: true }),
+  extractionFirstFailureAt: timestamp('extraction_first_failure_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),
   publishedAtIdx: index('published_at_idx').on(t.publishedAt),
   postUrlUnq: unique().on(t.postUrl),
   scraperActorRunIdIdx: index('idx_posts_scraper_actor_run_id').on(t.scraperActorRunId),
+  // AD-52 Rule 5 -- the resume pass reads only posts with a retry due; the partial index keeps that read tiny.
+  extractionNextAttemptIdx: index('idx_posts_extraction_next_attempt_at')
+    .on(t.extractionNextAttemptAt)
+    .where(sql`extraction_next_attempt_at IS NOT NULL`),
   // GIN, not the default btree: hashtag search is array-containment (&&) on an exact value, not
   // equality. The installed drizzle-kit (0.21.4) doesn't serialize `.using()` into its
   // snapshot/generated SQL (same class of gap as AD-8 rule 3's WHERE-clause drop) -- the actual

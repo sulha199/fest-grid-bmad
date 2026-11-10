@@ -27,7 +27,11 @@ function statusCondition(status: PostExtractionStatus, cutoffIso: string): SQL {
   const cutoff = sql`${cutoffIso}::timestamptz`;
   switch (status) {
     case 'PENDING':
-      return sql`(not ${posts.isExtracted} and (${posts.queuedForExtractionAt} is null or ${posts.queuedForExtractionAt} < ${cutoff}))`;
+      return sql`(not ${posts.isExtracted} and (${posts.queuedForExtractionAt} is null or ${posts.queuedForExtractionAt} < ${cutoff})
+        and ${posts.extractionFailureReason} is null)`;
+    case 'ATTEMPT_FAILED':
+      return sql`(not ${posts.isExtracted} and (${posts.queuedForExtractionAt} is null or ${posts.queuedForExtractionAt} < ${cutoff})
+        and ${posts.extractionFailureReason} is not null)`;
     case 'QUEUED':
       return sql`(not ${posts.isExtracted} and ${posts.queuedForExtractionAt} >= ${cutoff}
         and (${posts.extractionStartedAt} is null or ${posts.extractionStartedAt} < ${posts.queuedForExtractionAt}))`;
@@ -57,6 +61,7 @@ type PostStatusRow = {
   queuedForExtractionAt: Date | null;
   extractionStartedAt: Date | null;
   extractedEventCount: number | null;
+  extractionFailureReason: string | null;
 };
 
 /** Of the given posts, the ids that produced at least one event. */
@@ -90,6 +95,7 @@ export async function withExtractionStatus<T extends PostStatusRow>(
         queuedForExtractionAt: row.queuedForExtractionAt,
         extractionStartedAt: row.extractionStartedAt,
         hasEvent: idsWithEvents.has(row.id),
+        extractionFailureReason: row.extractionFailureReason,
       },
       claimTtlMinutes,
       now

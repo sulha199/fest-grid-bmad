@@ -4,6 +4,7 @@ import { processManualExtractionJob } from '../lib/ai-processor/process-manual-e
 import { type ProcessingJobMessage, type ManualExtractionInvokePayload } from '@festgrid/domain/posts';
 import { pollAndDrainQueue, hasJobType, type PollAndDrainQueueOptions } from '../lib/aws/poll-and-drain-queue.js';
 import { loadBackendEnv } from '../env.js';
+import { resumeDueExtractions } from '../lib/posts/resume-due-extractions.js';
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
 
@@ -59,6 +60,13 @@ export const handler = async (
 
   if (hasJobType(event, 'poll-and-drain')) {
     console.log('Running poll-and-drain for AI processing queue');
+    // AD-52 Rule 5: re-enqueue posts whose failed extraction has a retry due, before draining, so they are
+    // picked up in this same tick. Never lets a problem here stop the drain.
+    try {
+      await resumeDueExtractions();
+    } catch (error) {
+      console.error('[ai-processor] resume pass failed; continuing with the drain:', error);
+    }
     await pollAndDrainQueue(
       process.env.AI_PROCESSING_QUEUE_URL!,
       async (body) => {
