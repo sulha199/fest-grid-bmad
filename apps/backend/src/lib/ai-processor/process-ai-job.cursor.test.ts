@@ -411,4 +411,88 @@ test('stepped extraction: first request and steps (AD-46..AD-51)', async (t) => 
     assert.strictEqual((await row(post.id)).extractionCursor, null);
     assert.strictEqual(geminiCalls.length, 0);
   });
+
+  await t.test('a first request that finds nothing (not an event, or no events) continues in steps while slides are unread', async () => {
+    for (const [tag, answer] of [
+      ['empty-not-event', JSON.stringify({ isEvent: false, events: [], groupingReason: 'single-event' })],
+      ['empty-zero-events', JSON.stringify({ isEvent: true, events: [], groupingReason: 'roundup' })],
+    ] as const) {
+      aiMessages = [];
+      const post = await makePost(tag);
+      setMarkPostExtractedSeam(async () => {
+        throw new Error('the post must not be marked extracted while its chain runs');
+      });
+      gemini({ text: answer });
+
+      await processAiJob({
+        postId: post.id,
+        accountId: profile.id,
+        content: 'caption',
+        imageUrl: post.imageUrl!,
+        additionalImageUrls: slideUrls(11),
+        postUrl: post.postUrl,
+        publishedAt: '2026-11-01T00:00:00.000Z',
+      });
+
+      const stored = await readExtractionCursor(post.id);
+      assert.ok(stored, tag);
+      assert.strictEqual(stored.groupingReason, null, `${tag}: a neutral label of an empty first window is not kept`);
+      assert.strictEqual(stored.emptySteps, 1, `${tag}: the first window counts as one empty step`);
+      assert.strictEqual(stored.foundKeys.length, 0);
+      assert.strictEqual(stored.nextOrdinal, 0);
+      assert.strictEqual(aiMessages.length, 1, tag);
+      assert.strictEqual((await row(post.id)).isExtracted, false);
+    }
+  });
+
+  await t.test('a post with nothing found and no slides unread still finishes at once as a non-event', async () => {
+    const post = await makePost('empty-no-unread');
+    let marked = false;
+    setMarkPostExtractedSeam(async () => {
+      marked = true;
+      return {} as any;
+    });
+    gemini({ text: JSON.stringify({ isEvent: false, events: [], groupingReason: 'single-event' }) });
+
+    await processAiJob({
+      postId: post.id,
+      accountId: profile.id,
+      content: 'caption',
+      imageUrl: post.imageUrl!,
+      additionalImageUrls: slideUrls(3),
+      postUrl: post.postUrl,
+      publishedAt: '2026-11-01T00:00:00.000Z',
+    });
+
+    assert.ok(marked);
+    assert.strictEqual(await readExtractionCursor(post.id), null);
+    assert.strictEqual(aiMessages.length, 0);
+  });
+
+  await t.test('a step finding events after an empty first window adopts the label it gives, so a roundup goes on', async () => {
+    const post = await makePost('adopts-label');
+    const empty = cursorFor(post.id, { groupingReason: null, foundKeys: [], nextOrdinal: 0, emptySteps: 1 });
+    await startExtractionCursor(post.id, empty);
+    gemini({ text: roundup([event('One', '2027-01-01'), event('Two', '2027-01-02')]) });
+
+    await processAiJob(stepMessage(post, empty));
+
+    const stored = await readExtractionCursor(post.id);
+    assert.strictEqual(stored?.groupingReason, 'roundup');
+    assert.strictEqual(aiMessages.length, 1, 'the chain goes on instead of stopping at the first events');
+    assert.deepStrictEqual(ingested.map((e) => e.extractionOrdinal).sort(), [0, 1]);
+  });
+
+  await t.test('two empty steps in a row end the chain without flagging it partial (nothing was there to find)', async () => {
+    const post = await makePost('two-empty');
+    const second = cursorFor(post.id, { groupingReason: null, foundKeys: [], nextOrdinal: 0, emptySteps: 1 });
+    await startExtractionCursor(post.id, second);
+    gemini({ text: JSON.stringify({ isEvent: false, events: [], groupingReason: 'single-event' }) });
+
+    await processAiJob(stepMessage(post, second));
+
+    const r = await row(post.id);
+    assert.deepStrictEqual([r.isExtracted, r.extractionCursor, r.extractionPartial], [true, null, false]);
+    assert.strictEqual(aiMessages.length, 0);
+  });
 });

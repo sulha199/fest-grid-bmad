@@ -61,6 +61,8 @@ class ChainStop extends Error {
 
 interface WindowRun {
   events: GeminiEventPayload[];
+  /** The label the model gave this window, kept only to adopt when the first request had none (a post found empty at first). */
+  groupingReason: GeminiExtractionPayload['groupingReason'] | null;
   leafTruncated: boolean;
   aiImageInput: AiImageInput;
   faceCount: number | undefined;
@@ -213,7 +215,7 @@ export async function processExtractionStep(message: ProcessingJobMessage, deps:
             return await runWindow(urls.slice(half.start, half.start + half.size));
           } catch (halfError) {
             if (halfError instanceof ChainStop && halfError.reason !== 'lease_lost') {
-              return { events: [], leafTruncated: true, aiImageInput: base.aiImageInput, faceCount: undefined, promptTokens: 0, outputTokens: 0, finishReason: undefined, requests: 0 };
+              return { events: [], groupingReason: null, leafTruncated: true, aiImageInput: base.aiImageInput, faceCount: undefined, promptTokens: 0, outputTokens: 0, finishReason: undefined, requests: 0 };
             }
             throw halfError;
           }
@@ -222,6 +224,7 @@ export async function processExtractionStep(message: ProcessingJobMessage, deps:
         const second = await runHalf(halves[1]);
         return {
           events: [...first.events, ...second.events],
+          groupingReason: first.groupingReason ?? second.groupingReason,
           leafTruncated: first.leafTruncated || second.leafTruncated,
           aiImageInput: second.aiImageInput,
           faceCount: (first.faceCount ?? 0) + (second.faceCount ?? 0) || undefined,
@@ -238,7 +241,12 @@ export async function processExtractionStep(message: ProcessingJobMessage, deps:
       // A slide the builder could not read (a failed download, a blur that failed closed) was skipped, and it counts as
       // read: the chain is then partial, the same as a truncated leaf.
       const slideMissing = built.imagesSent < urls.length;
-      return { ...base, events: payload.events.slice(0, PER_CALL_EVENT_CAP), leafTruncated: atRisk || slideMissing };
+      return {
+        ...base,
+        events: payload.events.slice(0, PER_CALL_EVENT_CAP),
+        groupingReason: payload.events.length > 0 ? (payload.groupingReason ?? null) : null,
+        leafTruncated: atRisk || slideMissing,
+      };
     };
 
     const run = await runWindow(windowUrls);
@@ -316,6 +324,8 @@ export async function processExtractionStep(message: ProcessingJobMessage, deps:
     const itemsPerSlide = run.events.length > 0 ? run.events.length / slidesRead : cursor.itemsPerSlide;
     const advanced: ExtractionCursor = {
       ...cursor,
+      // A first request that found nothing had no label worth keeping: the first label of a window that finds events decides.
+      groupingReason: cursor.groupingReason ?? run.groupingReason ?? null,
       stepCount: cursor.stepCount + 1,
       nextSlide: cursor.nextSlide + slidesRead,
       unreadImageUrls: cursor.unreadImageUrls.slice(slidesRead),
