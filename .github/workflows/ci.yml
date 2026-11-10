@@ -305,4 +305,6 @@ jobs:
           API_KEY_USAGE_CYCLE_DAYS: ${{ vars.API_KEY_USAGE_CYCLE_DAYS }}
           SCRAPER_USAGE_CYCLE_DAYS: ${{ vars.SCRAPER_USAGE_CYCLE_DAYS }}
           GEMINI_POSTS_PER_KEY_PER_CYCLE: ${{ vars.GEMINI_POSTS_PER_KEY_PER_CYCLE }}
+          # Unset means on (the stack's default); "false" is the kill switch for stepped extraction (AD-51 Rule 2).
+          CURSOR_EXTRACTION_ENABLED: ${{ vars.CURSOR_EXTRACTION_ENABLED }}
         run: pnpm --filter infrastructure exec cdk deploy FestgridBackendStack-prod --require-approval never
