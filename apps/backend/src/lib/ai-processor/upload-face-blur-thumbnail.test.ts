@@ -66,6 +66,7 @@ test('uploadFaceBlurThumbnail integration/unit tests', async (t) => {
     maxCarouselImages: 5,
     maxReextractCarouselImages: 10,
     maxExtractedEventsPerPost: 10,
+    cursorExtractionEnabled: false,
     geminiMaxOutputTokens: 8192,
     geminiExtractionTimeoutMs: 120000,
     geminiVerificationTimeoutMs: 10000,

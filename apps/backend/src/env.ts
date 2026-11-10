@@ -45,6 +45,9 @@ export interface BackendEnv {
   // as the Gemini-facing schema's `events.maxItems` hint and as the code-level truncation
   // backstop in process-ai-job.ts (never a hard AJV cap -- see extracted-event.schema.ts).
   maxExtractedEventsPerPost: number;
+  // AD-51 Rule 2: the kill switch for stepped (cursor) extraction. Off (the default: it ships dark) means every post
+  // takes the one-request path; a chain in flight stops at its next step and the post is flagged partial.
+  cursorExtractionEnabled: boolean;
   // Story 3.6s (AC7) — an explicit response-size cap on the Gemini extraction call.
   geminiMaxOutputTokens: number;
   // Story 0.i2c — callVendor's (apps/backend/src/lib/vendor-gateway/guarded-call.ts)
@@ -330,6 +333,7 @@ export function loadBackendEnv(): BackendEnv {
     maxReextractCarouselImages: parsePositiveInt(process.env.MAX_REEXTRACT_CAROUSEL_IMAGES, 'MAX_REEXTRACT_CAROUSEL_IMAGES', REEXTRACT_MAX_CAROUSEL_IMAGES),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxExtractedEventsPerPost: parseInt(process.env.MAX_EXTRACTED_EVENTS_PER_POST || '10', 10),
+    cursorExtractionEnabled: process.env.CURSOR_EXTRACTION_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     geminiMaxOutputTokens: parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS || '8192', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
