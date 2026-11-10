@@ -593,6 +593,12 @@ export class FestgridBackendStack extends cdk.Stack {
         // environment block gets it: it's the only caller of buildGeminiExtractionRequest with
         // the image-processing runtime (sharp/WASM/model weights) needed to run the blur.
         BLUR_FACES_BEFORE_AI: process.env.BLUR_FACES_BEFORE_AI || 'true',
+        // AD-51 Rule 2 -- stepped (cursor) extraction of multi-slide posts (AD-46..AD-51), switched ON on 2026-11-10 after
+        // the live replay of a roundup (26 events in 2 requests). This Lambda is the only reader. It is also the kill switch:
+        // set the repository variable CURSOR_EXTRACTION_ENABLED to "false" and redeploy (or edit this Lambda's environment
+        // in the console for an immediate effect): new posts then take the one-request path, and chains in flight stop at
+        // their next step and are flagged partial.
+        CURSOR_EXTRACTION_ENABLED: process.env.CURSOR_EXTRACTION_ENABLED || 'true',
       },
     });
 

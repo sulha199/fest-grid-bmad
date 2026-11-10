@@ -944,6 +944,35 @@ test('FestgridBackendStack: aiProcessorLambda has BLUR_FACES_BEFORE_AI in its en
   }
 });
 
+// AD-51 Rule 2: stepped extraction is switched on in the AI Lambda only (its sole reader), by default, and the repository
+// variable CURSOR_EXTRACTION_ENABLED="false" is the kill switch.
+test('FestgridBackendStack: CURSOR_EXTRACTION_ENABLED is on by default in aiProcessorLambda only, and "false" switches it off', () => {
+  const original = process.env.CURSOR_EXTRACTION_ENABLED;
+  const aiEnv = (stackId: string): Record<string, unknown> => {
+    const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), stackId, { stageName: 'dev' }));
+    const functions = template.findResources('AWS::Lambda::Function');
+    const ai = Object.entries(functions).find(([logicalId]) => logicalId.startsWith('AIProcessorLambda'));
+    assert.ok(ai, 'expected an "AIProcessorLambda*" function');
+    for (const [logicalId, resource] of Object.entries(functions)) {
+      if (logicalId.startsWith('AIProcessorLambda')) continue;
+      const vars = (resource.Properties as { Environment?: { Variables?: Record<string, unknown> } }).Environment?.Variables;
+      assert.ok(!vars || !('CURSOR_EXTRACTION_ENABLED' in vars), `${logicalId} must not carry CURSOR_EXTRACTION_ENABLED`);
+    }
+    return (ai[1].Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables;
+  };
+  try {
+    delete process.env.CURSOR_EXTRACTION_ENABLED;
+    assert.strictEqual(aiEnv('TestStackCursorDefault').CURSOR_EXTRACTION_ENABLED, 'true');
+    process.env.CURSOR_EXTRACTION_ENABLED = '';
+    assert.strictEqual(aiEnv('TestStackCursorEmpty').CURSOR_EXTRACTION_ENABLED, 'true', 'an unset repository variable arrives empty and means on');
+    process.env.CURSOR_EXTRACTION_ENABLED = 'false';
+    assert.strictEqual(aiEnv('TestStackCursorOff').CURSOR_EXTRACTION_ENABLED, 'false');
+  } finally {
+    if (original === undefined) delete process.env.CURSOR_EXTRACTION_ENABLED;
+    else process.env.CURSOR_EXTRACTION_ENABLED = original;
+  }
+});
+
 // Story 4.2b (AC7): the API Lambda async-invokes the AI Lambda for manual "AI-Assisted
 // Correction" extraction. It needs (a) the AI Lambda's function name in its environment, (b) an
 // IAM grant for lambda:InvokeFunction scoped to that function, and (c) no automatic async retry
