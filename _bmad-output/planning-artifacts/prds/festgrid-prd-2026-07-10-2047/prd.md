@@ -208,12 +208,13 @@ To provide users with greater control over their API quota usage and improve the
 *   **User Interface:** A new screen will be introduced, featuring a tab-based layout where each tab corresponds to one of the user's subscribed social media accounts.
     *   **Tab Content:** Each tab, when selected, will display the account's posts, newest first, in a card-based view, each card showing its extraction status. A post appears in the tab of every subscribed account it is associated with — the account that published it, any co-author, and the account whose scrape found it (Section 4.7a) — and it is the same post in each: a co-authored post is not duplicated. The list loads 20 at a time and appends the next page by infinite scroll (Section 5, Infinite Scroll); the status filter is applied server-side so every page is full, and a page boundary never skips or repeats a post.
     *   **Extraction Status (added 2026-10-16):** Each post has exactly one status:
-        *   **Pending** — not yet extracted and not in the extraction queue (or its queue slot has expired). The only status that can be selected.
+        *   **Pending** — not yet extracted and not in the extraction queue (or its queue slot has expired). Can be selected.
         *   **Queued** — waiting in the extraction queue.
         *   **Extracting** — being processed now.
+        *   **Attempt failed** (added 2026-11-10; AD-52) — an extraction attempt failed and nothing is running for the post. The card shows the reason (for example the AI service was unavailable, or the provider blocked the response) and, while retries remain, when the next automatic retry is due; otherwise it says there are no further automatic retries. Can be selected: selecting it starts over and resets its automatic retries.
         *   **Promoted to event** — extraction finished and produced at least one event.
         *   **Not an event** — extraction finished and found no event.
-        A post whose extraction cannot finish (for example the AI response fails validation) stays Queued or Extracting until its queue slot expires, then returns to Pending so it can be tried again.
+        A post whose extraction fails (for example the AI response cannot be read, or the AI service is unavailable) is recorded as Attempt failed at once and retried automatically, with growing waits (about 5 minutes, 15 minutes, 1 hour, 4 hours; at most 5 attempts within 24 hours), unless the failure cannot be fixed by waiting (the provider blocked the response, the request was invalid), in which case it is not retried. A post whose job dies without recording anything stays Queued or Extracting until its queue slot expires, then returns to Pending so it can be tried again.
     *   **Status Filter (added 2026-10-16):** A multi-select above the list chooses which statuses are shown. By default only Pending is selected. The filter applies to every tab, and changing it never clears the posts the user has already selected.
     *   **Lazy Loading:** The posts within the tabs can be loaded lazily to improve initial page load performance.
 *   **Post Selection:**
@@ -905,11 +906,16 @@ interface Post {
   isExtracted?: boolean;
   /**
    * Where the post is in extraction (added 2026-10-16, Section 3.10): `PENDING`, `QUEUED`, `EXTRACTING`,
+   * `ATTEMPT_FAILED` (added 2026-11-10; a failed attempt is on record and no job is running),
    * `PROMOTED` (produced at least one event) or `NOT_EVENT`. Derived, never edited: from `isExtracted`,
-   * whether the post holds a live queue slot, whether processing has started, and whether it yielded an
-   * event. Only `PENDING` posts can be selected for extraction.
+   * whether the post holds a live queue slot, whether processing has started, whether a failure is on
+   * record, and whether it yielded an event. Only `PENDING` and `ATTEMPT_FAILED` posts can be selected.
    */
-  extractionStatus: 'PENDING' | 'QUEUED' | 'EXTRACTING' | 'PROMOTED' | 'NOT_EVENT';
+  extractionStatus: 'PENDING' | 'QUEUED' | 'EXTRACTING' | 'ATTEMPT_FAILED' | 'PROMOTED' | 'NOT_EVENT';
+  /** The reason code of the last failed attempt (added 2026-11-10); null when none is on record. */
+  extractionFailureReason?: string | null;
+  /** When the automatic retry is due (ISO 8601); null when none is scheduled. */
+  extractionNextAttemptAt?: string | null;
   /**
    * The ID of the `SocialMediaAccountProfile` (Section 4.5) whose subscription/scrape job
    * triggered this post's ingestion — the *scraping-source* account, which is not always

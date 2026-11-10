@@ -733,6 +733,9 @@ export class FestgridBackendStack extends cdk.Stack {
     // already covers the same actions.
     scrapingQueue.grantConsumeMessages(scraperLambda);
     aiProcessingQueue.grantConsumeMessages(aiProcessorLambda);
+    // AD-52 Rule 5: the resume pass at the start of each 5-minute tick re-enqueues posts whose failed extraction has a
+    // retry due (through enqueuePostForProcessing), so the AI Lambda also sends to its own input queue.
+    aiProcessingQueue.grantSendMessages(aiProcessorLambda);
     dataIngestionQueue.grantConsumeMessages(ingestorLambda);
     // Scraper needs to enqueue onto ScrapingQueue (self-enqueue) & API needs to enqueue for on-demand scrape
     scrapingQueue.grantSendMessages(scraperLambda);

@@ -114,6 +114,7 @@ export function PostsSelectContent() {
     PENDING: t('extractionStatusPending'),
     QUEUED: t('extractionStatusQueued'),
     EXTRACTING: t('extractionStatusExtracting'),
+    ATTEMPT_FAILED: t('extractionStatusAttemptFailed'),
     PROMOTED: t('extractionStatusPromoted'),
     NOT_EVENT: t('extractionStatusNotEvent'),
   } as Record<PostExtractionStatus, string>;
@@ -121,9 +122,35 @@ export function PostsSelectContent() {
     PENDING: 'pending',
     QUEUED: 'queued',
     EXTRACTING: 'extracting',
+    ATTEMPT_FAILED: 'attemptFailed',
     PROMOTED: 'promoted',
     NOT_EVENT: 'notEvent',
   } as const;
+
+  // AD-52: the reason an attempt failed, as words; an unknown code falls back to the code itself.
+  const failureReasonKeys = {
+    rate_limited: 'extractionFailureRateLimited',
+    quota_exhausted_daily: 'extractionFailureQuota',
+    unavailable: 'extractionFailureUnavailable',
+    timeout: 'extractionFailureTimeout',
+    truncated: 'extractionFailureTruncated',
+    unparseable: 'extractionFailureUnparseable',
+    blocked: 'extractionFailureBlocked',
+    invalid_credential: 'extractionFailureInvalidKey',
+    bad_request: 'extractionFailureBadRequest',
+    image_expired: 'extractionFailureImageExpired',
+    unknown: 'extractionFailureUnknown',
+  } as const;
+  const describeFailure = (reason?: string | null, nextAttemptAt?: string | null) => {
+    const key = reason ? failureReasonKeys[reason as keyof typeof failureReasonKeys] : undefined;
+    const reasonText = key ? t(key) : reason ?? '';
+    return {
+      reasonText: t('extractionFailureReasonLine', { reason: reasonText }),
+      retryText: nextAttemptAt
+        ? t('extractionRetryAt', { time: format.dateTime(new Date(nextAttemptAt), { dateStyle: 'medium', timeStyle: 'short' }) })
+        : t('extractionRetryGivenUp'),
+    };
+  };
 
   // Trigger account scrape mutation
   const { mutate: triggerScrape, isPending: isScraping } = useTriggerAccountScrapeMutation(
@@ -275,7 +302,12 @@ export function PostsSelectContent() {
   // subscriber) can no longer be selected: drop it so it is not submitted or counted.
   useEffect(() => {
     const stale = posts
-      .filter((post) => post.extractionStatus !== 'PENDING' && selectedPostIds.includes(post.id as string))
+      .filter(
+        (post) =>
+          post.extractionStatus !== 'PENDING' &&
+          post.extractionStatus !== 'ATTEMPT_FAILED' &&
+          selectedPostIds.includes(post.id as string)
+      )
       .map((post) => post.id as string);
     if (stale.length > 0) {
       stale.forEach((id) => togglePost(id));
@@ -635,7 +667,8 @@ export function PostsSelectContent() {
             {posts.map((post) => {
               const isSelected = selectedPostIds.includes(post.id as string);
               const status = post.extractionStatus as PostExtractionStatus;
-              const isSelectable = status === 'PENDING';
+              // A failed attempt can be started again by hand (that also resets its automatic retries).
+              const isSelectable = status === 'PENDING' || status === 'ATTEMPT_FAILED';
               const quotaReached = selectedPostIds.length >= remainingQuota;
               const isDisabled = !isSelectable || (!isSelected && quotaReached);
               const hoverTitle = !isSelectable
@@ -660,7 +693,20 @@ export function PostsSelectContent() {
                     isSelected={isSelected}
                     onSelectionChange={isSelectable ? () => togglePost(post.id as string) : undefined}
                     disabled={isDisabled}
-                    statusBadge={<StatusBadge variant={statusBadgeVariant[status]} label={statusLabels[status]} />}
+                    statusBadge={
+                      status === 'ATTEMPT_FAILED' ? (
+                        <span className="flex flex-col items-start gap-1">
+                          <StatusBadge variant={statusBadgeVariant[status]} label={statusLabels[status]} />
+                          <span className="text-xs text-muted-foreground" data-testid="extraction-failure-detail">
+                            {describeFailure(post.extractionFailureReason, post.extractionNextAttemptAt).reasonText}
+                            {' · '}
+                            {describeFailure(post.extractionFailureReason, post.extractionNextAttemptAt).retryText}
+                          </span>
+                        </span>
+                      ) : (
+                        <StatusBadge variant={statusBadgeVariant[status]} label={statusLabels[status]} />
+                      )
+                    }
                     labels={{
                       contentPlaceholder: t('nulledContentPlaceholder') || undefined,
                     }}

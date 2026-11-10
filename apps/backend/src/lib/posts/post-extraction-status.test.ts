@@ -49,6 +49,21 @@ test('post-extraction-status: the SQL filter and the derived status agree for ev
   const queued = await makePost('queued', { queuedForExtractionAt: minutesAgo(5) });
   const extracting = await makePost('extracting', { queuedForExtractionAt: minutesAgo(5), extractionStartedAt: minutesAgo(4) });
   const requeued = await makePost('requeued', { queuedForExtractionAt: minutesAgo(2), extractionStartedAt: minutesAgo(20) });
+  // AD-52: a recorded failure with no live claim is ATTEMPT_FAILED (a retry pending or given up), never PENDING.
+  const failedRetryPending = await makePost('failed-pending', {
+    extractionFailureReason: 'unavailable',
+    extractionAttempts: 1,
+    extractionNextAttemptAt: new Date(now.getTime() + 5 * 60 * 1000),
+  });
+  const failedGivenUp = await makePost('failed-given-up', { extractionFailureReason: 'blocked', extractionAttempts: 1 });
+  const failedExpiredClaim = await makePost('failed-expired-claim', {
+    extractionFailureReason: 'unparseable',
+    queuedForExtractionAt: minutesAgo(31),
+  });
+  const failedRetryRunning = await makePost('failed-retrying', {
+    extractionFailureReason: 'unavailable',
+    queuedForExtractionAt: minutesAgo(2),
+  });
   const promotedByCount = await makePost('count', { isExtracted: true, extractedEventCount: 2 });
   const promotedByEventPostId = await makePost('eventpost', { isExtracted: true });
   const [primaryEvent] = await db.insert(events).values({ eventName: 'Linked', location: 'Somewhere', postId: promotedByEventPostId.id, extractionOrdinal: 0 }).returning();
@@ -66,6 +81,10 @@ test('post-extraction-status: the SQL filter and the derived status agree for ev
     [queued.id, 'QUEUED'],
     [requeued.id, 'QUEUED'],
     [extracting.id, 'EXTRACTING'],
+    [failedRetryPending.id, 'ATTEMPT_FAILED'],
+    [failedGivenUp.id, 'ATTEMPT_FAILED'],
+    [failedExpiredClaim.id, 'ATTEMPT_FAILED'],
+    [failedRetryRunning.id, 'QUEUED'],
     [promotedByCount.id, 'PROMOTED'],
     [promotedByEventPostId.id, 'PROMOTED'],
     [promotedByLink.id, 'PROMOTED'],
@@ -99,7 +118,7 @@ test('post-extraction-status: the SQL filter and the derived status agree for ev
       .where(and(inArray(posts.id, postIds), postExtractionStatusCondition(['QUEUED', 'EXTRACTING'], TTL, now)));
     assert.deepStrictEqual(
       matched.map((r) => r.id).sort(),
-      [queued.id, requeued.id, extracting.id].sort()
+      [queued.id, requeued.id, failedRetryRunning.id, extracting.id].sort()
     );
   });
 

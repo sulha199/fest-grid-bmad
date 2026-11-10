@@ -4,7 +4,14 @@ import { computeClaimCutoff } from "../shared/claim-ttl.js";
  * Where a post is in extraction, as shown on the manual extract screen (PRD 3.10, 2026-10-16).
  * Derived, never stored: the database holds only the facts below.
  */
-export const POST_EXTRACTION_STATUSES = ["PENDING", "QUEUED", "EXTRACTING", "PROMOTED", "NOT_EVENT"] as const;
+export const POST_EXTRACTION_STATUSES = [
+  "PENDING",
+  "QUEUED",
+  "EXTRACTING",
+  "ATTEMPT_FAILED",
+  "PROMOTED",
+  "NOT_EVENT",
+] as const;
 export type PostExtractionStatus = (typeof POST_EXTRACTION_STATUSES)[number];
 
 export interface PostExtractionFacts {
@@ -15,13 +22,20 @@ export interface PostExtractionFacts {
   extractionStartedAt: Date | null;
   /** The extraction produced at least one event (counted from extractedEventCount or an event link). */
   hasEvent: boolean;
+  /**
+   * `posts.extraction_failure_reason` (AD-52 Rule 4): the situation of the last failed attempt; null when the
+   * post never failed or has since succeeded. Required, so a caller cannot silently derive PENDING where the
+   * SQL filter says ATTEMPT_FAILED.
+   */
+  extractionFailureReason: string | null;
 }
 
 /**
  * - extracted: PROMOTED if it produced an event, else NOT_EVENT;
- * - not extracted and no live claim (never queued, or the claim outlived its TTL): PENDING, the only
- *   selectable status. A post whose extraction cannot finish therefore returns to PENDING once its
- *   claim expires;
+ * - not extracted, no live claim and a recorded failure reason (AD-52 Rule 6): ATTEMPT_FAILED, whether a
+ *   retry is still pending or the attempts are spent. Selectable, like PENDING;
+ * - not extracted and no live claim (never queued, or the claim outlived its TTL): PENDING, selectable. A post
+ *   whose extraction cannot finish and recorded no failure therefore returns to PENDING once its claim expires;
  * - live claim and processing has begun since the claim was made: EXTRACTING;
  * - live claim otherwise: QUEUED.
  *
@@ -38,12 +52,14 @@ export function derivePostExtractionStatus(
   }
 
   const claimedAt = facts.queuedForExtractionAt;
+  const noLiveClaim = (): PostExtractionStatus =>
+    facts.extractionFailureReason != null ? "ATTEMPT_FAILED" : "PENDING";
   if (claimedAt === null) {
-    return "PENDING";
+    return noLiveClaim();
   }
   const cutoff = computeClaimCutoff(claimTtlMinutes, now);
   if (claimedAt.getTime() < cutoff.getTime()) {
-    return "PENDING";
+    return noLiveClaim();
   }
 
   const startedAt = facts.extractionStartedAt;

@@ -955,6 +955,10 @@ export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
   content?: Maybe<Scalars['String']['output']>;
+  /** The reason code of the last failed attempt (for example unavailable, blocked); null when none is on record. */
+  extractionFailureReason?: Maybe<Scalars['String']['output']>;
+  /** When the automatic retry of a failed attempt is due (ISO 8601); null when none is scheduled. */
+  extractionNextAttemptAt?: Maybe<Scalars['String']['output']>;
   extractionStatus: PostExtractionStatus;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
@@ -972,10 +976,13 @@ export type PostConnection = {
 };
 
 /**
- * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
- * can be selected for extraction.
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
+ * ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
+ * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
+ * or cannot help.
  */
 export type PostExtractionStatus =
+  | 'ATTEMPT_FAILED'
   | 'EXTRACTING'
   | 'NOT_EVENT'
   | 'PENDING'
@@ -2438,6 +2445,8 @@ export type PayloadContextResolvers<ContextType = GraphQLContext, ParentType ext
 export type PostResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Post'] = ResolversParentTypes['Post']> = ResolversObject<{
   accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   content?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  extractionFailureReason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  extractionNextAttemptAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   extractionStatus?: Resolver<ResolversTypes['PostExtractionStatus'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
