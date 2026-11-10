@@ -4,6 +4,7 @@ import {
   decideNextStep,
   isAtRisk,
   newEventsByKey,
+  type PostGroupingReason,
 } from '@festgrid/domain/posts';
 import { EventCategory } from '@festgrid/shared-types';
 import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
@@ -105,6 +106,81 @@ type FaceBlurThumbnailOutcome =
 
 function logFaceBlurThumbnailOutcome(postId: string, outcome: FaceBlurThumbnailOutcome): void {
   console.info(`[processAiJob] face-blur-thumbnail outcome=${outcome} post=${postId}`);
+}
+
+interface FirstRequestChainInput {
+  message: ProcessingJobMessage;
+  /** The first request's label, or null when it has none worth keeping (a post with nothing found: the label is neutral). */
+  groupingReason: PostGroupingReason | null;
+  claimedItemCount: number | null;
+  atRisk: Parameters<typeof isAtRisk>[0];
+  unreadImageUrls: string[];
+  firstWindowImageCount: number;
+  /** Dedupe keys and number of the events the first request produced (after the per-call cap), and the next free ordinal. */
+  eventKeys: string[];
+  eventsFound: number;
+  nextOrdinal: number;
+}
+
+type FirstRequestChainResult = { started: true } | { started: false; partial: boolean };
+
+/**
+ * AD-46: after the first request of a post that left slides unread, decide in code (never from the model's plan) whether to
+ * continue in steps, and start the chain if so: a persisted cursor and a step message. A post with nothing found is not
+ * finished either (a text-free cover is not a stop signal): its first window counts as one empty step.
+ */
+async function decideAndStartChain(input: FirstRequestChainInput): Promise<FirstRequestChainResult> {
+  const { message, unreadImageUrls, firstWindowImageCount } = input;
+  const itemsPerSlide = input.eventsFound > 0 && firstWindowImageCount > 0 ? input.eventsFound / firstWindowImageCount : null;
+  const decision = decideNextStep({
+    killSwitchOn: true,
+    groupingReason: input.groupingReason,
+    unreadSlides: unreadImageUrls.length,
+    imagesRead: firstWindowImageCount,
+    eventsFound: input.eventsFound,
+    lastStepNewEvents: input.eventsFound,
+    emptySteps: input.eventsFound === 0 ? 1 : 0,
+    followUpMade: false,
+    requestsMade: 0,
+    unreadAtStart: unreadImageUrls.length,
+    itemsPerSlide,
+    leafTruncated: isAtRisk(input.atRisk),
+  });
+  console.info(
+    `[extraction-step] post=${message.postId} first-request unread=${unreadImageUrls.length} eventsFound=${input.eventsFound} ` +
+      `decision=${decision.action}:${decision.reason}${decision.action === 'stop' ? ` partial=${decision.partial}` : ''}`
+  );
+  if (decision.action === 'stop') {
+    return { started: false, partial: decision.partial };
+  }
+  const cursor = buildFirstCursor({
+    postId: message.postId,
+    totalImages: firstWindowImageCount + unreadImageUrls.length,
+    firstWindowImageCount,
+    unreadImageUrls,
+    eventKeys: input.eventKeys,
+    nextOrdinal: input.nextOrdinal,
+    groupingReason: input.groupingReason,
+    windowSize: decision.windowSize,
+    itemsPerSlide,
+    claimedItemCount: input.claimedItemCount,
+  });
+  const chainCursor = decision.action === 'follow_up' ? { ...cursor, followUpMade: true } : cursor;
+  if (await startExtractionCursor(message.postId, chainCursor)) {
+    await enqueueStepMessage(buildStepMessage(message, chainCursor));
+    return { started: true };
+  }
+  // The chain could not start: either a redelivery of this very job (the cursor is already there, only the step message may be
+  // missing) or the post is already extracted. Re-enqueue the stored cursor, never finish the post as a single request with
+  // slides unread.
+  const existing = await readExtractionCursor(message.postId);
+  if (existing !== null) {
+    console.warn(`[extraction-step] post=${message.postId} already has a chain; re-enqueueing its step instead of starting another`);
+    await enqueueStepMessage(buildStepMessage(message, existing));
+    return { started: true };
+  }
+  console.warn(`[extraction-step] post=${message.postId} could not start a chain (the post is already extracted); finishing as a single request`);
+  return { started: false, partial: false };
 }
 
 export async function processAiJob(message: ProcessingJobMessage, deps?: ProcessAiJobDeps): Promise<void> {
@@ -269,8 +345,31 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     console.info(`[post-plan] post=${message.postId} groupingReason=${payload.groupingReason ?? 'none'} ${planParts.join(' ')}`);
   }
 
-  // 5. If not an event, mark extracted and return
+  // 5. If not an event, mark extracted and return -- unless slides were left unread and stepped extraction is on: a text-free
+  // first window is not a stop signal (continue-rules.md rows 5-6), so the chain may go on and look at the later slides.
+  let partialWhenNothingFound = false;
+  const nothingFoundInput = () => ({
+    message,
+    groupingReason: null,
+    claimedItemCount: payload.claimedItemCount ?? null,
+    atRisk: {
+      outputSignals: atRisk,
+      eventCount: 0,
+      minEventCount: payload.minEventCount ?? null,
+      skippedItemCount: payload.skippedItems?.length ?? 0,
+    },
+    unreadImageUrls,
+    firstWindowImageCount,
+    eventKeys: [] as string[],
+    eventsFound: 0,
+    nextOrdinal: 0,
+  });
   if (payload.isEvent === false) {
+    if (env.cursorExtractionEnabled && unreadImageUrls.length > 0) {
+      const chain = await decideAndStartChain(nothingFoundInput());
+      if (chain.started) return;
+      partialWhenNothingFound = chain.partial;
+    }
     // Story 3.6p (AD-29) -- write the audit-log row for this attempt before this path's own
     // terminal action (markPostExtractedSeam below). Defensive try/catch: a failure to write
     // this purely-observational row must never fail the extraction attempt itself.
@@ -296,14 +395,22 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     if (isCuratorGuide) {
       await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
     }
+    if (partialWhenNothingFound) {
+      await db.update(posts).set({ extractionPartial: true }).where(eq(posts.id, message.postId));
+    }
     await markPostExtractedSeam(message.postId);
     return;
   }
 
   // 5.5. Defensive edge case (Task 7.1): the model reported isEvent: true but returned zero
   // events. Not expected in practice, but treated identically to isEvent === false since there
-  // is nothing to extract.
+  // is nothing to extract (and, like it, it continues in steps when slides were left unread).
   if (payload.events.length === 0) {
+    if (env.cursorExtractionEnabled && unreadImageUrls.length > 0) {
+      const chain = await decideAndStartChain(nothingFoundInput());
+      if (chain.started) return;
+      partialWhenNothingFound = chain.partial;
+    }
     console.warn(
       `[processAiJob] Gemini reported isEvent: true with zero events for post ${message.postId}; treating as a no-event post.`
     );
@@ -327,6 +434,9 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     }
     if (isCuratorGuide) {
       await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
+    }
+    if (partialWhenNothingFound) {
+      await db.update(posts).set({ extractionPartial: true }).where(eq(posts.id, message.postId));
     }
     await markPostExtractedSeam(message.postId);
     return;
@@ -735,64 +845,24 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // and a step message; the post stays unextracted (and a curator's caption stays readable) until the chain ends.
   let partialAfterFirstRequest = false;
   if (env.cursorExtractionEnabled && unreadImageUrls.length > 0) {
-    const firstRequestAtRisk = isAtRisk({
-      outputSignals: atRisk,
-      eventCount: payload.events.length,
-      minEventCount: payload.minEventCount ?? null,
-      skippedItemCount: payload.skippedItems?.length ?? 0,
-    });
-    const eventKeys = newEventsByKey([], events).keys;
-    const imagesRead = firstWindowImageCount;
-    const itemsPerSlide = orderedEventMessages.length > 0 && imagesRead > 0 ? orderedEventMessages.length / imagesRead : null;
-    const decision = decideNextStep({
-      killSwitchOn: true,
+    const chain = await decideAndStartChain({
+      message,
       groupingReason: payload.groupingReason ?? null,
-      unreadSlides: unreadImageUrls.length,
-      imagesRead,
+      claimedItemCount: payload.claimedItemCount ?? null,
+      atRisk: {
+        outputSignals: atRisk,
+        eventCount: payload.events.length,
+        minEventCount: payload.minEventCount ?? null,
+        skippedItemCount: payload.skippedItems?.length ?? 0,
+      },
+      unreadImageUrls,
+      firstWindowImageCount,
+      eventKeys: newEventsByKey([], events).keys,
       eventsFound: orderedEventMessages.length,
-      lastStepNewEvents: orderedEventMessages.length,
-      emptySteps: orderedEventMessages.length === 0 ? 1 : 0,
-      followUpMade: false,
-      requestsMade: 0,
-      unreadAtStart: unreadImageUrls.length,
-      itemsPerSlide,
-      leafTruncated: firstRequestAtRisk,
+      nextOrdinal: orderedEventMessages.length,
     });
-    console.info(
-      `[extraction-step] post=${message.postId} first-request unread=${unreadImageUrls.length} eventsFound=${orderedEventMessages.length} ` +
-        `decision=${decision.action}:${decision.reason}${decision.action === 'stop' ? ` partial=${decision.partial}` : ''}`
-    );
-    if (decision.action === 'stop') {
-      partialAfterFirstRequest = decision.partial;
-    } else {
-      const cursor = buildFirstCursor({
-        postId: message.postId,
-        totalImages: firstWindowImageCount + unreadImageUrls.length,
-        firstWindowImageCount,
-        unreadImageUrls,
-        eventKeys,
-        nextOrdinal: orderedEventMessages.length,
-        groupingReason: payload.groupingReason ?? null,
-        windowSize: decision.windowSize,
-        itemsPerSlide,
-        claimedItemCount: payload.claimedItemCount ?? null,
-      });
-      const chainCursor = decision.action === 'follow_up' ? { ...cursor, followUpMade: true } : cursor;
-      if (await startExtractionCursor(message.postId, chainCursor)) {
-        await enqueueStepMessage(buildStepMessage(message, chainCursor));
-        return;
-      }
-      // The chain could not start: either a redelivery of this very job (the cursor is already there, only the step
-      // message may be missing) or the post is already extracted. Re-enqueue the stored cursor, never finish the post
-      // as a single request with slides unread.
-      const existing = await readExtractionCursor(message.postId);
-      if (existing !== null) {
-        console.warn(`[extraction-step] post=${message.postId} already has a chain; re-enqueueing its step instead of starting another`);
-        await enqueueStepMessage(buildStepMessage(message, existing));
-        return;
-      }
-      console.warn(`[extraction-step] post=${message.postId} could not start a chain (the post is already extracted); finishing as a single request`);
-    }
+    if (chain.started) return;
+    partialAfterFirstRequest = chain.partial;
   }
 
   // 9. Mark post extracted only after every event's message was successfully enqueued (AC7) --
