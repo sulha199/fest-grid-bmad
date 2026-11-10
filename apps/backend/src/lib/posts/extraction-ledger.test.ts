@@ -110,6 +110,37 @@ test('extraction ledger (AD-52 Rule 4)', async (t) => {
     );
   });
 
+  await t.test('every claim arms a watchdog past the claim TTL; a failed send takes it back unless a failure is on record', async (st) => {
+    st.mock.method(console, 'info', () => {});
+    st.mock.method(console, 'error', () => {});
+    process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/12345/AIProcessingQueue';
+    setSendSqsMessage(async () => {});
+    const claimed = await makePost('watchdog');
+    const before = Date.now();
+    await enqueuePostForProcessing(claimed.id);
+    const armed = (await read(claimed.id)).extractionNextAttemptAt;
+    assert.ok(armed && armed.getTime() > before + 30 * 60_000, 'past the 30 minute claim TTL');
+
+    setSendSqsMessage(async () => {
+      throw new Error('SQS is down');
+    });
+    const clean = await makePost('watchdog-send-fails');
+    await assert.rejects(() => enqueuePostForProcessing(clean.id));
+    const cleanRow = await read(clean.id);
+    assert.deepStrictEqual([cleanRow.queuedForExtractionAt, cleanRow.extractionNextAttemptAt], [null, null], 'no job will run, so no watchdog');
+
+    const failedBefore = await makePost('watchdog-ledger', {
+      extractionAttempts: 1,
+      extractionFailureReason: 'unavailable',
+      extractionFirstFailureAt: new Date(),
+      extractionNextAttemptAt: new Date(Date.now() - 60_000),
+    });
+    await assert.rejects(() => enqueuePostForProcessing(failedBefore.id));
+    const ledgerRow = await read(failedBefore.id);
+    assert.strictEqual(ledgerRow.queuedForExtractionAt, null);
+    assert.ok(ledgerRow.extractionNextAttemptAt, 'its retry stays scheduled');
+  });
+
   await t.test('a moderator selection resets the attempts; the automatic enqueue keeps them', async (st) => {
     st.mock.method(console, 'info', () => {});
     setSendSqsMessage(async () => {});
@@ -122,10 +153,8 @@ test('extraction ledger (AD-52 Rule 4)', async (t) => {
     const reset = await makePost('reset', { extractionAttempts: 3, extractionFailureReason: 'unavailable', extractionFirstFailureAt: new Date() });
     await enqueuePostForProcessing(reset.id, { resetLedger: true });
     const row = await read(reset.id);
-    assert.deepStrictEqual(
-      [row.extractionAttempts, row.extractionFailureReason, row.extractionNextAttemptAt, row.extractionFirstFailureAt],
-      [0, null, null, null]
-    );
+    assert.deepStrictEqual([row.extractionAttempts, row.extractionFailureReason, row.extractionFirstFailureAt], [0, null, null]);
+    assert.ok(row.extractionNextAttemptAt, 'the claim arms a fresh watchdog, not the old retry time');
     assert.ok(row.queuedForExtractionAt, 'and the claim is taken');
   });
 });

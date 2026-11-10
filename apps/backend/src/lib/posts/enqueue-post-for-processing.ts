@@ -1,6 +1,6 @@
 import { db } from "../../db/client.js";
 import { posts } from "@festgrid/database";
-import { and, eq, isNull, lt, or } from "drizzle-orm";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { loadBackendEnv } from "../../env.js";
 import { CLEAN_EXTRACTION_LEDGER } from "./extraction-ledger.js";
 import { sendSqsMessage } from "../aws/send-sqs-message.js";
@@ -19,6 +19,9 @@ import {
  * auto-enqueue). See the story's Dev Notes "Design note: why the claim needs a TTL, not just a
  * boolean" for why a non-expiring claim would be strictly worse than the gap it replaces.
  */
+/** The watchdog fires this long after the claim could have expired (one resume tick). */
+const CLAIM_WATCHDOG_GRACE_MS = 5 * 60 * 1000;
+
 export async function enqueuePostForProcessing(
   postId: string,
   options: { resetLedger?: boolean } = {}
@@ -34,7 +37,14 @@ export async function enqueuePostForProcessing(
     .update(posts)
     // AD-52 Rule 6: a moderator's manual selection starts the attempts over (`resetLedger`); the automatic
     // resume pass keeps them, so its retries stay bounded.
-    .set({ queuedForExtractionAt: now, ...(options.resetLedger ? CLEAN_EXTRACTION_LEDGER : {}) })
+    // Every claim also arms a watchdog (`extraction_next_attempt_at` past the claim TTL): a first attempt that dies without
+    // recording anything (a Lambda timeout, a crash) is then found by the resume pass, counted as a failed attempt and retried
+    // like any other. A job that finishes or records its own failure overwrites it.
+    .set({
+      ...(options.resetLedger ? CLEAN_EXTRACTION_LEDGER : {}),
+      queuedForExtractionAt: now,
+      extractionNextAttemptAt: new Date(now.getTime() + env.postExtractionClaimTtlMinutes * 60 * 1000 + CLAIM_WATCHDOG_GRACE_MS),
+    })
     .where(
       and(
         eq(posts.id, postId),
@@ -116,7 +126,14 @@ export async function enqueuePostForProcessing(
     // processAiJob's own later Gemini-call/validation logic) deliberately does NOT go
     // through this catch -- that class of failure legitimately holds the claim until the
     // TTL expires or markPostExtracted flips isExtracted (see Dev Notes).
-    await db.update(posts).set({ queuedForExtractionAt: null }).where(eq(posts.id, postId));
+    // The watchdog goes with the claim unless the post already carries a recorded failure (then its retry stays scheduled).
+    await db
+      .update(posts)
+      .set({
+        queuedForExtractionAt: null,
+        extractionNextAttemptAt: sql`case when ${posts.extractionFailureReason} is null then null else ${posts.extractionNextAttemptAt} end`,
+      })
+      .where(eq(posts.id, postId));
     throw err;
   }
 }
