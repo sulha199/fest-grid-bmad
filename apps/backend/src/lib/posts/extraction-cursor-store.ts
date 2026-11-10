@@ -41,7 +41,7 @@ export async function readExtractionCursor(postId: string): Promise<ExtractionCu
 export async function startExtractionCursor(postId: string, cursor: ExtractionCursor): Promise<boolean> {
   const updated = await db
     .update(posts)
-    .set({ extractionCursor: jsonb(cursor), extractionPartial: false })
+    .set({ extractionCursor: jsonb(cursor), extractionPartial: false, queuedForExtractionAt: new Date() })
     .where(and(eq(posts.id, postId), eq(posts.isExtracted, false), isNull(posts.extractionCursor)))
     .returning({ id: posts.id });
   return updated.length > 0;
@@ -58,7 +58,8 @@ export async function advanceExtractionCursor(postId: string, expected: CursorLe
   }
   const updated = await db
     .update(posts)
-    .set({ extractionCursor: jsonb(next) })
+    // Every commit refreshes the claim time: it is what the resume pass reads to tell a stalled chain from a live one.
+    .set({ extractionCursor: jsonb(next), queuedForExtractionAt: new Date() })
     .where(and(eq(posts.id, postId), eq(posts.isExtracted, false), leaseMatches(expected)))
     .returning({ id: posts.id });
   return updated.length > 0;
