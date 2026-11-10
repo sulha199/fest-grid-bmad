@@ -125,6 +125,78 @@ test('adapter resolveLocation with countryBias folds bias into cache key', async
   }
 });
 
+const wrongCityResult = (placeId: string, lat: number, lon: number, confidence: number) => ({
+  lat,
+  lon,
+  formatted: placeId,
+  place_id: placeId,
+  timezone: { name: 'Asia/Jakarta' },
+  rank: { confidence, match_type: 'full_match' },
+  country_code: 'id',
+});
+
+test('adapter resolveLocation with a proximity point drops far low-confidence candidates and keeps the local one', async () => {
+  await db.delete(geolocationCache);
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      results: [
+        wrongCityResult('palu', -0.9, 119.87, 0),
+        wrongCityResult('pasar-potrojayan', -7.8, 110.5, 0),
+        wrongCityResult('new-york', 40.85, -73.86, 0),
+      ],
+    }),
+  }));
+  try {
+    const result = await resolveLocation({
+      kind: 'ADDRESS',
+      address: 'Pasar Porosjayan',
+      countryBias: 'id',
+      proximity: { latitude: -7.72, longitude: 110.35 },
+    });
+    assert.equal(result.placeId, 'pasar-potrojayan', 'the first-ranked far guess (Palu) no longer wins');
+    assert.equal(new URL(fetchMock.mock.calls[0].arguments[0] as string).searchParams.get('bias'), 'countrycode:id|proximity:110.35,-7.72');
+    const rows = await db.select().from(geolocationCache);
+    assert.equal(rows[0].cacheKey, 'geocode:pasar porosjayan|bias:id|near:-7.7,110.3');
+  } finally {
+    fetchMock.mock.restore();
+    await db.delete(geolocationCache);
+  }
+});
+
+test('adapter resolveLocation with a proximity point and only far low-confidence candidates is not found, and caches nothing', async () => {
+  await db.delete(geolocationCache);
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({ results: [wrongCityResult('palu', -0.9, 119.87, 0), wrongCityResult('new-york', 40.85, -73.86, 0)] }),
+  }));
+  try {
+    await assert.rejects(
+      () => resolveLocation({ kind: 'ADDRESS', address: 'Pasar Porosjayan', proximity: { latitude: -7.72, longitude: 110.35 } }),
+      /far from the account/
+    );
+    assert.equal((await db.select().from(geolocationCache)).length, 0);
+  } finally {
+    fetchMock.mock.restore();
+    await db.delete(geolocationCache);
+  }
+});
+
+test('adapter resolveLocation without a proximity point is unchanged: nothing is filtered', async () => {
+  await db.delete(geolocationCache);
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({ results: [wrongCityResult('palu', -0.9, 119.87, 0)] }),
+  }));
+  try {
+    const result = await resolveLocation({ kind: 'ADDRESS', address: 'Pasar Porosjayan' });
+    assert.equal(result.placeId, 'palu');
+  } finally {
+    fetchMock.mock.restore();
+    await db.delete(geolocationCache);
+  }
+});
+
 // Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 2 (re-ranking beats position).
 // End-to-end proof that `resolveLocation`'s ADDRESS branch actually calls
 // `selectBestCandidate` on real mock candidates (not just that the pure function exists).

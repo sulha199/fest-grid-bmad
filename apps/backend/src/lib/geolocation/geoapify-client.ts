@@ -52,12 +52,21 @@ function getApiKey(): string {
 
 export async function geocodeAddress(
   address: string,
-  options?: { countryBias?: string }
+  options?: { countryBias?: string; proximity?: Coordinates }
 ): Promise<LocationDetails[]> {
   const apiKey = getApiKey();
   let url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}&format=json&limit=5&apiKey=${apiKey}`;
+  // Geoapify's `bias` takes several soft preferences joined by `|`: the account's country, and its own location (`proximity`
+  // is `lon,lat`), so "Pasar Porosjayan" is read as the market near Sleman, not a same-named one in another province.
+  const bias: string[] = [];
   if (options?.countryBias) {
-    url += `&bias=countrycode:${options.countryBias}`;
+    bias.push(`countrycode:${options.countryBias}`);
+  }
+  if (options?.proximity) {
+    bias.push(`proximity:${options.proximity.longitude},${options.proximity.latitude}`);
+  }
+  if (bias.length > 0) {
+    url += `&bias=${encodeURIComponent(bias.join('|'))}`;
   }
   
   const response = await fetch(url);

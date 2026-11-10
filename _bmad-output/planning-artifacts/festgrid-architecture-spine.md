@@ -412,6 +412,22 @@ This document defines the core architectural invariants for the FestDaily applic
         - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (countryBias
           cache-key folding) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s countryBias
           integration case.
+    4.  **The account's own location is a proximity bias, and a far low-confidence guess is no match
+        (added 2026-11-10).** The schedule-location path also passes the account's
+        `defaultLocation.coordinates` as `bias=countrycode:xx|proximity:lon,lat` (a soft preference, so an
+        event in another city still resolves), and the ADDRESS cache key folds the point in, rounded to
+        0.1 degree. With a proximity point, `filterPlausibleCandidates` drops a candidate farther than
+        300 km from it unless its confidence is at least 0.9 (a generic name scores 0.5 for a wrong country); when none is left the call is "not found",
+        so the event keeps its address text and takes the account's timezone instead of being pinned on
+        another continent. Without a point nothing is filtered, as before. Confidence alone is not an
+        absolute gate: on prod 939 `full_match` results score under 0.1, wrong ones (a Yogyakarta hall in
+        New York) and correct ones (Lippo Plaza Jogja) alike. Existing stored locations are not
+        re-resolved by this rule.
+        - **Enforced by:** `packages/domain/src/geolocation/select-best-candidate.test.ts` (the
+          plausibility filter) + `build-cache-key.test.ts` (the `near` segment) +
+          `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the bias parameter) +
+          `adapter.test.ts` (far candidates dropped, local one kept, none left is not found, nothing
+          filtered without a point) + `resolve-account-and-locations.test.ts` (the point is sent).
 
 ---
 ### AD-15: Event Card Media Primitive

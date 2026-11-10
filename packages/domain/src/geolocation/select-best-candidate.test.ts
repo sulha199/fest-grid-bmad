@@ -4,7 +4,7 @@
 // `resolveLocation` ever reverts to `candidates[0]`.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectBestCandidate } from './select-best-candidate.js';
+import { HIGH_CONFIDENCE_ANYWHERE, PLAUSIBLE_RADIUS_KM, filterPlausibleCandidates, selectBestCandidate } from './select-best-candidate.js';
 import { LocationDetails } from '@festgrid/shared-types';
 
 function candidate(overrides: Partial<LocationDetails> = {}, index: number = 0): LocationDetails {
@@ -77,4 +77,42 @@ test('selectBestCandidate: equal confidence and equal recognized matchType — f
 
 test('selectBestCandidate throws on an empty array', () => {
   assert.throws(() => selectBestCandidate([]), /must not be empty/);
+});
+
+// Proximity plausibility (geocoding fix): a far, low-confidence guess is dropped when the account's own location is known.
+const SLEMAN = { latitude: -7.72, longitude: 110.35 };
+const place = (placeId: string, latitude: number, longitude: number, confidence?: number): LocationDetails => ({
+  coordinates: { latitude, longitude },
+  formattedAddress: placeId,
+  placeId,
+  provider: 'GEOAPIFY',
+  ...(confidence !== undefined ? { confidence } : {}),
+});
+const palu = place('palu', -0.9, 119.87, 0);
+const newYork = place('new-york', 40.85, -73.86, 0);
+const nearby = place('piyungan', -7.8, 110.5, 0);
+
+test('filterPlausibleCandidates keeps everything when the account has no known location', () => {
+  assert.deepEqual(filterPlausibleCandidates([palu, nearby], undefined), [palu, nearby]);
+});
+
+test('filterPlausibleCandidates drops far low-confidence candidates and keeps near ones, in order', () => {
+  assert.deepEqual(filterPlausibleCandidates([palu, nearby, newYork], SLEMAN).map((c) => c.placeId), ['piyungan']);
+});
+
+test('filterPlausibleCandidates keeps a far candidate the geocoder is confident about (an event genuinely elsewhere)', () => {
+  const sure = place('singapore', 1.29, 103.85, HIGH_CONFIDENCE_ANYWHERE);
+  const almost = place('almost', 1.29, 103.85, HIGH_CONFIDENCE_ANYWHERE - 0.01);
+  assert.deepEqual(filterPlausibleCandidates([sure, almost], SLEMAN).map((c) => c.placeId), ['singapore']);
+});
+
+test('filterPlausibleCandidates uses the radius as the boundary and treats a missing confidence as none', () => {
+  // About 111 km per degree of latitude: just inside and just outside the radius.
+  const inside = place('inside', SLEMAN.latitude + (PLAUSIBLE_RADIUS_KM - 5) / 111, SLEMAN.longitude);
+  const outside = place('outside', SLEMAN.latitude + (PLAUSIBLE_RADIUS_KM + 5) / 111, SLEMAN.longitude);
+  assert.deepEqual(filterPlausibleCandidates([inside, outside], SLEMAN).map((c) => c.placeId), ['inside']);
+});
+
+test('filterPlausibleCandidates can empty the list: every candidate is a far guess', () => {
+  assert.deepEqual(filterPlausibleCandidates([palu, newYork], SLEMAN), []);
 });
