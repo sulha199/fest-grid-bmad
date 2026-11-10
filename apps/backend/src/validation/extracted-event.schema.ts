@@ -1,7 +1,7 @@
 import { JSONSchemaType } from 'ajv';
 import { EventType, EventCategory } from '@festgrid/shared-types';
 import { GeminiExtractionPayload, GeminiEventPayload, GeminiSchedulePayload, DayOfWeek } from '@festgrid/domain';
-import { POST_GROUPING_REASONS } from '@festgrid/domain/posts';
+import { POST_GROUPING_REASONS, POST_PLAN_SLIDE_ROLES } from '@festgrid/domain/posts';
 
 export const geminiScheduleSchema: JSONSchemaType<GeminiSchedulePayload> = {
   type: 'object',
@@ -113,7 +113,14 @@ export const extractedEventSchema: JSONSchemaType<GeminiExtractionPayload> = {
     // request.ts) would fail AJV validation and be silently dropped unless this mirrors that
     // schema's addition in the same change. Nullable/not required — logging-only in this story.
     hasFaceImage: { type: 'boolean', nullable: true },
-    faceImageCount: { type: 'number', nullable: true }
+    faceImageCount: { type: 'number', nullable: true },
+    // AD-46 Rule 2: the advisory post plan. Load-bearing like the two above: additionalProperties is false, so a
+    // response carrying these fields would be dropped unless this mirrors the model-facing schema.
+    claimedItemCount: { type: 'number', nullable: true },
+    slideRoles: { type: 'array', items: { type: 'string', enum: [...POST_PLAN_SLIDE_ROLES] }, nullable: true },
+    itemsPerListSlide: { type: 'number', nullable: true },
+    dateRangeCovered: { type: 'string', nullable: true },
+    moreItemsLikely: { type: 'boolean', nullable: true }
   },
   required: ['isEvent', 'events'],
   additionalProperties: false

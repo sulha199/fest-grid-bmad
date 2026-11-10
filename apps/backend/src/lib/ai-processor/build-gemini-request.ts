@@ -1,5 +1,11 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { type ProcessingJobMessage, POST_GROUPING_REASONS, type AiImageInput, dedupeImageUrlsByFileName } from '@festgrid/domain/posts';
+import {
+  type ProcessingJobMessage,
+  POST_GROUPING_REASONS,
+  POST_PLAN_SLIDE_ROLES,
+  type AiImageInput,
+  dedupeImageUrlsByFileName,
+} from '@festgrid/domain/posts';
 import { DayOfWeek } from '@festgrid/domain/events';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
 import { renderEventCategoryGlossary } from '../ai-gateway/render-event-category-glossary.js';
@@ -139,7 +145,17 @@ export function buildGeminiExtractionResponseSchema() {
       // Advisory/best-effort count of distinct people visible across the provided image(s) — not
       // required to be exact, especially in dense/crowd scenes. Logging-only, same scope as
       // hasFaceImage above.
-      faceImageCount: { type: 'NUMBER' }
+      faceImageCount: { type: 'NUMBER' },
+      // AD-46 Rule 2 (cursor extraction, slice 4) -- an advisory post plan for multi-slide posts, flat at the root and
+      // all optional (never in `required`): the item count the post claims, the role of each provided image in order,
+      // the typical items per list slide, the date span covered and whether more items likely continue on slides not
+      // provided. Only informs the continue decision and the "known partial" note; nothing is persisted from it.
+      // Flat primitives on purpose: growing the item schema once made Gemini reject the whole request with a 400.
+      claimedItemCount: { type: 'NUMBER' },
+      slideRoles: { type: 'ARRAY', items: { type: 'STRING', enum: [...POST_PLAN_SLIDE_ROLES] } },
+      itemsPerListSlide: { type: 'NUMBER' },
+      dateRangeCovered: { type: 'STRING' },
+      moreItemsLikely: { type: 'BOOLEAN' }
     },
     // groupingReason is required here (model-facing schema only) since 2026-10-25: the live
     // CC-024 regression saw the model omit it in 2 of 12 runs (counts were right), and the
@@ -224,6 +240,7 @@ export async function buildGeminiExtractionRequest(
   const publishDate = message.publishedAt.substring(0, 10);
 
   const allowedGroupingReasons = POST_GROUPING_REASONS.join(', ');
+  const allowedSlideRoles = POST_PLAN_SLIDE_ROLES.join(', ');
   const allowedDaysOfWeek = Object.values(DayOfWeek).join(', ');
   const maxEvents = env.maxExtractedEventsPerPost;
 
@@ -265,6 +282,7 @@ Also report, once for the whole post (not per event):
 - groupingRationale: one sentence explaining your grouping decision, for debugging only.
 - minEventCount: your own best-effort count of distinct events you believe the content describes overall (mirrors minScheduleCount's self-report pattern, advisory only).
 - hasFaceImage: based on the same image(s) already provided above (the single image or, for a multi-slide carousel, across all provided slides), whether any provided image contains a visible person/people (e.g. a performer, a crowd, or any human figure) as opposed to a text-only flyer/graphic-design poster with no people. Set faceImageCount to your best-effort approximate count of distinct people visible across the provided image(s) -- advisory only, not required to be exact, especially in dense/crowd scenes.
+- Post plan (advisory, for a post with several images; omit any field you cannot judge): claimedItemCount is the total number of items the post claims to list when its text states one (for example "203 events in 2027" gives 203). slideRoles has one value per provided image, in order, from ${allowedSlideRoles} (intro: a title or cover; list: shows items; outro: closing text or credits; ad: a promotion; other: anything else). itemsPerListSlide is the typical number of items on a list slide. dateRangeCovered is the date span the items cover as "YYYY-MM-DD..YYYY-MM-DD". moreItemsLikely is true when the provided slides suggest that more items continue on slides you were not given.
 
 The social media post was published on ${publishDate}. Use this publish date as an explicit anchor for date and year inference, for every event:
 - When a schedule's date text (in the caption or image) does not state an explicit year, infer the year using this publish date as the anchor, assuming the event is happening at or after the publish date. Prefer the current or next real-world occurrence over defaulting to any other year, and never infer a year that would place the event further in the past than the publish date itself unless the source text explicitly states a past year.
