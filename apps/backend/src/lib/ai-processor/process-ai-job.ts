@@ -1,4 +1,10 @@
-import { type ProcessingJobMessage } from '@festgrid/domain/posts';
+import {
+  type ProcessingJobMessage,
+  PER_CALL_EVENT_CAP,
+  decideNextStep,
+  isAtRisk,
+  newEventsByKey,
+} from '@festgrid/domain/posts';
 import { EventCategory } from '@festgrid/shared-types';
 import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
@@ -6,6 +12,9 @@ import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
 import { classifyGeminiOutput } from '../ai-gateway/gemini-output-signals.js';
 import { classifyGeminiUnusableResponse } from '../ai-gateway/gemini-situation.js';
 import { classifyAiJobError } from './classify-ai-job-error.js';
+import { processExtractionStep } from './process-extraction-step.js';
+import { buildFirstCursor, buildStepMessage, enqueueStepMessage } from './extraction-chain.js';
+import { readExtractionCursor, startExtractionCursor } from '../posts/extraction-cursor-store.js';
 import { recordExtractionFailure } from '../posts/extraction-ledger.js';
 import { decideRetry, formatRetryDecisionLog } from '@festgrid/domain/retry';
 import { compileValidator } from '../../validation/validate.js';
@@ -101,6 +110,15 @@ function logFaceBlurThumbnailOutcome(postId: string, outcome: FaceBlurThumbnailO
 export async function processAiJob(message: ProcessingJobMessage, deps?: ProcessAiJobDeps): Promise<void> {
   const env = loadBackendEnv();
 
+  // AD-47: a step message of a stepped extraction carries the cursor; it reads its slides from there and runs on its own.
+  if (message.cursor) {
+    await processExtractionStep(message, {
+      callGemini: callGeminiSeam,
+      getRemainingTimeInMillis: deps?.getRemainingTimeInMillis,
+    });
+    return;
+  }
+
   // PRD 3.10 (2026-10-16): mark the post EXTRACTING. Purely observational (the manual extract
   // screen reads it), so a failure here must never fail the extraction itself.
   try {
@@ -133,7 +151,16 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   const isPublisherOptedIn = env.blurFacesBeforeAi ? await resolvePostPublisherOptIn(message.postId) : false;
 
   // 2. Build Gemini extraction request
-  const { request, imageBytes, imageContentType, blurredCoverImageBytes, aiImageInput, totalFaceDetectionCount } = await buildGeminiExtractionRequest(
+  const {
+    request,
+    imageBytes,
+    imageContentType,
+    blurredCoverImageBytes,
+    aiImageInput,
+    totalFaceDetectionCount,
+    unreadImageUrls,
+    firstWindowImageCount,
+  } = await buildGeminiExtractionRequest(
     message,
     env.blurFacesBeforeAi
       ? {
@@ -308,13 +335,16 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // 5.6. Defensive truncation (Task 7.2/3.2/4.2): the AJV schema deliberately has no `maxItems`
   // on `events` (see extracted-event.schema.ts) -- the actual cap enforcement point is here,
   // keeping the first N entries and logging rather than discarding the whole payload.
+  // AD-46 Rule 5: with stepped extraction on, the per-call cap (about 25) replaces the per-post cap of 10 on every request,
+  // the first included; a first request that reaches it is at risk (its items may have been cut off).
+  const eventCap = env.cursorExtractionEnabled ? PER_CALL_EVENT_CAP : env.maxExtractedEventsPerPost;
   let events = payload.events;
-  if (events.length > env.maxExtractedEventsPerPost) {
+  if (events.length > eventCap) {
     console.warn(
       `[processAiJob] Post ${message.postId} returned ${events.length} events, ` +
-        `truncating to the configured cap of ${env.maxExtractedEventsPerPost}.`
+        `truncating to the configured cap of ${eventCap}.`
     );
-    events = events.slice(0, env.maxExtractedEventsPerPost);
+    events = events.slice(0, eventCap);
   }
 
   // 6-7. Per-event loop (Task 7.3/7.4, AC4): resolveAccountAndLocations/resolveScheduleTimezones
@@ -700,11 +730,81 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     }
   }
 
+  // 8.9. AD-46: with stepped extraction on, a post whose first window left slides unread may continue in steps. The
+  // decision is made in code from what this request found (the model's plan never decides). A chain starts with a cursor
+  // and a step message; the post stays unextracted (and a curator's caption stays readable) until the chain ends.
+  let partialAfterFirstRequest = false;
+  if (env.cursorExtractionEnabled && unreadImageUrls.length > 0) {
+    const firstRequestAtRisk = isAtRisk({
+      outputSignals: atRisk,
+      eventCount: payload.events.length,
+      minEventCount: payload.minEventCount ?? null,
+      skippedItemCount: payload.skippedItems?.length ?? 0,
+    });
+    const eventKeys = newEventsByKey([], events).keys;
+    const imagesRead = firstWindowImageCount;
+    const itemsPerSlide = orderedEventMessages.length > 0 && imagesRead > 0 ? orderedEventMessages.length / imagesRead : null;
+    const decision = decideNextStep({
+      killSwitchOn: true,
+      groupingReason: payload.groupingReason ?? null,
+      unreadSlides: unreadImageUrls.length,
+      imagesRead,
+      eventsFound: orderedEventMessages.length,
+      lastStepNewEvents: orderedEventMessages.length,
+      emptySteps: orderedEventMessages.length === 0 ? 1 : 0,
+      followUpMade: false,
+      requestsMade: 0,
+      unreadAtStart: unreadImageUrls.length,
+      itemsPerSlide,
+      leafTruncated: firstRequestAtRisk,
+    });
+    console.info(
+      `[extraction-step] post=${message.postId} first-request unread=${unreadImageUrls.length} eventsFound=${orderedEventMessages.length} ` +
+        `decision=${decision.action}:${decision.reason}${decision.action === 'stop' ? ` partial=${decision.partial}` : ''}`
+    );
+    if (decision.action === 'stop') {
+      partialAfterFirstRequest = decision.partial;
+    } else {
+      const cursor = buildFirstCursor({
+        postId: message.postId,
+        totalImages: firstWindowImageCount + unreadImageUrls.length,
+        firstWindowImageCount,
+        unreadImageUrls,
+        eventKeys,
+        nextOrdinal: orderedEventMessages.length,
+        groupingReason: payload.groupingReason ?? null,
+        windowSize: decision.windowSize,
+        itemsPerSlide,
+        claimedItemCount: payload.claimedItemCount ?? null,
+      });
+      const chainCursor = decision.action === 'follow_up' ? { ...cursor, followUpMade: true } : cursor;
+      if (await startExtractionCursor(message.postId, chainCursor)) {
+        await enqueueStepMessage(buildStepMessage(message, chainCursor));
+        return;
+      }
+      // The chain could not start: either a redelivery of this very job (the cursor is already there, only the step
+      // message may be missing) or the post is already extracted. Re-enqueue the stored cursor, never finish the post
+      // as a single request with slides unread.
+      const existing = await readExtractionCursor(message.postId);
+      if (existing !== null) {
+        console.warn(`[extraction-step] post=${message.postId} already has a chain; re-enqueueing its step instead of starting another`);
+        await enqueueStepMessage(buildStepMessage(message, existing));
+        return;
+      }
+      console.warn(`[extraction-step] post=${message.postId} could not start a chain (the post is already extracted); finishing as a single request`);
+    }
+  }
+
   // 9. Mark post extracted only after every event's message was successfully enqueued (AC7) --
   // a thrown enqueue failure above skips this entirely (and skips nulling a CURATOR_GUIDE
   // caption: Story 3.4o's nulling is meant to run only once extraction has actually completed).
   if (isCuratorGuide) {
     await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
+  }
+  if (partialAfterFirstRequest) {
+    // AD-50: slides were left unread (the chain was not allowed to go on); the post says so. Written before the post
+    // is marked extracted, so a crash between the two writes cannot leave a finished post that hides the loss.
+    await db.update(posts).set({ extractionPartial: true }).where(eq(posts.id, message.postId));
   }
   await markPostExtractedSeam(message.postId);
 }

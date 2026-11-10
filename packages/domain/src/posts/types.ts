@@ -1,3 +1,4 @@
+import type { ExtractionCursor } from './extraction-cursor.js';
 import type { GeminiEventPayload } from '../events/types.js';
 
 /**
@@ -206,6 +207,11 @@ export interface ProcessingJobMessage {
    * Gemini request.
    */
   additionalImageUrls?: string[];
+  /**
+   * AD-47 Rule 1: present only on a step message of a stepped extraction. The step reads its images from the cursor,
+   * and the caption from `posts.content` in memory (the message never carries it, AD-40), so `content` is empty here.
+   */
+  cursor?: ExtractionCursor;
 }
 
 export class PostNotFoundError extends Error {

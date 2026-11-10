@@ -65,7 +65,13 @@ export function eventDedupeKey(eventName: string, startDate: string | undefined)
   return `${name}|${startDate ?? ""}`;
 }
 
-function earliestStartDate(event: ExtractedEventMessage): string | undefined {
+/** The minimal shape the dedupe key needs: a model payload event and a built ingestion message both fit. */
+export interface KeyableEvent {
+  eventName: string;
+  schedules?: ReadonlyArray<{ eventStartDate: string }>;
+}
+
+function earliestStartDate(event: KeyableEvent): string | undefined {
   let earliest: string | undefined;
   for (const schedule of event.schedules ?? []) {
     if (earliest === undefined || schedule.eventStartDate < earliest) {
@@ -76,7 +82,7 @@ function earliestStartDate(event: ExtractedEventMessage): string | undefined {
 }
 
 /** The events a step found that are not already known by key; keys are returned in the order found. */
-export function newEventsByKey<T extends ExtractedEventMessage>(
+export function newEventsByKey<T extends KeyableEvent>(
   knownKeys: readonly string[],
   events: readonly T[]
 ): { fresh: T[]; keys: string[] } {

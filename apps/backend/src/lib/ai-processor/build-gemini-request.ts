@@ -199,6 +199,10 @@ export interface BuildGeminiExtractionRequestResult {
   // silently reading fewer images than the post has.
   imagesAvailable: number;
   imagesSent: number;
+  // AD-46: the slides this request did not read (those beyond the carousel cap, in slide order), and how many images
+  // (cover included) the first window covers. A stepped extraction continues from them (AD-47).
+  unreadImageUrls: string[];
+  firstWindowImageCount: number;
 }
 
 export interface BuildGeminiExtractionRequestOptions {
@@ -302,6 +306,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   // caller's MAX_REEXTRACT_CAROUSEL_IMAGES slots, and is never double-counted in imagesAvailable.
   const dedupedImageUrls = dedupeImageUrlsByFileName([message.imageUrl, ...(message.additionalImageUrls ?? [])]);
   const dedupedAdditionalImageUrls = message.imageUrl ? dedupedImageUrls.slice(1) : dedupedImageUrls;
+
+  const unreadImageUrls = dedupedAdditionalImageUrls.slice(options?.maxCarouselImages ?? env.maxCarouselImages);
 
   let contents: any = captionWithAccountContext;
   let imageBytes: Buffer | undefined;
@@ -520,6 +526,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     totalFaceDetectionCount,
     // BUG-101 -- counts the de-duplicated list (cover + distinct slides), never a repeated cover twice.
     imagesAvailable: (message.imageUrl ? 1 : 0) + dedupedAdditionalImageUrls.length,
-    imagesSent: Array.isArray(contents) ? contents.length - 1 : 0
+    imagesSent: Array.isArray(contents) ? contents.length - 1 : 0,
+    unreadImageUrls,
+    firstWindowImageCount: dedupedImageUrls.length - unreadImageUrls.length
   };
 }
