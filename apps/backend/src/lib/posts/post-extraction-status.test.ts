@@ -64,6 +64,11 @@ test('post-extraction-status: the SQL filter and the derived status agree for ev
     extractionFailureReason: 'unavailable',
     queuedForExtractionAt: minutesAgo(2),
   });
+  // AD-47 Rule 5a: a persisted cursor is a claim of any age, so the post is EXTRACTING and nothing else.
+  const cursorJson = { version: 1, note: 'only the presence of a cursor matters to the status' };
+  const chainAlive = await makePost('chain-alive', { extractionCursor: cursorJson });
+  const chainOldClaim = await makePost('chain-old-claim', { extractionCursor: cursorJson, queuedForExtractionAt: minutesAgo(600) });
+  const chainWithFailure = await makePost('chain-failure', { extractionCursor: cursorJson, extractionFailureReason: 'unavailable' });
   const promotedByCount = await makePost('count', { isExtracted: true, extractedEventCount: 2 });
   const promotedByEventPostId = await makePost('eventpost', { isExtracted: true });
   const [primaryEvent] = await db.insert(events).values({ eventName: 'Linked', location: 'Somewhere', postId: promotedByEventPostId.id, extractionOrdinal: 0 }).returning();
@@ -85,6 +90,9 @@ test('post-extraction-status: the SQL filter and the derived status agree for ev
     [failedGivenUp.id, 'ATTEMPT_FAILED'],
     [failedExpiredClaim.id, 'ATTEMPT_FAILED'],
     [failedRetryRunning.id, 'QUEUED'],
+    [chainAlive.id, 'EXTRACTING'],
+    [chainOldClaim.id, 'EXTRACTING'],
+    [chainWithFailure.id, 'EXTRACTING'],
     [promotedByCount.id, 'PROMOTED'],
     [promotedByEventPostId.id, 'PROMOTED'],
     [promotedByLink.id, 'PROMOTED'],
@@ -118,7 +126,7 @@ test('post-extraction-status: the SQL filter and the derived status agree for ev
       .where(and(inArray(posts.id, postIds), postExtractionStatusCondition(['QUEUED', 'EXTRACTING'], TTL, now)));
     assert.deepStrictEqual(
       matched.map((r) => r.id).sort(),
-      [queued.id, requeued.id, failedRetryRunning.id, extracting.id].sort()
+      [queued.id, requeued.id, failedRetryRunning.id, extracting.id, chainAlive.id, chainOldClaim.id, chainWithFailure.id].sort()
     );
   });
 
