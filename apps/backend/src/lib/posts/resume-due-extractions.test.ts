@@ -74,6 +74,38 @@ test('resume pass for due extraction retries (AD-52 Rule 5)', async (t) => {
     );
   });
 
+  await t.test('a first attempt that died silently (watchdog due, claim expired, no failure on record) is counted and retried later', async (st) => {
+    st.mock.method(console, 'info', () => {});
+    const sent: string[] = [];
+    setSendSqsMessage(async (_url, body) => {
+      sent.push(JSON.parse(body).postId);
+    });
+    const post = await makePost('silent-first', {
+      queuedForExtractionAt: new Date(now.getTime() - ttlMs - 60_000),
+      extractionNextAttemptAt: due,
+    });
+
+    const result = await resumeDueExtractions(now);
+
+    assert.ok(result.watchdogFailures >= 1);
+    assert.ok(!sent.includes(post.id), 'not enqueued in the same pass: it is rescheduled with a backoff');
+    const row1 = await read(post.id);
+    assert.strictEqual(row1.extractionAttempts, 1, 'the silent death was counted as an attempt');
+    assert.strictEqual(row1.extractionFailureReason, 'timeout');
+    assert.strictEqual(row1.queuedForExtractionAt, null);
+    assert.ok(row1.extractionNextAttemptAt && row1.extractionNextAttemptAt.getTime() > now.getTime());
+  });
+
+  await t.test('a first attempt still inside its claim is left alone even though a watchdog is armed', async (st) => {
+    st.mock.method(console, 'info', () => {});
+    const post = await makePost('live-first', {
+      queuedForExtractionAt: new Date(now.getTime() - 60_000),
+      extractionNextAttemptAt: due,
+    });
+    await resumeDueExtractions(now);
+    assert.strictEqual((await read(post.id)).extractionAttempts, 0);
+  });
+
   await t.test('a post whose retry is not due yet is left alone', async (st) => {
     st.mock.method(console, 'info', () => {});
     const sent: string[] = [];
