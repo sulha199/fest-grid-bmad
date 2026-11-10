@@ -22,6 +22,13 @@ test('buildLocationCacheKey folds countryBias into the ADDRESS key', () => {
 
   assert.equal(buildLocationCacheKey(noBias), 'geocode:main square|bias:none');
   assert.equal(buildLocationCacheKey(usBias), 'geocode:main square|bias:us');
+  // A proximity point joins the identity, rounded to 0.1 degree; without one the key is unchanged (existing cache entries stay valid).
+  const near = buildLocationCacheKey({ kind: 'ADDRESS', address: 'Main Square', countryBias: 'id', proximity: { latitude: -7.7234, longitude: 110.3512 } });
+  assert.equal(near, 'geocode:main square|bias:id|near:-7.7,110.4');
+  const sameTown = buildLocationCacheKey({ kind: 'ADDRESS', address: 'Main Square', countryBias: 'id', proximity: { latitude: -7.69, longitude: 110.36 } });
+  assert.equal(sameTown, near, 'accounts of one town share an entry');
+  const elsewhere = buildLocationCacheKey({ kind: 'ADDRESS', address: 'Main Square', countryBias: 'id', proximity: { latitude: -6.2, longitude: 106.8 } });
+  assert.notEqual(elsewhere, near);
   assert.equal(buildLocationCacheKey(deBias), 'geocode:main square|bias:de');
 
   // Identical address with different biases MUST NOT share a cache entry.

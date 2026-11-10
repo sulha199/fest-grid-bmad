@@ -57,7 +57,10 @@ export async function resolveAccountAndLocations(
           // abroad is not preferred over the local one. Gracefully no-ops (behaves like
           // "no bias") when defaultLocation or its countryCode is absent (first-time
           // resolution, or a cached defaultLocation predating this field) — AD-14.
-          countryBias: defaultLocation?.countryCode
+          countryBias: defaultLocation?.countryCode,
+          // And bias toward the account's own location: a market or a hall with a common name is, far more often than not, the
+          // one near the account that posted it (the venue name alone put "Pasar Porosjayan" in Palu).
+          ...(defaultLocation?.coordinates ? { proximity: defaultLocation.coordinates } : {})
         });
         resolvedScheduleLocations.set(i, resolved);
       } catch (error) {

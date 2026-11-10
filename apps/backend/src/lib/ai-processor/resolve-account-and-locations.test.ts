@@ -43,6 +43,29 @@ test('resolveAccountAndLocations integration tests', async (t) => {
     setResolveLocationSeam(originalResolveLocationSeam);
   });
 
+  await t.test('the account\'s own location is sent as the proximity point, with its country as the bias', async () => {
+    const queries: any[] = [];
+    setResolveLocationSeam(async (query) => {
+      queries.push(query);
+      return { coordinates: { latitude: 41.86, longitude: -87.61 }, formattedAddress: 'Resolved' };
+    });
+    await resolveAccountAndLocations(profile.id, [{ isMainSchedule: true, eventStartDate: '2026-08-15', location: 'Pasar Porosjayan' }], undefined);
+    assert.deepStrictEqual(queries[0].proximity, mockDefaultLocation.coordinates);
+
+    // An account with no default location sends none (nothing to be near).
+    const [bare] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: 'platform-acc-bare-' + Date.now(), platform: 'instagram', displayName: 'Bare', username: 'bare_' + Date.now() })
+      .returning();
+    try {
+      queries.length = 0;
+      await resolveAccountAndLocations(bare.id, [{ isMainSchedule: true, eventStartDate: '2026-08-15', location: 'Pasar Porosjayan' }], undefined);
+      assert.ok(!('proximity' in queries[0]) || queries[0].proximity === undefined);
+    } finally {
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, bare.id));
+    }
+  });
+
   await t.test('Case A: should resolve explicit schedule locations', async () => {
     const schedules: GeminiSchedulePayload[] = [
       { isMainSchedule: true, eventStartDate: '2026-08-15', location: 'Soldier Field' },

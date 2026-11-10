@@ -139,7 +139,16 @@ test('geoapify-client geocodeAddress adds bias=countrycode only when countryBias
 
   await geocodeAddress('123 Main St', { countryBias: 'us' });
   const withBiasUrl = fetchMock.mock.calls[0].arguments[0] as string;
-  assert.ok(withBiasUrl.includes('bias=countrycode:us'));
+  assert.equal(new URL(withBiasUrl).searchParams.get('bias'), 'countrycode:us');
+
+  // The account's own location joins the bias, longitude first (Geoapify's `proximity:lon,lat`), the two joined by `|`.
+  fetchMock.mock.resetCalls();
+  await geocodeAddress('Pasar Porosjayan', { countryBias: 'id', proximity: { latitude: -7.72, longitude: 110.35 } });
+  assert.equal(new URL(fetchMock.mock.calls[0].arguments[0] as string).searchParams.get('bias'), 'countrycode:id|proximity:110.35,-7.72');
+
+  fetchMock.mock.resetCalls();
+  await geocodeAddress('Pasar Porosjayan', { proximity: { latitude: -7.72, longitude: 110.35 } });
+  assert.equal(new URL(fetchMock.mock.calls[0].arguments[0] as string).searchParams.get('bias'), 'proximity:110.35,-7.72');
 
   fetchMock.mock.resetCalls();
   await geocodeAddress('123 Main St');

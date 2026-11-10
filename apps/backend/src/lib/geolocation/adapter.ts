@@ -1,7 +1,7 @@
-import { GeolocationQuery, buildLocationCacheKey, meetsAutocompleteInputThreshold, AddressPrediction, selectBestCandidate } from '@festgrid/domain/geolocation';
+import { GeolocationQuery, buildLocationCacheKey, meetsAutocompleteInputThreshold, AddressPrediction, selectBestCandidate, filterPlausibleCandidates } from '@festgrid/domain/geolocation';
 import { LocationDetails } from '@festgrid/shared-types';
 import { getCached, setCached, GeolocationQueryType } from './cache-store.js';
-import { geocodeAddress, reverseGeocode, getPlaceDetails, getAddressPredictions as getClientPredictions } from './geoapify-client.js';
+import { GeolocationNotFoundError, geocodeAddress, reverseGeocode, getPlaceDetails, getAddressPredictions as getClientPredictions } from './geoapify-client.js';
 
 export async function resolveLocation(query: GeolocationQuery): Promise<LocationDetails> {
   const cacheKey = buildLocationCacheKey(query);
@@ -20,8 +20,14 @@ export async function resolveLocation(query: GeolocationQuery): Promise<Location
       // Geoapify confidence signal (with a matchType-priority tiebreak) instead of
       // blindly taking Geoapify's first result, so a low-confidence top hit doesn't
       // win over a correct, lower-ranked one (BUG-017).
-      const candidates = await geocodeAddress(query.address, { countryBias: query.countryBias });
-      result = selectBestCandidate(candidates);
+      const candidates = await geocodeAddress(query.address, { countryBias: query.countryBias, proximity: query.proximity });
+      // With a proximity point (the account's own location), a far low-confidence guess is dropped: no match is better than a
+      // pin on another continent (it also decides the event's timezone). Without one nothing is filtered, as before.
+      const plausible = filterPlausibleCandidates(candidates, query.proximity);
+      if (plausible.length === 0) {
+        throw new GeolocationNotFoundError('Every candidate is far from the account and low confidence');
+      }
+      result = selectBestCandidate(plausible);
       queryType = 'GEOCODE';
       break;
     case 'COORDINATES':
