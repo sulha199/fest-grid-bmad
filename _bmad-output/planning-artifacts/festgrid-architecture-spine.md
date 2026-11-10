@@ -3213,8 +3213,8 @@ This document defines the core architectural invariants for the FestDaily applic
     event lost because a unique violation was read as an idempotent skip (AD-30 Rule 3); a renumbering of events that
     already have public slugs.
 *   **Rule:**
-    1.  **The first request numbers as today** (`assignExtractionOrdinals`: 1..n by earliest schedule date). The
-        cursor's next-free ordinal starts at n + 1.
+    1.  **The first request numbers as today** (`assignExtractionOrdinals`: 0 to n - 1 by earliest schedule date). The
+        cursor's next-free ordinal starts at n.
     2.  **Each later step takes the next range** from the cursor, assigned after the step's window result is final
         (after any split of AD-49), in the order (earliest start date, normalized name, original index), which is
         deterministic for a given result. The range is **reserved by compare-and-set on the cursor before the
