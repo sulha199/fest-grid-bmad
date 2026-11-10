@@ -34,6 +34,7 @@ export type PreviewStartErrorCode =
   | 'RATE_LIMITED'
   | 'ACCOUNT_NOT_SCRAPABLE'
   | 'SCRAPE_IN_PROGRESS'
+  | 'CHAIN_IN_FLIGHT'
   | 'EXTRACTION_FAILED';
 
 export type StartPostReextractionPreviewResult =
@@ -182,6 +183,12 @@ export async function startPostReextractionPreview(
 
   if (input.postId && !post) {
     return { errorCode: 'NOT_FOUND', errorMessage: 'Post not found.' };
+  }
+
+  // AD-51 Rule 4: a post whose stepped extraction is still running (it holds a cursor) is refused, so a preview cannot race
+  // the chain for the post's images, ordinals and scrape budget.
+  if (post && post.extractionCursor !== null) {
+    return { errorCode: 'CHAIN_IN_FLIGHT', errorMessage: 'This post is still being extracted in steps. Try again when that has finished.' };
   }
 
   const url = post ? post.postUrl : input.url!;

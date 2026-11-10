@@ -2825,6 +2825,29 @@ test('events resolver integration via Yoga', async (t) => {
       assert.deepStrictEqual([...groups[0].eventIds].sort(), [liveEvent.id, mergeTargetEvent.id].sort());
     });
 
+    await t.test('AD-50: reports whether the posts list may be incomplete (COMPLETE, PARTIAL, IN_PROGRESS) without touching the events list', async () => {
+      const progress = async () => {
+        const response = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `query GetRelatedEventIdsByPost($postId: ID!) { relatedEventIds(postId: $postId) { postId extractionProgress } }`,
+            variables: { postId: sharedPost.id },
+          }),
+        });
+        const result = await response.json();
+        assert.ok(!result.errors, JSON.stringify(result.errors));
+        return result.data.relatedEventIds[0].extractionProgress;
+      };
+      assert.strictEqual(await progress(), 'COMPLETE');
+      await db.update(posts).set({ extractionPartial: true }).where(eq(posts.id, sharedPost.id));
+      assert.strictEqual(await progress(), 'PARTIAL');
+      await db.update(posts).set({ extractionCursor: { version: 1, placeholder: 'only its presence matters here' } }).where(eq(posts.id, sharedPost.id));
+      assert.strictEqual(await progress(), 'IN_PROGRESS', 'a chain still running outranks the partial flag');
+      await db.update(posts).set({ extractionPartial: false, extractionCursor: null }).where(eq(posts.id, sharedPost.id));
+      assert.strictEqual(await progress(), 'COMPLETE');
+    });
+
     await t.test('returns [] for a post with no linked events', async () => {
       const response = await yoga.fetch('http://yoga/graphql', {
         method: 'POST',

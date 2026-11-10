@@ -182,9 +182,20 @@ type EventSourcePost {
   postType: String
 }
 
+"""
+Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
+events), or PARTIAL (it ended without reading every slide and will not be finished).
+"""
+enum PostEventsCompleteness {
+  COMPLETE
+  IN_PROGRESS
+  PARTIAL
+}
+
 type RelatedEventGroup {
   postId: ID!
   eventIds: [ID!]!
+  extractionProgress: PostEventsCompleteness!
 }
 
 type EventConnection {

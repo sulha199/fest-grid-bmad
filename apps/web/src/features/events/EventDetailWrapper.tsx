@@ -806,6 +806,13 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
             ? `/posts/${platformSlug}/${sourcePost.postType}/${sourcePost.platformPostId}/events`
             : null
 
+        const note =
+          group.extractionProgress === "PARTIAL"
+            ? t("relatedEventsPartialNote")
+            : group.extractionProgress === "IN_PROGRESS"
+              ? t("relatedEventsInProgressNote")
+              : null
+
         const events: EventDetailViewRelatedEvent[] = group.eventIds
           .map((id) => relatedEventsListData?.events.items.find((e) => e.id === id))
           .filter((e): e is NonNullable<typeof e> => !!e)

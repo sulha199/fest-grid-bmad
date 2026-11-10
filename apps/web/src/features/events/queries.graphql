@@ -161,6 +161,7 @@ query getRelatedEventIds($eventId: ID!) {
   relatedEventIds(eventId: $eventId) {
     postId
     eventIds
+    extractionProgress
   }
 }
 
@@ -171,6 +172,7 @@ query getRelatedEventIdsByPost($postId: ID!) {
   relatedEventIds(postId: $postId) {
     postId
     eventIds
+    extractionProgress
   }
 }
 

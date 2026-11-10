@@ -1456,6 +1456,17 @@ describe('EventDetailView', () => {
       expect(order.map((n) => names.findIndex((t) => t.includes(n)))).toEqual([0, 1, 2, 3]);
     });
 
+    it('shows the group note under the heading when the list of the post may be incomplete (AD-50), and nothing when there is none', () => {
+      const group = { postId: 'p1', accountLabel: 'Events from Acme', events: [makeEvent('e1', 'First'), makeEvent('e2', 'Second')], totalCount: 2 };
+      const { rerender } = render(
+        <EventDetailView {...fullProps} relatedEventGroups={[{ ...group, note: 'This list may be incomplete.' }]} labels={relatedLabels} />
+      );
+      expect(screen.getByTestId('related-events-note')).toHaveTextContent('This list may be incomplete.');
+
+      rerender(<EventDetailView {...fullProps} relatedEventGroups={[{ ...group, note: null }]} labels={relatedLabels} />);
+      expect(screen.queryByTestId('related-events-note')).not.toBeInTheDocument();
+    });
+
     it('shows the till tag only for events that have started and end after today', () => {
       const ev = (id: string, start: number, end: number) => ({
         ...makeEvent(id, id),

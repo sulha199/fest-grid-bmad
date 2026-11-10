@@ -278,6 +278,31 @@ test('applyPostReextraction (AD-40 Apply)', async (t) => {
     assert.strictEqual(after.postId, earlier.id);
   });
 
+  await t.test('AD-51 Rule 4: a post whose stepped extraction is still running is refused (CHAIN_IN_FLIGHT) and nothing changes', async () => {
+    const post = await makePost();
+    await db.update(posts).set({ extractionCursor: { version: 1, placeholder: 'only its presence matters here' } }).where(eq(posts.id, post.id));
+    const job = await makeJob(post, [rawEvent(`Raced The Chain ${suffix}`, '2026-09-26')]);
+
+    const result = await applyPostReextraction(moderator.id, job.id);
+
+    assert.ok('errorCode' in result && result.errorCode === 'CHAIN_IN_FLIGHT', JSON.stringify(result));
+    assert.strictEqual((await linkRows(post.id)).length, 0, 'no event was created');
+    const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(stored.groupingReason, 'single-event');
+  });
+
+  await t.test('AD-50 Rule 5: a successful Apply clears the partial flag of the post', async () => {
+    const post = await makePost();
+    await db.update(posts).set({ extractionPartial: true }).where(eq(posts.id, post.id));
+    const job = await makeJob(post, [rawEvent(`Fixed By Hand ${suffix}`, '2026-09-27')]);
+
+    const result = await applyPostReextraction(moderator.id, job.id);
+
+    assert.ok('summary' in result, JSON.stringify(result));
+    const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(stored.extractionPartial, false);
+  });
+
   await t.test('refusals write nothing: foreign job, unfinished job, expired, no kept extraction, post not stored', async () => {
     const post = await makePost();
     const base = [rawEvent(`Never Applied ${suffix}`, '2026-09-25')];

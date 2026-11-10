@@ -60,6 +60,21 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
   const fakeAdapter = (getPostByUrl: (url: string) => Promise<ScrapedPost | null>) =>
     registerScraperAdapter('instagram', { getPostByUrl } as any);
 
+  await t.test('AD-51 Rule 4: a post whose stepped extraction is still running -> CHAIN_IN_FLIGHT, no job and no scrape', async () => {
+    const post = await makePost('caption');
+    await db.update(posts).set({ extractionCursor: { version: 1, placeholder: 'only its presence matters here' } }).where(eq(posts.id, post.id));
+    const jobsBefore = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.requestedByUserId, user.id));
+
+    const byId = await startPostReextractionPreview(user.id, { postId: post.id });
+    const byUrl = await startPostReextractionPreview(user.id, { url: post.postUrl });
+
+    for (const result of [byId, byUrl]) {
+      assert.ok('errorCode' in result && result.errorCode === 'CHAIN_IN_FLIGHT', JSON.stringify(result));
+    }
+    const jobsAfter = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.requestedByUserId, user.id));
+    assert.strictEqual(jobsAfter.length, jobsBefore.length, 'no job row was written');
+  });
+
   await t.test('unknown post id -> NOT_FOUND', async () => {
     const result = await startPostReextractionPreview(user.id, { postId: '00000000-0000-4000-8000-0000000000aa' });
     assert.deepStrictEqual(result, { errorCode: 'NOT_FOUND', errorMessage: 'Post not found.' });

@@ -26,7 +26,13 @@ import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-s
 // aliases survive), and the remaining items are ingested through the same write path as ingestion.
 // Never deletes an event, never recreates one a moderator deleted (PRD 3.7), never notifies.
 
-export type ApplyPostReextractionErrorCode = 'NOT_FOUND' | 'EXPIRED' | 'NOT_STORED' | 'NOTHING_TO_APPLY' | 'APPLY_FAILED';
+export type ApplyPostReextractionErrorCode =
+  | 'NOT_FOUND'
+  | 'EXPIRED'
+  | 'NOT_STORED'
+  | 'NOTHING_TO_APPLY'
+  | 'APPLY_FAILED'
+  | 'CHAIN_IN_FLIGHT';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -68,6 +74,9 @@ export async function applyPostReextraction(userId: string, jobId: string, now: 
   if (!result.postStored) return fail('NOT_STORED', 'Only a post that is stored can be applied.');
   const [post] = await db.select().from(posts).where(eq(posts.id, requestPayload.message.postId)).limit(1);
   if (!post) return fail('NOT_STORED', 'Only a post that is stored can be applied.');
+  // AD-51 Rule 4: a post whose stepped extraction is still running is refused: Apply re-sorts and moves ordinals under the
+  // chain's next free value, and rewrites the grouping the chain's decisions rest on.
+  if (post.extractionCursor !== null) return fail('CHAIN_IN_FLIGHT', 'This post is still being extracted in steps. Try again when that has finished.');
 
   try {
     // Network work (geocoding, timezone lookups) happens BEFORE the transaction, so no database
@@ -196,7 +205,13 @@ async function applyInTransaction(
   // Grouping and title first: the stub rule below reads the post's (new) grouping.
   await tx
     .update(posts)
-    .set({ groupingReason: groupingReason as PostRow['groupingReason'], extractedEventCount: messages.length, title: postTitle })
+    // A successful Apply also clears the partial flag (AD-50 Rule 5): the moderator has replaced the roundup's items by hand.
+    .set({
+      groupingReason: groupingReason as PostRow['groupingReason'],
+      extractedEventCount: messages.length,
+      title: postTitle,
+      extractionPartial: false,
+    })
     .where(eq(posts.id, post.id));
   const sourcePost = await loadSourcePost(tx, post.id);
 
