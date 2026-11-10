@@ -76,6 +76,18 @@ export interface GeminiExtractionPayload {
   // Story 3.6m — advisory/best-effort count of distinct people visible across the provided
   // image(s), never trusted as an exact count. Same logging-only scope as hasFaceImage above.
   faceImageCount?: number;
+  // AD-46 Rule 2 (cursor extraction): the advisory post plan of a multi-slide post, all optional and never persisted.
+  // It informs the continue decision (density, the "known partial" note) and is never the decision itself.
+  /** The item count the post claims to list ("203 events in 2027" gives 203). */
+  claimedItemCount?: number;
+  /** One role per provided image, in order (`POST_PLAN_SLIDE_ROLES`). */
+  slideRoles?: string[];
+  /** The typical number of items on a list slide. */
+  itemsPerListSlide?: number;
+  /** The date span the items cover, "YYYY-MM-DD..YYYY-MM-DD". */
+  dateRangeCovered?: string;
+  /** More items likely continue on slides that were not provided. */
+  moreItemsLikely?: boolean;
 }
 
 // Story 3.6p — one entry per extracted event inside an extraction_audit_logs row's

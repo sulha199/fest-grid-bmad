@@ -370,6 +370,34 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(prompt.includes('never collapse a list of dates into a start-to-end range'));
   });
 
+  await t.test('AD-46 Rule 2 (cursor extraction): the post plan is optional flat root fields in the response schema and described once in the prompt', async () => {
+    const props: any = geminiExtractionResponseSchema.properties;
+    assert.strictEqual(props.claimedItemCount.type, 'NUMBER');
+    assert.strictEqual(props.slideRoles.type, 'ARRAY');
+    assert.deepStrictEqual(props.slideRoles.items.enum, ['intro', 'list', 'outro', 'ad', 'other']);
+    assert.strictEqual(props.itemsPerListSlide.type, 'NUMBER');
+    assert.strictEqual(props.dateRangeCovered.type, 'STRING');
+    assert.strictEqual(props.moreItemsLikely.type, 'BOOLEAN');
+    for (const field of ['claimedItemCount', 'slideRoles', 'itemsPerListSlide', 'dateRangeCovered', 'moreItemsLikely']) {
+      assert.ok(!geminiExtractionResponseSchema.required.includes(field), `${field} must stay optional`);
+    }
+    assert.deepStrictEqual(geminiExtractionResponseSchema.required, ['isEvent', 'events', 'groupingReason']);
+
+    const result = await buildGeminiExtractionRequest({
+      postId: 'post-plan',
+      accountId: 'account-plan',
+      content: 'Plan prompt check',
+      postUrl: 'https://test.com/post-plan',
+      publishedAt: '2026-08-10T12:00:00Z',
+    } as ProcessingJobMessage);
+    const prompt = result.request.systemInstruction ?? '';
+    assert.ok(prompt.includes('Post plan (advisory'));
+    assert.ok(prompt.includes('claimedItemCount'));
+    assert.ok(prompt.includes('slideRoles'));
+    assert.ok(prompt.includes('intro, list, outro, ad, other'));
+    assert.ok(prompt.includes('moreItemsLikely'));
+  });
+
   await t.test('Case P (Story 3.6m, AC1/AC2): geminiExtractionResponseSchema declares hasFaceImage/faceImageCount at the root, optional, and the prompt self-reports both in the once-per-post block', async () => {
     const props: any = geminiExtractionResponseSchema.properties;
     assert.ok('hasFaceImage' in props);

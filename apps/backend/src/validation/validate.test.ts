@@ -6,6 +6,32 @@ import { scrapedPostSchema } from './scraped-post.schema';
 import { GeminiExtractionPayload, ScrapedPost } from '@festgrid/domain';
 
 describe('Runtime Schema Validation (AJV)', () => {
+  // AD-46 Rule 2: the advisory post plan is optional and mirrors the model-facing schema.
+  it('accepts a payload with the post plan, with each plan field alone, and with none', () => {
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    const base = { isEvent: false, events: [] };
+    const plan = {
+      claimedItemCount: 203,
+      slideRoles: ['intro', 'list', 'list', 'outro', 'ad', 'other'],
+      itemsPerListSlide: 12,
+      dateRangeCovered: '2027-01-01..2027-12-31',
+      moreItemsLikely: true,
+    };
+    assert.strictEqual(validate({ ...base, ...plan }), true, JSON.stringify(validate.errors));
+    for (const [key, value] of Object.entries(plan)) {
+      assert.strictEqual(validate({ ...base, [key]: value }), true, key);
+    }
+    assert.strictEqual(validate(base), true);
+    assert.strictEqual(validate({ ...base, claimedItemCount: null, slideRoles: null, moreItemsLikely: null }), true, 'nullable');
+  });
+
+  it('rejects a slide role outside the closed set and a wrongly typed plan field', () => {
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    assert.strictEqual(validate({ isEvent: false, events: [], slideRoles: ['cover'] }), false);
+    assert.strictEqual(validate({ isEvent: false, events: [], claimedItemCount: '203' }), false);
+    assert.strictEqual(validate({ isEvent: false, events: [], moreItemsLikely: 'yes' }), false);
+  });
+
   it('should pass validation for a valid payload', () => {
     const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
 

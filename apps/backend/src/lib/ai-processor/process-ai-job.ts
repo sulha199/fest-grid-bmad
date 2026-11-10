@@ -229,6 +229,19 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     return;
   }
 
+  // AD-46 Rule 2: one greppable line with the advisory post plan, when the model gave one. Log-only here: the
+  // continue decision that reads it is a later slice.
+  const planParts = [
+    payload.claimedItemCount !== undefined && payload.claimedItemCount !== null ? `claimedItemCount=${payload.claimedItemCount}` : null,
+    payload.slideRoles && payload.slideRoles.length > 0 ? `slideRoles=${payload.slideRoles.join(',')}` : null,
+    payload.itemsPerListSlide !== undefined && payload.itemsPerListSlide !== null ? `itemsPerListSlide=${payload.itemsPerListSlide}` : null,
+    payload.dateRangeCovered ? `dateRangeCovered=${payload.dateRangeCovered}` : null,
+    payload.moreItemsLikely !== undefined && payload.moreItemsLikely !== null ? `moreItemsLikely=${payload.moreItemsLikely}` : null,
+  ].filter((part): part is string => part !== null);
+  if (planParts.length > 0) {
+    console.info(`[post-plan] post=${message.postId} groupingReason=${payload.groupingReason ?? 'none'} ${planParts.join(' ')}`);
+  }
+
   // 5. If not an event, mark extracted and return
   if (payload.isEvent === false) {
     // Story 3.6p (AD-29) -- write the audit-log row for this attempt before this path's own

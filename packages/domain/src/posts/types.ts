@@ -15,6 +15,13 @@ export type PostAccountRole = (typeof POST_ACCOUNT_ROLES)[number];
 export const POST_GROUPING_REASONS = ['single-event', 'program-lineup', 'dependent-stages', 'separate-events', 'roundup'] as const;
 export type PostGroupingReason = (typeof POST_GROUPING_REASONS)[number];
 
+/**
+ * AD-46 Rule 2: the role of one image of a multi-slide post in the model's advisory post plan (`slideRoles`, one per
+ * provided image, in order). Informs the continue decision only; never persisted.
+ */
+export const POST_PLAN_SLIDE_ROLES = ['intro', 'list', 'outro', 'ad', 'other'] as const;
+export type PostPlanSlideRole = (typeof POST_PLAN_SLIDE_ROLES)[number];
+
 export function isPostGroupingReason(value: string): value is PostGroupingReason {
   return (POST_GROUPING_REASONS as readonly string[]).includes(value);
 }

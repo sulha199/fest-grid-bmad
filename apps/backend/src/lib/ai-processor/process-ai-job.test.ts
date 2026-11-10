@@ -599,6 +599,56 @@ test('processAiJob orchestrator tests', async (t) => {
     );
   });
 
+  await t.test('AD-46 Rule 2: a response with a post plan logs one [post-plan] line and extracts as before', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000e1',
+      accountId: profile.id,
+      content: 'Roundup',
+      postUrl: 'https://test.com/p-plan',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const info = t.mock.method(console, 'info', () => {});
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: false,
+        events: [],
+        groupingReason: 'roundup',
+        claimedItemCount: 203,
+        slideRoles: ['intro', 'list', 'list'],
+        itemsPerListSlide: 12,
+        dateRangeCovered: '2027-01-01..2027-12-31',
+        moreItemsLikely: true,
+      }),
+      finishReason: 'STOP',
+    }));
+
+    await processAiJob(message);
+
+    const line = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.startsWith('[post-plan]'));
+    assert.ok(line, 'the plan is logged');
+    assert.ok(line.includes('claimedItemCount=203') && line.includes('slideRoles=intro,list,list'));
+    assert.ok(line.includes('itemsPerListSlide=12') && line.includes('dateRangeCovered=2027-01-01..2027-12-31') && line.includes('moreItemsLikely=true'));
+    assert.ok(line.includes('groupingReason=roundup'));
+  });
+
+  await t.test('AD-46 Rule 2: a response with no plan logs no [post-plan] line', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000e2',
+      accountId: profile.id,
+      content: 'Single',
+      postUrl: 'https://test.com/p-noplan',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const info = t.mock.method(console, 'info', () => {});
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setCallGeminiSeam(async () => ({ text: JSON.stringify({ isEvent: false, events: [], groupingReason: 'single-event' }), finishReason: 'STOP' }));
+
+    await processAiJob(message);
+
+    assert.ok(!info.mock.calls.some((c) => String(c.arguments[0]).startsWith('[post-plan]')));
+  });
+
   await t.test('Case D4: a normal response logs one request line with tokens and no at-risk flag', async (t) => {
     const message: ProcessingJobMessage = {
       postId: '00000000-0000-4000-8000-0000000000d4',
