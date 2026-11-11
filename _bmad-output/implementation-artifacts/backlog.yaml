@@ -2206,13 +2206,13 @@ items:
      note: "The product is built on Gemini BYOK while the business plan assumes platform-paid extraction; counsel brief and cost model are in the private fest-grid-monetization repo. Story 3.4b reopened to backlog (Apify only, still gated); nothing in the PRD changes until this is decided."}
   # ── 2026-10-15 (code review of Story 0.i2d) ──────────────────────────────────
   FIND-082:
-    {type: finding, status: promoted, created: 2026-10-15,
+    {type: finding, status: done, created: 2026-10-15,
      impact: internal, effort: s,
      stories: [10-2-build-the-post-scraper-provider-chain-with-failover-and-quota-skip],
      title: "Story 0.i2d review deferrals: triplicated transient-error classifier; Apify webhook 20s cap covers dataset download",
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend],
-     note: "Deferred from: code review of story-0.i2d (2026-10-15). 2 findings."}
+     note: "Done 2026-11-11 by Story 10.2 (PR #237). Deferred from: code review of story-0.i2d (2026-10-15). 2 findings."}
 
   # ── 2026-10-15 (prod: manual extract page empty after a successful scrape) ────
   BUG-059:
@@ -2583,13 +2583,13 @@ items:
      note: "Owner decision: upgrade the plan, or keep Bright Data primary with Apify as a small fallback. Usage resets 2026-11-23 00:00 UTC."}
 
   IDEA-101:
-    {type: idea, status: promoted, created: 2026-10-30, epic: epic-10,
+    {type: idea, status: done, created: 2026-10-30, epic: epic-10,
      impact: internal, effort: xs,
      stories: [10-2-build-the-post-scraper-provider-chain-with-failover-and-quota-skip],
      title: "Remember an exhausted Apify monthly cap for the rest of the usage cycle instead of trying every target",
      ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
      touches: [app:backend],
-     note: "Today each target still makes one refused start per batch; the refusal is cheap but fills the logs and delays the fallback to the next provider."}
+     note: "Done 2026-11-11 by Story 10.2 (PR #237). Today each target still makes one refused start per batch; the refusal is cheap but fills the logs and delays the fallback to the next provider."}
 
   IDEA-102:
     {type: idea, status: promoted, created: 2026-10-30, epic: epic-10,
