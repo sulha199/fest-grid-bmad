@@ -24,6 +24,10 @@ Events are matched by normalized name, then by earliest start date. Per-event fi
 fold of 7 labelled events into 1 reports `count_mismatch` (event count and grouping fail) instead of zero on everything.
 Extra model events are reported, not scored. Location keywords are not scored (a separate call fills them).
 
+Scope: the eval scores the **first** extraction call of a post, with every labelled slide sent. It does not replay the pipeline's
+stepped extraction (AD-49: an at-risk answer is split in half and retried) or its per-call event cap, so a post the pipeline would
+recover through a split shows up here as `truncated` or `count_mismatch`.
+
 Outcomes that are not a wrong answer are reported apart and never lower a pass-rate: `truncated` (finish reason `MAX_TOKENS` or
 unparseable/invalid JSON) and `unavailable` (429/503 after the retry cap, or a spent daily quota).
 

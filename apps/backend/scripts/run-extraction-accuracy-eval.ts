@@ -120,7 +120,9 @@ async function recordLive(posts: Array<{ post: LabelledPost; folder: string }>, 
         postUrl: `https://example.invalid/${post.postId}`,
         publishedAt: post.publishedAt,
         ...(post.ownerUsername ? { ownerUsername: post.ownerUsername } : {}),
-      });
+      },
+      // Like the pipeline (process-extraction-step.ts): send every labelled slide, not only the env default.
+      { maxCarouselImages: slides.length });
       promptHash ||= createHash('sha256').update(String(built.request.systemInstruction ?? '')).update(JSON.stringify(built.request.responseSchema ?? {})).digest('hex').slice(0, 12);
       for (let runIndex = 0; runIndex < runs; runIndex += 1) {
         if (stopped) {
