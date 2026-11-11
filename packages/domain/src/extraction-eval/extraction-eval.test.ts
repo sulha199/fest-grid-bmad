@@ -506,7 +506,8 @@ test('truncated rate: compared with the baseline, flagged on a rise beyond the f
   assert.ok(Math.abs(rose.current! - 2 / 3) < 1e-9);
   assert.match(reportOf(aggregateRuns(mk(0)), base), /Truncated or invalid answers: 0% of the answered runs \(baseline 10%\)/);
   // A baseline written before the rate was recorded, and a run nothing answered.
-  const { truncatedRate: _omitted, ...old } = base;
+  const old: Baseline = { ...base };
+  delete old.truncatedRate;
   assert.equal(compareToBaseline(aggregateRuns(mk(1)), old).truncatedRate.status, 'no_baseline');
   assert.match(reportOf(aggregateRuns(mk(1)), old), /does not record a rate/);
   const none = compareToBaseline(aggregateRuns([{ postId: 'a', runIndex: 0, outcome: 'unavailable' }]), base).truncatedRate;
