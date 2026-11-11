@@ -48,6 +48,10 @@ export interface BackendEnv {
   // The platform's home country (ISO-2): the last-resort country hint for geocoding and the "most places are in ..." line of
   // the location keywords prompt. `null` when set to an empty value (no assumption at all). Default "ID"; a new market sets it.
   defaultCountryCode: string | null;
+  // Kill switch for keyword geocoding (slice 2a): on (the default) geocodes from the location keywords with a country hint and a
+  // ladder, and records `schedules.location_resolution`; only the value `false` turns it off, which restores the plain
+  // single-address lookup (no keywords, no country filter, no ladder, nothing recorded).
+  keywordGeocodingEnabled: boolean;
   // AD-51 Rule 2: the kill switch for stepped (cursor) extraction. Off (the default: it ships dark) means every post
   // takes the one-request path; a chain in flight stops at its next step and the post is flagged partial.
   cursorExtractionEnabled: boolean;
@@ -349,6 +353,8 @@ export function loadBackendEnv(): BackendEnv {
     maxExtractedEventsPerPost: parseInt(process.env.MAX_EXTRACTED_EVENTS_PER_POST || '10', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     defaultCountryCode: parseCountryCode(process.env.DEFAULT_COUNTRY_CODE, 'ID'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    keywordGeocodingEnabled: process.env.KEYWORD_GEOCODING_ENABLED !== 'false',
     cursorExtractionEnabled: process.env.CURSOR_EXTRACTION_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     geminiMaxOutputTokens: parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS || '8192', 10),

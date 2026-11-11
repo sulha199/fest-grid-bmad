@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, smallint, pgEnum, index, unique, uniqueIndex, primaryKey, customType as drizzleCustomType, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
-import { LocationDetails, EventLink } from '@festgrid/shared-types';
+import { LocationDetails, LocationResolution, EventLink } from '@festgrid/shared-types';
 import type { ProposedEventCorrection } from '@festgrid/domain/events';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
 import { POST_ACCOUNT_ROLES } from '@festgrid/domain/posts';
@@ -755,6 +755,8 @@ export const schedules = pgTable('schedules', {
   // Kept as text to support free-form extracted data from posters (e.g., "$10-$20" or "Free before 9 PM")
   ticketPrice: text('ticket_price'),
   locationDetails: jsonb('location_details').$type<LocationDetails>(),
+  // How `locationDetails` was found: kw1/kw2 (keywords ladder step), fb1/fb2 (text ladder), none, skipped; null = never attempted.
+  locationResolution: text('location_resolution').$type<LocationResolution>(),
   latitude: doublePrecision('latitude'),
   longitude: doublePrecision('longitude'),
   timezone: text('timezone'),

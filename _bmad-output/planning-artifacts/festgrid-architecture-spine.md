@@ -368,8 +368,7 @@ This document defines the core architectural invariants for the FestDaily applic
     `confidence`/`matchType` signal that says how ambiguous that match was (the BUG-027 failure
     class); a low- or synthetic-confidence result being treated as authoritative simply because it
     was Geoapify's top-ranked entry; and, on the schedule-location path, a same-named venue abroad
-    being preferred over the local one because the account's own country was not used as a search
-    bias.
+    being preferred over the local one because no country was applied to the search (Rule 3, Rule 6).
 *   **Rule:**
     1.  **Every mapper populates the signal.** `geocodeAddress` and `reverseGeocode` spread
         Geoapify's `rank.confidence`/`rank.match_type` and `country_code` onto `LocationDetails`
@@ -404,19 +403,24 @@ This document defines the core architectural invariants for the FestDaily applic
           (`apps/web/src/features/subscriptions/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/queries.graphql.test.ts`). (Story 0.i7z AC 2–4 ratchet.)
-    3.  **Country bias is part of the resolution identity.** The schedule-location geocoding path
-        passes the account's own `defaultLocation.countryCode` as `bias=countrycode:xx`, and the
-        ADDRESS cache key folds that bias in, so two accounts geocoding the identical address with
-        different biases can never be served each other's cached result. When no bias is known, the
-        parameter (and its cache-key segment) is omitted entirely — self-healing, not a gap.
-        - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (countryBias
-          cache-key folding) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s countryBias
-          integration case.
+    3.  **The country filter is part of the resolution identity (rewritten 2026-11-11; it replaces the
+        soft country bias).** An ADDRESS query carries an optional `countryFilter`, sent to Geoapify as the
+        HARD restriction `filter=countrycode:xx` (lower-case); the soft `bias=countrycode:` is gone (it changed
+        no result in a 54-location test). The ADDRESS cache key folds the filter in (`|filter:xx|none`), so
+        the same address searched inside one country, another, or everywhere can never be served each
+        other's cached result. Which country a text is searched in is decided by Rule 6 and never read from
+        the account's own location.
+        - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (filter folding) +
+          `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the `filter` parameter, no `bias=countrycode`)
+          + `adapter.test.ts`'s countryFilter integration case.
     4.  **The account's own location is a proximity bias, and a far low-confidence guess is no match
-        (added 2026-11-10).** The schedule-location path also passes the account's
-        `defaultLocation.coordinates` as `bias=countrycode:xx|proximity:lon,lat` (a soft preference, so an
+        (added 2026-11-10; amended 2026-11-11).** The schedule-location path also passes the account's
+        `defaultLocation.coordinates` as `bias=proximity:lon,lat` (a soft preference, so an
         event in another city still resolves), and the ADDRESS cache key folds the point in, rounded to
-        0.1 degree. With a proximity point, `filterPlausibleCandidates` drops a candidate farther than
+        0.1 degree. It is passed only when the account default's country is the country hint of the text
+        being resolved (or the text has no hint); a default of another or unknown country is ignored for that
+        text, because a wrong default (Poland, Pennsylvania) would otherwise make the plausibility filter
+        discard correct matches. With a proximity point, `filterPlausibleCandidates` drops a candidate farther than
         300 km from it unless its confidence is at least 0.9 (a generic name scores 0.5 for a wrong country); when none is left the call is "not found",
         so the event keeps its address text and takes the account's timezone instead of being pinned on
         another continent. Without a point nothing is filtered, as before. Confidence alone is not an
@@ -427,12 +431,13 @@ This document defines the core architectural invariants for the FestDaily applic
           plausibility filter) + `build-cache-key.test.ts` (the `near` segment) +
           `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the bias parameter) +
           `adapter.test.ts` (far candidates dropped, local one kept, none left is not found, nothing
-          filtered without a point) + `resolve-account-and-locations.test.ts` (the point is sent).
+          filtered without a point) + `resolve-account-and-locations.test.ts` (the point is sent only when the
+          default's country matches the hint).
     5.  **A synchronous request pays for each distinct address once, and "not found" is cached for a day
         (added 2026-11-10).** The moderator re-extract Apply geocodes every schedule inside the API
-        Lambda's 28 s budget (API Gateway cuts at 29 s). `resolveAccountAndLocations` therefore makes one
-        lookup per distinct address in a call (schedules that share a venue, or fall back to the event-level
-        location, share the answer), and `resolveLocation` stores a definite "no match" in
+        Lambda's 28 s budget (API Gateway cuts at 29 s). The lookups of one request therefore share a geocode
+        session (Rule 6): one lookup per distinct query in the whole request, across its events (schedules
+        that share a venue, or fall back to the event-level location, share the answer), and `resolveLocation` stores a definite "no match" in
         `geolocation_cache` (the `result` holds `{ notFound: true }`, no schema change) and serves it for
         `NOT_FOUND_TTL_MS` (24 h, measured from `updated_at`); a later hit replaces it. Only
         `GeolocationNotFoundError` is cached, never an outage, a rate limit or a bad key. Positive entries
@@ -442,6 +447,32 @@ This document defines the core architectural invariants for the FestDaily applic
           its window) + `adapter.test.ts` (a repeat is served from the cache, an expired miss is retried, an
           outage is not cached) + `resolve-account-and-locations.test.ts` (20 schedules on 2 addresses make
           2 lookups, one log line per unresolved address).
+    6.  **Geocoding runs from location keywords under a country hint, in a request-scoped session, and records
+        how it resolved (added 2026-11-11, slice 2a of the location keywords).** For each schedule the address
+        source is its own location text, else the event's, else the account default's address (the last is a
+        single plain lookup and records nothing). A text with keywords (slice 1) is searched by a 2-step
+        ladder: all keywords joined, then without the most specific one, the second step only after "not
+        found"; a text without keywords uses a code-cleaned fallback ladder of the same shape. The country
+        hint of a text is, in order: its own `locationCountryCode` (the model's code, or the post's
+        consensus), the platform default `DEFAULT_COUNTRY_CODE`, none; nothing in code names a country. A
+        text's own code is trusted: hard filter, no unfiltered pass after it. The platform default is a
+        guess: filtered first, then one unfiltered pass. An outage ends the ladder and nothing is cached.
+        The lookups of one request share a `GeocodeSession`: a memo by cache key (also across events) and, for
+        the API Apply, a budget of 12 uncached geocoder calls (cache hits are free); a spent budget skips the
+        remaining lookups and logs `geocode-budget-exhausted` once. Each schedule records how it resolved in
+        `schedules.location_resolution` (`kw1`, `kw2`, `fb1`, `fb2`, `none` for nothing plausible, `skipped`
+        for a spent budget or outage; null = never attempted), written with `location_details`, replaced with
+        it on enrichment and copied on merge; it is internal and not exposed on GraphQL. The kill switch
+        `KEYWORD_GEOCODING_ENABLED` (default on; only `false` disables) restores the plain single-address
+        lookup with no filter, no ladder and nothing recorded. There is no confidence floor (Rule 4's note
+        stands) and no backfill of existing events.
+        - **Enforced by:** `packages/domain/src/geolocation/resolve-country-hint.test.ts` and
+          `build-location-queries.test.ts` (the hint order, both ladders, the filtered/unfiltered plan) +
+          `apps/backend/src/lib/geolocation/geocode-session.test.ts` (memo, budget, one log) +
+          `apps/backend/src/lib/ai-processor/resolve-account-and-locations.test.ts` (ladder steps, hint,
+          proximity rule, outage, kill switch, shared session) + `apps/backend/src/lib/extraction/apply-post-reextraction.test.ts`
+          (14 events on 13 places: 12 lookups, the rest `skipped`) + `set-event-primary-post.test.ts` and
+          `merge-events.test.ts` (the column follows the coordinates).
 
 ---
 ### AD-15: Event Card Media Primitive

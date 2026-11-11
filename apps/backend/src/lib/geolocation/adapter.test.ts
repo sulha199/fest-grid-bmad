@@ -50,7 +50,7 @@ test('adapter resolveLocation integration', async (t) => {
     // Check DB
     const cachedRows = await db.select().from(geolocationCache);
     assert.equal(cachedRows.length, 1);
-    assert.equal(cachedRows[0].cacheKey, 'geocode:123 main st, chicago|bias:none');
+    assert.equal(cachedRows[0].cacheKey, 'geocode:123 main st, chicago|filter:none');
     assert.equal(cachedRows[0].queryType, 'GEOCODE');
   });
 
@@ -58,7 +58,7 @@ test('adapter resolveLocation integration', async (t) => {
     fetchMock.mock.resetCalls();
     // Write manually first to set up hit
     await db.insert(geolocationCache).values({
-      cacheKey: 'geocode:123 main st, chicago|bias:none',
+      cacheKey: 'geocode:123 main st, chicago|filter:none',
       queryType: 'GEOCODE',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result: locationDetails as any
@@ -90,7 +90,7 @@ test('adapter resolveLocation integration', async (t) => {
   });
 });
 
-test('adapter resolveLocation with countryBias folds bias into cache key', async () => {
+test('adapter resolveLocation with countryFilter folds the filter into the cache key', async () => {
   await db.delete(geolocationCache);
 
   const fetchMock = mock.method(globalThis, 'fetch', async () => ({
@@ -109,7 +109,7 @@ test('adapter resolveLocation with countryBias folds bias into cache key', async
   }));
 
   try {
-    const result = await resolveLocation({ kind: 'ADDRESS', address: '123 Main St, Chicago', countryBias: 'us' });
+    const result = await resolveLocation({ kind: 'ADDRESS', address: '123 Main St, Chicago', countryFilter: 'us' });
 
     assert.equal(result.placeId, 'place123');
     assert.equal(result.confidence, 0.9);
@@ -118,9 +118,9 @@ test('adapter resolveLocation with countryBias folds bias into cache key', async
 
     const cachedRows = await db.select().from(geolocationCache);
     assert.equal(cachedRows.length, 1);
-    // Bias is part of the cache identity so a differently-biased account can't be served
-    // this cached result (Task 1, Design Decision 3).
-    assert.equal(cachedRows[0].cacheKey, 'geocode:123 main st, chicago|bias:us');
+    // The filter is part of the cache identity so a search inside another country (or everywhere) can't be served
+    // this cached result.
+    assert.equal(cachedRows[0].cacheKey, 'geocode:123 main st, chicago|filter:us');
   } finally {
     fetchMock.mock.restore();
     await db.delete(geolocationCache);
@@ -153,13 +153,14 @@ test('adapter resolveLocation with a proximity point drops far low-confidence ca
     const result = await resolveLocation({
       kind: 'ADDRESS',
       address: 'Pasar Porosjayan',
-      countryBias: 'id',
+      countryFilter: 'id',
       proximity: { latitude: -7.72, longitude: 110.35 },
     });
     assert.equal(result.placeId, 'pasar-potrojayan', 'the first-ranked far guess (Palu) no longer wins');
-    assert.equal(new URL(fetchMock.mock.calls[0].arguments[0] as string).searchParams.get('bias'), 'countrycode:id|proximity:110.35,-7.72');
+    assert.equal(new URL(fetchMock.mock.calls[0].arguments[0] as string).searchParams.get('bias'), 'proximity:110.35,-7.72');
+    assert.equal(new URL(fetchMock.mock.calls[0].arguments[0] as string).searchParams.get('filter'), 'countrycode:id');
     const rows = await db.select().from(geolocationCache);
-    assert.equal(rows[0].cacheKey, 'geocode:pasar porosjayan|bias:id|near:-7.7,110.3');
+    assert.equal(rows[0].cacheKey, 'geocode:pasar porosjayan|filter:id|near:-7.7,110.3');
   } finally {
     fetchMock.mock.restore();
     await db.delete(geolocationCache);
@@ -297,7 +298,7 @@ test('adapter resolveLocation remembers "not found" and does not call Geoapify a
   await db.delete(geolocationCache);
   const fetchMock = mock.method(globalThis, 'fetch', async () => ({ ok: true, json: async () => ({ results: [] }) }));
   try {
-    const query = { kind: 'ADDRESS' as const, address: 'Berbagai lokasi di Kabupaten Sleman', countryBias: 'id' };
+    const query = { kind: 'ADDRESS' as const, address: 'Berbagai lokasi di Kabupaten Sleman', countryFilter: 'id' };
     await assert.rejects(() => resolveLocation(query), (err: unknown) => err instanceof GeolocationNotFoundError);
     assert.equal(fetchMock.mock.callCount(), 1);
 
@@ -361,3 +362,43 @@ test('adapter resolveLocation does not remember an outage: a failure that is not
     await db.delete(geolocationCache);
   }
 });
+
+test('adapter resolveLocation calls beforeGeocode only for a cache miss, and a refusal is neither a lookup nor cached', async () => {
+  await db.delete(geolocationCache);
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({
+    ok: true,
+    json: async () => ({
+      results: [{ lat: 1, lon: 2, formatted: 'Somewhere', place_id: 'p1', timezone: { name: 'Asia/Jakarta' }, rank: { confidence: 0.9, match_type: 'full_match' }, country_code: 'id' }],
+    }),
+  }));
+  try {
+    const query = { kind: 'ADDRESS' as const, address: 'Budget Hall, Sleman' };
+    let counted = 0;
+
+    // A refusal (budget spent) stops the lookup before the geocoder and caches nothing.
+    await assert.rejects(
+      resolveLocation(query, {
+        beforeGeocode: () => {
+          throw new Error('budget spent');
+        },
+      }),
+      /budget spent/
+    );
+    assert.equal(fetchMock.mock.calls.length, 0);
+    assert.equal((await db.select().from(geolocationCache)).length, 0);
+
+    // A miss is counted once and reaches the geocoder.
+    await resolveLocation(query, { beforeGeocode: () => counted++ });
+    assert.equal(counted, 1);
+    assert.equal(fetchMock.mock.calls.length, 1);
+
+    // The cached answer is free: the hook is not called and the geocoder is not reached.
+    await resolveLocation(query, { beforeGeocode: () => counted++ });
+    assert.equal(counted, 1);
+    assert.equal(fetchMock.mock.calls.length, 1);
+  } finally {
+    fetchMock.mock.restore();
+    await db.delete(geolocationCache);
+  }
+});
+

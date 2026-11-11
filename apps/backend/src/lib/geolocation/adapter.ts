@@ -3,7 +3,15 @@ import { LocationDetails } from '@festgrid/shared-types';
 import { getCacheEntry, getCached, setCached, setCachedNotFound, GeolocationQueryType } from './cache-store.js';
 import { GeolocationNotFoundError, geocodeAddress, reverseGeocode, getPlaceDetails, getAddressPredictions as getClientPredictions } from './geoapify-client.js';
 
-export async function resolveLocation(query: GeolocationQuery): Promise<LocationDetails> {
+export interface ResolveLocationOptions {
+  /**
+   * Called right before a lookup would reach the geocoder (a cache miss), never for a cached answer. It may throw to refuse the
+   * lookup (a request's budget is spent); a refusal is not "not found" and is not cached.
+   */
+  beforeGeocode?: () => void;
+}
+
+export async function resolveLocation(query: GeolocationQuery, options?: ResolveLocationOptions): Promise<LocationDetails> {
   const cacheKey = buildLocationCacheKey(query);
 
   const cached = await getCacheEntry(cacheKey);
@@ -14,6 +22,8 @@ export async function resolveLocation(query: GeolocationQuery): Promise<Location
     // The geocoder found nothing for this exact query within the last day: do not pay for the same answer again.
     throw new GeolocationNotFoundError('No geolocation match found (cached)');
   }
+
+  options?.beforeGeocode?.();
 
   let outcome: { result: LocationDetails; queryType: GeolocationQueryType };
   try {
@@ -54,7 +64,7 @@ async function geocodeUncached(query: GeolocationQuery): Promise<{ result: Locat
       // Geoapify confidence signal (with a matchType-priority tiebreak) instead of
       // blindly taking Geoapify's first result, so a low-confidence top hit doesn't
       // win over a correct, lower-ranked one (BUG-017).
-      const candidates = await geocodeAddress(query.address, { countryBias: query.countryBias, proximity: query.proximity });
+      const candidates = await geocodeAddress(query.address, { countryFilter: query.countryFilter, proximity: query.proximity });
       // With a proximity point (the account's own location), a far low-confidence guess is dropped: no match is better than a
       // pin on another continent (it also decides the event's timezone). Without one nothing is filtered, as before.
       const plausible = filterPlausibleCandidates(candidates, query.proximity);

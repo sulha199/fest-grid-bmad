@@ -52,21 +52,19 @@ function getApiKey(): string {
 
 export async function geocodeAddress(
   address: string,
-  options?: { countryBias?: string; proximity?: Coordinates }
+  options?: { countryFilter?: string; proximity?: Coordinates }
 ): Promise<LocationDetails[]> {
   const apiKey = getApiKey();
   let url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}&format=json&limit=5&apiKey=${apiKey}`;
-  // Geoapify's `bias` takes several soft preferences joined by `|`: the account's country, and its own location (`proximity`
-  // is `lon,lat`), so "Pasar Porosjayan" is read as the market near Sleman, not a same-named one in another province.
-  const bias: string[] = [];
-  if (options?.countryBias) {
-    bias.push(`countrycode:${options.countryBias}`);
+  // `filter=countrycode:xx` is a HARD restriction to one country (the soft `bias=countrycode:` changed no result in a 54-location
+  // test, so it is not used). The caller decides whether a filtered search may be followed by an unfiltered one.
+  if (options?.countryFilter) {
+    url += `&filter=${encodeURIComponent(`countrycode:${options.countryFilter.toLowerCase()}`)}`;
   }
+  // `bias=proximity:lon,lat` is the account's own location, so "Pasar Porosjayan" is read as the market near Sleman, not a
+  // same-named one in another province.
   if (options?.proximity) {
-    bias.push(`proximity:${options.proximity.longitude},${options.proximity.latitude}`);
-  }
-  if (bias.length > 0) {
-    url += `&bias=${encodeURIComponent(bias.join('|'))}`;
+    url += `&bias=${encodeURIComponent(`proximity:${options.proximity.longitude},${options.proximity.latitude}`)}`;
   }
   
   const response = await fetch(url);

@@ -100,6 +100,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
     brightdataScrapingConfirmed: true,
     byokAllowLegacyBase64Fallback: false,
     defaultCountryCode: 'ID',
+    keywordGeocodingEnabled: true,
   };
 
   await t.test('Case A: happy path - first upload with no prior durableImageUrl', async () => {
