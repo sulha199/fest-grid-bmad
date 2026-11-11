@@ -1298,7 +1298,7 @@ export const jobs = pgTable('jobs', {
   statusDeadlineIdx: index('idx_jobs_status_deadline').on(t.status, t.deadlineAt),
   leaderIdx: index('idx_jobs_leader').on(t.leaderJobId),
   // Two partial indexes cannot be declared here (drizzle-kit 0.21 drops the WHERE clause), so they live in migration
-  // 0099 as hand-written SQL: `uq_jobs_open_input` (one open job per owner, type and input key: the reuse backstop,
+  // 0100 as hand-written SQL: `uq_jobs_open_input` (one open job per owner, type and input key: the reuse backstop,
   // FR120) and `idx_jobs_queue` (a user's waiting jobs in queue order).
 }));
 

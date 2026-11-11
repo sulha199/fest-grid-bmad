@@ -206,7 +206,7 @@ Claude Sonnet 5.5 (cloud session; built on branch `feat/job-engine-admission` fr
 ### Debug Log References
 
 - Pre-Coding Approval Gate: the user approved the build in conversation ("Do as your recommendation"), so the Gate's approval boxes are left for the user to tick. **Open flag, not resolved here:** the number of production users already above 5 subscriptions is unknown (no production access). They keep every subscription and cannot add another; check the count before deploying.
-- `uq_jobs_open_input` is a unique index on `jobs`: migration 0099 fails if production already holds two open jobs for one owner, type and input key. The engine shipped with no registered job type, so production should hold no `jobs` rows; confirm before deploying.
+- `uq_jobs_open_input` is a unique index on `jobs`: migration 0100 fails if production already holds two open jobs for one owner, type and input key. The engine shipped with no registered job type, so production should hold no `jobs` rows; confirm before deploying.
 
 ### Completion Notes List
 
@@ -235,4 +235,4 @@ Changed: `packages/domain/src/jobs/job-engine.ts` (+ test, `index.ts`); `package
 
 ### Change Log
 
-- 2026-11-11: Story 10.3 built: admission, queue, promotion, re-admission, cancel, reuse, opt-in sharing and the subscription cap; migrations 0098 and 0099; AD-53 Rules 3, 4, 7, 9 amended and 12 to 14 added.
+- 2026-11-11: Story 10.3 built: admission, queue, promotion, re-admission, cancel, reuse, opt-in sharing and the subscription cap; migrations 0099 and 0100; AD-53 Rules 3, 4, 7, 9 amended and 12 to 14 added.

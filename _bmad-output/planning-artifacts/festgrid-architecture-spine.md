@@ -3488,7 +3488,7 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ### AD-53: The Job Engine: One Record, One Registry, One Worker For Every Long-Running Vendor-Backed Action
 
-*   **Binds:** `packages/database/schema.ts` (`jobs`, `job_attempts`; migrations 0096 and 0097, and 0098 and 0099 of
+*   **Binds:** `packages/database/schema.ts` (`jobs`, `job_attempts`; migrations 0096 and 0097, and 0099 and 0100 of
     Story 10.3); `packages/domain/src/jobs/job-engine.ts`, `admission.ts` and `subscriptions/subscription-cap.ts`;
     `apps/backend/src/lib/job-engine/` (registry, `admitJob`, `startJob`, promotion, re-admission, `cancelJob`,
     followers, worker, sweeps); `apps/backend/src/lib/subscriptions/subscription-cap.ts`; `apps/backend/src/lib/aws/invoke-job-engine-worker.ts`; the `job-engine-run` branch of the Scraper and
