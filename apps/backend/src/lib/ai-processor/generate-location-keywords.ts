@@ -149,10 +149,8 @@ export async function generateLocationKeywords(events: GeminiEventPayload[], con
     const entries = collectEntries(events);
     if (entries.size === 0) return;
 
-    const pending: Array<[string, Entry]> = [...entries];
-
-    const sent = pending.slice(0, MAX_LOCATION_STRINGS_PER_CALL);
-    const skipped = pending.length - sent.length;
+    const sent = [...entries].slice(0, MAX_LOCATION_STRINGS_PER_CALL);
+    const skipped = entries.size - sent.length;
     const hashtags = hashtagsOf(context.sourceText);
     const lines = sent.map(([, entry], index) =>
       JSON.stringify({ id: `s${index}`, location: entry.text, event: entry.eventName, eventArea: entry.eventArea, hashtags })
@@ -197,7 +195,7 @@ export async function generateLocationKeywords(events: GeminiEventPayload[], con
       }
     }
     fillCountryFromConsensus(entries);
-    const outcome = answered === 0 ? 'failed' : answered < pending.length ? 'partial' : 'ok';
+    const outcome = answered === 0 ? 'failed' : answered < entries.size ? 'partial' : 'ok';
     console.info(
       `[generateLocationKeywords] ${label} outcome=${outcome} strings=${entries.size} sent=${sent.length} answered=${answered}` +
         (skipped > 0 ? ` skipped=${skipped}` : '')

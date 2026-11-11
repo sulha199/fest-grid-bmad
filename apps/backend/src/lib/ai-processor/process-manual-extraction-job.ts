@@ -94,12 +94,14 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
     );
 
     let resultText: string;
+    // The keys the extraction call actually ran on: the keywords call that follows uses the same ones (the moderator may have none).
+    let usedSubscriberUserIds = [job.requestedByUserId];
     try {
       resultText = (
         await callGeminiForManualExtractionSeam({
           ...request,
           provider: 'gemini',
-          subscriberUserIds: [job.requestedByUserId],
+          subscriberUserIds: usedSubscriberUserIds,
         })
       ).text;
     } catch (err) {
@@ -114,6 +116,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
       }
       // TIER_2 shared round-robin fallback (existing-post branch only, as in Story 4.2a).
       const subscriberUserIds = await getActiveSubscriberUserIds(existingPostAccountId);
+      usedSubscriberUserIds = subscriberUserIds;
       try {
         resultText = (
           await callGeminiForManualExtractionSeam({ ...request, provider: 'gemini', subscriberUserIds })
@@ -149,7 +152,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
       // stored rows: a moderator who re-extracts because the keywords were wrong must get fresh ones.
       await generateLocationKeywords(previewEvents, {
         callGemini: callGeminiForManualExtractionSeam,
-        subscriberUserIds: [job.requestedByUserId],
+        subscriberUserIds: usedSubscriberUserIds,
         sourceText: message.content,
         postId: message.postId,
       });

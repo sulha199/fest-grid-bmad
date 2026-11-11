@@ -995,3 +995,8 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
   summary: The prompt rule against "various locations" as an event `location` is the only guard; a stored `events.location` of "Berbagai lokasi ..." is not checked in code (only keywords are).
   evidence: `SUMMARY_OF_PLACES` in `normalize-location-keywords.ts` is applied to keywords only; the Samsat failure came from exactly this string in `location`.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: Prompt rule 5 says the event-level `location` is left absent when the schedules share no common area; the transform then falls back to the account's default location, so a multi-city single event from a Jakarta account stores "Jakarta" as its location.
+  evidence: `build-gemini-request.ts` rule 5; `transform-gemini-response-to-event-info.ts:52-54` (`payload.location || defaultLocation`). Rare after rule a2 (parallel venues are separate events); changing the wording needs a live A/B on a multi-city single-event post first.
+

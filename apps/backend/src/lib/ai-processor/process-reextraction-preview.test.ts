@@ -17,6 +17,7 @@ import type { ManualExtractionRequestPayload, ProcessingJobMessage, Reextraction
 import { processManualExtractionJob, setCallGeminiForManualExtractionSeam, callGeminiForManualExtractionSeam } from './process-manual-extraction-job.js';
 import { insertEventWithPrimaryPost } from '../events/set-event-primary-post.js';
 import { setDetectAndBlurFacesSeam, detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
+import { AiGatewayExhaustedError } from '../ai-gateway/adapter.js';
 
 // AD-40 -- real-DB tests for the moderator re-extract preview (AI-Lambda half). Gemini is a seam.
 // The invariants under test: the preview writes nothing to events/schedules/event_posts/posts, and
@@ -378,6 +379,24 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
     assert.strictEqual(row.status, 'SUCCEEDED');
     assert.strictEqual(requests.length, 2, 'the keywords call runs although the stored rows have keywords');
     assert.deepStrictEqual(extracted.events[0].locationKeywords, ['Reex Zoo', 'Sleman']);
+  });
+
+  await t.test('location keywords: the keywords call uses the keys the extraction call ran on (the moderator may have none)', async () => {
+    const post = await makePost('Fun run at the zoo');
+    const used: string[][] = [];
+    setCallGeminiForManualExtractionSeam(async (req: any) => {
+      used.push(req.subscriberUserIds);
+      if (used.length === 1) throw new AiGatewayExhaustedError('the moderator has no usable key');
+      if (used.length === 2) return { text: JSON.stringify({ isEvent: true, groupingReason: 'single-event', events: [previewEvent('2026-11-08')] }) } as any;
+      return { text: JSON.stringify([{ id: 's0', locationKeywords: ['Reex Zoo', 'Sleman'], countryCode: 'ID' }]) } as any;
+    });
+    const id = await insertJob({ message: message(post, 'Fun run at the zoo'), existingPostAccountId: account.id, mode: 'REEXTRACT_PREVIEW', postStored: true, rescraped: false });
+    await processManualExtractionJob(id);
+    const row = await readJob(id);
+    assert.strictEqual(row.status, 'SUCCEEDED');
+    assert.strictEqual(used.length, 3, 'moderator key, the post account fallback, then the keywords call');
+    assert.deepStrictEqual(used[2], used[1], 'the keywords call runs on the fallback keys');
+    assert.deepStrictEqual((row.resultData as any).extracted.events[0].locationKeywords, ['Reex Zoo', 'Sleman']);
   });
 
   await t.test('location keywords: a failing keywords call never fails the preview', async () => {
