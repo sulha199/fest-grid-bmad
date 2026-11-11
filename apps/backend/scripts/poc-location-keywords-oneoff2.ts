@@ -1,3 +1,5 @@
+// NOTE (slice 2a): the soft country bias option was removed from geocodeAddress (it changed no result, which is what this POC measured), so the
+// calls below pass the proximity point only; the numbers recorded in the spec were measured before that removal.
 // One-off POC pass 2, local only (never committed). Strategies, all through the real Geoapify client (no cache, no DB):
 //   A0  production today: text + bias/filter from the PRIMARY account's default location (when it has one)
 //   T0  text only, no bias at all
@@ -16,8 +18,8 @@ type Hit = { city?: string; province?: string; country?: string; lat: number; ln
 const memo = new Map<string, Promise<Hit>>();
 let calls = 0;
 
-async function resolve(query: string, countryBias: string | undefined, near: Region | null): Promise<Hit> {
-  const key = `${query}|${countryBias ?? ''}|${near ? near.lat.toFixed(1) + ',' + near.lng.toFixed(1) : ''}`;
+async function resolve(query: string, legacyBias: string | undefined, near: Region | null): Promise<Hit> {
+  const key = `${query}|${legacyBias ?? ''}|${near ? near.lat.toFixed(1) + ',' + near.lng.toFixed(1) : ''}`;
   let p = memo.get(key);
   if (!p) {
     p = (async () => {
@@ -25,7 +27,7 @@ async function resolve(query: string, countryBias: string | undefined, near: Reg
       const proximity = near ? { latitude: near.lat, longitude: near.lng } : undefined;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          const candidates = await geocodeAddress(query, { countryBias, proximity });
+          const candidates = await geocodeAddress(query, { proximity });
           const plausible = filterPlausibleCandidates(candidates, proximity);
           if (plausible.length === 0) return null;
           const best = selectBestCandidate(plausible);
@@ -43,9 +45,9 @@ async function resolve(query: string, countryBias: string | undefined, near: Reg
   return p;
 }
 
-async function ladder(queries: string[], countryBias: string | undefined, near: Region | null): Promise<{ hit: Hit; step: number }> {
+async function ladder(queries: string[], legacyBias: string | undefined, near: Region | null): Promise<{ hit: Hit; step: number }> {
   for (let i = 0; i < queries.length; i++) {
-    const hit = await resolve(queries[i], countryBias, near);
+    const hit = await resolve(queries[i], legacyBias, near);
     if (hit) return { hit, step: i + 1 };
   }
   return { hit: null, step: 0 };

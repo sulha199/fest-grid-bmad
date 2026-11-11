@@ -372,6 +372,28 @@ test('enrichAndPromoteEvent integration tests', async (t) => {
     assert.deepStrictEqual(sch.locationKeywords, ['Kept Hall']);
   });
 
+  await t.test('location_resolution follows the coordinates: replaced with new details, kept when a lookup found nothing', async () => {
+    const { event: candidate, schedule } = await makeCandidate({ accountId: organizerAccount.id, postIdSuffix: 'res-candidate' });
+    const oldDetails = { coordinates: { latitude: -7.7, longitude: 110.4 }, formattedAddress: 'Old place' };
+    await db.update(schedules).set({ locationDetails: oldDetails, locationResolution: 'fb1' }).where(eq(schedules.id, schedule.id));
+    const [fresh] = await db.select().from(events).where(eq(events.id, candidate.id));
+
+    // 1) New details: both replaced.
+    const newDetails = { coordinates: { latitude: -7.8, longitude: 110.3 }, formattedAddress: 'New place' };
+    const post1 = await makePost(curatorAccount.id, 'res-new-1');
+    await enrichAndPromoteEvent(db, fresh, newEventValues({}), [{ isMainSchedule: true, eventStartDate: '2026-05-01', locationDetails: newDetails, locationResolution: 'kw1' }], post1.id, 0);
+    let [sch] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.strictEqual(sch.locationResolution, 'kw1');
+    assert.strictEqual((sch.locationDetails as any).formattedAddress, 'New place');
+
+    // 2) A lookup that found nothing (resolution `none`, no details): the stored details and their resolution stay.
+    const post2 = await makePost(curatorAccount.id, 'res-new-2');
+    await enrichAndPromoteEvent(db, fresh, newEventValues({}), [{ isMainSchedule: true, eventStartDate: '2026-05-01', locationResolution: 'none' }], post2.id, 1);
+    [sch] = await db.select().from(schedules).where(eq(schedules.id, schedule.id));
+    assert.strictEqual(sch.locationResolution, 'kw1');
+    assert.strictEqual((sch.locationDetails as any).formattedAddress, 'New place');
+  });
+
   await t.test('location keywords: the same place respelled (case, spacing) keeps its keywords when the repeat gives none', async () => {
     const { event: candidate, schedule } = await makeCandidate({ accountId: organizerAccount.id, postIdSuffix: 'kw-respell', location: 'Kabupaten Sleman' });
     await db.update(events).set({ locationKeywords: ['Sleman'] }).where(eq(events.id, candidate.id));

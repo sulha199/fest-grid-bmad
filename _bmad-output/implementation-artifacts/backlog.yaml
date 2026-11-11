@@ -3045,3 +3045,12 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend],
      note: "Deferred from: bmad-quick-dev review of spec-location-keywords-extraction: corrections drop keywords, placeholder overwrites a real location (2026-11-10). 2 findings."}
+
+  IDEA-261111-avw:
+    {type: idea, status: backlog, created: 2026-11-11,
+     impact: internal, effort: m,
+     title: "Smarter default-country derivation: use the account's own confident geocoded events, else the country most of its subscribers come from",
+     ref: [backlog/IDEA-261111-avw-smarter-default-country-derivation.md, implementation-artifacts/spec-location-keywords-geocoding.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction],
+     note: "Raised at the 2a Checkpoint 1 (2026-11-11). Today the hint is the string/consensus code, then the static DEFAULT_COUNTRY_CODE. Revisit if that default proves wrong in a new market; see the detail file."}
+
