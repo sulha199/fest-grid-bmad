@@ -13,14 +13,16 @@ validation). A pure scorer in `packages/domain/src/extraction-eval/` compares ea
 |---|---|
 | `groupingReason` | equals the label (skipped for a non-event post) |
 | `eventCount` | model event count equals the labelled count |
-| `eventName` | normalized name equals or contains the label's (a labelled event the model did not produce counts once as a miss) |
+| `eventName` | the normalized name equals the label's, or one is the other's whole words ("Turnamen Contoh" in "Turnamen Contoh Cabang 1", but "Fest" is not in "Festival"); a labelled event the model did not produce counts once as a miss |
 | `startDate`, `endDate`, `startTime`, `endTime` | per labelled schedule, matched by start date; only fields the label states are scored |
 | `location` | every word of the labelled place appears in the model's location (normalized text, no geocoding) |
-| `ticket` | digits of the price match a schedule price, or (`free: true`) no schedule carries a price |
+| `ticket` | digits of the price match a schedule price; for `free: true`, every schedule is free: a price of 0, an explicit free word ("gratis", "free") or no price at all. Other text without a digit ("TBA", "Info via DM") is not free, and an event with no schedule cannot be free |
 | `categoriesPrecision`, `categoriesRecall` | share of model categories that are right, and of labelled ones found |
 | `performers` | share of labelled performers found |
 
-Events are matched by normalized name, then by earliest start date. Per-event fields are scored over matched events only, so a
+Events are matched in three passes, each event used once: the same normalized name **and** earliest start date (so two events
+called "Workshop" on different days pair correctly whatever order the model returns them in), then the same name alone, then the
+same earliest start date alone (the model renamed the event). Names keep letters and digits of every script. Per-event fields are scored over matched events only, so a
 fold of 7 labelled events into 1 reports `count_mismatch` (event count and grouping fail) instead of zero on everything.
 Extra model events are reported, not scored. Location keywords are not scored (a separate call fills them).
 
@@ -33,8 +35,14 @@ unparseable/invalid JSON) and `unavailable` (429/503 after the retry cap, a spen
 could not all be sent: the production builder falls back to a text-only request when an image fetch fails, so the runner makes
 no call for that post and says so, instead of booking a harness fault as a wrong extraction).
 
-Read the `truncated` count as a signal too: an answer that fails JSON parsing or schema validation is classed as truncated, so a
-change that makes the model return invalid output shows up there, not in the field pass-rates.
+An answer that fails JSON parsing or schema validation is classed as truncated, so it leaves every field pass-rate. To keep a
+change that breaks the output visible, the baseline stores the **truncated rate** (truncated runs as a share of answered runs)
+and the report flags a rise beyond the noise floor. A run with no scorable answer at all says "No field had data" instead of
+"nothing dropped".
+
+What the eval does not send: production passes `blurFacesBeforeAi` to the request builder when that setting is on, and the eval
+does not, so it sends the labelled images unblurred. Face blurring can change what the model reads on a poster, so a result here
+can differ slightly from production on a post with faces.
 
 ## Reading the report
 
@@ -47,7 +55,13 @@ the delta in points, the noise band and a status:
   `--noise-floor <points>` flag (default 15, from `DEFAULT_NOISE_FLOOR`); the multiplier `NOISE_BAND_SIGMAS` (2) and the cap
   `MAX_NOISE_BAND` (0.5) are constants in `packages/domain/src/extraction-eval/aggregate.ts`. The cap exists because a band
   above 100 points could never be exceeded, so such a field would never be checked.
-- The spread is measured only over posts that answered **every** run: a post that dropped out of some runs (truncated, quota)
+- **Posts present in both the run and the baseline** are the only ones whose pass-rates are compared. A post added since the
+  baseline (reported as "New posts") or dropped from the set ("Posts in the baseline but not in this run") cannot move a field;
+  the table's Pass-rate column is the whole run, Baseline and Delta are over the posts in both.
+- With **one run per post** the spread is 0, so a drop cannot be told from noise: a field that fell beyond the floor shows as
+  `single_run`, not `flagged`, and the report says to use `--runs 3` or more.
+- The spread is measured only over posts that answered **every** run, and for a field only over posts that have a score for it
+  in every run: a post that dropped out of some runs (truncated, quota)
   would change the mix of posts between runs, and that change would be counted as model noise. Runs are lined up by their real
   run number. With no post complete, the band is the floor.
 - `improved`, `ok`, `new` (field or post absent from the baseline), `no_data`.
@@ -79,8 +93,11 @@ EXTRACTION_EVAL_DIR=/path/to/labelled EXTRACTION_EVAL_GEMINI_API_KEY=... \
 ```
 
 Options: `--only <postId>`, `--baseline <file>` (default `<dir>/baseline.json`), `--write-baseline <file>`, `--json <file>`,
-`--interval-ms` (default 5000; a whole number of milliseconds, an empty variable counts as unset), `--runs N` (default 3), `--noise-floor <points>` (default 15), `--show-names`. With no key or no dir the live path says so and exits 0. A live run in which no call got an answer (quota spent, 429/503 on
-every call, unreadable images) exits 1, like the golden-prompt eval; any score, however low, exits 0. Replay of the synthetic set gives, by
+`--interval-ms` (default 5000; a whole number of milliseconds, an empty variable counts as unset), `--runs N` (default 3), `--noise-floor <points>` (default 15), `--show-names`. Exit codes: a score, however low, exits 0. The eval exits **1** when it cannot run, so a typo is never read as a pass, and
+writes one "did not run, this is not a pass" line to the job summary: no labelled directory configured, a directory that does not
+exist, a directory with no `<postId>/label.json` (a nested bucket prefix, say), an unreadable label (the message names the file
+and never quotes it), or a live run in which no call got an answer (quota spent, 429/503 on every call, unreadable images, as in
+the golden-prompt eval). A live run with no Gemini key says so and exits 0. Replay of the synthetic set gives, by
 hand calculation: groupingReason 83 %, eventCount 88 %, eventName 89 %, startDate/startTime/endTime/categories 100 %,
 location 67 %, ticket 83 %, performers 75 %, endDate n/a; 10 scored runs, 1 truncated, 1 unavailable, 1 `count_mismatch`.
 
@@ -130,6 +147,13 @@ Leave a field out to leave it unscored. `ticketPrice` must contain a digit (use 
 when the price is unknown). `events: []` marks a non-event post. Image files should be PNG, JPEG, WebP or GIF; any other
 extension is served without an image type and the post is skipped as `unavailable`. Verify the label by hand against the images.
 
+## Where the baseline lives
+
+`--baseline <file>` defaults to `<labelled dir>/baseline.json`. For a real run the labelled dir is the private set, so the real
+baseline is a file at the **root of the private set** (next to the `<postId>/` folders), written with `--write-baseline` after a
+reviewed run. It is not committed to this repo; only the synthetic set's `baseline.json` is. Without a `baseline.json` in the set
+the report has no comparison and says so.
+
 ## The public-repo rule
 
 This repository is public. Never commit real images, real captions, or anything with personal contact data (a phone number, a
@@ -147,9 +171,22 @@ git-ignored.
 The report and the baseline carry a hash of the extraction instruction and the response schema. The instruction embeds each
 post's own publish date, so the date is masked before hashing: the hash identifies the prompt, not the first post.
 
+## Code map
+
+The logic is in `packages/domain/src/extraction-eval/` (pure: matcher, scorers, aggregation, baseline comparison, report) and
+`apps/backend/src/lib/ai-gateway/extraction-eval-run.ts` (loading, the paced live loop, retries, the exit rule). The script
+`apps/backend/scripts/run-extraction-accuracy-eval.ts` is argument parsing and the report around them. Both have unit tests; one
+domain test loads the committed synthetic labels, recording and baseline and asserts the numbers above, so they cannot drift.
+
 ## CI
 
-`.github/workflows/extraction-accuracy-eval.yml`: path-filtered `pull_request` (prompt, schema, gateway, normalizers, the eval
-itself), weekly schedule, `workflow_dispatch`. Without the secrets it replays the synthetic set and says in the summary that no
-real data was scored. Scorer unit tests run on every PR in the normal domain test job. The workflow has a `concurrency` group, so only one eval runs
+`.github/workflows/extraction-accuracy-eval.yml`: path-filtered `pull_request` (the request builder and everything it interpolates:
+`packages/domain/src/posts/**` and `events/**`, the schema, the gateway, the env, shared types, and the eval itself), weekly
+schedule, `workflow_dispatch`.
+
+**A pull request never gets the live path.** The run executes the runner and the scorer from the PR's own code, and a same-repo
+PR can read repository secrets, so a changed runner could print the Gemini key or the private labelled set into the log of a
+public repo. The `pull_request` run only replays the synthetic set and says so in the summary; the live eval (fetch from the
+private store, paced Gemini calls) runs on `schedule` and `workflow_dispatch` only, and only when the secrets exist. Without them
+it replays the synthetic set and says in the summary that no real data was scored. Scorer unit tests run on every PR in the normal domain test job. The workflow has a `concurrency` group, so only one eval runs
 at a time (all live runs share one paced Gemini key); a run is never cancelled half way, and a newer run waits.

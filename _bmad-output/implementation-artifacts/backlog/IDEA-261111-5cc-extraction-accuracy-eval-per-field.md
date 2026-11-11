@@ -20,5 +20,5 @@ extraction-affecting PRs (non-blocking), weekly for model drift, and before a mo
 
 ## Where it lives
 
-Spec: `implementation-artifacts/spec-extraction-accuracy-eval.md` (draft, two slices). Precedent: AD-44 Rule 10, Story 9.7 and
+Spec: `implementation-artifacts/spec-extraction-accuracy-eval.md` (in progress: slice A built, slice B needs the maintainer). Precedent: AD-44 Rule 10, Story 9.7 and
 `IDEA-072` (AI-filter golden prompts).
