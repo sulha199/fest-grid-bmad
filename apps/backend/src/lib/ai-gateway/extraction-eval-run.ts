@@ -3,8 +3,10 @@
  * `scripts/run-extraction-accuracy-eval.ts` is only argument parsing and the report around these.
  * Spec: _bmad-output/implementation-artifacts/spec-extraction-accuracy-eval.md. Docs: docs/infrastructure/extraction-accuracy-eval.md.
  *
- * Nothing here is part of the production pipeline and nothing in the pipeline imports it. The live path calls the
- * production request builder and gateway client; tests drive it with the gateway seam, never a real call.
+ * Nothing here is part of the production pipeline and nothing in the pipeline imports it. The live path uses the production
+ * request builder, and the production gateway client is PASSED IN by the script (`callGemini`): the AD-32 ratchet allows
+ * only the gateway's own files to reference that client, and this file must not widen that list. Tests pass a stub, so no
+ * test makes a real call.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -18,6 +20,20 @@ import { nextEvalRetryDelayMs } from './eval-retry-policy.js';
 import { evalExitCode } from './eval-exit-policy.js';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
+import type { buildGeminiExtractionRequest } from '../ai-processor/build-gemini-request.js';
+
+/** The request the production builder makes, and the slice of the gateway client's answer the eval reads. */
+export type EvalRequest = Awaited<ReturnType<typeof buildGeminiExtractionRequest>>['request'];
+export type CallGemini = (apiKey: string, request: EvalRequest) => Promise<{ text: string; finishReason?: string }>;
+
+/**
+ * Modules the builder and the gateway client load read these at import (the client reaches the database module, which throws
+ * without a URL); the eval never queries a database. Call before importing either.
+ */
+export function prepareEvalEnv(): void {
+  process.env.BACKEND_PORT ??= '4001';
+  process.env.DATABASE_URL ??= 'postgresql://unused:unused@127.0.0.1:5432/unused';
+}
 
 export interface LoadedPost {
   post: LabelledPost;
@@ -102,6 +118,8 @@ export interface RecordLiveOptions {
   recordPath: string;
   /** Pause between calls (the system key returns 429 when called quickly). */
   intervalMs: number;
+  /** The production gateway client's generate call, passed in by the script (see the header). */
+  callGemini: CallGemini;
   /** Test seams; the defaults are the real clock and `setTimeout`. */
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
@@ -117,11 +135,8 @@ export async function recordLive(posts: LoadedPost[], runs: number, apiKey: stri
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const now = options.now ?? Date.now;
   const log = options.log ?? console.log;
-  process.env.BACKEND_PORT ??= '4001';
-  // gemini-client -> guarded-call -> db/client throws at import without a URL; this eval never queries (see the golden-prompt eval).
-  process.env.DATABASE_URL ??= 'postgresql://unused:unused@127.0.0.1:5432/unused';
+  prepareEvalEnv();
   const { buildGeminiExtractionRequest } = await import('../ai-processor/build-gemini-request.js');
-  const { callGeminiGenerateContent } = await import('./gemini-client.js');
   const { loadBackendEnv } = await import('../../env.js');
   const model = loadBackendEnv().geminiModel;
 
@@ -176,7 +191,7 @@ export async function recordLive(posts: LoadedPost[], runs: number, apiKey: stri
             if (wait > 0) await sleep(wait);
             lastCallAt = now();
             try {
-              const result = await callGeminiGenerateContent(apiKey, built.request);
+              const result = await options.callGemini(apiKey, built.request);
               entry = { postId: post.postId, runIndex, text: result.text, ...(result.finishReason ? { finishReason: result.finishReason } : {}) };
             } catch (err) {
               const message = String((err as Error)?.message);

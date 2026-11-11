@@ -4,16 +4,14 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { RecordedOutputs, RecordedRun } from '@festgrid/domain/extraction-eval';
-import { generateContentSeam, setGenerateContentSeam } from './gemini-client.js';
 import { EVAL_MAX_ATTEMPTS } from './eval-retry-policy.js';
-import { hashPrompt, liveExitCode, loadLabelledPosts, parseLikePipeline, readJsonFile, recordLive, serveImages } from './extraction-eval-run.js';
+import { hashPrompt, liveExitCode, loadLabelledPosts, parseLikePipeline, readJsonFile, recordLive, serveImages, type CallGemini, type RecordLiveOptions } from './extraction-eval-run.js';
 
 /**
- * Tests of the eval runner's logic (the script is only argument parsing around it). No network and no key: the live loop is
- * driven through the real gateway client with its raw SDK call swapped for a stub, and the sleeping is injected.
+ * Tests of the eval runner's logic (the script is only argument parsing around it). No network and no key: the live loop gets a
+ * stub in place of the gateway client (the script passes the real one), and the sleeping and the clock are injected.
  */
 const FIXTURES = resolve(__dirname, '../../../scripts/fixtures/extraction-eval-synthetic');
-const originalSeam = generateContentSeam;
 
 const workDirs: string[] = [];
 function tempDir(): string {
@@ -23,7 +21,6 @@ function tempDir(): string {
 }
 
 test.after(() => {
-  setGenerateContentSeam(originalSeam);
   for (const dir of workDirs) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -48,8 +45,10 @@ function makeSet(posts: Record<string, string[]>): string {
   return dir;
 }
 
-const answer = (text = '{"events":[]}', finishReason = 'STOP') => ({ text, candidates: [{ finishReason }] });
+const answer = (text = '{"events":[]}', finishReason = 'STOP') => ({ text, finishReason });
 const noRetryWait = { sleep: async () => {}, now: () => 0, log: () => {} };
+/** Options for a run with no waiting; `callGemini` is the stub under test. */
+const opts = (callGemini: CallGemini, over: Partial<RecordLiveOptions> = {}): RecordLiveOptions => ({ ...noRetryWait, intervalMs: 0, recordPath: join(tempDir(), 'rec.json'), callGemini, ...over });
 
 test('readJsonFile: a malformed file fails with its name and never quotes its content', () => {
   const file = join(tempDir(), 'label.json');
@@ -124,17 +123,18 @@ test('recordLive: answers every run, saves after each one, and paces the calls',
   const recordPath = join(tempDir(), 'rec.json');
   let calls = 0;
   let sentImages = 0;
-  setGenerateContentSeam(async (_ai, params) => {
+  const callGemini: CallGemini = async (_key, request) => {
     calls += 1;
-    sentImages = (params.contents as Array<unknown>).length - 1;
+    sentImages = (request.contents as Array<unknown>).length - 1;
     // The recording on disk already holds every run answered before this call.
     assert.equal(existsSync(recordPath) ? (JSON.parse(readFileSync(recordPath, 'utf8')) as RecordedOutputs).runs.length : 0, calls - 1);
     return answer(`{"events":[],"n":${calls}}`);
-  });
+  };
   const sleeps: number[] = [];
   const logs: string[] = [];
   const clock = 1_000_000;
   const recorded = await recordLive(loadLabelledPosts(dir, undefined), 2, 'fake-key', {
+    callGemini,
     recordPath,
     intervalMs: 5000,
     sleep: async (ms) => void sleeps.push(ms),
@@ -154,12 +154,16 @@ test('recordLive: answers every run, saves after each one, and paces the calls',
 test('recordLive: a post whose images were not all sent makes no call and is unavailable', async () => {
   const dir = makeSet({ 'bad-image': ['cover.bmp'], good: ['cover.png'] });
   let calls = 0;
-  setGenerateContentSeam(async () => {
-    calls += 1;
-    return answer();
-  });
   const logs: string[] = [];
-  const recorded = await recordLive(loadLabelledPosts(dir, undefined), 2, 'fake-key', { ...noRetryWait, intervalMs: 0, recordPath: join(tempDir(), 'rec.json'), log: (l) => void logs.push(l) });
+  const recorded = await recordLive(
+    loadLabelledPosts(dir, undefined),
+    2,
+    'fake-key',
+    opts(async () => {
+      calls += 1;
+      return answer();
+    }, { log: (l) => void logs.push(l) })
+  );
   assert.equal(calls, 2, 'only the good post is called');
   assert.deepEqual(recorded.runs.filter((r) => r.postId === 'bad-image').map((r) => r.unavailable), [true, true]);
   assert.deepEqual(recorded.runs.filter((r) => r.postId === 'good').map((r) => r.unavailable), [undefined, undefined]);
@@ -170,15 +174,19 @@ test('recordLive: a 429 and a 503 are retried after a wait, then answered', asyn
   const dir = makeSet({ p: ['cover.png'] });
   const failures = ['429 RESOURCE_EXHAUSTED: Please retry in 2s', '503 UNAVAILABLE: model overloaded'];
   let calls = 0;
-  setGenerateContentSeam(async () => {
-    calls += 1;
-    const failure = failures.shift();
-    if (failure) throw new Error(failure);
-    return answer();
-  });
   const sleeps: number[] = [];
   const logs: string[] = [];
-  const recorded = await recordLive(loadLabelledPosts(dir, undefined), 1, 'fake-key', { ...noRetryWait, intervalMs: 0, recordPath: join(tempDir(), 'rec.json'), sleep: async (ms) => void sleeps.push(ms), log: (l) => void logs.push(l) });
+  const recorded = await recordLive(
+    loadLabelledPosts(dir, undefined),
+    1,
+    'fake-key',
+    opts(async () => {
+      calls += 1;
+      const failure = failures.shift();
+      if (failure) throw new Error(failure);
+      return answer();
+    }, { sleep: async (ms) => void sleeps.push(ms), log: (l) => void logs.push(l) })
+  );
   assert.equal(calls, 3);
   assert.equal(recorded.runs[0]?.unavailable, undefined);
   assert.equal(recorded.runs[0]?.finishReason, 'STOP');
@@ -190,11 +198,15 @@ test('recordLive: a 429 and a 503 are retried after a wait, then answered', asyn
 test('recordLive: after the retry cap the run is unavailable, not wrong, and the next run still tries', async () => {
   const dir = makeSet({ p: ['cover.png'] });
   let calls = 0;
-  setGenerateContentSeam(async () => {
-    calls += 1;
-    throw new Error('503 UNAVAILABLE');
-  });
-  const recorded = await recordLive(loadLabelledPosts(dir, undefined), 2, 'fake-key', { ...noRetryWait, intervalMs: 0, recordPath: join(tempDir(), 'rec.json') });
+  const recorded = await recordLive(
+    loadLabelledPosts(dir, undefined),
+    2,
+    'fake-key',
+    opts(async () => {
+      calls += 1;
+      throw new Error('503 UNAVAILABLE');
+    })
+  );
   assert.deepEqual(recorded.runs.map((r) => r.unavailable), [true, true]);
   assert.equal(calls, 2 * EVAL_MAX_ATTEMPTS);
   assert.equal(liveExitCode(recorded.runs).code, 1);
@@ -203,11 +215,15 @@ test('recordLive: after the retry cap the run is unavailable, not wrong, and the
 test('recordLive: a spent daily quota stops the run: the rest is unavailable without further calls', async () => {
   const dir = makeSet({ 'a-post': ['cover.png'], 'b-post': ['cover.png'] });
   let calls = 0;
-  setGenerateContentSeam(async () => {
-    calls += 1;
-    throw new Error('429 RESOURCE_EXHAUSTED: quota exceeded for GenerateRequestsPerDayPerProjectPerModel');
-  });
-  const recorded = await recordLive(loadLabelledPosts(dir, undefined), 2, 'fake-key', { ...noRetryWait, intervalMs: 0, recordPath: join(tempDir(), 'rec.json') });
+  const recorded = await recordLive(
+    loadLabelledPosts(dir, undefined),
+    2,
+    'fake-key',
+    opts(async () => {
+      calls += 1;
+      throw new Error('429 RESOURCE_EXHAUSTED: quota exceeded for GenerateRequestsPerDayPerProjectPerModel');
+    })
+  );
   assert.equal(calls, 1);
   assert.equal(recorded.runs.length, 4);
   assert.ok(recorded.runs.every((r) => r.unavailable === true));
@@ -218,13 +234,13 @@ test('recordLive: a hard error keeps what was answered, names the file, and is r
   const errors: string[] = [];
   t.mock.method(console, 'error', (line: string) => void errors.push(String(line)));
   let calls = 0;
-  setGenerateContentSeam(async () => {
+  const recordPath = join(tempDir(), 'rec.json');
+  const callGemini: CallGemini = async () => {
     calls += 1;
     if (calls === 2) throw new Error('400 INVALID_ARGUMENT: bad request');
     return answer();
-  });
-  const recordPath = join(tempDir(), 'rec.json');
-  await assert.rejects(recordLive(loadLabelledPosts(dir, undefined), 3, 'fake-key', { ...noRetryWait, intervalMs: 0, recordPath }), /400 INVALID_ARGUMENT/);
+  };
+  await assert.rejects(recordLive(loadLabelledPosts(dir, undefined), 3, 'fake-key', opts(callGemini, { recordPath })), /400 INVALID_ARGUMENT/);
   const saved = JSON.parse(readFileSync(recordPath, 'utf8')) as RecordedOutputs;
   assert.deepEqual(saved.runs.map((r) => r.runIndex), [0]);
   assert.ok(errors.some((e) => e.includes('Aborted after 1 recorded run(s)') && e.includes(recordPath)));
@@ -234,11 +250,11 @@ test('recordLive: an error before any run was recorded leaves no recording and s
   const dir = makeSet({ p: ['cover.png'] });
   const errors: string[] = [];
   t.mock.method(console, 'error', (line: string) => void errors.push(String(line)));
-  setGenerateContentSeam(async () => {
-    throw new Error('400 INVALID_ARGUMENT: bad request');
-  });
   const recordPath = join(tempDir(), 'rec.json');
-  await assert.rejects(recordLive(loadLabelledPosts(dir, undefined), 1, 'fake-key', { ...noRetryWait, intervalMs: 0, recordPath }), /400 INVALID_ARGUMENT/);
+  const callGemini: CallGemini = async () => {
+    throw new Error('400 INVALID_ARGUMENT: bad request');
+  };
+  await assert.rejects(recordLive(loadLabelledPosts(dir, undefined), 1, 'fake-key', opts(callGemini, { recordPath })), /400 INVALID_ARGUMENT/);
   assert.equal(existsSync(recordPath), false);
   assert.deepEqual(errors, []);
 });

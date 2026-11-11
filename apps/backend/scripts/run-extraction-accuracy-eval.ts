@@ -39,7 +39,7 @@ import {
   type Baseline,
   type RecordedOutputs,
 } from '@festgrid/domain/extraction-eval';
-import { liveExitCode, loadLabelledPosts, parseLikePipeline, readJsonFile, recordLive } from '../src/lib/ai-gateway/extraction-eval-run.js';
+import { liveExitCode, loadLabelledPosts, parseLikePipeline, prepareEvalEnv, readJsonFile, recordLive } from '../src/lib/ai-gateway/extraction-eval-run.js';
 
 /** The eval could not run: say so in one line on the console and in the job summary, and exit 1 (never a silent pass). */
 function cannotRun(reason: string): void {
@@ -92,7 +92,10 @@ async function main(): Promise<void> {
     const intervalMs = Number(intervalRaw);
     if (!Number.isInteger(intervalMs) || intervalMs < 0) throw new Error(`--interval-ms / EXTRACTION_EVAL_MIN_INTERVAL_MS must be a whole number of milliseconds, got "${intervalRaw}"`);
     const recordPath = values.record ?? 'extraction-eval-recorded.json';
-    recorded = await recordLive(posts, runs, apiKey, { intervalMs, recordPath });
+    // The production gateway client, imported here (not in the library: the AD-32 ratchet allows only the gateway's own files).
+    prepareEvalEnv();
+    const { callGeminiGenerateContent } = await import('../src/lib/ai-gateway/gemini-client.js');
+    recorded = await recordLive(posts, runs, apiKey, { intervalMs, recordPath, callGemini: callGeminiGenerateContent });
     console.log(`Recorded raw answers to ${recordPath}`);
   }
 
