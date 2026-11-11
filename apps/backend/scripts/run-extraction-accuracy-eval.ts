@@ -18,7 +18,9 @@
  * With no key or no labelled dir the live path prints why and exits 0.
  *
  * Options: --dir, --replay, --runs N (default 3), --only <postId>, --record <file>, --baseline <file>,
- * --write-baseline <file>, --json <file> (report JSON), --interval-ms N (or EXTRACTION_EVAL_MIN_INTERVAL_MS).
+ * --write-baseline <file>, --json <file> (report JSON), --interval-ms N (or EXTRACTION_EVAL_MIN_INTERVAL_MS),
+ * --noise-floor <points> (the lowest noise band, default 15; a starting value to tune after the first real baseline),
+ * --show-names (event names in the count_mismatch detail; off by default because the report goes to a public job summary).
  */
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -30,6 +32,7 @@ import {
   aggregateRuns,
   buildBaseline,
   buildReport,
+  DEFAULT_NOISE_FLOOR,
   classifyRun,
   compareToBaseline,
   parseBaseline,
@@ -196,6 +199,8 @@ async function main(): Promise<void> {
       'write-baseline': { type: 'string' },
       json: { type: 'string' },
       'interval-ms': { type: 'string' },
+      'noise-floor': { type: 'string' },
+      'show-names': { type: 'boolean' },
     },
   });
   const dirArg = values.dir ?? process.env.EXTRACTION_EVAL_DIR;
@@ -206,6 +211,8 @@ async function main(): Promise<void> {
   const dir = resolve(dirArg);
   const runs = Number(values.runs ?? 3);
   if (!Number.isInteger(runs) || runs < 1) throw new Error('--runs must be a positive integer');
+  const noiseFloorPoints = Number(values['noise-floor'] ?? DEFAULT_NOISE_FLOOR * 100);
+  if (!Number.isFinite(noiseFloorPoints) || noiseFloorPoints < 0 || noiseFloorPoints > 100) throw new Error('--noise-floor must be a number of points between 0 and 100');
   const posts = loadPosts(dir, values.only);
   if (posts.length === 0) {
     console.log(`No labelled posts found in ${dir}. Exiting cleanly.`);
@@ -236,9 +243,9 @@ async function main(): Promise<void> {
 
   const baselinePath = values.baseline ?? join(dir, 'baseline.json');
   const baseline: Baseline | null = existsSync(baselinePath) ? parseBaseline(JSON.parse(readFileSync(baselinePath, 'utf8')), baselinePath) : null;
-  const comparison = baseline ? compareToBaseline(aggregate, baseline) : null;
+  const comparison = baseline ? compareToBaseline(aggregate, baseline, noiseFloorPoints / 100) : null;
   const maxRun = Math.max(0, ...recorded.runs.map((r) => r.runIndex)) + 1;
-  const report = buildReport(aggregate, { model: recorded.model, promptHash: recorded.promptHash, runs: mode === 'replay' ? maxRun : runs, mode }, baseline, comparison);
+  const report = buildReport(aggregate, { model: recorded.model, promptHash: recorded.promptHash, runs: mode === 'replay' ? maxRun : runs, mode }, baseline, comparison, { showNames: values['show-names'] === true });
 
   console.log(report.markdown);
   if (values.json) writeFileSync(values.json, `${JSON.stringify(report.json, null, 2)}\n`);

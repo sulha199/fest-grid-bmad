@@ -95,10 +95,31 @@ export interface RunScore {
   fields: FieldScores;
   /** Model event count differs from the labelled count (split vs fold). */
   countMismatch: boolean;
+  /** Labelled events the model did not produce (each counts once as an `eventName` miss). */
+  missing: MissingEvent[];
   /** Model events that matched no labelled event: reported, not scored. */
-  extraEvents: number;
-  /** Labelled events the model did not produce. */
-  unmatchedLabelled: number;
+  extras: ExtraEvent[];
+}
+
+/** A labelled event with no model counterpart in one run. `index` is its position in the label (0-based). */
+export interface MissingEvent {
+  index: number;
+  name: string;
+}
+
+/** A model event that matched no labelled event in one run. */
+export interface ExtraEvent {
+  name: string;
+}
+
+/** Over the answered runs of a post: in how many runs a labelled event was missing. */
+export interface MissingEventTally extends MissingEvent {
+  runs: number;
+}
+
+/** Over the answered runs of a post: in how many runs a model event of this name was extra. */
+export interface ExtraEventTally extends ExtraEvent {
+  runs: number;
 }
 
 export interface RunResult {
@@ -115,6 +136,9 @@ export interface PostAggregate {
   truncatedRuns: number;
   unavailableRuns: number;
   countMismatchRuns: number;
+  /** count_mismatch detail the per-field rates do not show: labelled events never matched, and extra model events. */
+  missing: MissingEventTally[];
+  extras: ExtraEventTally[];
   /** Per-run field scores (answered runs only), in run order. Used for the noise band. */
   runFields: FieldScores[];
 }

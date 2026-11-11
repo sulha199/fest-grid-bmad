@@ -76,7 +76,7 @@ function scoreMatchedEvent(labelled: LabelledEvent, model: ScorableEvent, sample
  * Score one answered run (a validated, normalized payload) against its labelled post.
  *
  * Decision: per-event fields are scored over MATCHED events only. A labelled event the model did not produce
- * counts once, as an `eventName` miss, and is listed in `unmatchedLabelled`; it is not scored as zero on every
+ * counts once, as an `eventName` miss, and is listed in `missing` (with the extra model events in `extras`); it is not scored as zero on every
  * other field (a fold of 7 events into 1 would otherwise bury the real signal, `count_mismatch`).
  */
 export function scoreRun(post: LabelledPost, payload: ScorablePayload): RunScore {
@@ -95,7 +95,7 @@ export function scoreRun(post: LabelledPost, payload: ScorablePayload): RunScore
   return {
     fields,
     countMismatch: modelEvents.length !== post.events.length,
-    extraEvents: matching.extraModel.length,
-    unmatchedLabelled: matching.unmatchedLabelled.length,
+    missing: matching.unmatchedLabelled.map((index) => ({ index, name: post.events[index]!.eventName })),
+    extras: matching.extraModel.map((index) => ({ name: modelEvents[index]!.eventName ?? '' })),
   };
 }

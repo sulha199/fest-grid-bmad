@@ -32,6 +32,8 @@ export function aggregateRuns(results: RunResult[]): Aggregate {
       truncatedRuns: 0,
       unavailableRuns: 0,
       countMismatchRuns: 0,
+      missing: [],
+      extras: [],
       runFields: [],
     });
     if (r.outcome === 'truncated') post.truncatedRuns += 1;
@@ -40,10 +42,22 @@ export function aggregateRuns(results: RunResult[]): Aggregate {
       post.okRuns += 1;
       post.runFields.push(r.score!.fields);
       if (r.score!.countMismatch) post.countMismatchRuns += 1;
+      for (const m of r.score!.missing) {
+        const tally = post.missing.find((t) => t.index === m.index);
+        if (tally) tally.runs += 1;
+        else post.missing.push({ ...m, runs: 1 });
+      }
+      for (const e of r.score!.extras) {
+        const tally = post.extras.find((t) => t.name === e.name);
+        if (tally) tally.runs += 1;
+        else post.extras.push({ ...e, runs: 1 });
+      }
     }
   }
   const postList = Object.values(posts);
   for (const post of postList) {
+    post.missing.sort((a, b) => a.index - b.index);
+    post.extras.sort((a, b) => b.runs - a.runs || a.name.localeCompare(b.name));
     post.fields = perField((f) => mean(post.runFields.map((rf) => rf[f]).filter((v): v is number => v !== null))) as FieldScores;
   }
   const fields = perField((f) => mean(postList.map((p) => p.fields[f]).filter((v): v is number => v !== null))) as FieldScores;

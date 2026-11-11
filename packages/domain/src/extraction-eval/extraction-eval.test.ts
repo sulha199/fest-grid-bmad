@@ -21,8 +21,10 @@ import {
   scoreRun,
   EXTRACTION_EVAL_FIELDS,
   type Baseline,
+  type ExtraEvent,
   type FieldScores,
   type LabelledPost,
+  type MissingEvent,
   type RunResult,
   type ScorablePayload,
 } from './index.js';
@@ -85,8 +87,8 @@ test('perfect run: every applicable field is 100%', () => {
   const s = scoreRun(single, perfect);
   for (const f of EXTRACTION_EVAL_FIELDS) assert.equal(val(s, f), 1, f);
   assert.equal(s.countMismatch, false);
-  assert.equal(s.extraEvents, 0);
-  assert.equal(s.unmatchedLabelled, 0);
+  assert.deepEqual(s.extras, []);
+  assert.deepEqual(s.missing, []);
 });
 
 test('fields the label does not ask for are n/a, not zero', () => {
@@ -180,7 +182,10 @@ test('split vs fold: 7 labelled events vs 1 event with 7 schedules -> count_mism
   assert.equal(s.countMismatch, true);
   assert.equal(val(s, 'eventCount'), 0);
   assert.equal(val(s, 'groupingReason'), 0);
-  assert.equal(s.unmatchedLabelled, 6);
+  // count_mismatch detail: the model event took the first branch by start date; the other six are listed as missing, by position and name.
+  assert.deepEqual(s.missing.map((m) => m.index), [1, 2, 3, 4, 5, 6]);
+  assert.equal(s.missing[0]?.name, 'Turnamen Contoh Cabang 2');
+  assert.deepEqual(s.extras, []);
   assert.equal(val(s, 'eventName'), 1 / 7);
   // Only the one matched event is scored on its fields; the other six are not counted as zero.
   assert.equal(val(s, 'startDate'), 1);
@@ -203,7 +208,7 @@ test('non-event post: no events labelled, model says not an event', () => {
   assert.equal(val(s2, 'eventCount'), 1);
   const wrong = scoreRun(none, { isEvent: true, events: [{ eventName: 'x' }] });
   assert.equal(val(wrong, 'eventCount'), 0);
-  assert.equal(wrong.extraEvents, 1);
+  assert.deepEqual(wrong.extras, [{ name: 'x' }]);
 });
 
 test('event match: renamed event matches by earliest start date; extras are reported not scored', () => {
@@ -225,7 +230,7 @@ test('event match: renamed event matches by earliest start date; extras are repo
   );
   assert.equal(val(s, 'eventName'), 0);
   assert.equal(val(s, 'startDate'), 1);
-  assert.equal(s.extraEvents, 1);
+  assert.deepEqual(s.extras, [{ name: 'Surprise' }]);
   assert.equal(val(s, 'eventCount'), 0);
 });
 
@@ -249,11 +254,11 @@ test('classifyRun: truncated and unavailable are their own outcomes and are neve
 
 const field = (all: number | null, over: Partial<FieldScores> = {}): FieldScores =>
   ({ ...Object.fromEntries(EXTRACTION_EVAL_FIELDS.map((f) => [f, all])), ...over }) as unknown as FieldScores;
-const okRun = (postId: string, runIndex: number, over: Partial<FieldScores>, mismatch = false): RunResult => ({
+const okRun = (postId: string, runIndex: number, over: Partial<FieldScores>, mismatch = false, detail: { missing?: MissingEvent[]; extras?: ExtraEvent[] } = {}): RunResult => ({
   postId,
   runIndex,
   outcome: 'ok',
-  score: { fields: field(1, over), countMismatch: mismatch, extraEvents: 0, unmatchedLabelled: 0 },
+  score: { fields: field(1, over), countMismatch: mismatch, missing: detail.missing ?? [], extras: detail.extras ?? [] },
 });
 
 test('aggregate: truncated and unavailable runs never lower a pass-rate', () => {
@@ -343,6 +348,48 @@ test('report: table, outcomes, comparison and JSON', () => {
   assert.match(plain.markdown, /\| eventName \| 100% \|/);
   const none = aggregateRuns([{ postId: 'q', runIndex: 0, outcome: 'unavailable' }]);
   assert.match(buildReport(none, { model: 'm', promptHash: 'h', runs: 1, mode: 'live' }, null, null).markdown, /n\/a/);
+});
+
+test('a model event with no name is an extra with an empty name', () => {
+  const s = scoreRun(single, { ...perfect, events: [...(perfect.events ?? []), { schedules: [] }] });
+  assert.deepEqual(s.extras, [{ name: '' }]);
+});
+
+// count_mismatch detail: which labelled events were never matched and what the model added, over the repeats of a post.
+const detailRuns = (): RunResult[] => [
+  okRun('p', 0, { eventName: 0.5 }, true, { missing: [{ index: 3, name: 'Beta Fest' }, { index: 1, name: 'Alpha Fest' }], extras: [{ name: 'Zed' }, { name: 'Ada' }] }),
+  okRun('p', 1, { eventName: 0.5 }, true, { missing: [{ index: 3, name: 'Beta Fest' }], extras: [{ name: 'Zed' }] }),
+  okRun('p', 2, {}, false),
+  okRun('only-extra', 0, {}, false, { extras: [{ name: 'Surprise' }] }),
+];
+
+test('aggregate tallies missing labelled events and extra model events per post, sorted', () => {
+  const p = aggregateRuns(detailRuns()).posts.p!;
+  assert.deepEqual(p.missing, [{ index: 1, name: 'Alpha Fest', runs: 1 }, { index: 3, name: 'Beta Fest', runs: 2 }]);
+  // Most runs first, then by name.
+  assert.deepEqual(p.extras, [{ name: 'Zed', runs: 2 }, { name: 'Ada', runs: 1 }]);
+  // Equal run counts fall back to the name, so the report order is stable.
+  const tie = aggregateRuns([okRun('t', 0, {}, false, { extras: [{ name: 'Zed' }, { name: 'Ada' }] })]).posts.t!;
+  assert.deepEqual(tie.extras.map((e) => e.name), ['Ada', 'Zed']);
+});
+
+test('report lists the unmatched labelled events and the extra model events without names by default', () => {
+  const md = buildReport(aggregateRuns(detailRuns()), { model: 'm', promptHash: 'h', runs: 3, mode: 'live' }, null, null);
+  assert.match(md.markdown, /- `p`: count_mismatch 2\/3\n {2}- Labelled events missing \(runs missed of 3\): #2 1\/3, #4 2\/3\n {2}- Extra model events \(reported, not scored\): 3\n/);
+  // A post whose only finding is an extra event is still listed.
+  assert.match(md.markdown, /- `only-extra`: unmatched events\n {2}- Extra model events \(reported, not scored\): 1\n/);
+  assert.doesNotMatch(md.markdown, /Alpha|Beta|Zed|Surprise/);
+  // The JSON report hides names too: it can end up in a public job summary or a log.
+  assert.equal(md.json.posts.p?.missing[0]?.name, '(hidden)');
+  assert.equal(md.json.posts.p?.extras[0]?.name, '(hidden)');
+  assert.equal(md.json.posts.p?.missing[0]?.index, 1);
+});
+
+test('report shows names only when asked', () => {
+  const named = buildReport(aggregateRuns(detailRuns()), { model: 'm', promptHash: 'h', runs: 3, mode: 'live' }, null, null, { showNames: true });
+  assert.match(named.markdown, /#2 "Alpha Fest" 1\/3, #4 "Beta Fest" 2\/3/);
+  assert.match(named.markdown, /: 3 \("Zed" in 2 run\(s\), "Ada" in 1 run\(s\)\)/);
+  assert.equal(named.json.posts.p?.missing[0]?.name, 'Alpha Fest');
 });
 
 test('report shows a positive delta with a plus sign', () => {
