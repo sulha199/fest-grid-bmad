@@ -373,6 +373,8 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(prompt.includes('never collapse a list of dates into a start-to-end range'));
     // Per-date places (4d) and the event-level common-area rule (5): the Samsat flyer case.
     assert.ok(prompt.includes("4d. A schedule's location is the place of THAT date or session"));
+    // Parallel venues (one occasion at several branches at once) stay separate events: the live A/B showed the per-date rule alone collapsed them.
+    assert.ok(prompt.includes('a2. The same occasion held at several venues, cities or branches AT ONCE'));
     assert.ok(prompt.includes('the event-level location is the area they share'));
     assert.ok(prompt.includes('performers (array), location, ticketPrice'));
     // Keywords are asked of the separate keywords call only: asking the main call collapsed multi-place posts.

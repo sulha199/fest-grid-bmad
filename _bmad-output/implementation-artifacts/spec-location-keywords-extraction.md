@@ -77,6 +77,7 @@ Changes for this revision:
 - 2026-11-11 (country, user decision): post consensus fills missing codes in the generator; the keywords prompt takes its "most places are in X" from `DEFAULT_COUNTRY_CODE` instead of naming Indonesia; account history is not a source.
 - 2026-11-11 (revised after the POC, user approved the direction): keywords no longer come from the main extraction call (grouping collapse on multi-place posts); separate batched call, `countryCode` added, account default no longer an input, reuse of stored keywords. Earlier version approved at Checkpoint 1 was the in-main-call design.
 - 2026-11-11 (user decision after review): the re-extract preview no longer reuses stored keywords; it always regenerates, so a moderator can fix bad keywords by re-extracting. The generator's `known` option and `load-known-location-keywords.ts` were deleted.
+- 2026-11-11 (live A/B, user authorized prod read for post selection): the per-date-place rule (4d) alone made the model fold 7 same-day Sony Center branches into ONE event with 7 schedules and event location "Indonesia" in 6 of 6 runs (master: 7 events in 5 of 5). Fixed by a grouping rule a2 (parallel venues at once are separate events) and 4d kept as originally worded; moving the sentence into 4d instead weakened per-date places on the Kajian post, so it lives in rule 0a2.
 
 ## Design Notes
 
@@ -158,3 +159,8 @@ event:    { location: "Kabupaten Sleman", locationKeywords: ["Sleman"] }
 
 - Preview carries keywords to Apply with no second Gemini call; failure never fails it.
   [`process-reextraction-preview.test.ts`](../../apps/backend/src/lib/ai-processor/process-reextraction-preview.test.ts)
+
+## Live check results (2026-11-11)
+
+- **Replay of the 54 labelled locations** (shipped generator, no `authorRegion` hint, one call per row, then the slice 2 ladder under the country hint): 48 correct / 6 wrong / 0 unresolved (POC with hint: 45/8/1; bar: at least 43). Foreign venues got US, JP, SG, US. 3 of 60 calls took over 10 s (max 10.9 s), about 5 % would time out in production and fall back to the text ladder. The system key returned 429 when called quickly: space live calls out.
+- **A/B on 4 fresh prod posts** (master prompt vs current, interleaved, 6 runs per arm): event counts equal master on all 4 after fix a2 (5 roundup events x 3 schedules; 1 event x 4 dependent-stage schedules; 7 Sony Center branch events; 1 Kajian event x 5 schedules). The Kajian post keeps one distinct place per date in 5 of 6 runs (master 4 of 6 at 4-5 places). Cut-off JSON (output at the token cap) happened in 1 of 6 and 3 of 6 runs on the 7-branch post on the revised variant, and 1 of 5 on master: a pre-existing flake of that post, not the rule.
