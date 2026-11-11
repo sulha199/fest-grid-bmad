@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { scraperProviderUsage } from '@festgrid/database';
-import { recordProviderUsage, isProviderCapacityAvailable, markProviderCapacityExhausted } from './usage-store.js';
+import { recordProviderUsage, isProviderCapacityAvailable, markProviderCapacityExhausted, EXHAUSTED_RECHECK_DAYS } from './usage-store.js';
 import { eq } from 'drizzle-orm';
 
 test('usage-store scraper capacity tracking', async (t) => {
@@ -84,8 +84,8 @@ test('usage-store scraper capacity tracking', async (t) => {
     await markProviderCapacityExhausted(provider);
     const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
     assert.ok(row.capacityExhaustedUntil instanceof Date);
-    const cycleMs = 30 * 24 * 60 * 60 * 1000;
-    assert.ok(Math.abs(row.capacityExhaustedUntil!.getTime() - (row.usageCycleResetAt.getTime() + cycleMs)) < 1000);
+    // the end of the cycle or the re-check interval from now, whichever is sooner (a fresh row: the re-check)
+    assert.ok(Math.abs(row.capacityExhaustedUntil!.getTime() - (Date.now() + EXHAUSTED_RECHECK_DAYS * 24 * 60 * 60 * 1000)) < 5000);
     assert.ok(row.usageCycleResetAt.getTime() >= before - 1000);
     assert.strictEqual(await isProviderCapacityAvailable(provider), false);
   });
@@ -105,7 +105,7 @@ test('usage-store scraper capacity tracking', async (t) => {
     const [first] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
     await markProviderCapacityExhausted(provider);
     const [second] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
-    assert.strictEqual(second.capacityExhaustedUntil!.getTime(), first.capacityExhaustedUntil!.getTime());
+    assert.ok(Math.abs(second.capacityExhaustedUntil!.getTime() - first.capacityExhaustedUntil!.getTime()) < 5000, 'a repeat re-marks the same window, not a longer one');
     assert.strictEqual(second.usageCycleResetAt.getTime(), first.usageCycleResetAt.getTime());
   });
 
@@ -116,7 +116,7 @@ test('usage-store scraper capacity tracking', async (t) => {
     await markProviderCapacityExhausted(provider);
     const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
     assert.ok(row.usageCycleResetAt.getTime() > Date.now() - 60_000, 'a new cycle started now');
-    assert.ok(row.capacityExhaustedUntil!.getTime() > Date.now() + 29 * 24 * 60 * 60 * 1000);
+    assert.ok(Math.abs(row.capacityExhaustedUntil!.getTime() - (Date.now() + EXHAUSTED_RECHECK_DAYS * 24 * 60 * 60 * 1000)) < 5000, 'the re-lock after a fresh cycle is also capped at the re-check interval, never a month');
     assert.strictEqual(row.itemsUsedThisCycle, 0);
   });
 
@@ -128,5 +128,15 @@ test('usage-store scraper capacity tracking', async (t) => {
     const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
     assert.strictEqual(row.capacityExhaustedUntil, null);
     assert.strictEqual(row.itemsUsedThisCycle, 2);
+  });
+
+  await t.test('near the end of our cycle the cycle end is sooner than the re-check, and it wins', async () => {
+    await recordProviderUsage(provider, 1);
+    const startedAgo = (30 - 1) * 24 * 60 * 60 * 1000; // one day of the 30-day cycle left
+    await db.update(scraperProviderUsage).set({ usageCycleResetAt: new Date(Date.now() - startedAgo) }).where(eq(scraperProviderUsage.provider, provider));
+    await markProviderCapacityExhausted(provider);
+    const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
+    const untilMs = row.capacityExhaustedUntil!.getTime() - Date.now();
+    assert.ok(untilMs > 0 && untilMs < 25 * 60 * 60 * 1000, 'about one day, not three');
   });
 });

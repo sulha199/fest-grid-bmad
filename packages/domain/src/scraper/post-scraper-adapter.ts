@@ -80,8 +80,16 @@ export function parsePostScraperOrder(value: string | undefined | null): {
   return { order: order.length > 0 ? order : [...DEFAULT_POST_SCRAPER_ORDER], ignored };
 }
 
+/** Why an adapter was skipped without a call: too little time, its monthly cap known used up, or its recent runs degraded. */
+export type PostSkipReason = "budget" | "quota" | "degraded";
+
+const SKIP_DETAIL: Record<Exclude<PostSkipReason, "budget">, string> = {
+  quota: "over its quota",
+  degraded: "degraded",
+};
+
 export type PostAdapterAttempt =
-  | { adapter: PostScraperAdapterName; outcome: "skipped"; reason: "budget" | "quota"; detail: string; budgetMs: number }
+  | { adapter: PostScraperAdapterName; outcome: "skipped"; reason: PostSkipReason; detail: string; budgetMs: number }
   | { adapter: PostScraperAdapterName; outcome: "failed"; error: unknown; elapsedMs: number; budgetMs: number }
   | { adapter: PostScraperAdapterName; outcome: "not-found"; elapsedMs: number; budgetMs: number }
   | { adapter: PostScraperAdapterName; outcome: "found"; elapsedMs: number; budgetMs: number };
@@ -108,8 +116,8 @@ export interface PostChainResult {
  * - found, or `null` (not found): the chain stops and returns it;
  * - an adapter that throws is recorded and the next one is tried; if none answers, the FIRST adapter's error is rethrown
  *   unchanged, so existing handling of its error types keeps working;
- * - an adapter whose `minBudgetMs` exceeds the remaining budget, or that `isOverQuota` reports as out of quota, is skipped
- *   without a call; if every adapter is skipped the chain throws `PostScraperBudgetError`.
+ * - an adapter whose `minBudgetMs` exceeds the remaining budget, or that `skipReason` reports as out of quota or degraded, is
+ *   skipped without a call; if every adapter is skipped the chain throws `PostScraperBudgetError`.
  */
 export async function runPostScraperChain(input: {
   adapters: readonly PostScraperAdapter[];
@@ -117,8 +125,12 @@ export async function runPostScraperChain(input: {
   budgetMs: number;
   credential: PostScrapeCredential;
   now?: () => number;
-  /** True when the provider's cap is known to be used up (Story 10.2 AC6): the adapter is skipped, no call made. */
-  isOverQuota?: (adapter: PostScraperAdapterName) => boolean | Promise<boolean>;
+  /**
+   * Whether a provider should be skipped without a call (Story 10.2 AC1, AC6): `"quota"` when its monthly cap is known to be
+   * used up, `"degraded"` when its recent runs mostly failed, or `null` to go ahead. A check that throws or rejects is ignored
+   * (fails open: an unreadable health or usage lookup never blocks a post), like the audit hook.
+   */
+  skipReason?: (adapter: PostScraperAdapterName) => PostSkipReason | null | Promise<PostSkipReason | null>;
   /**
    * Called once per adapter considered, as soon as its outcome is known (also when the chain then throws), so a caller can
    * keep an audit trail of failures too. A hook that throws or rejects is ignored: the audit trail must never change what a
@@ -126,7 +138,7 @@ export async function runPostScraperChain(input: {
    */
   onAttempt?: (attempt: PostAdapterAttempt) => void | Promise<void>;
 }): Promise<PostChainResult> {
-  const { adapters, url, budgetMs, credential, now = Date.now, isOverQuota, onAttempt } = input;
+  const { adapters, url, budgetMs, credential, now = Date.now, skipReason, onAttempt } = input;
   const deadline = now() + budgetMs;
   const attempts: PostAdapterAttempt[] = [];
   let firstError: { error: unknown } | undefined;
@@ -142,12 +154,18 @@ export async function runPostScraperChain(input: {
 
   for (const adapter of adapters) {
     const remainingMs = deadline - now();
-    if (isOverQuota && (await isOverQuota(adapter.name))) {
+    let skip: PostSkipReason | null = null;
+    try {
+      skip = (await skipReason?.(adapter.name)) ?? null;
+    } catch {
+      // see `skipReason`
+    }
+    if (skip === "quota" || skip === "degraded") {
       await record({
         adapter: adapter.name,
         outcome: "skipped",
-        reason: "quota",
-        detail: "over its quota",
+        reason: skip,
+        detail: SKIP_DETAIL[skip],
         budgetMs: Math.max(0, remainingMs),
       });
       continue;

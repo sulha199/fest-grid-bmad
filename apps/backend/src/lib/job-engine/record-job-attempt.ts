@@ -21,9 +21,16 @@ export function toJobAttemptRow(attempt: PostAdapterAttempt): AttemptRow {
       // The vendor answered that the post does not exist: a result, not a failure.
       return { provider, outcome: 'SUCCEEDED', budgetMs: Math.round(attempt.budgetMs), elapsedMs: Math.round(attempt.elapsedMs), reasonCode: 'POST_NOT_FOUND' };
     case 'skipped':
-      return attempt.reason === 'quota'
-        ? { provider, outcome: 'OVER_QUOTA', budgetMs: Math.round(attempt.budgetMs), elapsedMs: 0, reasonCode: 'CAP_KNOWN_USED_UP' }
-        : { provider, outcome: 'SKIPPED', budgetMs: Math.round(attempt.budgetMs), elapsedMs: 0, reasonCode: 'BUDGET_TOO_SMALL' };
+      if (attempt.reason === 'quota') {
+        return { provider, outcome: 'OVER_QUOTA', budgetMs: Math.round(attempt.budgetMs), elapsedMs: 0, reasonCode: 'CAP_KNOWN_USED_UP' };
+      }
+      return {
+        provider,
+        outcome: 'SKIPPED',
+        budgetMs: Math.round(attempt.budgetMs),
+        elapsedMs: 0,
+        reasonCode: attempt.reason === 'degraded' ? 'PROVIDER_DEGRADED' : 'BUDGET_TOO_SMALL',
+      };
     case 'failed': {
       const base = { provider, budgetMs: Math.round(attempt.budgetMs), elapsedMs: Math.round(attempt.elapsedMs) };
       if (attempt.error instanceof ScraperCapacityExceededError) {

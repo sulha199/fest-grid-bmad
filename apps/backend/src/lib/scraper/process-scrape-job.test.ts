@@ -4,6 +4,7 @@ import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, posts, users, apiKeys, subscriptions, vendorCallLocks } from '@festgrid/database';
 import { registerScraperAdapter, ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult } from '@festgrid/domain';
 import { ApifyMonthlyUsageLimitError } from './instagram-adapter.js';
+import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { processScrapeJob } from './process-scrape-job.js';
 import { eq, inArray } from 'drizzle-orm';
 import { setSendSqsMessage, sendSqsMessage } from '../aws/send-sqs-message.js';
@@ -421,6 +422,40 @@ test('process-scrape-job integration tests', async (t) => {
       platform: mockPlatform,
       displayName: 'Fake Monthly Limit',
       username: 'fake_monthly_limit',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const job = { profileId: profile.id, platform: mockPlatform, accountId: profile.accountId, username: profile.username };
+
+    // Redelivery cannot help until Apify's usage cycle resets, so the queue worker must not retry it.
+    await assert.doesNotReject(() => processScrapeJob(job, { rethrowOnFailure: true }));
+    const [after] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    assert.strictEqual(after.lastScrapedAt, null, 'not a completed scrape: the next batch must still pick the profile up');
+  });
+
+  await t.test('a REMEMBERED exhausted cap (the capacity gate ScraperCapacityExceededError) is not rethrown for redelivery either (Story 10.2 review)', async () => {
+    const mockPlatform = 'test-fake-platform-remembered-cap' as any;
+    registerScraperAdapter(mockPlatform, {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        throw new ScraperCapacityExceededError('Apify capacity exceeded for account fake_remembered_cap');
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    });
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-remembered-cap-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Remembered Cap',
+      username: 'fake_remembered_cap',
     }).returning();
     createdProfiles.push(profile.id);
 

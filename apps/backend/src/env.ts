@@ -419,8 +419,8 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataProfileDatasetId: process.env.BRIGHTDATA_PROFILE_DATASET_ID || 'gd_l1vikfch901nx3by4',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    // eslint-disable-next-line turbo/no-undeclared-env-vars
     postScraperProviderOrder: process.env.POST_SCRAPER_PROVIDER_ORDER,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
     profileScraperProviderOrder: process.env.PROFILE_SCRAPER_PROVIDER_ORDER,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataWebhookBaseUrl: process.env.BRIGHTDATA_WEBHOOK_BASE_URL,

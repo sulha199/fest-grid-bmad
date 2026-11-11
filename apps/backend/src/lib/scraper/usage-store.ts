@@ -55,16 +55,25 @@ export async function recordProviderUsage(provider: string, itemCount: number): 
   }
 }
 
+/** The longest a remembered exhausted cap holds before the provider is tried (and, if still refused, marked) again. */
+export const EXHAUSTED_RECHECK_DAYS = 3;
+
 /**
  * Remembers that `provider` reported its monthly cap used up (Apify's 403 "Monthly usage hard limit exceeded"): sets
- * `capacity_exhausted_until` to the END of the current usage cycle, so every caller (the post chain, the daily batch) skips the
- * provider without a refused call until the cycle rolls over. A time, not a flag, so it clears itself. Idempotent within a
+ * `capacity_exhausted_until` to the end of the current usage cycle OR `EXHAUSTED_RECHECK_DAYS` from now, whichever is sooner, so
+ * every caller (the post chain, the daily batch) skips the provider without a refused call until then. A time, not a flag, so it
+ * clears itself. Idempotent within a
  * cycle; a provider whose cycle already elapsed starts a fresh one first, and the row is created when absent.
  */
 export async function markProviderCapacityExhausted(provider: string): Promise<void> {
   const env = loadBackendEnv();
   const cycleMs = env.scraperUsageCycleDays * 24 * 60 * 60 * 1000;
   const now = new Date();
+  // Our cycle is not the provider's billing cycle (Apify resets on the 23rd; ours started with our first recorded use), so the
+  // marker is also capped at a short re-check: at worst one refused call every few days, never a month of skipping a provider
+  // whose plan has already reset or been upgraded.
+  const recheckMs = EXHAUSTED_RECHECK_DAYS * 24 * 60 * 60 * 1000;
+  const until = (cycleEnd: number): Date => new Date(Math.min(cycleEnd, now.getTime() + recheckMs));
   const [row] = await db.select().from(scraperProviderUsage).where(eq(scraperProviderUsage.provider, provider));
 
   if (!row) {
@@ -72,7 +81,7 @@ export async function markProviderCapacityExhausted(provider: string): Promise<v
       provider,
       itemsUsedThisCycle: 0,
       usageCycleResetAt: now,
-      capacityExhaustedUntil: new Date(now.getTime() + cycleMs),
+      capacityExhaustedUntil: until(now.getTime() + cycleMs),
       createdAt: now,
       updatedAt: now,
     });
@@ -81,13 +90,13 @@ export async function markProviderCapacityExhausted(provider: string): Promise<v
   if (isCycleElapsed(row.usageCycleResetAt.toISOString(), env.scraperUsageCycleDays, now)) {
     await db
       .update(scraperProviderUsage)
-      .set({ itemsUsedThisCycle: 0, usageCycleResetAt: now, capacityExhaustedUntil: new Date(now.getTime() + cycleMs), updatedAt: now })
+      .set({ itemsUsedThisCycle: 0, usageCycleResetAt: now, capacityExhaustedUntil: until(now.getTime() + cycleMs), updatedAt: now })
       .where(eq(scraperProviderUsage.provider, provider));
     return;
   }
   await db
     .update(scraperProviderUsage)
-    .set({ capacityExhaustedUntil: new Date(row.usageCycleResetAt.getTime() + cycleMs), updatedAt: now })
+    .set({ capacityExhaustedUntil: until(row.usageCycleResetAt.getTime() + cycleMs), updatedAt: now })
     .where(eq(scraperProviderUsage.provider, provider));
 }
 

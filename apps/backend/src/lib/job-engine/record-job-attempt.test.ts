@@ -33,6 +33,7 @@ test('toJobAttemptRow maps every attempt outcome to the plain outcome and reason
   assert.deepEqual(toJobAttemptRow({ adapter: 'apify', outcome: 'found', elapsedMs: 900, budgetMs: 5000 }), { provider: 'APIFY', outcome: 'SUCCEEDED', budgetMs: 5000, elapsedMs: 900 });
   assert.deepEqual(toJobAttemptRow({ adapter: 'apify', outcome: 'not-found', elapsedMs: 900, budgetMs: 5000 }), { provider: 'APIFY', outcome: 'SUCCEEDED', budgetMs: 5000, elapsedMs: 900, reasonCode: 'POST_NOT_FOUND' });
   assert.deepEqual(toJobAttemptRow({ adapter: 'brightdata', outcome: 'skipped', reason: 'budget', detail: 'needs 90000ms, 1000ms left', budgetMs: 1000 }), { provider: 'BRIGHTDATA', outcome: 'SKIPPED', budgetMs: 1000, elapsedMs: 0, reasonCode: 'BUDGET_TOO_SMALL' });
+  assert.deepEqual(toJobAttemptRow({ adapter: 'apify', outcome: 'skipped', reason: 'degraded', detail: 'degraded', budgetMs: 4000 }), { provider: 'APIFY', outcome: 'SKIPPED', budgetMs: 4000, elapsedMs: 0, reasonCode: 'PROVIDER_DEGRADED' });
   assert.deepEqual(toJobAttemptRow({ adapter: 'apify', outcome: 'skipped', reason: 'quota', detail: 'over its quota', budgetMs: 4000 }), { provider: 'APIFY', outcome: 'OVER_QUOTA', budgetMs: 4000, elapsedMs: 0, reasonCode: 'CAP_KNOWN_USED_UP' });
 });
 

@@ -724,13 +724,16 @@ export class ApifyPostUnavailableError extends PostUnavailableError {
   }
 }
 
+/** How long one Apify post-by-URL call may take. */
+const APIFY_POST_BY_URL_TIMEOUT_MS = 20_000;
+
 /**
  * One post by URL through the Apify post scraper (guarded call, capacity gate, usage recorded, 20 s cap).
  * `onUnreadable` says what an empty or unreadable result becomes: `'null'` (the behaviour `getPostByUrl` has always had) or
  * `'throw'` (`ApifyPostUnavailableError`, for the provider chain, where `null` would mean "the post does not exist").
  * A not-found item is `null` in both: that is an answer.
  */
-async function fetchApifyPost(url: string, onUnreadable: 'null' | 'throw'): Promise<ScrapedPost | null> {
+async function fetchApifyPost(url: string, onUnreadable: 'null' | 'throw', budgetMs?: number): Promise<ScrapedPost | null> {
   await assertProviderCapacityAvailable('apify', `URL ${url}`);
 
   const unreadable = (detail: string): null => {
@@ -778,14 +781,21 @@ async function fetchApifyPost(url: string, onUnreadable: 'null' | 'throw'): Prom
     }
   };
 
-  return withTimeout(runCall(), 20000);
+  // `getPostByUrl` has always answered null when the 20 s cap passes. To the chain that would read as "the post does not exist"
+  // and stop it, so the chain's call THROWS on the timeout instead (ApifyRequestTimeoutError, recorded TIMED_OUT), and is
+  // bounded by the time the chain has left, never longer than the 20 s cap.
+  if (onUnreadable === 'throw') {
+    const capMs = Math.max(1, Math.min(APIFY_POST_BY_URL_TIMEOUT_MS, budgetMs ?? APIFY_POST_BY_URL_TIMEOUT_MS));
+    return withTimeoutOrThrow(runCall(), capMs, `Apify post fetch timed out after ${capMs}ms`);
+  }
+  return withTimeout(runCall(), APIFY_POST_BY_URL_TIMEOUT_MS);
 }
 
 /** The Apify member of the post-scraper provider chain (Story 10.2). An Apify run is bounded at 20 s, so any budget is worth trying. */
 export const apifyPostAdapter: PostScraperAdapter = {
   name: 'apify',
   minBudgetMs: 0,
-  fetchPost: (url) => fetchApifyPost(url, 'throw'),
+  fetchPost: (url, { budgetMs }) => fetchApifyPost(url, 'throw', budgetMs),
 };
 
 registerPostScraperAdapter(apifyPostAdapter);

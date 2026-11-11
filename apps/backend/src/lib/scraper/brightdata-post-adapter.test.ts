@@ -11,6 +11,7 @@ import {
 } from './brightdata-post-adapter.js';
 import { scrapeBrightDataPost, setScrapeBrightDataPost, type BrightDataProfileScrape } from './brightdata-client.js';
 import { clearBrightDataProviderUsage, BRIGHTDATA_TEST_PROVIDER } from './usage-store-test-helpers.js';
+import { recordProviderUsage } from './usage-store.js';
 
 // Story 10.2 AC3: the Bright Data post adapter. The scrape is replaced by a seam: nothing here calls the vendor.
 
@@ -89,13 +90,22 @@ test('brightDataPostAdapter', async (t) => {
   });
 
   await t.test('a provider known to be over capacity is refused before any call', async () => {
-    await db.insert(scraperProviderUsage).values({ provider: BRIGHTDATA_TEST_PROVIDER, itemsUsedThisCycle: 100_000_000, usageCycleResetAt: new Date() });
+    // Process-local: a threshold ratio of 0 makes any usage row "full", so no shared usage row is made to look exhausted for
+    // other suites running in parallel (this test only records one unit of usage first, like the happy path does).
+    await recordProviderUsage(BRIGHTDATA_TEST_PROVIDER, 1);
+    const savedRatio = process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO;
+    process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO = '0';
     let called = false;
     setScrapeBrightDataPost(async () => {
       called = true;
       return { kind: 'records', records: [record] };
     });
-    await assert.rejects(() => brightDataPostAdapter.fetchPost(URL_, context), ScraperCapacityExceededError);
+    try {
+      await assert.rejects(() => brightDataPostAdapter.fetchPost(URL_, context), ScraperCapacityExceededError);
+    } finally {
+      if (savedRatio === undefined) delete process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO;
+      else process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO = savedRatio;
+    }
     assert.strictEqual(called, false);
   });
 });

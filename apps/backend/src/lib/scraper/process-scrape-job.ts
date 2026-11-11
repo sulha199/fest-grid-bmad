@@ -1,6 +1,6 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
-import { getScraperAdapter, HISTORY_SEED_LOOKBACK_DAYS, ScrapedPost } from '@festgrid/domain';
+import { getScraperAdapter, HISTORY_SEED_LOOKBACK_DAYS, ScraperCapacityExceededError, ScrapedPost } from '@festgrid/domain';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { autoEnqueueNewPostForExtraction } from '../posts/auto-enqueue-new-post.js';
 import { loadBackendEnv } from '../../env.js';
@@ -170,9 +170,11 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
     await runBackfill();
     completed = true;
   } catch (err) {
-    if (err instanceof ApifyMonthlyUsageLimitError) {
+    if (err instanceof ApifyMonthlyUsageLimitError || err instanceof ScraperCapacityExceededError) {
       // Redelivery cannot help until Apify's usage cycle resets, and each one only fills the queue and the
-      // DLQ with the same refusal (2026-10-30: 105 of them). One line; the next daily batch tries again.
+      // DLQ with the same refusal (2026-10-30: 105 of them). One line; the next daily batch tries again. Since Story 10.2 the
+      // refusal is also REMEMBERED for the rest of the cycle, after which every queued message meets the capacity gate
+      // (`ScraperCapacityExceededError`) before any call: the same "nothing started, redelivery cannot help" condition.
       console.warn(`Skipping scrape of ${job.username} (${job.profileId}): ${err.message}`);
       return;
     }

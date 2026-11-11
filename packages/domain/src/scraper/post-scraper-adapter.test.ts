@@ -132,7 +132,7 @@ test("runPostScraperChain: a known-over-quota adapter is skipped for quota with 
     url: URL_,
     budgetMs: 1000,
     credential,
-    isOverQuota: async (name) => name === "apify",
+    skipReason: async (name) => (name === "apify" ? "quota" : null),
   });
   assert.equal(first.calls.length, 0);
   assert.equal(result.post, post);
@@ -140,10 +140,10 @@ test("runPostScraperChain: a known-over-quota adapter is skipped for quota with 
   assert.deepEqual([skipped.adapter, skipped.reason], ["apify", "quota"]);
 });
 
-test("runPostScraperChain: a synchronous isOverQuota answer works too", async () => {
+test("runPostScraperChain: a synchronous skipReason answer works too", async () => {
   const only = adapter("brightdata", 0, async () => post);
   const other = adapter("apify", 0, async () => post);
-  const result = await runPostScraperChain({ adapters: [only, other], url: URL_, budgetMs: 1000, credential, isOverQuota: (name) => name === "brightdata" });
+  const result = await runPostScraperChain({ adapters: [only, other], url: URL_, budgetMs: 1000, credential, skipReason: (name) => (name === "brightdata" ? "quota" : null) });
   assert.equal(only.calls.length, 0);
   assert.equal(other.calls.length, 1);
   assert.equal(result.attempts[0].outcome, "skipped");
@@ -153,7 +153,7 @@ test("runPostScraperChain: when every adapter is skipped it throws PostScraperBu
   const a = adapter("brightdata", 90_000, async () => post);
   const b = adapter("apify", 0, async () => post);
   await assert.rejects(
-    runPostScraperChain({ adapters: [a, b], url: URL_, budgetMs: 1000, credential, isOverQuota: (name) => name === "apify" }),
+    runPostScraperChain({ adapters: [a, b], url: URL_, budgetMs: 1000, credential, skipReason: (name) => (name === "apify" ? "quota" : null) }),
     (error) => {
       assert.ok(error instanceof PostScraperBudgetError);
       assert.equal(error.attempts.length, 2);
@@ -242,4 +242,37 @@ test("PostUnavailableError is an Error that vendor adapters subclass; the chain 
   const result = await runPostScraperChain({ adapters: [first, second], url: URL_, budgetMs: 1000, credential });
   assert.equal(result.post, post);
   assert.equal(result.attempts[0].outcome, "failed");
+});
+
+test("runPostScraperChain: a degraded provider is skipped for degraded, with no call", async () => {
+  const first = adapter("brightdata", 0, async () => post);
+  const second = adapter("apify", 0, async () => post);
+  const result = await runPostScraperChain({
+    adapters: [first, second],
+    url: URL_,
+    budgetMs: 1000,
+    credential,
+    skipReason: (name) => (name === "brightdata" ? "degraded" : null),
+  });
+  assert.equal(first.calls.length, 0);
+  assert.equal(result.post, post);
+  const skipped = result.attempts[0] as Extract<PostAdapterAttempt, { outcome: "skipped" }>;
+  assert.deepEqual([skipped.adapter, skipped.reason, skipped.detail], ["brightdata", "degraded", "degraded"]);
+});
+
+test("runPostScraperChain: a skipReason that throws or rejects fails open: the adapter is tried (review finding)", async () => {
+  const first = adapter("brightdata", 0, async () => post);
+  const result = await runPostScraperChain({
+    adapters: [first],
+    url: URL_,
+    budgetMs: 1000,
+    credential,
+    skipReason: () => {
+      throw new Error("usage lookup failed");
+    },
+  });
+  assert.equal(result.post, post);
+  const second = adapter("apify", 0, async () => post);
+  const rejected = await runPostScraperChain({ adapters: [second], url: URL_, budgetMs: 1000, credential, skipReason: async () => Promise.reject(new Error("x")) });
+  assert.equal(rejected.post, post);
 });

@@ -5,7 +5,7 @@ import { jobAttempts, jobs, users } from '@festgrid/database';
 import type { PostScraperAdapter, ScrapedPost } from '@festgrid/domain';
 import { db } from '../../db/client.js';
 import './register-adapters.js';
-import { fetchScrapedPost, providerOverQuota, resolvePostScrapeCredential, setProviderOverQuota } from './post-scraper.js';
+import { fetchScrapedPost, resolvePostScrapeCredential, setProviderSkipReason } from './post-scraper.js';
 import { getPostScraperAdapters, registerPostScraperAdapter } from './post-scraper-registry.js';
 
 // Story 10.2 AC1, AC2, AC6, AC7: the entry point over fake adapters registered in place of the real ones. No vendor is called.
@@ -16,9 +16,8 @@ const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const userIds: string[] = [];
 const original = new Map(getPostScraperAdapters().map((a) => [a.name, a]));
 const savedOrder = process.env.POST_SCRAPER_PROVIDER_ORDER;
-const defaultProviderOverQuota = providerOverQuota; // captured before the seam is replaced below
-const overQuota = new Set<string>();
-setProviderOverQuota(async (provider) => overQuota.has(provider));
+const skipReasons = new Map<string, 'quota' | 'degraded'>();
+setProviderSkipReason(async (provider) => skipReasons.get(provider) ?? null);
 
 type Behaviour = (url: string, ctx: { budgetMs: number }) => Promise<ScrapedPost | null>;
 const calls: string[] = [];
@@ -42,7 +41,7 @@ async function makeJob(): Promise<string> {
 
 test.beforeEach(() => {
   calls.length = 0;
-  overQuota.clear();
+  skipReasons.clear();
   delete process.env.POST_SCRAPER_PROVIDER_ORDER;
 });
 test.after(async () => {
@@ -84,7 +83,7 @@ test('fetchScrapedPost', async (t) => {
   });
 
   await t.test('an exhausted cap is skipped with no call and recorded OVER_QUOTA (AC6)', async () => {
-    overQuota.add('apify');
+    skipReasons.set('apify', 'quota');
     process.env.POST_SCRAPER_PROVIDER_ORDER = 'apify,brightdata';
     fake('brightdata', 0, async () => post);
     fake('apify', 0, async () => post);
@@ -93,6 +92,34 @@ test('fetchScrapedPost', async (t) => {
     assert.deepEqual(calls, ['brightdata']);
     const rows = await db.select().from(jobAttempts).where(eq(jobAttempts.jobId, jobId));
     assert.deepEqual(rows.map((r) => [r.provider, r.outcome, r.reasonCode]).sort(), [['APIFY', 'OVER_QUOTA', 'CAP_KNOWN_USED_UP'], ['BRIGHTDATA', 'SUCCEEDED', null]]);
+  });
+
+  await t.test('a degraded provider is skipped with no call and recorded SKIPPED / PROVIDER_DEGRADED (AC1)', async () => {
+    skipReasons.set('brightdata', 'degraded');
+    fake('brightdata', 0, async () => post);
+    fake('apify', 0, async () => post);
+    const jobId = await makeJob();
+    await fetchScrapedPost({ platform: 'instagram', url: URL_, budgetMs: 1000, jobId });
+    assert.deepEqual(calls, ['apify']);
+    const rows = await db.select().from(jobAttempts).where(eq(jobAttempts.jobId, jobId));
+    assert.deepEqual(rows.map((r) => [r.provider, r.outcome, r.reasonCode]).sort(), [['APIFY', 'SUCCEEDED', null], ['BRIGHTDATA', 'SKIPPED', 'PROVIDER_DEGRADED']]);
+  });
+
+  await t.test('when every provider is skipped it throws and says nothing was asked of any provider', async () => {
+    skipReasons.set('apify', 'quota');
+    skipReasons.set('brightdata', 'degraded');
+    fake('brightdata', 0, async () => post);
+    fake('apify', 0, async () => post);
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => { warnings.push(String(args[0])); };
+    try {
+      await assert.rejects(fetchScrapedPost({ platform: 'instagram', url: URL_, budgetMs: 1000 }), /No post scraper can run/);
+    } finally {
+      console.warn = originalWarn;
+    }
+    assert.deepEqual(calls, []);
+    assert.ok(warnings.some((w) => /no provider could be tried/.test(w)));
   });
 
   await t.test('a provider needing more time than the budget is skipped for budget, recorded SKIPPED', async () => {
@@ -155,8 +182,4 @@ test('fetchScrapedPost', async (t) => {
     }
     assert.ok(warnings.some((w) => /unknown provider/.test(w)));
   });
-});
-
-test('the default quota check is the usage store inverted: a provider with no usage row is not over quota', async () => {
-  assert.equal(await defaultProviderOverQuota('a-provider-with-no-usage-row-' + suffix), false);
 });

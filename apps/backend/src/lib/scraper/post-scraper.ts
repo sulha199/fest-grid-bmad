@@ -1,7 +1,10 @@
 import {
   getScraperAdapter,
+  PostScraperBudgetError,
   runPostScraperChain,
   type PostAdapterAttempt,
+  type PostScraperAdapterName,
+  type PostSkipReason,
   type PostScrapeCredential,
   type ScrapablePlatform,
   type ScrapedPost,
@@ -9,6 +12,7 @@ import {
 import { recordJobAttempt } from '../job-engine/record-job-attempt.js';
 import './instagram-adapter.js'; // registers the Apify adapter in the registry (as the profile chain does)
 import { getPostScraperAdapters } from './post-scraper-registry.js';
+import { gateDegradedProvider } from './provider-run-health-store.js';
 import { isProviderCapacityAvailable } from './usage-store.js';
 
 /**
@@ -21,13 +25,22 @@ import { isProviderCapacityAvailable } from './usage-store.js';
  */
 
 /**
- * Whether a provider's cap is known to be used up (Story 10.2 AC6): the usage store's answer, inverted. A test seam: the real
- * check reads the shared `apify` / `brightdata` usage rows, which a test must not write while other suites run in parallel.
+ * Whether a provider should be skipped without a call (Story 10.2 AC1, AC6): `quota` when its cap is known to be used up (the
+ * usage store's answer, including the remembered Apify monthly cap), `degraded` when its recent runs mostly failed and its
+ * probes are used up (the same gate the daily batch uses; a `probe` verdict goes ahead). A test seam: the real checks read the
+ * shared `apify` / `brightdata` usage and run-health rows, which a test must not write while other suites run in parallel.
  */
-export let providerOverQuota: (provider: string) => Promise<boolean> = async (provider) => !(await isProviderCapacityAvailable(provider));
+const VENDOR = { apify: 'APIFY', brightdata: 'BRIGHTDATA' } as const;
 
-export function setProviderOverQuota(fn: typeof providerOverQuota): void {
-  providerOverQuota = fn;
+export let providerSkipReason: (provider: PostScraperAdapterName) => Promise<PostSkipReason | null> = async (provider) => {
+  if (!(await isProviderCapacityAvailable(provider))) {
+    return 'quota';
+  }
+  return (await gateDegradedProvider(VENDOR[provider])) === 'skip' ? 'degraded' : null;
+};
+
+export function setProviderSkipReason(fn: typeof providerSkipReason): void {
+  providerSkipReason = fn;
 }
 
 /** Whose credential a post scrape uses, by job type (PRD OI-3). Only the app-funded key exists until Story 3-4b. */
@@ -69,8 +82,8 @@ export async function fetchScrapedPost(input: {
       url,
       budgetMs,
       credential: input.credential ?? resolvePostScrapeCredential(undefined, undefined),
-      // A provider whose cap is known to be used up (Story 10.2 AC6) is skipped with no call.
-      isOverQuota: (name) => providerOverQuota(name),
+      // A provider whose cap is known to be used up, or that is degraded, is skipped with no call (Story 10.2 AC1, AC6).
+      skipReason: (name) => providerSkipReason(name),
       onAttempt: jobId ? (attempt) => recordJobAttempt({ jobId, attempt }) : undefined,
     });
     if (result.attempts.length > 1) {
@@ -78,7 +91,12 @@ export async function fetchScrapedPost(input: {
     }
     return result.post;
   } catch (error) {
-    console.warn('[post-scraper] a post fetch failed on every provider tried');
+    // Nothing was asked of any provider when every one was skipped: say so, so a log reader does not look for a vendor failure.
+    console.warn(
+      error instanceof PostScraperBudgetError
+        ? '[post-scraper] no provider could be tried (each was skipped for budget, quota or health)'
+        : '[post-scraper] a post fetch failed on every provider tried'
+    );
     throw error;
   }
 }

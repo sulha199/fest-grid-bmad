@@ -444,6 +444,22 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(await apifyPostAdapter.fetchPost('https://www.instagram.com/p/GONE/', { budgetMs: 10_000, credential: { kind: 'app-funded' } }), null);
   });
 
+  // Review finding: withTimeout answers null, which a chain reads as "the post does not exist". The chain's Apify call must throw.
+  await t.test('a slow Apify call THROWS ApifyRequestTimeoutError for the chain (never "not found"), bounded by the budget', async () => {
+    setCallApifyActor(() => new Promise(() => {})); // never answers
+    const startedAt = Date.now();
+    await assert.rejects(
+      () => apifyPostAdapter.fetchPost('https://www.instagram.com/p/SLOW/', { budgetMs: 50, credential: { kind: 'app-funded' } }),
+      (e: unknown) => e instanceof ApifyRequestTimeoutError && /timed out after 50ms/.test(e.message)
+    );
+    assert.ok(Date.now() - startedAt < 2000, 'bounded by the 50 ms budget, not the 20 s cap');
+  });
+
+  await t.test('getPostByUrl keeps its old answer for a slow call (null after the 20 s cap) and the cap is not shortened by a budget', async () => {
+    setCallApifyActor(async () => [{ url: 'https://www.instagram.com/p/OK/', caption: 'ok', timestamp: '2026-11-11T00:00:00Z' }]);
+    assert.ok(await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/OK/'));
+  });
+
   await t.test('the Apify post adapter is the one registered for the chain, after Bright Data by default', () => {
     assert.deepStrictEqual(getPostScraperAdapters().map((a) => a.name), ['brightdata', 'apify']);
   });
