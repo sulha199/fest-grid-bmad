@@ -17,7 +17,9 @@ import { getJobHandler } from './job-registry.js';
 //  * Every write after the claim is GUARDED (still RUNNING, still this worker's claim or released), so a late handler
 //    can never overwrite a job that already ended.
 
-const MAX_ERROR_MESSAGE_LENGTH = 2000;
+// Plain words only (PRD: vendor trouble is recorded, never raw). The raw error goes to the logs, never to the row, because the Jobs
+// page reads this column and a vendor SDK error can carry a request URL, a response body or caption text.
+const HANDLER_ERROR_MESSAGE = 'The job failed with an internal error.';
 
 type ClaimedJob = typeof jobs.$inferSelect;
 
@@ -84,12 +86,17 @@ export async function runJobEngineJob(
     lambdaRemainingMs: lambdaContext.getRemainingTimeInMillis?.(),
   });
   const runEndsAt = Date.now() + budgetMs;
+  const controller = new AbortController();
+  // True once handOffToLambda's invoke was accepted: the receiving Lambda owns the job from then on, so nothing this run
+  // does afterwards (finish, throw, run out of time) may write to it.
+  let handedOff = false;
 
   const handlerContext: JobHandlerContext = {
     jobId: job.id,
     input: job.input,
     phase: job.phase,
     getRemainingTimeInMillis: () => Math.max(0, runEndsAt - Date.now()),
+    signal: controller.signal,
     setPhase: async (phase: string) => {
       await db.update(jobs).set({ phase, updatedAt: new Date() }).where(stillOurs);
     },
@@ -98,6 +105,7 @@ export async function runJobEngineJob(
       // refused for the whole claim TTL while ours is live. The job stays RUNNING; the receiver resumes from its phase.
       await db.update(jobs).set({ workerClaimedAt: null, updatedAt: new Date() }).where(stillOurs);
       await invokeJobEngineWorker(functionName, { jobId: job.id });
+      handedOff = true;
     },
   };
 
@@ -118,32 +126,48 @@ export async function runJobEngineJob(
   clearTimeout(timer);
 
   if (outcome === TIMED_OUT) {
+    controller.abort();
+    if (handedOff) {
+      console.warn(`[job-engine] job ${job.id} (${job.type}) ran out of time after handing off; the receiving Lambda owns it`);
+      return;
+    }
     await expire('The run used up its time budget.');
     return;
   }
   if ('error' in outcome) {
-    const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error);
     console.error(`[job-engine] job ${job.id} (${job.type}) failed:`, outcome.error);
-    await finish({
-      status: 'FAILED',
-      reasonCode: 'HANDLER_ERROR',
-      errorMessage: message.slice(0, MAX_ERROR_MESSAGE_LENGTH),
-    });
+    if (handedOff) {
+      return;
+    }
+    await finish({ status: 'FAILED', reasonCode: 'HANDLER_ERROR', errorMessage: HANDLER_ERROR_MESSAGE });
+    return;
+  }
+  if (handedOff && outcome.result.outcome !== 'HANDED_OFF') {
+    console.warn(`[job-engine] job ${job.id} (${job.type}) returned ${outcome.result.outcome} after handing off; ignored`);
     return;
   }
 
-  await applyResult(job, outcome.result, finish, stillOurs);
+  await applyResult(job, outcome.result, handedOff, finish, stillOurs);
 }
 
 async function applyResult(
   job: ClaimedJob,
   result: JobHandlerResult,
+  handedOff: boolean,
   finish: (values: Partial<typeof jobs.$inferInsert>) => Promise<void>,
   stillOurs: ReturnType<typeof and>
 ): Promise<void> {
   switch (result.outcome) {
     case 'HANDED_OFF':
-      // The receiving Lambda continues the job; this run writes no terminal status.
+      // The receiving Lambda continues the job; this run writes no terminal status. But a handler that returns HANDED_OFF
+      // without having handed off would leave the job RUNNING with nobody invoked, holding a place until its deadline.
+      if (!handedOff) {
+        await finish({
+          status: 'FAILED',
+          reasonCode: 'HANDOFF_MISSING',
+          errorMessage: 'The job reported a hand-off but did not hand off.',
+        });
+      }
       return;
     case 'WAITING':
       await db

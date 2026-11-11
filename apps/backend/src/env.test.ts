@@ -127,3 +127,23 @@ test('loadBackendEnv rejects an alert-email budget knob that is not a plain posi
     }
   }
 });
+
+test('loadBackendEnv reads the job-engine settings and rejects anything that is not a plain positive integer (review of Story 10.1a)', () => {
+  assert.strictEqual(withRateLimitEnv('JOB_ATTEMPT_DEADLINE_MS', ' 90000 ', () => loadBackendEnv().jobAttemptDeadlineMs), 90000);
+  assert.strictEqual(withRateLimitEnv('JOB_WORKER_CLAIM_TTL_MINUTES', '7', () => loadBackendEnv().jobWorkerClaimTtlMinutes), 7);
+  // A typo must fail loudly: '150s' read as NaN expired every job at once, and a TTL of 0 made every claim stale, so a
+  // redelivered invoke ran the same job twice.
+  for (const bad of ['0', '-3', '150s', '1e3', '1.5', 'abc', ' ']) {
+    assert.throws(
+      () => withRateLimitEnv('JOB_ATTEMPT_DEADLINE_MS', bad, () => loadBackendEnv()),
+      /JOB_ATTEMPT_DEADLINE_MS must be a positive integer/,
+      JSON.stringify(bad)
+    );
+    assert.throws(
+      () => withRateLimitEnv('JOB_WORKER_CLAIM_TTL_MINUTES', bad, () => loadBackendEnv()),
+      /JOB_WORKER_CLAIM_TTL_MINUTES must be a positive integer/,
+      JSON.stringify(bad)
+    );
+  }
+});
+

@@ -42,10 +42,12 @@ class ManualExtractionFailure extends Error {
 }
 
 async function markFailed(jobId: string, errorCode: ExtractionErrorCode, errorMessage: string): Promise<void> {
+  // Guarded on PROCESSING (like the two SUCCEEDED writes below): the 5-minute stale sweep may already have ended this job, and a
+  // late worker must never overwrite that (or a result that already landed).
   await db
     .update(manualExtractionJobs)
     .set({ status: 'FAILED', errorCode, errorMessage, completedAt: new Date(), updatedAt: new Date() })
-    .where(eq(manualExtractionJobs.id, jobId));
+    .where(and(eq(manualExtractionJobs.id, jobId), eq(manualExtractionJobs.status, 'PROCESSING')));
 }
 
 export async function processManualExtractionJob(jobId: string, deps?: ProcessManualExtractionJobDeps): Promise<void> {
@@ -169,7 +171,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
       await db
         .update(manualExtractionJobs)
         .set({ status: 'SUCCEEDED', resultData: preview, completedAt: new Date(), updatedAt: new Date() })
-        .where(eq(manualExtractionJobs.id, jobId));
+        .where(and(eq(manualExtractionJobs.id, jobId), eq(manualExtractionJobs.status, 'PROCESSING')));
       return;
     }
     if (payload.isEvent === false || !Array.isArray(payload.events) || payload.events.length === 0) {
@@ -190,7 +192,7 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
         completedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(manualExtractionJobs.id, jobId));
+      .where(and(eq(manualExtractionJobs.id, jobId), eq(manualExtractionJobs.status, 'PROCESSING')));
   } catch (err) {
     if (err instanceof ManualExtractionFailure) {
       await markFailed(jobId, err.errorCode, err.message);

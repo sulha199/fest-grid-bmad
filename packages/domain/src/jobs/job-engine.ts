@@ -88,6 +88,39 @@ export function resolveAttemptBudgetMs(input: {
   return Math.max(0, Math.min(...candidates));
 }
 
+/**
+ * The product-visible shape of a job (PRD 4.21), the pure counterpart of a `jobs` row. Provider attempts are Story 10.2's.
+ * Dates are ISO strings here; the database row carries `Date`s.
+ */
+export interface Job {
+  id: string;
+  type: string;
+  /** Who started it (FR130). */
+  trigger: JobTrigger;
+  /** Set for a USER job, absent for a SYSTEM job. */
+  ownerUserId?: string;
+  /** Normalized identity of the work; the key for reuse (Story 10.3). */
+  inputKey: string;
+  status: JobStatus;
+  /** The step the job is at while it runs (FR117). */
+  phase?: string;
+  reasonCode?: string;
+  createdAt: string;
+  finishedAt?: string;
+  /** The bound on the whole job (FR117). */
+  deadlineAt: string;
+  /** True when a vendor result arrived after the deadline and was still used (FR119). */
+  completedAfterDeadline: boolean;
+}
+
+/**
+ * FR130: a USER job needs an owner, a SYSTEM job needs none. The same rule as the database CHECK
+ * `jobs_user_job_has_owner`, so application code can refuse before the insert does.
+ */
+export function jobHasValidOwner(job: Pick<Job, 'trigger' | 'ownerUserId'>): boolean {
+  return job.trigger === 'SYSTEM' || (job.ownerUserId !== undefined && job.ownerUserId !== '');
+}
+
 /** What a running handler can do. The backend supplies the real implementations. */
 export interface JobHandlerContext {
   jobId: string;
@@ -97,6 +130,11 @@ export interface JobHandlerContext {
   phase: string | null;
   /** Time this run may still use, already capped by the attempt cap, the job deadline and the Lambda's own clock. */
   getRemainingTimeInMillis(): number;
+  /**
+   * Aborted when this run's time budget is used up. The job is already ended by then, so a handler must stop: pass it to
+   * every vendor call and wait, or it keeps running in a frozen Lambda and resumes on the next warm invocation.
+   */
+  signal: AbortSignal;
   /** Records the step the job is at (FR117 "which step it is at"). */
   setPhase(phase: string): Promise<void>;
   /** Hands the job to another Lambda carrying only `{ jobId }` (AD-53 cross-Lambda hand-off). */

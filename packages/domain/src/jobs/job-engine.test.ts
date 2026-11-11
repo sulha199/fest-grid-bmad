@@ -8,8 +8,10 @@ import {
   getJobTypeDefinition,
   isPlaceHoldingJobStatus,
   isTerminalJobStatus,
+  jobHasValidOwner,
   registerJobTypeDefinition,
   resolveAttemptBudgetMs,
+  type Job,
   type JobStatus,
   type JobTypeDefinition,
 } from "./job-engine.js";
@@ -71,3 +73,30 @@ test("resolveAttemptBudgetMs: the smallest of the attempt cap, the time to the d
   // An undefined Lambda budget is ignored.
   assert.equal(resolveAttemptBudgetMs({ attemptCapMs: 10, msToDeadline: 20, lambdaRemainingMs: undefined }), 10);
 });
+
+test('jobHasValidOwner: a USER job needs an owner, a SYSTEM job needs none (FR130, the rule the database CHECK also enforces)', () => {
+  assert.equal(jobHasValidOwner({ trigger: 'USER', ownerUserId: 'u1' }), true);
+  assert.equal(jobHasValidOwner({ trigger: 'USER', ownerUserId: undefined }), false);
+  assert.equal(jobHasValidOwner({ trigger: 'USER', ownerUserId: '' }), false);
+  assert.equal(jobHasValidOwner({ trigger: 'SYSTEM', ownerUserId: undefined }), true);
+  assert.equal(jobHasValidOwner({ trigger: 'SYSTEM', ownerUserId: 'u1' }), true);
+});
+
+test('the Job type carries the product-visible shape of PRD 4.21', () => {
+  const job: Job = {
+    id: 'j1',
+    type: 'fixture',
+    trigger: 'USER',
+    ownerUserId: 'u1',
+    inputKey: 'k',
+    status: 'WAITING',
+    phase: 'waiting-retry',
+    reasonCode: undefined,
+    createdAt: '2026-11-11T00:00:00.000Z',
+    finishedAt: undefined,
+    deadlineAt: '2026-11-11T01:00:00.000Z',
+    completedAfterDeadline: false,
+  };
+  assert.equal(job.status, 'WAITING');
+});
+

@@ -56,7 +56,7 @@ export async function startJob(
       .update(jobs)
       .set({
         status: 'FAILED',
-        reasonCode: 'NO_PROVIDER_REACHABLE',
+        reasonCode: 'START_FAILED',
         errorMessage: START_FAILED_MESSAGE,
         finishedAt: now,
         updatedAt: now,
