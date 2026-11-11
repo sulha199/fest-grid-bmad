@@ -35,7 +35,7 @@ import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../l
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError, type GraphQLResolveInfo } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, parsePlatformPrefixedEventSlug, sanitizeEventLinks, DedupDecisionClueError } from '@festgrid/domain/events';
 import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression, expressionFromFlatFilter, isFilterGroupNode } from '@festgrid/domain/ai-event-filters';
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import type { EventFilterInput } from '@festgrid/domain/events';
@@ -2059,12 +2059,12 @@ export const resolvers: Resolvers = {
     // loser) into its candidateEventId (the existing event, the winner); REJECT is a recorded
     // dismissal with no merge side effects (AC3). Both run in one transaction with the suggestion
     // row locked, so a concurrent resolve cannot overwrite this one.
-    resolveSuggestedEventMatch: async (_, { id, action }, context, info) => {
+    resolveSuggestedEventMatch: async (_, { id, action, clues, note }, context, info) => {
       const moderator = requireModerator(context);
 
       let mergeId: string | null;
       try {
-        ({ mergeId } = await db.transaction((tx) => resolveSuggestedMatch(tx, { id, action, moderatorId: moderator.userId })));
+        ({ mergeId } = await db.transaction((tx) => resolveSuggestedMatch(tx, { id, action, moderatorId: moderator.userId, clues, note })));
       } catch (err) {
         if (err instanceof SuggestedMatchNotFoundError) {
           throw new GraphQLError(err.message, { extensions: { code: 'NOT_FOUND' } });
@@ -2072,7 +2072,7 @@ export const resolvers: Resolvers = {
         if (err instanceof SuggestedMatchNotPendingError || err instanceof EventMergeInvalidStateError) {
           throw new GraphQLError(err.message, { extensions: { code: 'INVALID_STATE_TRANSITION' } });
         }
-        if (err instanceof SuggestedMatchInvalidActionError) {
+        if (err instanceof SuggestedMatchInvalidActionError || err instanceof DedupDecisionClueError) {
           throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
         }
         throw err;

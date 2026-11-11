@@ -328,6 +328,18 @@ The attended loop (step 8) offers the override. Nothing about the daily review c
   suggestion regardless of the floor").
 - **Not changed.** The apply side, the workflow, the guard and the caps (FIND-124, FIND-126).
 
+### As built in decision clues (2026-11-11)
+
+Every resolution can record why (`_bmad-output/implementation-artifacts/spec-dedup-decision-clues.md`). It is orthogonal to `reasons`, which stay dropped (`FIND-114`, narrow the apply role's reads and record the run id).
+
+- **Storage.** `event_match_candidates.resolution_clues text[]` and `resolution_note text`, both nullable, written by `resolveSuggestedMatch` (the reject update, or a follow-up update after `mergeEvents` flips an accept) and cleared by `undoEventMerge`. The 17 codes live in `packages/domain/src/events/dedup-decision-clues.ts` with their exclusive groups; the reader holds a copy that `test_dedup_report.py` pins to that file.
+- **The bridge carries codes only.** A decision may hold `clues`; a `note` key refuses the file, because the decisions input is public. Results, counts, the guard and the summary are unchanged. The apply parser and the resolver validate the same way.
+- **The loop.** After a Reject, Accept (merge) or Merge-regardless answer the reader's `clue-options` builds a multi-select of the four clues the pair's own signals flagged (the ones that support the decision first), lists all 17 by number, and says typed text is not stored; `clue-answer` maps ticks and typed numbers to codes (words are dropped, never echoed). `decisions --clues` and `confirm --clues` carry them. Rule 7's consent conditions are untouched: a clue answer is never consent.
+- **The daily reviewer.** Its accepts record codes through `decisions --ai-clues`; the reader refuses `same-venue`, `same-organizer`, `shared-link` or `same-date` when the pair's evidence says otherwise. A moderator's own ticks are not checked.
+- **The moderator screen.** Accept and Reject both open one dialog with the checklist (exclusive groups disabled once one is ticked) and a 200-character note; Reject, one click before, now asks, and warns it cannot be undone. Analytics carries the codes, never the note.
+- **Not changed.** The export, `recentlyResolved` and `skipResolved` carry no clue; the caps, the floor, the switches, the guard and the apply role's grants (a table-level `UPDATE` already covers the new columns).
+- **Free text on the bridge (not built).** Encrypting the note to a public key committed in the repo, and decrypting it in the apply job with an environment secret, would let the loop store a note; it costs a keypair, a secret and crypto code, and leaks the note's length.
+
 ## 7. Facts verified while reviewing
 
 - Before Piece A, only `merge-events.ts` (accept flip :248, undo :344) and the resolver's REJECT wrote

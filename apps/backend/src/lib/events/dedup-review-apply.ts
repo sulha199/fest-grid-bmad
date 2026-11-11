@@ -231,10 +231,10 @@ async function decideUnderLocks(
         throw new DecisionAborted('concurrent-change');
       }
       if (decision.action === 'reject') {
-        const { mergeId } = await resolveSuggestedMatch(sp, { id: decision.suggestionId, action: 'REJECT', moderatorId, via: 'ai_skill' });
+        const { mergeId } = await resolveSuggestedMatch(sp, { id: decision.suggestionId, action: 'REJECT', moderatorId, via: 'ai_skill', clues: decision.clues });
         return { mergeId };
       }
-      const { mergeId } = await resolveSuggestedMatch(sp, { id: decision.suggestionId, action: 'ACCEPT', moderatorId, via: 'ai_skill' });
+      const { mergeId } = await resolveSuggestedMatch(sp, { id: decision.suggestionId, action: 'ACCEPT', moderatorId, via: 'ai_skill', clues: decision.clues });
       return { mergeId };
     });
   } catch (err) {

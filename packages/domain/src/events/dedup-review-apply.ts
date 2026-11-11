@@ -1,3 +1,4 @@
+import { parseDedupDecisionClues, type DedupDecisionClue } from './dedup-decision-clues.js';
 import type { DedupReviewExportPair } from './dedup-review-evidence.js';
 import { MID_PROMOTION_MAX_DAY_DIFF, SHARED_LINK_DATE_WINDOW_DAYS, namesContradictForReview } from './match-scoring.js';
 
@@ -38,12 +39,14 @@ const RUN_TAG = /^[A-Za-z0-9._-]{1,64}$/;
  */
 export type DedupReviewAction = 'accept' | 'reject' | 'accept-override';
 
-/** The one reviewer-chosen thing apply acts on; `reasons` are validated and then dropped. */
+/** What apply acts on: the action, and the clue codes it records; `reasons` are validated and then dropped, and a note is refused. */
 export interface DedupReviewDecision {
   suggestionId: string;
   evidenceHash: string;
   /** Always set by the parser to the validated value: an entry without `action` is an accept. */
   action: DedupReviewAction;
+  /** The validated clue codes (public-safe, a closed list). The parser always sets it, to null when the entry had none. */
+  clues?: DedupDecisionClue[] | null;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -61,7 +64,9 @@ function hasKeys(value: Record<string, unknown>, required: string[], optional: s
 }
 
 /**
- * Parses the decisions file: `{"schemaVersion":1,"decisions":[{suggestionId, evidenceHash, reasons, action?}]}`.
+ * Parses the decisions file: `{"schemaVersion":1,"decisions":[{suggestionId, evidenceHash, reasons, action?, clues?}]}`.
+ * `clues` is a list of clue codes (`parseDedupDecisionClues`); a `note` key, like any unknown key, refuses the whole file,
+ * because the decisions input is public and a note is free text.
  * `action` is exactly `accept`, `reject` or `accept-override` (no case folding, no trimming) and defaults to `accept`.
  * Every failure throws the same kind of fixed message (a JSON syntax error can quote its input), and
  * `reasons` never leaves this function.
@@ -87,8 +92,8 @@ export function parseDedupReviewDecisions(raw: string): DedupReviewDecision[] {
 
   const seen = new Set<string>();
   return entries.map((entry): DedupReviewDecision => {
-    if (!isPlainObject(entry) || !hasKeys(entry, ['suggestionId', 'evidenceHash', 'reasons'], ['action'])) {
-      throw new DedupReviewApplyInputError('each decision must hold suggestionId, evidenceHash and reasons, and may hold action');
+    if (!isPlainObject(entry) || !hasKeys(entry, ['suggestionId', 'evidenceHash', 'reasons'], ['action', 'clues'])) {
+      throw new DedupReviewApplyInputError('each decision must hold suggestionId, evidenceHash and reasons, and may hold action and clues');
     }
     if (Object.hasOwn(entry, 'action') && entry.action !== 'accept' && entry.action !== 'reject' && entry.action !== 'accept-override') {
       throw new DedupReviewApplyInputError('action must be "accept", "reject" or "accept-override"');
@@ -114,7 +119,14 @@ export function parseDedupReviewDecisions(raw: string): DedupReviewDecision[] {
     ) {
       throw new DedupReviewApplyInputError(`reasons must be at most ${DEDUP_REVIEW_MAX_REASONS} strings of at most ${DEDUP_REVIEW_MAX_REASON_LENGTH} characters`);
     }
-    return { suggestionId, evidenceHash, action };
+    let clues: DedupDecisionClue[] | null;
+    try {
+      clues = parseDedupDecisionClues(entry.clues);
+    } catch (err) {
+      // Only `DedupDecisionClueError` is thrown, and its message never echoes a value.
+      throw new DedupReviewApplyInputError((err as Error).message);
+    }
+    return { suggestionId, evidenceHash, action, clues };
   });
 }
 

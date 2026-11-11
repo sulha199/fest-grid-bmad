@@ -97,11 +97,11 @@ function entry(overrides: Record<string, unknown> = {}) {
 test('parseDedupReviewDecisions - a valid file keeps only the id and the hash, lower-cased, and drops reasons', () => {
   const parsed = parseDedupReviewDecisions(decisionsJson([entry({ suggestionId: ID_A.toUpperCase(), evidenceHash: HASH.toUpperCase() }), entry({ suggestionId: ID_B, reasons: [] })]));
   assert.deepStrictEqual(parsed, [
-    { suggestionId: ID_A, evidenceHash: HASH, action: 'accept' },
-    { suggestionId: ID_B, evidenceHash: HASH, action: 'accept' },
+    { suggestionId: ID_A, evidenceHash: HASH, action: 'accept', clues: null },
+    { suggestionId: ID_B, evidenceHash: HASH, action: 'accept', clues: null },
   ]);
   assert.deepStrictEqual(parseDedupReviewDecisions(decisionsJson([])), [], 'an empty list is a no-op, not an error');
-  assert.deepStrictEqual(parseDedupReviewDecisions('\uFEFF' + decisionsJson([entry()])), [{ suggestionId: ID_A, evidenceHash: HASH, action: 'accept' }], 'a leading byte order mark is ignored');
+  assert.deepStrictEqual(parseDedupReviewDecisions('\uFEFF' + decisionsJson([entry()])), [{ suggestionId: ID_A, evidenceHash: HASH, action: 'accept', clues: null }], 'a leading byte order mark is ignored');
 });
 
 test('parseDedupReviewDecisions - every malformed file is refused with a message that never echoes the input', () => {
@@ -143,6 +143,40 @@ test('parseDedupReviewDecisions - every malformed file is refused with a message
   }
 });
 
+test('parseDedupReviewDecisions - clues are validated and kept in list order; none, null and an empty list are null', () => {
+  const parsed = parseDedupReviewDecisions(
+    decisionsJson([
+      entry({ clues: ['shared-link', 'same-venue'] }),
+      entry({ suggestionId: ID_B, action: 'reject', clues: ['different-organizer', 'not-an-event'] }),
+      entry({ suggestionId: ID_C, clues: [] }),
+      entry({ suggestionId: '44444444-4444-4444-8444-444444444445', clues: null }),
+    ])
+  );
+  assert.deepStrictEqual(
+    parsed.map((decision) => decision.clues),
+    [['same-venue', 'shared-link'], ['different-organizer', 'not-an-event'], null, null]
+  );
+});
+
+test('parseDedupReviewDecisions - a bad clue list, or a note, refuses the whole file without echoing it', () => {
+  const secret = 'SECRET-NOTE-TEXT';
+  const bad: Array<[string, unknown]> = [
+    ['an unknown code', entry({ clues: [secret] })],
+    ['clues that is not a list', entry({ clues: secret })],
+    ['a repeated code', entry({ clues: ['same-venue', 'same-venue'] })],
+    ['two codes of one group', entry({ clues: ['same-venue', 'different-venue'] })],
+    ['a note (free text never travels in the public input)', entry({ clues: ['other'], note: secret })],
+    ['a note alone', entry({ note: secret })],
+  ];
+  for (const [label, item] of bad) {
+    assert.throws(
+      () => parseDedupReviewDecisions(decisionsJson([item])),
+      (err: unknown) => err instanceof DedupReviewApplyInputError && !err.message.includes(secret),
+      label
+    );
+  }
+});
+
 test('parseDedupReviewDecisions - action is exactly accept, reject or accept-override, accept when absent, and nothing else is tolerated', () => {
   const ID_D = '44444444-4444-4444-8444-444444444445';
   const parsed = parseDedupReviewDecisions(
@@ -169,8 +203,8 @@ test('parseDedupReviewDecisions - action is exactly accept, reject or accept-ove
 });
 
 test('assertDedupReviewRejectsAllowed - a reject needs the flag, an accept never does', () => {
-  const accept: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept' };
-  const reject: DedupReviewDecision = { suggestionId: ID_B, evidenceHash: HASH, action: 'reject' };
+  const accept: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept', clues: null };
+  const reject: DedupReviewDecision = { suggestionId: ID_B, evidenceHash: HASH, action: 'reject', clues: null };
   assert.doesNotThrow(() => assertDedupReviewRejectsAllowed([accept], false));
   assert.doesNotThrow(() => assertDedupReviewRejectsAllowed([], false));
   assert.doesNotThrow(() => assertDedupReviewRejectsAllowed([accept, reject], true));
@@ -178,9 +212,9 @@ test('assertDedupReviewRejectsAllowed - a reject needs the flag, an accept never
 });
 
 test('assertDedupReviewFloorOverrideAllowed - an accept-override needs the flag, an accept or a reject never does', () => {
-  const accept: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept' };
-  const reject: DedupReviewDecision = { suggestionId: ID_C, evidenceHash: HASH, action: 'reject' };
-  const override: DedupReviewDecision = { suggestionId: ID_B, evidenceHash: HASH, action: 'accept-override' };
+  const accept: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept', clues: null };
+  const reject: DedupReviewDecision = { suggestionId: ID_C, evidenceHash: HASH, action: 'reject', clues: null };
+  const override: DedupReviewDecision = { suggestionId: ID_B, evidenceHash: HASH, action: 'accept-override', clues: null };
   assert.doesNotThrow(() => assertDedupReviewFloorOverrideAllowed([accept, reject], false));
   assert.doesNotThrow(() => assertDedupReviewFloorOverrideAllowed([], false));
   assert.doesNotThrow(() => assertDedupReviewFloorOverrideAllowed([accept, override], true));
@@ -302,7 +336,7 @@ test('checkDedupReviewFloor - an organizer pair that shares only a link (no venu
 });
 
 test('judgeDedupReviewDecision - the pair state comes first, then the hash, then the floor', () => {
-  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept' };
+  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept', clues: null };
   const judge = (lookup: DedupReviewFreshLookup, state: DedupReviewRunState = EMPTY_STATE) => judgeDedupReviewDecision({ decision, fresh: lookup, state, caps: CAPS });
   for (const kind of ['unknown-suggestion', 'not-pending', 'stale-pair'] as const) {
     assert.deepStrictEqual(judge({ kind }), { outcome: 'skipped', reason: kind });
@@ -313,7 +347,7 @@ test('judgeDedupReviewDecision - the pair state comes first, then the hash, then
 });
 
 test('judgeDedupReviewDecision - a shared event, the per-run cap and the per-day cap come after the floor, in that order', () => {
-  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept' };
+  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept', clues: null };
   const lookup: DedupReviewFreshLookup = { kind: 'pair', ...fresh() };
   const judge = (state: DedupReviewRunState, caps = CAPS) => judgeDedupReviewDecision({ decision, fresh: lookup, state, caps });
 
@@ -338,7 +372,7 @@ test('judgeDedupReviewDecision - a shared event, the per-run cap and the per-day
 });
 
 test('judgeDedupReviewDecision - an accept-override: no floor and no tier skip, but state, hash, a claimed event and both merge caps', () => {
-  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept-override' };
+  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept-override', clues: null };
   const lookup = (overrides: Partial<DedupReviewFreshPair> = {}): DedupReviewFreshLookup => ({ kind: 'pair', ...fresh(overrides) });
   const judge = (fresh: DedupReviewFreshLookup, state: DedupReviewRunState = EMPTY_STATE, caps = CAPS) => judgeDedupReviewDecision({ decision, fresh, state, caps });
 
@@ -385,7 +419,7 @@ test('judgeDedupReviewDecision - an accept-override: no floor and no tier skip, 
 });
 
 test('judgeDedupReviewDecision - a reject: state, hash, high tier, a claimed event, the reject cap and the day cap, and no floor', () => {
-  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'reject' };
+  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'reject', clues: null };
   const lookup = (overrides: Partial<DedupReviewFreshPair> = {}): DedupReviewFreshLookup => ({ kind: 'pair', ...fresh(overrides) });
   const judge = (fresh: DedupReviewFreshLookup, state: DedupReviewRunState = EMPTY_STATE, caps = CAPS) => judgeDedupReviewDecision({ decision, fresh, state, caps });
 

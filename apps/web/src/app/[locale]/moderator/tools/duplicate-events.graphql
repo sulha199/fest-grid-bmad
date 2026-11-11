@@ -49,8 +49,8 @@ query QuerySuggestedEventMatches($first: Int, $after: String) {
   }
 }
 
-mutation ResolveSuggestedEventMatch($id: ID!, $action: SuggestedEventMatchAction!) {
-  resolveSuggestedEventMatch(id: $id, action: $action) {
+mutation ResolveSuggestedEventMatch($id: ID!, $action: SuggestedEventMatchAction!, $clues: [String!], $note: String) {
+  resolveSuggestedEventMatch(id: $id, action: $action, clues: $clues, note: $note) {
     mergeId
     suggestion {
       id

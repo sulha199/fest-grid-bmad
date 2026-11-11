@@ -1604,6 +1604,22 @@ class SkillTextTests(unittest.TestCase):
         name = name.replace("${{ inputs.allow_floor_override && 'override=true ' || '' }}", 'override=true ' if override else '')
         return name.replace('${{ inputs.mode }}', mode).replace('${{ inputs.run_tag }}', tag)
 
+    def test_the_clue_rules_and_commands_are_in_the_skill(self):
+        for command in ('clue-options', 'clue-answer', '--ai-clues', '--clues', '--other-file', '--selected'):
+            self.assertIn(command, self.text)
+        self.assertIn('never consent for a decision', self.text)
+        self.assertIn('never stored', self.text)
+        self.assertIn('never on a command line', self.text)
+        self.assertEqual(self.text.count('The clue question'), 2, 'rule 7 names it and step 8 holds it')
+
+    def test_the_clue_question_lives_in_step_eight_and_the_ai_clues_in_steps_three_four_and_six(self):
+        self.assertIn('**The clue question**', self.steps[8])
+        for number in (1, 2, 5, 7):
+            self.assertNotIn('--clues', self.steps[number])
+        for number in (3, 4, 6):
+            self.assertIn('--ai-clues', self.steps[number])
+        self.assertNotIn('--ai-clues', self.steps[8], 'a moderator\'s ticks are --clues, never the reviewer\'s own')
+
     def test_the_steps_are_found(self):
         self.assertEqual(sorted(self.steps), [0, 1, 2, 3, 4, 5, 6, 7, 8])
 
@@ -1799,6 +1815,266 @@ class ExportContractTests(Base):
         self.assertIn('recentlyExpiredCount', err)
         self.assertEqual(self.load(export_payload(expired=-1))[0], dr.EXIT_BAD_REPORT)
         self.assertEqual(self.load(dict(export_payload(), skipIdCount=-1))[0], dr.EXIT_BAD_REPORT)
+
+
+DOMAIN_CLUES = os.path.join(HERE, '..', '..', '..', 'packages', 'domain', 'src', 'events', 'dedup-decision-clues.ts')
+
+
+class ClueCodeTests(Base):
+    """The clue codes of a decision (spec-dedup-decision-clues): the list, `clue-options`, `clue-answer`, `--clues` and `--ai-clues`."""
+
+    def export(self, *pairs):
+        return self.write(export_log(export_payload(list(pairs))))
+
+    def row(self, number, suggestion_id):
+        return {'number': number, 'title': 'Dedup review: %s' % suggestion_id, 'state': 'OPEN', 'labels': ['dedup-escalate'], 'created_at': '2026-11-01T00:00:00Z'}
+
+    def page(self, *issues):
+        return self.write(json.dumps({'issues': list(issues)}), 'page.json')
+
+    def options(self, log, decision, suggestion_id=A, pages=()):
+        code, out, err = self.cli('clue-options', log, *pages, '--ids', suggestion_id, '--decision', decision)
+        return code, (json.loads(out) if out.strip() else None), err
+
+    def answer(self, log, decision, selected=(), typed=None, suggestion_id=A):
+        extra = []
+        for label in selected:
+            extra += ['--selected', label]
+        if typed is not None:
+            extra += ['--other-file', self.write(typed, 'typed.txt')]
+        code, out, err = self.cli('clue-answer', log, '--ids', suggestion_id, '--decision', decision, *extra)
+        return code, (json.loads(out) if out.strip() else None), err
+
+    def signals_pair(self, suggestion_id=A, venue=True, organizer=True, link=False, gap=0, same_account=True, candidate='Example Run 10K', new='Example Run 5K'):
+        item = pair(suggestion_id, candidate=event(candidate), new=event(new))
+        item['signals'].update(venueMatch=venue, organizerMatch=organizer, sharedLink=link, minDayDiff=gap)
+        item['sameAccount'] = same_account
+        return item
+
+    # ---- the list
+    def test_the_list_and_the_exclusive_groups_are_the_domain_files(self):
+        with open(DOMAIN_CLUES, encoding='utf-8') as handle:
+            source = handle.read()
+        listed = re.search(r'DEDUP_DECISION_CLUES = \[(.*?)\] as const', source, re.S).group(1)
+        self.assertEqual(tuple(re.findall(r"'([a-z-]+)'", listed)), dr.CLUE_CODES)
+        groups = re.search(r'DEDUP_DECISION_CLUE_GROUPS[^=]*= \[(.*?)\n\];', source, re.S).group(1)
+        self.assertEqual(tuple(tuple(re.findall(r"'([a-z-]+)'", row)) for row in re.findall(r'\[([^\]]*)\]', groups)), dr.CLUE_GROUPS)
+
+    def test_every_code_has_a_short_label_and_a_description_and_labels_are_unique(self):
+        self.assertEqual(len(dr.CLUE_CODES), 17)
+        self.assertEqual(set(dr.CLUE_TEXT), set(dr.CLUE_CODES))
+        labels = [dr.CLUE_TEXT[code][0] for code in dr.CLUE_CODES]
+        self.assertEqual(len(set(labels)), 17)
+        for label in labels:
+            self.assertLessEqual(len(label), 35)
+            self.assertNotIn("'", label)            # a label goes into a shell command in single quotes
+        for code in dr.CLUE_CODES:
+            self.assertTrue(dr.CLUE_TEXT[code][1])
+        self.assertIn('other', dr.CLUE_CODES)
+
+    # ---- the question
+    def test_the_question_has_four_distinct_options_and_lists_every_code_by_number(self):
+        log = self.export(self.signals_pair())
+        code, row, _ = self.options(log, 'accept', pages=(self.page(self.row(146, A)),))
+        self.assertEqual(code, 0)
+        self.assertEqual((row['suggestionId'], row['header'], row['multiSelect']), (A, 'Why? #146', True))
+        self.assertEqual(len(row['options']), 4)
+        self.assertEqual(set(row), {'suggestionId', 'header', 'question', 'multiSelect', 'options', 'codes'})
+        for option in row['options']:
+            self.assertEqual(set(option), {'label', 'description'})
+        self.assertEqual(set(row['codes'].values()) <= set(dr.CLUE_CODES), True)
+        for number, clue in enumerate(dr.CLUE_CODES, 1):
+            self.assertIn('%d %s' % (number, dr.CLUE_TEXT[clue][0]), row['question'])
+        self.assertIn('not stored', row['question'])
+        self.assertNotIn('cannot be undone', row['question'])
+        self.assertLessEqual(len(row['header']), 12)
+        self.assertEqual(self.options(self.export(self.signals_pair()), 'accept')[1]['header'], 'Why?')
+
+    def test_a_reject_warns_and_puts_the_clues_against_a_merge_first(self):
+        log = self.export(self.signals_pair(venue=False, organizer=False, gap=9, same_account=False, candidate='Kids Run', new='Adult Race'))
+        _, row, _ = self.options(log, 'reject')
+        self.assertIn('cannot be undone in the app', row['question'])
+        self.assertEqual(list(row['codes'].values()), ['different-venue', 'different-organizer', 'date-too-far', 'different-name-words'])
+        _, merge, _ = self.options(log, 'accept')
+        self.assertEqual(list(merge['codes'].values())[:4], ['different-venue', 'different-organizer', 'date-too-far', 'different-name-words'], 'only evidence against is flagged, so it still leads')
+
+    def test_a_merge_puts_the_supporting_clues_first(self):
+        log = self.export(self.signals_pair(link=True, candidate='Fun Run', new='fun  run!'))
+        _, row, _ = self.options(log, 'accept')
+        self.assertEqual(list(row['codes'].values()), ['shared-link', 'same-venue', 'same-organizer', 'same-date'])
+        _, override, _ = self.options(log, 'override')
+        self.assertEqual(list(override['codes'].values()), list(row['codes'].values()))
+
+    def test_every_decision_always_gets_four_distinct_options_without_contradictions(self):
+        for venue in (True, False):
+            for organizer in (True, False):
+                for link in (True, False):
+                    for gap in (None, 0, 1, 3, 40):
+                        for names in (('Fun Run', 'Fun Run'), ('Fun Run', 'Fun Race'), ('', 'x'), ('Kids', 'Adult')):
+                            item = self.signals_pair(venue=venue, organizer=organizer, link=link, gap=gap, same_account=organizer, candidate=names[0], new=names[1])
+                            for decision in dr.DECISION_KINDS:
+                                chosen = dr.clue_choices(item, decision)
+                                self.assertEqual(len(chosen), 4)
+                                self.assertEqual(len(set(chosen)), 4)
+                                self.assertFalse(dr.clue_conflicts(chosen), (decision, chosen))
+
+    def test_a_missing_place_or_source_is_not_called_different(self):
+        item = self.signals_pair(venue=False, organizer=False, same_account=False)
+        item['candidate']['location'] = None
+        item['newEvent']['sourcePosts'] = []
+        chosen = dr.clue_choices(item, 'reject')
+        self.assertNotIn('different-venue', chosen)
+        self.assertNotIn('different-organizer', chosen)
+
+    def test_the_question_refuses_a_bad_decision_a_missing_or_unknown_id_and_several_ids(self):
+        log = self.export(self.signals_pair())
+        self.assertEqual(self.cli('clue-options', log, '--ids', A, '--decision', 'skip')[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.cli('clue-options', log, '--ids', B, '--decision', 'accept')[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.cli('clue-options', log, '--ids', '%s,%s' % (A, B), '--decision', 'accept')[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.cli('clue-options', log, '--decision', 'accept')[0], dr.EXIT_BAD_INPUT)
+
+    # ---- the answer
+    def test_ticked_labels_become_codes_in_list_order(self):
+        log = self.export(self.signals_pair(link=True))
+        _, offered, _ = self.options(log, 'accept')
+        labels = list(offered['codes'])[:2]
+        code, row, _ = self.answer(log, 'accept', labels)
+        self.assertEqual(code, 0)
+        ordered = [c for c in dr.CLUE_CODES if c in {offered['codes'][label] for label in labels}]
+        self.assertEqual((row['clues'], row['clueArg'], row['notice']), (ordered, '%s=%s' % (A, '+'.join(ordered)), ''))
+
+    def test_typed_numbers_add_codes_and_anything_else_is_dropped_and_never_echoed(self):
+        log = self.export(self.signals_pair())
+        code, row, _ = self.answer(log, 'reject', typed='7, 12')
+        self.assertEqual((code, row['clues'], row['notice']), (0, ['date-too-far', 'registration-vs-event-day'], ''))
+        secret = 'SECRET kids run, call 0812-3456-7890'
+        _, row, _ = self.answer(log, 'reject', typed='%s 3' % secret)
+        self.assertEqual(row['clues'], [], 'a digit inside prose is not a clue')
+        self.assertIn('not stored', row['notice'])
+        self.assertNotIn('SECRET', json.dumps(row))
+        self.assertNotIn('0812', json.dumps(row))
+        _, row, _ = self.answer(log, 'reject', typed='0 18 -1 3.5 \u0663')
+        self.assertEqual((row['clues'], row['clueArg']), ([], ''))
+        self.assertIn('not stored', row['notice'])
+
+    def test_obvious_numbered_answers_are_read(self):
+        log = self.export(self.signals_pair())
+        _, row, _ = self.answer(log, 'reject', typed='#7, 12.')
+        self.assertEqual(row['clues'], ['date-too-far', 'registration-vs-event-day'])
+        self.assertEqual(row['notice'], '')
+        _, row, _ = self.answer(log, 'reject', typed='7-12')
+        self.assertEqual(row['clues'], [])
+        self.assertIn('not stored', row['notice'])
+
+    def test_a_digit_inside_prose_is_not_a_clue_but_a_plain_number_list_is(self):
+        log = self.export(self.signals_pair())
+        for prose in ('kids run 2', '5 km', '7 and 12', 'see 3.5'):
+            _, row, _ = self.answer(log, 'reject', typed=prose)
+            self.assertEqual((row['clues'], row['clueArg']), ([], ''), prose)
+            self.assertIn('not stored', row['notice'])
+        _, row, _ = self.answer(log, 'reject', typed='7 12\n')
+        self.assertEqual(row['clues'], ['date-too-far', 'registration-vs-event-day'])
+
+    def test_clue_codes_lists_all_seventeen_with_their_groups_and_needs_no_log(self):
+        code, out, _ = self.run_cli('clue-codes')
+        self.assertEqual(code, 0)
+        rows = json.loads(out)
+        self.assertEqual([r['code'] for r in rows], list(dr.CLUE_CODES))
+        self.assertEqual([r['number'] for r in rows], list(range(1, 18)))
+        by_code = {r['code']: r['group'] for r in rows}
+        self.assertEqual(by_code['same-venue'], by_code['different-venue'])
+        self.assertNotEqual(by_code['same-venue'], by_code['same-organizer'])
+        self.assertIsNone(by_code['other'])
+        self.assertIsNone(by_code['shared-link'])
+
+    def test_two_long_words_that_share_their_start_are_different_names(self):
+        long_a, long_b = 'internationalmarathonseries2025', 'internationalmarathonseries2026'
+        self.assertEqual(dr.names_relation(long_a, long_b), 'different')
+        self.assertEqual(dr.names_relation('Fun Run', 'FUN  run!'), 'same')
+        self.assertIsNone(dr.names_relation('', 'x'))
+
+    def test_numbers_and_ticks_combine_without_repeats(self):
+        log = self.export(self.signals_pair(link=True))
+        label = dr.CLUE_TEXT['shared-link'][0]
+        _, row, _ = self.answer(log, 'accept', [label], typed='8 17')
+        self.assertEqual(row['clues'], ['shared-link', 'other'])
+
+    def test_no_answer_records_nothing(self):
+        log = self.export(self.signals_pair())
+        _, row, _ = self.answer(log, 'accept')
+        self.assertEqual((row['clues'], row['clueArg'], row['notice']), ([], '', ''))
+
+    def test_contradicting_clues_an_unoffered_label_and_a_bad_file_are_refused(self):
+        log = self.export(self.signals_pair())
+        self.assertEqual(self.answer(log, 'accept', typed='1 2')[0], dr.EXIT_BAD_INPUT)
+        offered = self.options(log, 'accept')[1]['codes']
+        self.assertEqual(self.answer(log, 'accept', ['Not a label'])[0], dr.EXIT_BAD_INPUT)
+        missing = self.cli('clue-answer', log, '--ids', A, '--decision', 'accept', '--other-file', os.path.join(self.dir.name, 'nope.txt'))
+        self.assertEqual(missing[0], dr.EXIT_BAD_INPUT)
+        self.assertEqual(self.answer(log, 'accept', typed='7 ' * 600)[1]['clues'], [], 'a file over the limit is dropped whole')
+        self.assertTrue(offered)
+
+    # ---- decisions and confirm
+    def decisions(self, *rest, pairs=None):
+        log = self.export(*(pairs or [self.signals_pair(A), self.signals_pair(B), self.signals_pair(C)]))
+        return self.cli('decisions', log, *rest)
+
+    def test_decisions_carry_clues_only_where_given_in_list_order(self):
+        code, out, _ = self.decisions(A, '--reject', B, '--clues', '%s=shared-link+same-venue,%s=not-an-event' % (A, B))
+        self.assertEqual(code, 0)
+        entries = json.loads(out)['decisions']
+        self.assertEqual([(e['suggestionId'], e.get('clues')) for e in entries], [(B, ['not-an-event']), (A, ['same-venue', 'shared-link'])])
+        self.assertEqual(list(entries[0]), ['suggestionId', 'evidenceHash', 'reasons', 'action', 'clues'])
+        none = json.loads(self.decisions(A, B)[1])['decisions']
+        self.assertTrue(all('clues' not in entry for entry in none), 'no clue, no key: the batch reads as it always did')
+        code, out, _ = self.decisions(A, '--override', C, '--clues', '%s=other' % C)
+        self.assertEqual(json.loads(out)['decisions'][1], {'suggestionId': C, 'evidenceHash': HASH, 'reasons': [], 'action': 'accept-override', 'clues': ['other']})
+
+    def test_an_empty_clue_value_is_none_not_an_error(self):
+        for empty in ('', '   '):
+            code, out, _ = self.decisions(A, '--clues', empty)
+            self.assertEqual(code, 0)
+            self.assertNotIn('clues', out)
+        self.assertEqual(self.decisions(A, '--ai-clues', '')[0], 0)
+
+    def test_decisions_refuse_bad_clue_input_without_echoing_it(self):
+        bad = ['%s=nope' % A, '%s=' % A, 'x', '%s' % A, '%s=same-venue+same-venue' % A, '%s=same-venue+different-venue' % A,
+               '%s=other,%s=other' % (A, A), '%s=other' % C, '%s=SAME-VENUE' % A, '%s=same-venue,' % A]
+        for text in bad:
+            code, _, err = self.decisions(A, '--reject', B, '--clues', text)
+            self.assertEqual(code, dr.EXIT_BAD_INPUT, text)
+            self.assertNotIn('nope', err)
+
+    def test_ai_clues_are_for_accepts_only_and_checked_against_the_evidence(self):
+        pairs = [self.signals_pair(A, venue=True, link=True), self.signals_pair(B, venue=False, organizer=False, same_account=False, gap=5)]
+        code, out, _ = self.decisions(A, '--ai-clues', '%s=shared-link+same-venue+same-organizer+same-date' % A, pairs=pairs)
+        self.assertEqual((code, json.loads(out)['decisions'][0]['clues']), (0, ['same-venue', 'same-organizer', 'same-date', 'shared-link']))
+        for contradicting in ('same-venue', 'same-organizer', 'shared-link', 'same-date'):
+            code, _, err = self.decisions(B, '--ai-clues', '%s=%s' % (B, contradicting), pairs=pairs)
+            self.assertEqual(code, dr.EXIT_BAD_INPUT, contradicting)
+            self.assertIn('evidence', err)
+        # Codes the evidence cannot contradict pass, and so does the same code as a moderator's own tick.
+        self.assertEqual(self.decisions(B, '--ai-clues', '%s=different-venue+not-an-event' % B, pairs=pairs)[0], 0)
+        self.assertEqual(self.decisions(B, '--clues', '%s=same-venue' % B, pairs=pairs)[0], 0)
+        # An organizer match through the same account is evidence enough.
+        same_account_only = [self.signals_pair(A, organizer=False, same_account=True)]
+        self.assertEqual(self.decisions(A, '--ai-clues', '%s=same-organizer' % A, pairs=same_account_only)[0], 0)
+        self.assertEqual(self.decisions(A, '--reject', B, '--ai-clues', '%s=other' % B, pairs=pairs)[0], dr.EXIT_BAD_INPUT, 'a reject is not an AI accept')
+        self.assertEqual(self.decisions(A, '--clues', '%s=other' % A, '--ai-clues', '%s=other' % A, pairs=pairs)[0], dr.EXIT_BAD_INPUT, 'one id in both')
+
+    def test_the_confirmation_lists_the_codes_and_carries_them_in_the_decisions_string(self):
+        log = self.export(self.signals_pair(A), self.signals_pair(B))
+        pages = self.page(self.row(1, A), self.row(2, B))
+        code, out, _ = self.cli('confirm', log, pages, '--accept', A, '--reject', B, '--clues', '%s=same-venue,%s=not-an-event+other' % (A, B))
+        self.assertEqual(code, 0)
+        row = json.loads(out)
+        self.assertIn('Clues recorded (codes only, public): #1 (id 00000000): same-venue; #2 (id 00000000): not-an-event, other.', row['question'])
+        decisions = json.loads(row['decisions'])['decisions']
+        self.assertEqual({d['suggestionId']: d['clues'] for d in decisions}, {A: ['same-venue'], B: ['not-an-event', 'other']})
+        plain = json.loads(self.cli('confirm', log, pages, '--accept', A, '--reject', B)[1])
+        self.assertNotIn('Clues recorded', plain['question'])
+        self.assertNotIn('clues', plain['decisions'])
+        self.assertEqual(self.cli('confirm', log, pages, '--accept', A, '--reject', B, '--clues', '%s=other' % C)[0], dr.EXIT_BAD_INPUT)
 
 
 if __name__ == '__main__':
