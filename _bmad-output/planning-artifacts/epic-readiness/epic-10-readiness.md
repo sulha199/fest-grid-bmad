@@ -19,6 +19,8 @@ stories_covered:
   - '10.14z'
 addendum_2026_11_02_stories_covered:
   - '10.12a'
+addendum_2026_11_11_stories_covered:
+  - '10.12a'
 ---
 
 # Epic 10 Readiness Report: Background Vendor Jobs — One Engine, One Jobs Page
@@ -227,3 +229,40 @@ and `MAX_QUEUED_JOBS_PER_USER`), and a concurrency test. The queue-wait expiry e
 
 **Verdict.** Story 10.12a is buildable as one story; no split, no new prerequisite story. Sprint status gains the key
 `10-12a-run-manual-post-selection-as-a-job` (`backlog`). Epic 10 readiness status stays **APPROVED & READY FOR DEV**.
+
+---
+
+## Addendum 2026-11-11: Story 10.12a re-checked against master's stepped extraction (AD-46 to AD-52)
+
+**Why.** Master merged the cursor-extraction work after the 2026-11-02 addendum: multi-slide posts are extracted in steps
+(AD-46, AD-47), a post can be "still being finished" or "partial" (AD-50), a failed attempt is recorded at once and retried by
+itself for up to 24 hours (AD-52, status `ATTEMPT_FAILED`), and a post's extraction may re-scrape its images (AD-51 Rule 4). Three
+statements in the 2026-11-02 addendum no longer hold. **They are superseded:** (1) "no new service... makes no vendor call" (the
+re-scrape is a vendor call); (2) the separate extraction limit and the `usesVendor` registry flag (both removed: every job type
+counts toward the one limit, a product owner decision of 2026-11-11); (3) the 45-minute bound and "posts return to Pending" (the
+bound is now 26 hours and a failed post is `ATTEMPT_FAILED` with a retry due).
+
+**Gate 1 findings on Story 10.12a (all applied to its acceptance criteria).**
+
+- **The post-to-job link must be durable.** A retry or a resume pass re-enqueues from the post, not from the original queue
+  message, so a `jobId` carried only on the message is lost on the first retry. The link is looked up from the job's stored list
+  of post ids. The earlier idea of an optional `jobId` on `ProcessingJobMessage` is dropped as the only mechanism.
+- **Three settle points, not one.** A post settles or fails in the extraction-finished write, the stepped chain's stop path (a
+  multi-slide post finishes at its last step) and the failed-attempt ledger write. The job check runs from all three; the sweep
+  covers a post whose job died silently.
+- **"Finished" has a precise meaning.** `PROMOTED` or `NOT_EVENT` (partial counted separately), or `ATTEMPT_FAILED` with
+  `extractionNextAttemptAt` null. The job stays open while a post is `QUEUED`, `EXTRACTING` or waiting for a retry, so a successful
+  retry completes it. Bound 1560 minutes; the dev checks it against AD-52's constants (5 attempts, 24 hours from first failure).
+- **Open item OI-5 raised.** A job open through retries holds a running place for up to a day and now counts toward the limit of
+  3, so failing selections can queue a user's later jobs. A mitigation is proposed in the PRD and not decided; it must be decided
+  before Story 10.3 or 10.12a is built.
+
+**New requirement across the epic (FR123, amended).** Every job's inline progress can be minimized and re-opened at its last
+progress, on the page where it started or from the Jobs page, for every job type. Applied as an acceptance criterion on Story 10.4
+(the shared component's contract) and Story 10.6 (re-extract), and on 10.12a; the other adoption stories use the shared component.
+It needs the `bmad-ux` pass Story 10.4 already requires.
+
+**Gate 3.** No change: depends on Stories 10.1a, 10.3 and 10.4; reads AD-46 to AD-52, which are merged. No new prerequisite story.
+
+**Verdict.** Story 10.12a remains one buildable story; the epic readiness status stays **APPROVED & READY FOR DEV**, with OI-5 to
+be decided before Story 10.3 or 10.12a starts.

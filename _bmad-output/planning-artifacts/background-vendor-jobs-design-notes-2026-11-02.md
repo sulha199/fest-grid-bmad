@@ -87,16 +87,25 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
     job of its kind ends, holds its subscription slot from acceptance, expires with a reason after
     `JOB_QUEUE_MAX_WAIT_MINUTES` (30), and at most `MAX_QUEUED_JOBS_PER_USER` (10) may wait. Rejected: keep refusing (worst
     for onboarding), exempt subscribe jobs (no pacing against add/remove loops).
-14. (2026-11-02, product owner) The limit of 3 counts only **vendor jobs**. Jobs that never reach a vendor have their own
-    limit, `MAX_CONCURRENT_EXTRACTION_JOBS_PER_USER` (2), so a long extraction under Gemini's rate limits cannot hold up a
-    subscribe. Each job type's registration declares `usesVendor`. Rejected: count every job (one rule, but a large
-    selection blocks subscribes); no engine limit for extraction (nothing paces many selections).
-15. (2026-11-02, product owner) **Manual post selection becomes a job type** (Story 10.12a, FR129, IDEA-261102-tov) although it makes
-    no vendor call, because the product owner wants every long process in one place. One job per confirmed selection. Progress
-    and ending are read from the posts' own `extractionStatus`, which stays the single source of truth; the AI processor's one
-    post-finish seam tells the job when the last post is done. Evidence traced 2026-11-02: `selectPostsForExtraction` checks
-    the Gemini key quota and subscriptions, claims each post atomically (`posts.queued_for_extraction_at`, 30-minute TTL) and
-    sends it to the AI queue; no vendor is called.
+14. (2026-11-02, product owner; **superseded 2026-11-11**) The limit of 3 was to count only vendor jobs, with a separate
+    limit of 2 for jobs that never reach a vendor. On 2026-11-11, after master's stepped extraction (AD-51 Rule 4: a selected
+    post's extraction may re-scrape its images once their links expire), the product owner chose to **count manual post selection
+    as a vendor job**. Every job type now counts toward `MAX_CONCURRENT_JOBS_PER_USER` (3); the extraction lane
+    (`MAX_CONCURRENT_EXTRACTION_JOBS_PER_USER`) and the `usesVendor` registry flag are removed. Accepted consequence: a long
+    selection can queue the user's subscribes (see PRD open item OI-5).
+15. (2026-11-02, product owner; amended 2026-11-11) **Manual post selection becomes a job type** (Story 10.12a, FR129,
+    IDEA-261102-tov) because the product owner wants every long process in one place. One job per confirmed selection. Progress
+    and ending are read from the posts' own `extractionStatus`, which stays the single source of truth. Evidence traced
+    2026-11-02: `selectPostsForExtraction` checks the Gemini key quota and subscriptions, claims each post atomically
+    (`posts.queued_for_extraction_at`) and sends it to the AI queue. **2026-11-11:** master's AD-46 to AD-52 made multi-slide
+    posts extract in steps and made a failed attempt retry by itself for up to 24 hours (status `ATTEMPT_FAILED`). The product
+    owner chose to **keep the job open through those retries** (bound 26 hours) rather than end it when every post is settled
+    and let retries run on the post. Consequence: a post-to-job link that survives retries (looked up from the job's stored post
+    ids), and OI-5.
+16. (2026-11-11, product owner) **Every job's inline progress can be minimized and re-opened at its last progress**, on the
+    page where it was started or from the Jobs page, for every job type (re-extract first). State comes from the job on the
+    server, so it survives navigation, reload and another device. Written into FR123 and Stories 10.4 and 10.6.
+
 
 ## 5. Open questions (tracked in `epic-formation/epic-10-outside-the-epic-2026-11-02.md`)
 
