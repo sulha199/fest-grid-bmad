@@ -625,6 +625,10 @@ export type Mutation = {
    * `eventId` (the newly-ingested event) into its `candidateEventId` (the existing event), via
    * `mergeEvents`, and returns the resulting merge id. REJECT performs no merge -- a recorded
    * dismissal only.
+   *
+   * `clues` are the codes of the closed list in `packages/domain` (`DEDUP_DECISION_CLUES`) that explain the
+   * decision, at most one per exclusive group; `note` is the moderator's own words, at most 200 characters,
+   * stored and never printed anywhere. Both are optional; an invalid value is BAD_REQUEST and nothing is resolved.
    */
   resolveSuggestedEventMatch: SuggestedEventMatchResolution;
   restoreEvent: Event;
@@ -828,7 +832,9 @@ export type MutationResolveScheduleTimezoneArgs = {
 
 export type MutationResolveSuggestedEventMatchArgs = {
   action: SuggestedEventMatchAction;
+  clues?: InputMaybe<Array<Scalars['String']['input']>>;
   id: Scalars['ID']['input'];
+  note?: InputMaybe<Scalars['String']['input']>;
 };
 
 
@@ -1856,6 +1862,8 @@ export type QuerySuggestedEventMatchesQuery = { suggestedEventMatches: { edges: 
 export type ResolveSuggestedEventMatchMutationVariables = Exact<{
   id: string | number;
   action: SuggestedEventMatchAction;
+  clues?: Array<string> | string | null | undefined;
+  note?: string | null | undefined;
 }>;
 
 
@@ -2664,8 +2672,8 @@ export const useQuerySuggestedEventMatchesQuery = <
     )};
 
 export const ResolveSuggestedEventMatchDocument = new TypedDocumentString(`
-    mutation ResolveSuggestedEventMatch($id: ID!, $action: SuggestedEventMatchAction!) {
-  resolveSuggestedEventMatch(id: $id, action: $action) {
+    mutation ResolveSuggestedEventMatch($id: ID!, $action: SuggestedEventMatchAction!, $clues: [String!], $note: String) {
+  resolveSuggestedEventMatch(id: $id, action: $action, clues: $clues, note: $note) {
     mergeId
     suggestion {
       id

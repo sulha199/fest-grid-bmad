@@ -102,6 +102,39 @@ OPTION_DESCRIPTIONS = {
     LABEL_NO: 'Dispatch nothing.',
 }
 OFFER_TOKENS = ('accept', 'reject', 'override')
+# The clue codes (spec-dedup-decision-clues): a closed list, pinned to packages/domain/src/events/dedup-decision-clues.ts by a test.
+# Codes are the only part of a decision that may be public; free text never travels in the decisions input.
+CLUE_CODES = ('same-venue', 'different-venue', 'same-organizer', 'different-organizer', 'same-date', 'date-drift', 'date-too-far',
+              'shared-link', 'same-name-words', 'different-name-words', 'name-translation-or-abbreviation', 'registration-vs-event-day',
+              'different-category-or-tier', 'part-of-larger-event-or-session', 'recurring-not-same-occurrence', 'not-an-event', 'other')
+CLUE_GROUPS = (('same-venue', 'different-venue'), ('same-organizer', 'different-organizer'), ('same-date', 'date-drift', 'date-too-far'),
+               ('same-name-words', 'different-name-words', 'name-translation-or-abbreviation'))
+# (popup label, description). Labels are constants, never worded by the model.
+CLUE_TEXT = {
+    'same-venue': ('Same venue', 'The two events are at the same place.'),
+    'different-venue': ('Different venue', 'The two events are at different places.'),
+    'same-organizer': ('Same organizer', 'The same account or organizer is behind both.'),
+    'different-organizer': ('Different organizer', 'Different organizers are behind the two.'),
+    'same-date': ('Same date', 'The two events fall on the same day.'),
+    'date-drift': ('Dates differ slightly', 'A small date gap on what is the same event (moved or mistyped).'),
+    'date-too-far': ('Dates too far apart', 'The dates are too far apart for one event.'),
+    'shared-link': ('Shared link', 'Both events carry the same registration or ticket link.'),
+    'same-name-words': ('Same distinctive name words', 'The names use the same distinctive words.'),
+    'different-name-words': ('Different distinctive name words', 'The names differ in a distinctive word.'),
+    'name-translation-or-abbreviation': ('Translated or abbreviated name', 'The same name in another language, or abbreviated.'),
+    'registration-vs-event-day': ('Registration vs event day', 'One post is a registration or deadline, the other the event day.'),
+    'different-category-or-tier': ('Different category or tier', 'A different distance, age group, gender category or ticket tier.'),
+    'part-of-larger-event-or-session': ('Part of a larger event', 'One is a session, day or stage of the other, or the same day at another time.'),
+    'recurring-not-same-occurrence': ('Recurring, not the same', 'A recurring series: another edition or occurrence, not this one.'),
+    'not-an-event': ('Not an event', 'It is not an event, or the extraction is wrong.'),
+    'other': ('Another reason', 'None of the listed reasons fits.'),
+}
+CLUE_OPTIONS = 4  # AskUserQuestion allows 2 to 4 options
+CLUE_DATE_FAR_DAYS = 3  # a day gap from here is "too far"; a smaller one is a drift
+CLUE_PAD = {'accept': ('name-translation-or-abbreviation', 'registration-vs-event-day', 'date-drift', 'other'),
+            'reject': ('recurring-not-same-occurrence', 'different-category-or-tier', 'part-of-larger-event-or-session', 'not-an-event', 'other')}
+CLUE_ANSWER_FILE_MAX_BYTES = 1024
+DECISION_KINDS = ('accept', 'reject', 'override')
 ACTION_OVERRIDE = 'accept-override'  # the apply side's action (FIND-124)
 BRIEF_TIERS = ((BRIEF_LINE, 4, 5), (80, 3, 3), (50, 2, 2), (30, 1, 1))  # field length, schedules and types shown: the text shrinks until it fits
 MAX_DECISIONS_CHARS = 65535
@@ -718,6 +751,176 @@ def cmd_apply(args):
     return 0
 
 
+# ----------------------------------------------------------------------------- clue codes (spec-dedup-decision-clues)
+
+
+def clue_conflicts(codes):
+    """True when two codes of one exclusive group are chosen together."""
+    return any(sum(1 for code in group if code in codes) > 1 for group in CLUE_GROUPS)
+
+
+def check_clue_codes(codes, what):
+    """Known codes, each once, none contradicting another; returned in the list's own order. Never echoes a value."""
+    if not codes or any(code not in CLUE_CODES for code in codes) or len(set(codes)) != len(codes):
+        raise ReportError(EXIT_BAD_INPUT, '%s must be known clue codes, each once' % what)
+    if clue_conflicts(codes):
+        raise ReportError(EXIT_BAD_INPUT, '%s holds clues that contradict each other' % what)
+    return [code for code in CLUE_CODES if code in codes]
+
+
+def parse_clue_map(text, what, allowed_ids):
+    """`ID=code+code,ID=code` to {id: [codes]}. Absent means no clue. Every id must be one of `allowed_ids`, once."""
+    if text is None or not text.strip():
+        return {}  # an empty value is none, as it is for --accept and --reject
+    found = {}
+    for item in text.split(','):
+        suggestion_id, separator, codes = item.partition('=')
+        suggestion_id = suggestion_id.strip().lower()
+        if not separator or not UUID.fullmatch(suggestion_id):
+            raise ReportError(EXIT_BAD_INPUT, '%s must look like ID=code+code,ID=code' % what)
+        if suggestion_id not in allowed_ids or suggestion_id in found:
+            raise ReportError(EXIT_BAD_INPUT, '%s names an id that is not in the batch, or names it twice' % what)
+        found[suggestion_id] = check_clue_codes([code.strip() for code in codes.split('+')], what)
+    return found
+
+
+def check_ai_clues(index, ai_clues):
+    """The reviewer's own clue codes may not contradict the pair's evidence: same-venue needs a venue match, same-organizer an
+    organizer match or the same account, shared-link a shared link, same-date a gap of 0. (A moderator's ticks are not checked.)"""
+    for suggestion_id, codes in ai_clues.items():
+        pair = index[suggestion_id]
+        signals = pair['signals']
+        facts = {'same-venue': signals['venueMatch'], 'same-organizer': signals['organizerMatch'] or pair['sameAccount'],
+                 'shared-link': signals['sharedLink'], 'same-date': signals['minDayDiff'] == 0}
+        if any(code in facts and not facts[code] for code in codes):
+            raise ReportError(EXIT_BAD_INPUT, 'a clue contradicts the evidence of pair %s' % suggestion_id[:8])
+
+
+def names_relation(existing_name, new_name):
+    """'same' when both names have words and the two word sets are equal, 'different' when they are not, None without words."""
+    # The full words, not the display-capped ones: two long words that share their first characters are different words.
+    old, new = [word.casefold() for word in WORD.findall(_clean(existing_name))], [word.casefold() for word in WORD.findall(_clean(new_name))]
+    if not old or not new:
+        return None
+    return 'same' if set(old) == set(new) else 'different'
+
+
+def clue_choices(pair, decision):
+    """The CLUE_OPTIONS codes to offer for one pair and one decision: the codes the pair's own evidence flags, the ones that
+    support the decision first (a merge: same-*, a shared link; a reject: different-*, too far apart), then padding that no
+    evidence flags, and never two codes of one exclusive group."""
+    signals, candidate, new = pair['signals'], pair['candidate'], pair['newEvent']
+    support, neutral, against = [], [], []
+    if signals['sharedLink']:
+        support.append('shared-link')
+    if signals['venueMatch']:
+        support.append('same-venue')
+    elif (candidate.get('location') or '').strip() and (new.get('location') or '').strip():
+        against.append('different-venue')
+    if signals['organizerMatch'] or pair['sameAccount']:
+        support.append('same-organizer')
+    elif candidate['sourcePosts'] and new['sourcePosts']:
+        against.append('different-organizer')
+    gap = signals['minDayDiff']
+    if gap is not None:
+        if gap == 0:
+            support.append('same-date')
+        elif gap >= CLUE_DATE_FAR_DAYS:
+            against.append('date-too-far')
+        else:
+            neutral.append('date-drift')
+    relation = names_relation(candidate['name'], new['name'])
+    if relation == 'same':
+        support.append('same-name-words')
+    elif relation == 'different':
+        against.append('different-name-words')
+    ordered = against + neutral + support if decision == 'reject' else support + neutral + against
+    chosen = []
+    for code in ordered + list(CLUE_PAD['reject' if decision == 'reject' else 'accept']) + list(CLUE_CODES):
+        if code not in chosen and not clue_conflicts(chosen + [code]):
+            chosen.append(code)
+        if len(chosen) == CLUE_OPTIONS:
+            break
+    return chosen
+
+
+def clue_question(decision):
+    """The popup of the clue question: constants only, all 17 codes listed by number for the typed "Other"."""
+    lines = ['Why? Pick what decided it (optional). You may pick none.']
+    if decision == 'reject':
+        lines.append('A reject cannot be undone in the app: the clues are the only record of why.')
+    lines.append('Other: type numbers from the list below, such as 7, 12. Any other text is not stored (this repository is public).')
+    lines.append('; '.join('%d %s' % (number, CLUE_TEXT[code][0]) for number, code in enumerate(CLUE_CODES, 1)))
+    return '\n'.join(lines)
+
+
+def single_pair(args, what):
+    ids = parse_ids(args.ids, '--ids')
+    if len(ids) != 1:
+        raise ReportError(EXIT_BAD_INPUT, '%s takes exactly one suggestion id' % what)
+    index = pair_index(load_export(args))
+    if ids[0] not in index:
+        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is not among the exported pairs')
+    if args.decision not in DECISION_KINDS:
+        raise ReportError(EXIT_BAD_INPUT, '--decision must be accept, reject or override')
+    return ids[0], index[ids[0]]
+
+
+def cmd_clue_codes(args):
+    """Every clue code with its number, label, description and exclusive group: the list a reviewer picks its `--ai-clues` from."""
+    groups = {code: index for index, group in enumerate(CLUE_GROUPS, 1) for code in group}
+    print(json.dumps([{'number': number, 'code': code, 'label': CLUE_TEXT[code][0], 'description': CLUE_TEXT[code][1],
+                       'group': groups.get(code)} for number, code in enumerate(CLUE_CODES, 1)], ensure_ascii=False))
+    return 0
+
+
+def cmd_clue_options(args):
+    """The clue question that follows a decision popup: one pair, one decision (`accept`, `reject`, `override`). One JSON line
+    with the popup's `header`, `question`, `multiSelect` and `options` (use exactly these) and `codes`, the label to code map."""
+    suggestion_id, pair = single_pair(args, 'clue-options')
+    numbers = open_issue_numbers(args.files).get(suggestion_id, [])
+    codes = clue_choices(pair, args.decision)
+    header = 'Why? #%d' % numbers[0] if numbers and len('Why? #%d' % numbers[0]) <= 12 else 'Why?'
+    print(json.dumps({'suggestionId': suggestion_id, 'header': header, 'question': clue_question(args.decision), 'multiSelect': True,
+                      'options': [{'label': CLUE_TEXT[code][0], 'description': CLUE_TEXT[code][1]} for code in codes],
+                      'codes': {CLUE_TEXT[code][0]: code for code in codes}}, ensure_ascii=False))
+    return 0
+
+
+def read_typed_numbers(path):
+    """The numbers typed under "Other", from a file the session wrote (rule 8: typed text never goes on a command line).
+    Only a text that is nothing but numbers from the list counts; any other word makes the whole text prose, which is dropped and never
+    echoed (a digit inside it is not a clue). Returns (codes, dropped something)."""
+    try:
+        with open(path, 'rb') as handle:
+            raw = handle.read(CLUE_ANSWER_FILE_MAX_BYTES + 1)
+    except OSError as err:
+        raise ReportError(EXIT_BAD_INPUT, 'cannot read the answer file: %s' % err.__class__.__name__)
+    if len(raw) > CLUE_ANSWER_FILE_MAX_BYTES:
+        return [], True
+    tokens = re.sub(r'[\s,;+]+', ' ', raw.decode('utf-8', errors='replace')).split()
+    numbers = [token.lstrip('#').rstrip('.') for token in tokens]  # "#7" and "12." are the numbers 7 and 12; "3.5" stays a non-number
+    if not all(number.isascii() and number.isdigit() and 1 <= int(number) <= len(CLUE_CODES) for number in numbers):
+        return [], bool(tokens)  # prose, not a list of numbers: a digit inside it ("kids run 2") is not a clue, so nothing is taken
+    return [CLUE_CODES[int(number) - 1] for number in numbers], False
+
+
+def cmd_clue_answer(args):
+    """Maps the clue popup's answer to codes: `--selected` is an option label (repeat it per tick; it must be one the reader offered
+    for this pair and decision) and `--other-file` the typed "Other" text. Prints `clueArg` for `decisions --clues` (empty when
+    nothing was recorded) and a `notice` for the user. Typed words are never stored; contradicting clues exit 9."""
+    suggestion_id, pair = single_pair(args, 'clue-answer')
+    offered = {CLUE_TEXT[code][0]: code for code in clue_choices(pair, args.decision)}
+    if any(label not in offered for label in args.selected):
+        raise ReportError(EXIT_BAD_INPUT, '--selected must be an option label the reader offered for this pair')
+    typed, dropped = read_typed_numbers(args.other_file) if args.other_file else ([], False)
+    codes = [offered[label] for label in args.selected] + typed
+    codes = check_clue_codes(list(dict.fromkeys(codes)), 'the clue answer') if codes else []
+    notice = 'Typed text that was not only numbers from the list was not stored, and no clue was taken from it.' if dropped else ''
+    print(json.dumps({'suggestionId': suggestion_id, 'clues': codes, 'clueArg': '%s=%s' % (suggestion_id, '+'.join(codes)) if codes else '', 'notice': notice}))
+    return 0
+
+
 def cmd_decisions(args):
     """The decisions input for the apply workflow: the positional ids are accepts (no `action` key, as always), the
     ids of `--reject` are rejects (`"action":"reject"`, which the workflow refuses unless `allow_rejects` is true), the
@@ -730,7 +933,13 @@ def cmd_decisions(args):
     rejects = parse_ids(args.reject, '--reject') if args.reject is not None else []
     overrides = parse_ids(args.override, '--override') if args.override is not None else []
     index = check_batch(payload, accepts, rejects, MAX_DECISIONS, overrides)
-    print(decisions_text(index, accepts, rejects, overrides))
+    batch = set(accepts + rejects + overrides)
+    clues = parse_clue_map(args.clues, '--clues', batch)
+    ai_clues = parse_clue_map(args.ai_clues, '--ai-clues', set(accepts))
+    if set(clues) & set(ai_clues):
+        raise ReportError(EXIT_BAD_INPUT, 'an id is in both --clues and --ai-clues')
+    check_ai_clues(index, ai_clues)
+    print(decisions_text(index, accepts, rejects, overrides, {**clues, **ai_clues}))
     return 0
 
 
@@ -905,11 +1114,21 @@ def check_batch(payload, accepts, rejects, cap, overrides=()):
     return index
 
 
-def decisions_text(index, accepts, rejects, overrides=()):
-    """The decisions input, exactly: rejects first (a reject claims no event), an accept carries no `action`, overrides last."""
-    decisions = [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': [], 'action': 'reject'} for i in rejects]
-    decisions += [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': []} for i in accepts]
-    decisions += [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': [], 'action': ACTION_OVERRIDE} for i in overrides]
+def decisions_text(index, accepts, rejects, overrides=(), clues=None):
+    """The decisions input, exactly: rejects first (a reject claims no event), an accept carries no `action`, overrides last.
+    An id with clue codes (`clues`: id to codes) gets a `clues` key; one without gets none, so a batch with no clue reads as it always did."""
+    clues = clues or {}
+
+    def entry(i, **extra):
+        item = {'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': []}
+        item.update(extra)
+        if i in clues:
+            item['clues'] = clues[i]
+        return item
+
+    decisions = [entry(i, action='reject') for i in rejects]
+    decisions += [entry(i) for i in accepts]
+    decisions += [entry(i, action=ACTION_OVERRIDE) for i in overrides]
     text = json.dumps({'schemaVersion': 1, 'decisions': decisions}, separators=(',', ':'))
     if len(text) > MAX_DECISIONS_CHARS:
         raise ReportError(EXIT_BAD_INPUT, 'the decisions are longer than a workflow input may be')
@@ -929,6 +1148,7 @@ def cmd_confirm(args):
     rejects = parse_ids(args.reject, '--reject', allow_empty=True)
     overrides = parse_ids(args.override, '--override', allow_empty=True) if args.override is not None else []
     index = check_batch(payload, accepts, rejects, CONFIRM_MAX, overrides)
+    clues = parse_clue_map(args.clues, '--clues', set(accepts + rejects + overrides))
     numbers = open_issue_numbers(args.files)
 
     for suggestion_id in accepts + rejects + overrides:
@@ -956,9 +1176,12 @@ def cmd_confirm(args):
         lines += ['This skips the floor (its checks: %s). Nothing but your own reading of these events stands behind the merge.' % OVERRIDE_CHECKS,
                   'It is recorded as AI-assisted under your moderator account; %s.' % OVERRIDE_UNDO,
                   'It runs only if the owner has switched the override on (DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED); otherwise the whole run is refused, the other pairs included.']
+    if clues:
+        ordered = [i for i in accepts + rejects + overrides if i in clues]
+        lines.append('Clues recorded (codes only, public): %s.' % '; '.join('%s (id %s): %s' % (', '.join('#%d' % n for n in numbers[i]), i[:8], ', '.join(clues[i])) for i in ordered))
     lines.append('The owner still approves the run in the Actions tab.')
     print(json.dumps({'header': 'Dispatch?', 'question': '\n'.join(lines), 'options': [{'label': label, 'description': OPTION_DESCRIPTIONS[label]} for label in (LABEL_YES, LABEL_NO)],
-                      'accept': accepts, 'reject': rejects, 'override': overrides, 'decisions': decisions_text(index, accepts, rejects, overrides)}, ensure_ascii=False))
+                      'accept': accepts, 'reject': rejects, 'override': overrides, 'decisions': decisions_text(index, accepts, rejects, overrides, clues)}, ensure_ascii=False))
     return 0
 
 
@@ -1519,14 +1742,28 @@ def build_parser():
     p.add_argument('ids', nargs='*', help='the ids to accept')
     p.add_argument('--reject', default=None, help='comma-separated ids to reject (needs allow_rejects in the workflow)')
     p.add_argument('--override', default=None, help='comma-separated ids to merge regardless of the floor (needs allow_floor_override in the workflow)')
+    p.add_argument('--clues', default=None, help='ID=code+code,ID=code: the clue codes a moderator chose for the ids of the batch')
+    p.add_argument('--ai-clues', default=None, help='ID=code+code,ID=code: the reviewer\'s own clue codes for accepted ids; checked against the pair\'s evidence')
     p = with_log('confirm', cmd_confirm, 'the final confirmation of the attended loop, built from the exact ids')
     p.add_argument('files', nargs='*', help='list_issues output, one file per page (names each pair by its open issue number)')
     p.add_argument('--accept', default=None, help='comma-separated ids to accept (an empty value is none); required')
     p.add_argument('--reject', default=None, help='comma-separated ids to reject (an empty value is none); required')
     p.add_argument('--override', default=None, help='comma-separated ids to merge regardless of the floor (an empty value or omitted is none)')
+    p.add_argument('--clues', default=None, help='ID=code+code,ID=code: the clue codes a moderator chose; listed in the confirmation and put in the decisions string')
     p = with_log('triage', cmd_triage, 'which exported pairs are new and which a labelled issue covers')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p.add_argument('--live-cleared', action='store_true', help='the owner cleared this run for live, or the attended loop is running: shadow pairs return for a fresh decision')
+    p = sub.add_parser('clue-codes', help='every clue code with its number, label and exclusive group (no log needed)', allow_abbrev=False)
+    p.set_defaults(handler=cmd_clue_codes)
+    p = with_log('clue-options', cmd_clue_options, 'the clue question that follows a decision popup of the attended loop')
+    p.add_argument('files', nargs='*', help='list_issues output, one file per page (adds the open issue number)')
+    p.add_argument('--ids', default=None, help='the suggestion id of the exported pair')
+    p.add_argument('--decision', default=None, help='accept, reject or override')
+    p = with_log('clue-answer', cmd_clue_answer, 'the clue codes of a clue popup answer (labels and typed numbers)')
+    p.add_argument('--ids', default=None, help='the suggestion id of the exported pair')
+    p.add_argument('--decision', default=None, help='accept, reject or override')
+    p.add_argument('--selected', action='append', default=[], help='an option label the user ticked (repeat per tick)')
+    p.add_argument('--other-file', default=None, help='a file holding the text typed under Other (never pass typed text as an argument)')
     p = with_log('brief', cmd_brief, 'the popup text for exported pairs of the attended decision loop')
     p.add_argument('files', nargs='*', help='list_issues output, one file per page (adds the open issue number)')
     p.add_argument('--ids', default=None, help='comma-separated suggestion ids of exported pairs')

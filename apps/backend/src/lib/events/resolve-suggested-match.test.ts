@@ -5,6 +5,7 @@ import postgres from 'postgres';
 import { db, setSqlCaptureSink } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { users, events, eventMatchCandidates, eventMerges, posts, socialMediaAccountProfiles } from '@festgrid/database';
+import { DedupDecisionClueError } from '@festgrid/domain/events';
 import { EventMergeInvalidStateError, InvalidResolutionSourceError, undoEventMerge } from './merge-events.js';
 import {
   resolveSuggestedMatch,
@@ -260,5 +261,97 @@ test('resolveSuggestedMatch (AD-30 Rule 9)', async (t) => {
     const [winner] = await db.select().from(events).where(eq(events.id, candidate.id));
     assert.strictEqual(winner.deletedAt, null);
     assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, suggestion.id))).length, 0);
+  });
+
+  const resolveWith = (id: string, action: SuggestedMatchAction, extra: { clues?: readonly string[] | null; note?: string | null; via?: 'moderator' | 'ai_skill' }) =>
+    db.transaction((tx) => resolveSuggestedMatch(tx, { id, action, moderatorId: moderator.id, ...extra }));
+
+  await t.test('clues and a note are stored with a REJECT, clues in list order, the note trimmed', async () => {
+    const { suggestion } = await makePair('RejectClues');
+    await resolveWith(suggestion.id, 'REJECT', { clues: ['different-category-or-tier', 'different-organizer'], note: '  kids run, not the 10K  ' });
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'rejected');
+    assert.deepStrictEqual(row.resolutionClues, ['different-organizer', 'different-category-or-tier']);
+    assert.strictEqual(row.resolutionNote, 'kids run, not the 10K');
+  });
+
+  await t.test('clues and a note are stored with an ACCEPT, written after the merge flipped the suggestion', async () => {
+    const { suggestion } = await makePair('AcceptClues');
+    const { mergeId } = await resolveWith(suggestion.id, 'ACCEPT', { clues: ['same-venue', 'shared-link'], note: 'same festival' });
+    assert.ok(mergeId);
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'accepted');
+    assert.deepStrictEqual(row.resolutionClues, ['same-venue', 'shared-link']);
+    assert.strictEqual(row.resolutionNote, 'same festival');
+  });
+
+  await t.test('the AI bridge records codes only: clues without a note, under via ai_skill', async () => {
+    const { suggestion } = await makePair('AiClues');
+    await resolveWith(suggestion.id, 'ACCEPT', { clues: ['same-organizer'], via: 'ai_skill' });
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.resolvedVia, 'ai_skill');
+    assert.deepStrictEqual(row.resolutionClues, ['same-organizer']);
+    assert.strictEqual(row.resolutionNote, null);
+  });
+
+  await t.test('no clue and no note: both columns stay NULL, for either action, with null, empty and blank values too', async () => {
+    const a = await makePair('NoClueA');
+    await resolve(a.suggestion.id, 'ACCEPT');
+    const b = await makePair('NoClueB');
+    await resolveWith(b.suggestion.id, 'REJECT', { clues: [], note: '   ' });
+    const c = await makePair('NoClueC');
+    await resolveWith(c.suggestion.id, 'REJECT', { clues: null, note: null });
+    for (const id of [a.suggestion.id, b.suggestion.id, c.suggestion.id]) {
+      const row = await statusOf(id);
+      assert.strictEqual(row.resolutionClues, null);
+      assert.strictEqual(row.resolutionNote, null);
+    }
+  });
+
+  await t.test('invalid clues or note are refused before anything is read or written', async () => {
+    const { suggestion } = await makePair('BadClues');
+    for (const extra of [
+      { clues: ['not-a-clue'] },
+      { clues: ['same-venue', 'different-venue'] },
+      { clues: ['same-venue', 'same-venue'] },
+      { note: 'x'.repeat(201) },
+    ]) {
+      await assert.rejects(resolveWith(suggestion.id, 'REJECT', extra), DedupDecisionClueError);
+    }
+    // An id that does not exist still reports the clue error first: validation precedes every statement.
+    await assert.rejects(resolveWith('00000000-0000-4000-8000-000000000000', 'ACCEPT', { clues: ['nope'] }), DedupDecisionClueError);
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'pending');
+    assert.strictEqual(row.resolutionClues, null);
+  });
+
+  await t.test('an already-resolved suggestion keeps its first clues and note', async () => {
+    const { suggestion } = await makePair('KeepFirst');
+    await resolveWith(suggestion.id, 'REJECT', { clues: ['not-an-event'], note: 'first' });
+    await assert.rejects(resolveWith(suggestion.id, 'REJECT', { clues: ['other'], note: 'second' }), SuggestedMatchNotPendingError);
+    const row = await statusOf(suggestion.id);
+    assert.deepStrictEqual(row.resolutionClues, ['not-an-event']);
+    assert.strictEqual(row.resolutionNote, 'first');
+  });
+
+  await t.test('an ACCEPT with no clue overwrites a reason a reopened row still held', async () => {
+    const { suggestion } = await makePair('StaleReason');
+    await db.update(eventMatchCandidates).set({ resolutionClues: ['not-an-event'], resolutionNote: 'left over from an earlier reject' }).where(eq(eventMatchCandidates.id, suggestion.id));
+    await resolve(suggestion.id, 'ACCEPT');
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'accepted');
+    assert.strictEqual(row.resolutionClues, null);
+    assert.strictEqual(row.resolutionNote, null);
+  });
+
+  await t.test('undoing an accepted merge returns the pair to pending and clears the clues and the note', async () => {
+    const { suggestion } = await makePair('UndoClues');
+    const { mergeId } = await resolveWith(suggestion.id, 'ACCEPT', { clues: ['same-date'], note: 'withdrawn' });
+    await db.transaction((tx) => undoEventMerge(tx, mergeId!, moderator.id));
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'pending');
+    assert.strictEqual(row.resolvedVia, null);
+    assert.strictEqual(row.resolutionClues, null);
+    assert.strictEqual(row.resolutionNote, null);
   });
 });

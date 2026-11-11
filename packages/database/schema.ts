@@ -601,6 +601,13 @@ export const eventMatchCandidates = pgTable('event_match_candidates', {
   resolvedByModeratorId: uuid('resolved_by_moderator_id').references(() => users.id),
   // NULL while pending or expired (no one resolved it); set whenever a person or the AI reviewer accepts or rejects.
   resolvedVia: resolutionSourceEnum('resolved_via'),
+  // Why it was resolved (spec-dedup-decision-clues). `resolution_clues` holds codes of the closed list in
+  // `packages/domain/src/events/dedup-decision-clues.ts`, as plain text so a new clue needs no migration; NULL when none
+  // were recorded (older rows, or the resolver chose none). `resolution_note` is the moderator's free text (at most
+  // 200 characters), written only by the in-app resolution and NEVER printed to a log, issue, report or Actions output.
+  // Both are cleared with `resolved_via` when an undone merge returns the pair to pending.
+  resolutionClues: text('resolution_clues').array(),
+  resolutionNote: text('resolution_note'),
   ...timestamps,
 }, (t) => ({
   // AC8 -- idempotent re-run (SQS redelivery) never duplicates a suggestion row.

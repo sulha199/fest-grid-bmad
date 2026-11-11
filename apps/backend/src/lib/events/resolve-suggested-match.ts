@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { eventMatchCandidates } from '@festgrid/database';
+import { parseDedupDecisionClues, parseDedupDecisionNote, type DedupDecisionClue } from '@festgrid/domain/events';
 import { assertResolutionSource, mergeEvents, type ResolutionSource } from './merge-events.js';
 import type { DbExecutor } from './set-event-primary-post.js';
 
@@ -17,6 +18,12 @@ import type { DbExecutor } from './set-event-primary-post.js';
  * is locked (`FOR UPDATE`) before its status is read, so two moderators, or a moderator and a
  * script, cannot both act on one pending row: the second waits, then sees it is no longer pending.
  *
+ * Why it was resolved (spec-dedup-decision-clues): optional `clues` (codes of the closed list in `packages/domain`)
+ * and `note` (free text, at most 200 characters) are validated first, before any database access, and written
+ * with the resolution: `resolution_clues` and `resolution_note`. The note is stored and never printed anywhere;
+ * only the in-app resolution passes one (the apply bridge's input is public). An invalid value throws
+ * `DedupDecisionClueError` (the resolver maps it to BAD_REQUEST) and writes nothing.
+ *
  * Thrown errors are typed so each caller maps them to its own surface (the resolver maps them to
  * GraphQL codes). An `EventMergeInvalidStateError` from `mergeEvents()` passes through unchanged.
  */
@@ -33,6 +40,10 @@ export interface ResolveSuggestedMatchInput {
    * `performed_via` on the journal row. Only server code passes it: the GraphQL resolver never does.
    */
   via?: ResolutionSource;
+  /** Clue codes behind the decision; omitted, null or empty records none. Validated by `parseDedupDecisionClues`. */
+  clues?: readonly string[] | null;
+  /** The moderator's own words (in-app only); never printed. Validated by `parseDedupDecisionNote`. */
+  note?: string | null;
 }
 
 export interface ResolveSuggestedMatchResult {
@@ -52,6 +63,8 @@ export class SuggestedMatchInvalidActionError extends Error {}
 export async function resolveSuggestedMatch(tx: DbExecutor, input: ResolveSuggestedMatchInput): Promise<ResolveSuggestedMatchResult> {
   const { id, action, moderatorId, via = 'moderator' } = input;
   assertResolutionSource(via);
+  const clues: DedupDecisionClue[] | null = parseDedupDecisionClues(input.clues);
+  const note = parseDedupDecisionNote(input.note);
 
   const [suggestion] = await tx.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id)).for('update');
   if (!suggestion) {
@@ -63,13 +76,16 @@ export async function resolveSuggestedMatch(tx: DbExecutor, input: ResolveSugges
 
   if (action === 'ACCEPT') {
     const { merge } = await mergeEvents(tx, suggestion.candidateEventId, suggestion.eventId, moderatorId, suggestion.id, via);
+    // `mergeEvents` flips the suggestion to accepted; the reason is written right after, in the same transaction.
+    // Always written, null included: a row the owner reopened by SQL must not keep a stale reason into its new resolution.
+    await tx.update(eventMatchCandidates).set({ resolutionClues: clues, resolutionNote: note }).where(and(eq(eventMatchCandidates.id, id), eq(eventMatchCandidates.status, 'accepted')));
     return { mergeId: merge.id };
   }
 
   if (action === 'REJECT') {
     await tx
       .update(eventMatchCandidates)
-      .set({ status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: moderatorId, resolvedVia: via })
+      .set({ status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: moderatorId, resolvedVia: via, resolutionClues: clues, resolutionNote: note })
       .where(and(eq(eventMatchCandidates.id, id), eq(eventMatchCandidates.status, 'pending')));
     return { mergeId: null };
   }

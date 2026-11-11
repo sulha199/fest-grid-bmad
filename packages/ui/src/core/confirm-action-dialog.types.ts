@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 export type ConfirmActionDialogProps = {
   open: boolean;
   title: string;
@@ -7,5 +9,7 @@ export type ConfirmActionDialogProps = {
   confirmVariant?: 'default' | 'destructive';
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
+  /** Optional body between the description and the buttons (a checklist, a field). The consumer owns its state. */
+  children?: ReactNode;
   className?: string;
 };
