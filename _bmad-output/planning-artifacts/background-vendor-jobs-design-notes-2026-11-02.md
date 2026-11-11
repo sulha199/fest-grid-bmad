@@ -92,7 +92,7 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
     post's extraction may re-scrape its images once their links expire), the product owner chose to **count manual post selection
     as a vendor job**. Every job type now counts toward `MAX_CONCURRENT_JOBS_PER_USER` (3); the extraction lane
     (`MAX_CONCURRENT_EXTRACTION_JOBS_PER_USER`) and the `usesVendor` registry flag are removed. Accepted consequence: a long
-    selection can queue the user's subscribes (see PRD open item OI-5).
+    selection could have queued the user's subscribes; that consequence was removed the same day by decision 17.
 15. (2026-11-02, product owner; amended 2026-11-11) **Manual post selection becomes a job type** (Story 10.12a, FR129,
     IDEA-261102-tov) because the product owner wants every long process in one place. One job per confirmed selection. Progress
     and ending are read from the posts' own `extractionStatus`, which stays the single source of truth. Evidence traced
@@ -101,11 +101,17 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
     posts extract in steps and made a failed attempt retry by itself for up to 24 hours (status `ATTEMPT_FAILED`). The product
     owner chose to **keep the job open through those retries** (bound 26 hours) rather than end it when every post is settled
     and let retries run on the post. Consequence: a post-to-job link that survives retries (looked up from the job's stored post
-    ids), and OI-5.
+    ids). Its place problem is closed by decision 17.
 16. (2026-11-11, product owner) **Every job's inline progress can be minimized and re-opened at its last progress**, on the
     page where it was started or from the Jobs page, for every job type (re-extract first). State comes from the job on the
     server, so it survives navigation, reload and another device. Written into FR123 and Stories 10.4 and 10.6.
 
+17. (2026-11-11, product owner) **A waiting or scheduled job holds no place.** Only a `RUNNING` job counts toward the limit of 3.
+    A `QUEUED` job (waiting for a place) and a new `WAITING` job (waiting for a later time or for a result from elsewhere: a
+    scheduled retry, a vendor run still in progress, posts still in the extraction queue) hold none. This closes the proposed
+    open item OI-5 (a selection job open through retries could have held a place for a day) and removes it from the PRD. A
+    manual-selection job takes a place only while it claims and queues its posts, then is `WAITING`. `WAITING` is a new status in
+    Story 10.1a's `job_status` enum (cheap before it is built, a migration after).
 
 ## 5. Open questions (tracked in `epic-formation/epic-10-outside-the-epic-2026-11-02.md`)
 

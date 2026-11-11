@@ -291,4 +291,4 @@ The 14% for `user-visible` is low because the pass was seeded on one capability.
   from the 2026-11-02 addendum are removed.
 - New requirement on every job type: inline progress can be minimized and re-opened at its last progress (FR123; Stories 10.4,
   10.6 and 10.12a).
-- Open item OI-5 (a job open through retries can hold a running place for a day) is raised in the PRD for the product owner.
+- Open item OI-5 was raised and closed the same day: a waiting or scheduled job holds no place (new `WAITING` status, only `RUNNING` counts).

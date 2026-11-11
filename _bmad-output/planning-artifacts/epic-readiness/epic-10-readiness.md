@@ -266,3 +266,10 @@ It needs the `bmad-ux` pass Story 10.4 already requires.
 
 **Verdict.** Story 10.12a remains one buildable story; the epic readiness status stays **APPROVED & READY FOR DEV**, with OI-5 to
 be decided before Story 10.3 or 10.12a starts.
+
+**Update 2026-11-11 (later): open item OI-5 closed.** The product owner decided that a waiting or scheduled job holds no place.
+The PRD now has a `WAITING` status (FR117) and only a `RUNNING` job holds a place (FR121). Consequences applied: Story 10.1a gains
+the `WAITING` enum value, a `WAITING` handler outcome, a nullable `resume_at` and sweep handling (a task in the story file, no
+acceptance criterion changed); Story 10.3 counts `RUNNING` jobs only; Story 10.4 shows what a waiting job waits for; Story 10.5's
+snapshot wait is `WAITING`; Story 10.12a's job takes a place only while it claims and queues its posts. The "must be decided before
+Story 10.3 or 10.12a starts" condition above is satisfied.
