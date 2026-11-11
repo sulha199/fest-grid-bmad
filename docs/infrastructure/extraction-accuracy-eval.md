@@ -38,7 +38,22 @@ the delta in points, the noise band and a status:
 
 - **noise band** = 2 x the standard deviation of the per-run aggregates (the repeats), never below 15 points. A field is
   `flagged` only when it fell by more than its band; one flipped run never flags. Flagged fields list the posts that changed.
+  Both numbers are a **starting value, to tune after the first real baseline**. The floor is the `--noise-floor <points>` flag
+  (default 15, from `DEFAULT_NOISE_FLOOR`) and the multiplier is `NOISE_BAND_SIGMAS` (2); both live in
+  `packages/domain/src/extraction-eval/aggregate.ts`.
 - `improved`, `ok`, `new` (field or post absent from the baseline), `no_data`.
+
+**Outcomes and count_mismatch detail.** Under "Outcomes" each post with a truncated or unavailable run, a `count_mismatch`, a
+labelled event the model never produced, or an extra model event is listed, because the per-field rates alone hide these (a
+fold of 7 events into 1 shows `eventName` 14 %, not which six events went missing). The detail lines are:
+
+- `Labelled events missing (runs missed of N)`: the labelled events with no model counterpart, by their position in the label
+  (`#2`, `#4`), with the number of answered runs in which each was missed.
+- `Extra model events (reported, not scored)`: how many events the model added that match no labelled event.
+
+Event names are left out by default, because the report goes to the job summary of a public repo and the names come from the
+private labelled set. Pass `--show-names` on a local run to print them (and to keep them in the `--json` file; without the flag
+the JSON shows `(hidden)`).
 
 The eval never fails a merge. Live runs are non-deterministic and use real quota (AD-44 Rule 10).
 
@@ -55,9 +70,36 @@ EXTRACTION_EVAL_DIR=/path/to/labelled EXTRACTION_EVAL_GEMINI_API_KEY=... \
 ```
 
 Options: `--only <postId>`, `--baseline <file>` (default `<dir>/baseline.json`), `--write-baseline <file>`, `--json <file>`,
-`--interval-ms` (default 5000). With no key or no dir the live path says so and exits 0. Replay of the synthetic set gives, by
+`--interval-ms` (default 5000), `--runs N` (default 3), `--noise-floor <points>` (default 15), `--show-names`. With no key or no dir the live path says so and exits 0. Replay of the synthetic set gives, by
 hand calculation: groupingReason 83 %, eventCount 88 %, eventName 89 %, startDate/startTime/endTime/categories 100 %,
 location 67 %, ticket 83 %, performers 75 %, endDate n/a; 10 scored runs, 1 truncated, 1 unavailable, 1 `count_mismatch`.
+
+## Variables and secrets
+
+| Name | Where | Purpose | Required |
+|---|---|---|---|
+| `EXTRACTION_EVAL_DIR` | env (runner) | Folder of `<postId>/label.json` posts; the same as `--dir` | One of the two for any run |
+| `EXTRACTION_EVAL_GEMINI_API_KEY` | env / workflow secret | Gemini key for the live run | Live only (or `SYSTEM_GEMINI_API_KEY`) |
+| `SYSTEM_GEMINI_API_KEY` | env | Fallback key when the line above is unset | Optional |
+| `EXTRACTION_EVAL_MIN_INTERVAL_MS` | env | Pause between live calls, default 5000 (the system key returns 429 when called quickly) | Optional |
+| `GEMINI_MODEL` | env | Model for the live run; default `gemini-3.5-flash-lite` (see below) | Optional |
+| `GEMINI_MAX_OUTPUT_TOKENS` | env | Read by the production request builder, default 8192; set it like production when comparing | Optional |
+| `EXTRACTION_EVAL_S3_URI` | workflow secret | `s3://bucket/prefix` of the private labelled set | Live path in CI only |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | workflow secrets | Read access to that store | Live path in CI only |
+| `GITHUB_STEP_SUMMARY` | set by GitHub Actions | The runner appends the report there | Automatic |
+| `BACKEND_PORT`, `DATABASE_URL` | env (set by the workflow and the runner) | Placeholders: backend modules read them at load; the eval never queries a database | Automatic |
+
+Without the CI secrets the workflow replays the synthetic set and writes the reason into the job summary. Where the labelled
+set itself is stored (the private S3 bucket or another store) is still a maintainer decision (slice B); nothing from it may be
+committed here.
+
+### Which model is scored
+
+`GEMINI_MODEL` is **not pinned** to a versioned release: `apps/backend/src/env.ts` defaults it to `gemini-3.5-flash-lite`, with
+no date or version suffix, so the name may be an alias whose behaviour changes behind the same string. The gateway client does
+not return the model version the API reports (the result carries only the text, finish reason, block reason and usage), so the
+report and the baseline record the **configured** string. That is why the weekly run exists: it catches drift behind an
+unchanged name. When a baseline moves with the same model string and the same prompt hash, suspect the alias first.
 
 ## Adding a labelled post
 

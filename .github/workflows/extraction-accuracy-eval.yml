@@ -76,12 +76,20 @@ jobs:
         run: pnpm run build
 
       - name: Replay the synthetic set (default path, no secrets)
+        id: replay
         if: env.HAS_STORE != 'true' || env.HAS_KEY != 'true'
         continue-on-error: true
         run: |
+          if [ "$HAS_STORE" != "true" ] && [ "$HAS_KEY" != "true" ]; then
+            why="neither the labelled-set store secrets (EXTRACTION_EVAL_S3_URI, AWS_ACCESS_KEY_ID) nor EXTRACTION_EVAL_GEMINI_API_KEY are configured"
+          elif [ "$HAS_STORE" != "true" ]; then
+            why="the labelled-set store secrets (EXTRACTION_EVAL_S3_URI, AWS_ACCESS_KEY_ID) are not configured"
+          else
+            why="EXTRACTION_EVAL_GEMINI_API_KEY is not configured"
+          fi
           {
-            echo "> **Synthetic replay only.** The private labelled set or the Gemini key is not configured, so no real extraction was scored."
-            echo "> This run checks the scorer and runner on made-up posts and recorded answers; it says nothing about the current prompt or model."
+            echo "> **Live eval skipped, this is not a pass:** $why."
+            echo "> **Synthetic replay only.** No real extraction was scored. This run checks the scorer and runner on made-up posts and recorded answers; it says nothing about the current prompt or model."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
           pnpm --filter backend exec tsx scripts/run-extraction-accuracy-eval.ts \
@@ -89,6 +97,7 @@ jobs:
             --replay "$GITHUB_WORKSPACE/$SYNTHETIC_DIR/recorded.json"
 
       - name: Fetch the labelled set from the private store
+        id: fetch
         if: env.HAS_STORE == 'true' && env.HAS_KEY == 'true'
         continue-on-error: true
         env:
@@ -97,10 +106,16 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EXTRACTION_EVAL_S3_URI: ${{ secrets.EXTRACTION_EVAL_S3_URI }}
         # Into the runner's temp dir, which is never uploaded. Output of the copy is silenced: file names are not logged.
-        run: aws s3 sync "$EXTRACTION_EVAL_S3_URI" "$RUNNER_TEMP/extraction-eval-labelled" --only-show-errors
+        # Every failure writes one line to the job summary and fails the step, so a skipped fetch is never read as a pass.
+        run: |
+          skip() { echo "> **Live eval skipped, this is not a pass:** $1" >> "$GITHUB_STEP_SUMMARY"; echo "::warning::Live eval skipped: $1"; exit 1; }
+          command -v aws >/dev/null 2>&1 || skip "the aws CLI is not installed on this runner, so the labelled set could not be fetched."
+          aws s3 sync "$EXTRACTION_EVAL_S3_URI" "$RUNNER_TEMP/extraction-eval-labelled" --only-show-errors || skip "fetching the labelled set failed (check EXTRACTION_EVAL_S3_URI and the AWS credentials)."
+          [ -n "$(ls -A "$RUNNER_TEMP/extraction-eval-labelled" 2>/dev/null)" ] || skip "the labelled set fetched from the store is empty."
 
       - name: Run the live eval against the labelled set
-        if: env.HAS_STORE == 'true' && env.HAS_KEY == 'true'
+        id: live
+        if: env.HAS_STORE == 'true' && env.HAS_KEY == 'true' && steps.fetch.outcome == 'success'
         continue-on-error: true
         env:
           EXTRACTION_EVAL_GEMINI_API_KEY: ${{ secrets.EXTRACTION_EVAL_GEMINI_API_KEY }}
@@ -111,3 +126,8 @@ jobs:
         run: |
           pnpm --filter backend exec tsx scripts/run-extraction-accuracy-eval.ts \
             --runs "$RUNS" --record "$RUNNER_TEMP/extraction-eval-recorded.json"
+
+      - name: Say so when an eval step failed
+        if: steps.replay.outcome == 'failure' || steps.live.outcome == 'failure'
+        run: |
+          echo "> **The eval itself failed to run, this is not a pass.** See the step log (counts and post ids only; no captions or images are logged). The merge is not blocked." >> "$GITHUB_STEP_SUMMARY"
