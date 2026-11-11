@@ -278,3 +278,13 @@ Story 10.3 or 10.12a starts" condition above is satisfied.
 with a database check, as a task and AC 8 in Story 10.1a, with the user-jobs-only rules as acceptance criteria on Stories 10.3, 10.4 and
 10.13. Data only: no system job type and no entry point is built, so no new story and no new prerequisite. Gate 1 and Gate 3 findings
 unchanged.
+
+**Update 2026-11-11 (Story 10.3 created): new Story 10.3a and what the creation found.** Story 10.3 was narrowed to the backend and its
+UI half became Story 10.3a (the cap refusal screen, the upgrade call to action, two PostHog events, English and Indonesian copy; needs
+`bmad-ux`; depends on 10.3; closes the UI half of IDEA-008). Gate 2 for 10.3a: a reusable `packages/ui` component and analytics, so it
+is its own story, not part of the mechanism. Four findings that the swept report did not contain, none needing a new prerequisite story:
+the subscription cap does not exist in the code; a place is held from admission, not from the worker's claim; the worker's claim must
+stop taking `WAITING` rows (it would bypass admission); leader and follower needs one self-referencing column. Story 10.3 also takes over
+two Story 10.1a code-review findings (the resume driver and the single admission function) and depends on that story's review follow-ups,
+PR #219.
+

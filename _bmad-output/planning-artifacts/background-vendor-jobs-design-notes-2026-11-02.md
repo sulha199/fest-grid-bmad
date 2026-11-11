@@ -119,6 +119,22 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
     the engine. Reason: adding the field and a nullable owner later is a migration plus a re-check of every admission and
     notification query. Rejected: no distinction (a later scheduled job needs a migration and a design pass); moving scheduled
     batches into the engine now (largest scope, needs vendor budget rules for system work).
+19. (2026-11-11, product owner, when Story 10.3 was created) **The subscription cap refusal screen is its own story.** Story 10.3
+    builds the backend (admission, queue, same-user reuse, the cap with slot reservation, a typed refusal carrying the counts);
+    new Story 10.3a builds the screen, the upgrade "coming soon" button, the two PostHog events and the English and Indonesian copy,
+    through `bmad-ux`. Reason: the code has no cap today (IDEA-008 never landed), and the split gate says reusable or complex UI
+    deserves its own story. Until 10.3a ships a refused subscribe shows the generic error.
+20. (2026-11-11, product owner) **The cap applies to every non-moderator**, not only a `free_user` tier that does not exist in the
+    code. Existing subscriptions are never removed (a user above the cap keeps them and cannot add), and re-subscribing uses no
+    slot. Open risk: the number of production users already above 5 is unknown to the build session; check it before deploying.
+    A reserved slot is a non-terminal job of a type that reserves one (no new table); the check, the reservation and the
+    subscription insert share one row lock on the user.
+21. (2026-11-11, product owner) **Sharing one vendor call between users is built now, opt-in per job type.** A type declares
+    `sharedAcrossUsers` (default false, its `resultData` is then public by contract); a second user's job becomes a `WAITING`
+    follower of the first and ends with the leader's outcome. No type is flagged in Story 10.3 (fixtures prove it); 10.6 and 10.7
+    flip it. A place is held from admission, not from the worker's claim, and the claim no longer takes a `WAITING` row, so every
+    resume goes through re-admission.
+
 
 ## 5. Open questions (tracked in `epic-formation/epic-10-outside-the-epic-2026-11-02.md`)
 
