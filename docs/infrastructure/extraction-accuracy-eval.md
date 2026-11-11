@@ -29,18 +29,27 @@ stepped extraction (AD-49: an at-risk answer is split in half and retried) or it
 recover through a split shows up here as `truncated` or `count_mismatch`.
 
 Outcomes that are not a wrong answer are reported apart and never lower a pass-rate: `truncated` (finish reason `MAX_TOKENS` or
-unparseable/invalid JSON) and `unavailable` (429/503 after the retry cap, or a spent daily quota).
+unparseable/invalid JSON) and `unavailable` (429/503 after the retry cap, a spent daily quota, or a post whose labelled images
+could not all be sent: the production builder falls back to a text-only request when an image fetch fails, so the runner makes
+no call for that post and says so, instead of booking a harness fault as a wrong extraction).
+
+Read the `truncated` count as a signal too: an answer that fails JSON parsing or schema validation is classed as truncated, so a
+change that makes the model return invalid output shows up there, not in the field pass-rates.
 
 ## Reading the report
 
 The table gives one pass-rate per field (mean over posts of the mean over answered runs). With a baseline it adds the baseline,
 the delta in points, the noise band and a status:
 
-- **noise band** = 2 x the standard deviation of the per-run aggregates (the repeats), never below 15 points. A field is
-  `flagged` only when it fell by more than its band; one flipped run never flags. Flagged fields list the posts that changed.
-  Both numbers are a **starting value, to tune after the first real baseline**. The floor is the `--noise-floor <points>` flag
-  (default 15, from `DEFAULT_NOISE_FLOOR`) and the multiplier is `NOISE_BAND_SIGMAS` (2); both live in
-  `packages/domain/src/extraction-eval/aggregate.ts`.
+- **noise band** = 2 x the standard deviation of the per-run aggregates (the repeats), never below 15 points and never above
+  50. A field is `flagged` only when it fell by more than its band; one flipped run never flags. Flagged fields list the posts
+  that changed. The numbers are a **starting value, to tune after the first real baseline**. The floor is the
+  `--noise-floor <points>` flag (default 15, from `DEFAULT_NOISE_FLOOR`); the multiplier `NOISE_BAND_SIGMAS` (2) and the cap
+  `MAX_NOISE_BAND` (0.5) are constants in `packages/domain/src/extraction-eval/aggregate.ts`. The cap exists because a band
+  above 100 points could never be exceeded, so such a field would never be checked.
+- The spread is measured only over posts that answered **every** run: a post that dropped out of some runs (truncated, quota)
+  would change the mix of posts between runs, and that change would be counted as model noise. Runs are lined up by their real
+  run number. With no post complete, the band is the floor.
 - `improved`, `ok`, `new` (field or post absent from the baseline), `no_data`.
 
 **Outcomes and count_mismatch detail.** Under "Outcomes" each post with a truncated or unavailable run, a `count_mismatch`, a
@@ -70,7 +79,8 @@ EXTRACTION_EVAL_DIR=/path/to/labelled EXTRACTION_EVAL_GEMINI_API_KEY=... \
 ```
 
 Options: `--only <postId>`, `--baseline <file>` (default `<dir>/baseline.json`), `--write-baseline <file>`, `--json <file>`,
-`--interval-ms` (default 5000), `--runs N` (default 3), `--noise-floor <points>` (default 15), `--show-names`. With no key or no dir the live path says so and exits 0. Replay of the synthetic set gives, by
+`--interval-ms` (default 5000; a whole number of milliseconds, an empty variable counts as unset), `--runs N` (default 3), `--noise-floor <points>` (default 15), `--show-names`. With no key or no dir the live path says so and exits 0. A live run in which no call got an answer (quota spent, 429/503 on
+every call, unreadable images) exits 1, like the golden-prompt eval; any score, however low, exits 0. Replay of the synthetic set gives, by
 hand calculation: groupingReason 83 %, eventCount 88 %, eventName 89 %, startDate/startTime/endTime/categories 100 %,
 location 67 %, ticket 83 %, performers 75 %, endDate n/a; 10 scored runs, 1 truncated, 1 unavailable, 1 `count_mismatch`.
 
@@ -116,7 +126,9 @@ One folder per post, named by its `postId`: `<postId>/label.json` plus the image
 }
 ```
 
-Leave a field out to leave it unscored. `events: []` marks a non-event post. Verify the label by hand against the images.
+Leave a field out to leave it unscored. `ticketPrice` must contain a digit (use `free: true` for a free event; leave it out
+when the price is unknown). `events: []` marks a non-event post. Image files should be PNG, JPEG, WebP or GIF; any other
+extension is served without an image type and the post is skipped as `unavailable`. Verify the label by hand against the images.
 
 ## The public-repo rule
 
@@ -130,8 +142,14 @@ A live run rewrites its recording after every answered call. On a hard error (a 
 the file name and exits 1; score the partial file with `--replay`. The default recording `./extraction-eval-recorded.json` is
 git-ignored.
 
+## The prompt hash
+
+The report and the baseline carry a hash of the extraction instruction and the response schema. The instruction embeds each
+post's own publish date, so the date is masked before hashing: the hash identifies the prompt, not the first post.
+
 ## CI
 
 `.github/workflows/extraction-accuracy-eval.yml`: path-filtered `pull_request` (prompt, schema, gateway, normalizers, the eval
 itself), weekly schedule, `workflow_dispatch`. Without the secrets it replays the synthetic set and says in the summary that no
-real data was scored. Scorer unit tests run on every PR in the normal domain test job.
+real data was scored. Scorer unit tests run on every PR in the normal domain test job. The workflow has a `concurrency` group, so only one eval runs
+at a time (all live runs share one paced Gemini key); a run is never cancelled half way, and a newer run waits.

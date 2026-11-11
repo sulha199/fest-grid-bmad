@@ -40,6 +40,7 @@ graph TD
         end
 
         S3_Backup["S3: nightly database dumps, 30-day retention"]
+        S3_Labelled["S3: private labelled posts for the extraction eval (planned, not created yet)"]
     end
 
     subgraph "GitHub Actions"
@@ -47,6 +48,7 @@ graph TD
         GHA_Restore["Production DB Restore Test: restores the newest dump after each backup"]
         GHA_DedupExport["Dedup Review Export: manual, read-only evidence JSON for the AI reviewer"]
         GHA_DedupApply["Dedup Review Apply: manual; validate read-only, apply needs the owner's approval"]
+        GHA_ExtractionEval["Extraction Accuracy Eval: non-blocking; replays a synthetic set, or scores a private labelled set live"]
     end
 
     subgraph "GitHub Issues"
@@ -112,6 +114,8 @@ graph TD
     GHA_DedupExport -- read-only evidence queries, READ ONLY transaction --> Supabase
     GHA_DedupApply -- validate: read-only; apply: guarded merges (rejects exist but are off until the owner switches them on), write role, approval --> Supabase
     AI_Skill -- dispatches the export, reads its report from the job log --> GHA_DedupExport
+    GHA_ExtractionEval -. live path only, when the secrets are set: reads the labelled set .-> S3_Labelled
+    GHA_ExtractionEval -. live path only: paced extraction calls .-> Gemini
     AI_Skill -- dispatches validate; apply only when the owner says so --> GHA_DedupApply
     AI_Skill -- opens and closes labelled issues --> GH_Issues
 ```
