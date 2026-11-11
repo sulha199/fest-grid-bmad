@@ -63,7 +63,7 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
 2. One engine for every long process, starting with the re-extract rescrape and subscribe plus profile lookup, then the
    other candidates (all in Epic 10, so they are tracked in one place).
 3. A job that fails on a vendor failure or vendor quota **switches to the next adapter** in a chain.
-4. The chain supports **both Apify and Bright Data**; default order `apify,brightdata` (faster, full-size images).
+4. The chain supports **both Apify and Bright Data**; default order `brightdata,apify` for posts (owner decision 2026-11-11, replacing the earlier `apify,brightdata`: profile lookup already prefers Apify, and this spares Apify's free plan; Bright Data images are 640 px).
 5. Rescrape trigger: the cover link has expired, **or** the cover is low resolution (`s640x640` or smaller in `stp`),
    **or** slides are missing or unknown (null post type and null slide list).
 6. A rescrape that yields fresh links **saves them to `posts`** (cover link, slides, expiry, post type). Never the caption,
