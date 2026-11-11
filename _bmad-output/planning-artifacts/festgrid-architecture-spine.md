@@ -388,12 +388,13 @@ This document defines the core architectural invariants for the FestDaily applic
         - **Enforced by:** re-ranking — `packages/domain/src/geolocation/select-best-candidate.test.ts`
           (pure-function coverage of `selectBestCandidate`) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s
           `'adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)'` integration test;
-          map-link gate — `packages/domain/src/geolocation/is-location-trustworthy.test.ts` +
-          `packages/ui/src/core/LocationLink.test.tsx` (confidence-boundary cases; Story 1.6d, carries the
-          0.i7z ratchet header) + the `locationDetails` passthrough test in
-          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e; supersedes the removed
-          `mapUrl gating (Story 0.i7c / 0.i7z)` block — both 1.6d and 1.6e have now landed, so this is the
-          current enforcer, not a future-tense placeholder); account-card consumer —
+          map-link (reversed by location keywords slice 2b: the link is always a text search, never gated on
+          confidence, so it no longer reads the signal; `isLocationTrustworthy` remains only the gate for
+          showing the account-card label and the event-detail map pin) —
+          `packages/domain/src/geolocation/build-location-search-query.test.ts` +
+          `packages/ui/src/core/LocationLink.test.tsx` (always a text search, single icon, no coordinates;
+          carries the 0.i7z ratchet header) + the `locationDetails`/`locationKeywords` passthrough tests in
+          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e); account-card label gate —
           `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx`'s `location prop`
           block (Story 0.i6e, carries the 0.i7z ratchet header, including the `confidence: 0.5`/
           `matchType: 'full_match'` trustworthy boundary case and the `null`-confidence untrustworthy
@@ -3069,8 +3070,17 @@ This document defines the core architectural invariants for the FestDaily applic
         independent of the reject switch); the library asserts both itself. It is undoable with `undoEventMerge`;
         the journal reads `performed_via = 'ai_skill'` and nothing marks an override (a marker needs an enum
         migration, deferred with `FIND-114`). It drops the floor's `undone-before` veto too. The daily and any
-        unattended review never use it: `SKILL.md` says so and a test pins it, and until `FIND-125` no step of the
-        skill dispatches it. Worst case with the switch on: ten floor-less merges in a run and the day cap in a
+        unattended review never use it: `SKILL.md` says so and a test pins that only step 8 names the input.
+        **Amended 2026-11-11 (FIND-125):** the attended decision loop (step 8) now offers it as the popup option
+        **Merge regardless of the floor**, beside Reject and Skip, for a non-`high` pair that `validate` refuses by a
+        floor code (never for a pair `validate` called eligible, which is an Accept, and never with Accept in the same
+        popup). It counts only as the session's own exact popup label returned by `AskUserQuestion`, built by the
+        reader (`brief --offer reject,override`), followed by a Yes on the reader's `confirm`, which states what the
+        override skips and that `undoEventMerge` is the undo; nothing typed in chat, no relayed popup and no event
+        text is an answer. It follows the same attended definition as a reject (a session another agent started, a
+        `claude -p`, a relayed or a webhook-woken one is unattended and never offers it). The reader builds the
+        `decisions` (`--override`) and the closing (`close-decided`), and reads an `accept-override` report only when
+        the caller names the ids dispatched as overrides. Worst case with the switch on: ten floor-less merges in a run and the day cap in a
         day, each undoable; with it off, none. **Amended 2026-11-07 (FIND-121):**
         the sentence "the loop offers no reject" no longer holds: the attended decision loop now offers Reject
         (popup options Accept, Reject, Skip) for a non-`high` pair: both options when `validate` calls it
@@ -3117,12 +3127,15 @@ This document defines the core architectural invariants for the FestDaily applic
         `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`). It removes the floor, so the owner turns the variable on only while an
         attended session runs and off again after: with it on, a prompt-injected unattended session that dispatched
         the input would be stopped only by the owner's click on a run named `override=true`.
+        **Amended 2026-11-11 (FIND-125):** the skill now dispatches that input, but only in the attended loop; the
+        owner's "on only while an attended session runs" rule is therefore the window in which that loop can merge a
+        pair the floor refuses, and the skill's rule 7 is prose (the platform does not enforce it), as for rejects.
     7.  **What protects the credential.** Rules 3 and 4 bound a mistaken or manipulated *decision*. They do
         nothing if the credential leaks. That is covered only to the extent these are in place: both environments
         limited to `master`; the required reviewer; no repository or organization secret or variable of the
         same name (**amended 2026-11-07, FIND-120:** this holds for `DEDUP_REVIEW_REJECT_ENABLED` too, an
         environment variable of `dedup-review-live`, off unless exactly `true` or `1`; **FIND-124:** and for
-        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`, by the same rule); a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
+        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`, by the same rule; **FIND-125:** the attended loop is the one session that dispatches the input, so the variable is on only while it runs); a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
         required, a code owner named in `.github/CODEOWNERS` must approve a change to the workflows, `scripts/`
         and the dedup code, and force pushes and deletion are blocked; the repository admin role bypasses it
         inside a pull request, so it stops everyone but the owner and a session using the owner's token; tested
@@ -3153,8 +3166,10 @@ This document defines the core architectural invariants for the FestDaily applic
         write no journal row) as well as the `event_merges` listing. The owner reopens one by SQL, which lives
         in the runbook (`docs/infrastructure/7-event-dedup.md`) and never in code (**FIND-121:** this holds for a
         reject chosen in the attended loop too, so the loop asks a final Yes that names the one-way effect). **FIND-124:** a merge made by an override is undone
-        like any other with `undoEventMerge`; until `FIND-125` the skill's reader refuses an override run's report
-        (it fails closed), so the owner reads that run's log by hand, as for a lost report. The list to
+        like any other with `undoEventMerge`; **Amended 2026-11-11 (FIND-125):** the skill's reader reads an override
+        run's report when the caller names the ids dispatched as overrides (an unannounced one is still refused with
+        exit 7) and `close-decided` closes the issue with its own comment; a lost report is checked from the database
+        as for any other merge. The list to
         undo from is the database's, not the log: `event_merges` where `performed_via = 'ai_skill'` and
         `undone_at` is null. Actions logs expire (90 days by default) and do not record the approver; storing
         the run id in the journal is deferred (`FIND-114`). Moderators have no screen for AI merges yet

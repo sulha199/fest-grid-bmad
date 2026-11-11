@@ -1,6 +1,7 @@
 import React from 'react';
 import { CalendarDays, CalendarPlus, ExternalLink, Heart, User, DollarSign, MoreVertical, AlertCircle, Instagram, Phone, Link as LinkIcon } from 'lucide-react';
 import { detectPlatformFromUrl } from '@festgrid/domain';
+import { buildLocationSearchQuery } from '@festgrid/domain/geolocation';
 import { EventDetailViewProps, ScheduleDetail, EventDetailViewLabels, EventDetailViewCoauthor, EventDetailViewSourcePost, EventDetailViewRelatedEventGroup, EventDetailViewRelatedEvent } from './EventDetailView.types';
 import { EventImage } from './EventImage';
 import { EventDetailSkeleton } from './EventDetailSkeleton';
@@ -31,6 +32,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   description,
   schedules,
   location,
+  locationKeywords,
   types,
   categories,
   onTypeClick,
@@ -556,15 +558,19 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
                         <span className="sr-only">{labels.locationLabel}:</span>
                         <LocationLink
                           name={schedule.location}
-                          coordinates={schedule.locationDetails?.coordinates}
-                          confidence={schedule.locationDetails?.confidence}
-                          matchType={schedule.locationDetails?.matchType}
+                          searchQuery={buildLocationSearchQuery({
+                            keywords: schedule.locationKeywords?.length ? schedule.locationKeywords : locationKeywords,
+                            name: schedule.location,
+                          })}
                         />
                       </address>
                     ) : location ? (
                       <address className="not-italic flex items-start gap-2">
                         <span className="sr-only">{labels.locationLabel}:</span>
-                        <LocationLink name={location} />
+                        <LocationLink
+                          name={location}
+                          searchQuery={buildLocationSearchQuery({ keywords: locationKeywords, name: location })}
+                        />
                       </address>
                     ) : null}
 
