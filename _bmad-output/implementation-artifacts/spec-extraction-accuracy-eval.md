@@ -2,7 +2,7 @@
 title: 'Per-field accuracy eval of event extraction against labelled posts'
 type: 'feature'
 created: '2026-11-11'
-status: 'draft'
+status: 'in-progress'
 backlog: 'IDEA-261111-5cc'
 review_loop_iteration: 0
 context:
@@ -53,12 +53,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution (slice A, offline, no keys or production data needed):**
-- [ ] `packages/domain/src/extraction-eval/` -- label/fixture types (JSON schema or Ajv, validated at load), event matcher, per-field scorers, aggregate (per post, per field), noise band, baseline comparison, report (Markdown table plus JSON); each with unit tests on recorded model outputs, including the split-vs-fold, truncated, quota and noise rows of the matrix
-- [ ] `apps/backend/scripts/run-extraction-accuracy-eval.ts` -- loads labelled posts from a directory (path from an env var or flag), builds the request with the production builder, calls the gateway client with pacing and retries, records raw outputs to a JSON file, scores, prints the table; `--replay <recorded.json>` scores without network; `--runs N`, `--only <postId>`
-- [ ] `.github/workflows/extraction-accuracy-eval.yml` -- triggers: path-filtered `pull_request` (non-blocking, posts the report as a PR comment or job summary), weekly `schedule`, `workflow_dispatch`; fetches the labelled set from the private store only when the secrets exist, otherwise runs the offline scorer tests and says so; never uploads images or captions as artifacts
-- [ ] Offline scorer tests run in the existing CI test jobs; a ratchet or lint rule is not required
-- [ ] Docs page, backlog row updated, spec status
-- [ ] A small SYNTHETIC labelled fixture set (3-5 made-up posts with invented captions and generated placeholder images, no real data) so the runner and the workflow can be exercised end to end
+- [x] `packages/domain/src/extraction-eval/` -- label/fixture types (JSON schema or Ajv, validated at load), event matcher, per-field scorers, aggregate (per post, per field), noise band, baseline comparison, report (Markdown table plus JSON); each with unit tests on recorded model outputs, including the split-vs-fold, truncated, quota and noise rows of the matrix
+- [x] `apps/backend/scripts/run-extraction-accuracy-eval.ts` -- loads labelled posts from a directory (path from an env var or flag), builds the request with the production builder, calls the gateway client with pacing and retries, records raw outputs to a JSON file, scores, prints the table; `--replay <recorded.json>` scores without network; `--runs N`, `--only <postId>`
+- [x] `.github/workflows/extraction-accuracy-eval.yml` -- triggers: path-filtered `pull_request` (non-blocking, posts the report as a PR comment or job summary), weekly `schedule`, `workflow_dispatch`; fetches the labelled set from the private store only when the secrets exist, otherwise runs the offline scorer tests and says so; never uploads images or captions as artifacts
+- [x] Offline scorer tests run in the existing CI test jobs; a ratchet or lint rule is not required
+- [x] Docs page, backlog row updated, spec status
+- [x] A small SYNTHETIC labelled fixture set (3-5 made-up posts with invented captions and generated placeholder images, no real data) so the runner and the workflow can be exercised end to end
 
 **Execution (slice B, needs the maintainer; out of scope for an unattended session):**
 - [ ] Decide the store for frozen images and labels (Ask First), export and hand-verify 40-60 labelled posts across: single event, program lineup, roundup, one event at many places on different dates, same occasion at several venues on one date, caption-less poster, foreign venue, multi-slide carousel
@@ -75,6 +75,7 @@ context:
 
 ## Spec Change Log
 
+- 2026-11-11: slice A implemented (scorer in `packages/domain/src/extraction-eval/`, runner with `--replay`, non-blocking workflow, synthetic set, docs page). Per-event fields are scored over matched events only; a missing labelled event counts once as an `eventName` miss. Slice B open.
 - 2026-11-11: created from the location-keywords live checks (see the problem statement). Two slices: A offline and buildable unattended, B needs the maintainer (labelled data, keys, first baseline).
 
 ## Design Notes

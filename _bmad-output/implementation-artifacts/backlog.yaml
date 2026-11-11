@@ -3052,5 +3052,5 @@ items:
      title: "Per-field accuracy eval of event extraction against labelled posts (akurasi per bidang vs data berlabel), with a baseline and a noise band",
      ref: [implementation-artifacts/spec-extraction-accuracy-eval.md, backlog/IDEA-261111-5cc-extraction-accuracy-eval-per-field.md],
      touches: [app:backend, pkg:domain, cross:ai-extraction, cross:process],
-     note: "Raised after the location-keywords live A/B (2026-11-11). Slice A (offline scorer, runner, workflow) is unattended-buildable; slice B (labelled set, baseline) needs the maintainer. Detail in the spec."}
+     note: "Slice A (scorer, runner, workflow, synthetic set) built 2026-11-11 on a PR; slice B (labelled set, store, first live baseline) still needs the maintainer. Detail in the spec."}
 

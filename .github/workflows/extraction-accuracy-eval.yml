@@ -1,0 +1,113 @@
+name: Extraction Accuracy Eval
+
+# Per-field accuracy of event extraction against labelled posts (IDEA-261111-5cc, slice A).
+# Spec: _bmad-output/implementation-artifacts/spec-extraction-accuracy-eval.md. Docs: docs/infrastructure/extraction-accuracy-eval.md.
+#
+# NON-BLOCKING by design (AD-44 Rule 10: live model calls are non-deterministic and use real quota): every
+# eval step is continue-on-error, so a score drop or a quota stop never fails a merge. The offline scorer
+# unit tests run on every PR through ci.yml, not here.
+#
+# Default path (no secrets needed): replay the committed recorded answers of the SYNTHETIC set, which proves
+# the scorer and the runner end to end and says plainly that no real data was scored. The live path runs only
+# when the private labelled set is configured:
+#   EXTRACTION_EVAL_S3_URI (s3://bucket/prefix of the labelled folders), AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY /
+#   AWS_REGION (read access to it), and EXTRACTION_EVAL_GEMINI_API_KEY (the model key).
+# This is a PUBLIC repo: images and captions are never uploaded as artifacts or echoed to the log. The report
+# goes to the job summary and holds scores and post ids only.
+on:
+  pull_request:
+    paths:
+      - 'apps/backend/src/lib/ai-processor/build-gemini-request.ts'
+      - 'apps/backend/src/validation/extracted-event.schema.ts'
+      - 'apps/backend/src/lib/ai-gateway/gemini-client.ts'
+      - 'apps/backend/src/lib/ai-gateway/render-event-category-glossary.ts'
+      - 'packages/shared-types/src/**'
+      - 'apps/backend/src/env.ts'
+      - 'packages/domain/src/events/normalize-*.ts'
+      - 'packages/domain/src/extraction-eval/**'
+      - 'apps/backend/scripts/run-extraction-accuracy-eval.ts'
+      - 'apps/backend/scripts/fixtures/extraction-eval-synthetic/**'
+      - '.github/workflows/extraction-accuracy-eval.yml'
+  schedule:
+    - cron: '43 20 * * 0' # weekly (Sunday, off-peak UTC): model drift behind an unchanged model name
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: 'Runs per post (live path)'
+        required: false
+        default: '3'
+
+permissions:
+  contents: read
+
+jobs:
+  extraction-accuracy-eval:
+    name: Extraction accuracy eval (non-blocking)
+    runs-on: ubuntu-latest
+    # 60 posts x 3 runs paced 5 s is ~15-20 minutes; a hung call must not hold the runner for hours.
+    timeout-minutes: 60
+    env:
+      # Booleans computed from secret presence; a secret's value is never printed.
+      HAS_STORE: ${{ secrets.EXTRACTION_EVAL_S3_URI != '' && secrets.AWS_ACCESS_KEY_ID != '' }}
+      HAS_KEY: ${{ secrets.EXTRACTION_EVAL_GEMINI_API_KEY != '' }}
+      BACKEND_PORT: '4001'
+      # The runner imports modules that read these at load; it never queries a database (see the golden-prompt eval).
+      DATABASE_URL: 'postgresql://unused:unused@127.0.0.1:5432/unused'
+      SYNTHETIC_DIR: apps/backend/scripts/fixtures/extraction-eval-synthetic
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'package.json'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: pnpm run build
+
+      - name: Replay the synthetic set (default path, no secrets)
+        if: env.HAS_STORE != 'true' || env.HAS_KEY != 'true'
+        continue-on-error: true
+        run: |
+          {
+            echo "> **Synthetic replay only.** The private labelled set or the Gemini key is not configured, so no real extraction was scored."
+            echo "> This run checks the scorer and runner on made-up posts and recorded answers; it says nothing about the current prompt or model."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          pnpm --filter backend exec tsx scripts/run-extraction-accuracy-eval.ts \
+            --dir "$GITHUB_WORKSPACE/$SYNTHETIC_DIR" \
+            --replay "$GITHUB_WORKSPACE/$SYNTHETIC_DIR/recorded.json"
+
+      - name: Fetch the labelled set from the private store
+        if: env.HAS_STORE == 'true' && env.HAS_KEY == 'true'
+        continue-on-error: true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EXTRACTION_EVAL_S3_URI: ${{ secrets.EXTRACTION_EVAL_S3_URI }}
+        # Into the runner's temp dir, which is never uploaded. Output of the copy is silenced: file names are not logged.
+        run: aws s3 sync "$EXTRACTION_EVAL_S3_URI" "$RUNNER_TEMP/extraction-eval-labelled" --only-show-errors
+
+      - name: Run the live eval against the labelled set
+        if: env.HAS_STORE == 'true' && env.HAS_KEY == 'true'
+        continue-on-error: true
+        env:
+          EXTRACTION_EVAL_GEMINI_API_KEY: ${{ secrets.EXTRACTION_EVAL_GEMINI_API_KEY }}
+          # Paced one call at a time: the system key returns 429 when called quickly (observed 2026-11-11).
+          EXTRACTION_EVAL_MIN_INTERVAL_MS: '5000'
+          EXTRACTION_EVAL_DIR: ${{ runner.temp }}/extraction-eval-labelled
+          RUNS: ${{ github.event.inputs.runs || '3' }}
+        run: |
+          pnpm --filter backend exec tsx scripts/run-extraction-accuracy-eval.ts \
+            --runs "$RUNS" --record "$RUNNER_TEMP/extraction-eval-recorded.json"
