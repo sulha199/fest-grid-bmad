@@ -1,0 +1,39 @@
+{
+  "postId": "syn-three-branches",
+  "caption": "[SYNTHETIC] Lomba Contoh di tiga cabang Mall Contoh, Sabtu 10 Mei 2026: Utara, Selatan, Timur.",
+  "images": [
+    "cover.png"
+  ],
+  "publishedAt": "2026-05-01T08:00:00Z",
+  "ownerUsername": "contoh_mall",
+  "groupingReason": "separate-events",
+  "events": [
+    {
+      "eventName": "Lomba Contoh Cabang Utara",
+      "location": "Mall Contoh Utara",
+      "schedules": [
+        {
+          "eventStartDate": "2026-05-10"
+        }
+      ]
+    },
+    {
+      "eventName": "Lomba Contoh Cabang Selatan",
+      "location": "Mall Contoh Selatan",
+      "schedules": [
+        {
+          "eventStartDate": "2026-05-10"
+        }
+      ]
+    },
+    {
+      "eventName": "Lomba Contoh Cabang Timur",
+      "location": "Mall Contoh Timur",
+      "schedules": [
+        {
+          "eventStartDate": "2026-05-10"
+        }
+      ]
+    }
+  ]
+}
