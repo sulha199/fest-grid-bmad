@@ -34,8 +34,8 @@ test('FestgridBackendStack provisions correct resources', () => {
   template.resourceCountIs('AWS::ApiGateway::RestApi', 1);
 
   // 5. Assert the EventBridge scheduled rules exist with the correct rates
-  // (daily scraper seed run + hourly stale-job sweep + daily notifier sweep)
-  template.resourceCountIs('AWS::Events::Rule', 3);
+  // (daily scraper seed run + hourly stale-job sweep + daily notifier sweep + the 5-minute job-engine sweep, Story 10.1a)
+  template.resourceCountIs('AWS::Events::Rule', 4);
   template.hasResourceProperties('AWS::Events::Rule', {
     ScheduleExpression: 'rate(1 day)',
   });
@@ -619,7 +619,7 @@ test('FestgridBackendStack: prod stack replaces the ESM with scheduled poll-and-
 
     // AC3: exactly 3 new rate(5 minutes) rules, each carrying the poll-and-drain marker
     // payload and targeting one of the 3 Lambdas.
-    template.resourceCountIs('AWS::Events::Rule', 6); // 1 daily scraper + 1 daily notifier + 1 hourly stale-sweep + 3 new poll-and-drain
+    template.resourceCountIs('AWS::Events::Rule', 7); // 1 daily scraper + 1 daily notifier + 1 hourly stale-sweep + 1 five-minute job-engine sweep (Story 10.1a) + 3 new poll-and-drain
     template.hasResourceProperties('AWS::Events::Rule', {
       ScheduleExpression: 'rate(5 minutes)',
       Targets: Match.arrayWith([
@@ -1127,4 +1127,65 @@ test('FestgridBackendStack: dev has no ops alarms (IDEA-096)', () => {
 
   template.resourceCountIs('AWS::CloudWatch::Alarm', 0);
   template.resourceCountIs('AWS::SNS::Topic', 0);
+});
+
+// Story 10.1a (AC1, AC3, AC6; AD-53): the job engine's wiring. The API Lambda starts a job on the Scraper Lambda (an invoke
+// grant plus its function name), the Scraper Lambda hands a job to the AI-processor Lambda (an invoke grant plus that function
+// name; the API Lambda's own grant for a type hosted on the AI-processor already exists, Story 4.2b), both worker Lambdas know
+// the run budget and claim TTL, and a 5-minute database-only sweep rule targets the Scraper Lambda in every stage.
+test('FestgridBackendStack: the job engine wiring (Story 10.1a)', () => {
+  for (const stageName of ['dev', 'prod'] as const) {
+    const app = new cdk.App();
+    const stack = new FestgridBackendStack(app, `TestStackJobEngine-${stageName}`, { stageName });
+    const template = Template.fromStack(stack);
+
+    const lambdaFunctions = template.findResources('AWS::Lambda::Function');
+    const find = (prefix: string) => {
+      const entry = Object.entries(lambdaFunctions).find(([id]) => id.startsWith(prefix));
+      assert.ok(entry, `expected ${prefix}* in the template`);
+      return entry!;
+    };
+    const [scraperId, scraperFn] = find('ScraperLambda');
+    const [aiId, aiFn] = find('AIProcessorLambda');
+    const [, apiFn] = find('ApiLambda');
+    const envOf = (fn: { Properties: unknown }) =>
+      (fn.Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables;
+
+    // (a) function names are direct Refs, so a grant without a name (or the reverse) cannot ship
+    assert.deepStrictEqual(envOf(apiFn).SCRAPER_FUNCTION_NAME, { Ref: scraperId }, `${stageName}: API -> Scraper name`);
+    assert.deepStrictEqual(envOf(scraperFn).AI_PROCESSOR_FUNCTION_NAME, { Ref: aiId }, `${stageName}: Scraper -> AI name`);
+
+    // (b) a policy on the right role grants lambda:InvokeFunction on the target's ARN
+    const policies = Object.values(template.findResources('AWS::IAM::Policy')) as Array<{
+      Properties: { Roles: unknown; PolicyDocument: { Statement: any[] } };
+    }>;
+    const grants = (rolePrefix: string, targetId: string) =>
+      policies.filter(
+        (p) =>
+          JSON.stringify(p.Properties.Roles).includes(rolePrefix) &&
+          p.Properties.PolicyDocument.Statement.some((st) => {
+            const actions = ([] as string[]).concat(st.Action);
+            return actions.includes('lambda:InvokeFunction') && JSON.stringify(st.Resource).includes(targetId);
+          })
+      );
+    assert.ok(grants('ApiLambda', scraperId).length > 0, `${stageName}: the API Lambda can invoke the Scraper Lambda`);
+    assert.ok(grants('ScraperLambda', aiId).length > 0, `${stageName}: the Scraper Lambda can invoke the AI-processor Lambda`);
+
+    // (c) both worker Lambdas carry the run budget and the claim TTL
+    for (const [name, fn] of [['Scraper', scraperFn], ['AIProcessor', aiFn]] as const) {
+      assert.equal(envOf(fn).JOB_ATTEMPT_DEADLINE_MS, '150000', `${stageName}: ${name} JOB_ATTEMPT_DEADLINE_MS`);
+      assert.equal(envOf(fn).JOB_WORKER_CLAIM_TTL_MINUTES, '5', `${stageName}: ${name} JOB_WORKER_CLAIM_TTL_MINUTES`);
+    }
+
+    // (d) the 5-minute, database-only job sweep targets the Scraper Lambda in every stage
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'rate(5 minutes)',
+      Targets: Match.arrayWith([
+        Match.objectLike({
+          Arn: { 'Fn::GetAtt': Match.arrayWith([scraperId]) },
+          Input: JSON.stringify({ jobType: 'job-engine-sweep' }),
+        }),
+      ]),
+    });
+  }
 });

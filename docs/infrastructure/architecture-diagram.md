@@ -85,6 +85,13 @@ graph TD
     L_API -- select posts --> Q2
     Q2 --> L_AI
     L_API -- manual correction, async invoke --> L_AI
+    L_API -- start a job, async invoke of its host --> L_Scrape
+    L_API -- start a job hosted on the AI processor, async invoke --> L_AI
+    L_Scrape -- job phase hand-off, async invoke with the job id --> L_AI
+    EB -- every 5 minutes, job sweep --> L_Scrape
+    L_API -- jobs, job attempts --> DB
+    L_Scrape -- jobs, job attempts --> DB
+    L_AI -- jobs, job attempts --> DB
     L_AI --> Gemini
     L_AI -- extracted events --> Q3
     Q3 --> L_Ingest
@@ -128,6 +135,7 @@ graph TD
 | API | GraphQL (graphql-yoga) on AWS Lambda behind Amazon API Gateway | package.json, docs/infrastructure/2-backend.md |
 | Pipeline | Amazon SQS: ScrapingQueue, AIProcessingQueue, DataIngestionQueue, each with a dead-letter queue; Amazon EventBridge schedules | docs/infrastructure/2-backend.md, CDK stack |
 | Workers | AWS Lambda (Node.js): API, scraper, AI processor, ingestor, notifier | CDK stack |
+| Background jobs | One `jobs` record (with `job_attempts`) for every long vendor-backed action, a handler registry, and one worker that runs in the scraper or AI-processor Lambda. Started and handed off by async Lambda invoke carrying only the job id; ended by a database-only sweep every 5 minutes (a second EventBridge rule beside the hourly vendor sweep). No new Lambda, queue or secret | CDK stack, Architecture Spine AD-53, apps/backend/src/lib/job-engine |
 | Database | Supabase PostgreSQL via the transaction-mode pooler; Drizzle ORM; postgres.js client | docs/infrastructure/3-database.md, package.json |
 | Scraping | Apify and Bright Data (Instagram), with webhook callbacks. Profile lookups go through swappable profile scraper adapters (`PROFILE_SCRAPER_PROVIDER_ORDER`) | CDK stack, docs/infrastructure/testing-brightdata-webhook-locally.md |
 | AI | Google Gemini via @google/genai | package.json |
@@ -146,6 +154,7 @@ graph TD
 | IaC | AWS CDK (TypeScript) | apps/infrastructure |
 
 ## Known gaps between the sources
+- Background jobs (Architecture Spine AD-53, Story 10.1a, 2026-11-11). The engine exists but no job type is registered yet, so nothing in production uses it: subscribe, re-extract and the other long actions adopt it in Stories 10.6 to 10.12a. The API Lambda has two invoke edges (the Scraper for a job type hosted there; the AI processor for a type hosted there, the grant of Story 4.2b), and the Scraper Lambda has one to the AI processor for a phase hand-off. There is no reverse hand-off.
 - `high-level-overview.md` shows Apify only. The CDK stack and code also use Bright Data. Treat the code as correct, and fold Bright Data into that page.
 - The overview does not show the Notifier Lambda, KMS, the Bright Data path, or the S3 and CloudFront media stack. This page adds them from the CDK stack.
 - The Notifier Lambda sends quota-warning and provider-down emails through SES. New-event push notifications to FCM are sent by the Ingestor after it commits, so the Ingestor holds the Firebase variables (the private key from Secrets Manager); the AI processor never reaches the push or mail path and holds neither. Every Lambda that sends mail holds `SES_FROM_EMAIL_ADDRESS` and an `ses:SendEmail` grant on both the sending-domain identity and the From address identity (a verified address can send, which is what the SES sandbox allows); `festgrid-backend-stack.test.ts` fails for a sender address without its grant. The API Lambda's exact FCM and SES wiring was not traced.

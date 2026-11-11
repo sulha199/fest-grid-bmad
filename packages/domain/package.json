@@ -69,6 +69,10 @@
     "./shared": {
       "types": "./dist/shared/index.d.ts",
       "default": "./dist/shared/index.js"
+    },
+    "./jobs": {
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
     }
   },
   "scripts": {
