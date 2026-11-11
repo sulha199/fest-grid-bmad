@@ -40,6 +40,13 @@ on:
 permissions:
   contents: read
 
+# One eval at a time, whatever started it. Live runs are paced against a single Gemini key that returns 429 when called quickly
+# (observed 2026-11-11): two runs at once double the call rate and end in `unavailable` outcomes or a spent daily quota.
+# A run is never cancelled half way (it would waste paid calls); a newer one waits, and only the newest waiting run is kept.
+concurrency:
+  group: extraction-accuracy-eval
+  cancel-in-progress: false
+
 jobs:
   extraction-accuracy-eval:
     name: Extraction accuracy eval (non-blocking)

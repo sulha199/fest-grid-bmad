@@ -26,7 +26,7 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { basename, join, resolve } from 'node:path';
+import { basename, extname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
   aggregateRuns,
@@ -47,6 +47,7 @@ import {
 import { stripMalformedLocationKeywords } from '@festgrid/domain/events';
 import { classifyGeminiMessage } from '../src/lib/ai-gateway/gemini-situation.js';
 import { nextEvalRetryDelayMs } from '../src/lib/ai-gateway/eval-retry-policy.js';
+import { evalExitCode } from '../src/lib/ai-gateway/eval-exit-policy.js';
 import { compileValidator } from '../src/validation/validate.js';
 import { extractedEventSchema } from '../src/validation/extracted-event.schema.js';
 
@@ -83,6 +84,8 @@ export function parseLikePipeline(text: string): ScorablePayload | undefined {
 }
 
 /** Serves one post's images from 127.0.0.1 so the production builder can fetch() them like remote image URLs. */
+const IMAGE_TYPES: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' };
+
 function serveImages(folder: string): Promise<{ server: Server; base: string }> {
   return new Promise((ok) => {
     const server = createServer((req, res) => {
@@ -92,7 +95,7 @@ function serveImages(folder: string): Promise<{ server: Server; base: string }> 
         res.writeHead(404).end();
         return;
       }
-      res.writeHead(200, { 'content-type': name.endsWith('.jpg') || name.endsWith('.jpeg') ? 'image/jpeg' : 'image/png' }).end(readFileSync(file));
+      res.writeHead(200, { 'content-type': IMAGE_TYPES[extname(name).toLowerCase()] ?? 'application/octet-stream' }).end(readFileSync(file));
     });
     server.listen(0, '127.0.0.1', () => ok({ server, base: `http://127.0.0.1:${(server.address() as AddressInfo).port}` }));
   });
@@ -137,7 +140,16 @@ async function recordLive(
         },
         // Like the pipeline (process-extraction-step.ts): send every labelled slide, not only the env default.
         { maxCarouselImages: slides.length });
-        promptHash ||= createHash('sha256').update(String(built.request.systemInstruction ?? '')).update(JSON.stringify(built.request.responseSchema ?? {})).digest('hex').slice(0, 12);
+        // The instruction embeds each post's own publish date ("published on YYYY-MM-DD"); mask it, or the hash would identify the first post and not the prompt.
+        promptHash ||= createHash('sha256').update(String(built.request.systemInstruction ?? '').replace(/published on \d{4}-\d{2}-\d{2}/g, 'published on <date>')).update(JSON.stringify(built.request.responseSchema ?? {})).digest('hex').slice(0, 12);
+        // The builder swallows a failed image fetch and falls back to a text-only request. Scoring that would book a harness fault as
+        // a wrong extraction, so a post whose images were not all sent makes no call and counts as unavailable.
+        if (built.imagesSent !== post.images.length) {
+          console.log(`${post.postId}: only ${built.imagesSent} of ${post.images.length} image(s) could be sent to the model (unreadable or unsupported file?); no calls made for this post, its runs are unavailable`);
+          for (let runIndex = 0; runIndex < runs; runIndex += 1) recorded.push({ postId: post.postId, runIndex, unavailable: true });
+          save();
+          continue;
+        }
         for (let runIndex = 0; runIndex < runs; runIndex += 1) {
           if (stopped) {
             recorded.push({ postId: post.postId, runIndex, unavailable: true });
@@ -231,7 +243,10 @@ async function main(): Promise<void> {
       console.log('No Gemini key (EXTRACTION_EVAL_GEMINI_API_KEY or SYSTEM_GEMINI_API_KEY) is set, so the live run cannot start. Use --replay <recorded.json> to score recorded answers offline. Exiting cleanly.');
       return;
     }
-    const intervalMs = Number(values['interval-ms'] ?? process.env.EXTRACTION_EVAL_MIN_INTERVAL_MS ?? 5000);
+    // An empty variable counts as unset; anything else must be a whole number of milliseconds (0 turns pacing off on purpose).
+    const intervalRaw = values['interval-ms'] || process.env.EXTRACTION_EVAL_MIN_INTERVAL_MS || '5000';
+    const intervalMs = Number(intervalRaw);
+    if (!Number.isInteger(intervalMs) || intervalMs < 0) throw new Error(`--interval-ms / EXTRACTION_EVAL_MIN_INTERVAL_MS must be a whole number of milliseconds, got "${intervalRaw}"`);
     const recordPath = values.record ?? 'extraction-eval-recorded.json';
     recorded = await recordLive(posts, runs, apiKey, intervalMs, recordPath);
     console.log(`Recorded raw answers to ${recordPath}`);
@@ -254,6 +269,12 @@ async function main(): Promise<void> {
   }
   // Job summary only: counts and scores, never captions or images.
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${report.markdown}\n`);
+  if (mode === 'live') {
+    // Same rule as the golden-prompt eval: a score is never a failure, but a run that got no answer at all left no signal and must not look green.
+    const answered = recorded.runs.filter((r) => r.unavailable !== true && r.text !== undefined).length;
+    process.exitCode = evalExitCode({ evaluated: answered, driftedFixtures: 0, driftedVariants: 0, ...(answered === 0 ? { stoppedReason: 'no run got an answer (quota, 429/503 or unreadable images)' } : {}) });
+    if (process.exitCode === 1) console.error('No run got an answer, so nothing was scored. Exiting 1.');
+  }
 }
 
 main().catch((err) => {
