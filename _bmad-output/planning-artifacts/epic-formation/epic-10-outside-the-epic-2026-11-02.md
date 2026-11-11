@@ -149,6 +149,7 @@ evidence and decisions `background-vendor-jobs-design-notes-2026-11-02.md`.
 - [x] Spike: one single-post scrape per vendor; both return all 5 slides (numbers in the design notes).
 - [x] PRD amended for the Jobs capability (commit `c8341998`): section 3.18, FR116 to FR128, open items OI-1 to OI-4.
 - [x] FR116 to FR128 backfilled into `epics.md` (inventory, coverage map, Epic 10 "FRs covered"); FR129 added with Story 10.12a, and FR121 amended (a job over its limit is queued, not refused; vendor jobs limited to 3, extraction-only jobs to 2).
+- [x] 2026-11-11: FR130 added: every job is a user job or a system job (data only: `trigger` field, nullable owner and a check in Story 10.1a). Moving the daily scrape, automatic extraction or scheduled admin runs into the engine as system jobs is NOT part of Epic 10 and would be a separate formation pass.
 - [x] 2026-11-11: Story 10.12a reworked for master's stepped extraction (AD-46 to AD-52): stays open through automatic retries, is a `WAITING` job that holds no place (no extraction limit); engine AD renumbered to AD-53 in Story 10.1a; FR123 gained minimize and re-open for every job.
 - [x] Manual post selection (PRD 3.10) was not in the epic; the product owner chose to add it as a job type: Story 10.12a, IDEA-261102-tov. Readiness re-run for that story only (addendum in `epic-readiness/epic-10-readiness.md`).
 - [x] Nine "fix on its PR" rows verified against master and closed or corrected (section 6).

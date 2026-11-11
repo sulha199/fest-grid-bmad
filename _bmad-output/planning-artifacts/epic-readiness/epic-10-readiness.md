@@ -273,3 +273,8 @@ the `WAITING` enum value, a `WAITING` handler outcome, a nullable `resume_at` an
 acceptance criterion changed); Story 10.3 counts `RUNNING` jobs only; Story 10.4 shows what a waiting job waits for; Story 10.5's
 snapshot wait is `WAITING`; Story 10.12a's job takes a place only while it claims and queues its posts. The "must be decided before
 Story 10.3 or 10.12a starts" condition above is satisfied.
+
+**Update 2026-11-11 (later): FR130, user job or system job.** The job record gains `trigger` (`USER` or `SYSTEM`) and a nullable owner
+with a database check, as a task and AC 8 in Story 10.1a, with the user-jobs-only rules as acceptance criteria on Stories 10.3, 10.4 and
+10.13. Data only: no system job type and no entry point is built, so no new story and no new prerequisite. Gate 1 and Gate 3 findings
+unchanged.

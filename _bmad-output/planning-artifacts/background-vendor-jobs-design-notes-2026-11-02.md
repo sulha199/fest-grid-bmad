@@ -112,6 +112,13 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
     open item OI-5 (a selection job open through retries could have held a place for a day) and removes it from the PRD. A
     manual-selection job takes a place only while it claims and queues its posts, then is `WAITING`. `WAITING` is a new status in
     Story 10.1a's `job_status` enum (cheap before it is built, a migration after).
+18. (2026-11-11, product owner) **A job is a user job or a system job (data only).** The job record carries `trigger` (`USER` or
+    `SYSTEM`) and its owner is required for a user job only. Rules for places, queueing, reuse, finished-notifications and the
+    ordinary user's Jobs page apply to user jobs only; a system job would use the system vendor credential and be visible to
+    moderators behind a filter. No system job type is built: the daily scrape, automatic extraction and AD-52 retries stay outside
+    the engine. Reason: adding the field and a nullable owner later is a migration plus a re-check of every admission and
+    notification query. Rejected: no distinction (a later scheduled job needs a migration and a design pass); moving scheduled
+    batches into the engine now (largest scope, needs vendor budget rules for system work).
 
 ## 5. Open questions (tracked in `epic-formation/epic-10-outside-the-epic-2026-11-02.md`)
 

@@ -292,3 +292,4 @@ The 14% for `user-visible` is low because the pass was seeded on one capability.
 - New requirement on every job type: inline progress can be minimized and re-opened at its last progress (FR123; Stories 10.4,
   10.6 and 10.12a).
 - Open item OI-5 was raised and closed the same day: a waiting or scheduled job holds no place (new `WAITING` status, only `RUNNING` counts).
+- FR130 added 2026-11-11: a job is a user job or a system job (data only, `trigger` field and nullable owner in Story 10.1a). No system job type is built; the daily scrape, automatic extraction and AD-52 retries stay outside the engine.
