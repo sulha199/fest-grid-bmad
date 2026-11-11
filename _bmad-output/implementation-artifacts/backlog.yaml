@@ -2592,8 +2592,9 @@ items:
      note: "Today each target still makes one refused start per batch; the refusal is cheap but fills the logs and delays the fallback to the next provider."}
 
   IDEA-102:
-    {type: idea, status: backlog, created: 2026-10-30, epic: epic-10,
+    {type: idea, status: promoted, created: 2026-10-30, epic: epic-10,
      impact: internal, effort: xs,
+     stories: [10-5-collect-late-vendor-results-and-finish-the-job],
      title: "Bright Data snapshots can take hours; the 180-minute expiry sends them to a paid Apify fallback while the late result still arrives",
      ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
      touches: [app:backend],
