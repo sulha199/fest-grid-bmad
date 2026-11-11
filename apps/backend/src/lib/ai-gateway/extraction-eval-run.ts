@@ -129,7 +129,12 @@ export async function recordLive(posts: LoadedPost[], runs: number, apiKey: stri
   let promptHash = '';
   const snapshot = (): RecordedOutputs => ({ model, promptHash: promptHash || 'unknown', recordedAt: new Date().toISOString(), runs: recorded });
   // Paid calls must not be lost: the recording is rewritten after every run, so an abort keeps everything answered so far.
-  const save = (): void => writeFileSync(options.recordPath, `${JSON.stringify(snapshot(), null, 2)}\n`);
+  // Returns what it wrote, so the final result and the file on disk are the same object (same timestamp).
+  const save = (): RecordedOutputs => {
+    const written = snapshot();
+    writeFileSync(options.recordPath, `${JSON.stringify(written, null, 2)}\n`);
+    return written;
+  };
   try {
     let lastCallAt = 0;
     let stopped = false;
@@ -205,8 +210,7 @@ export async function recordLive(posts: LoadedPost[], runs: number, apiKey: stri
     }
     throw err;
   }
-  save();
-  return snapshot();
+  return save();
 }
 
 /**
