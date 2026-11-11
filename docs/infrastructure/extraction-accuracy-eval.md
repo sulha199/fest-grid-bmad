@@ -190,3 +190,83 @@ public repo. The `pull_request` run only replays the synthetic set and says so i
 private store, paced Gemini calls) runs on `schedule` and `workflow_dispatch` only, and only when the secrets exist. Without them
 it replays the synthetic set and says in the summary that no real data was scored. Scorer unit tests run on every PR in the normal domain test job. The workflow has a `concurrency` group, so only one eval runs
 at a time (all live runs share one paced Gemini key); a run is never cancelled half way, and a newer run waits.
+
+## First live verification (what has only been tested against stubs)
+
+Slice A was built and reviewed without a Gemini key, an S3 bucket or the merged workflow, so three things have never run for
+real: a live Gemini call, the S3 fetch, and two overlapping workflow runs. Do them in this order. Each is cheap, and none needs
+real (private) data until step 3 is finished.
+
+| Step | Check | When | Cost |
+|---|---|---|---|
+| 1 | Live Gemini call | Before the merge, on your machine | 1 call, then 12 |
+| 2 | The `concurrency` group | Right after the merge | 0 Gemini calls |
+| 3 | The S3 fetch | After the merge: a rehearsal with the synthetic set first | 0 to 1 calls |
+
+### 1. A live Gemini call (before the merge)
+
+This is the one part of the runner that has not touched the real API. Run one post once, from the repo root, with the model key
+(`EXTRACTION_EVAL_GEMINI_API_KEY`, or `SYSTEM_GEMINI_API_KEY` as a fallback). Use absolute paths: `pnpm --filter backend exec`
+runs inside `apps/backend`.
+
+```bash
+EXTRACTION_EVAL_DIR=$PWD/apps/backend/scripts/fixtures/extraction-eval-synthetic \
+EXTRACTION_EVAL_GEMINI_API_KEY=<your key> \
+pnpm --filter backend exec tsx scripts/run-extraction-accuracy-eval.ts --only syn-single --runs 1 --record /tmp/extraction-eval-recorded.json
+```
+
+- **Good:** a line `syn-single run 1/1: STOP`, then "Recorded raw answers to ...", a report table and exit code 0.
+- **The score means nothing here.** The images are blank placeholders; the check is that the request goes through, the answer
+  parses and the recording is written.
+- **A 401 or 400** is a bad key or request: the run stops, exits 1 and keeps what it recorded. **A 429** is the pacing limit: the
+  runner waits and retries by itself. Do not lower `--interval-ms` for these runs: the system key returns 429 when called quickly.
+
+When that works, run all four synthetic posts three times (12 calls, about a minute with the 5 s pacing) to get a real run to
+compare with `recorded.json`. Do not commit a baseline from the synthetic set.
+
+### 2. The concurrency group (right after the merge)
+
+The manual trigger appears in the Actions tab only once the workflow file is on master. Then:
+
+1. Actions, "Extraction Accuracy Eval", Run workflow, with `runs` set to 1. Do it again within a few seconds.
+2. The second run should wait (pending) while the first runs, and neither should fail. Without secrets this is the replay path,
+   so it makes no Gemini calls.
+3. With a third dispatch while one run is going and one is waiting, GitHub cancels the waiting one and keeps only the newest
+   (its concurrency rule). A weekly run could be dropped that way, but only if someone dispatches at the same moment.
+
+### 3. The S3 fetch (after the merge)
+
+Rehearse with the synthetic set first: it is not secret, so a mistake costs nothing.
+
+1. **Bucket.** A private bucket with a prefix such as `s3://<bucket>/extraction-eval/`. Copy the four synthetic post folders there
+   so `syn-single/label.json` sits directly under the prefix, with `baseline.json` at the same level. One folder too many (a
+   nested prefix) gives "the labelled directory holds no `<postId>/label.json`".
+2. **Access.** An IAM user that can only read that prefix:
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       { "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::<bucket>",
+         "Condition": { "StringLike": { "s3:prefix": ["extraction-eval/", "extraction-eval/*"] } } },
+       { "Effect": "Allow", "Action": "s3:GetObject", "Resource": "arn:aws:s3:::<bucket>/extraction-eval/*" }
+     ]
+   }
+   ```
+
+3. **Check the layout locally** (no GitHub involved) with the same credentials:
+
+   ```bash
+   aws s3 sync s3://<bucket>/extraction-eval/ /tmp/eval-labelled --only-show-errors
+   ```
+
+4. **Repository secrets:** `EXTRACTION_EVAL_S3_URI` (the `s3://...` prefix above), `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+   `AWS_REGION` and `EXTRACTION_EVAL_GEMINI_API_KEY`.
+5. **Dispatch** the workflow with `runs` set to 1. On the run page the job summary should show a report with the `syn-...` post
+   ids and no "Live eval skipped" line. This is also the first full live run in CI.
+6. **Try the failure path once:** put a wrong prefix in `EXTRACTION_EVAL_S3_URI` and dispatch again. The summary should say
+   "fetching the labelled set failed" in one line, and the log should show no file names.
+
+When the rehearsal works, replace the synthetic copy with the real labelled set (slice B). The first real baseline then goes at
+the root of that set (see "Where the baseline lives"). Pull requests never take the live path, so steps 2 and 3 can only be
+exercised on `workflow_dispatch` or the weekly schedule.
