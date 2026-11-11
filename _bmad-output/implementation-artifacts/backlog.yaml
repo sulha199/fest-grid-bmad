@@ -643,8 +643,10 @@ items:
 
   # ── 2026-09-06 (ux-rework2 gap audit) ────────────────────────────────────────
   IDEA-008:
-    {type: idea, status: triaged, created: 2026-09-06, epic: epic-10,
+    {type: idea, status: promoted, created: 2026-09-06, epic: epic-10,
      impact: user-visible, effort: m,
+     stories: [10-3-add-reuse-and-admission-control-to-job-start,
+               10-3a-show-the-subscription-cap-refusal-and-the-upgrade-call-to-action],
      title: "Max 5 subscribed accounts (normal user), upgrade-account 'coming soon' CTA + PostHog event, moderator exempt",
      ref: [backlog/IDEA-008-subscribed-account-cap.md],
      touches: [web:subscriptions, app:backend, pkg:analytics, cross:prd],

@@ -1,79 +1,99 @@
-import { eq } from 'drizzle-orm';
-import { jobs } from '@festgrid/database';
-import { computeJobDeadline, getJobTypeDefinition } from '@festgrid/domain/jobs';
-import { db } from '../../db/client.js';
-import { loadBackendEnv } from '../../env.js';
-import { invokeJobEngineWorker } from '../aws/invoke-job-engine-worker.js';
+import { getJobTypeDefinition } from '@festgrid/domain/jobs';
+import { admitJob } from './admit-job.js';
+import { afterJobEnded } from './after-job-ended.js';
+import { settleFollowers } from './settle-followers.js';
+import { START_FAILED_MESSAGE, invokeJobHost, markJobStartFailed } from './job-host.js';
 
-// Story 10.1a -- API-Lambda side of the job engine (AC1, AC8; PRD FR116, FR130). Deliberately imports nothing that
-// pulls in a handler or the image-processing runtime: it needs only the type's pure definition.
+// Story 10.1a/10.3 -- API-Lambda side of the job engine (PRD FR116, FR120 to FR122, FR130). Deliberately imports nothing
+// that pulls in a handler or the image-processing runtime: it needs only the type's pure definition.
 
 export type StartJobResult =
-  | { jobId: string }
-  | { errorCode: 'JOB_START_FAILED'; errorMessage: string };
+  | { jobId: string; outcome: 'ADMITTED' | 'REUSED' | 'SHARED' }
+  | { jobId: string; outcome: 'QUEUED'; position: number }
+  | {
+      errorCode: 'JOB_START_FAILED' | 'JOB_QUEUE_FULL' | 'SUBSCRIPTION_CAP_REACHED';
+      errorMessage: string;
+      /** SUBSCRIPTION_CAP_REACHED only: the numbers the refusal screen shows (Story 10.3a). */
+      details?: { activeCount: number; reservedCount: number; cap: number };
+    };
 
-const START_FAILED_MESSAGE = 'The job could not be started. Please try again.';
+const QUEUE_FULL_MESSAGE = 'Too many jobs are already waiting. Please try again once some have finished.';
+const CAP_REACHED_MESSAGE = 'The subscription cap is reached.';
+
+export interface StartJobInput {
+  inputKey: string;
+  payload?: unknown;
+  /** For a type that reserves a subscription slot: the user already holds this account, so it needs no extra slot. */
+  alreadyHeldSubscription?: boolean;
+}
 
 /**
  * The user entry point (`trigger: 'USER'`, owner required). No entry point for system jobs exists: no system job type
  * does yet (FR130, data only); the first one adds it.
  *
- * Inserts the row, then fires one async invoke at the type's host Lambda. Returns the job id at once whether or not
- * the invoke succeeds; a failed invoke marks the job FAILED and returns the start error, the same fail-to-start shape
- * as `startManualExtractionJob`. Admission is immediate here (`admittedAt = now`): queueing over the user's limit is
- * Story 10.3.
+ * `admitJob` decides in one locked transaction: the same work already open for this user is REUSED (nothing written,
+ * nothing invoked); another user's open job of a sharing type is joined as a follower (SHARED); otherwise the job is
+ * ADMITTED, or QUEUED behind the user's limit, or refused (queue full, subscription cap). Only an ADMITTED job is
+ * invoked, after the transaction commits, with one async invoke carrying only `{ jobId }`. A failed invoke ends the job
+ * FAILED / START_FAILED, frees its place for the next queued job and returns the start error, the same fail-to-start
+ * shape as `startManualExtractionJob`.
  */
-export async function startJob(
-  type: string,
-  input: { inputKey: string; payload?: unknown },
-  ownerUserId: string
-): Promise<StartJobResult> {
-  const definition = getJobTypeDefinition(type);
-  if (!definition) {
+export async function startJob(type: string, input: StartJobInput, ownerUserId: string): Promise<StartJobResult> {
+  const startError = { errorCode: 'JOB_START_FAILED', errorMessage: START_FAILED_MESSAGE } as const;
+  if (!getJobTypeDefinition(type)) {
     console.error(`[startJob] unknown job type ${type}; nothing was written`);
-    return { errorCode: 'JOB_START_FAILED', errorMessage: START_FAILED_MESSAGE };
+    return startError;
   }
 
-  const admittedAt = new Date();
-  const [job] = await db
-    .insert(jobs)
-    .values({
-      type,
-      ownerUserId,
-      trigger: 'USER',
-      inputKey: input.inputKey,
-      input: input.payload ?? null,
-      status: 'QUEUED',
-      admittedAt,
-      deadlineAt: computeJobDeadline(admittedAt, definition),
-    })
-    .returning({ id: jobs.id });
+  const admission = await admitJob({
+    type,
+    inputKey: input.inputKey,
+    payload: input.payload,
+    ownerUserId,
+    alreadyHeldSubscription: input.alreadyHeldSubscription,
+  });
 
-  const failToStart = async (reason: unknown): Promise<StartJobResult> => {
-    console.error(`[startJob] could not start job ${job.id} (${type}):`, reason);
-    const now = new Date();
-    await db
-      .update(jobs)
-      .set({
-        status: 'FAILED',
-        reasonCode: 'START_FAILED',
-        errorMessage: START_FAILED_MESSAGE,
-        finishedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(jobs.id, job.id));
-    return { errorCode: 'JOB_START_FAILED', errorMessage: START_FAILED_MESSAGE };
-  };
-
-  const env = loadBackendEnv();
-  const functionName = definition.host === 'scraper' ? env.scraperFunctionName : env.aiProcessorFunctionName;
-  if (!functionName) {
-    return failToStart(new Error(`The function name for host ${definition.host} is not configured`));
+  if ('refused' in admission) {
+    switch (admission.refused) {
+      case 'JOB_QUEUE_FULL':
+        return { errorCode: 'JOB_QUEUE_FULL', errorMessage: QUEUE_FULL_MESSAGE };
+      case 'SUBSCRIPTION_CAP_REACHED':
+        return {
+          errorCode: 'SUBSCRIPTION_CAP_REACHED',
+          errorMessage: CAP_REACHED_MESSAGE,
+          details: { activeCount: admission.activeCount, reservedCount: admission.reservedCount, cap: admission.cap },
+        };
+      default:
+        console.error(`[startJob] ${admission.refused} for job type ${type}; nothing was written`);
+        return startError;
+    }
   }
+
+  if (admission.outcome === 'QUEUED') {
+    // A place may have freed between the lock and now (or a wake-up was lost): give it to the oldest waiting job.
+    await afterJobEnded({ id: admission.jobId, ownerUserId }, false);
+    return { jobId: admission.jobId, outcome: 'QUEUED', position: admission.position };
+  }
+  if (admission.outcome === 'SHARED') {
+    // The leader may have ended between the lookup and the insert (the lock is the follower's user's, not the leader's):
+    // settle now instead of waiting for the sweep. A no-op while the leader is still open.
+    await settleFollowers(admission.leaderJobId).catch((error) =>
+      console.error(`[startJob] settling followers of ${admission.leaderJobId} failed; the sweep will retry:`, error)
+    );
+    return { jobId: admission.jobId, outcome: 'SHARED' };
+  }
+  if (admission.outcome === 'REUSED') {
+    return { jobId: admission.jobId, outcome: 'REUSED' };
+  }
+
   try {
-    await invokeJobEngineWorker(functionName, { jobId: job.id });
-  } catch (err) {
-    return failToStart(err);
+    await invokeJobHost(type, admission.jobId);
+  } catch (error) {
+    console.error(`[startJob] could not start job ${admission.jobId} (${type}):`, error);
+    if (await markJobStartFailed(admission.jobId)) {
+      await afterJobEnded({ id: admission.jobId, ownerUserId }, true);
+    }
+    return startError;
   }
-  return { jobId: job.id };
+  return { jobId: admission.jobId, outcome: 'ADMITTED' };
 }

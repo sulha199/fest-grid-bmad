@@ -147,3 +147,23 @@ test('loadBackendEnv reads the job-engine settings and rejects anything that is 
   }
 });
 
+
+test('loadBackendEnv reads the admission and subscription-cap settings (Story 10.3) with their defaults and rejects a bad value', () => {
+  const settings = [
+    ['MAX_CONCURRENT_JOBS_PER_USER', 'maxConcurrentJobsPerUser', 3, '6'],
+    ['MAX_QUEUED_JOBS_PER_USER', 'maxQueuedJobsPerUser', 10, '12'],
+    ['JOB_QUEUE_MAX_WAIT_MINUTES', 'jobQueueMaxWaitMinutes', 30, '45'],
+    ['MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', 'maxSubscribedAccountsFreeUser', 5, '8'],
+  ] as const;
+  for (const [name, key, fallback, custom] of settings) {
+    assert.strictEqual(withRateLimitEnv(name, undefined, () => loadBackendEnv()[key]), fallback, `${name} default`);
+    assert.strictEqual(withRateLimitEnv(name, custom, () => loadBackendEnv()[key]), Number(custom), `${name} custom`);
+    for (const bad of ['0', '-1', '3x', '1.5', ' ']) {
+      assert.throws(
+        () => withRateLimitEnv(name, bad, () => loadBackendEnv()),
+        new RegExp(`${name} must be a positive integer`),
+        `${name}=${JSON.stringify(bad)}`
+      );
+    }
+  }
+});

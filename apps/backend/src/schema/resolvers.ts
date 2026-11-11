@@ -39,10 +39,11 @@ import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAU
 import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression, expressionFromFlatFilter, isFilterGroupNode } from '@festgrid/domain/ai-event-filters';
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import type { EventFilterInput } from '@festgrid/domain/events';
-import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
+import { SUPPORTED_PLATFORMS, SubscriptionCapReachedError, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText, resolveScrapeHandle } from '@festgrid/domain';
 import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, REEXTRACT_APPLY_WINDOW_MS, type ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
+import { restoreSubscription } from '../lib/subscriptions/restore-subscription.js';
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decideInitialOrIncrementalNewerThan } from '../lib/scraper/decide-initial-or-incremental-scrape.js';
@@ -166,6 +167,24 @@ function formatApiKey(row: any): any {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/**
+ * Story 10.3 (AC7): the typed cap refusal becomes the GraphQL error `SUBSCRIPTION_CAP_REACHED` with the three numbers in
+ * `extensions` (the refusal screen and the upgrade call to action are Story 10.3a). Any other error is returned as is.
+ */
+function toSubscriptionCapGraphQLError(err: unknown): unknown {
+  if (err instanceof SubscriptionCapReachedError) {
+    return new GraphQLError(err.message, {
+      extensions: {
+        code: 'SUBSCRIPTION_CAP_REACHED',
+        activeCount: err.activeCount,
+        reservedCount: err.reservedCount,
+        cap: err.cap,
+      },
+    });
+  }
+  return err;
 }
 
 function formatSubscription(row: any): any {
@@ -692,7 +711,7 @@ export const resolvers: Resolvers = {
             extensions: { code: 'SCRAPER_CAPACITY_EXCEEDED' },
           });
         }
-        throw err;
+        throw toSubscriptionCapGraphQLError(err);
       }
     },
     removeSubscription: async (_, { id, action }, context) => {
@@ -718,11 +737,17 @@ export const resolvers: Resolvers = {
         if (existing.deletedAt === null) {
           throw new GraphQLError('Subscription is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
         }
-        const [updated] = await db.update(subscriptions)
-          .set({ deletedAt: null, updatedAt: new Date() })
-          .where(eq(subscriptions.id, id))
-          .returning();
-        return formatSubscription(updated);
+        // Story 10.3: restoring makes a subscription active again, so the cap applies (FR122).
+        let restored;
+        try {
+          restored = await restoreSubscription(authUser.userId, id);
+        } catch (err) {
+          throw toSubscriptionCapGraphQLError(err);
+        }
+        if (!restored) {
+          throw new GraphQLError('Subscription is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        return formatSubscription(restored);
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },

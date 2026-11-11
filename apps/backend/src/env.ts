@@ -155,6 +155,14 @@ export interface BackendEnv {
   // Story 10.1a -- TTL (minutes) of the worker's claim on a job (jobs.worker_claimed_at), after which a crashed worker's
   // claim can be taken over. Mirrors accountClassificationClaimTtlMinutes (AD-41 Rule 3).
   jobWorkerClaimTtlMinutes: number;
+  // Story 10.3 -- admission (FR121). Places one user may hold at once (an admitted QUEUED or RUNNING job holds one).
+  maxConcurrentJobsPerUser: number;
+  // Story 10.3 -- jobs one user may have waiting for a place; a start beyond it is refused JOB_QUEUE_FULL.
+  maxQueuedJobsPerUser: number;
+  // Story 10.3 -- minutes a job may wait for a place (from queued_since) before the sweep ends it EXPIRED / WAITED_TOO_LONG.
+  jobQueueMaxWaitMinutes: number;
+  // Story 10.3 -- the subscription cap (FR122) for every user who is not a moderator.
+  maxSubscribedAccountsFreeUser: number;
   // Story 3.6n (AC5) — remaining-time floor (ms), read from the Lambda Context's
   // getRemainingTimeInMillis() before starting face detection. Below this floor, the stage is
   // skipped defensively rather than risking an AWS-enforced hard kill mid-stage. The 60000ms
@@ -447,6 +455,14 @@ export function loadBackendEnv(): BackendEnv {
     jobAttemptDeadlineMs: parsePositiveInt(process.env.JOB_ATTEMPT_DEADLINE_MS, 'JOB_ATTEMPT_DEADLINE_MS', 150000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     jobWorkerClaimTtlMinutes: parsePositiveInt(process.env.JOB_WORKER_CLAIM_TTL_MINUTES, 'JOB_WORKER_CLAIM_TTL_MINUTES', 5),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    maxConcurrentJobsPerUser: parsePositiveInt(process.env.MAX_CONCURRENT_JOBS_PER_USER, 'MAX_CONCURRENT_JOBS_PER_USER', 3),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    maxQueuedJobsPerUser: parsePositiveInt(process.env.MAX_QUEUED_JOBS_PER_USER, 'MAX_QUEUED_JOBS_PER_USER', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobQueueMaxWaitMinutes: parsePositiveInt(process.env.JOB_QUEUE_MAX_WAIT_MINUTES, 'JOB_QUEUE_MAX_WAIT_MINUTES', 30),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    maxSubscribedAccountsFreeUser: parsePositiveInt(process.env.MAX_SUBSCRIBED_ACCOUNTS_FREE_USER, 'MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', 5),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     faceBlurMinRemainingTimeMs: parseNonNegativeInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS, 'FACE_BLUR_MIN_REMAINING_TIME_MS', 60000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
