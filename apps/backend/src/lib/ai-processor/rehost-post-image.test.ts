@@ -94,6 +94,8 @@ test('rehostPostImage integration/unit tests', async (t) => {
     dataIngestionInlineFallbackEnabled: false,
     postExtractionClaimTtlMinutes: 30,
     accountClassificationClaimTtlMinutes: 30,
+    jobAttemptDeadlineMs: 150000,
+    jobWorkerClaimTtlMinutes: 5,
     faceBlurMinRemainingTimeMs: 60000,
     blurFacesBeforeAi: false,
     apifyScrapingConfirmed: true,

@@ -766,6 +766,24 @@ export class FestgridBackendStack extends cdk.Stack {
     // after a mid-run failure would otherwise spend a second Gemini key call for the same job.
     aiProcessorLambda.configureAsyncInvoke({ retryAttempts: 0 });
 
+    // Story 10.1a (AD-53) -- the background-job engine. Every start and hand-off is an async invoke of a host Lambda that
+    // carries only `{ jobId }`; the receiving Lambda reloads the job row (AD-41 Rule 2). Names are attached with
+    // addEnvironment so no Lambda's construct props change. No new Lambda, queue or secret.
+    //  * API -> Scraper: startJob for a job type hosted on the Scraper. (The API's invoke of the AI-processor for a type
+    //    hosted there is the Story 4.2b grant above; no further grant is needed.)
+    //  * Scraper -> AI-processor: the cross-Lambda phase hand-off of a scrape-then-extract job. No reverse grant: no known
+    //    job type needs AI-processor -> Scraper, so the first story that does adds it.
+    scraperLambda.grantInvoke(apiLambda);
+    apiLambda.addEnvironment('SCRAPER_FUNCTION_NAME', scraperLambda.functionName);
+    aiProcessorLambda.grantInvoke(scraperLambda);
+    scraperLambda.addEnvironment('AI_PROCESSOR_FUNCTION_NAME', aiProcessorLambda.functionName);
+    // Both worker Lambdas run `job-engine-run`, so both need the run budget and the claim TTL (the API Lambda only starts
+    // jobs and reads neither).
+    for (const worker of [scraperLambda, aiProcessorLambda]) {
+      worker.addEnvironment('JOB_ATTEMPT_DEADLINE_MS', process.env.JOB_ATTEMPT_DEADLINE_MS || '150000');
+      worker.addEnvironment('JOB_WORKER_CLAIM_TTL_MINUTES', process.env.JOB_WORKER_CLAIM_TTL_MINUTES || '5');
+    }
+
     // Scraper needs to enqueue onto AIProcessingQueue too (Story 3.6z, automatic extraction
     // on scrape) -- same prod-incident lesson as above: a queue-URL env var with no matching
     // grant fails every call with SQS AccessDenied, confirmed only via CloudWatch.
@@ -979,6 +997,17 @@ export class FestgridBackendStack extends cdk.Stack {
     });
     staleJobSweepRule.addTarget(new targets.LambdaFunction(scraperLambda, {
       event: events.RuleTargetInput.fromObject({ jobType: 'stale-job-sweep' }),
+    }));
+
+    // Story 10.1a (AD-53) -- the job engine's sweep, every 5 minutes in every stage. Database only (it makes no vendor or
+    // AWS call), which is why it is a separate rule from the hourly vendor sweep above: that one also makes Bright Data and
+    // Apify progress calls and must not run more often. It ends admitted jobs past their deadline and enforces
+    // manual-extraction caption/preview retention.
+    const jobEngineSweepRule = new events.Rule(this, `ScraperJobEngineSweepRule-${stageName}`, {
+      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+    });
+    jobEngineSweepRule.addTarget(new targets.LambdaFunction(scraperLambda, {
+      event: events.RuleTargetInput.fromObject({ jobType: 'job-engine-sweep' }),
     }));
 
     // IDEA-096: the alert path that does not depend on SES (BUG-073). The Lambdas write CloudWatch

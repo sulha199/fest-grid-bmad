@@ -1229,3 +1229,81 @@ export const alertEmailRateLimits = pgTable('alert_email_rate_limits', {
   windowStartAt: timestamp('window_start_at', { withTimezone: true }).defaultNow().notNull(),
   ...timestamps,
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// Background vendor jobs (Epic 10, Story 10.1a; PRD 3.18 and 4.21; Architecture Spine AD-53).
+//
+// ONE job record for every long-running, vendor-backed action. It REFERENCES the four vendor-run tables
+// (apify_pending_jobs, brightdata_pending_jobs, scraper_actor_runs, vendor_call_locks) and replaces none of them;
+// `manual_extraction_jobs` is untouched (moving it onto this table is Story 10.9's decision, OI-4).
+// No `deletedAt`: these are append-only lifecycle records, like scraper_actor_runs and profile_lookup_attempts.
+// ---------------------------------------------------------------------------------------------------------------
+
+// PRD 4.21 JobStatus. QUEUED holds no place (waiting for one), RUNNING is the only status that holds a place,
+// WAITING holds none (waiting for a later time or for a result from elsewhere), FR117 and FR121.
+export const jobStatusEnum = pgEnum('job_status', [
+  'QUEUED', 'RUNNING', 'WAITING', 'SUCCEEDED', 'SUCCEEDED_WITH_LIMITS', 'FAILED', 'EXPIRED',
+]);
+
+// FR130: a user job is started by a person and has an owner; a system job is started by the platform and has none.
+export const jobTriggerEnum = pgEnum('job_trigger', ['USER', 'SYSTEM']);
+
+// PRD 4.21 JobAttempt.outcome.
+export const jobAttemptOutcomeEnum = pgEnum('job_attempt_outcome', [
+  'SUCCEEDED', 'FAILED', 'EMPTY', 'TIMED_OUT', 'OVER_QUOTA', 'SKIPPED',
+]);
+
+export const jobs = pgTable('jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  // `type`, `reason_code` and `phase` are deliberately text, not enums: every adoption story adds a job type and
+  // PRD 4.21 says the reason codes are "extended by the story that adds a job type", so a new value never needs a
+  // migration (the same reasoning as manual_extraction_jobs.error_code).
+  type: text('type').notNull(),
+  // Required for a USER job, absent for a SYSTEM job: CHECK jobs_user_job_has_owner (FR130), added in migration
+  // 0097 as hand-written SQL because drizzle-kit 0.21 does not emit CHECK constraints (so it is not declared here).
+  ownerUserId: uuid('owner_user_id').references(() => users.id, { onDelete: 'cascade' }),
+  trigger: jobTriggerEnum('trigger').notNull(),
+  // Normalized identity of the work (a post URL, a handle, the sorted post ids). The key for reuse (Story 10.3).
+  inputKey: text('input_key').notNull(),
+  // The type-specific input a handler needs (for example the selected post ids). Never a vendor token or a caption.
+  input: jsonb('input'),
+  status: jobStatusEnum('status').default('QUEUED').notNull(),
+  phase: text('phase'),
+  reasonCode: text('reason_code'),
+  errorMessage: text('error_message'),
+  resultData: jsonb('result_data'),
+  // The bound on the WHOLE job (FR117), from its type's `maxDurationMs`; one run of a handler is capped separately.
+  deadlineAt: timestamp('deadline_at', { withTimezone: true }).notNull(),
+  completedAfterDeadline: boolean('completed_after_deadline').default(false).notNull(),
+  // The worker's claim (AD-41 Rule 3 shape): a dedicated timestamp, so a stale claim from a crashed Lambda is
+  // distinguishable from a fresh one by TTL, and the sweep has something concrete to clear.
+  workerClaimedAt: timestamp('worker_claimed_at', { withTimezone: true }),
+  // "This job may run now". Null while it waits for a place (Story 10.3 queues); set at insert until then.
+  admittedAt: timestamp('admitted_at', { withTimezone: true }),
+  // When a WAITING job's next step is due (a scheduled retry); null when it waits for an event.
+  resumeAt: timestamp('resume_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => ({
+  ownerCreatedAtIdx: index('idx_jobs_owner_created_at').on(t.ownerUserId, t.createdAt),
+  statusDeadlineIdx: index('idx_jobs_status_deadline').on(t.status, t.deadlineAt),
+}));
+
+// One row per provider a job considered (PRD 4.21 JobAttempt), written by the provider chain (Story 10.2). `provider`
+// reuses scraper_run_vendor ('APIFY' | 'BRIGHTDATA'): PRD 4.21 spells the second one 'BRIGHT_DATA', mapped at the
+// GraphQL boundary (Story 10.4), never in the database.
+export const jobAttempts = pgTable('job_attempts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  jobId: uuid('job_id').references(() => jobs.id, { onDelete: 'cascade' }).notNull(),
+  provider: scraperRunVendorEnum('provider').notNull(),
+  outcome: jobAttemptOutcomeEnum('outcome').notNull(),
+  budgetMs: integer('budget_ms').notNull(),
+  elapsedMs: integer('elapsed_ms').notNull(),
+  reasonCode: text('reason_code'),
+  // Set only once the attempt actually dispatched a vendor call that produced a scraper_actor_runs row.
+  scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
+  ...timestamps,
+}, (t) => ({
+  jobIdIdx: index('idx_job_attempts_job_id').on(t.jobId),
+}));
+
