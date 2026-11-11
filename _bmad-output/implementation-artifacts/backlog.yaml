@@ -3052,5 +3052,5 @@ items:
      title: "Per-field accuracy eval of event extraction against labelled posts (akurasi per bidang vs data berlabel), with a baseline and a noise band",
      ref: [implementation-artifacts/spec-extraction-accuracy-eval.md, backlog/IDEA-261111-5cc-extraction-accuracy-eval-per-field.md],
      touches: [app:backend, pkg:domain, cross:ai-extraction, cross:process],
-     note: "Raised after the location-keywords live A/B (2026-11-11) found a prompt rule collapsing a 7-branch post only through repeated live runs. Slice A (offline scorer, runner, baseline compare, workflow) is buildable without prod data or keys; slice B (labelled set, frozen images, first baseline) needs the maintainer. Related to IDEA-072 (AI-filter golden prompts) and AD-44 Rule 10 (live evals are never a CI gate)."}
+     note: "Raised after the location-keywords live A/B (2026-11-11). Slice A (offline scorer, runner, workflow) is unattended-buildable; slice B (labelled set, baseline) needs the maintainer. Detail in the spec."}
 
