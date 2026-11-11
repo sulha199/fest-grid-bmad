@@ -120,6 +120,9 @@ export interface BackendEnv {
   brightdataWebhookBaseUrl?: string;
   // Bright Data's Instagram Profiles dataset (the posts dataset is `brightdataDatasetId`).
   brightdataProfileDatasetId?: string;
+  // POST_SCRAPER_PROVIDER_ORDER (Story 10.2), raw: parsed by parsePostScraperOrder in @festgrid/domain. Default `brightdata,apify`
+  // (owner decision 2026-11-11, PRD OI-1), unlike the profile order below.
+  postScraperProviderOrder?: string;
   // PROFILE_SCRAPER_PROVIDER_ORDER, raw: parsed by parseProfileScraperOrder in @festgrid/domain.
   profileScraperProviderOrder?: string;
   brightdataJobTimeoutMinutes?: number;
@@ -415,6 +418,8 @@ export function loadBackendEnv(): BackendEnv {
     brightdataDatasetId: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataProfileDatasetId: process.env.BRIGHTDATA_PROFILE_DATASET_ID || 'gd_l1vikfch901nx3by4',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    postScraperProviderOrder: process.env.POST_SCRAPER_PROVIDER_ORDER,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     profileScraperProviderOrder: process.env.PROFILE_SCRAPER_PROVIDER_ORDER,
     // eslint-disable-next-line turbo/no-undeclared-env-vars

@@ -7,7 +7,7 @@ baseline_commit: 9573fbee8668742cf2c62de8ab23fabb4f98edfe
 
 - Epic: 10 (Background vendor jobs: one engine, one Jobs page)
 - Story ID: 10.3
-- Status: review
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

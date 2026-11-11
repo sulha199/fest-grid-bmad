@@ -17,3 +17,6 @@ export * from "./posting-cadence.js";
 export * from "./evaluate-provider-run-health.js";
 export * from "./resolve-scrape-due-cutoff.js";
 export * from "./apify-memory-limit-wait.js";
+export * from "./post-scraper-adapter.js";
+export * from "./merge-post-image-urls.js";
+export * from "./transient-vendor-failure.js";

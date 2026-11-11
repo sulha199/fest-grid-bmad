@@ -1,3 +1,4 @@
+import { isTransientVendorFailure } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
 import { callVendor } from '../vendor-gateway/guarded-call.js';
 
@@ -14,19 +15,13 @@ export class BrightDataApiError extends Error {
   }
 }
 
-const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EAI_AGAIN']);
-
+// Story 10.2 (FIND-082): the rule is the shared `isTransientVendorFailure`; this function only says where to read the
+// status and the code from.
 export function isBrightDataErrorTransient(error: unknown): boolean {
   if (error instanceof BrightDataApiError) {
-    return error.statusCode >= 500 && error.statusCode <= 599;
+    return isTransientVendorFailure({ statusCode: error.statusCode });
   }
-
-  const code = (error as any)?.code ?? (error as any)?.cause?.code;
-  if (typeof code === 'string' && TRANSIENT_CONNECTION_CODES.has(code)) {
-    return true;
-  }
-
-  return false;
+  return isTransientVendorFailure({ code: (error as any)?.code ?? (error as any)?.cause?.code });
 }
 
 export interface BrightDataTriggerInput {
@@ -55,6 +50,7 @@ let triggerBrightDataJobFn = _triggerBrightDataJob;
 let getBrightDataProgressFn = _getBrightDataProgress;
 let getBrightDataSnapshotFn = _getBrightDataSnapshot;
 let scrapeBrightDataProfileFn = _scrapeBrightDataProfile;
+let scrapeBrightDataPostFn = _scrapeBrightDataPost;
 
 export function setTriggerBrightDataJob(fn: typeof _triggerBrightDataJob) {
   triggerBrightDataJobFn = fn;
@@ -70,6 +66,10 @@ export function setGetBrightDataSnapshot(fn: typeof _getBrightDataSnapshot) {
 
 export function setScrapeBrightDataProfile(fn: typeof _scrapeBrightDataProfile) {
   scrapeBrightDataProfileFn = fn;
+}
+
+export function setScrapeBrightDataPost(fn: typeof _scrapeBrightDataPost) {
+  scrapeBrightDataPostFn = fn;
 }
 
 async function _triggerBrightDataJob(
@@ -277,6 +277,23 @@ function splitProfileRecords(records: unknown[]): BrightDataProfileScrape {
  * at the vendor).
  */
 async function _scrapeBrightDataProfile(profileUrl: string, budgetMs: number): Promise<BrightDataProfileScrape> {
+  return scrapeBrightDataDataset({ datasetEnv: 'brightdataProfileDatasetId', datasetEnvName: 'BRIGHTDATA_PROFILE_DATASET_ID' }, profileUrl, budgetMs);
+}
+
+/**
+ * One post through Bright Data's Instagram Posts dataset (`brightdataDatasetId`, Story 10.2): the same synchronous
+ * `/datasets/v3/scrape` then snapshot polling as the profile scrape, with `[{ url }]` as the input. Billed and not idempotent,
+ * so never retried.
+ */
+async function _scrapeBrightDataPost(postUrl: string, budgetMs: number): Promise<BrightDataProfileScrape> {
+  return scrapeBrightDataDataset({ datasetEnv: 'brightdataDatasetId', datasetEnvName: 'BRIGHTDATA_DATASET_ID' }, postUrl, budgetMs);
+}
+
+async function scrapeBrightDataDataset(
+  dataset: { datasetEnv: 'brightdataProfileDatasetId' | 'brightdataDatasetId'; datasetEnvName: string },
+  inputUrl: string,
+  budgetMs: number
+): Promise<BrightDataProfileScrape> {
   const startedAt = Date.now();
   const elapsed = () => Date.now() - startedAt;
 
@@ -290,18 +307,19 @@ async function _scrapeBrightDataProfile(profileUrl: string, budgetMs: number): P
       if (!env.brightdataApiToken) {
         throw new Error('BRIGHTDATA_API_TOKEN is not set');
       }
-      if (!env.brightdataProfileDatasetId) {
-        throw new Error('BRIGHTDATA_PROFILE_DATASET_ID is not set');
+      const datasetId = env[dataset.datasetEnv];
+      if (!datasetId) {
+        throw new Error(`${dataset.datasetEnvName} is not set`);
       }
       const url = new URL('https://api.brightdata.com/datasets/v3/scrape');
-      url.searchParams.set('dataset_id', env.brightdataProfileDatasetId);
+      url.searchParams.set('dataset_id', datasetId);
       url.searchParams.set('format', 'json');
       url.searchParams.set('include_errors', 'true');
 
       const response = await fetch(url.toString(), {
         method: 'POST',
         headers: { Authorization: `Bearer ${env.brightdataApiToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify([{ url: profileUrl }]),
+        body: JSON.stringify([{ url: inputUrl }]),
         signal,
       });
 
@@ -347,6 +365,10 @@ async function _scrapeBrightDataProfile(profileUrl: string, budgetMs: number): P
 
 export async function scrapeBrightDataProfile(profileUrl: string, budgetMs: number): Promise<BrightDataProfileScrape> {
   return scrapeBrightDataProfileFn(profileUrl, budgetMs);
+}
+
+export async function scrapeBrightDataPost(postUrl: string, budgetMs: number): Promise<BrightDataProfileScrape> {
+  return scrapeBrightDataPostFn(postUrl, budgetMs);
 }
 
 export async function triggerBrightDataJob(

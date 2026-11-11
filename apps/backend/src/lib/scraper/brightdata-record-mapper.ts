@@ -1,7 +1,7 @@
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 import { compileValidator } from '../../validation/validate.js';
 import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
-import type { ScrapedPost } from '@festgrid/domain';
+import { buildPostImageUrls, dedupeImageUrlsByFileName, type ScrapedPost } from '@festgrid/domain';
 
 const validateScrapedPost = compileValidator<ScrapedPost>(scrapedPostSchema);
 
@@ -32,9 +32,12 @@ export async function mapBrightDataRecordToScrapedPost(
   // against real runs, 2026-09-18: counts of 2, 4, 5, 6, 9, 11, 18 photos observed across
   // carousel records). Every slide beyond the cover goes into additionalImageUrls, mirroring
   // Story 3.3e's Apify field of the same name/shape.
-  const additionalImageUrls = Array.isArray(photos)
-    ? photos.slice(1).filter((url): url is string => typeof url === 'string')
-    : [];
+  // Story 10.2 AC5 (BUG-261102-4rm): the slide list never contains the cover, even when a vendor repeats it later in the
+  // list under a different signed query (compared by file name), and a repeated slide is dropped.
+  const slideUrls = Array.isArray(photos) ? photos.slice(1).filter((url): url is string => typeof url === 'string') : [];
+  const additionalImageUrls = imageUrl
+    ? buildPostImageUrls(imageUrl, slideUrls).additionalImageUrls
+    : dedupeImageUrlsByFileName(slideUrls);
   const caption = brightDataRecord.description as string;
   const datePosted = brightDataRecord.date_posted;
   const videos = brightDataRecord.videos as unknown[] | null | undefined;

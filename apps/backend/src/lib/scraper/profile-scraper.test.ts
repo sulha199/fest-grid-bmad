@@ -7,6 +7,13 @@ import { apifyProfileAdapter, instagramScraperAdapter, setCallApifyActor, callAp
 import { brightDataProfileAdapter } from './brightdata-profile-adapter.js';
 import { scrapeBrightDataProfile, setScrapeBrightDataProfile } from './brightdata-client.js';
 import { clearApifyProviderUsage, clearBrightDataProviderUsage } from './usage-store-test-helpers.js';
+import { setRememberExhaustedCapacity } from './usage-store.js';
+// Story 10.2: this file provokes Apify's monthly-limit refusal; do not write the real `apify` usage row (parallel suites share it).
+const rememberedExhausted: string[] = [];
+setRememberExhaustedCapacity(async (provider) => {
+  rememberedExhausted.push(provider);
+});
+
 
 const profile: ScrapedProfile = { accountId: '1', username: 'someone', displayName: 'Some One', biography: 'bio', businessCategoryName: null };
 

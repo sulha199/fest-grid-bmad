@@ -1216,3 +1216,24 @@ test('FestgridBackendStack: the job engine wiring (Story 10.1a)', () => {
     });
   }
 });
+
+// Story 10.2: the post-scraper provider order reaches the Scraper Lambda (which holds both vendor tokens), and only when set,
+// so an unset variable leaves the code default (brightdata,apify, owner decision 2026-11-11, PRD OI-1) in force.
+test('FestgridBackendStack: POST_SCRAPER_PROVIDER_ORDER is passed to the Scraper Lambda only when set (Story 10.2)', () => {
+  const saved = process.env.POST_SCRAPER_PROVIDER_ORDER;
+  const scraperEnv = (value: string | undefined) => {
+    if (value === undefined) delete process.env.POST_SCRAPER_PROVIDER_ORDER;
+    else process.env.POST_SCRAPER_PROVIDER_ORDER = value;
+    const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), `TestStackPostOrder${value ?? 'Unset'}`.replace(/[^A-Za-z0-9]/g, ''), { stageName: 'dev' }));
+    const entry = Object.entries(template.findResources('AWS::Lambda::Function')).find(([id]) => id.startsWith('ScraperLambda'));
+    assert.ok(entry, 'ScraperLambda in the template');
+    return (entry![1] as { Properties: { Environment: { Variables: Record<string, unknown> } } }).Properties.Environment.Variables;
+  };
+  try {
+    assert.equal(scraperEnv('apify,brightdata').POST_SCRAPER_PROVIDER_ORDER, 'apify,brightdata');
+    assert.equal('POST_SCRAPER_PROVIDER_ORDER' in scraperEnv(undefined), false);
+  } finally {
+    if (saved === undefined) delete process.env.POST_SCRAPER_PROVIDER_ORDER;
+    else process.env.POST_SCRAPER_PROVIDER_ORDER = saved;
+  }
+});

@@ -3615,6 +3615,33 @@ This document defines the core architectural invariants for the FestDaily applic
         Known edge: the subscription is written before the vendor cascade and removed again if the cascade throws; a
         concurrent subscribe to the same account in that window can report `alreadySubscribed` for a row that is then
         removed, and a Lambda killed mid-cascade leaves the row (a retry returns `alreadySubscribed`).
+    15. **The post-scraper provider chain (Story 10.2, FR118).** Fetching one post goes through
+        `fetchScrapedPost` (`lib/scraper/post-scraper.ts`): an ordered chain of `PostScraperAdapter`s (pure contract and
+        `runPostScraperChain` in `packages/domain/src/scraper/post-scraper-adapter.ts`, the twin of the profile chain), order
+        `POST_SCRAPER_PROVIDER_ORDER`, **default `brightdata,apify`** (owner decision 2026-11-11, PRD OI-1: the profile chain keeps
+        Apify first, so posts prefer Bright Data to spare Apify's free plan; Bright Data's images are 640 px). It runs in the
+        Scraper Lambda, which holds both vendor tokens. Each adapter goes through the guarded vendor call (AD-32), declares
+        `minBudgetMs`, and is skipped without a call when the time left is too short, its provider's cap is known to be used up,
+        or its provider is degraded (the same `gateDegradedProvider` the daily batch uses; a `probe` verdict goes ahead). A check
+        that cannot be read fails open. An adapter's own timeout THROWS (a chain must never read a timeout as "the post does not
+        exist"), and the Apify call is bounded by the time the chain has left.
+        `null` from an adapter means the vendor says the post does not exist (the chain stops); an empty or unreadable result
+        THROWS (`PostUnavailableError`) so the next provider is tried. Each provider considered writes one `job_attempts` row
+        (`lib/job-engine/record-job-attempt.ts`; outcome SUCCEEDED, FAILED, EMPTY, TIMED_OUT, OVER_QUOTA or SKIPPED, a reason code
+        only, never the raw vendor error). An exhausted Apify monthly cap is remembered for the rest of the usage cycle
+        (`scraper_provider_usage.capacity_exhausted_until`, set by `markProviderCapacityExhausted`, read by
+        `isProviderCapacityAvailable`). Our usage cycle is not Apify's billing date, so the marker is the end of our cycle OR three
+        days from now, whichever is sooner: at worst one refused call every three days, never a month of skipping a provider whose
+        plan has reset or been upgraded. It also spares the daily batch one refused start per target (IDEA-101); a queued scrape
+        that meets the remembered cap is dropped with one warning, never redelivered into the DLQ. The credential comes from the job type through
+        `resolvePostScrapeCredential` (`app-funded` only until Story 3-4b, PRD OI-3). **For adopters (Stories 10.5 to 10.10):** a chain that skipped every provider
+        throws `PostScraperBudgetError`, which is a pre-vendor-call failure like `ScraperCapacityExceededError`: it must not start
+        the 10-minute re-extract cooldown (add it to `isPreVendorCallFailure`). `POST_SCRAPER_PROVIDER_ORDER` is set only on the
+        Scraper Lambda, where the chain runs; set it on the API Lambda too if a caller there ever uses the chain. The cover and the slide list come from
+        `buildPostImageUrls`, so the slides never repeat the cover (BUG-261102-4rm). One transient-error rule,
+        `isTransientVendorFailure`, serves the Apify, Bright Data and Gemini classifiers (FIND-082). **No production caller uses
+        the chain yet**: `start-post-reextraction-preview.ts` and `resume-stalled-chains.ts` still call `getPostByUrl`; Stories 10.5
+        to 10.10 adopt it. Only Instagram has a chain; another platform uses its own adapter.
 *   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
     Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
     (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the
@@ -3633,7 +3660,9 @@ This document defines the core architectural invariants for the FestDaily applic
     `job-engine-branches.test.ts`, the CDK assertions of Story 10.1a; for Story 10.3 `admit-job.test.ts`,
     `promote-queued-jobs.test.ts`, `readmit-waiting-job.test.ts`, `cancel-job.test.ts`, `settle-followers.test.ts`,
     `sweep-job-queue.test.ts`, `admission.concurrency.test.ts` (simultaneous starts, exact counts),
-    `subscribe-to-account.cap.test.ts` and the CDK assertion of the four settings; Story 10.14z adds the ratchets.
+    `subscribe-to-account.cap.test.ts` and the CDK assertion of the four settings; for Story 10.2 `post-scraper-adapter.test.ts`
+    (domain), `post-scraper.test.ts`, `brightdata-post-adapter.test.ts`, `record-job-attempt.test.ts`, the quota-memory tests in
+    `usage-store.test.ts` and `transient-classifiers.test.ts`; Story 10.14z adds the ratchets.
 
 ---
 

@@ -715,6 +715,13 @@
       "when": 1794406852544,
       "tag": "0101_bizarre_kronos",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "6",
+      "when": 1794414506819,
+      "tag": "0102_scraper_provider_capacity_exhausted_until",
+      "breakpoints": true
     }
   ]
 }

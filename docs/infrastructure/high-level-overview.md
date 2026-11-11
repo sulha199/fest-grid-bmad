@@ -86,6 +86,7 @@ graph TD
     Apify -- webhook callback --> L_ApifyWebhook
     L_ApifyWebhook -- persists scraped posts to --> Supabase
     L_Scrape -- triggers async job (webhook endpoint) --> BrightData
+    L_Scrape -- fetches one post (post chain: Bright Data first, then Apify) --> BrightData
     BrightData -- webhook callback --> L_BDWebhook
     L_BDWebhook -- persists scraped posts to --> Supabase
     L_BDWebhook -- checks an empty result --> BrightData

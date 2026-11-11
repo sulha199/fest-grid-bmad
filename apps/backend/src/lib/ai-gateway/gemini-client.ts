@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { isTransientVendorFailure } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
 import { callVendor } from '../vendor-gateway/guarded-call.js';
 
@@ -159,8 +160,6 @@ export let callGeminiGenerateContent = async (
 // only a GeminiUnknownError whose originalError looks like a network/5xx failure is transient.
 // GeminiRateLimitedError/GeminiInvalidKeyError are never transient -- callGemini's own
 // cross-key exclusion loop handles those exclusively, unchanged.
-const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EAI_AGAIN']);
-
 export function isGeminiErrorTransient(error: unknown): boolean {
   if (error instanceof GeminiRateLimitedError || error instanceof GeminiInvalidKeyError) {
     return false;
@@ -170,18 +169,13 @@ export function isGeminiErrorTransient(error: unknown): boolean {
     return false;
   }
 
+  // Story 10.2 (FIND-082): the rule is the shared `isTransientVendorFailure`; this reads the status and the code from the
+  // wrapped SDK error.
   const originalError: any = error.originalError;
-  const status = originalError?.status ?? originalError?.statusCode ?? originalError?.status_code;
-  if (typeof status === 'number' && status >= 500 && status <= 599) {
-    return true;
-  }
-
-  const code = originalError?.code ?? originalError?.cause?.code;
-  if (typeof code === 'string' && TRANSIENT_CONNECTION_CODES.has(code)) {
-    return true;
-  }
-
-  return false;
+  return isTransientVendorFailure({
+    statusCode: originalError?.status ?? originalError?.statusCode ?? originalError?.status_code,
+    code: originalError?.code ?? originalError?.cause?.code,
+  });
 }
 
 export function setCallGeminiGenerateContent(fn: typeof callGeminiGenerateContent) {

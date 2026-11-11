@@ -18,6 +18,13 @@ import {
 import { getManualExtractionJobStatus } from './manual-extraction-job.js';
 import { claimPostUrlScrape } from '../scraper/post-url-scrape-lease.js';
 import { VendorDpaNotConfirmedError } from '../vendor-gateway/guarded-call.js';
+import { setRememberExhaustedCapacity } from '../scraper/usage-store.js';
+// Story 10.2: this file provokes Apify's monthly-limit refusal; do not write the real `apify` usage row (parallel suites share it).
+const rememberedExhausted: string[] = [];
+setRememberExhaustedCapacity(async (provider) => {
+  rememberedExhausted.push(provider);
+});
+
 
 // AD-40 -- the API-Lambda half of the moderator re-extract preview. The AI Lambda invoke is not
 // configured under test, so a job that gets as far as starting fails to start and is marked FAILED:

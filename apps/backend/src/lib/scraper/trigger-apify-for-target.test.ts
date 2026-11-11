@@ -9,6 +9,13 @@ import { ApifyApiError } from 'apify-client';
 import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { clearApifyProviderUsage, APIFY_TEST_PROVIDER } from './usage-store-test-helpers.js';
 import { PROVIDER_PROBES_PER_INTERVAL, resetProviderProbeClaimsForTests } from './provider-run-health-store.js';
+import { setRememberExhaustedCapacity } from './usage-store.js';
+// Story 10.2: this file provokes Apify's monthly-limit refusal; do not write the real `apify` usage row (parallel suites share it).
+const rememberedExhausted: string[] = [];
+setRememberExhaustedCapacity(async (provider) => {
+  rememberedExhausted.push(provider);
+});
+
 
 test('trigger-apify-for-target tests', async (t) => {
   let testProfileId: string;
@@ -407,6 +414,9 @@ test('trigger-apify-for-target tests', async (t) => {
         '2026-10-13T00:00:00.000Z'
       );
       assert.deepStrictEqual(result, { success: false, failureReason: 'CAPACITY_EXHAUSTED' });
+      // Story 10.2 (IDEA-101): the refusal is remembered for the rest of the usage cycle, so the next caller skips Apify
+      // without a refused start.
+      assert.deepStrictEqual(rememberedExhausted, ['apify']);
     } finally {
       console.error = originalError;
       console.warn = originalWarn;
