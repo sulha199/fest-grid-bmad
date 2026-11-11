@@ -87,16 +87,22 @@ BRIEF_WORD_CAP = 20
 CONFIRM_MAX = 10  # pairs in one confirmation: the per-run cap of merges, and the reject cap of a day
 # The popup's options are constants, never worded by the model; only a selected option's exact label counts as that answer.
 LABEL_ACCEPT, LABEL_REJECT, LABEL_SKIP = 'Accept (merge)', 'Reject', 'Skip'
+LABEL_OVERRIDE = 'Merge regardless of the floor'  # FIND-125: a merge the floor refuses (apply action accept-override)
 LABEL_YES, LABEL_NO = 'Yes, dispatch the live apply', 'No'
 REJECT_COST = 'A reject hides this pair from every moderator and cannot be undone in the app; only the owner can reopen it, by SQL.'
+OVERRIDE_CHECKS = 'a shared anchor, the venue, the date window, every schedule covered, the names, the tier, and an earlier undo of this pair'
+OVERRIDE_UNDO = 'a merge can be undone with undoEventMerge'
+OVERRIDE_COST = 'Merge although the floor refuses this pair: it skips the floor\'s checks, so only your own reading of the two events stands; %s.' % OVERRIDE_UNDO
 OPTION_DESCRIPTIONS = {
     LABEL_ACCEPT: 'Merge the new event into the existing one. A merge can be undone in the app.',
     LABEL_REJECT: REJECT_COST,
+    LABEL_OVERRIDE: OVERRIDE_COST,
     LABEL_SKIP: 'Leave this pair as it is.',
     LABEL_YES: 'Dispatch the live apply for exactly the pairs listed above. The owner still approves the run in the Actions tab.',
     LABEL_NO: 'Dispatch nothing.',
 }
-OFFER_TOKENS = ('accept', 'reject')
+OFFER_TOKENS = ('accept', 'reject', 'override')
+ACTION_OVERRIDE = 'accept-override'  # the apply side's action (FIND-124)
 BRIEF_TIERS = ((BRIEF_LINE, 4, 5), (80, 3, 3), (50, 2, 2), (30, 1, 1))  # field length, schedules and types shown: the text shrinks until it fits
 MAX_DECISIONS_CHARS = 65535
 MAX_LOG_BYTES = 50_000_000
@@ -485,9 +491,11 @@ def validate_export(payload, expected_tag):
     return payload
 
 
-def validate_apply(payload, expected_mode, expected_tag, expected_ids, expected_reject_ids=None):
+def validate_apply(payload, expected_mode, expected_tag, expected_ids, expected_reject_ids=None, expected_override_ids=()):
     """`expected_ids` None skips the exact-set check (used when only the merges matter). `expected_reject_ids` None skips
-    the check of each result's action; a list says exactly which dispatched ids were rejects (an empty list: none were)."""
+    the check of each result's action; a list says exactly which dispatched ids were rejects (an empty list: none were).
+    `expected_override_ids` says exactly which ids were dispatched as `accept-override`; the default is none, so a report
+    that holds an override nobody announced is refused (fail closed)."""
     mode = payload.get('mode')
     if mode == 'disabled':
         raise ReportError(EXIT_REFUSED, 'the report says the kill switch is on: apply did nothing')
@@ -506,7 +514,8 @@ def validate_apply(payload, expected_mode, expected_tag, expected_ids, expected_
         seen.append(result['suggestionId'])
         outcome = result.get('outcome')
         require(outcome in tally, 'a result has a bad outcome')
-        require(result.get('action') in ('accept', 'reject'), 'a result has no action of accept or reject (the report is from before rejects existed, or damaged)')
+        require(result.get('action') in ('accept', 'reject', ACTION_OVERRIDE), 'a result has no action of accept, reject or accept-override (the report is from before rejects existed, or damaged)')
+        require((result['action'] == ACTION_OVERRIDE) == (result['suggestionId'] in expected_override_ids), 'a result has an action that is not what was dispatched for it (an override that was not announced, or an announced one that is not)')
         if expected_reject_ids is not None:
             require((result['action'] == 'reject') == (result['suggestionId'] in expected_reject_ids), 'a result has an action that is not what was dispatched for it')
         tally[outcome] += 1
@@ -514,7 +523,7 @@ def validate_apply(payload, expected_mode, expected_tag, expected_ids, expected_
             require(result.get('reason') in ALL_REASONS, 'a skipped result has a reason this reader does not know: add it to the skill first')
         if outcome == 'merged':
             require(mode == 'live', 'a run that is not live reports a merge')
-            require(result['action'] == 'accept', 'a merged result must be an accept')
+            require(result['action'] in ('accept', ACTION_OVERRIDE), 'a merged result must be an accept or an override')
             require(full(UUID, result.get('mergeId')), 'a merged result has a bad mergeId')
         elif outcome == 'rejected':
             require(mode == 'live', 'a run that is not live reports a reject')
@@ -687,25 +696,41 @@ def read_expected_rejects(args, expected_ids):
     return rejects
 
 
+def read_expected_overrides(args, expected_ids, rejects):
+    """`--expect-override-ids`, for `apply` and `close-decided` (and `insight-comment`, with no ids to compare): omitted means
+    no id was dispatched as an override, so a report that holds one is refused. An id that was not dispatched, or that is also a
+    reject, is a bad input (exit 9)."""
+    overrides = parse_ids(args.expect_override_ids, '--expect-override-ids', allow_empty=True) if args.expect_override_ids is not None else []
+    if expected_ids is not None and not set(overrides) <= set(expected_ids):
+        raise ReportError(EXIT_BAD_INPUT, '--expect-override-ids must be among --expect-ids')
+    if set(overrides) & set(rejects):
+        raise ReportError(EXIT_BAD_INPUT, '--expect-override-ids and --expect-reject-ids must not share an id (an id is one action)')
+    return overrides
+
+
 def cmd_apply(args):
     payload = find_report(read_source(args.log), APPLY_BEGIN, APPLY_END)
     expected_ids = parse_ids(args.expect_ids, '--expect-ids')
     rejects = read_expected_rejects(args, expected_ids)
-    validate_apply(payload, args.expect_mode, args.expect_run_tag, expected_ids, rejects)
+    overrides = read_expected_overrides(args, expected_ids, rejects)
+    validate_apply(payload, args.expect_mode, args.expect_run_tag, expected_ids, rejects, overrides)
     print(json.dumps(payload, indent=2))
     return 0
 
 
 def cmd_decisions(args):
     """The decisions input for the apply workflow: the positional ids are accepts (no `action` key, as always), the
-    ids of `--reject` are rejects (`"action":"reject"`, which the workflow refuses unless `allow_rejects` is true).
+    ids of `--reject` are rejects (`"action":"reject"`, which the workflow refuses unless `allow_rejects` is true), the
+    ids of `--override` are floor overrides (`"action":"accept-override"`, refused unless `allow_floor_override` is true).
     Rejects come first: a reject claims no event, so an accept after one on a shared event still stands, while an
-    accept before it would make `validate` skip the reject as `event-already-in-run`."""
+    accept before it would make `validate` skip the reject as `event-already-in-run`. Overrides come last: an accept the
+    floor passes is judged before a merge the floor refuses, so on a shared event the override is the one that waits."""
     payload = load_export(args)
     accepts = [raw.strip().lower() for raw in args.ids]
     rejects = parse_ids(args.reject, '--reject') if args.reject is not None else []
-    index = check_batch(payload, accepts, rejects, MAX_DECISIONS)
-    print(decisions_text(index, accepts, rejects))
+    overrides = parse_ids(args.override, '--override') if args.override is not None else []
+    index = check_batch(payload, accepts, rejects, MAX_DECISIONS, overrides)
+    print(decisions_text(index, accepts, rejects, overrides))
     return 0
 
 
@@ -788,7 +813,7 @@ def build_brief(pair, issue_numbers, offer=('accept',)):
     question, cuts = '', 0
     for limit, schedules, kinds in BRIEF_TIERS:
         counter = [0]
-        merge_words = 'accept' in offer  # a reject-only popup does not talk about merging
+        merge_words = 'accept' in offer or 'override' in offer  # a reject-only popup does not talk about merging
         lines = (brief_event('Existing event (a merge keeps it)' if merge_words else 'Existing event', pair['candidate'], counter, limit, schedules, kinds)
                  + brief_event('New event (a merge folds it in)' if merge_words else 'New event', pair['newEvent'], counter, limit, schedules, kinds))
         lines.append('Signals: tier %s, score %s, name similarity %s' % (signals['tier'], signals['score'], signals['nameSimilarity']))
@@ -797,6 +822,8 @@ def build_brief(pair, issue_numbers, offer=('accept',)):
         lines += ['Clue: %s' % clue for clue in clues]
         if len(issue_numbers) > 1:
             lines.append('Open issues for this pair: %s' % ', '.join('#%d' % number for number in issue_numbers))
+        if 'override' in offer:
+            lines.append('Merge regardless of the floor skips the floor\'s checks; %s.' % OVERRIDE_UNDO)
         if 'reject' not in offer:
             lines.append('To reject, use Moderator Items in the app.')
         question, cuts = '\n'.join(lines), counter[0]
@@ -809,17 +836,20 @@ def build_brief(pair, issue_numbers, offer=('accept',)):
 
 
 def parse_offer(text):
-    """The options to offer: `accept`, `reject` or both, exact lower-case tokens; the default is `accept` (today's popup)."""
+    """The options to offer: `accept`, `reject`, `override` (a merge the floor refuses), exact lower-case tokens, no repeat; the
+    default is `accept` (today's popup). `accept` and `override` are not offered together: a pair the floor passes is an accept."""
     if text is None:
         return ('accept',)
     tokens = text.split(',')
     if any(token not in OFFER_TOKENS for token in tokens) or len(set(tokens)) != len(tokens):
-        raise ReportError(EXIT_BAD_INPUT, '--offer must be accept, reject or accept,reject (skip is always offered)')
+        raise ReportError(EXIT_BAD_INPUT, '--offer must be accept, reject, override, accept,reject or reject,override (skip is always offered)')
+    if 'accept' in tokens and 'override' in tokens:
+        raise ReportError(EXIT_BAD_INPUT, '--offer: accept and override are not offered together (a pair the floor passes is an accept)')
     return tuple(token for token in OFFER_TOKENS if token in tokens)
 
 
 def options_for(offer):
-    labels = ([LABEL_ACCEPT] if 'accept' in offer else []) + ([LABEL_REJECT] if 'reject' in offer else []) + [LABEL_SKIP]
+    labels = ([LABEL_ACCEPT] if 'accept' in offer else []) + ([LABEL_REJECT] if 'reject' in offer else []) + ([LABEL_OVERRIDE] if 'override' in offer else []) + [LABEL_SKIP]
     return [{'label': label, 'description': OPTION_DESCRIPTIONS[label]} for label in labels]
 
 
@@ -838,8 +868,8 @@ def cmd_brief(args):
     offer = parse_offer(args.offer)
     for suggestion_id in ids:
         tier = index[suggestion_id]['signals']['tier']
-        if 'reject' in offer and tier == 'high':
-            raise ReportError(EXIT_BAD_INPUT, 'a pair at tier high is the drain\'s: it is not offered a reject')
+        if ('reject' in offer or 'override' in offer) and tier == 'high':
+            raise ReportError(EXIT_BAD_INPUT, 'a pair at tier high is the drain\'s: it is not offered a reject or an override')
         if 'accept' in offer and tier != 'mid':
             raise ReportError(EXIT_BAD_INPUT, 'only a pair at tier mid is offered an accept')
     numbers = open_issue_numbers(args.files)
@@ -859,26 +889,27 @@ def open_issue_numbers(files):
     return numbers
 
 
-def check_batch(payload, accepts, rejects, cap):
+def check_batch(payload, accepts, rejects, cap, overrides=()):
     """One check for every command that takes a batch (`decisions`, `confirm`): the ids are distinct across both lists,
-    exported, between 1 and `cap`, and no reject is for a pair at tier `high`. Exit 9 for each."""
+    exported, between 1 and `cap`, and no reject or override is for a pair at tier `high`. Exit 9 for each."""
     index = pair_index(payload)
-    ids = accepts + rejects
+    ids = accepts + rejects + overrides
     if len(set(ids)) != len(ids):
-        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is listed twice (an id cannot be both an accept and a reject)')
+        raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is listed twice (an id has one action: accept, reject or override)')
     if any(suggestion_id not in index for suggestion_id in ids):
         raise ReportError(EXIT_BAD_INPUT, 'a suggestion id is not among the exported pairs')
     if not ids or len(ids) > cap:
         raise ReportError(EXIT_BAD_INPUT, 'give between 1 and %d suggestion ids' % cap)
-    if any(index[suggestion_id]['signals']['tier'] == 'high' for suggestion_id in rejects):
-        raise ReportError(EXIT_BAD_INPUT, 'a pair at tier high is the drain\'s: it is not rejected')
+    if any(index[suggestion_id]['signals']['tier'] == 'high' for suggestion_id in rejects + overrides):
+        raise ReportError(EXIT_BAD_INPUT, 'a pair at tier high is the drain\'s: it is not rejected or overridden')
     return index
 
 
-def decisions_text(index, accepts, rejects):
-    """The decisions input, exactly: rejects first (a reject claims no event), an accept carries no `action`."""
+def decisions_text(index, accepts, rejects, overrides=()):
+    """The decisions input, exactly: rejects first (a reject claims no event), an accept carries no `action`, overrides last."""
     decisions = [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': [], 'action': 'reject'} for i in rejects]
     decisions += [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': []} for i in accepts]
+    decisions += [{'suggestionId': i, 'evidenceHash': index[i]['evidenceHash'], 'reasons': [], 'action': ACTION_OVERRIDE} for i in overrides]
     text = json.dumps({'schemaVersion': 1, 'decisions': decisions}, separators=(',', ':'))
     if len(text) > MAX_DECISIONS_CHARS:
         raise ReportError(EXIT_BAD_INPUT, 'the decisions are longer than a workflow input may be')
@@ -888,16 +919,19 @@ def decisions_text(index, accepts, rejects):
 def cmd_confirm(args):
     """The final confirmation of the attended loop, built from the exact ids: each pair by issue number and the first
     8 characters of its id, what a reject costs, what happens if the owner has not switched rejects on, and the
-    `decisions` string to dispatch verbatim. Both lists are required (either may be empty)."""
+    `decisions` string to dispatch verbatim. `--accept` and `--reject` are required (either may be empty); `--override` is
+    optional and omitted means none. For an override the text says what it skips, that the owner's variable must be on, and
+    that undoEventMerge is the undo."""
     payload = load_export(args)
     if args.accept is None or args.reject is None:
         raise ReportError(EXIT_BAD_INPUT, '--accept and --reject are both required (an empty value is none)')
     accepts = parse_ids(args.accept, '--accept', allow_empty=True)
     rejects = parse_ids(args.reject, '--reject', allow_empty=True)
-    index = check_batch(payload, accepts, rejects, CONFIRM_MAX)
+    overrides = parse_ids(args.override, '--override', allow_empty=True) if args.override is not None else []
+    index = check_batch(payload, accepts, rejects, CONFIRM_MAX, overrides)
     numbers = open_issue_numbers(args.files)
 
-    for suggestion_id in accepts + rejects:
+    for suggestion_id in accepts + rejects + overrides:
         if not numbers.get(suggestion_id):
             raise ReportError(EXIT_BAD_INPUT, 'a pair to confirm has no open escalation issue in the given pages: pass the issue pages, and confirm only pairs the popups showed')
     for suggestion_id in accepts:
@@ -917,9 +951,14 @@ def cmd_confirm(args):
         lines += [REJECT_COST,
                   'It is recorded as AI-assisted under your moderator account.',
                   'A reject runs only if the owner has switched rejects on; otherwise the whole run is refused, the accepts included.']
+    if overrides:
+        lines.append('%s %d pair(s): %s.' % (LABEL_OVERRIDE, len(overrides), '; '.join(named(i) for i in overrides)))
+        lines += ['This skips the floor (its checks: %s). Nothing but your own reading of these events stands behind the merge.' % OVERRIDE_CHECKS,
+                  'It is recorded as AI-assisted under your moderator account; %s.' % OVERRIDE_UNDO,
+                  'It runs only if the owner has switched the override on (DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED); otherwise the whole run is refused, the other pairs included.']
     lines.append('The owner still approves the run in the Actions tab.')
     print(json.dumps({'header': 'Dispatch?', 'question': '\n'.join(lines), 'options': [{'label': label, 'description': OPTION_DESCRIPTIONS[label]} for label in (LABEL_YES, LABEL_NO)],
-                      'accept': accepts, 'reject': rejects, 'decisions': decisions_text(index, accepts, rejects)}, ensure_ascii=False))
+                      'accept': accepts, 'reject': rejects, 'override': overrides, 'decisions': decisions_text(index, accepts, rejects, overrides)}, ensure_ascii=False))
     return 0
 
 
@@ -1085,9 +1124,11 @@ def rejected_comment():
     return 'Resolved: a moderator rejected this suggestion in an attended review session. Closing this issue.'
 
 
-def decided_comment(merge_id):
+def decided_comment(merge_id, override=False):
     if not full(UUID, merge_id):
         raise ReportError(EXIT_BAD_INPUT, '--merge-id must be a merge uuid (from the live apply report)')
+    if override:
+        return 'Resolved: a moderator merged this suggestion regardless of the floor in an attended review session (merge `%s`). Closing this issue.' % merge_id
     return 'Resolved: a moderator accepted this suggestion in an attended review session (merge `%s`). Closing this issue.' % merge_id
 
 
@@ -1098,7 +1139,9 @@ def cmd_close_decided(args):
     (omitted: none). A pair that was skipped keeps its issue, and is listed in `notApplied` with its action and reason."""
     expected_ids = parse_ids(args.expect_ids, '--expect-ids')
     rejects = read_expected_rejects(args, expected_ids)
-    report = validate_apply(find_report(read_source(args.log), APPLY_BEGIN, APPLY_END), 'live', args.expect_run_tag, expected_ids, rejects)
+    overrides = read_expected_overrides(args, expected_ids, rejects)
+    report = validate_apply(find_report(read_source(args.log), APPLY_BEGIN, APPLY_END), 'live', args.expect_run_tag, expected_ids, rejects, overrides)
+    override_ids = set(overrides)
     merges = {result['suggestionId']: result['mergeId'] for result in report['results'] if result['outcome'] == 'merged'}
     rejected = {result['suggestionId'] for result in report['results'] if result['outcome'] == 'rejected'}
     not_applied = [{'id': result['suggestionId'], 'action': result['action'], 'reason': result.get('reason')}
@@ -1109,7 +1152,9 @@ def cmd_close_decided(args):
         if row['state'] != 'OPEN':
             continue
         if row['id'] in merges:
-            entry = {'action': 'accept', 'mergeId': merges[row['id']], 'outcome': 'outcome:accepted', 'comment': decided_comment(merges[row['id']])}
+            made_by_override = row['id'] in override_ids
+            entry = {'action': ACTION_OVERRIDE if made_by_override else 'accept', 'mergeId': merges[row['id']], 'outcome': 'outcome:accepted',
+                     'comment': decided_comment(merges[row['id']], override=made_by_override)}
         elif row['id'] in rejected:
             entry = {'action': 'reject', 'outcome': 'outcome:rejected', 'comment': rejected_comment()}
         else:
@@ -1296,7 +1341,9 @@ def cmd_comment(args):
         # Exactly one: an accept names its merge, a reject has none. Neither, or both, is a bad input (exit 9).
         if args.rejected == (args.merge_id is not None):
             raise ReportError(EXIT_BAD_INPUT, 'give exactly one of --merge-id (an accept) and --rejected (a reject)')
-        print(rejected_comment() if args.rejected else decided_comment(args.merge_id.strip().lower()))
+        if args.override and args.merge_id is None:
+            raise ReportError(EXIT_BAD_INPUT, '--override goes with --merge-id (the decided comment of an override merge)')
+        print(rejected_comment() if args.rejected else decided_comment(args.merge_id.strip().lower(), override=args.override))
     elif args.kind == 'reopened':
         print('The suggestion is pending again after an undone merge, so this issue is reopened.')
     elif args.kind == 'refused':
@@ -1357,7 +1404,8 @@ def cmd_insight_comment(args):
     if merged_ids or rejected_ids or args.apply_log:
         if data['mode'] != 'live' or not args.apply_log or not args.apply_run_tag:
             raise ReportError(EXIT_BAD_INPUT, 'merged or rejected entries need mode live and the apply run: give --apply-log and --apply-run-tag')
-        report = validate_apply(find_report(read_source(args.apply_log), APPLY_BEGIN, APPLY_END), 'live', args.apply_run_tag, None)
+        overrides = read_expected_overrides(args, None, [])
+        report = validate_apply(find_report(read_source(args.apply_log), APPLY_BEGIN, APPLY_END), 'live', args.apply_run_tag, None, None, overrides)
         merges = {result['suggestionId']: result['mergeId'] for result in report['results'] if result['outcome'] == 'merged'}
         rejections = {result['suggestionId'] for result in report['results'] if result['outcome'] == 'rejected'}
         if set(merges) != merged_ids:
@@ -1466,24 +1514,28 @@ def build_parser():
     p.add_argument('--expect-mode', required=True, choices=('validate', 'dry-run', 'live'))
     p.add_argument('--expect-ids', required=True, help='the suggestion ids that were dispatched, comma-separated')
     p.add_argument('--expect-reject-ids', default=None, help='the dispatched ids that were rejects (a result must say reject exactly for these); omitted: none were')
+    p.add_argument('--expect-override-ids', default=None, help='the dispatched ids that were floor overrides (a result must say accept-override exactly for these); omitted: none were')
     p = with_log('decisions', cmd_decisions, 'the decisions input for the apply workflow')
     p.add_argument('ids', nargs='*', help='the ids to accept')
     p.add_argument('--reject', default=None, help='comma-separated ids to reject (needs allow_rejects in the workflow)')
+    p.add_argument('--override', default=None, help='comma-separated ids to merge regardless of the floor (needs allow_floor_override in the workflow)')
     p = with_log('confirm', cmd_confirm, 'the final confirmation of the attended loop, built from the exact ids')
     p.add_argument('files', nargs='*', help='list_issues output, one file per page (names each pair by its open issue number)')
     p.add_argument('--accept', default=None, help='comma-separated ids to accept (an empty value is none); required')
     p.add_argument('--reject', default=None, help='comma-separated ids to reject (an empty value is none); required')
+    p.add_argument('--override', default=None, help='comma-separated ids to merge regardless of the floor (an empty value or omitted is none)')
     p = with_log('triage', cmd_triage, 'which exported pairs are new and which a labelled issue covers')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p.add_argument('--live-cleared', action='store_true', help='the owner cleared this run for live, or the attended loop is running: shadow pairs return for a fresh decision')
     p = with_log('brief', cmd_brief, 'the popup text for exported pairs of the attended decision loop')
     p.add_argument('files', nargs='*', help='list_issues output, one file per page (adds the open issue number)')
     p.add_argument('--ids', default=None, help='comma-separated suggestion ids of exported pairs')
-    p.add_argument('--offer', default=None, help='the options to offer: accept (the default), reject or accept,reject; skip is always offered')
+    p.add_argument('--offer', default=None, help='the options to offer: accept (the default), reject, override, accept,reject or reject,override; skip is always offered')
     p = with_log('close-decided', cmd_close_decided, 'the open issues to close after a live apply merged pairs a moderator accepted (LOG is the APPLY log)')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p.add_argument('--expect-ids', required=True, help='the suggestion ids that were dispatched, comma-separated')
     p.add_argument('--expect-reject-ids', default=None, help='the dispatched ids that were rejects (omitted: none were)')
+    p.add_argument('--expect-override-ids', default=None, help='the dispatched ids that were floor overrides (omitted: none were)')
     p = with_log('settle', cmd_settle, 'the open issues to close because their suggestion was resolved')
     p.add_argument('files', nargs='+', help='list_issues output, one file per page')
     p = with_log('issue', cmd_issue, 'title, body and labels of an escalation issue')
@@ -1496,6 +1548,7 @@ def build_parser():
     p.add_argument('--summary', required=True, help='a JSON file with the run summary')
     p.add_argument('--apply-log', default=None, help='the live apply job log; required when an entry is merged')
     p.add_argument('--apply-run-tag', default=None)
+    p.add_argument('--expect-override-ids', default=None, help='the ids of the apply report dispatched as floor overrides (omitted: none were)')
     p = sub.add_parser('insight-body', help='the body of the rolling insight issue', allow_abbrev=False)
     p.add_argument('log', nargs='?', default=None, help='the export log; omit it only for a failed:<step> status')
     p.add_argument('--expect-run-tag', default=None)
@@ -1515,6 +1568,7 @@ def build_parser():
     p.add_argument('--reason', default=None)
     p.add_argument('--merge-id', default=None, help='the merge uuid of a live apply report (the decided comment of an accept)')
     p.add_argument('--rejected', action='store_true', help='the decided comment of a reject (no merge id)')
+    p.add_argument('--override', action='store_true', help='with --merge-id: the decided comment of an override merge')
     p.set_defaults(handler=cmd_comment)
     return parser
 
