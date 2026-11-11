@@ -138,7 +138,9 @@ test('runJobEngineJob: claim and outcomes', async (t) => {
     const row = await readJob(job.id);
     assert.equal(row.status, 'FAILED');
     assert.equal(row.reasonCode, 'HANDLER_ERROR');
-    assert.equal(row.errorMessage, 'vendor said no');
+    // Plain words only (PRD: vendor trouble is recorded, never raw): the raw text stays in the logs, never in the row.
+    assert.equal(row.errorMessage, 'The job failed with an internal error.');
+    assert.ok(!JSON.stringify(row).includes('vendor said no'));
     assert.equal(row.workerClaimedAt, null);
   });
 
@@ -343,6 +345,88 @@ test('runJobEngineJob: cross-Lambda hand-off (AC3)', async (t) => {
     await runJobEngineJob(job.id, {});
     const row = await readJob(job.id);
     assert.equal(row.status, 'FAILED');
-    assert.equal(row.errorMessage, 'not accepted');
+    assert.equal(row.errorMessage, 'The job failed with an internal error.');
   });
 });
+
+test('runJobEngineJob: review follow-ups (Story 10.1a code review)', async (t) => {
+  await t.test('the handler gets an abort signal that fires when the run budget is used up', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '60';
+    let signal: AbortSignal | undefined;
+    let sawAbortWhileRunning = false;
+    const type = defineType({
+      run: async (ctx) => {
+        signal = ctx.signal;
+        await new Promise<void>((resolve) => {
+          ctx.signal.addEventListener('abort', () => {
+            sawAbortWhileRunning = true;
+            resolve();
+          });
+          setTimeout(resolve, 400);
+        });
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(job.id)).status, 'EXPIRED');
+    assert.equal(signal?.aborted, true);
+    await sleep(100);
+    assert.equal(sawAbortWhileRunning, true, 'the handler was told to stop while it was still running');
+  });
+
+  await t.test('the signal stays quiet for a run that finishes in time', async () => {
+    let signal: AbortSignal | undefined;
+    const type = defineType({
+      run: async (ctx) => {
+        signal = ctx.signal;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    assert.equal(signal?.aborted, false);
+    assert.equal((await readJob(job.id)).status, 'SUCCEEDED');
+  });
+
+  await t.test('after a successful hand-off the sender\'s own timer cannot expire the job', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '60';
+    setInvokeJobEngineWorker(async () => {});
+    const type = defineType({
+      run: async (ctx) => {
+        await ctx.handOffToLambda('ai-processor-fn');
+        await sleep(300);
+        return { outcome: 'HANDED_OFF' };
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'RUNNING', 'the receiving Lambda owns the job now');
+    assert.equal(row.workerClaimedAt, null);
+  });
+
+  await t.test('after a successful hand-off an error in the sender cannot fail the job', async () => {
+    setInvokeJobEngineWorker(async () => {});
+    const type = defineType({
+      run: async (ctx) => {
+        await ctx.handOffToLambda('ai-processor-fn');
+        throw new Error('sender blew up after handing off');
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(job.id)).status, 'RUNNING');
+  });
+
+  await t.test('HANDED_OFF without a hand-off ends the job FAILED with HANDOFF_MISSING, never stuck RUNNING', async () => {
+    const type = defineType(handlerReturning({ outcome: 'HANDED_OFF' }));
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'FAILED');
+    assert.equal(row.reasonCode, 'HANDOFF_MISSING');
+    assert.equal(row.workerClaimedAt, null);
+  });
+});
+

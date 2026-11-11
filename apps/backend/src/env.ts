@@ -438,9 +438,9 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     accountClassificationClaimTtlMinutes: parseInt(process.env.ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES || '30', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    jobAttemptDeadlineMs: parseInt(process.env.JOB_ATTEMPT_DEADLINE_MS || '150000', 10),
+    jobAttemptDeadlineMs: parsePositiveInt(process.env.JOB_ATTEMPT_DEADLINE_MS, 'JOB_ATTEMPT_DEADLINE_MS', 150000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
-    jobWorkerClaimTtlMinutes: parseInt(process.env.JOB_WORKER_CLAIM_TTL_MINUTES || '5', 10),
+    jobWorkerClaimTtlMinutes: parsePositiveInt(process.env.JOB_WORKER_CLAIM_TTL_MINUTES, 'JOB_WORKER_CLAIM_TTL_MINUTES', 5),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     faceBlurMinRemainingTimeMs: parseNonNegativeInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS, 'FACE_BLUR_MIN_REMAINING_TIME_MS', 60000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

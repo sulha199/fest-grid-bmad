@@ -7,7 +7,7 @@ baseline_commit: 067d1853781aa4aab04f8862041459be4e87a7fd
 
 - Epic: 10 (Background vendor jobs: one engine, one Jobs page)
 - Story ID: 10.1a
-- Status: review
+- Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -68,6 +68,21 @@ so that any vendor-backed action returns a job id at once and finishes inside it
   - [x] `apps/backend/src/lib/extraction/sweep-stale-manual-extraction-jobs.test.ts`: FIND-086 case (uncaimed `PENDING` row past 5 minutes → `FAILED` + blanked payload) and FIND-111 case (unapplied `REEXTRACT_PREVIEW` row past 30 minutes → `resultData.extracted` nulled, `resultData.appliedAt`/other fields untouched); a row inside either window is untouched by the corresponding case.
   - [x] `apps/infrastructure/lib/festgrid-backend-stack.test.ts` — the two new grant/env assertions and one assertion that an `AWS::Events::Rule` with `rate(5 minutes)` targets the Scraper Lambda with `{"jobType":"job-engine-sweep"}` (Task 6).
   - [x] Row-count ratchet (`apps/backend/scripts/run-tests-with-row-count-ratchet.ts`): confirm the new suites clean up every `jobs`/`job_attempts` row they create (no `vendor_call_locks`-style "permanent by design" exemption applies to these two tables).
+
+### Review Follow-ups (AI)
+
+Independent code review of the merged story (commit bbdcec6a), 2026-11-11: no blocker, no high finding; verdict "can be done; fix findings 1 to 3 before the first real job type adopts the engine". Each finding was re-verified against the code before acting.
+
+- [x] [AI-Review][MEDIUM] 1. A handler that runs out of time kept running in the background. `JobHandlerContext` now carries an `AbortSignal`, aborted when the run's budget is used up (`run-job.test.ts`).
+- [x] [AI-Review][MEDIUM] 3. Raw handler error text was stored in `jobs.error_message`. It is now a fixed plain-words message; the raw error goes to the logs only (`run-job.test.ts`).
+- [x] [AI-Review][LOW] 4. The two job settings were parsed with a bare `parseInt`. Both now use the strict positive-integer parser, so `"150s"`, `0` and `1e3` fail loudly (`env.test.ts`).
+- [x] [AI-Review][LOW] 5. A handler returning HANDED_OFF without handing off left the job RUNNING until its deadline. It now ends FAILED with `HANDOFF_MISSING` (`run-job.test.ts`).
+- [x] [AI-Review][LOW] 6. A hand-off could be undone by the sender's own timer. After an accepted hand-off nothing the sender does writes to the job (`run-job.test.ts`, two tests).
+- [x] [AI-Review][LOW] 7. The new sweep widened an old race: the manual-extraction worker's terminal writes did not check status. All three are now guarded on `PROCESSING` (`process-manual-extraction-job.test.ts`, two tests).
+- [x] [AI-Review][LOW] 8. A start failure was recorded as `NO_PROVIDER_REACHABLE`. It is now `START_FAILED` (`start-job.test.ts`).
+- [x] [AI-Review][LOW] 9a. The pure `Job` type named in Task 1 was missing (I had ticked it). Added with `jobHasValidOwner`, the FR130 rule the database CHECK also enforces (`job-engine.test.ts`).
+- [ ] [AI-Review][MEDIUM] 2. Nothing re-invokes a WAITING job when its `resume_at` is due. **Moved to Story 10.3**: a due WAITING job is re-admitted like a new start, which is the admission mechanism that story builds. AD-53's Deferred list now says so.
+- [ ] [AI-Review][LOW] 9b. The single "who may run now" function named in the Dev Notes was not built (admission is the inline `admittedAt = now`). **Moved to Story 10.3**, which replaces that line.
 
 ## Dev Notes
 
@@ -214,7 +229,7 @@ so that any vendor-backed action returns a job id at once and finishes inside it
 
 ## Completion Status
 
-- [x] Built; status review (2026-11-11). See the Dev Agent Record below.
+- [x] Built, reviewed and follow-ups applied; status done (2026-11-11). See the Dev Agent Record below.
 - Creation note (2026-11-02): this story first named the new decision AD-45. Master then merged the dedup-review CI bridge as AD-45 (PR #135), so the engine decision first became AD-46. Master then took AD-46 to AD-52 for stepped extraction (2026-11-09 and 2026-11-10), so the engine decision is AD-53. AD-42 and AD-43 are claimed on other branches. Re-run the `grep -oE "^### AD-[0-9]+"` check before writing it.
 - Consistency pass (2026-11-11, after PR #205): fixed a dangling "Data Type Compatibility" reference, a stale "Task 5" reference, the AC 1-7 / two-enum / hourly-sweep leftovers in the checklists and file lists, the AC2 versus Task 3 mismatch on a passed deadline (EXPIRED, not FAILED), the claim SQL and sweep condition (`admitted_at`, `WAITING`), and added the two-bounds task (`maxDurationMs`) and the missing tests. `baseline_commit` in the front matter is stale: reset it to the current master when the build starts.
 - Amendment note (2026-11-11, later): FR130 added the `trigger` field, a nullable owner with a check constraint, and AC 8 (data only; no system job type).
@@ -271,6 +286,8 @@ Claude Code, cloud session (bmad-dev-story workflow).
 
 **Not done here (by design).** The Pre-Coding Approval Gate boxes in this story were not ticked by the build (outside the sections the workflow may edit); approval was given by the user in conversation ("yes, start building Story 10.1a"). Queue and admission (10.3), the provider chain and attempt rows (10.2), GraphQL and the Jobs page (10.4), late results (10.5), and every real job type remain for their stories.
 
+**Code review (2026-11-11).** An independent reviewer agent read the merged diff, ran the new tests and reported nine findings (see Review Follow-ups (AI) above). Seven were fixed in the follow-up change together with the `Job` type; two (the resume driver and the single admission function) belong to Story 10.3. I own one process miss the review exposed: two items were ticked as done in this story that were not built (the `Job` type and the single admission function). The story is marked done because the follow-up fixes and the two hand-overs to Story 10.3 are recorded; nothing in the engine blocks the first real job type except that a WAITING job has no resume driver until 10.3.
+
 ### File List
 
 - `.env.example`
@@ -314,4 +331,5 @@ Claude Code, cloud session (bmad-dev-story workflow).
 
 ### Change Log
 
+- 2026-11-11 (later): code review follow-ups: abort signal, plain-words error text, strict settings, hand-off safety, guarded manual-extraction writes, `START_FAILED`, the `Job` type; two findings moved to Story 10.3. Status: review to done.
 - 2026-11-11: Story 10.1a built: job record, lifecycle, worker, sweeps, AD-53, AD-41 pointer, CDK wiring and infrastructure docs. Migration 0096 (generated) and 0097 (CHECK, hand-written). `baseline_commit` reset to the docs tip the build started from. Status: ready-for-dev to review.

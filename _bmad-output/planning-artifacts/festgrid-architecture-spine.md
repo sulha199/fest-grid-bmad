@@ -3464,7 +3464,7 @@ This document defines the core architectural invariants for the FestDaily applic
         `HANDLER_NOT_REGISTERED`; Story 10.14z later makes that a compile or test-time error for a real type.
     3.  **Starting.** `startJob` (API Lambda) inserts the row, then fires one async invoke
         (`InvocationType: 'Event'`) at the type's host with `{ jobType: 'job-engine-run', jobId }` and returns the job
-        id inside about one second. A failed invoke ends the job FAILED (`NO_PROVIDER_REACHABLE`), the shape of
+        id inside about one second. A failed invoke ends the job FAILED (`START_FAILED`, not a provider reason), the shape of
         `startManualExtractionJob`. It is the only entry point; no entry point for system jobs exists (Rule 10).
     4.  **One claim.** One conditional `UPDATE ... RETURNING` (the shape of AD-41 Rule 3) with the TTL
         `JOB_WORKER_CLAIM_TTL_MINUTES` (5). It takes a QUEUED, RUNNING or WAITING row that is admitted, a WAITING row
@@ -3474,8 +3474,13 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **Two bounds.** `deadline_at` bounds the WHOLE job: admission time plus the type's `maxDurationMs`. One RUN
         of a handler is capped separately by the smallest of `JOB_ATTEMPT_DEADLINE_MS` (150 s), the time left to
         `deadline_at` and the Lambda's own remaining time. A run past its budget ends the job EXPIRED (`TIMED_OUT`); a
-        handler that throws ends it FAILED (`HANDLER_ERROR`); an ending other than Succeeded without a reason is
-        recorded as `UNSPECIFIED`, never with none (FR117). A job that must outlast one run returns WAITING.
+        handler that throws ends it FAILED (`HANDLER_ERROR`) with a FIXED plain-words `error_message`: the raw error goes
+        to the logs only, because the Jobs page reads that column and a vendor error can carry a URL, a response body or
+        caption text (PRD: vendor trouble is recorded, never raw). An ending other than Succeeded without a reason is
+        recorded as `UNSPECIFIED`, never with none (FR117). A job that must outlast one run returns WAITING. The handler
+        context carries an `AbortSignal` that fires when the run's budget is used up: the job is already ended then, so
+        a handler passes it to every vendor call and wait, or it keeps running in a frozen Lambda and resumes on the next
+        warm invocation.
     6.  **Guarded writes.** Every write after the claim requires the row to be RUNNING and the claim to be this
         worker's (or released by its own hand-off), so a handler that finishes after its budget cannot overwrite a job
         that already ended.
@@ -3487,7 +3492,10 @@ This document defines the core architectural invariants for the FestDaily applic
         `handOffToLambda(functionName)` and returns HANDED_OFF. The worker releases its claim BEFORE the invoke (the
         receiver claims with the same update and would otherwise be refused for the whole TTL), the receiver reloads
         the row and resumes from its stored `phase`. A vendor token, a caption or a phase is never carried in the
-        message (AD-41 Rule 2: the payload is a hint, the worker decides from the database). Each type's `host` names
+        message (AD-41 Rule 2: the payload is a hint, the worker decides from the database). Once the hand-off invoke is
+        accepted the receiver owns the job: nothing the sender does afterwards (finish, throw, run out of time) writes to
+        it, and a handler that returns HANDED_OFF without having handed off ends the job FAILED (`HANDOFF_MISSING`)
+        instead of leaving it RUNNING with nobody invoked. Each type's `host` names
         its first Lambda: a scrape-then-extract type hosts on the Scraper and hands off to the AI-processor (the only
         direction any known type needs; the reverse grant is added by the first story that does), while a job whose
         own work makes no vendor call hosts on the AI-processor directly.
@@ -3513,7 +3521,8 @@ This document defines the core architectural invariants for the FestDaily applic
     `deadline_at` as insert time plus the attempt cap (it would expire a job that is legitimately WAITING, or on its
     second provider attempt); declaring the CHECK in the drizzle schema (drizzle-kit 0.21 omits it, so a later upgrade
     would emit a duplicate constraint).
-*   **Deferred:** admission control, queueing and slot reservation (Story 10.3); the provider chain and the
+*   **Deferred:** admission control, queueing and slot reservation, and the driver that re-invokes a WAITING job when its
+    `resume_at` is due, as a re-admission like a new start (Story 10.3: nothing re-invokes a due WAITING job until it lands); the provider chain and the
     `job_attempts` rows it writes (10.2); the GraphQL surface, the Jobs page and retention-driven deletion of old rows
     (10.4); late vendor results (10.5); moving `manual_extraction_jobs` onto this table (10.9, OI-4); a reverse
     AI-processor to Scraper hand-off.
