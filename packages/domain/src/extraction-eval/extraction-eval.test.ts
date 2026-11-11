@@ -354,7 +354,7 @@ test('report shows a positive delta with a plus sign', () => {
 test('report shows an empty delta for a field new to the baseline', () => {
   const base = baselineOf([okRun('p', 0, { performers: null })]);
   const agg = aggregateRuns([okRun('p', 0, {})]);
-  assert.match(buildReport(agg, { model: 'm', promptHash: 'h', runs: 1, mode: 'live' }, base, compareToBaseline(agg, base)).markdown, /\| performers \| 100% \| n\/a \|  \|/);
+  assert.match(buildReport(agg, { model: 'm', promptHash: 'h', runs: 1, mode: 'live' }, base, compareToBaseline(agg, base)).markdown, /\| performers \| 100% \| n\/a \| {2}\|/);
 });
 
 test('report lists a flagged field even when no single post moved beyond its own band', () => {
