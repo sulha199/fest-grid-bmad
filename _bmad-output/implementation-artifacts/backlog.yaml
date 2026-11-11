@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-31"
+last_updated: "2026-11-11"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -3049,6 +3049,22 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend],
      note: "Deferred from: bmad-quick-dev review of spec-location-keywords-extraction: corrections drop keywords, placeholder overwrites a real location (2026-11-10). 2 findings."}
+
+  IDEA-261111-5cc:
+    {type: idea, status: backlog, created: 2026-11-11,
+     impact: internal, effort: l,
+     title: "Per-field accuracy eval of event extraction against labelled posts (akurasi per bidang vs data berlabel), with a baseline and a noise band",
+     ref: [implementation-artifacts/spec-extraction-accuracy-eval.md, backlog/IDEA-261111-5cc-extraction-accuracy-eval-per-field.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction, cross:process],
+     note: "Slice A (scorer, runner, workflow, synthetic set) built 2026-11-11 on a PR; slice B (labelled set, store, first live baseline) still needs the maintainer. Detail in the spec."}
+
+  IDEA-261111-9ch:
+    {type: idea, status: backlog, created: 2026-11-11,
+     impact: internal, effort: m,
+     title: "Score a whole extraction chain (skor seluruh rantai ekstraksi), not only the first call, so roundup completeness is measured",
+     ref: [backlog/IDEA-261111-9ch-score-whole-extraction-chain.md, implementation-artifacts/spec-extraction-accuracy-eval.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction],
+     note: "The slice A eval scores one call; production extracts selected posts in steps (AD-46), so a 203-event roundup cannot be measured. Follow-up to IDEA-261111-5cc, which this does not block."}
 
   IDEA-261111-avw:
     {type: idea, status: backlog, created: 2026-11-11,

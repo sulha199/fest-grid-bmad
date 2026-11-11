@@ -15,10 +15,12 @@ import {
   formatEventCardDateBoxLine,
   combineDateTime,
 } from '@festgrid/ui';
+import type { DedupDecisionClue } from '@festgrid/domain/events';
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
 import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
 import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
 import { EmptyPageNotice } from '@/features/pagination/empty-page-notice';
+import { ResolutionClueChecklist } from './resolution-clue-checklist';
 import {
   useQuerySuggestedEventMatches,
   useResolveSuggestedEventMatchMutation,
@@ -143,6 +145,10 @@ export function DuplicateEventsContent() {
   const [actionInFlight, setActionInFlight] = useState<Record<string, boolean>>({});
   const [confirmSuggestion, setConfirmSuggestion] = useState<SuggestedMatch | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Both resolutions open the same dialog; the checklist is the "why" (optional) and is cleared each time it opens.
+  const [resolveAction, setResolveAction] = useState<'accept' | 'reject'>('accept');
+  const [clues, setClues] = useState<DedupDecisionClue[]>([]);
+  const [note, setNote] = useState('');
 
   const pagination = useListPaginationController<typeof NO_FILTERS, string | undefined>({ filterKey: NO_FILTERS, initialCursor: undefined });
   const { data, isLoading, isPlaceholderData, error, refetch } = useQuerySuggestedEventMatches(PAGE_SIZE, pagination.cursor, authStatus === 'authorized');
@@ -169,18 +175,27 @@ export function DuplicateEventsContent() {
   const endCursor = queryResult?.pageInfo?.endCursor;
   const isAnyActionInFlight = Object.values(actionInFlight).some(Boolean);
 
-  const handleAcceptClick = (suggestion: SuggestedMatch) => {
+  const openResolve = (suggestion: SuggestedMatch, action: 'accept' | 'reject') => {
     setConfirmSuggestion(suggestion);
+    setResolveAction(action);
+    setClues([]);
+    setNote('');
     setConfirmOpen(true);
   };
+  const handleAcceptClick = (suggestion: SuggestedMatch) => openResolve(suggestion, 'accept');
+  const handleRejectClick = (suggestion: SuggestedMatch) => openResolve(suggestion, 'reject');
+
+  // The note goes to the mutation only: never to analytics, a toast or the console.
+  const resolutionReason = () => ({ clues: clues.length > 0 ? clues : null, note: note.trim() === '' ? null : note.trim() });
 
   const handleConfirmAccept = async () => {
     if (!confirmSuggestion) return;
     const suggestion = confirmSuggestion;
+    const reason = resolutionReason();
     setActionInFlight((prev) => ({ ...prev, [suggestion.id]: true }));
     try {
-      const result = await resolveSuggestedEventMatch({ id: suggestion.id, action: SuggestedEventMatchAction.Accept });
-      posthog.capture('moderator_event_merge_committed', { suggestionId: suggestion.id, mergeId: result.mergeId });
+      const result = await resolveSuggestedEventMatch({ id: suggestion.id, action: SuggestedEventMatchAction.Accept, ...reason });
+      posthog.capture('moderator_event_merge_committed', { suggestionId: suggestion.id, mergeId: result.mergeId, clues: reason.clues });
       const mergeId = result.mergeId;
       // AC6 -- commit, then close the dialog (returning focus to the row's Accept button via
       // ConfirmActionDialog's own onCloseAutoFocus), and only then does the undo toast appear.
@@ -205,15 +220,15 @@ export function DuplicateEventsContent() {
     }
   };
 
-  const handleCancelConfirm = () => {
-    setConfirmOpen(false);
-  };
-
-  const handleReject = async (suggestion: SuggestedMatch) => {
+  const handleConfirmReject = async () => {
+    if (!confirmSuggestion) return;
+    const suggestion = confirmSuggestion;
+    const reason = resolutionReason();
     setActionInFlight((prev) => ({ ...prev, [suggestion.id]: true }));
     try {
-      await resolveSuggestedEventMatch({ id: suggestion.id, action: SuggestedEventMatchAction.Reject });
-      posthog.capture('moderator_suggested_event_match_rejected', { suggestionId: suggestion.id });
+      await resolveSuggestedEventMatch({ id: suggestion.id, action: SuggestedEventMatchAction.Reject, ...reason });
+      posthog.capture('moderator_suggested_event_match_rejected', { suggestionId: suggestion.id, clues: reason.clues });
+      setConfirmOpen(false);
       toast.success(t('rejectSuccessToast'));
       refetch();
     } catch (err) {
@@ -222,6 +237,10 @@ export function DuplicateEventsContent() {
     } finally {
       setActionInFlight((prev) => ({ ...prev, [suggestion.id]: false }));
     }
+  };
+
+  const handleCancelConfirm = () => {
+    setConfirmOpen(false);
   };
 
   return (
@@ -264,7 +283,7 @@ export function DuplicateEventsContent() {
                   isMutating={!!actionInFlight[suggestion.id]}
                   t={t}
                   onAccept={handleAcceptClick}
-                  onReject={handleReject}
+                  onReject={handleRejectClick}
                 />
               );
             })}
@@ -282,14 +301,17 @@ export function DuplicateEventsContent() {
 
       <ConfirmActionDialog
         open={confirmOpen}
-        title={t('mergeConfirmTitle')}
-        description={t('mergeConfirmDescription')}
-        confirmLabel={t('mergeConfirmConfirmLabel')}
+        title={resolveAction === 'accept' ? t('mergeConfirmTitle') : t('rejectConfirmTitle')}
+        description={resolveAction === 'accept' ? t('mergeConfirmDescription') : t('rejectConfirmDescription')}
+        confirmLabel={resolveAction === 'accept' ? t('mergeConfirmConfirmLabel') : t('rejectConfirmConfirmLabel')}
         cancelLabel={t('mergeConfirmCancelLabel')}
         confirmVariant="destructive"
-        onConfirm={handleConfirmAccept}
+        className="max-h-[90vh] overflow-y-auto"
+        onConfirm={resolveAction === 'accept' ? handleConfirmAccept : handleConfirmReject}
         onCancel={handleCancelConfirm}
-      />
+      >
+        <ResolutionClueChecklist clues={clues} note={note} onCluesChange={setClues} onNoteChange={setNote} disabled={isAnyActionInFlight} />
+      </ConfirmActionDialog>
 
       <BlockingLoader active={isAnyActionInFlight} />
     </div>

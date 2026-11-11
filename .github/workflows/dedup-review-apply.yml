@@ -24,7 +24,8 @@ run-name: Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'ap
 #
 # THE REPO IS PUBLIC. The dispatch inputs (run tag, decisions, invoker hash) show on the run page and in the
 # log, and step env blocks are printed in every run, so none of them may hold anything private. The invoker
-# hash is the SHA-256 of the lowercased account email, never the address. The skill sends `reasons: []`.
+# hash is the SHA-256 of the lowercased account email, never the address. The skill sends `reasons: []`. An entry may also hold `clues`: codes of a closed list (public-safe),
+# never free text; the script refuses any other key, a `note` included.
 # The job SUMMARY holds counts and fixed reason codes only; the LOG holds the script's whole report (ids and
 # merge ids, no more private than the public inputs). See scripts/dedup-review-apply-guard.sh.
 #
@@ -92,7 +93,7 @@ on:
         type: boolean
         default: false
       decisions:
-        description: 'The decisions file: {"schemaVersion":1,"decisions":[{"suggestionId","evidenceHash","reasons","action"?}]}. action is accept (the default), reject or accept-override. Public. Send reasons as []. GitHub caps all inputs together at 65,535 characters.'
+        description: 'The decisions file: {"schemaVersion":1,"decisions":[{"suggestionId","evidenceHash","reasons","action"?,"clues"?}]}. action is accept (the default), reject or accept-override. clues is a list of clue codes, never text. Public. Send reasons as []. GitHub caps all inputs together at 65,535 characters.'
         required: true
         type: string
       invoker_hash:

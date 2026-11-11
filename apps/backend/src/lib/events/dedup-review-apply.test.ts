@@ -809,6 +809,38 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     assert.deepStrictEqual([...new Set(rejecting)], ['event_match_candidates'], 'a reject locks the suggestion row only (twice: the decision, then the shared resolve function)');
   });
 
+  await t.test('clue codes are recorded by a live accept, reject and override, and by nothing else: a dry run rolls them back, the report holds no clue, and the note stays empty', async () => {
+    const accepted = await makePair('Clue Accept', '2027-08-01');
+    const rejected = await makePair('Clue Reject', '2027-08-02', { newAccountId: otherAccount.id });
+    const overridden = (await floorRefused())['low-tier'];
+    const decisions: DedupReviewApplyInput['decisions'] = [
+      { ...(await rejectOf(rejected.suggestion.id)), clues: ['different-organizer', 'not-an-event'] },
+      { ...(await acceptOf(accepted.suggestion.id)), clues: ['shared-link', 'same-venue'] },
+      { ...(await overrideOf(overridden.suggestion.id)), clues: ['other'] },
+    ];
+    const everyInput = (overrides: Partial<DedupReviewApplyInput> = {}) => ({ ...overrideInput(decisions, overrides), rejectsEnabled: true, allowRejects: true });
+
+    const dry = await runDedupReviewApply(db, everyInput());
+    for (const p of [accepted, rejected, overridden]) {
+      const pending = await suggestionRow(p.suggestion.id);
+      assert.strictEqual(pending.status, 'pending');
+      assert.strictEqual(pending.resolutionClues, null, 'a dry run rolled the clues back with the decision');
+    }
+
+    const live = await runDedupReviewApply(db, everyInput({ live: true }));
+    assert.deepStrictEqual(live.results.map((r) => r.outcome), ['rejected', 'merged', 'merged']);
+    assert.deepStrictEqual((await suggestionRow(rejected.suggestion.id)).resolutionClues, ['different-organizer', 'not-an-event']);
+    assert.deepStrictEqual((await suggestionRow(accepted.suggestion.id)).resolutionClues, ['same-venue', 'shared-link']);
+    assert.deepStrictEqual((await suggestionRow(overridden.suggestion.id)).resolutionClues, ['other']);
+    for (const p of [accepted, rejected, overridden]) {
+      assert.strictEqual((await suggestionRow(p.suggestion.id)).resolutionNote, null, 'the bridge never carries a note');
+    }
+    const printed = JSON.stringify([dry, live]);
+    for (const code of ['same-venue', 'shared-link', 'different-organizer', 'not-an-event', 'other']) {
+      assert.ok(!printed.includes(`"${code}"`), `the report does not carry the clue ${code}`);
+    }
+  });
+
   await t.test('isRunFatalDatabaseError: write refused, privilege, connection, deadlock and lock timeout stop the run; a unique violation is the decision\'s own', () => {
     for (const code of ['25006', '42501', '42883', '08006', '53300', '57P01', '40001', '40P01', '55P03', '28P01']) {
       assert.strictEqual(isRunFatalDatabaseError(Object.assign(new Error('x'), { code })), true, code);

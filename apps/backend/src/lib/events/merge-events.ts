@@ -365,7 +365,7 @@ export async function undoEventMerge(executor: DbExecutor, mergeId: string, _mod
   if (merge.suggestionId !== null) {
     await executor
       .update(eventMatchCandidates)
-      .set({ status: 'pending', resolvedAt: null, resolvedByModeratorId: null, resolvedVia: null })
+      .set({ status: 'pending', resolvedAt: null, resolvedByModeratorId: null, resolvedVia: null, resolutionClues: null, resolutionNote: null })
       .where(eq(eventMatchCandidates.id, merge.suggestionId));
   }
 

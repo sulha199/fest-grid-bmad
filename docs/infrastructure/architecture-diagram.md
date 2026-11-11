@@ -34,6 +34,7 @@ graph TD
         SES["Amazon SES: email"]
         OPS["CloudWatch alarms and SNS topic: ops alerts, prod only"]
         S3B["S3: nightly database dumps, 30-day retention"]
+        S3L["S3: private labelled posts for the extraction eval (planned, not created yet)"]
     end
 
     subgraph GitHub["GitHub Actions"]
@@ -41,6 +42,7 @@ graph TD
         GHA_RT["Production DB Restore Test: restores the newest dump after each backup"]
         GHA_DE["Dedup Review Export: manual, read-only evidence JSON of the pending dedup queue for the AI reviewer"]
         GHA_DA["Dedup Review Apply: manual; validate is read-only, apply (dry run or live) waits for the owner's approval in dedup-review-live and merges accepted pairs"]
+        GHA_EV["Extraction Accuracy Eval: non-blocking; PRs touching extraction code, weekly, manual; replays a synthetic set, or scores a private labelled set live"]
     end
 
     subgraph GitHubIssues["GitHub Issues"]
@@ -117,6 +119,8 @@ graph TD
     GHA_DE -- read-only evidence queries, READ ONLY transaction --> DB
     GHA_DA -- validate: read-only checks, READ ONLY transaction --> DB
     GHA_DA -- apply: guarded merges through resolveSuggestedMatch, write role, owner approval --> DB
+    GHA_EV -. live path only, when the secrets are set: reads the labelled set .-> S3L
+    GHA_EV -. live path only: paced extraction calls .-> Gemini
     AI_SKILL -- dispatches the export on master, reads its report from the job log --> GHA_DE
     AI_SKILL -- opens and closes labelled issues, one comment per run --> GH_ISSUES
     AI_SKILL -- dispatches validate; apply only when the owner says so --> GHA_DA
@@ -141,6 +145,7 @@ graph TD
 | AI dedup review (export) | A manual GitHub Actions workflow prints the pending dedup suggestions and their evidence as one JSON line, read-only (`READ ONLY` transaction, a read-only role that bypasses RLS), for a reviewer with no database credentials. The apply side is a second manual workflow (below) | .github/workflows/dedup-review-export.yml, apps/backend/src/dedup-review-export.ts, docs/infrastructure/7-event-dedup.md |
 | AI dedup review (skill) | A repo skill a cloud Claude session follows: it dispatches the export, decides, dispatches `validate`, opens a labelled escalation issue for every pair it does not accept, and logs each run on a rolling `dedup-insight` issue. It never approves a deployment; a live `apply` happens only on the owner's word | .claude/skills/moderator-dedup-review/, docs/infrastructure/7-event-dedup.md |
 | AI dedup review (apply) | A manual GitHub Actions workflow with a `validate` mode (read-only, the read-only role, no approval) and an `apply` mode (a dry run unless live) that uses a write role from the separate `dedup-review-live` environment and waits for the owner's approval on every run. Accepted pairs merge through the moderator's own `resolveSuggestedMatch` with `via: 'ai_skill'` (since FIND-120, 2026-11-07, the same function can also record a reject, off unless the owner switches it on), under a deterministic floor, per-run and per-day caps, a fail-closed kill switch and a check that `master` has not moved. Architecture decision AD-45. The write secret holds the narrow role `dedup_review_apply` (created 2026-11-03, after the actions were pinned by SHA) | .github/workflows/dedup-review-apply.yml, scripts/dedup-review-apply-guard.sh, apps/backend/src/dedup-review-apply.ts, docs/infrastructure/3-database.md, docs/infrastructure/7-event-dedup.md |
+| Extraction accuracy eval | A non-blocking GitHub Actions workflow that scores event extraction field by field against hand-labelled posts, with a baseline and a noise band. It runs on PRs that touch extraction code, weekly and by hand. Without secrets it replays a committed synthetic set and says so; with them it fetches a private labelled set from S3 and makes paced Gemini calls (no database access). Images and captions are never uploaded as artifacts | .github/workflows/extraction-accuracy-eval.yml, apps/backend/scripts/run-extraction-accuracy-eval.ts, packages/domain/src/extraction-eval/, docs/infrastructure/extraction-accuracy-eval.md |
 | Notifications | Firebase Cloud Messaging (push); Amazon SES (email) | docs/infrastructure/4 and 6, backend lambdas |
 | Operations alerts | CloudWatch Embedded Metric Format lines from the Lambdas, three CloudWatch alarms and an SNS topic with an optional e-mail subscription (prod only; needs no SES) | CDK stack, `apps/backend/src/lib/metrics/emit-metric.ts` |
 | Geolocation | Geoapify (geocoding with a Postgres cache; map tiles) | docs/infrastructure/5-geolocation.md |

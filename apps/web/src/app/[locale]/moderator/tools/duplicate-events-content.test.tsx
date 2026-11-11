@@ -7,6 +7,8 @@ import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import enMessages from '../../../../../locales/en.json';
+import idMessages from '../../../../../locales/id.json';
+import { DEDUP_DECISION_CLUES } from '@festgrid/domain/events';
 import { DuplicateEventsContent } from './duplicate-events-content';
 import {
   useQuerySuggestedEventMatches,
@@ -27,7 +29,8 @@ vi.mock('sonner', () => {
   toastFn.error = vi.fn();
   return { toast: toastFn };
 });
-vi.mock('@festgrid/analytics', () => ({ usePostHog: () => ({ capture: vi.fn() }) }));
+const capture = vi.hoisted(() => vi.fn());
+vi.mock('@festgrid/analytics', () => ({ usePostHog: () => ({ capture }) }));
 
 const createWrapper = () => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -66,6 +69,16 @@ function makeSuggestion(overrides: Partial<any> = {}) {
     ...overrides,
   };
 }
+
+describe('clue labels', () => {
+  it('every clue code of the domain list has a label in English and in Indonesian, and the locales hold no stale code', () => {
+    for (const messages of [enMessages, idMessages] as any[]) {
+      const labels = messages.DuplicateEventsPage.clues as Record<string, string>;
+      expect(Object.keys(labels).sort()).toEqual([...DEDUP_DECISION_CLUES].sort());
+      for (const code of DEDUP_DECISION_CLUES) expect(labels[code].trim()).not.toBe('');
+    }
+  });
+});
 
 describe('DuplicateEventsContent', () => {
   let mockResolve: any;
@@ -134,7 +147,7 @@ describe('DuplicateEventsContent', () => {
     // Confirm is the dialog's own button, distinct from the row's Accept trigger.
     await user.click(screen.getByRole('button', { name: 'Merge' }));
 
-    await waitFor(() => expect(mockResolve).toHaveBeenCalledWith({ id: 'suggestion-1', action: SuggestedEventMatchAction.Accept }));
+    await waitFor(() => expect(mockResolve).toHaveBeenCalledWith({ id: 'suggestion-1', action: SuggestedEventMatchAction.Accept, clues: null, note: null }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
 
     // The undo toast (useSoftDeleteWithUndo's own bare `toast()` call) only fires once the
@@ -145,21 +158,119 @@ describe('DuplicateEventsContent', () => {
     );
   });
 
-  it('Reject commits directly with no confirmation dialog', async () => {
-    const user = userEvent.setup();
+  const oneSuggestion = () =>
     (useQuerySuggestedEventMatches as any).mockReturnValue({
       data: { suggestedEventMatches: { edges: [{ node: makeSuggestion(), cursor: 'c1' }], pageInfo: { hasNextPage: false, endCursor: null } } },
       isLoading: false,
       error: null,
       refetch: mockRefetch,
     });
+
+  it('Reject opens the dialog, warns it cannot be undone, and with no clue and no note commits null for both', async () => {
+    const user = userEvent.setup();
+    oneSuggestion();
     render(<DuplicateEventsContent />, { wrapper: createWrapper() });
 
     await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await waitFor(() => expect(screen.getByRole('alertdialog')).toBeInTheDocument());
+    expect(screen.getByText(/cannot be undone in the app/)).toBeInTheDocument();
+    expect(mockResolve).not.toHaveBeenCalled();
 
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    await waitFor(() => expect(mockResolve).toHaveBeenCalledWith({ id: 'suggestion-1', action: SuggestedEventMatchAction.Reject }));
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    await waitFor(() => expect(mockResolve).toHaveBeenCalledWith({ id: 'suggestion-1', action: SuggestedEventMatchAction.Reject, clues: null, note: null }));
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Suggestion dismissed'));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+  });
+
+  it('Reject sends the ticked clues and the trimmed note', async () => {
+    const user = userEvent.setup();
+    oneSuggestion();
+    render(<DuplicateEventsContent />, { wrapper: createWrapper() });
+
+    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await user.click(await screen.findByLabelText('Different organizer'));
+    await user.click(screen.getByLabelText('Not an event, or a bad extraction'));
+    await user.type(screen.getByLabelText(/Note \(optional/), '  kids run, not 10K  ');
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+
+    await waitFor(() =>
+      expect(mockResolve).toHaveBeenCalledWith({
+        id: 'suggestion-1',
+        action: SuggestedEventMatchAction.Reject,
+        clues: ['different-organizer', 'not-an-event'],
+        note: 'kids run, not 10K',
+      })
+    );
+    // Analytics carries the codes, never the note.
+    await waitFor(() => expect(capture).toHaveBeenCalledWith('moderator_suggested_event_match_rejected', { suggestionId: 'suggestion-1', clues: ['different-organizer', 'not-an-event'] }));
+    expect(JSON.stringify(capture.mock.calls)).not.toContain('kids run');
+  });
+
+  it('Accept sends the ticked clues too', async () => {
+    const user = userEvent.setup();
+    oneSuggestion();
+    render(<DuplicateEventsContent />, { wrapper: createWrapper() });
+
+    await user.click(screen.getByRole('button', { name: 'Accept' }));
+    await user.click(await screen.findByLabelText('Same venue'));
+    await user.click(screen.getByLabelText('Shared link'));
+    await user.click(screen.getByRole('button', { name: 'Merge' }));
+
+    await waitFor(() =>
+      expect(mockResolve).toHaveBeenCalledWith({ id: 'suggestion-1', action: SuggestedEventMatchAction.Accept, clues: ['same-venue', 'shared-link'], note: null })
+    );
+  });
+
+  it('once one clue of an exclusive group is ticked the others of that group are disabled, and unticking frees them', async () => {
+    const user = userEvent.setup();
+    oneSuggestion();
+    render(<DuplicateEventsContent />, { wrapper: createWrapper() });
+
+    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    const same = await screen.findByLabelText('Same venue');
+    const different = screen.getByLabelText('Different venue');
+    await user.click(same);
+    expect(different).toBeDisabled();
+    expect(screen.getByLabelText('Another reason')).not.toBeDisabled();
+    await user.click(same);
+    expect(different).not.toBeDisabled();
+  });
+
+  it('the checklist and the note start empty each time the dialog opens, and Cancel resolves nothing', async () => {
+    const user = userEvent.setup();
+    oneSuggestion();
+    render(<DuplicateEventsContent />, { wrapper: createWrapper() });
+
+    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await user.click(await screen.findByLabelText('Same date'));
+    await user.type(screen.getByLabelText(/Note \(optional/), 'draft');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(mockResolve).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Accept' }));
+    expect(await screen.findByLabelText('Same date')).not.toBeChecked();
+    expect(screen.getByLabelText(/Note \(optional/)).toHaveValue('');
+  });
+
+  it('the note is capped at 200 characters and counted, and never reaches analytics or the console', async () => {
+    const user = userEvent.setup();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockResolve.mockRejectedValueOnce(new Error('boom'));
+    oneSuggestion();
+    render(<DuplicateEventsContent />, { wrapper: createWrapper() });
+
+    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    const box = await screen.findByLabelText(/Note \(optional/);
+    expect(box).toHaveAttribute('maxlength', '200');
+    fireEvent.change(box, { target: { value: 'SECRET-NOTE' } });
+    expect(screen.getByText('11/200')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to dismiss this suggestion'));
+    const everythingPrinted = JSON.stringify([consoleError.mock.calls.map((call) => call.map(String)), (toast.error as any).mock.calls, (toast.success as any).mock.calls, capture.mock.calls]);
+    expect(everythingPrinted).not.toContain('SECRET-NOTE');
+    consoleError.mockRestore();
   });
 
   it('Undo (via the toast action) reverses the merge', async () => {

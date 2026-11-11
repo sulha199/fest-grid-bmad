@@ -238,3 +238,47 @@ test('the apply script merges only through resolveSuggestedMatch() with via ai_s
   assert.ok(DIRECT_WRITE.test('await tx.update(events).set({})') && DIRECT_WRITE.test('await tx.execute(sql`UPDATE events SET x = 1`)') && DIRECT_WRITE.test('tx.insert(eventMerges)') && DIRECT_WRITE.test('tx.delete(events)'), 'direct writes are caught');
   assert.ok(!DIRECT_WRITE.test('await tx.select().from(events).for(\'update\')') && !DIRECT_WRITE.test('SELECT pg_advisory_xact_lock(1)'), 'a locking select is not a write');
 });
+
+// spec-dedup-decision-clues: `resolution_note` is a moderator's free text. It is stored and never printed (the repo,
+// the Actions logs and the issues are public). Only the resolver writes it and undo clears it; no other source file
+// may name the column, and the apply bridge must not know a note exists (its input is public).
+const NOTE_WRITERS = [join(SRC_ROOT, 'lib', 'events', 'merge-events.ts'), join(SRC_ROOT, 'lib', 'events', 'resolve-suggested-match.ts')];
+const NOTE_IDENTIFIER = /\bresolutionNote\b|\bresolution_note\b/;
+const BRIDGE_FILES = [
+  join(SRC_ROOT, 'lib', 'events', 'dedup-review-apply.ts'),
+  join(SRC_ROOT, 'lib', 'events', 'dedup-review-export.ts'),
+  join(SRC_ROOT, 'lib', 'events', 'dedup-review-errors.ts'),
+  join(SRC_ROOT, 'lib', 'events', 'dedup-review-failure.ts'),
+  join(SRC_ROOT, 'dedup-review-apply.ts'),
+  join(SRC_ROOT, 'dedup-review-export.ts'),
+];
+
+test('only the resolver and undo name resolution_note, and none of their lines prints', () => {
+  for (const writer of NOTE_WRITERS) assert.ok(existsSync(writer), `${toRelative(writer)} no longer exists: update NOTE_WRITERS`);
+  const offenders = collectTsFiles(SRC_ROOT)
+    .filter((f) => !NOTE_WRITERS.includes(resolve(f)))
+    .filter((f) => NOTE_IDENTIFIER.test(stripComments(readFileSync(f, 'utf8'))))
+    .map(toRelative);
+  assert.deepStrictEqual(offenders, [], `resolution_note is named outside the resolver and undo: ${offenders.join(', ')}. It is free text and must never be printed.`);
+
+  for (const writer of NOTE_WRITERS) {
+    const printing = stripComments(readFileSync(writer, 'utf8'))
+      .split('\n')
+      .filter((line) => /\bconsole\b|\blogger\b|\blog(?:Info|Warn|Error)?\(|JSON\.stringify|\bthrow\b/.test(line) && /\bnote\b|\bresolutionNote\b|\bresolution_note\b/.test(line));
+    assert.deepStrictEqual(printing, [], `${toRelative(writer)} prints or throws a line that holds the note`);
+  }
+});
+
+test('the apply bridge and the export never mention a note: their input is public', () => {
+  for (const file of BRIDGE_FILES) {
+    assert.ok(existsSync(file), `${toRelative(file)} no longer exists: update BRIDGE_FILES`);
+    assert.ok(!/\bnote\b/i.test(stripComments(readFileSync(file, 'utf8'))), `${toRelative(file)} mentions a note`);
+  }
+});
+
+test('the resolver passes clues and note to resolveSuggestedMatch and to nothing that prints', () => {
+  const source = stripComments(readFileSync(RESOLVERS_FILE, 'utf8'));
+  const block = /resolveSuggestedEventMatch:\s*async(?:(?!\n {4}\w+:\s*async)[\s\S])*/.exec(source)?.[0] ?? '';
+  assert.ok(/clues,\s*note\s*\}\)/.test(block), 'the resolver must hand clues and note to resolveSuggestedMatch');
+  assert.ok(!/\bconsole\b|\blogger\b/.test(block), 'the resolver must not print anything');
+});

@@ -3111,7 +3111,9 @@ This document defines the core architectural invariants for the FestDaily applic
         dispatch the workflow can supply any hash. **Accepted exposures:** the hash, the run tag and the
         decisions (ids, hashes, free-text `reasons`) are public inputs and stay in logs for their retention;
         a refusal versus a clean report tells a guesser whether an address is a moderator's; the skill sends
-        `reasons: []`.
+        `reasons: []`. **Amended 2026-11-11 (decision clues):** a decision may also carry `clues`, codes of a closed
+        list that are public-safe; a free-text note never travels through the bridge (a `note` key refuses the file) and
+        only the moderator screen can store one.
     6.  **The gate releases a credential; it does not review decisions.** `apply`, a dry run included, runs in
         `dedup-review-live` and waits for the owner's approval, which releases the write credential. The
         approver sees ids and hashes and cannot judge a merge or a reject from them. `validate`, the skill's shadow mode,
