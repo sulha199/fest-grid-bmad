@@ -3054,3 +3054,11 @@ items:
      touches: [app:backend, pkg:domain, cross:ai-extraction, cross:process],
      note: "Slice A (scorer, runner, workflow, synthetic set) built 2026-11-11 on a PR; slice B (labelled set, store, first live baseline) still needs the maintainer. Detail in the spec."}
 
+  IDEA-261111-9ch:
+    {type: idea, status: backlog, created: 2026-11-11,
+     impact: internal, effort: m,
+     title: "Score a whole extraction chain (skor seluruh rantai ekstraksi), not only the first call, so roundup completeness is measured",
+     ref: [backlog/IDEA-261111-9ch-score-whole-extraction-chain.md, implementation-artifacts/spec-extraction-accuracy-eval.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction],
+     note: "The slice A eval scores one call; production extracts selected posts in steps (AD-46), so a 203-event roundup cannot be measured. Follow-up to IDEA-261111-5cc, which this does not block."}
+

@@ -75,6 +75,7 @@ context:
 
 ## Spec Change Log
 
+- 2026-11-11: decided on PR review: the slice A eval scores the first extraction call only (whole-chain scoring is the follow-up IDEA-261111-9ch); a live run saves its recording after every call and keeps it on a hard error.
 - 2026-11-11: slice A implemented (scorer in `packages/domain/src/extraction-eval/`, runner with `--replay`, non-blocking workflow, synthetic set, docs page). Per-event fields are scored over matched events only; a missing labelled event counts once as an `eventName` miss. Slice B open.
 - 2026-11-11: created from the location-keywords live checks (see the problem statement). Two slices: A offline and buildable unattended, B needs the maintainer (labelled data, keys, first baseline).
 
