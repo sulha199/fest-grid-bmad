@@ -115,4 +115,55 @@ test('promoteQueuedJobs', async (t) => {
   await t.test('an unknown user is a quiet no-op', async () => {
     assert.equal(await promoteQueuedJobs('00000000-0000-4000-8000-000000000000'), 0);
   });
+
+  await t.test('a host this Lambda cannot reach puts the job back in its old queue place instead of failing it (review finding)', async () => {
+    const type = fx.defineType();
+    const owner = await fx.makeUser();
+    const ids = await startMany(type, owner, 5);
+    await db.update(jobs).set({ status: 'SUCCEEDED', finishedAt: new Date() }).where(eq(jobs.id, ids[0]));
+    const queuedSince = new Date(Date.now() - 90_000);
+    await db.update(jobs).set({ queuedSince }).where(eq(jobs.id, ids[3]));
+    const saved = process.env.SCRAPER_FUNCTION_NAME;
+    delete process.env.SCRAPER_FUNCTION_NAME;
+    delete process.env.JOB_HOST_SELF;
+    try {
+      assert.equal(await promoteQueuedJobs(owner), 0);
+    } finally {
+      process.env.SCRAPER_FUNCTION_NAME = saved;
+    }
+    const row = await read(ids[3]);
+    assert.equal(row.status, 'QUEUED', 'not failed');
+    assert.equal(row.admittedAt, null, 'not admitted: it holds no place');
+    assert.equal(row.queuedSince?.getTime(), queuedSince.getTime(), 'its old queue place is kept');
+    assert.deepEqual(fx.invoked, []);
+    // a Lambda that can reach the host (the sweep) starts it later
+    assert.equal(await promoteQueuedJobs(owner), 1);
+    assert.ok((await read(ids[3])).admittedAt instanceof Date);
+  });
+
+  await t.test('a worker invokes a job hosted on itself by its own name (JOB_HOST_SELF + AWS_LAMBDA_FUNCTION_NAME)', async () => {
+    const type = fx.defineType();
+    const owner = await fx.makeUser();
+    const ids = await startMany(type, owner, 4);
+    await db.update(jobs).set({ status: 'SUCCEEDED', finishedAt: new Date() }).where(eq(jobs.id, ids[0]));
+    const saved = { fn: process.env.SCRAPER_FUNCTION_NAME, self: process.env.JOB_HOST_SELF, aws: process.env.AWS_LAMBDA_FUNCTION_NAME };
+    delete process.env.SCRAPER_FUNCTION_NAME;
+    process.env.JOB_HOST_SELF = 'scraper';
+    process.env.AWS_LAMBDA_FUNCTION_NAME = 'self-scraper-fn';
+    const names: string[] = [];
+    const { setInvokeJobEngineWorker } = await import('../aws/invoke-job-engine-worker.js');
+    setInvokeJobEngineWorker(async (functionName) => {
+      names.push(functionName);
+    });
+    try {
+      assert.equal(await promoteQueuedJobs(owner), 1);
+    } finally {
+      process.env.SCRAPER_FUNCTION_NAME = saved.fn;
+      if (saved.self === undefined) delete process.env.JOB_HOST_SELF;
+      else process.env.JOB_HOST_SELF = saved.self;
+      if (saved.aws === undefined) delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+      else process.env.AWS_LAMBDA_FUNCTION_NAME = saved.aws;
+    }
+    assert.deepEqual(names, ['self-scraper-fn']);
+  });
 });

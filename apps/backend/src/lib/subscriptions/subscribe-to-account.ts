@@ -24,6 +24,8 @@ interface SubscribeToAccountParams {
   platform: string;
   accountId: string;
   profile: ProfileInput;
+  /** Story 10.3: the add-account job whose own handler is making this call; its reserved slot is not counted against it. */
+  consumesReservationOfJobId?: string;
 }
 
 export async function subscribeToAccount({
@@ -31,6 +33,7 @@ export async function subscribeToAccount({
   platform,
   accountId,
   profile,
+  consumesReservationOfJobId,
 }: SubscribeToAccountParams) {
   // 1. Try to find the existing social media account profile
   let accountProfile = await db
@@ -89,7 +92,7 @@ export async function subscribeToAccount({
   }
 
   // 1a. Story 10.3 (AC7, AC8; PRD FR122) -- the subscription cap, decided BEFORE the classification and scrape cascade
-  // below, so a refused subscribe spends no vendor credit. The user row is locked (SELECT ... FOR UPDATE), the cap is
+  // below, so a refused subscribe spends no vendor credit. The user row is locked (SELECT ... FOR NO KEY UPDATE), the cap is
   // counted (active subscriptions plus reserved slots) and the subscription is inserted in ONE transaction, so two
   // simultaneous subscribes at four subscriptions cannot both succeed. An account the user already holds uses no extra
   // slot and is returned as `alreadySubscribed` exactly as before. The cascade below still runs for it.
@@ -112,7 +115,12 @@ export async function subscribeToAccount({
     if (held) {
       return { existing: held, created: undefined };
     }
-    await assertSubscriptionCap(tx, { userId, isModerator: user.role === 'moderator', alreadyHeld: false });
+    await assertSubscriptionCap(tx, {
+      userId,
+      isModerator: user.role === 'moderator',
+      alreadyHeld: false,
+      excludeReservedByJobId: consumesReservationOfJobId,
+    });
     const [created] = await tx
       .insert(subscriptions)
       .values({

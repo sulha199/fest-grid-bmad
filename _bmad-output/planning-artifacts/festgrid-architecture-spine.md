@@ -3506,8 +3506,9 @@ This document defines the core architectural invariants for the FestDaily applic
         ends every admitted, non-terminal job past `deadline_at` (EXPIRED, `TIMED_OUT`) and clears its claim;
         since Story 10.3 it also expires a job that waited for a place longer than `JOB_QUEUE_MAX_WAIT_MINUTES`
         (EXPIRED, `WAITED_TOO_LONG`), settles followers whose leader ended or vanished, re-admits every non-follower
-        WAITING job whose `resume_at` is due, and promotes queued jobs into free places (so a lost wake-up strands
-        nothing); each step is in its own try/catch. It also enforces retention on `manual_extraction_jobs` (an unclaimed or stuck job keeps no caption past the stale
+        WAITING job whose `resume_at` is due, promotes queued jobs into free places and re-invokes an admitted job nobody is running
+        (a lost start invoke or a crashed worker's stale claim, untouched for the claim TTL; the claim makes a duplicate
+        invoke harmless), so a lost wake-up strands nothing; each step is in its own try/catch. It also enforces retention on `manual_extraction_jobs` (an unclaimed or stuck job keeps no caption past the stale
         limit, an unapplied re-extract preview keeps no extraction past the Apply window: FIND-086 and FIND-111). It
         does not touch `vendor_call_locks` (AD-32's own TTL releases a dead worker's lease). **This departs from AD-41
         Rule 5's "no new rule" on purpose:** the hourly vendor sweep also makes vendor progress calls and must not run
@@ -3531,8 +3532,13 @@ This document defines the core architectural invariants for the FestDaily applic
         from `cancelJob`, and in the sweep. A WAITING job is re-admitted like a new start (`readmitWaitingJob`: back to the
         queue, then promoted); event sources call it directly, the sweep calls it for a due `resume_at`. User jobs only: a
         SYSTEM job (FR130) uses and waits for no user's place and is admitted at once. A type that has no definition in the
-        Lambda that promotes it stays queued, so every Lambda that promotes must register ALL job type definitions (the
-        pure half of Rule 2).
+        Lambda that promotes it stays queued, so every Lambda that promotes (and every Lambda that enforces the cap, Rule 14)
+        must register ALL job type definitions (the pure half of Rule 2). **Which Lambda can start which host:** the API
+        reaches both; the Scraper reaches itself and the AI-processor; the AI-processor reaches only itself (the two
+        Lambdas' environments cannot name each other without a cycle; a Lambda starts a host on itself through
+        `JOB_HOST_SELF` plus `AWS_LAMBDA_FUNCTION_NAME` and a resource policy on the function). A promotion that cannot
+        reach a job's host puts the job back in the queue in its old place (never fails it); the sweep, which runs on the
+        Scraper, starts it within 5 minutes.
     13. **Reuse and sharing (Story 10.3, FR120).** The same work (owner, type, input key) already open for the user is
         REUSED: nothing written, nothing invoked; the partial unique index `uq_jobs_open_input` is the backstop and a
         follower counts as open work. A type may declare `sharedAcrossUsers` (its `resultData` is then public by
@@ -3549,7 +3555,11 @@ This document defines the core architectural invariants for the FestDaily applic
         slot-reserving type, and in `subscribeToAccount` (check and insert in one transaction, BEFORE any classification
         or scrape, so a refusal spends no vendor credit) and `removeSubscription` RESTORE. A refusal is the typed
         `SubscriptionCapReachedError { activeCount, reservedCount, cap }`, surfaced as the GraphQL error
-        `SUBSCRIPTION_CAP_REACHED` (Story 10.3a shows it).
+        `SUBSCRIPTION_CAP_REACHED` (Story 10.3a shows it). The job whose handler turns its own reservation into the
+        subscription passes `consumesReservationOfJobId` to `subscribeToAccount`, so it is not counted against itself.
+        Known edge: the subscription is written before the vendor cascade and removed again if the cascade throws; a
+        concurrent subscribe to the same account in that window can report `alreadySubscribed` for a row that is then
+        removed, and a Lambda killed mid-cascade leaves the row (a retry returns `alreadySubscribed`).
 *   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
     Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
     (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the

@@ -179,6 +179,26 @@ test('subscribeToAccount: the subscription cap (Story 10.3)', async (t) => {
     assert.equal(result.alreadySubscribed, false);
   });
 
+  await t.test('the add-account job whose handler subscribes is not blocked by its own reservation (review finding)', async () => {
+    const user = await makeUser();
+    await holdSubscriptions(user, 4);
+    const [job] = await db
+      .insert(jobs)
+      .values({ type: SLOT_TYPE, ownerUserId: user, trigger: 'USER', inputKey: 'mine', admittedAt: new Date(), deadlineAt: new Date(Date.now() + 60_000) })
+      .returning();
+    const profile = await makeProfile();
+    await assert.rejects(subscribeTo(user, profile), SubscriptionCapReachedError, 'without the job id its own slot counts');
+    const result = await subscribeToAccount({
+      userId: user,
+      platform: 'instagram',
+      accountId: profile.accountId,
+      profile: { displayName: 'Cap Test', username: profile.username },
+      consumesReservationOfJobId: job.id,
+    });
+    assert.equal(result.alreadySubscribed, false);
+    assert.equal(await activeCount(user), 5);
+  });
+
   await t.test('(d) two simultaneous subscribes at four subscriptions: exactly one succeeds', async () => {
     const user = await makeUser();
     await holdSubscriptions(user, 4);
@@ -202,18 +222,22 @@ test('subscribeToAccount: the subscription cap (Story 10.3)', async (t) => {
   await t.test('capacity exhausted after the subscription was written: it is removed again and the capacity error still surfaces', async () => {
     const user = await makeUser();
     const unclassified = await makeProfile({ classified: false });
-    // Exhaust both providers (the cascade's capacity check), restoring whatever rows existed afterwards.
-    const saved = await db.select().from(scraperProviderUsage).where(inArray(scraperProviderUsage.provider, ['apify', 'brightdata']));
-    await db.delete(scraperProviderUsage).where(inArray(scraperProviderUsage.provider, ['apify', 'brightdata']));
-    await db.insert(scraperProviderUsage).values([
-      { provider: 'apify', itemsUsedThisCycle: 100_000_000, usageCycleResetAt: new Date() },
-      { provider: 'brightdata', itemsUsedThisCycle: 100_000_000, usageCycleResetAt: new Date() },
-    ]);
+    // Exhaust capacity for THIS process only: a threshold ratio of 0 makes any usage row "full". node --test runs each file in
+    // its own process, so no other suite sees it; a missing usage row counts as available, so insert the two rows (zero use,
+    // which other processes read as available) when absent and remove exactly those afterwards. Existing rows are untouched.
+    const existing = await db.select({ provider: scraperProviderUsage.provider }).from(scraperProviderUsage).where(inArray(scraperProviderUsage.provider, ['apify', 'brightdata']));
+    const missing = ['apify', 'brightdata'].filter((provider) => !existing.some((row) => row.provider === provider));
+    if (missing.length > 0) {
+      await db.insert(scraperProviderUsage).values(missing.map((provider) => ({ provider, itemsUsedThisCycle: 0, usageCycleResetAt: new Date() })));
+    }
+    const savedRatio = process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO;
+    process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO = '0';
     try {
       await assert.rejects(subscribeTo(user, unclassified), ScraperCapacityExceededError);
     } finally {
-      await db.delete(scraperProviderUsage).where(inArray(scraperProviderUsage.provider, ['apify', 'brightdata']));
-      if (saved.length > 0) await db.insert(scraperProviderUsage).values(saved);
+      if (savedRatio === undefined) delete process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO;
+      else process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO = savedRatio;
+      if (missing.length > 0) await db.delete(scraperProviderUsage).where(inArray(scraperProviderUsage.provider, missing));
     }
     const rows = await db
       .select()

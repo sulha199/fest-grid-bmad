@@ -1,9 +1,9 @@
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { jobs } from '@festgrid/database';
-import { computeJobDeadline, getJobTypeDefinition } from '@festgrid/domain/jobs';
+import { FOLLOWER_PHASE, computeJobDeadline, getJobTypeDefinition } from '@festgrid/domain/jobs';
 import { db } from '../../db/client.js';
 import { admittedColumns } from './admit-job.js';
-import { invokeJobHost, markJobStartFailed } from './job-host.js';
+import { JobHostUnreachableError, invokeJobHost, markJobStartFailed } from './job-host.js';
 import { promoteQueuedJobs } from './promote-queued-jobs.js';
 import { afterJobEnded } from './after-job-ended.js';
 
@@ -17,7 +17,7 @@ export type ReadmitResult = 'READMITTED' | 'NOT_WAITING' | 'UNKNOWN_JOB_TYPE';
 export async function readmitWaitingJob(jobId: string): Promise<ReadmitResult> {
   const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId));
   // A follower waits on its leader, not on time: it is settled, never re-admitted.
-  if (!job || job.status !== 'WAITING' || job.leaderJobId !== null) {
+  if (!job || job.status !== 'WAITING' || job.leaderJobId !== null || job.phase === FOLLOWER_PHASE) {
     return 'NOT_WAITING';
   }
   const definition = getJobTypeDefinition(job.type);
@@ -40,6 +40,15 @@ export async function readmitWaitingJob(jobId: string): Promise<ReadmitResult> {
     try {
       await invokeJobHost(job.type, job.id);
     } catch (error) {
+      if (error instanceof JobHostUnreachableError) {
+        // Back to WAITING for a Lambda that can reach the host (the sweep re-admits it when due).
+        console.warn(`[readmitWaitingJob] job ${job.id} (${job.type}): ${error.message}; left WAITING`);
+        await db
+          .update(jobs)
+          .set({ status: 'WAITING', resumeAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(jobs.id, job.id), eq(jobs.status, 'QUEUED'), isNull(jobs.workerClaimedAt)));
+        return 'READMITTED';
+      }
       console.error(`[readmitWaitingJob] could not restart job ${job.id} (${job.type}):`, error);
       if (await markJobStartFailed(job.id)) {
         await afterJobEnded({ id: job.id, ownerUserId: null }, true);

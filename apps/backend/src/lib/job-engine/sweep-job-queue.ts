@@ -1,8 +1,9 @@
-import { aliasedTable, and, eq, inArray, isNotNull, isNull, lte, notInArray } from 'drizzle-orm';
+import { aliasedTable, and, eq, inArray, isNotNull, isNull, lt, lte, notInArray, or } from 'drizzle-orm';
 import { jobs } from '@festgrid/database';
 import { FOLLOWER_PHASE, JOB_TERMINAL_STATUSES } from '@festgrid/domain/jobs';
 import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
+import { invokeJobHost } from './job-host.js';
 import { promoteQueuedJobs } from './promote-queued-jobs.js';
 import { readmitWaitingJob } from './readmit-waiting-job.js';
 import { failOrphanedFollowers, settleFollowers } from './settle-followers.js';
@@ -91,3 +92,39 @@ export async function promoteOwnersWithQueuedJobs(): Promise<number> {
   return promoted;
 }
 
+
+/**
+ * An ADMITTED job nobody is working on (it holds a place, and a cap slot for a reserving type) because its start invoke
+ * was lost (the process died between the admission commit and the invoke, a throttled async invoke, a Lambda that timed
+ * out right after a run) or its worker crashed (stale claim). Re-invokes its host: the claim is one conditional UPDATE, so a
+ * duplicate invoke is harmless. Only jobs untouched for JOB_WORKER_CLAIM_TTL_MINUTES, so a live run is never disturbed;
+ * `updated_at` is bumped so the next try is a TTL later. A job that never starts ends at its deadline as before.
+ */
+export async function reinvokeStrandedAdmittedJobs(now: Date = new Date()): Promise<number> {
+  const staleBefore = new Date(now.getTime() - loadBackendEnv().jobWorkerClaimTtlMinutes * 60_000);
+  const stranded = await db
+    .select({ id: jobs.id, type: jobs.type })
+    .from(jobs)
+    .where(
+      and(
+        inArray(jobs.status, ['QUEUED', 'RUNNING']),
+        isNotNull(jobs.admittedAt),
+        lt(jobs.admittedAt, staleBefore),
+        lt(jobs.updatedAt, staleBefore),
+        or(isNull(jobs.workerClaimedAt), lt(jobs.workerClaimedAt, staleBefore))
+      )
+    )
+    .orderBy(jobs.updatedAt)
+    .limit(BATCH);
+  let reinvoked = 0;
+  for (const job of stranded) {
+    try {
+      await invokeJobHost(job.type, job.id);
+      await db.update(jobs).set({ updatedAt: now }).where(eq(jobs.id, job.id));
+      reinvoked += 1;
+    } catch (error) {
+      console.error(`[job-engine-sweep] re-invoking stranded job ${job.id} (${job.type}) failed; continuing:`, error);
+    }
+  }
+  return reinvoked;
+}

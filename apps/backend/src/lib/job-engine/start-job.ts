@@ -1,6 +1,7 @@
 import { getJobTypeDefinition } from '@festgrid/domain/jobs';
 import { admitJob } from './admit-job.js';
 import { afterJobEnded } from './after-job-ended.js';
+import { settleFollowers } from './settle-followers.js';
 import { START_FAILED_MESSAGE, invokeJobHost, markJobStartFailed } from './job-host.js';
 
 // Story 10.1a/10.3 -- API-Lambda side of the job engine (PRD FR116, FR120 to FR122, FR130). Deliberately imports nothing
@@ -73,8 +74,16 @@ export async function startJob(type: string, input: StartJobInput, ownerUserId: 
     await afterJobEnded({ id: admission.jobId, ownerUserId }, false);
     return { jobId: admission.jobId, outcome: 'QUEUED', position: admission.position };
   }
-  if (admission.outcome !== 'ADMITTED') {
-    return { jobId: admission.jobId, outcome: admission.outcome };
+  if (admission.outcome === 'SHARED') {
+    // The leader may have ended between the lookup and the insert (the lock is the follower's user's, not the leader's):
+    // settle now instead of waiting for the sweep. A no-op while the leader is still open.
+    await settleFollowers(admission.leaderJobId).catch((error) =>
+      console.error(`[startJob] settling followers of ${admission.leaderJobId} failed; the sweep will retry:`, error)
+    );
+    return { jobId: admission.jobId, outcome: 'SHARED' };
+  }
+  if (admission.outcome === 'REUSED') {
+    return { jobId: admission.jobId, outcome: 'REUSED' };
   }
 
   try {

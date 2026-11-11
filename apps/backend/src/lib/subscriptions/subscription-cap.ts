@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, notInArray } from 'drizzle-orm';
+import { and, count, eq, inArray, ne, notInArray } from 'drizzle-orm';
 import { activeOnly } from '@festgrid/graphql-select';
 import { jobs, subscriptions, users } from '@festgrid/database';
 import { JOB_TERMINAL_STATUSES, listJobTypeDefinitions } from '@festgrid/domain/jobs';
@@ -13,12 +13,13 @@ import { loadBackendEnv } from '../../env.js';
 export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
- * Serializes everything that admits work for one user: `SELECT ... FOR UPDATE` on the user row. A transaction-scoped row
+ * Serializes everything that admits work for one user: `SELECT ... FOR NO KEY UPDATE` on the user row (two of these
+ * conflict, while the FOR KEY SHARE every foreign-key insert on `users` takes does not, so jobs and subscriptions are not blocked). A transaction-scoped row
  * lock is safe under the Supabase transaction-mode pooler (a session advisory lock is not, AD-32). Returns the role, or
  * null when the user does not exist (a deleted user: the caller refuses).
  */
 export async function lockUserRow(tx: DbTransaction, userId: string): Promise<{ role: 'user' | 'moderator' } | null> {
-  const [row] = await tx.select({ role: users.role }).from(users).where(eq(users.id, userId)).for('update');
+  const [row] = await tx.select({ role: users.role }).from(users).where(eq(users.id, userId)).for('no key update');
   return row ?? null;
 }
 
@@ -32,10 +33,13 @@ export async function countActiveSubscriptions(tx: DbTransaction, userId: string
 }
 
 /**
- * Reserved slots (FR122): the user's non-terminal jobs of a type that declares `reservesSubscriptionSlot`, an account
- * still being added that will become a subscription. Types come from the pure definitions the process registered.
+ * Reserved slots (FR122): the user's non-terminal jobs (optionally except one: the job whose own handler is now turning its
+ * reservation into the subscription, which must not count against itself) of a type that declares `reservesSubscriptionSlot`, an account
+ * still being added that will become a subscription. Types come from the pure definitions the process REGISTERED IN THIS
+ * PROCESS: a reserving type that the calling Lambda has not registered is not counted, so every Lambda that enforces the cap
+ * must register all job type definitions (AD-53 Rule 12).
  */
-export async function countReservedSlots(tx: DbTransaction, userId: string): Promise<number> {
+export async function countReservedSlots(tx: DbTransaction, userId: string, excludeJobId?: string): Promise<number> {
   const reservingTypes = listJobTypeDefinitions()
     .filter((definition) => definition.reservesSubscriptionSlot)
     .map((definition) => definition.type);
@@ -49,7 +53,8 @@ export async function countReservedSlots(tx: DbTransaction, userId: string): Pro
       and(
         eq(jobs.ownerUserId, userId),
         inArray(jobs.type, reservingTypes),
-        notInArray(jobs.status, [...JOB_TERMINAL_STATUSES])
+        notInArray(jobs.status, [...JOB_TERMINAL_STATUSES]),
+        ...(excludeJobId ? [ne(jobs.id, excludeJobId)] : [])
       )
     );
   return row?.value ?? 0;
@@ -61,7 +66,7 @@ export async function countReservedSlots(tx: DbTransaction, userId: string): Pro
  */
 export async function checkSubscriptionCap(
   tx: DbTransaction,
-  input: { userId: string; isModerator: boolean; alreadyHeld: boolean }
+  input: { userId: string; isModerator: boolean; alreadyHeld: boolean; excludeReservedByJobId?: string }
 ): Promise<{ allowed: true } | { allowed: false; activeCount: number; reservedCount: number; cap: number }> {
   const cap = loadBackendEnv().maxSubscribedAccountsFreeUser;
   if (input.isModerator || input.alreadyHeld) {
@@ -69,7 +74,7 @@ export async function checkSubscriptionCap(
   }
   const [activeCount, reservedCount] = await Promise.all([
     countActiveSubscriptions(tx, input.userId),
-    countReservedSlots(tx, input.userId),
+    countReservedSlots(tx, input.userId, input.excludeReservedByJobId),
   ]);
   return evaluateSubscriptionCap({ isModerator: false, activeCount, reservedCount, alreadyHeld: false, cap });
 }
@@ -77,7 +82,7 @@ export async function checkSubscriptionCap(
 /** Throws `SubscriptionCapReachedError` when the user is at or above the cap. The user row must already be locked. */
 export async function assertSubscriptionCap(
   tx: DbTransaction,
-  input: { userId: string; isModerator: boolean; alreadyHeld: boolean }
+  input: { userId: string; isModerator: boolean; alreadyHeld: boolean; excludeReservedByJobId?: string }
 ): Promise<void> {
   const decision = await checkSubscriptionCap(tx, input);
   if (!decision.allowed) {

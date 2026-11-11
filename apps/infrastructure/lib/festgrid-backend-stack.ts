@@ -783,6 +783,24 @@ export class FestgridBackendStack extends cdk.Stack {
       worker.addEnvironment('JOB_ATTEMPT_DEADLINE_MS', process.env.JOB_ATTEMPT_DEADLINE_MS || '150000');
       worker.addEnvironment('JOB_WORKER_CLAIM_TTL_MINUTES', process.env.JOB_WORKER_CLAIM_TTL_MINUTES || '5');
     }
+    // Story 10.3 -- a worker that ends a run (or the sweep) promotes the owner's queued jobs and so must be able to start a
+    // job hosted on ITSELF. A Ref to its own name or ARN in its own environment or role policy would be a cycle, so: the
+    // name comes at runtime from AWS_LAMBDA_FUNCTION_NAME (JOB_HOST_SELF says which host this Lambda is), and the permission
+    // is a resource policy on the function (a separate AWS::Lambda::Permission, which depends on the function, not the
+    // reverse). The AI-processor has no name for the Scraper (the two names would reference each other), so it cannot start
+    // a Scraper-hosted job: the promotion puts that job back in the queue and the 5-minute sweep, which runs on the Scraper,
+    // starts it.
+    scraperLambda.addEnvironment('JOB_HOST_SELF', 'scraper');
+    aiProcessorLambda.addEnvironment('JOB_HOST_SELF', 'ai-processor');
+    scraperLambda.addPermission('SelfInvoke', {
+      principal: new iam.ArnPrincipal(scraperLambda.role!.roleArn),
+      action: 'lambda:InvokeFunction',
+    });
+    aiProcessorLambda.addPermission('SelfInvoke', {
+      principal: new iam.ArnPrincipal(aiProcessorLambda.role!.roleArn),
+      action: 'lambda:InvokeFunction',
+    });
+
     // Story 10.3 -- admission and the subscription cap. Admission runs in the API Lambda (startJob, subscribeToAccount),
     // promotion runs in both workers (at the end of a run) and in the sweep (Scraper), so all three carry the same four
     // settings and the same defaults as env.ts.

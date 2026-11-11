@@ -15,7 +15,7 @@ import { checkSubscriptionCap, lockUserRow, type DbTransaction } from '../subscr
 // Story 10.3 (AC1 to AC4, AC7; PRD FR120 to FR122; AD-53) -- THE admission function. `startJob`, `promoteQueuedJobs` and
 // `readmitWaitingJob` all decide who may run through the counting helpers and the insert here, never their own.
 //
-// One transaction holding a row lock on the user (SELECT ... FOR UPDATE on `users`), so two simultaneous starts for one
+// One transaction holding a row lock on the user (SELECT ... FOR NO KEY UPDATE on `users`), so two simultaneous starts for one
 // user are serialized. Inside it, in this order: reuse, the subscription cap, sharing, then the limits.
 
 export type AdmitJobInput = {
@@ -31,7 +31,7 @@ export type AdmitJobResult =
   | { outcome: 'ADMITTED'; jobId: string }
   | { outcome: 'QUEUED'; jobId: string; position: number }
   | { outcome: 'REUSED'; jobId: string }
-  | { outcome: 'SHARED'; jobId: string }
+  | { outcome: 'SHARED'; jobId: string; leaderJobId: string }
   | { refused: 'JOB_QUEUE_FULL' | 'UNKNOWN_JOB_TYPE' | 'UNKNOWN_USER' }
   | { refused: 'SUBSCRIPTION_CAP_REACHED'; activeCount: number; reservedCount: number; cap: number };
 
@@ -107,6 +107,8 @@ async function findLeader(
         isNotNull(jobs.ownerUserId),
         sql`${jobs.ownerUserId} <> ${input.ownerUserId}`,
         isNull(jobs.leaderJobId),
+        // An orphaned follower (its leader row was deleted) has no leader id either: never join it.
+        sql`${jobs.phase} IS DISTINCT FROM ${FOLLOWER_PHASE}`,
         isNotNull(jobs.admittedAt),
         notInArray(jobs.status, OPEN_STATUSES_EXCLUDED)
       )
@@ -181,7 +183,7 @@ export async function admitJob(input: AdmitJobInput): Promise<AdmitJobResult> {
               deadlineAt: computeJobDeadline(now, definition),
             })
             .returning({ id: jobs.id });
-          return { outcome: 'SHARED', jobId: follower.id };
+          return { outcome: 'SHARED', jobId: follower.id, leaderJobId: leaderId };
         }
       }
 

@@ -245,4 +245,22 @@ test('startJob', async (t) => {
     assert.equal(row.status, 'FAILED');
     assert.equal(row.reasonCode, 'START_FAILED');
   });
+
+  await t.test('a follower that attaches to a leader that has just ended is settled at once, not by the sweep', async () => {
+    const a = await makeUser();
+    const b = await makeUser();
+    setInvokeJobEngineWorker(async () => {});
+    const key = `k-${suffix}-late-follow`;
+    const leader = await startJob(SHARED_TYPE, { inputKey: key }, a);
+    assert.ok('jobId' in leader);
+    // The leader ends, but a row that is not "open" is not joined, so simulate the race by ending the leader AFTER the
+    // follower is written: settleFollowers is then what the follower's own start runs.
+    const follower = await startJob(SHARED_TYPE, { inputKey: key }, b);
+    assert.ok('jobId' in follower && follower.outcome === 'SHARED');
+    await db.update(jobs).set({ status: 'SUCCEEDED', finishedAt: new Date(), resultData: { ok: 1 } }).where(eq(jobs.id, leader.jobId));
+    const { settleFollowers } = await import('./settle-followers.js');
+    assert.equal(await settleFollowers(leader.jobId), 1);
+    const [row] = await db.select().from(jobs).where(eq(jobs.id, follower.jobId));
+    assert.equal(row.status, 'SUCCEEDED');
+  });
 });

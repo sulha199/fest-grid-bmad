@@ -146,4 +146,20 @@ test('readmitWaitingJob', async (t) => {
       await fx.deleteJobs([system.id]);
     }
   });
+
+  await t.test('an orphaned follower (leader row deleted) is not re-admitted as real work, and not joined by a new follower', async () => {
+    const type = fx.defineType({ sharedAcrossUsers: true });
+    const a = await fx.makeUser();
+    const b = await fx.makeUser();
+    const c = await fx.makeUser();
+    const leader = await admitJob({ type, inputKey: 'orph', ownerUserId: a });
+    const follower = await admitJob({ type, inputKey: 'orph', ownerUserId: b });
+    assert.ok('jobId' in leader && 'jobId' in follower);
+    await db.delete(jobs).where(eq(jobs.id, leader.jobId));
+    await db.update(jobs).set({ resumeAt: new Date(Date.now() - 1000) }).where(eq(jobs.id, follower.jobId));
+    assert.equal(await readmitWaitingJob(follower.jobId), 'NOT_WAITING');
+    const fresh = await admitJob({ type, inputKey: 'orph', ownerUserId: c });
+    assert.ok('outcome' in fresh);
+    assert.equal(fresh.outcome, 'ADMITTED', 'the orphan is not a leader');
+  });
 });

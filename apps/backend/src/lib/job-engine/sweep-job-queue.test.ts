@@ -10,6 +10,7 @@ import {
   expireQueuedJobsWaitedTooLong,
   promoteOwnersWithQueuedJobs,
   readmitDueWaitingJobs,
+  reinvokeStrandedAdmittedJobs,
   settleOrphanedAndFinishedFollowers,
 } from './sweep-job-queue.js';
 
@@ -126,5 +127,48 @@ test('promoteOwnersWithQueuedJobs', async (t) => {
     assert.ok((await read(ids[3])).admittedAt instanceof Date);
     assert.ok((await read(otherIds[3])).admittedAt instanceof Date);
     assert.ok(fx.invoked.includes(ids[3]) && fx.invoked.includes(otherIds[3]));
+  });
+});
+
+test('reinvokeStrandedAdmittedJobs', async (t) => {
+  await t.test('re-invokes an admitted job nobody is running; leaves fresh, live-claimed, queued and ended jobs alone', async () => {
+    const type = fx.defineType();
+    const owner = await fx.makeUser();
+    const ids = await fill(type, owner, 4); // ids[0..2] admitted, ids[3] queued (not admitted)
+    const old = new Date(Date.now() - 10 * 60_000);
+    // ids[0]: lost start invoke (old, unclaimed); ids[1]: fresh; ids[2]: live claim; ids[3]: queued
+    await db.update(jobs).set({ admittedAt: old, updatedAt: old }).where(eq(jobs.id, ids[0]));
+    await db.update(jobs).set({ admittedAt: old, updatedAt: old, workerClaimedAt: new Date() }).where(eq(jobs.id, ids[2]));
+    await db.update(jobs).set({ admittedAt: old, updatedAt: old }).where(eq(jobs.id, ids[3]));
+    await db.update(jobs).set({ admittedAt: null }).where(eq(jobs.id, ids[3]));
+    fx.stubInvoke();
+    assert.ok((await reinvokeStrandedAdmittedJobs()) >= 1);
+    assert.deepEqual(fx.invoked.filter((id) => ids.includes(id)), [ids[0]]);
+    // bumped, so the next sweep does not invoke it again at once
+    fx.stubInvoke();
+    await reinvokeStrandedAdmittedJobs();
+    assert.deepEqual(fx.invoked.filter((id) => ids.includes(id)), []);
+  });
+
+  await t.test('a RUNNING job whose worker crashed (stale claim) is re-invoked', async () => {
+    const type = fx.defineType();
+    const owner = await fx.makeUser();
+    const [id] = await fill(type, owner, 1);
+    const old = new Date(Date.now() - 20 * 60_000);
+    await db.update(jobs).set({ status: 'RUNNING', admittedAt: old, updatedAt: old, workerClaimedAt: old }).where(eq(jobs.id, id));
+    fx.stubInvoke();
+    await reinvokeStrandedAdmittedJobs();
+    assert.ok(fx.invoked.includes(id));
+  });
+
+  await t.test('an invoke that fails is logged and does not stop the others', async () => {
+    const type = fx.defineType();
+    const owner = await fx.makeUser();
+    const ids = await fill(type, owner, 2);
+    const old = new Date(Date.now() - 10 * 60_000);
+    for (const id of ids) await db.update(jobs).set({ admittedAt: old, updatedAt: old }).where(eq(jobs.id, id));
+    fx.stubInvoke(new Error('throttled'));
+    await reinvokeStrandedAdmittedJobs(); // must not throw
+    assert.equal((await read(ids[0])).status, 'QUEUED', 'the job is not failed by the sweep');
   });
 });

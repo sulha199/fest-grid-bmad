@@ -4,6 +4,7 @@ import {
   expireQueuedJobsWaitedTooLong,
   promoteOwnersWithQueuedJobs,
   readmitDueWaitingJobs,
+  reinvokeStrandedAdmittedJobs,
   settleOrphanedAndFinishedFollowers,
 } from './sweep-job-queue.js';
 
@@ -21,6 +22,7 @@ export interface JobEngineSweepSteps {
   settleFollowers: () => Promise<number>;
   readmitWaitingJobs: () => Promise<number>;
   promoteQueuedJobs: () => Promise<number>;
+  reinvokeStranded: () => Promise<number>;
   retention: () => Promise<void>;
 }
 
@@ -30,6 +32,7 @@ const defaultSteps: JobEngineSweepSteps = {
   settleFollowers: () => settleOrphanedAndFinishedFollowers(),
   readmitWaitingJobs: () => readmitDueWaitingJobs(),
   promoteQueuedJobs: () => promoteOwnersWithQueuedJobs(),
+  reinvokeStranded: () => reinvokeStrandedAdmittedJobs(),
   retention: () => sweepStaleManualExtractionRetention(),
 };
 
@@ -41,6 +44,7 @@ export async function runJobEngineSweep(steps: JobEngineSweepSteps = defaultStep
     ['settling followers', steps.settleFollowers, 'settled {n} follower job(s)'],
     ['re-admitting waiting jobs', steps.readmitWaitingJobs, 're-admitted {n} waiting job(s)'],
     ['promoting queued jobs', steps.promoteQueuedJobs, 'promoted {n} queued job(s)'],
+    ['re-invoking stranded jobs', steps.reinvokeStranded, 're-invoked {n} admitted job(s) nobody was running'],
   ];
   for (const [label, step, message] of counted) {
     try {
