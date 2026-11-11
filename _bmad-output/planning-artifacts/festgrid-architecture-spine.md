@@ -368,8 +368,7 @@ This document defines the core architectural invariants for the FestDaily applic
     `confidence`/`matchType` signal that says how ambiguous that match was (the BUG-027 failure
     class); a low- or synthetic-confidence result being treated as authoritative simply because it
     was Geoapify's top-ranked entry; and, on the schedule-location path, a same-named venue abroad
-    being preferred over the local one because the account's own country was not used as a search
-    bias.
+    being preferred over the local one because no country was applied to the search (Rule 3, Rule 6).
 *   **Rule:**
     1.  **Every mapper populates the signal.** `geocodeAddress` and `reverseGeocode` spread
         Geoapify's `rank.confidence`/`rank.match_type` and `country_code` onto `LocationDetails`
@@ -404,19 +403,24 @@ This document defines the core architectural invariants for the FestDaily applic
           (`apps/web/src/features/subscriptions/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/queries.graphql.test.ts`). (Story 0.i7z AC 2–4 ratchet.)
-    3.  **Country bias is part of the resolution identity.** The schedule-location geocoding path
-        passes the account's own `defaultLocation.countryCode` as `bias=countrycode:xx`, and the
-        ADDRESS cache key folds that bias in, so two accounts geocoding the identical address with
-        different biases can never be served each other's cached result. When no bias is known, the
-        parameter (and its cache-key segment) is omitted entirely — self-healing, not a gap.
-        - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (countryBias
-          cache-key folding) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s countryBias
-          integration case.
+    3.  **The country filter is part of the resolution identity (rewritten 2026-11-11; it replaces the
+        soft country bias).** An ADDRESS query carries an optional `countryFilter`, sent to Geoapify as the
+        HARD restriction `filter=countrycode:xx` (lower-case); the soft `bias=countrycode:` is gone (it changed
+        no result in a 54-location test). The ADDRESS cache key folds the filter in (`|filter:xx|none`), so
+        the same address searched inside one country, another, or everywhere can never be served each
+        other's cached result. Which country a text is searched in is decided by Rule 6 and never read from
+        the account's own location.
+        - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (filter folding) +
+          `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the `filter` parameter, no `bias=countrycode`)
+          + `adapter.test.ts`'s countryFilter integration case.
     4.  **The account's own location is a proximity bias, and a far low-confidence guess is no match
-        (added 2026-11-10).** The schedule-location path also passes the account's
-        `defaultLocation.coordinates` as `bias=countrycode:xx|proximity:lon,lat` (a soft preference, so an
+        (added 2026-11-10; amended 2026-11-11).** The schedule-location path also passes the account's
+        `defaultLocation.coordinates` as `bias=proximity:lon,lat` (a soft preference, so an
         event in another city still resolves), and the ADDRESS cache key folds the point in, rounded to
-        0.1 degree. With a proximity point, `filterPlausibleCandidates` drops a candidate farther than
+        0.1 degree. It is passed only when the account default's country is the country hint of the text
+        being resolved (or the text has no hint); a default of another or unknown country is ignored for that
+        text, because a wrong default (Poland, Pennsylvania) would otherwise make the plausibility filter
+        discard correct matches. With a proximity point, `filterPlausibleCandidates` drops a candidate farther than
         300 km from it unless its confidence is at least 0.9 (a generic name scores 0.5 for a wrong country); when none is left the call is "not found",
         so the event keeps its address text and takes the account's timezone instead of being pinned on
         another continent. Without a point nothing is filtered, as before. Confidence alone is not an
@@ -427,12 +431,13 @@ This document defines the core architectural invariants for the FestDaily applic
           plausibility filter) + `build-cache-key.test.ts` (the `near` segment) +
           `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the bias parameter) +
           `adapter.test.ts` (far candidates dropped, local one kept, none left is not found, nothing
-          filtered without a point) + `resolve-account-and-locations.test.ts` (the point is sent).
+          filtered without a point) + `resolve-account-and-locations.test.ts` (the point is sent only when the
+          default's country matches the hint).
     5.  **A synchronous request pays for each distinct address once, and "not found" is cached for a day
         (added 2026-11-10).** The moderator re-extract Apply geocodes every schedule inside the API
-        Lambda's 28 s budget (API Gateway cuts at 29 s). `resolveAccountAndLocations` therefore makes one
-        lookup per distinct address in a call (schedules that share a venue, or fall back to the event-level
-        location, share the answer), and `resolveLocation` stores a definite "no match" in
+        Lambda's 28 s budget (API Gateway cuts at 29 s). The lookups of one request therefore share a geocode
+        session (Rule 6): one lookup per distinct query in the whole request, across its events (schedules
+        that share a venue, or fall back to the event-level location, share the answer), and `resolveLocation` stores a definite "no match" in
         `geolocation_cache` (the `result` holds `{ notFound: true }`, no schema change) and serves it for
         `NOT_FOUND_TTL_MS` (24 h, measured from `updated_at`); a later hit replaces it. Only
         `GeolocationNotFoundError` is cached, never an outage, a rate limit or a bad key. Positive entries
@@ -442,6 +447,32 @@ This document defines the core architectural invariants for the FestDaily applic
           its window) + `adapter.test.ts` (a repeat is served from the cache, an expired miss is retried, an
           outage is not cached) + `resolve-account-and-locations.test.ts` (20 schedules on 2 addresses make
           2 lookups, one log line per unresolved address).
+    6.  **Geocoding runs from location keywords under a country hint, in a request-scoped session, and records
+        how it resolved (added 2026-11-11, slice 2a of the location keywords).** For each schedule the address
+        source is its own location text, else the event's, else the account default's address (the last is a
+        single plain lookup and records nothing). A text with keywords (slice 1) is searched by a 2-step
+        ladder: all keywords joined, then without the most specific one, the second step only after "not
+        found"; a text without keywords uses a code-cleaned fallback ladder of the same shape. The country
+        hint of a text is, in order: its own `locationCountryCode` (the model's code, or the post's
+        consensus), the platform default `DEFAULT_COUNTRY_CODE`, none; nothing in code names a country. A
+        text's own code is trusted: hard filter, no unfiltered pass after it. The platform default is a
+        guess: filtered first, then one unfiltered pass. An outage ends the ladder and nothing is cached.
+        The lookups of one request share a `GeocodeSession`: a memo by cache key (also across events) and, for
+        the API Apply, a budget of 12 uncached geocoder calls (cache hits are free); a spent budget skips the
+        remaining lookups and logs `geocode-budget-exhausted` once. Each schedule records how it resolved in
+        `schedules.location_resolution` (`kw1`, `kw2`, `fb1`, `fb2`, `none` for nothing plausible, `skipped`
+        for a spent budget or outage; null = never attempted), written with `location_details`, replaced with
+        it on enrichment and copied on merge; it is internal and not exposed on GraphQL. The kill switch
+        `KEYWORD_GEOCODING_ENABLED` (default on; only `false` disables) restores the plain single-address
+        lookup with no filter, no ladder and nothing recorded. There is no confidence floor (Rule 4's note
+        stands) and no backfill of existing events.
+        - **Enforced by:** `packages/domain/src/geolocation/resolve-country-hint.test.ts` and
+          `build-location-queries.test.ts` (the hint order, both ladders, the filtered/unfiltered plan) +
+          `apps/backend/src/lib/geolocation/geocode-session.test.ts` (memo, budget, one log) +
+          `apps/backend/src/lib/ai-processor/resolve-account-and-locations.test.ts` (ladder steps, hint,
+          proximity rule, outage, kill switch, shared session) + `apps/backend/src/lib/extraction/apply-post-reextraction.test.ts`
+          (14 events on 13 places: 12 lookups, the rest `skipped`) + `set-event-primary-post.test.ts` and
+          `merge-events.test.ts` (the column follows the coordinates).
 
 ---
 ### AD-15: Event Card Media Primitive
@@ -2977,7 +3008,8 @@ This document defines the core architectural invariants for the FestDaily applic
     (the scrape gate is a separate rule) and AD-40 (a write-free preview, unrelated).
 *   **Amended 2026-11-07 (FIND-120):** the apply-side reject path below is an amendment of this AD, not a new
     AD. Each amended rule carries its own dated note. **Amended 2026-11-07 (FIND-124):** the same for the floor
-    override, a decision kind that merges a pair the floor refuses.
+    override, a decision kind that merges a pair the floor refuses. **Amended 2026-11-11:** the same for the floor's
+    name rule, Rule 3.
 *   **Prevents:** An AI session holding database credentials. A second, divergent accept path whose
     checks differ from the moderator's. A merge made on evidence that changed after it was reviewed.
     A prompt-injected or mistaken decision merging events the deterministic rules never would. An
@@ -3003,7 +3035,13 @@ This document defines the core architectural invariants for the FestDaily applic
         `mid` pair that passes the floor: no earlier undo, an anchor a public post cannot fake alone (the
         organizer, or a shared link together with a venue match), no venue conflict, a day gap of 0 (or up
         to 90 with a shared link), every schedule of the new event covered inside that window, names that do
-        not contradict. Evidence is recomputed server-side and compared by hash before every merge, and
+        not contradict (**amended 2026-11-11:** the floor reads names with its own `namesContradictForReview`, which is
+        the ingestion rule `namesContradict` plus one exception: a name against the same name plus a subtitle, after a
+        `: ` or a spaced dash, whose only numbers are bare, at least three digits long and not after a sequence word
+        such as "Day", "Part" or "Hari ke", as "Pre-Event Webinar" against "Pre-Event Webinar: Study Abroad 101". A
+        number outside such a subtitle, a bracketed qualifier, a category such as "10K", an ordinal such as "2nd" and a
+        campaign number with no shared head still refuse. Ingestion's auto-link keeps `namesContradict`, unchanged).
+        Evidence is recomputed server-side and compared by hash before every merge, and
         again under row locks. The reviewer never rejects, and never merges what the floor refuses (**amended 2026-11-07, FIND-124:** except as a moderator's `accept-override`, below). The same
         holds for a pair a moderator accepts in the attended decision loop (`FIND-119`): it is merged only if
         `validate` calls it eligible, and the loop offers no reject. **Amended 2026-11-07 (FIND-120):** the
@@ -3478,7 +3516,7 @@ This document defines the core architectural invariants for the FestDaily applic
         `HANDLER_NOT_REGISTERED`; Story 10.14z later makes that a compile or test-time error for a real type.
     3.  **Starting.** `startJob` (API Lambda) inserts the row, then fires one async invoke
         (`InvocationType: 'Event'`) at the type's host with `{ jobType: 'job-engine-run', jobId }` and returns the job
-        id inside about one second. A failed invoke ends the job FAILED (`NO_PROVIDER_REACHABLE`), the shape of
+        id inside about one second. A failed invoke ends the job FAILED (`START_FAILED`, not a provider reason), the shape of
         `startManualExtractionJob`. It is the only entry point; no entry point for system jobs exists (Rule 10).
     4.  **One claim.** One conditional `UPDATE ... RETURNING` (the shape of AD-41 Rule 3) with the TTL
         `JOB_WORKER_CLAIM_TTL_MINUTES` (5). It takes a QUEUED, RUNNING or WAITING row that is admitted, a WAITING row
@@ -3488,8 +3526,13 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **Two bounds.** `deadline_at` bounds the WHOLE job: admission time plus the type's `maxDurationMs`. One RUN
         of a handler is capped separately by the smallest of `JOB_ATTEMPT_DEADLINE_MS` (150 s), the time left to
         `deadline_at` and the Lambda's own remaining time. A run past its budget ends the job EXPIRED (`TIMED_OUT`); a
-        handler that throws ends it FAILED (`HANDLER_ERROR`); an ending other than Succeeded without a reason is
-        recorded as `UNSPECIFIED`, never with none (FR117). A job that must outlast one run returns WAITING.
+        handler that throws ends it FAILED (`HANDLER_ERROR`) with a FIXED plain-words `error_message`: the raw error goes
+        to the logs only, because the Jobs page reads that column and a vendor error can carry a URL, a response body or
+        caption text (PRD: vendor trouble is recorded, never raw). An ending other than Succeeded without a reason is
+        recorded as `UNSPECIFIED`, never with none (FR117). A job that must outlast one run returns WAITING. The handler
+        context carries an `AbortSignal` that fires when the run's budget is used up: the job is already ended then, so
+        a handler passes it to every vendor call and wait, or it keeps running in a frozen Lambda and resumes on the next
+        warm invocation.
     6.  **Guarded writes.** Every write after the claim requires the row to be RUNNING and the claim to be this
         worker's (or released by its own hand-off), so a handler that finishes after its budget cannot overwrite a job
         that already ended.
@@ -3501,7 +3544,10 @@ This document defines the core architectural invariants for the FestDaily applic
         `handOffToLambda(functionName)` and returns HANDED_OFF. The worker releases its claim BEFORE the invoke (the
         receiver claims with the same update and would otherwise be refused for the whole TTL), the receiver reloads
         the row and resumes from its stored `phase`. A vendor token, a caption or a phase is never carried in the
-        message (AD-41 Rule 2: the payload is a hint, the worker decides from the database). Each type's `host` names
+        message (AD-41 Rule 2: the payload is a hint, the worker decides from the database). Once the hand-off invoke is
+        accepted the receiver owns the job: nothing the sender does afterwards (finish, throw, run out of time) writes to
+        it, and a handler that returns HANDED_OFF without having handed off ends the job FAILED (`HANDOFF_MISSING`)
+        instead of leaving it RUNNING with nobody invoked. Each type's `host` names
         its first Lambda: a scrape-then-extract type hosts on the Scraper and hands off to the AI-processor (the only
         direction any known type needs; the reverse grant is added by the first story that does), while a job whose
         own work makes no vendor call hosts on the AI-processor directly.
@@ -3527,7 +3573,8 @@ This document defines the core architectural invariants for the FestDaily applic
     `deadline_at` as insert time plus the attempt cap (it would expire a job that is legitimately WAITING, or on its
     second provider attempt); declaring the CHECK in the drizzle schema (drizzle-kit 0.21 omits it, so a later upgrade
     would emit a duplicate constraint).
-*   **Deferred:** admission control, queueing and slot reservation (Story 10.3); the provider chain and the
+*   **Deferred:** admission control, queueing and slot reservation, and the driver that re-invokes a WAITING job when its
+    `resume_at` is due, as a re-admission like a new start (Story 10.3: nothing re-invokes a due WAITING job until it lands); the provider chain and the
     `job_attempts` rows it writes (10.2); the GraphQL surface, the Jobs page and retention-driven deletion of old rows
     (10.4); late vendor results (10.5); moving `manual_extraction_jobs` onto this table (10.9, OI-4); a reverse
     AI-processor to Scraper hand-off.

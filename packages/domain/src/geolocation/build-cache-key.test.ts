@@ -10,31 +10,31 @@ test('buildLocationCacheKey normalizes ADDRESS query', () => {
   const key1 = buildLocationCacheKey(query1);
   const key2 = buildLocationCacheKey(query2);
   
-  assert.equal(key1, 'geocode:123 main st, chicago|bias:none');
-  assert.equal(key2, 'geocode:123 main st, chicago|bias:none');
+  assert.equal(key1, 'geocode:123 main st, chicago|filter:none');
+  assert.equal(key2, 'geocode:123 main st, chicago|filter:none');
   assert.equal(key1, key2);
 });
 
-test('buildLocationCacheKey folds countryBias into the ADDRESS key', () => {
+test('buildLocationCacheKey folds countryFilter into the ADDRESS key', () => {
   const noBias: GeolocationQuery = { kind: 'ADDRESS', address: 'Main Square' };
-  const usBias: GeolocationQuery = { kind: 'ADDRESS', address: 'Main Square', countryBias: 'us' };
-  const deBias: GeolocationQuery = { kind: 'ADDRESS', address: 'Main Square', countryBias: 'de' };
+  const usBias: GeolocationQuery = { kind: 'ADDRESS', address: 'Main Square', countryFilter: 'us' };
+  const deBias: GeolocationQuery = { kind: 'ADDRESS', address: 'Main Square', countryFilter: 'de' };
 
-  assert.equal(buildLocationCacheKey(noBias), 'geocode:main square|bias:none');
-  assert.equal(buildLocationCacheKey(usBias), 'geocode:main square|bias:us');
+  assert.equal(buildLocationCacheKey(noBias), 'geocode:main square|filter:none');
+  assert.equal(buildLocationCacheKey(usBias), 'geocode:main square|filter:us');
   // A proximity point joins the identity, rounded to 0.1 degree; without one the key is unchanged (existing cache entries stay valid).
-  const near = buildLocationCacheKey({ kind: 'ADDRESS', address: 'Main Square', countryBias: 'id', proximity: { latitude: -7.7234, longitude: 110.3512 } });
-  assert.equal(near, 'geocode:main square|bias:id|near:-7.7,110.4');
-  const sameTown = buildLocationCacheKey({ kind: 'ADDRESS', address: 'Main Square', countryBias: 'id', proximity: { latitude: -7.69, longitude: 110.36 } });
+  const near = buildLocationCacheKey({ kind: 'ADDRESS', address: 'Main Square', countryFilter: 'id', proximity: { latitude: -7.7234, longitude: 110.3512 } });
+  assert.equal(near, 'geocode:main square|filter:id|near:-7.7,110.4');
+  const sameTown = buildLocationCacheKey({ kind: 'ADDRESS', address: 'Main Square', countryFilter: 'id', proximity: { latitude: -7.69, longitude: 110.36 } });
   assert.equal(sameTown, near, 'accounts of one town share an entry');
-  const elsewhere = buildLocationCacheKey({ kind: 'ADDRESS', address: 'Main Square', countryBias: 'id', proximity: { latitude: -6.2, longitude: 106.8 } });
+  const elsewhere = buildLocationCacheKey({ kind: 'ADDRESS', address: 'Main Square', countryFilter: 'id', proximity: { latitude: -6.2, longitude: 106.8 } });
   assert.notEqual(elsewhere, near);
-  assert.equal(buildLocationCacheKey(deBias), 'geocode:main square|bias:de');
+  assert.equal(buildLocationCacheKey(deBias), 'geocode:main square|filter:de');
 
-  // Identical address with different biases MUST NOT share a cache entry.
+  // Identical address with different country filters MUST NOT share a cache entry.
   assert.notEqual(buildLocationCacheKey(usBias), buildLocationCacheKey(deBias));
-  // Bias text is not lowercased (it is already a code, matching Geoapify's bias=countrycode:xx).
-  assert.equal(buildLocationCacheKey({ kind: 'ADDRESS', address: '  MAIN  SQUARE ', countryBias: 'US' }), 'geocode:main square|bias:US');
+  // The filter code is lower-cased so "US" and "us" are one entry.
+  assert.equal(buildLocationCacheKey({ kind: 'ADDRESS', address: '  MAIN  SQUARE ', countryFilter: 'US' }), 'geocode:main square|filter:us');
 });
 
 test('buildLocationCacheKey uses verbatim PLACE_ID query', () => {

@@ -104,7 +104,7 @@ merge (the skill dispatches both workflows, which must exist on `master`).
    be read from the domain constants, not copied.
    *As built in B2b-1 (2026-10-31, after an architecture and code review of the spec):* tier `mid`; no earlier undo; anchor `organizerMatch`
    or a shared link plus a venue match (not `sameAccount`); no venue conflict; day gap 0, or up to 90 with a shared link; every
-   schedule of the new event covered inside that window; names do not contradict (`namesContradict`). The 0.3 name floor of
+   schedule of the new event covered inside that window; names do not contradict (`namesContradict`; since 2026-11-11 the floor uses `namesContradictForReview`, which forgives a title against the same title plus a subtitle with an incidental number, AD-45 Rule 3). The 0.3 name floor of
    the first draft was dropped: it equals the ingestion admission floor, so it rejected nothing. Live runs are `READ COMMITTED`
    with row locks and a savepoint per decision, not `REPEATABLE READ` (a long snapshot hides rows other writers add to a loser).
 4. **Starvation**: export drops `kind: 'stale'` rows before applying its limit, takes a `skip_ids` input fed from open

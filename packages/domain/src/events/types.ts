@@ -1,4 +1,4 @@
-import { EventType, EventCategory, LocationDetails, EventLink } from '@festgrid/shared-types';
+import { EventType, EventCategory, LocationDetails, LocationResolution, EventLink } from '@festgrid/shared-types';
 import { type PostGroupingReason } from '../posts/types.js';
 
 // Closed set for events.detail_level (Architecture Spine AD-30 Rule 1, Story 3.6r). A 'stub'
@@ -138,6 +138,8 @@ export interface ExtractedScheduleMessage {
   locationKeywords?: string[];
   ticketPrice?: string;
   locationDetails?: LocationDetails;
+  /** How `locationDetails` was found (ladder step, none, skipped); absent when the schedule was never looked up. */
+  locationResolution?: LocationResolution;
   timezone?: string;
   timezoneStatus?: ScheduleTimezoneStatus;
   // Story 3.6s (BUG-026) — threaded through from GeminiSchedulePayload. Mapping into
@@ -228,6 +230,8 @@ export interface ScheduleInsertValues {
   locationKeywords?: string[] | null;
   ticketPrice?: string | null;
   locationDetails?: LocationDetails | null;
+  /** How `locationDetails` was found; null when no lookup was attempted. */
+  locationResolution?: LocationResolution | null;
   latitude?: number | null;
   longitude?: number | null;
   timezone?: string | null;

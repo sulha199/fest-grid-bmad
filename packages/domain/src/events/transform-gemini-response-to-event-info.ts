@@ -1,4 +1,4 @@
-import { EventType, EventCategory, LocationDetails } from '@festgrid/shared-types';
+import { EventType, EventCategory, LocationDetails, LocationResolution } from '@festgrid/shared-types';
 import { GeminiEventPayload, ExtractedEventMessage, ExtractedScheduleMessage, ScheduleTimezoneResolution } from './types.js';
 import { matchesChildrensDataKeywordFilter } from './matches-childrens-data-keyword-filter.js';
 import { sanitizeEventLinks } from './sanitize-event-links.js';
@@ -16,6 +16,8 @@ export function transformGeminiResponseToEventInfo(
     sourceSocialMediaAccountId: string;
     defaultLocation?: LocationDetails;
     resolvedScheduleLocations: Map<number, LocationDetails>;
+    /** How each geocoded schedule was resolved (`LocationResolution`), by schedule index; optional. */
+    resolvedScheduleResolutions?: Map<number, LocationResolution>;
     scheduleTimezoneResolutions?: Map<number, ScheduleTimezoneResolution>;
     sourcePostText?: string;
     /**
@@ -68,6 +70,7 @@ export function transformGeminiResponseToEventInfo(
   const childrensDataMatch = context.childrensDataMatch ?? matchesChildrensDataKeywordFilter(context.sourcePostText);
   const schedules: ExtractedScheduleMessage[] = payload.schedules.map((sch, i) => {
     const locationDetails = context.resolvedScheduleLocations.get(i);
+    const locationResolution = context.resolvedScheduleResolutions?.get(i);
     const timezoneResolution = context.scheduleTimezoneResolutions?.get(i);
     // Only next to a location text of its own (like the event's): a list must describe the text it sits next to.
     const scheduleKeywords = sch.location?.trim() ? normalizeLocationKeywords(sch.locationKeywords) : undefined;
@@ -85,6 +88,8 @@ export function transformGeminiResponseToEventInfo(
       ticketPrice: sch.ticketPrice,
       applicableDaysOfWeek: sch.applicableDaysOfWeek,
       locationDetails,
+      // Present only when a lookup was attempted: an absent key keeps an old-shape message identical to before.
+      ...(locationResolution ? { locationResolution } : {}),
       timezone: timezoneResolution?.timezone,
       timezoneStatus: timezoneResolution?.timezoneStatus
     };

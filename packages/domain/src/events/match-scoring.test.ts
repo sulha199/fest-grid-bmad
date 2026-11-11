@@ -13,6 +13,8 @@ import {
   decideMatchTier,
   normalizeEventNameForMatch,
   areNamesAutoLinkable,
+  namesContradict,
+  namesContradictForReview,
   hasVenueConflict,
   type MatchDecisionInput,
   MATCH_SCORE_WEIGHTS,
@@ -647,5 +649,59 @@ test('decideMatchTier: a venue spelled two ways no longer blocks the promotion (
     assert.strictEqual(result.venueConflict, true);
     assert.strictEqual(result.tier, 'mid');
     assert.strictEqual(result.promotedByRule, false);
+  });
+});
+
+test('namesContradictForReview', async (t) => {
+  const FULL = 'Global EduFair 2026 Pre-Event Webinar: Study Abroad 101';
+  const HEAD = 'Global EduFair 2026 Pre-Event Webinar';
+
+  await t.test('excuses a long incidental number in a subtitle the other name lacks (the 47369d02 pair), either way round', () => {
+    assert.strictEqual(namesContradict(HEAD, FULL), true, 'the ingestion rule is unchanged: digit tokens differ');
+    assert.strictEqual(namesContradictForReview(HEAD, FULL), false);
+    assert.strictEqual(namesContradictForReview(FULL, HEAD), false);
+  });
+
+  await t.test('excuses a spaced-dash subtitle the same way', () => {
+    assert.strictEqual(namesContradictForReview('Career Talk', 'Career Talk - Data Science 101'), false);
+    assert.strictEqual(namesContradictForReview('Career Talk', 'Career Talk – Data Science 101'), false);
+  });
+
+  await t.test('still refuses a sequence word before the number', () => {
+    assert.strictEqual(namesContradictForReview('32 Days of C&F Biggest Sale', '32 Days of C&F Biggest Sale - Day 12'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Part 2'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Day 100'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest - Hari ke 101'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Vol 101'), true);
+  });
+
+  await t.test('still refuses a number with letters attached (a category or an ordinal)', () => {
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: 10K'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest - 2nd Edition'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Run 101K'), true);
+  });
+
+  await t.test('still refuses a short number, and a number with no word before it', () => {
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Study Abroad 12'), true, 'sequence numbers are small');
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: 101'), true);
+  });
+
+  await t.test('still refuses when the shorter name is not exactly the longer name before its subtitle', () => {
+    assert.strictEqual(namesContradictForReview('Global Fair', 'Global EduFair: Study Abroad 101'), true);
+    assert.strictEqual(namesContradictForReview('Wonderful Treat at Ghin Thai Kitchen', 'Festisale 270th Yogyakarta - Ghin Thai Wonderful Treat'), true, 'a campaign number with no shared head is left to a moderator');
+  });
+
+  await t.test('still refuses a number outside any subtitle, such as the 10K bracket and a numbered series', () => {
+    assert.strictEqual(namesContradictForReview('Erafone Run Series', 'Erafone Run Series (10K)'), true);
+    assert.strictEqual(namesContradictForReview('GembiRun Loka 2026 Part 1', 'GembiRun Loka 2026 Part 2'), true);
+  });
+
+  await t.test('still refuses contradicting qualifiers and names that normalize to nothing', () => {
+    assert.strictEqual(namesContradictForReview('Night Run (Morning): Study Abroad 101', 'Night Run (Evening)'), true);
+    assert.strictEqual(namesContradictForReview('2026', 'Fest'), true);
+  });
+
+  await t.test('never contradicts names that already agree', () => {
+    assert.strictEqual(namesContradictForReview('Jazz Night 2026', 'jazz night'), false);
   });
 });

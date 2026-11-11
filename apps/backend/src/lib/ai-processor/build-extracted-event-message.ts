@@ -2,6 +2,7 @@ import type { ExtractedEventMessage, GeminiEventPayload } from '@festgrid/domain
 import { transformGeminiResponseToEventInfo } from '@festgrid/domain/events';
 import type { LocationDetails } from '@festgrid/shared-types';
 import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
+import type { GeocodeSession } from '../geolocation/geocode-session.js';
 import { resolveScheduleTimezones } from './resolve-schedule-timezones.js';
 
 export interface BuildExtractedEventMessageContext {
@@ -13,6 +14,11 @@ export interface BuildExtractedEventMessageContext {
   sourcePostText?: string;
   /** The filter's verdict, when the caller no longer has the caption (the re-extract Apply). */
   childrensDataMatch?: boolean;
+  /**
+   * Shared by everything one request geocodes: its memo spans events (a place used by many events is looked up once) and its
+   * budget bounds the uncached lookups. Omitted = a private, unbudgeted one per event.
+   */
+  geocodeSession?: GeocodeSession;
 }
 
 /**
@@ -25,10 +31,14 @@ export async function buildExtractedEventMessage(
   event: GeminiEventPayload,
   context: BuildExtractedEventMessageContext
 ): Promise<{ eventMessage: ExtractedEventMessage; defaultLocation: LocationDetails | undefined }> {
-  const { sourceSocialMediaAccountId, defaultLocation, resolvedScheduleLocations } = await resolveAccountAndLocations(
+  const { sourceSocialMediaAccountId, defaultLocation, resolvedScheduleLocations, resolvedScheduleResolutions } = await resolveAccountAndLocations(
     context.accountId,
     event.schedules,
-    event.location
+    event.location,
+    {
+      event: { locationKeywords: event.locationKeywords, locationCountryCode: event.locationCountryCode },
+      session: context.geocodeSession,
+    }
   );
 
   const scheduleTimezoneResolutions = await resolveScheduleTimezones(
@@ -43,6 +53,7 @@ export async function buildExtractedEventMessage(
     sourceSocialMediaAccountId,
     defaultLocation,
     resolvedScheduleLocations,
+    resolvedScheduleResolutions,
     scheduleTimezoneResolutions,
     sourcePostText: context.sourcePostText,
     childrensDataMatch: context.childrensDataMatch,

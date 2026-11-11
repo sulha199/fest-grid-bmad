@@ -1,5 +1,5 @@
 import type { DedupReviewExportPair } from './dedup-review-evidence.js';
-import { MID_PROMOTION_MAX_DAY_DIFF, SHARED_LINK_DATE_WINDOW_DAYS, namesContradict } from './match-scoring.js';
+import { MID_PROMOTION_MAX_DAY_DIFF, SHARED_LINK_DATE_WINDOW_DAYS, namesContradictForReview } from './match-scoring.js';
 
 /**
  * AI-assisted dedup review, apply side (`_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece B2b-1).
@@ -269,7 +269,7 @@ export function checkDedupReviewFloor(fresh: DedupReviewFreshPair): DedupReviewS
     return candidateDays.some((other) => Math.abs(day - other) <= window);
   });
   if (!covered) return 'schedule-uncovered';
-  if (namesContradict(pair.newEvent.name, pair.candidate.name)) return 'name-mismatch';
+  if (namesContradictForReview(pair.newEvent.name, pair.candidate.name)) return 'name-mismatch';
   return null;
 }
 

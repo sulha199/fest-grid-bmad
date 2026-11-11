@@ -18,6 +18,10 @@ import { PARKED_ORDINAL_BASE, enrichAndPromoteEvent, setEventPostOrdinal } from 
 import { evaluateIngestionMatch, resolveStubSource } from '../ingestor/evaluate-ingestion-match.js';
 import { writeIngestionDecision } from '../ingestor/write-ingestion-decision.js';
 import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
+import { createGeocodeSession } from '../geolocation/geocode-session.js';
+
+/** Uncached geocoder calls one Apply may make (each ladder step is one call); see the geocode session. */
+export const APPLY_GEOCODE_BUDGET = 12;
 
 // AD-40 (Apply) -- the one write a moderator re-extract can make. It takes the exact extraction the
 // moderator previewed (stored on the preview job: no new Gemini call, no caption) and, in ONE
@@ -83,12 +87,16 @@ export async function applyPostReextraction(userId: string, jobId: string, now: 
     // connection is held open while it waits.
     const subscriberUserIds = await getActiveSubscriberUserIdsForPost(post.id, post.accountId);
     const messages: ExtractedEventMessage[] = [];
+    // One geocode session for the whole Apply: the same place across events is looked up once, and the budget keeps the request
+    // inside the API Lambda's 28 s (schedules left over are recorded as `skipped`; a second Apply reuses everything cached).
+    const geocodeSession = createGeocodeSession({ budget: APPLY_GEOCODE_BUDGET });
     for (const event of extracted.events) {
       const { eventMessage } = await buildExtractedEventMessage(event, {
         postId: post.id,
         accountId: post.accountId,
         subscriberUserIds,
         childrensDataMatch: extracted.childrensDataMatch,
+        geocodeSession,
       });
       messages.push(eventMessage);
     }
