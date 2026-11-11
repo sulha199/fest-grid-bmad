@@ -143,7 +143,9 @@ unchanged name. When a baseline moves with the same model string and the same pr
 ## Adding a labelled post
 
 One folder per post, named by its `postId`: `<postId>/label.json` plus the image files it lists (file names only, no folders).
-`label.json` is validated at load (`parseLabelledPost`):
+`label.json` is validated at load (`parseLabelledPost`). **For a real labelled set use an opaque `postId`** (`p001`, `p002`),
+not a platform shortcode or any id that identifies a real post: post ids appear in the job summary and the log of this public
+repo. Keep the mapping from opaque id to real post in the private store.
 
 ```json
 {
@@ -172,7 +174,7 @@ This repository is public. Never commit real images, real captions, or anything 
 `wa.me` link, an e-mail, a face). Only the SYNTHETIC set lives here (made-up captions, generated placeholder images, invented
 labels). Real labelled sets belong in a private store; the workflow fetches one only when `EXTRACTION_EVAL_S3_URI` and AWS
 credentials are configured, keeps it in the runner's temp directory, and never uploads images or captions as artifacts: the
-report in the job summary holds scores and post ids only. The recorded raw answers of a real run are likewise kept out of the repo.
+report in the job summary holds scores and post ids only (so use opaque ids for real posts, see "Adding a labelled post"). The recorded raw answers of a real run are likewise kept out of the repo.
 
 A live run rewrites its recording after every answered call. On a hard error (a bad key, a 400) it keeps what was recorded, prints
 the file name and exits 1; score the partial file with `--replay`. The default recording `./extraction-eval-recorded.json` is
@@ -203,16 +205,31 @@ private store, paced Gemini calls) runs on `schedule` and `workflow_dispatch` on
 it replays the synthetic set and says in the summary that no real data was scored. Scorer unit tests run on every PR in the normal domain test job. The workflow has a `concurrency` group, so only one eval runs
 at a time (all live runs share one paced Gemini key); a run is never cancelled half way, and a newer run waits.
 
-## First live verification (what has only been tested against stubs)
+## First live verification (done 2026-11-11; the steps are kept to repeat)
 
-Slice A was built and reviewed without a Gemini key, an S3 bucket or the merged workflow, so three things have never run for
-real: a live Gemini call, the S3 fetch, and two overlapping workflow runs. Do them in this order. Each is cheap, and none needs
-real (private) data until step 3 is finished.
+Slice A was built and reviewed without a Gemini key, an S3 bucket or the merged workflow, so three things were first tested only
+against stubs: a live Gemini call, the S3 fetch, and two overlapping workflow runs. **All three were run for real on
+2026-11-11**:
+
+- **Live Gemini call:** one call on one synthetic post, then 12 calls (4 posts, 3 runs each, 1m24s): every call answered, no
+  truncation and no 429 at the 5 s pacing.
+- **Concurrency group:** two dispatches 6 seconds apart. The second run's job was not created until the first had finished (about
+  two minutes later); both succeeded and neither was cancelled.
+- **S3 fetch:** rehearsed with a copy of the synthetic set, with the repository secrets set. A wrong prefix gave the single
+  "fetching the labelled set failed" warning, no file names or object keys in the log, the live step skipped, and **a run that
+  still shows green** (the fetch step is `continue-on-error`). With the real prefix restored, all four posts ran and were scored.
+
+Repeat the steps below after changing the workflow, the runner's fetch handling or the bucket setup. Still **not** exercised: the
+first run from the weekly schedule (Sunday 20:43 UTC; the first one is on 15 November 2026; manual dispatch is the same code, but
+the schedule trigger itself has not fired yet) and the face detector on a real photo with faces (the synthetic images have none;
+that happens with the real labelled set, slice B).
+
+When repeating them, keep this order: each is cheap, and none needs real (private) data until step 3 is finished.
 
 | Step | Check | When | Cost |
 |---|---|---|---|
 | 1 | Live Gemini call | Before the merge, on your machine | 1 call, then 12 |
-| 2 | The `concurrency` group | Right after the merge | 0 Gemini calls |
+| 2 | The `concurrency` group | Right after the merge | 0 Gemini calls without the secrets; 4 per dispatch with them (`runs` = 1) |
 | 3 | The S3 fetch | After the merge: a rehearsal with the synthetic set first | 0 to 1 calls |
 
 ### 1. A live Gemini call (before the merge)
@@ -277,7 +294,15 @@ Rehearse with the synthetic set first: it is not secret, so a mistake costs noth
 5. **Dispatch** the workflow with `runs` set to 1. On the run page the job summary should show a report with the `syn-...` post
    ids and no "Live eval skipped" line. This is also the first full live run in CI.
 6. **Try the failure path once:** put a wrong prefix in `EXTRACTION_EVAL_S3_URI` and dispatch again. The summary should say
-   "fetching the labelled set failed" in one line, and the log should show no file names.
+   "fetching the labelled set failed" in one line, and the log should show no file names. **The run itself still shows green**:
+   the fetch step is `continue-on-error`, so the signal is the warning annotation and that one summary line, never the run
+   status. Put the real prefix back afterwards and dispatch once more to confirm.
+7. **Keep the copy in step with the repo.** The rehearsal copy is a plain upload of the synthetic folders. When the synthetic set
+   changes (a label or `recorded.json`), re-sync it, or the live run scores against the old labels:
+
+   ```bash
+   aws s3 sync apps/backend/scripts/fixtures/extraction-eval-synthetic s3://<bucket>/extraction-eval/ --only-show-errors
+   ```
 
 When the rehearsal works, replace the synthetic copy with the real labelled set (slice B). The first real baseline then goes at
 the root of that set (see "Where the baseline lives"). Pull requests never take the live path, so steps 2 and 3 can only be
