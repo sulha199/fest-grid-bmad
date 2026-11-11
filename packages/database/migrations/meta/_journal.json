@@ -708,13 +708,6 @@
       "when": 1794390763489,
       "tag": "0100_jobs_admission_partial_indexes",
       "breakpoints": true
-    },
-    {
-      "idx": 101,
-      "version": "6",
-      "when": 1794406087150,
-      "tag": "0101_scraper_provider_capacity_exhausted_until",
-      "breakpoints": true
     }
   ]
 }

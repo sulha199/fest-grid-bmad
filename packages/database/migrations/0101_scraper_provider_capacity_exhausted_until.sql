@@ -1,1 +1,0 @@
-ALTER TABLE "scraper_provider_usage" ADD COLUMN "capacity_exhausted_until" timestamp with time zone;
