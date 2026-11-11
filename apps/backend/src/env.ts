@@ -45,6 +45,9 @@ export interface BackendEnv {
   // as the Gemini-facing schema's `events.maxItems` hint and as the code-level truncation
   // backstop in process-ai-job.ts (never a hard AJV cap -- see extracted-event.schema.ts).
   maxExtractedEventsPerPost: number;
+  // The platform's home country (ISO-2): the last-resort country hint for geocoding and the "most places are in ..." line of
+  // the location keywords prompt. `null` when set to an empty value (no assumption at all). Default "ID"; a new market sets it.
+  defaultCountryCode: string | null;
   // AD-51 Rule 2: the kill switch for stepped (cursor) extraction. Off (the default: it ships dark) means every post
   // takes the one-request path; a chain in flight stops at its next step and the post is flagged partial.
   cursorExtractionEnabled: boolean;
@@ -190,6 +193,17 @@ function parsePositiveInt(value: string | undefined, name: string, defaultValue:
     throw new Error(`${name} must be a positive integer (>= 1).`);
   }
   return parsed;
+}
+
+/** An ISO-2 country code: unset -> the default, set but empty -> null (no assumption), anything else that is not two letters fails loudly. */
+function parseCountryCode(value: string | undefined, defaultValue: string): string | null {
+  if (value === undefined) return defaultValue;
+  const text = value.trim().toUpperCase();
+  if (text === '') return null;
+  if (!/^[A-Z]{2}$/.test(text)) {
+    throw new Error('DEFAULT_COUNTRY_CODE must be a two-letter ISO country code (or empty for none).');
+  }
+  return text;
 }
 
 // Story 3.20 (Task 1.1) -- unlike this file's other boolean env vars (all default OFF via a
@@ -344,6 +358,8 @@ export function loadBackendEnv(): BackendEnv {
     maxReextractCarouselImages: parsePositiveInt(process.env.MAX_REEXTRACT_CAROUSEL_IMAGES, 'MAX_REEXTRACT_CAROUSEL_IMAGES', REEXTRACT_MAX_CAROUSEL_IMAGES),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxExtractedEventsPerPost: parseInt(process.env.MAX_EXTRACTED_EVENTS_PER_POST || '10', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    defaultCountryCode: parseCountryCode(process.env.DEFAULT_COUNTRY_CODE, 'ID'),
     cursorExtractionEnabled: process.env.CURSOR_EXTRACTION_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     geminiMaxOutputTokens: parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS || '8192', 10),

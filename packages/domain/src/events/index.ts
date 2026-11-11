@@ -25,6 +25,7 @@ export * from './resolveInstagramEmbedResult.js';
 export * from './matches-childrens-data-keyword-filter.js';
 export * from './build-correction-classification-text.js';
 export * from './sanitize-event-links.js';
+export * from './normalize-location-keywords.js';
 export * from './parse-platform-prefixed-event-slug.js';
 export * from './assign-extraction-ordinals.js';
 export * from './match-scoring.js';

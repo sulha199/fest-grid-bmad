@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { events, eventPosts, eventSlugAliases, schedules, posts, corrections, calendarAdditions } from '@festgrid/database';
 import { db } from '../../db/client.js';
-import { isUnfilledValue, LOCATION_NOT_SPECIFIED } from '@festgrid/domain/events';
+import { isUnfilledValue, LOCATION_NOT_SPECIFIED, normalizeLocationText } from '@festgrid/domain/events';
 import type { EventInsertValues, ScheduleInsertValues, ProposedEventCorrection } from '@festgrid/domain/events';
 import { isOrganizerAuthoredPost } from '../posts/is-organizer-authored-post.js';
 import { activeOnly } from '@festgrid/graphql-select';
@@ -184,6 +184,33 @@ const ENRICHABLE_EVENT_FIELDS = [
   'links',
 ] as const satisfies readonly (keyof EventInsertValues)[];
 
+/**
+ * Location keywords belong to the location TEXT, so enrichment moves them with it. Returns the value to write, or `undefined` to
+ * leave the column alone:
+ * - the text is being replaced by a different one: the new extraction's keywords, or null (never the old ones next to new text);
+ * - the text stays (protected, additive, or the same string again): the new keywords are taken only when the new extraction
+ *   says the same text (they describe it), and a repeat that omits them (the model is not deterministic) keeps the old ones;
+ *   additive only fills keywords that are still empty.
+ */
+function resolveKeywordsPatch(args: {
+  currentText: string | null | undefined;
+  newText: string | null | undefined;
+  /** What the text column is being set to; undefined when it is not part of the patch. */
+  patchedText: string | null | undefined;
+  currentKeywords: string[] | null | undefined;
+  newKeywords: string[] | null | undefined;
+  additive: boolean;
+}): string[] | null | undefined {
+  // The same place respelled (case, spacing) is not a replaced text: its keywords still describe it.
+  const sameText = (a: string | null | undefined, b: string | null | undefined) => normalizeLocationText(a) === normalizeLocationText(b);
+  const textReplaced = args.patchedText !== undefined && !sameText(args.patchedText, args.currentText);
+  if (textReplaced) return args.newKeywords ?? null;
+  if (!sameText(args.newText, args.currentText)) return undefined;
+  if (!args.newKeywords) return undefined;
+  if (args.additive && args.currentKeywords && args.currentKeywords.length > 0) return undefined;
+  return args.newKeywords;
+}
+
 /** `events.location` is NOT NULL, so an unknown location is stored as this placeholder, not null. */
 const UNFILLED_PLACEHOLDERS: Partial<Record<(typeof ENRICHABLE_EVENT_FIELDS)[number], readonly string[]>> = {
   location: [LOCATION_NOT_SPECIFIED],
@@ -349,6 +376,16 @@ async function mergeSchedules(
       if (additive && !isUnfilledValue((match as Record<string, unknown>)[field])) continue;
       (patch as Record<string, unknown>)[field] = value;
     }
+    // Same rule as the event-level keywords: they follow the schedule's location text, whichever way it went.
+    const scheduleKeywords = resolveKeywordsPatch({
+      currentText: match.location,
+      newText: newSchedule.location,
+      patchedText: 'location' in patch ? (patch.location as string | null) : undefined,
+      currentKeywords: match.locationKeywords,
+      newKeywords: newSchedule.locationKeywords,
+      additive,
+    });
+    if (scheduleKeywords !== undefined) patch.locationKeywords = scheduleKeywords;
     if (Object.keys(patch).length > 0) {
       await executor.update(schedules).set(patch).where(eq(schedules.id, match.id));
     }
@@ -475,6 +512,15 @@ export async function enrichAndPromoteEvent(
     }
     eventPatch[field] = value;
   }
+  const eventKeywords = resolveKeywordsPatch({
+    currentText: candidateEvent.location,
+    newText: newEvent.location,
+    patchedText: 'location' in eventPatch ? (eventPatch.location as string) : undefined,
+    currentKeywords: candidateEvent.locationKeywords,
+    newKeywords: newEvent.locationKeywords,
+    additive: !!additive,
+  });
+  if (eventKeywords !== undefined) eventPatch.locationKeywords = eventKeywords;
   if (Object.keys(eventPatch).length > 0) {
     await executor.update(events).set(eventPatch).where(eq(events.id, candidateEvent.id));
   }

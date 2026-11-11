@@ -230,16 +230,17 @@ Claude Code, cloud session (bmad-dev-story workflow).
 
 - RED then GREEN, per task: `jobs-schema.test.ts` failed before the schema existed (9 pass after); `job-engine.test.ts` failed with ERR_MODULE_NOT_FOUND before the domain module (6 pass); `start-job.test.ts` (6 pass); `run-job.test.ts` (24 pass on the first run of the implementation); the three sweep tests failed on missing modules (6, 7 and 2 pass).
 - The Lambda routing test (`job-engine-branches.test.ts`) was written AFTER the thin `job-engine-run` and `job-engine-sweep` branches. Its value was proven by temporarily reverting both handlers: 0 pass, 2 fail; restored: all pass.
-- drizzle-kit 0.21.4 emitted the tables and indexes of migration 0095 but NOT the CHECK constraint (the generated SQL had no `jobs_user_job_has_owner`). Resolved with a custom migration (0096), see Completion Notes.
+- Master merged migration `0095_location_keywords` (PR #206) while this awaited its push, so the two job migrations were renumbered from 0095 and 0096 to 0096 and 0097 and regenerated on top of master's snapshot chain (same SQL).
+- drizzle-kit 0.21.4 emitted the tables and indexes of migration 0096 but NOT the CHECK constraint (the generated SQL had no `jobs_user_job_has_owner`). Resolved with a custom migration (0097), see Completion Notes.
 - Typecheck after adding two required fields to `BackendEnv`: two existing tests that build a complete `BackendEnv` literal failed to compile (`rehost-post-image.test.ts`, `upload-face-blur-thumbnail.test.ts`); both got the two new fields.
-- The first full backend run on an UNSEEDED database failed the RLS tests (and seed-dependent ones). The RLS failure `every table in the public schema has row level security enabled` was REAL: `jobs` and `job_attempts` had RLS off. Fixed in migration 0095 (the migration that creates them, as migration 0084's rule requires). The other failures were the missing seed; CI runs migrate then seed, so the local database was rebuilt that way.
+- The first full backend run on an UNSEEDED database failed the RLS tests (and seed-dependent ones). The RLS failure `every table in the public schema has row level security enabled` was REAL: `jobs` and `job_attempts` had RLS off. Fixed in migration 0096 (the migration that creates them, as migration 0084's rule requires). The other failures were the missing seed; CI runs migrate then seed, so the local database was rebuilt that way.
 - Adding the 5-minute rule changed two existing assertions (`AWS::Events::Rule` count 3 to 4 in dev, 6 to 7 in prod); updated with the reason in their comments.
 - A `git stash -u` meant to run a baseline check failed (intent-to-add entries) and stashed nothing; the working tree was verified intact. The baseline check was done instead from a `git archive` export of the baseline backend source in a scratch folder (removed afterwards).
 
 ### Completion Notes List
 
 **What was built (all 8 ACs, all tasks).**
-- `jobs` and `job_attempts` tables, three enums (`job_status` with `WAITING`, `job_trigger`, `job_attempt_outcome`), migrations 0095 (drizzle-kit generated, plus row level security) and 0096 (the CHECK).
+- `jobs` and `job_attempts` tables, three enums (`job_status` with `WAITING`, `job_trigger`, `job_attempt_outcome`), migrations 0096 (drizzle-kit generated, plus row level security) and 0097 (the CHECK).
 - `packages/domain/src/jobs/job-engine.ts`: statuses, triggers, the pure `JobTypeDefinition` (type, host, maxDurationMs) registry, `computeJobDeadline`, `resolveAttemptBudgetMs`, `isTerminalJobStatus`, `isPlaceHoldingJobStatus`, and the handler contract (`JobHandlerContext`, `JobHandlerResult` with `WAITING` and `HANDED_OFF`). New `./jobs` package export; 100% covered.
 - Backend: `job-registry.ts`, `invoke-job-engine-worker.ts` (async invoke carrying only the job id), `start-job.ts`, `run-job.ts` (atomic claim, run budget, phase writes, WAITING, hand-off, guarded writes), `sweep-expired-jobs.ts`, `sweep-stale-manual-extraction-jobs.ts` (FIND-086 and FIND-111), `run-job-engine-sweep.ts`; `job-engine-run` branches in the scraper and AI-processor Lambdas, a `job-engine-sweep` branch in the scraper.
 - CDK: scraper-to-API and AI-processor-to-scraper invoke grants and function names, the two numeric settings on both worker Lambdas, and the 5-minute `ScraperJobEngineSweepRule` (every stage). `env.ts` and `.env.example` gained three settings.
@@ -247,17 +248,17 @@ Claude Code, cloud session (bmad-dev-story workflow).
 - No real job type is registered, no GraphQL surface, no UI, no entry point for system jobs (as the story requires).
 
 **Deviations from the story text, and why.**
-1. **CHECK constraint is hand-written SQL (migration 0096), not a drizzle `check()`.** drizzle-kit 0.21.4 does not emit CHECKs, and leaving `check()` declared would make a later drizzle-kit upgrade emit a duplicate constraint. The schema has a comment pointing at 0096.
-2. **Added `jobs.input jsonb`.** The story's `startJob(type, { inputKey, payload }, owner)` takes a payload but the table had nowhere to store it, and a handler (and Story 10.12a's stored post-id list) needs its input. Migration 0095 was regenerated before anything was pushed.
+1. **CHECK constraint is hand-written SQL (migration 0097), not a drizzle `check()`.** drizzle-kit 0.21.4 does not emit CHECKs, and leaving `check()` declared would make a later drizzle-kit upgrade emit a duplicate constraint. The schema has a comment pointing at 0097.
+2. **Added `jobs.input jsonb`.** The story's `startJob(type, { inputKey, payload }, owner)` takes a payload but the table had nowhere to store it, and a handler (and Story 10.12a's stored post-id list) needs its input. Migration 0096 was regenerated before anything was pushed.
 3. **The two numeric settings are on the scraper and AI-processor Lambdas, not the API and scraper Lambdas.** The workers run `job-engine-run`; the API Lambda only starts jobs and reads neither setting.
 4. **Retention sweep also fails PROCESSING jobs older than the stale limit** (AC4 names PENDING). The existing lazy check treats both as stale after the same time.
-5. **RLS** (enabled, no policy) was added to migration 0095; the story did not mention it but the repo's RLS test requires it for every table.
+5. **RLS** (enabled, no policy) was added to migration 0096; the story did not mention it but the repo's RLS test requires it for every table.
 6. Two settings in `env.ts` are required fields, so two existing test fixtures were updated.
 
 **Design points worth a reviewer's eye.** A hand-off releases the worker's claim BEFORE the invoke (otherwise the receiving Lambda is refused for the whole claim TTL). Every write after the claim is guarded on status RUNNING and the worker's own claim (or its own release), so a late handler can never overwrite an ended job. `deadline_at` is the whole-job bound (admission time plus the type's `maxDurationMs`); one run is capped by the smallest of `JOB_ATTEMPT_DEADLINE_MS`, the time to the deadline and the Lambda clock. A WAITING row is claimable only once its `resume_at` is due (or null, waiting for an event); an unadmitted row is never claimed and never swept.
 
 **Verification (Verification Plan commands, all executed, with results).**
-- `pnpm --filter @festgrid/database run generate` then `run migrate`: 0095 and 0096 generated and applied cleanly on a fresh migrate plus seed; `migrations-journal-order.ratchet.test.ts` 7 of 7; database package tests (`delete-order`, `seed`, journal ratchet) 14 of 14.
+- `pnpm --filter @festgrid/database run generate` then `run migrate`: 0096 and 0097 generated and applied cleanly on a fresh migrate plus seed; `migrations-journal-order.ratchet.test.ts` 7 of 7; database package tests (`delete-order`, `seed`, journal ratchet) 14 of 14.
 - `pnpm --filter @festgrid/domain test`: 1610 of 1610, coverage 100% on every file including `jobs/`.
 - New backend tests (7 files, 57 tests) through `run-tests-with-row-count-ratchet.ts`: all pass, exit 0, no leftover `jobs` or `job_attempts` rows.
 - Full backend suite through the ratchet on a migrated and seeded database (CI's sequence): 2371 tests, 2365 pass, 4 skipped, 1 failing test (counted twice with its parent): `trigger-brightdata-for-target.test.ts` "returns CAPACITY_EXHAUSTED when capacity unavailable". **Not caused by this story:** it fails identically on an export of the untouched baseline backend source in this container (the gate passes and a later query then fails on a non-UUID test profile id), and nothing in this change touches that code. Not fixed here; flagged to the user.
@@ -299,10 +300,10 @@ Claude Code, cloud session (bmad-dev-story workflow).
 - `apps/infrastructure/lib/festgrid-backend-stack.ts`
 - `docs/infrastructure/architecture-diagram.md`
 - `docs/infrastructure/high-level-overview.md`
-- `packages/database/migrations/0095_job_engine_core.sql`
-- `packages/database/migrations/0096_jobs_user_job_has_owner_check.sql`
-- `packages/database/migrations/meta/0095_snapshot.json`
+- `packages/database/migrations/0096_job_engine_core.sql`
+- `packages/database/migrations/0097_jobs_user_job_has_owner_check.sql`
 - `packages/database/migrations/meta/0096_snapshot.json`
+- `packages/database/migrations/meta/0097_snapshot.json`
 - `packages/database/migrations/meta/_journal.json`
 - `packages/database/schema.ts`
 - `packages/domain/package.json`
@@ -313,4 +314,4 @@ Claude Code, cloud session (bmad-dev-story workflow).
 
 ### Change Log
 
-- 2026-11-11: Story 10.1a built: job record, lifecycle, worker, sweeps, AD-53, AD-41 pointer, CDK wiring and infrastructure docs. Migration 0095 (generated) and 0096 (CHECK, hand-written). `baseline_commit` reset to the docs tip the build started from. Status: ready-for-dev to review.
+- 2026-11-11: Story 10.1a built: job record, lifecycle, worker, sweeps, AD-53, AD-41 pointer, CDK wiring and infrastructure docs. Migration 0096 (generated) and 0097 (CHECK, hand-written). `baseline_commit` reset to the docs tip the build started from. Status: ready-for-dev to review.

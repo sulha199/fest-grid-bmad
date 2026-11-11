@@ -575,6 +575,72 @@ test('submitCorrection resolver integration', async (t) => {
     assert.deepEqual(afterRow.links, [{ url: 'https://tickets.example.com', label: 'Tickets' }]);
   });
 
+  await t.test('submitCorrection - location keywords stay while the location text is unchanged and are cleared when it changes', async () => {
+    if (!testUser || !testEventId || !testScheduleId) return;
+    mockUser = { userId: testUser.id, role: testUser.role };
+
+    await db.update(events).set({ location: 'Chicago, IL', locationKeywords: ['Chicago', 'Illinois'] }).where(eq(events.id, testEventId));
+    await db.update(schedules).set({ location: 'United Center, Chicago, IL', locationKeywords: ['United Center', 'Chicago'] }).where(eq(schedules.id, testScheduleId));
+
+    const submit = async (eventLocation: string, scheduleLocation?: string) => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation SubmitCorrection($eventId: ID!, $proposedData: ProposedEventCorrectionInput!, $source: CorrectionSource!) {
+              submitCorrection(eventId: $eventId, proposedData: $proposedData, source: $source) { id status validationErrors { field message } }
+            }
+          `,
+          variables: {
+            eventId: testEventId,
+            proposedData: {
+              eventName: 'Keywords Test',
+              types: ['FESTIVAL'],
+              categories: ['MUSIC'],
+              location: eventLocation,
+              schedules: [{ id: testScheduleId, isMainSchedule: true, eventStartDate: '2026-08-11', ...(scheduleLocation !== undefined ? { location: scheduleLocation } : {}) }],
+            },
+            source: 'manual',
+          },
+        }),
+      });
+      const result = await response.json();
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      assert.strictEqual(result.data.submitCorrection.status, 'applied', JSON.stringify(result.data.submitCorrection.validationErrors));
+    };
+
+    // Same text: the keywords stay.
+    await submit('Chicago, IL', 'United Center, Chicago, IL');
+    let [eventRow] = await db.select().from(events).where(eq(events.id, testEventId));
+    let [scheduleRow] = await db.select().from(schedules).where(eq(schedules.id, testScheduleId));
+    assert.deepStrictEqual(eventRow.locationKeywords, ['Chicago', 'Illinois']);
+    assert.deepStrictEqual(scheduleRow.locationKeywords, ['United Center', 'Chicago']);
+
+    // Case and surrounding spaces are not a change of place.
+    await submit(' chicago, il', 'United Center, CHICAGO, il');
+    [eventRow] = await db.select().from(events).where(eq(events.id, testEventId));
+    [scheduleRow] = await db.select().from(schedules).where(eq(schedules.id, testScheduleId));
+    assert.deepStrictEqual(eventRow.locationKeywords, ['Chicago', 'Illinois']);
+    assert.deepStrictEqual(scheduleRow.locationKeywords, ['United Center', 'Chicago']);
+
+    // Changed text (event and schedule): the keywords of the old text are cleared.
+    await submit('Austin, TX', 'Moody Center, Austin, TX');
+    [eventRow] = await db.select().from(events).where(eq(events.id, testEventId));
+    [scheduleRow] = await db.select().from(schedules).where(eq(schedules.id, testScheduleId));
+    assert.strictEqual(eventRow.location, 'Austin, TX');
+    assert.strictEqual(eventRow.locationKeywords, null);
+    assert.strictEqual(scheduleRow.location, 'Moody Center, Austin, TX');
+    assert.strictEqual(scheduleRow.locationKeywords, null);
+
+    // A schedule whose location is removed (a null in the comparison): its keywords go with it.
+    await db.update(schedules).set({ locationKeywords: ['Moody Center'] }).where(eq(schedules.id, testScheduleId));
+    await submit('Austin, TX');
+    [scheduleRow] = await db.select().from(schedules).where(eq(schedules.id, testScheduleId));
+    assert.strictEqual(scheduleRow.location, null);
+    assert.strictEqual(scheduleRow.locationKeywords, null);
+  });
+
   await t.test('submitCorrection - links - submitting links: [] clears the column back to null, and the applied correction protects it', async () => {
     if (!testUser || !testEventId || !testScheduleId) return;
     mockUser = { userId: testUser.id, role: testUser.role };

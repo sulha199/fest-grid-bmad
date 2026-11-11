@@ -1633,6 +1633,10 @@ export const resolvers: Resolvers = {
             types: proposedData.types,
             categories: proposedData.categories,
             location: proposedData.location,
+            // Keywords describe the location text: when the text changes they are cleared (a stale list must never drive a
+            // search for the new place); when it is unchanged (ignoring case and surrounding spaces) they stay. Evaluated against
+            // the row's old value.
+            locationKeywords: sql`CASE WHEN lower(btrim(${events.location})) IS DISTINCT FROM lower(btrim(${proposedData.location})) THEN NULL ELSE ${events.locationKeywords} END`,
             organizerName: proposedData.organizerName || null,
             contactInfo: proposedData.contactInfo || null,
             description: proposedData.description || null,
@@ -1661,7 +1665,11 @@ export const resolvers: Resolvers = {
 
           if (s.id) {
             await tx.update(schedules)
-              .set(fields)
+              .set({
+                ...fields,
+                // Same rule as the event-level keywords above: cleared when this schedule's location text changes.
+                locationKeywords: sql`CASE WHEN lower(btrim(${schedules.location})) IS DISTINCT FROM lower(btrim(${s.location || null})) THEN NULL ELSE ${schedules.locationKeywords} END`,
+              })
               .where(and(eq(schedules.id, s.id), eq(schedules.eventId, eventId)));
           } else {
             await tx.insert(schedules)

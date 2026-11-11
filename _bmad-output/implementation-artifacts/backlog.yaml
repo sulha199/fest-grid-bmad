@@ -3037,3 +3037,11 @@ items:
      ref: [apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/backend/src/lib/scraper/twitter-adapter.ts],
      touches: [app:backend],
      note: "From the code review of PR 184: the stub throws a plain Error before any vendor call, so isPreVendorCallFailure misses it. Throw a typed error from the stub (or skip unimplemented platforms) and exempt it."}
+
+  FIND-261110-u8s:
+    {type: finding, status: backlog, created: 2026-11-10,
+     impact: internal, effort: s,
+     title: "An AI-assisted correction clears location keywords and never refills them; a thin re-extraction can overwrite a real location with the placeholder",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: bmad-quick-dev review of spec-location-keywords-extraction: corrections drop keywords, placeholder overwrites a real location (2026-11-10). 2 findings."}

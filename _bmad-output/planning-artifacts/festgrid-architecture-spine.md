@@ -3435,7 +3435,7 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ### AD-53: The Job Engine: One Record, One Registry, One Worker For Every Long-Running Vendor-Backed Action
 
-*   **Binds:** `packages/database/schema.ts` (`jobs`, `job_attempts`; migrations 0095 and 0096);
+*   **Binds:** `packages/database/schema.ts` (`jobs`, `job_attempts`; migrations 0096 and 0097);
     `packages/domain/src/jobs/job-engine.ts`; `apps/backend/src/lib/job-engine/` (registry, `startJob`, worker,
     sweeps); `apps/backend/src/lib/aws/invoke-job-engine-worker.ts`; the `job-engine-run` branch of the Scraper and
     AI-processor Lambdas and the `job-engine-sweep` branch of the Scraper Lambda; `festgrid-backend-stack.ts` (two
@@ -3499,7 +3499,7 @@ This document defines the core architectural invariants for the FestDaily applic
         Rule 5's "no new rule" on purpose:** the hourly vendor sweep also makes vendor progress calls and must not run
         more often, while this one makes none, so a hung job ends in minutes, not up to an hour.
     10. **User job or system job.** `trigger` is USER or SYSTEM and `owner_user_id` is required for USER only, by the
-        CHECK `jobs_user_job_has_owner` (migration 0096; hand-written SQL because drizzle-kit 0.21 does not emit CHECK
+        CHECK `jobs_user_job_has_owner` (migration 0097; hand-written SQL because drizzle-kit 0.21 does not emit CHECK
         constraints). Places, queueing, reuse, notifications and the ordinary Jobs page apply to user jobs only
         (FR130). No system job type is built; the daily scrape, automatic extraction and AD-52 retries stay outside the
         engine.

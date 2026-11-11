@@ -1,5 +1,5 @@
 {
-  "id": "0f95af63-d669-41df-99b4-8318c6853154",
+  "id": "dc1a0556-2946-4ea5-8e2d-e07cad6f58ba",
   "prevId": "6c680988-35b3-4b99-950b-b8572ca82001",
   "version": "6",
   "dialect": "postgresql",
@@ -1833,6 +1833,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "location_keywords": {
+          "name": "location_keywords",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
         "organizer_name": {
           "name": "organizer_name",
           "type": "text",
@@ -2422,278 +2428,6 @@
           ]
         }
       }
-    },
-    "public.job_attempts": {
-      "name": "job_attempts",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "job_id": {
-          "name": "job_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider": {
-          "name": "provider",
-          "type": "scraper_run_vendor",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "job_attempt_outcome",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "budget_ms": {
-          "name": "budget_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "elapsed_ms": {
-          "name": "elapsed_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason_code": {
-          "name": "reason_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "scraper_actor_run_id": {
-          "name": "scraper_actor_run_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_job_attempts_job_id": {
-          "name": "idx_job_attempts_job_id",
-          "columns": [
-            "job_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "job_attempts_job_id_jobs_id_fk": {
-          "name": "job_attempts_job_id_jobs_id_fk",
-          "tableFrom": "job_attempts",
-          "tableTo": "jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "job_attempts_scraper_actor_run_id_scraper_actor_runs_id_fk": {
-          "name": "job_attempts_scraper_actor_run_id_scraper_actor_runs_id_fk",
-          "tableFrom": "job_attempts",
-          "tableTo": "scraper_actor_runs",
-          "columnsFrom": [
-            "scraper_actor_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
-    },
-    "public.jobs": {
-      "name": "jobs",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "owner_user_id": {
-          "name": "owner_user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "trigger": {
-          "name": "trigger",
-          "type": "job_trigger",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "input_key": {
-          "name": "input_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "input": {
-          "name": "input",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "job_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'QUEUED'"
-        },
-        "phase": {
-          "name": "phase",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reason_code": {
-          "name": "reason_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "error_message": {
-          "name": "error_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "result_data": {
-          "name": "result_data",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "deadline_at": {
-          "name": "deadline_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "completed_after_deadline": {
-          "name": "completed_after_deadline",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "worker_claimed_at": {
-          "name": "worker_claimed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "admitted_at": {
-          "name": "admitted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "resume_at": {
-          "name": "resume_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "finished_at": {
-          "name": "finished_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_jobs_owner_created_at": {
-          "name": "idx_jobs_owner_created_at",
-          "columns": [
-            "owner_user_id",
-            "created_at"
-          ],
-          "isUnique": false
-        },
-        "idx_jobs_status_deadline": {
-          "name": "idx_jobs_status_deadline",
-          "columns": [
-            "status",
-            "deadline_at"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "jobs_owner_user_id_users_id_fk": {
-          "name": "jobs_owner_user_id_users_id_fk",
-          "tableFrom": "jobs",
-          "tableTo": "users",
-          "columnsFrom": [
-            "owner_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
     },
     "public.manual_extraction_jobs": {
       "name": "manual_extraction_jobs",
@@ -3675,6 +3409,12 @@
         "location": {
           "name": "location",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location_keywords": {
+          "name": "location_keywords",
+          "type": "text[]",
           "primaryKey": false,
           "notNull": false
         },
@@ -5051,39 +4791,6 @@
       "values": [
         "AVAILABLE",
         "UNAVAILABLE"
-      ]
-    },
-    "public.job_attempt_outcome": {
-      "name": "job_attempt_outcome",
-      "schema": "public",
-      "values": [
-        "SUCCEEDED",
-        "FAILED",
-        "EMPTY",
-        "TIMED_OUT",
-        "OVER_QUOTA",
-        "SKIPPED"
-      ]
-    },
-    "public.job_status": {
-      "name": "job_status",
-      "schema": "public",
-      "values": [
-        "QUEUED",
-        "RUNNING",
-        "WAITING",
-        "SUCCEEDED",
-        "SUCCEEDED_WITH_LIMITS",
-        "FAILED",
-        "EXPIRED"
-      ]
-    },
-    "public.job_trigger": {
-      "name": "job_trigger",
-      "schema": "public",
-      "values": [
-        "USER",
-        "SYSTEM"
       ]
     },
     "public.manual_extraction_job_status": {

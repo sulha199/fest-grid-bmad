@@ -315,6 +315,8 @@ export type Event = {
   isHiddenForCurrentUser: Scalars['Boolean']['output'];
   links?: Maybe<Array<EventLink>>;
   location?: Maybe<Scalars['String']['output']>;
+  /** Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected. */
+  locationKeywords?: Maybe<Array<Scalars['String']['output']>>;
   organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
@@ -1437,6 +1439,8 @@ export type Schedule = {
   isMainSchedule: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   locationDetails?: Maybe<LocationDetails>;
+  /** Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected. */
+  locationKeywords?: Maybe<Array<Scalars['String']['output']>>;
   performers?: Maybe<Array<Scalars['String']['output']>>;
   registrationUrl?: Maybe<Scalars['String']['output']>;
   ticketPrice?: Maybe<Scalars['String']['output']>;
@@ -2233,6 +2237,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   isHiddenForCurrentUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   links?: Resolver<Maybe<Array<ResolversTypes['EventLink']>>, ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  locationKeywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   organizerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   postId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
@@ -2682,6 +2687,7 @@ export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends R
   isMainSchedule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   locationDetails?: Resolver<Maybe<ResolversTypes['LocationDetails']>, ParentType, ContextType>;
+  locationKeywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   performers?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   registrationUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ticketPrice?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
