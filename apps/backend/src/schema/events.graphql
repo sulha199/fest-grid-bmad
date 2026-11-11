@@ -107,6 +107,8 @@ type Schedule {
   timezoneStatus: ScheduleTimezoneStatus
   performers: [String!]
   location: String
+  """Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected."""
+  locationKeywords: [String!]
   locationDetails: LocationDetails
   ticketPrice: String
   ticketUrl: String
@@ -125,6 +127,8 @@ type Event {
   types: [EventType!]
   categories: [EventCategory!]
   location: String
+  """Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected."""
+  locationKeywords: [String!]
   sourceSocialMediaAccountId: ID
   postId: ID
   imageUrl: String

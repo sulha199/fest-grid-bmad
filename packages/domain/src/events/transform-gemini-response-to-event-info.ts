@@ -2,6 +2,7 @@ import { EventType, EventCategory, LocationDetails } from '@festgrid/shared-type
 import { GeminiEventPayload, ExtractedEventMessage, ExtractedScheduleMessage, ScheduleTimezoneResolution } from './types.js';
 import { matchesChildrensDataKeywordFilter } from './matches-childrens-data-keyword-filter.js';
 import { sanitizeEventLinks } from './sanitize-event-links.js';
+import { normalizeLocationKeywords } from './normalize-location-keywords.js';
 
 // Story 3.6s — retyped from GeminiExtractionPayload (now the post-level wrapper carrying
 // `events[]`) to GeminiEventPayload (one event's worth of fields). The caller
@@ -56,6 +57,8 @@ export function transformGeminiResponseToEventInfo(
     ? (context.defaultLocation.formattedAddress ?? context.defaultLocation.placeName)
     : undefined);
 
+  const eventKeywords = payload.location?.trim() ? normalizeLocationKeywords(payload.locationKeywords) : undefined;
+
   // 3. Map schedules, attaching resolved schedule locations and timezone resolutions.
   // Discard-at-classification enforcement (Story 3.6k, AC1): when the raw scraped
   // post text matches the children's-data keyword filter, performers are suppressed
@@ -66,6 +69,8 @@ export function transformGeminiResponseToEventInfo(
   const schedules: ExtractedScheduleMessage[] = payload.schedules.map((sch, i) => {
     const locationDetails = context.resolvedScheduleLocations.get(i);
     const timezoneResolution = context.scheduleTimezoneResolutions?.get(i);
+    // Only next to a location text of its own (like the event's): a list must describe the text it sits next to.
+    const scheduleKeywords = sch.location?.trim() ? normalizeLocationKeywords(sch.locationKeywords) : undefined;
     return {
       isMainSchedule: sch.isMainSchedule,
       eventStartDate: sch.eventStartDate,
@@ -75,6 +80,8 @@ export function transformGeminiResponseToEventInfo(
       title: sch.title,
       performers: childrensDataMatch ? undefined : sch.performers,
       location: sch.location,
+      // Present only when the model gave usable keywords: an absent key keeps an old-shape message identical to before.
+      ...(scheduleKeywords ? { locationKeywords: scheduleKeywords } : {}),
       ticketPrice: sch.ticketPrice,
       applicableDaysOfWeek: sch.applicableDaysOfWeek,
       locationDetails,
@@ -101,6 +108,9 @@ export function transformGeminiResponseToEventInfo(
     categories,
     schedules,
     location,
+    // The model's own keywords only: an event whose location fell back to the account's default has none (the default has
+    // its own place name), and a keyword list must describe the text it sits next to.
+    ...(eventKeywords ? { locationKeywords: eventKeywords } : {}),
     organizerName: payload.organizerName,
     contactInfo,
     hasPrivateContact: payload.hasPrivateContact,

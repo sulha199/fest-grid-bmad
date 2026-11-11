@@ -18,6 +18,9 @@ export const geminiScheduleSchema: JSONSchemaType<GeminiSchedulePayload> = {
       nullable: true
     },
     location: { type: 'string', nullable: true },
+    // Place names for searching `location`, most specific first; normalized later by `normalizeLocationKeywords` (packages/domain).
+    locationKeywords: { type: 'array', items: { type: 'string' }, nullable: true },
+    locationCountryCode: { type: 'string', nullable: true },
     ticketPrice: { type: 'string', nullable: true },
     // Story 3.6s (BUG-026) — reuses the existing DayOfWeek enum (packages/domain) as the
     // allowed-values source, matching the Gemini-facing schema's own enum list.
@@ -53,6 +56,8 @@ export const geminiEventSchema: JSONSchemaType<GeminiEventPayload> = {
       items: geminiScheduleSchema
     },
     location: { type: 'string', nullable: true },
+    locationKeywords: { type: 'array', items: { type: 'string' }, nullable: true },
+    locationCountryCode: { type: 'string', nullable: true },
     organizerName: { type: 'string', nullable: true },
     contactInfo: { type: 'string', nullable: true },
     hasPrivateContact: { type: 'boolean', nullable: true },

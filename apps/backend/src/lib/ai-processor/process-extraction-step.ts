@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import { posts, socialMediaAccountProfiles } from '@festgrid/database';
 import type { GeminiEventPayload, GeminiExtractionPayload } from '@festgrid/domain';
+import { stripMalformedLocationKeywords } from '@festgrid/domain/events';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
 import {
   PER_CALL_EVENT_CAP,
@@ -34,6 +35,7 @@ import {
 import { resolvePostPublisherOptIn } from '../posts/resolve-post-publisher-opt-in.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { buildExtractedEventMessage } from './build-extracted-event-message.js';
+import { generateLocationKeywords } from './generate-location-keywords.js';
 import { buildStepMessage, enqueueStepMessage } from './extraction-chain.js';
 import { writeExtractionAuditLog } from './write-extraction-audit-log.js';
 
@@ -191,6 +193,7 @@ export async function processExtractionStep(message: ProcessingJobMessage, deps:
       let payload: GeminiExtractionPayload | undefined;
       try {
         const parsed = JSON.parse(typeof result.text === 'string' ? result.text : '');
+        stripMalformedLocationKeywords(parsed);
         if (validatePayload(parsed)) {
           payload = parsed;
         }
@@ -254,6 +257,8 @@ export async function processExtractionStep(message: ProcessingJobMessage, deps:
     // Dedupe against the events earlier steps found, then reserve this step's ordinal range BEFORE anything is enqueued
     // (AD-48 Rule 2): a replay of this step starts after the reserved range and can never reuse a slot.
     const { fresh, keys } = newEventsByKey(cursor.foundKeys, run.events);
+    // Search keywords for this step's new events only (best-effort, never throws).
+    await generateLocationKeywords(fresh, { callGemini: deps.callGemini, subscriberUserIds, sourceText: caption, postId });
     const eventsCompleteness: ExtractionAuditEventCompleteness[] = [];
     const builtMessages = [];
     for (let i = 0; i < fresh.length; i++) {

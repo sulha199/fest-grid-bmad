@@ -151,6 +151,7 @@ export async function mergeEvents(
         title: loserSchedule.title,
         performers: loserSchedule.performers,
         location: loserSchedule.location,
+        locationKeywords: loserSchedule.locationKeywords,
         ticketPrice: loserSchedule.ticketPrice,
         locationDetails: loserSchedule.locationDetails,
         latitude: loserSchedule.latitude,

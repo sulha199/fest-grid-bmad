@@ -228,6 +228,87 @@ test('stepped extraction: first request and steps (AD-46..AD-51)', async (t) => 
     assert.strictEqual((await row(post.id)).extractedEventCount, 2);
   });
 
+  await t.test('location keywords of the events a step finds reach the ingestion messages, normalized, on the event and on its schedules', async () => {
+    const post = await makePost('step-kw');
+    await startExtractionCursor(post.id, cursorFor(post.id));
+    const withKeywords = {
+      ...event('Fresh Samsat', '2027-02-01'),
+      location: 'Kabupaten Sleman',
+      locationKeywords: ['Berbagai lokasi', 'Sleman'],
+      schedules: [
+        { isMainSchedule: true, eventStartDate: '2027-02-01', location: 'Pasar Porosjayan', locationKeywords: ['Pasar Porosjayan', ' Gamping ', 'Sleman'] },
+        { isMainSchedule: false, eventStartDate: '2027-02-08', location: 'Kalurahan Caturtunggal' },
+      ],
+    };
+    gemini({ text: roundup([withKeywords]) });
+
+    await processAiJob(stepMessage(post, cursorFor(post.id)));
+
+    assert.strictEqual(ingested.length, 1);
+    assert.deepStrictEqual(ingested[0].locationKeywords, ['Sleman']);
+    assert.deepStrictEqual(ingested[0].schedules[0].locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+    assert.ok(!('locationKeywords' in ingested[0].schedules[1]), 'a schedule without keywords carries none');
+  });
+
+  await t.test('a malformed locationKeywords value is dropped instead of failing the whole step', async () => {
+    const post = await makePost('step-kw-bad');
+    await startExtractionCursor(post.id, cursorFor(post.id));
+    const bad = {
+      ...event('Fresh Bad Keywords', '2027-02-01'),
+      location: 'Sleman',
+      locationKeywords: ['Sleman', null, 7],
+      schedules: [{ isMainSchedule: true, eventStartDate: '2027-02-01', location: 'Hall', locationKeywords: 'not an array' }],
+    };
+    gemini({ text: roundup([bad]) });
+
+    await processAiJob(stepMessage(post, cursorFor(post.id)));
+
+    assert.strictEqual(ingested.length, 1, 'the event is still ingested');
+    assert.deepStrictEqual(ingested[0].locationKeywords, ['Sleman']);
+    assert.ok(!('locationKeywords' in ingested[0].schedules[0]));
+  });
+
+  await t.test('the keywords call of a step covers only the new events, and its answer reaches the ingestion messages', async () => {
+    const post = await makePost('step-kw-call');
+    await startExtractionCursor(post.id, cursorFor(post.id));
+    const found = { ...event('Mid', '2027-01-02'), location: 'Hall Seen Before' };
+    const fresh = { ...event('Fresh Located', '2027-02-01'), location: 'Pasar Porosjayan, Gamping' };
+    let contents: string[] = [];
+    let call = 0;
+    setCallGeminiSeam(async (request: any) => {
+      call++;
+      if (call === 1) return { text: roundup([found, fresh]), finishReason: 'STOP', usage: { promptTokens: 100, outputTokens: 50 } };
+      contents = String(request.contents).split('\n');
+      return { text: JSON.stringify([{ id: 's0', locationKeywords: ['Pasar Porosjayan', 'Gamping', 'Sleman'], countryCode: 'ID' }]) };
+    });
+
+    await processAiJob(stepMessage(post, cursorFor(post.id)));
+
+    assert.strictEqual(call, 2, 'the extraction request plus one keywords call');
+    assert.strictEqual(contents.length, 1, 'only the new event text is sent: the event an earlier step found is deduped first');
+    assert.ok(contents[0].includes('Pasar Porosjayan, Gamping'));
+    assert.strictEqual(ingested.length, 1);
+    assert.deepStrictEqual(ingested[0].locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+    assert.ok(!('locationCountryCode' in ingested[0]), 'the transient country code never reaches the message');
+  });
+
+  await t.test('a failing keywords call does not stop the step: the event is ingested without keywords', async () => {
+    const post = await makePost('step-kw-fail');
+    await startExtractionCursor(post.id, cursorFor(post.id));
+    let call = 0;
+    setCallGeminiSeam(async () => {
+      call++;
+      if (call === 1) return { text: roundup([{ ...event('Fresh Unlocated', '2027-02-01'), location: 'Somewhere' }]), finishReason: 'STOP', usage: { promptTokens: 100, outputTokens: 50 } };
+      throw new Error('503 busy');
+    });
+
+    await processAiJob(stepMessage(post, cursorFor(post.id)));
+
+    assert.strictEqual(ingested.length, 1);
+    assert.ok(!('locationKeywords' in ingested[0]) || ingested[0].locationKeywords === undefined);
+    assert.ok((await readExtractionCursor(post.id)), 'the cursor was committed as usual');
+  });
+
   await t.test('the last step ends the chain atomically: extracted, cursor cleared, not partial, curator caption kept readable until then', async () => {
     const post = await makePost('last');
     await startExtractionCursor(post.id, cursorFor(post.id, { unreadImageUrls: slideUrls(2, 10), nextSlide: 10, unreadAtStart: 2 }));

@@ -9,6 +9,7 @@ import {
 import { getPlatformSlug } from '../scraper/platform-registry.js';
 import { normalizeOvernightEndDate } from './normalize-overnight-end-date.js';
 import { LOCATION_NOT_SPECIFIED } from './unfilled.js';
+import { normalizeLocationKeywords } from './normalize-location-keywords.js';
 import { ScrapablePlatform } from '../subscriptions/platforms.js';
 
 export function buildEventInsertValues(
@@ -26,6 +27,7 @@ export function buildEventInsertValues(
     types: message.types || [],
     categories: message.categories || [],
     location: message.location ?? LOCATION_NOT_SPECIFIED,
+    locationKeywords: normalizeLocationKeywords(message.locationKeywords) ?? null,
     organizerName: message.organizerName || null,
     contactInfo: message.contactInfo || null,
     hasPrivateContact: message.hasPrivateContact ?? false,
@@ -63,6 +65,7 @@ export function buildEventInsertValues(
       title: s.title || null,
       performers: s.performers || null,
       location: s.location || null,
+      locationKeywords: normalizeLocationKeywords(s.locationKeywords) ?? null,
       ticketPrice: s.ticketPrice || null,
       locationDetails: s.locationDetails || null,
       latitude: s.locationDetails?.coordinates?.latitude ?? null,

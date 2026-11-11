@@ -39,6 +39,8 @@ import { db } from '../../db/client.js';
 import { eq } from 'drizzle-orm';
 import { socialMediaAccountProfiles, posts } from '@festgrid/database';
 import { assignExtractionOrdinals } from '@festgrid/domain';
+import { stripMalformedLocationKeywords } from '@festgrid/domain/events';
+import { generateLocationKeywords } from './generate-location-keywords.js';
 import { writeExtractionAuditLog } from './write-extraction-audit-log.js';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
 import { logExtractionScheduleCounts, logEnqueueScheduleCounts, logEnqueueTotals } from '../events/schedule-count-log.js';
@@ -322,6 +324,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     return;
   }
 
+  // An optional, advisory field must not fail the whole extraction: drop malformed location keywords first.
+  stripMalformedLocationKeywords(payload);
   const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
   const isValid = validate(payload);
   if (!isValid) {
@@ -456,6 +460,15 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     );
     events = events.slice(0, eventCap);
   }
+
+  // Search keywords for each distinct location text, from one batched text-only call (best-effort, never throws). Done here,
+  // not in the API Lambda's Apply, which has no time for a model call.
+  await generateLocationKeywords(events, {
+    callGemini: callGeminiSeam,
+    subscriberUserIds,
+    sourceText: message.content,
+    postId: message.postId,
+  });
 
   // 6-7. Per-event loop (Task 7.3/7.4, AC4): resolveAccountAndLocations/resolveScheduleTimezones
   // and transformGeminiResponseToEventInfo are unchanged functions -- calling them once per

@@ -95,7 +95,7 @@ test('mergeEvents / undoEventMerge integration tests', async (t) => {
   const [scheduleB1] = await db.insert(schedules).values({ eventId: loser.id, eventStartDate: '2026-06-01' }).returning(); // matches scheduleA1's date
   const [scheduleB2] = await db
     .insert(schedules)
-    .values({ eventId: loser.id, eventStartDate: '2026-07-01', isMainSchedule: false })
+    .values({ eventId: loser.id, eventStartDate: '2026-07-01', isMainSchedule: false, location: 'Loser Hall', locationKeywords: ['Loser Hall', 'Sleman'] })
     .returning(); // no match on winner
   await db.insert(eventPosts).values({ eventId: loser.id, postId: postB.id, extractionOrdinal: 0 });
   await db.insert(eventPosts).values({ eventId: loser.id, postId: postShared.id, extractionOrdinal: 1 }); // already linked to winner too
@@ -157,6 +157,9 @@ test('mergeEvents / undoEventMerge integration tests', async (t) => {
     assert.strictEqual(copiedSchedule.eventId, winner.id);
     assert.strictEqual(copiedSchedule.eventStartDate, scheduleB2.eventStartDate);
     assert.strictEqual(copiedSchedule.isMainSchedule, false);
+    // The copy carries the location keywords with the location text.
+    assert.strictEqual(copiedSchedule.location, 'Loser Hall');
+    assert.deepStrictEqual(copiedSchedule.locationKeywords, ['Loser Hall', 'Sleman']);
 
     // Reports
     assert.deepStrictEqual(result.merge.repointedReportIds, [report1.id]);

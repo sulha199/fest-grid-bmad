@@ -93,6 +93,7 @@ test('uploadFaceBlurThumbnail integration/unit tests', async (t) => {
     apifyScrapingConfirmed: true,
     brightdataScrapingConfirmed: true,
     byokAllowLegacyBase64Fallback: false,
+    defaultCountryCode: 'ID',
   };
 
   await t.test('Case A: happy path -- resizes/re-encodes, uploads to the thumb key, writes durableThumbnailUrl', async () => {
