@@ -388,12 +388,13 @@ This document defines the core architectural invariants for the FestDaily applic
         - **Enforced by:** re-ranking — `packages/domain/src/geolocation/select-best-candidate.test.ts`
           (pure-function coverage of `selectBestCandidate`) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s
           `'adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)'` integration test;
-          map-link gate — `packages/domain/src/geolocation/is-location-trustworthy.test.ts` +
-          `packages/ui/src/core/LocationLink.test.tsx` (confidence-boundary cases; Story 1.6d, carries the
-          0.i7z ratchet header) + the `locationDetails` passthrough test in
-          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e; supersedes the removed
-          `mapUrl gating (Story 0.i7c / 0.i7z)` block — both 1.6d and 1.6e have now landed, so this is the
-          current enforcer, not a future-tense placeholder); account-card consumer —
+          map-link (reversed by location keywords slice 2b: the link is always a text search, never gated on
+          confidence, so it no longer reads the signal; `isLocationTrustworthy` remains only the gate for
+          showing the account-card label and the event-detail map pin) —
+          `packages/domain/src/geolocation/build-location-search-query.test.ts` +
+          `packages/ui/src/core/LocationLink.test.tsx` (always a text search, single icon, no coordinates;
+          carries the 0.i7z ratchet header) + the `locationDetails`/`locationKeywords` passthrough tests in
+          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e); account-card label gate —
           `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx`'s `location prop`
           block (Story 0.i6e, carries the 0.i7z ratchet header, including the `confidence: 0.5`/
           `matchType: 'full_match'` trustworthy boundary case and the `null`-confidence untrustworthy

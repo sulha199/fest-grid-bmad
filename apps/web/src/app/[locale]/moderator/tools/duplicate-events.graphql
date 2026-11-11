@@ -10,7 +10,7 @@ query QuerySuggestedEventMatches($first: Int, $after: String) {
           slug
           eventName
           location
-          imageUrl
+          locationKeywords          imageUrl
           durableImageUrl
           schedules {
             id
@@ -27,7 +27,7 @@ query QuerySuggestedEventMatches($first: Int, $after: String) {
           slug
           eventName
           location
-          imageUrl
+          locationKeywords          imageUrl
           durableImageUrl
           schedules {
             id
