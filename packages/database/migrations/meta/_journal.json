@@ -694,6 +694,20 @@
       "when": 1794383270097,
       "tag": "0098_location_resolution",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "6",
+      "when": 1794390754832,
+      "tag": "0099_jobs_admission_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "6",
+      "when": 1794390763489,
+      "tag": "0100_jobs_admission_partial_indexes",
+      "breakpoints": true
     }
   ]
 }

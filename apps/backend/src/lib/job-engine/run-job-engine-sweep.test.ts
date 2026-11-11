@@ -1,46 +1,41 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runJobEngineSweep } from './run-job-engine-sweep.js';
+import { runJobEngineSweep, type JobEngineSweepSteps } from './run-job-engine-sweep.js';
 
-// Story 10.1a Task 4 -- the 5-minute sweep runs both halves, each in its own try/catch.
+// Story 10.1a Task 4 + Story 10.3 Task 6 -- the 5-minute sweep runs every step in order, each in its own try/catch.
 
-test('runJobEngineSweep runs both halves in order', async () => {
-  const calls: string[] = [];
-  await runJobEngineSweep({
-    expireJobs: async () => {
-      calls.push('expire');
-      return 0;
-    },
+const ORDER = ['expire', 'expireQueued', 'settleFollowers', 'readmit', 'promote', 'reinvoke', 'retention'];
+
+function steps(calls: string[], fail: string[] = [], counts: number = 0): JobEngineSweepSteps {
+  const counted = (name: string) => async () => {
+    calls.push(name);
+    if (fail.includes(name)) throw new Error(`${name} blip`);
+    return counts;
+  };
+  return {
+    expireJobs: counted('expire'),
+    expireQueuedJobs: counted('expireQueued'),
+    settleFollowers: counted('settleFollowers'),
+    readmitWaitingJobs: counted('readmit'),
+    promoteQueuedJobs: counted('promote'),
+    reinvokeStranded: counted('reinvoke'),
     retention: async () => {
       calls.push('retention');
+      if (fail.includes('retention')) throw new Error('retention blip');
     },
-  });
-  assert.deepEqual(calls, ['expire', 'retention']);
+  };
+}
+
+test('runJobEngineSweep runs every step in order: expiries, followers, re-admission, promotion, retention', async () => {
+  const calls: string[] = [];
+  await runJobEngineSweep(steps(calls, [], 2));
+  assert.deepEqual(calls, ORDER);
 });
 
-test('one half failing does not skip the other and the sweep does not throw', async () => {
-  const calls: string[] = [];
-  await runJobEngineSweep({
-    expireJobs: async () => {
-      calls.push('expire');
-      throw new Error('db blip');
-    },
-    retention: async () => {
-      calls.push('retention');
-    },
-  });
-  assert.deepEqual(calls, ['expire', 'retention']);
-
-  const calls2: string[] = [];
-  await runJobEngineSweep({
-    expireJobs: async () => {
-      calls2.push('expire');
-      return 1;
-    },
-    retention: async () => {
-      calls2.push('retention');
-      throw new Error('another blip');
-    },
-  });
-  assert.deepEqual(calls2, ['expire', 'retention']);
+test('any one step failing does not skip the others and the sweep does not throw', async () => {
+  for (const failing of ORDER) {
+    const calls: string[] = [];
+    await runJobEngineSweep(steps(calls, [failing]));
+    assert.deepEqual(calls, ORDER, `${failing} failing`);
+  }
 });

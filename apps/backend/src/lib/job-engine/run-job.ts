@@ -1,17 +1,19 @@
-import { and, eq, inArray, isNotNull, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import { jobs } from '@festgrid/database';
 import { resolveAttemptBudgetMs, type JobHandlerContext, type JobHandlerResult } from '@festgrid/domain/jobs';
 import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { invokeJobEngineWorker } from '../aws/invoke-job-engine-worker.js';
+import { afterJobEnded } from './after-job-ended.js';
 import { getJobHandler } from './job-registry.js';
 
 // Story 10.1a -- the job-engine worker (AC2, AC3; PRD FR117, FR121; AD-53). Runs inside a host Lambda
 // (scraper or AI-processor) that was invoked with `{ jobType: 'job-engine-run', jobId }`.
 //
 //  * One atomic conditional UPDATE ... RETURNING claims the job (the shape of AD-41 Rule 3's claim): a live claim
-//    held by another worker, an ended job, a job not admitted yet (Story 10.3's queue) and a WAITING job whose
-//    resume time is not due all return no row, so this invocation exits quietly (an async invoke can be redelivered).
+//    held by another worker, an ended job, a job not admitted yet (it waits in Story 10.3's queue) and a WAITING job all
+//    return no row, so this invocation exits quietly (an async invoke can be redelivered). A WAITING job is never claimed
+//    directly: `readmitWaitingJob` sends it back through admission first.
 //  * One RUN of the handler is raced against a budget: the smallest of the per-attempt cap, the time left to the job's
 //    own deadline and the Lambda's remaining time.
 //  * Every write after the claim is GUARDED (still RUNNING, still this worker's claim or released), so a late handler
@@ -37,9 +39,8 @@ export async function runJobEngineJob(
     .where(
       and(
         eq(jobs.id, jobId),
-        inArray(jobs.status, ['QUEUED', 'RUNNING', 'WAITING']),
+        inArray(jobs.status, ['QUEUED', 'RUNNING']),
         isNotNull(jobs.admittedAt),
-        or(sql`${jobs.status} <> 'WAITING'`, isNull(jobs.resumeAt), lte(jobs.resumeAt, claimedAt)),
         or(isNull(jobs.workerClaimedAt), lt(jobs.workerClaimedAt, staleBefore))
       )
     )
@@ -57,10 +58,16 @@ export async function runJobEngineJob(
 
   const finish = async (values: Partial<typeof jobs.$inferInsert>): Promise<void> => {
     const now = new Date();
-    await db
+    const ended = await db
       .update(jobs)
       .set({ ...values, workerClaimedAt: null, finishedAt: now, updatedAt: now })
-      .where(stillOurs);
+      .where(stillOurs)
+      .returning({ id: jobs.id });
+    // Story 10.3: the run ended the job, so its place is free for the next queued job and its followers settle. Skipped
+    // when the guard refused the write (the job had already ended some other way, and that path did its own follow-up).
+    if (ended.length > 0) {
+      await afterJobEnded(job, true);
+    }
   };
   const expire = (message: string) =>
     finish({ status: 'EXPIRED', reasonCode: 'TIMED_OUT', errorMessage: message, completedAfterDeadline: false });
@@ -169,8 +176,8 @@ async function applyResult(
         });
       }
       return;
-    case 'WAITING':
-      await db
+    case 'WAITING': {
+      const waiting = await db
         .update(jobs)
         .set({
           status: 'WAITING',
@@ -180,8 +187,14 @@ async function applyResult(
           workerClaimedAt: null,
           updatedAt: new Date(),
         })
-        .where(stillOurs);
+        .where(stillOurs)
+        .returning({ id: jobs.id });
+      // WAITING holds no place (FR121), so the next queued job may take it.
+      if (waiting.length > 0) {
+        await afterJobEnded(job, false);
+      }
       return;
+    }
     case 'SUCCEEDED':
       await finish({
         status: 'SUCCEEDED',

@@ -298,14 +298,124 @@ test('runJobEngineJob: WAITING (FR117, FR121)', async (t) => {
     assert.equal((await readJob(job.id)).status, 'WAITING');
   });
 
-  await t.test('a WAITING job is claimed once its resume time is due, or when it waits for an event (no resume time)', async () => {
-    const type = defineType(handlerReturning({ outcome: 'SUCCEEDED' }));
+  await t.test('a WAITING job is never claimed directly, due or not: it must be re-admitted first (Story 10.3 AC5)', async () => {
+    let ran = false;
+    const type = defineType({
+      run: async () => {
+        ran = true;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
     const due = await insertJob(type, { status: 'WAITING', resumeAt: new Date(Date.now() - 1000) });
     const byEvent = await insertJob(type, { status: 'WAITING', resumeAt: null });
     await runJobEngineJob(due.id, {});
     await runJobEngineJob(byEvent.id, {});
-    assert.equal((await readJob(due.id)).status, 'SUCCEEDED');
-    assert.equal((await readJob(byEvent.id)).status, 'SUCCEEDED');
+    assert.equal(ran, false);
+    assert.equal((await readJob(due.id)).status, 'WAITING');
+    assert.equal((await readJob(byEvent.id)).status, 'WAITING');
+  });
+
+  await t.test('a QUEUED job that is not admitted is not claimed (it waits for a place)', async () => {
+    let ran = false;
+    const type = defineType({
+      run: async () => {
+        ran = true;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type, { status: 'QUEUED', admittedAt: null, queuedSince: new Date() });
+    await runJobEngineJob(job.id, {});
+    assert.equal(ran, false);
+    assert.equal((await readJob(job.id)).status, 'QUEUED');
+  });
+});
+
+test('runJobEngineJob: freeing a place and settling followers (Story 10.3 AC2, AC4)', async (t) => {
+  const originalFn = process.env.SCRAPER_FUNCTION_NAME;
+  const invoked: string[] = [];
+  t.beforeEach(() => {
+    invoked.length = 0;
+    process.env.SCRAPER_FUNCTION_NAME = 'test-scraper-fn';
+    setInvokeJobEngineWorker(async (_functionName, payload) => {
+      invoked.push((payload as { jobId: string }).jobId);
+    });
+  });
+  t.after(() => {
+    if (originalFn === undefined) delete process.env.SCRAPER_FUNCTION_NAME;
+    else process.env.SCRAPER_FUNCTION_NAME = originalFn;
+  });
+
+  async function queuedBehind(type: string, ownerUserId: string) {
+    const [job] = await db
+      .insert(jobs)
+      .values({
+        type,
+        ownerUserId,
+        trigger: 'USER',
+        inputKey: `k-${suffix}-${typeCounter++}`,
+        status: 'QUEUED',
+        admittedAt: null,
+        queuedSince: new Date(),
+        deadlineAt: new Date(Date.now() + 600_000),
+      })
+      .returning();
+    return job;
+  }
+
+  for (const [label, result] of [
+    ['SUCCEEDED', { outcome: 'SUCCEEDED' }],
+    ['FAILED', { outcome: 'FAILED', reasonCode: 'X' }],
+    ['WAITING', { outcome: 'WAITING', phase: 'p', waitingFor: 'w' }],
+  ] as const) {
+    await t.test(`a run that ends ${label} promotes the owner's oldest queued job and invokes it`, async () => {
+      const type = defineType(handlerReturning(result));
+      const job = await insertJob(type);
+      const waiting = await queuedBehind(type, job.ownerUserId!);
+      await runJobEngineJob(job.id, {});
+      const row = await readJob(waiting.id);
+      assert.ok(row.admittedAt instanceof Date, 'promoted');
+      assert.deepEqual(invoked, [waiting.id]);
+    });
+  }
+
+  await t.test('a terminal run settles its followers with the same ending', async () => {
+    const type = defineType(handlerReturning({ outcome: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'STORED_IMAGES_USED', resultData: { n: 2 } }));
+    const leader = await insertJob(type);
+    const followerOwner = await makeUser();
+    const [follower] = await db
+      .insert(jobs)
+      .values({
+        type,
+        ownerUserId: followerOwner,
+        trigger: 'USER',
+        inputKey: leader.inputKey,
+        status: 'WAITING',
+        phase: 'following-leader',
+        leaderJobId: leader.id,
+        admittedAt: new Date(),
+        deadlineAt: new Date(Date.now() + 600_000),
+      })
+      .returning();
+    await runJobEngineJob(leader.id, {});
+    const row = await readJob(follower.id);
+    assert.equal(row.status, 'SUCCEEDED_WITH_LIMITS');
+    assert.equal(row.reasonCode, 'STORED_IMAGES_USED');
+    assert.deepEqual(row.resultData, { n: 2 });
+    assert.ok(row.finishedAt instanceof Date);
+  });
+
+  await t.test('a failing promotion never changes the job\'s own outcome', async () => {
+    setInvokeJobEngineWorker(async () => {
+      throw new Error('invoke refused');
+    });
+    const type = defineType(handlerReturning({ outcome: 'SUCCEEDED', resultData: { ok: 1 } }));
+    const job = await insertJob(type);
+    const waiting = await queuedBehind(type, job.ownerUserId!);
+    await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(job.id)).status, 'SUCCEEDED');
+    const promoted = await readJob(waiting.id);
+    assert.equal(promoted.status, 'FAILED');
+    assert.equal(promoted.reasonCode, 'START_FAILED');
   });
 });
 
