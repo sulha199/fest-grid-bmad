@@ -1,10 +1,14 @@
-/** Lower-case, strip accents and punctuation, collapse spaces. */
+/**
+ * Lower-case, strip Latin accents and punctuation, collapse spaces. Letters and digits of every script are kept (a name in
+ * Thai, Arabic or Chinese must not normalize to '' and then "match" any other such name); combining marks stay so words of
+ * scripts that use them are not split.
+ */
 export function normalizeText(value: string | undefined | null): string {
   return (value ?? '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ')
     .trim();
 }
 
@@ -26,10 +30,11 @@ export function locationMatches(label: string, model: string | undefined | null)
   return labelTokens.length > 0 && labelTokens.every((token) => modelTokens.has(token));
 }
 
+/** Equal, or one name is the other's whole words ("Turnamen Contoh" in "Turnamen Contoh Cabang 1"); "Fest" is not in "Festival". */
 export function nameMatches(label: string, model: string | undefined | null): boolean {
   const a = normalizeText(label);
   const b = normalizeText(model);
-  return a !== '' && b !== '' && (a === b || a.includes(b) || b.includes(a));
+  return a !== '' && b !== '' && (a === b || ` ${a} `.includes(` ${b} `) || ` ${b} `.includes(` ${a} `));
 }
 
 export function digitsOnly(value: string | undefined | null): string {

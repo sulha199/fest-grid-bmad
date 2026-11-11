@@ -8,6 +8,7 @@ import {
   type FieldScores,
   type PostAggregate,
   type RunResult,
+  type TruncatedComparison,
 } from './types.js';
 
 const mean = (values: number[]): number | null => (values.length === 0 ? null : values.reduce((a, b) => a + b, 0) / values.length);
@@ -66,12 +67,15 @@ export function aggregateRuns(results: RunResult[]): Aggregate {
   // The noise of a field is how much its cross-post mean moves from one run to the next. Only posts that answered EVERY run
   // index take part: if a post dropped out of some runs (truncated, 429) the mean's composition would change between runs,
   // and that change would be counted as model noise and inflate the band.
+  // The same holds per field: a post whose score for the field is missing in some run (nothing matched, say) is left out of
+  // that field's series altogether, not only of that run's mean.
   const runIndexes = [...new Set(results.map((r) => r.runIndex))].sort((a, b) => a - b);
   const completePosts = postList.filter((p) => runIndexes.every((i) => p.runIndexes.includes(i)));
   const fieldRunMeans = perField((f) => {
+    const steady = completePosts.filter((p) => p.runFields.every((rf) => rf[f] !== null));
     const out: number[] = [];
     for (const runIndex of runIndexes) {
-      const m = mean(completePosts.map((p) => p.runFields[p.runIndexes.indexOf(runIndex)]![f]).filter((v): v is number => v !== null));
+      const m = mean(steady.map((p) => p.runFields[p.runIndexes.indexOf(runIndex)]![f]!));
       if (m !== null) out.push(m);
     }
     return out;
@@ -80,6 +84,7 @@ export function aggregateRuns(results: RunResult[]): Aggregate {
     posts,
     fields,
     fieldRunMeans,
+    runCount: runIndexes.length,
     totals: {
       ok: postList.reduce((a, p) => a + p.okRuns, 0),
       truncated: postList.reduce((a, p) => a + p.truncatedRuns, 0),
@@ -103,35 +108,68 @@ export function noiseBand(repeats: number[], floor: number = DEFAULT_NOISE_FLOOR
   return Math.max(floor, Math.min(MAX_NOISE_BAND, NOISE_BAND_SIGMAS * sampleStdDev(repeats)));
 }
 
+/** Share of the runs that gave an answer which were truncated or invalid; null when no run answered. */
+export function truncatedRate(totals: Aggregate['totals']): number | null {
+  const answered = totals.ok + totals.truncated;
+  return answered === 0 ? null : totals.truncated / answered;
+}
+
 export function buildBaseline(aggregate: Aggregate, meta: { model: string; promptHash: string; date: string; runs: number }): Baseline {
+  const rate = truncatedRate(aggregate.totals);
   return {
     ...meta,
     fields: aggregate.fields,
     posts: Object.fromEntries(Object.entries(aggregate.posts).map(([id, p]) => [id, p.fields])),
+    ...(rate === null ? {} : { truncatedRate: rate }),
   };
 }
 
 /**
- * Flag a field only when its pass-rate fell by more than the noise band (spread of the repeats, with a floor).
- * A post absent from the baseline is reported as new and not compared.
+ * Flag a field only when its pass-rate fell by more than the noise band (spread of the repeats, with a floor and a cap).
+ *
+ * Only posts present in BOTH the run and the baseline are compared: a post added to (or dropped from) the labelled set
+ * since the baseline would otherwise move the mean of one side only, and a field would be flagged with no post having
+ * changed. Posts on one side only are reported as new / removed, not compared. With a single run per post the spread is 0,
+ * so a drop is reported as `single_run`, never `flagged`. The truncated rate is compared too: invalid output leaves every
+ * pass-rate (it is not an answer), so a rise in it is the only trace of a prompt change that breaks the output.
  */
 export function compareToBaseline(aggregate: Aggregate, baseline: Baseline, floor: number = DEFAULT_NOISE_FLOOR): Comparison {
+  const comparedPosts = Object.keys(aggregate.posts).filter((id) => id in baseline.posts);
   const fields: FieldComparison[] = EXTRACTION_EVAL_FIELDS.map((field) => {
-    const current = aggregate.fields[field];
-    const base = baseline.fields[field] ?? null;
     const band = noiseBand(aggregate.fieldRunMeans[field], floor);
-    if (current === null) return { field, current, baseline: base, delta: null, band, status: 'no_data', changedPosts: [] };
-    if (base === null) return { field, current, baseline: base, delta: null, band, status: 'new', changedPosts: [] };
+    if (aggregate.fields[field] === null) {
+      return { field, current: null, baseline: baseline.fields[field] ?? null, delta: null, band, status: 'no_data', changedPosts: [] };
+    }
+    const pairs = comparedPosts.flatMap((postId) => {
+      const now = aggregate.posts[postId]!.fields[field];
+      const was = baseline.posts[postId]![field];
+      return now !== null && typeof was === 'number' ? [{ postId, now, was }] : [];
+    });
+    if (pairs.length === 0) return { field, current: aggregate.fields[field], baseline: null, delta: null, band, status: 'new', changedPosts: [] };
+    const current = mean(pairs.map((x) => x.now))!;
+    const base = mean(pairs.map((x) => x.was))!;
     const delta = current - base;
-    const changedPosts = Object.entries(aggregate.posts).flatMap(([postId, post]) => {
-      const was = baseline.posts[postId]?.[field];
-      const now = post.fields[field];
-      if (typeof was !== 'number' || now === null) return [];
-      const postBand = noiseBand(post.runFields.map((rf) => rf[field]).filter((v): v is number => v !== null), floor);
+    const changedPosts = pairs.flatMap(({ postId, now, was }) => {
+      const postBand = noiseBand(aggregate.posts[postId]!.runFields.map((rf) => rf[field]).filter((v): v is number => v !== null), floor);
       return was - now > postBand ? [{ postId, baseline: was, current: now }] : [];
     });
-    const status = delta < -band ? 'flagged' : delta > band ? 'improved' : 'ok';
+    const dropped = delta < -band;
+    const status = dropped ? (aggregate.runCount >= 2 ? 'flagged' : 'single_run') : delta > band ? 'improved' : 'ok';
     return { field, current, baseline: base, delta, band, status, changedPosts: status === 'flagged' ? changedPosts : [] };
   });
-  return { fields, newPosts: Object.keys(aggregate.posts).filter((id) => !(id in baseline.posts)) };
+  const current = truncatedRate(aggregate.totals);
+  const base = baseline.truncatedRate ?? null;
+  const truncated: TruncatedComparison =
+    current === null
+      ? { current, baseline: base, delta: null, status: 'no_data' }
+      : base === null
+        ? { current, baseline: null, delta: null, status: 'no_baseline' }
+        : { current, baseline: base, delta: current - base, status: current - base > floor ? 'flagged' : 'ok' };
+  return {
+    fields,
+    newPosts: Object.keys(aggregate.posts).filter((id) => !(id in baseline.posts)),
+    removedPosts: Object.keys(baseline.posts).filter((id) => !(id in aggregate.posts)),
+    comparedPosts,
+    truncatedRate: truncated,
+  };
 }

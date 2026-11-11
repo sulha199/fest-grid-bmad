@@ -442,8 +442,144 @@ test('report shows an empty delta for a field new to the baseline', () => {
 test('report lists a flagged field even when no single post moved beyond its own band', () => {
   const base = baselineOf([okRun('a', 0, {}), okRun('b', 0, {})]);
   const agg = aggregateRuns([okRun('a', 0, { location: 0.8 }), okRun('b', 0, { location: 0.8 })]);
-  const cmp = { fields: compareToBaseline(agg, base).fields.map((f) => (f.field === 'location' ? { ...f, status: 'flagged' as const, delta: -0.2, changedPosts: [] } : f)), newPosts: [] };
+  const real = compareToBaseline(agg, base);
+  const cmp = { ...real, fields: real.fields.map((f) => (f.field === 'location' ? { ...f, status: 'flagged' as const, delta: -0.2, changedPosts: [] } : f)) };
   assert.match(buildReport(agg, { model: 'm', promptHash: 'h', runs: 1, mode: 'live' }, base, cmp).markdown, /none individually beyond their own band/);
+});
+
+// Review items 1, 3 and the single-run caveat: what the baseline comparison does and does not say.
+const reportOf = (agg: ReturnType<typeof aggregateRuns>, base: Baseline | null, floor?: number): string => {
+  const cmp = base ? compareToBaseline(agg, base, floor) : null;
+  return buildReport(agg, { model: 'm', promptHash: 'h', runs: 3, mode: 'live' }, base, cmp).markdown;
+};
+const threeRuns = (postId: string, over: Partial<FieldScores> = {}): RunResult[] => [0, 1, 2].map((i) => okRun(postId, i, over));
+
+test('baseline: a post added since the baseline is reported as new and cannot flag a field', () => {
+  const base = baselineOf(threeRuns('a'));
+  const now = aggregateRuns([...threeRuns('a'), ...threeRuns('new', { eventName: 0 })]);
+  const cmp = compareToBaseline(now, base);
+  assert.equal(cmp.fields.find((f) => f.field === 'eventName')?.status, 'ok');
+  assert.deepEqual(cmp.newPosts, ['new']);
+  assert.deepEqual(cmp.comparedPosts, ['a']);
+  assert.deepEqual(cmp.removedPosts, []);
+  // The table still shows the whole run's pass-rate; the delta is over the posts present on both sides.
+  assert.match(reportOf(now, base), /\| eventName \| 50% \| 100% \| \+0 \|/);
+  assert.match(reportOf(now, base), /over the 1 post\(s\) present in both/);
+  assert.match(reportOf(now, base), /New posts \(no baseline, not compared\): `new`/);
+});
+
+test('baseline: a post removed since the baseline is reported and cannot improve or flag a field', () => {
+  const base = baselineOf([...threeRuns('a'), ...threeRuns('b', { eventName: 0 })]);
+  const now = aggregateRuns(threeRuns('a'));
+  const cmp = compareToBaseline(now, base);
+  assert.equal(cmp.fields.find((f) => f.field === 'eventName')?.status, 'ok');
+  assert.deepEqual(cmp.removedPosts, ['b']);
+  assert.match(reportOf(now, base), /Posts in the baseline but not in this run \(not compared\): `b`/);
+});
+
+test('baseline: no post in common compares nothing; a field with no value on the common posts is new', () => {
+  const base = baselineOf(threeRuns('a'));
+  const apart = compareToBaseline(aggregateRuns(threeRuns('z')), base);
+  assert.deepEqual(apart.comparedPosts, []);
+  assert.ok(apart.fields.every((f) => f.status === 'new'));
+  // The common post has no value for the field now, while a new post does: nothing to pair.
+  const mixed = compareToBaseline(aggregateRuns([...threeRuns('a', { performers: null }), ...threeRuns('n', { performers: 1 })]), base);
+  assert.equal(mixed.fields.find((f) => f.field === 'performers')?.status, 'new');
+});
+
+test('report: a run with no scorable answer says no field had data instead of "nothing dropped"', () => {
+  const base = { ...baselineOf(threeRuns('a')), truncatedRate: 0 };
+  const allTruncated = aggregateRuns([0, 1, 2].map((i) => ({ postId: 'a', runIndex: i, outcome: 'truncated' as const })));
+  const md = reportOf(allTruncated, base);
+  assert.match(md, /No field had data/);
+  assert.doesNotMatch(md, /No field dropped/);
+  // Output that stopped being valid is the one thing that run did show: 100% of the answered runs.
+  assert.match(md, /Truncated or invalid answers rose\*\* from 0% to 100%/);
+});
+
+test('truncated rate: compared with the baseline, flagged on a rise beyond the floor', () => {
+  const base = { ...baselineOf(threeRuns('a')), truncatedRate: 0.1 };
+  const mk = (truncated: number): RunResult[] => [...threeRuns('a').slice(0, 3 - truncated), ...Array.from({ length: truncated }, (_, i) => ({ postId: 'a', runIndex: 3 - truncated + i, outcome: 'truncated' as const }))];
+  assert.equal(compareToBaseline(aggregateRuns(mk(0)), base).truncatedRate.status, 'ok');
+  const rose = compareToBaseline(aggregateRuns(mk(2)), base).truncatedRate;
+  assert.equal(rose.status, 'flagged');
+  assert.ok(Math.abs(rose.current! - 2 / 3) < 1e-9);
+  assert.match(reportOf(aggregateRuns(mk(0)), base), /Truncated or invalid answers: 0% of the answered runs \(baseline 10%\)/);
+  // A baseline written before the rate was recorded, and a run nothing answered.
+  const { truncatedRate: _omitted, ...old } = base;
+  assert.equal(compareToBaseline(aggregateRuns(mk(1)), old).truncatedRate.status, 'no_baseline');
+  assert.match(reportOf(aggregateRuns(mk(1)), old), /does not record a rate/);
+  const none = compareToBaseline(aggregateRuns([{ postId: 'a', runIndex: 0, outcome: 'unavailable' }]), base).truncatedRate;
+  assert.deepEqual(none, { current: null, baseline: 0.1, delta: null, status: 'no_data' });
+  assert.doesNotMatch(reportOf(aggregateRuns([{ postId: 'a', runIndex: 0, outcome: 'unavailable' }]), base), /Truncated or invalid answers/);
+});
+
+test('baseline: a hand-edited baseline with no entry for a field compares as no data, not as a crash', () => {
+  const partial = parseBaseline({ fields: {}, posts: {}, runs: 1 }, 'b.json');
+  const cmp = compareToBaseline(aggregateRuns([{ postId: 'a', runIndex: 0, outcome: 'unavailable' }]), partial);
+  assert.deepEqual(cmp.fields.map((f) => [f.status, f.baseline]), EXTRACTION_EVAL_FIELDS.map(() => ['no_data', null]));
+});
+
+test('buildBaseline records the truncated rate, and omits it when no run answered', () => {
+  assert.equal(baselineOf([...threeRuns('a'), { postId: 'a', runIndex: 3, outcome: 'truncated' }]).truncatedRate, 0.25);
+  assert.equal('truncatedRate' in buildBaseline(aggregateRuns([{ postId: 'a', runIndex: 0, outcome: 'unavailable' }]), { model: 'm', promptHash: 'h', date: 'd', runs: 1 }), false);
+  assert.equal(parseBaseline({ fields: {}, posts: {}, runs: 1, truncatedRate: 0.1 }, 'b.json').truncatedRate, 0.1);
+  assert.throws(() => parseBaseline({ fields: {}, posts: {}, runs: 1, truncatedRate: 2 }, 'b.json'), /b\.json: baseline truncatedRate must be a number between 0 and 1/);
+  assert.throws(() => parseBaseline({ fields: {}, posts: {}, runs: 1, truncatedRate: 'x' }, 'b.json'), /truncatedRate/);
+});
+
+test('single run: a drop beyond the floor is not flagged, with a caveat in the report', () => {
+  const base = baselineOf([okRun('a', 0, {})]);
+  const one = aggregateRuns([okRun('a', 0, { eventName: 0 })]);
+  assert.equal(one.runCount, 1);
+  assert.equal(compareToBaseline(one, base).fields.find((f) => f.field === 'eventName')?.status, 'single_run');
+  assert.match(reportOf(one, base), /Only one run per post, so a drop cannot be told from noise and these fields are not flagged: eventName \(-100 pts\)\. Use `--runs 3` or more\./);
+  assert.doesNotMatch(reportOf(one, base), /No field dropped/);
+  const three = aggregateRuns(threeRuns('a', { eventName: 0 }));
+  assert.equal(three.runCount, 3);
+  assert.equal(compareToBaseline(three, baselineOf(threeRuns('a'))).fields.find((f) => f.field === 'eventName')?.status, 'flagged');
+});
+
+test('noise series: a post missing a field in some run is left out of that field altogether', () => {
+  // A has no start-date score in run 1 (nothing matched). Averaging the runs that did score would let A's 0 swing the mean.
+  const runs = [okRun('A', 0, { startDate: 0 }), okRun('A', 1, { startDate: null }), okRun('A', 2, { startDate: 0 }), ...threeRuns('B')];
+  assert.deepEqual(aggregateRuns(runs).fieldRunMeans.startDate, [1, 1, 1]);
+  // Every post has a gap in some run: the field has no series, so its band is the floor.
+  assert.deepEqual(aggregateRuns([okRun('A', 0, { startDate: null }), okRun('A', 1, {})]).fieldRunMeans.startDate, []);
+});
+
+test('event match: same-name events are paired by their start date, not by the order the model returns them', () => {
+  const twoWorkshops: LabelledPost = { ...single, groupingReason: 'separate-events', events: [
+    { eventName: 'Workshop', schedules: [{ eventStartDate: '2026-05-01' }] },
+    { eventName: 'Workshop', schedules: [{ eventStartDate: '2026-05-02' }] },
+  ] };
+  const swapped: ScorablePayload = { isEvent: true, groupingReason: 'separate-events', events: [
+    { eventName: 'Workshop', schedules: [sched('2026-05-02')] },
+    { eventName: 'Workshop', schedules: [sched('2026-05-01')] },
+  ] };
+  const s = scoreRun(twoWorkshops, swapped);
+  assert.equal(val(s, 'startDate'), 1);
+  assert.equal(val(s, 'eventName'), 1);
+  assert.deepEqual(matchEvents(twoWorkshops.events, swapped.events!).matches.map((m) => [m.labelled, m.model]).sort(), [[0, 1], [1, 0]]);
+  // The model gets one date wrong: the name still pairs them (pass 2), and the date is a miss, not a wrong pairing.
+  const wrongDate = scoreRun(twoWorkshops, { ...swapped, events: [{ eventName: 'Workshop', schedules: [sched('2026-05-01')] }, { eventName: 'Workshop', schedules: [sched('2026-06-09')] }] });
+  assert.equal(val(wrongDate, 'startDate'), 0.5);
+});
+
+test('ticket: only an explicit free word, a zero price or no price at all counts as free', () => {
+  const free: LabelledPost = { ...single, events: [{ eventName: 'Gratis', free: true, schedules: [{ eventStartDate: '2026-03-01' }] }] };
+  const ticket = (price: string | undefined): number | null => val(scoreRun(free, { isEvent: true, events: [{ eventName: 'Gratis', schedules: [{ ...sched('2026-03-01'), ...(price === undefined ? {} : { ticketPrice: price }) }] }] }), 'ticket');
+  for (const price of ['Gratis', 'FREE entry', '0', 'Rp 0', undefined]) assert.equal(ticket(price), 1, String(price));
+  for (const price of ['TBA', 'Info via DM', 'Rp 50.000']) assert.equal(ticket(price), 0, price);
+});
+
+test('names: whole words only, and names in any script do not collapse to an empty string', () => {
+  assert.equal(nameMatches('Fest', 'Festival Jazz Night'), false);
+  assert.equal(nameMatches('Festival Jazz', 'Festival Jazz Night'), true);
+  assert.notEqual(normalizeText('音楽祭 2026'), '');
+  assert.equal(nameMatches('音楽祭', 'ロック祭'), false);
+  assert.equal(nameMatches('音楽祭', '音楽祭'), true);
+  assert.equal(normalizeText('Café, Jazz!'), 'cafe jazz');
 });
 
 test('parseLabelledPost validates at load and names every problem', () => {

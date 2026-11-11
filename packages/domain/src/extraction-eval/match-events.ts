@@ -20,31 +20,33 @@ function earliestStart(schedules: Array<{ eventStartDate?: string }> | undefined
 }
 
 /**
- * Pass 1: same normalized name. Pass 2: same earliest start date, for the labelled events still unmatched
- * (the model renamed them slightly). Each model event is used at most once.
+ * Pass 1: same normalized name AND same earliest start date, so two events of one name (a workshop on 05-01 and another
+ * on 05-02) are paired with the right counterpart whatever order the model returns them in. Pass 2: same normalized
+ * name alone, for what is left (the model got the date wrong). Pass 3: same earliest start date alone, for the labelled
+ * events still unmatched (the model renamed them slightly). Each model event is used at most once.
  */
 export function matchEvents(labelled: LabelledEvent[], model: ScorableEvent[]): EventMatching {
   const usedModel = new Set<number>();
   const matchOfLabelled = new Map<number, number>();
 
-  labelled.forEach((event, li) => {
-    const name = normalizeText(event.eventName);
-    const mi = model.findIndex((m, i) => !usedModel.has(i) && normalizeText(m.eventName) === name);
-    if (mi !== -1) {
-      usedModel.add(mi);
-      matchOfLabelled.set(li, mi);
-    }
-  });
-  labelled.forEach((event, li) => {
-    if (matchOfLabelled.has(li)) return;
+  const pass = (accepts: (event: LabelledEvent, candidate: ScorableEvent) => boolean): void => {
+    labelled.forEach((event, li) => {
+      if (matchOfLabelled.has(li)) return;
+      const mi = model.findIndex((m, i) => !usedModel.has(i) && accepts(event, m));
+      if (mi !== -1) {
+        usedModel.add(mi);
+        matchOfLabelled.set(li, mi);
+      }
+    });
+  };
+  const sameName = (event: LabelledEvent, m: ScorableEvent): boolean => normalizeText(m.eventName) === normalizeText(event.eventName);
+  const sameStart = (event: LabelledEvent, m: ScorableEvent): boolean => {
     const start = earliestStart(event.schedules);
-    if (start === '') return;
-    const mi = model.findIndex((m, i) => !usedModel.has(i) && earliestStart(m.schedules) === start);
-    if (mi !== -1) {
-      usedModel.add(mi);
-      matchOfLabelled.set(li, mi);
-    }
-  });
+    return start !== '' && earliestStart(m.schedules) === start;
+  };
+  pass((event, m) => sameName(event, m) && sameStart(event, m));
+  pass(sameName);
+  pass(sameStart);
 
   return {
     matches: [...matchOfLabelled.entries()].map(([l, m]) => ({ labelled: l, model: m })),

@@ -20,9 +20,15 @@ function emptySamples(): Samples {
 const mean = (values: number[]): number | null => (values.length === 0 ? null : values.reduce((a, b) => a + b, 0) / values.length);
 const flag = (ok: boolean): number => (ok ? 1 : 0);
 
+/**
+ * Free is a stated price of 0, an explicit free word ("gratis", "free"), or no price at all (a free event is usually
+ * extracted without one). Any other text without a digit ("TBA", "Info via DM") says nothing about being free.
+ */
 function isFree(price: string | undefined): boolean {
   const text = normalizeText(price);
-  return text === '' || /\b(free|gratis)\b/.test(text) || digitsOnly(price).replace(/^0+$/, '') === '';
+  if (text === '' || /\b(free|gratis)\b/.test(text)) return true;
+  const digits = digitsOnly(price);
+  return digits !== '' && /^0+$/.test(digits);
 }
 
 function scoreTicket(labelled: LabelledEvent, model: ScorableEvent): number | undefined {

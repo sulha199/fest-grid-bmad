@@ -70,13 +70,32 @@ export function buildReport(aggregate: Aggregate, meta: ReportMeta, baseline: Ba
   }
   if (comparison) {
     const flagged = comparison.fields.filter((f) => f.status === 'flagged');
+    const singleRun = comparison.fields.filter((f) => f.status === 'single_run');
     lines.push('', '### Against the baseline', '');
     if (baseline) lines.push(`Baseline: model \`${baseline.model}\`, prompt hash \`${baseline.promptHash}\`, ${baseline.date}, ${baseline.runs} run(s).`, '');
-    if (flagged.length === 0) lines.push('No field dropped beyond its noise band.');
+    lines.push(`Pass-rate deltas are over the ${comparison.comparedPosts.length} post(s) present in both the run and the baseline.`, '');
+    if (aggregate.totals.ok === 0) {
+      // Never say "nothing dropped" when nothing was measured.
+      lines.push('**No field had data:** no run produced a scorable answer (every run was truncated or unavailable), so no field was compared.');
+    } else if (flagged.length === 0 && singleRun.length === 0) {
+      lines.push('No field dropped beyond its noise band.');
+    }
     for (const f of flagged) {
       lines.push(`- **${f.field}** dropped ${signed(f.delta)} pts (band ${(f.band * 100).toFixed(0)}). Changed posts: ${f.changedPosts.map((p) => `\`${p.postId}\` ${pct(p.baseline)} -> ${pct(p.current)}`).join(', ') || 'none individually beyond their own band'}`);
     }
+    if (singleRun.length > 0) {
+      lines.push(`Only one run per post, so a drop cannot be told from noise and these fields are not flagged: ${singleRun.map((f) => `${f.field} (${signed(f.delta)} pts)`).join(', ')}. Use \`--runs 3\` or more.`);
+    }
+    const tr = comparison.truncatedRate;
+    if (tr.status === 'flagged') {
+      lines.push(`- **Truncated or invalid answers rose** from ${pct(tr.baseline)} to ${pct(tr.current)} of the answered runs (${signed(tr.delta)} pts). These runs are not scored, so no pass-rate shows it: check the output format of the prompt or schema.`);
+    } else if (tr.status === 'ok') {
+      lines.push(`Truncated or invalid answers: ${pct(tr.current)} of the answered runs (baseline ${pct(tr.baseline)}).`);
+    } else if (tr.status === 'no_baseline') {
+      lines.push(`Truncated or invalid answers: ${pct(tr.current)} of the answered runs. This baseline does not record a rate, so it was not compared.`);
+    }
     if (comparison.newPosts.length > 0) lines.push('', `New posts (no baseline, not compared): ${comparison.newPosts.map((p) => `\`${p}\``).join(', ')}`);
+    if (comparison.removedPosts.length > 0) lines.push('', `Posts in the baseline but not in this run (not compared): ${comparison.removedPosts.map((p) => `\`${p}\``).join(', ')}`);
   } else {
     lines.push('', 'No baseline to compare with.');
   }

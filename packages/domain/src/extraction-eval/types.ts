@@ -151,6 +151,8 @@ export interface Aggregate {
   fields: FieldScores;
   /** Per run index, the mean over posts: its spread is the noise. */
   fieldRunMeans: Record<ExtractionEvalField, number[]>;
+  /** How many different run numbers the results hold (the repeats per post). Below 2 there is no spread to measure. */
+  runCount: number;
   totals: { ok: number; truncated: number; unavailable: number; countMismatch: number };
 }
 
@@ -161,9 +163,15 @@ export interface Baseline {
   runs: number;
   fields: FieldScores;
   posts: Record<string, FieldScores>;
+  /** Share of answered runs that were truncated or invalid; absent in baselines written before it was recorded. */
+  truncatedRate?: number;
 }
 
-export type FieldStatus = 'ok' | 'flagged' | 'improved' | 'new' | 'no_data';
+/**
+ * ok, flagged (fell beyond the noise band), improved, new (field or comparison absent from the baseline), no_data, and
+ * single_run: it fell beyond the band, but with one run per post the spread is 0 and a drop cannot be told from noise.
+ */
+export type FieldStatus = 'ok' | 'flagged' | 'improved' | 'new' | 'no_data' | 'single_run';
 
 export interface FieldComparison {
   field: ExtractionEvalField;
@@ -175,7 +183,23 @@ export interface FieldComparison {
   changedPosts: Array<{ postId: string; baseline: number; current: number }>;
 }
 
+export type TruncatedStatus = 'ok' | 'flagged' | 'no_baseline' | 'no_data';
+
+/** The share of answered runs that were truncated or invalid, against the baseline's: output validity is not a field. */
+export interface TruncatedComparison {
+  current: number | null;
+  baseline: number | null;
+  delta: number | null;
+  status: TruncatedStatus;
+}
+
 export interface Comparison {
   fields: FieldComparison[];
+  /** Posts in this run but not in the baseline: reported, not compared. */
   newPosts: string[];
+  /** Posts in the baseline but not in this run: reported, not compared. */
+  removedPosts: string[];
+  /** Posts in both: the only ones whose pass-rates are compared, so a post added or dropped cannot move a field. */
+  comparedPosts: string[];
+  truncatedRate: TruncatedComparison;
 }

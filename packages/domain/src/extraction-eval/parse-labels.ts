@@ -65,5 +65,8 @@ export function parseBaseline(raw: unknown, source: string): Baseline {
   if (!isObject(raw) || !isObject(raw.fields) || !isObject(raw.posts) || typeof raw.runs !== 'number') {
     throw new Error(`${source}: baseline needs fields, posts and runs`);
   }
+  if (raw.truncatedRate !== undefined && (typeof raw.truncatedRate !== 'number' || raw.truncatedRate < 0 || raw.truncatedRate > 1)) {
+    throw new Error(`${source}: baseline truncatedRate must be a number between 0 and 1`);
+  }
   return raw as unknown as Baseline;
 }
