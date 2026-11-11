@@ -458,11 +458,11 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
   });
 
   await t.test('9b. the subscription cap (Story 10.3): subscribeToAccount and RESTORE are refused with SUBSCRIPTION_CAP_REACHED and the three numbers', async () => {
-    mockUser = { userId: testUser.id, role: testUser.role };
-    // Later tests rely on the subscription the earlier ones left for testUser: take it out of the way, put it back after.
-    const leftBehind = await db.select().from(subscriptions).where(eq(subscriptions.userId, testUser.id));
-    await db.delete(subscriptions).where(eq(subscriptions.userId, testUser.id));
+    // A dedicated plain user: the seeded users the other tests use are in no fixed order and one of them is a moderator,
+    // who is exempt from the cap.
     const capSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const [capUser] = await db.insert(users).values({ email: `cap9b-${capSuffix}@example.test` }).returning();
+    mockUser = { userId: capUser.id, role: capUser.role };
     const capProfileIds: string[] = [];
     const makeProfile = async (n: number) => {
       const [profile] = await db.insert(socialMediaAccountProfiles).values({
@@ -488,7 +488,7 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       const inserted = [];
       for (let i = 0; i < 5; i += 1) {
         const profile = await makeProfile(i);
-        const [sub] = await db.insert(subscriptions).values({ userId: testUser.id, accountId: profile.id }).returning();
+        const [sub] = await db.insert(subscriptions).values({ userId: capUser.id, accountId: profile.id }).returning();
         inserted.push(sub);
       }
       const sixth = await makeProfile(5);
@@ -516,13 +516,11 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       const [still] = await db.select().from(subscriptions).where(eq(subscriptions.id, inserted[0].id));
       assert.notEqual(still.deletedAt, null, 'a refused restore leaves the subscription deleted');
     } finally {
-      await db.delete(subscriptions).where(eq(subscriptions.userId, testUser.id));
+      await db.delete(subscriptions).where(eq(subscriptions.userId, capUser.id));
       if (capProfileIds.length > 0) {
         await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, capProfileIds));
       }
-      if (leftBehind.length > 0) {
-        await db.insert(subscriptions).values(leftBehind);
-      }
+      await db.delete(users).where(eq(users.id, capUser.id));
     }
   });
 
