@@ -50,6 +50,10 @@
       "types": "./dist/scraper/index.d.ts",
       "default": "./dist/scraper/index.js"
     },
+    "./extraction-eval": {
+      "types": "./dist/extraction-eval/index.d.ts",
+      "default": "./dist/extraction-eval/index.js"
+    },
     "./posts": {
       "types": "./dist/posts/index.d.ts",
       "default": "./dist/posts/index.js"
