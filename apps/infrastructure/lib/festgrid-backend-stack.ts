@@ -783,6 +783,15 @@ export class FestgridBackendStack extends cdk.Stack {
       worker.addEnvironment('JOB_ATTEMPT_DEADLINE_MS', process.env.JOB_ATTEMPT_DEADLINE_MS || '150000');
       worker.addEnvironment('JOB_WORKER_CLAIM_TTL_MINUTES', process.env.JOB_WORKER_CLAIM_TTL_MINUTES || '5');
     }
+    // Story 10.3 -- admission and the subscription cap. Admission runs in the API Lambda (startJob, subscribeToAccount),
+    // promotion runs in both workers (at the end of a run) and in the sweep (Scraper), so all three carry the same four
+    // settings and the same defaults as env.ts.
+    for (const fn of [apiLambda, scraperLambda, aiProcessorLambda]) {
+      fn.addEnvironment('MAX_CONCURRENT_JOBS_PER_USER', process.env.MAX_CONCURRENT_JOBS_PER_USER || '3');
+      fn.addEnvironment('MAX_QUEUED_JOBS_PER_USER', process.env.MAX_QUEUED_JOBS_PER_USER || '10');
+      fn.addEnvironment('JOB_QUEUE_MAX_WAIT_MINUTES', process.env.JOB_QUEUE_MAX_WAIT_MINUTES || '30');
+      fn.addEnvironment('MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', process.env.MAX_SUBSCRIBED_ACCOUNTS_FREE_USER || '5');
+    }
 
     // Scraper needs to enqueue onto AIProcessingQueue too (Story 3.6z, automatic extraction
     // on scrape) -- same prod-incident lesson as above: a queue-URL env var with no matching

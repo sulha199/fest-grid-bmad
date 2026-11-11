@@ -25,14 +25,6 @@ export function isTerminalJobStatus(status: JobStatus): boolean {
   return (JOB_TERMINAL_STATUSES as readonly string[]).includes(status);
 }
 
-/**
- * FR121: only a RUNNING job holds one of a user's places. A QUEUED job (waiting for a place) and a WAITING job
- * (waiting for a later time or for a result from elsewhere) hold none.
- */
-export function isPlaceHoldingJobStatus(status: JobStatus): boolean {
-  return status === "RUNNING";
-}
-
 /** The Lambda that starts a job type's work (decided with the owner 2026-11-08). */
 export type JobHost = "scraper" | "ai-processor";
 
@@ -46,6 +38,17 @@ export interface JobTypeDefinition {
   host: JobHost;
   /** The bound on the WHOLE job (FR117), set as `deadlineAt` at admission. One run of a handler is capped separately. */
   maxDurationMs: number;
+  /**
+   * Story 10.3, FR120: when true, a job of this type started by a second user for the same input joins the first user's
+   * job as a follower instead of doing the work again. The type's `resultData` is then PUBLIC by contract (it is copied to
+   * every follower). Default false: a type is private to its owner unless it opts in.
+   */
+  sharedAcrossUsers?: boolean;
+  /**
+   * Story 10.3, FR122: when true, a non-terminal job of this type counts against its owner's subscription cap (the
+   * account is being added and will become a subscription). Default false.
+   */
+  reservesSubscriptionSlot?: boolean;
 }
 
 const definitions = new Map<string, JobTypeDefinition>();
@@ -65,6 +68,11 @@ export function registerJobTypeDefinition(definition: JobTypeDefinition): void {
 
 export function getJobTypeDefinition(type: string): JobTypeDefinition | undefined {
   return definitions.get(type);
+}
+
+/** Every registered definition (the backend asks which types reserve a subscription slot). */
+export function listJobTypeDefinitions(): JobTypeDefinition[] {
+  return [...definitions.values()];
 }
 
 /** The whole-job bound from the moment the job may run (`admittedAt`). */

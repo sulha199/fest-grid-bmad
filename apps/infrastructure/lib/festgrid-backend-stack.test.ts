@@ -1177,6 +1177,14 @@ test('FestgridBackendStack: the job engine wiring (Story 10.1a)', () => {
       assert.equal(envOf(fn).JOB_WORKER_CLAIM_TTL_MINUTES, '5', `${stageName}: ${name} JOB_WORKER_CLAIM_TTL_MINUTES`);
     }
 
+    // (c2) Story 10.3: admission and the subscription cap settings reach the API Lambda and both workers
+    for (const [name, fn] of [['API', apiFn], ['Scraper', scraperFn], ['AIProcessor', aiFn]] as const) {
+      assert.equal(envOf(fn).MAX_CONCURRENT_JOBS_PER_USER, '3', `${stageName}: ${name} MAX_CONCURRENT_JOBS_PER_USER`);
+      assert.equal(envOf(fn).MAX_QUEUED_JOBS_PER_USER, '10', `${stageName}: ${name} MAX_QUEUED_JOBS_PER_USER`);
+      assert.equal(envOf(fn).JOB_QUEUE_MAX_WAIT_MINUTES, '30', `${stageName}: ${name} JOB_QUEUE_MAX_WAIT_MINUTES`);
+      assert.equal(envOf(fn).MAX_SUBSCRIBED_ACCOUNTS_FREE_USER, '5', `${stageName}: ${name} MAX_SUBSCRIBED_ACCOUNTS_FREE_USER`);
+    }
+
     // (d) the 5-minute, database-only job sweep targets the Scraper Lambda in every stage
     template.hasResourceProperties('AWS::Events::Rule', {
       ScheduleExpression: 'rate(5 minutes)',

@@ -687,6 +687,20 @@
       "when": 1794370864746,
       "tag": "0097_jobs_user_job_has_owner_check",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "6",
+      "when": 1794386098675,
+      "tag": "0098_jobs_admission_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "6",
+      "when": 1794386107861,
+      "tag": "0099_jobs_admission_partial_indexes",
+      "breakpoints": true
     }
   ]
 }

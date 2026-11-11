@@ -1278,8 +1278,15 @@ export const jobs = pgTable('jobs', {
   // The worker's claim (AD-41 Rule 3 shape): a dedicated timestamp, so a stale claim from a crashed Lambda is
   // distinguishable from a fresh one by TTL, and the sweep has something concrete to clear.
   workerClaimedAt: timestamp('worker_claimed_at', { withTimezone: true }),
-  // "This job may run now". Null while it waits for a place (Story 10.3 queues); set at insert until then.
+  // "This job may run now" (FR121: it holds one of its owner's places from here). Null while a QUEUED job waits for a
+  // place; set at admission, by `promoteQueuedJobs`, and at insert for a SYSTEM job and a follower (Story 10.3).
   admittedAt: timestamp('admitted_at', { withTimezone: true }),
+  // When a job began waiting for a place; the queue is ordered by it, oldest first, and the sweep expires a job that
+  // waited too long (JOB_QUEUE_MAX_WAIT_MINUTES). Set on a QUEUED start and on re-admission of a WAITING job.
+  queuedSince: timestamp('queued_since', { withTimezone: true }),
+  // FR120 sharing: a follower points at the first user's job (the leader) and takes its outcome when it ends. Set null if
+  // the leader row is deleted; the 5-minute sweep then settles the orphaned follower.
+  leaderJobId: uuid('leader_job_id').references((): AnyPgColumn => jobs.id, { onDelete: 'set null' }),
   // When a WAITING job's next step is due (a scheduled retry); null when it waits for an event.
   resumeAt: timestamp('resume_at', { withTimezone: true }),
   finishedAt: timestamp('finished_at', { withTimezone: true }),
@@ -1287,6 +1294,10 @@ export const jobs = pgTable('jobs', {
 }, (t) => ({
   ownerCreatedAtIdx: index('idx_jobs_owner_created_at').on(t.ownerUserId, t.createdAt),
   statusDeadlineIdx: index('idx_jobs_status_deadline').on(t.status, t.deadlineAt),
+  leaderIdx: index('idx_jobs_leader').on(t.leaderJobId),
+  // Two partial indexes cannot be declared here (drizzle-kit 0.21 drops the WHERE clause), so they live in migration
+  // 0099 as hand-written SQL: `uq_jobs_open_input` (one open job per owner, type and input key: the reuse backstop,
+  // FR120) and `idx_jobs_queue` (a user's waiting jobs in queue order).
 }));
 
 // One row per provider a job considered (PRD 4.21 JobAttempt), written by the provider chain (Story 10.2). `provider`

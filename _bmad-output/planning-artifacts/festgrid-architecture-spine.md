@@ -3435,11 +3435,12 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ### AD-53: The Job Engine: One Record, One Registry, One Worker For Every Long-Running Vendor-Backed Action
 
-*   **Binds:** `packages/database/schema.ts` (`jobs`, `job_attempts`; migrations 0096 and 0097);
-    `packages/domain/src/jobs/job-engine.ts`; `apps/backend/src/lib/job-engine/` (registry, `startJob`, worker,
-    sweeps); `apps/backend/src/lib/aws/invoke-job-engine-worker.ts`; the `job-engine-run` branch of the Scraper and
+*   **Binds:** `packages/database/schema.ts` (`jobs`, `job_attempts`; migrations 0096 and 0097, and 0098 and 0099 of
+    Story 10.3); `packages/domain/src/jobs/job-engine.ts`, `admission.ts` and `subscriptions/subscription-cap.ts`;
+    `apps/backend/src/lib/job-engine/` (registry, `admitJob`, `startJob`, promotion, re-admission, `cancelJob`,
+    followers, worker, sweeps); `apps/backend/src/lib/subscriptions/subscription-cap.ts`; `apps/backend/src/lib/aws/invoke-job-engine-worker.ts`; the `job-engine-run` branch of the Scraper and
     AI-processor Lambdas and the `job-engine-sweep` branch of the Scraper Lambda; `festgrid-backend-stack.ts` (two
-    invoke grants, three environment variables, one 5-minute rule). PRD 3.18 and 4.21 (FR116 to FR130). Consumes AD-32
+    invoke grants, seven environment variables, one 5-minute rule). PRD 3.18 and 4.21 (FR116 to FR130). Consumes AD-32
     (the guarded wrapper stays the only way to a vendor), AD-34 (the scrape gate), AD-51 (a post's own re-scrape).
     Amends AD-41 by a pointer (below). Epic 10, Story 10.1a.
 *   **Prevents:** each long vendor-backed action inventing its own record, status, deadline and sweep (four such
@@ -3462,15 +3463,15 @@ This document defines the core architectural invariants for the FestDaily applic
         `packages/domain`, importable by the API Lambda, which must not import a handler. A handler is registered
         only inside its own host Lambda. A job whose type has no handler in the Lambda that runs it ends FAILED with
         `HANDLER_NOT_REGISTERED`; Story 10.14z later makes that a compile or test-time error for a real type.
-    3.  **Starting.** `startJob` (API Lambda) inserts the row, then fires one async invoke
-        (`InvocationType: 'Event'`) at the type's host with `{ jobType: 'job-engine-run', jobId }` and returns the job
-        id inside about one second. A failed invoke ends the job FAILED (`START_FAILED`, not a provider reason), the shape of
+    3.  **Starting.** `startJob` (API Lambda) asks `admitJob` (Rule 12) to write the row, then, for an ADMITTED job
+        only, fires one async invoke (`InvocationType: 'Event'`) at the type's host with
+        `{ jobType: 'job-engine-run', jobId }` and returns the job id inside about one second. A failed invoke ends the job FAILED (`START_FAILED`, not a provider reason), the shape of
         `startManualExtractionJob`. It is the only entry point; no entry point for system jobs exists (Rule 10).
     4.  **One claim.** One conditional `UPDATE ... RETURNING` (the shape of AD-41 Rule 3) with the TTL
-        `JOB_WORKER_CLAIM_TTL_MINUTES` (5). It takes a QUEUED, RUNNING or WAITING row that is admitted, a WAITING row
-        only when its `resume_at` is due or null, and only when no live claim exists. No row returned means another
-        worker owns it, it ended, it is not admitted, or its time has not come: the invocation exits quietly (an
-        async invoke can be delivered twice).
+        `JOB_WORKER_CLAIM_TTL_MINUTES` (5). It takes only an ADMITTED QUEUED or RUNNING row, and only when no live
+        claim exists. It never takes a WAITING row (that would bypass admission): `readmitWaitingJob` sends a due
+        WAITING job back through admission first (Rule 12). No row returned means another worker owns it, it ended, it is
+        not admitted, or it is WAITING: the invocation exits quietly (an async invoke can be delivered twice).
     5.  **Two bounds.** `deadline_at` bounds the WHOLE job: admission time plus the type's `maxDurationMs`. One RUN
         of a handler is capped separately by the smallest of `JOB_ATTEMPT_DEADLINE_MS` (150 s), the time left to
         `deadline_at` and the Lambda's own remaining time. A run past its budget ends the job EXPIRED (`TIMED_OUT`); a
@@ -3484,10 +3485,12 @@ This document defines the core architectural invariants for the FestDaily applic
     6.  **Guarded writes.** Every write after the claim requires the row to be RUNNING and the claim to be this
         worker's (or released by its own hand-off), so a handler that finishes after its budget cannot overwrite a job
         that already ended.
-    7.  **Statuses and places.** QUEUED (waiting for a place), RUNNING (the only status that holds a place, FR121),
-        WAITING (waiting for a later time or for a result from elsewhere; holds no place; `resume_at` is the due time
-        or null for an event), then the four endings. `admitted_at` null means the job is waiting for a place
-        (Story 10.3 queues over the user's limit); Story 10.1a admits at insert.
+    7.  **Statuses and places.** QUEUED, RUNNING, WAITING (waiting for a later time or for a result from elsewhere;
+        `resume_at` is the due time or null for an event), then the four endings. A job **holds a place from its
+        ADMISSION** (`admitted_at` set, status QUEUED or RUNNING) until it ends or goes WAITING; an admitted job no worker
+        has claimed yet counts, otherwise simultaneous starts would all see zero running. A QUEUED job with `admitted_at`
+        null is waiting for a place and holds none; a WAITING job holds none (FR121). (Story 10.1a had read RUNNING as the
+        only place-holding status; Story 10.3 corrected it, see Rule 12.)
     8.  **Cross-Lambda hand-off carries only `{ jobId }`.** A handler that needs another Lambda's capabilities calls
         `handOffToLambda(functionName)` and returns HANDED_OFF. The worker releases its claim BEFORE the invoke (the
         receiver claims with the same update and would otherwise be refused for the whole TTL), the receiver reloads
@@ -3500,8 +3503,11 @@ This document defines the core architectural invariants for the FestDaily applic
         direction any known type needs; the reverse grant is added by the first story that does), while a job whose
         own work makes no vendor call hosts on the AI-processor directly.
     9.  **One database-only sweep, every 5 minutes.** Its own EventBridge rule (`job-engine-sweep`, Scraper Lambda)
-        ends every admitted, non-terminal job past `deadline_at` (EXPIRED, `TIMED_OUT`) and clears its claim, and
-        enforces retention on `manual_extraction_jobs` (an unclaimed or stuck job keeps no caption past the stale
+        ends every admitted, non-terminal job past `deadline_at` (EXPIRED, `TIMED_OUT`) and clears its claim;
+        since Story 10.3 it also expires a job that waited for a place longer than `JOB_QUEUE_MAX_WAIT_MINUTES`
+        (EXPIRED, `WAITED_TOO_LONG`), settles followers whose leader ended or vanished, re-admits every non-follower
+        WAITING job whose `resume_at` is due, and promotes queued jobs into free places (so a lost wake-up strands
+        nothing); each step is in its own try/catch. It also enforces retention on `manual_extraction_jobs` (an unclaimed or stuck job keeps no caption past the stale
         limit, an unapplied re-extract preview keeps no extraction past the Apply window: FIND-086 and FIND-111). It
         does not touch `vendor_call_locks` (AD-32's own TTL releases a dead worker's lease). **This departs from AD-41
         Rule 5's "no new rule" on purpose:** the hourly vendor sweep also makes vendor progress calls and must not run
@@ -3513,6 +3519,37 @@ This document defines the core architectural invariants for the FestDaily applic
         engine.
     11. **Adoption.** A new job type registers a definition and, in its host Lambda, a handler; it never adds a second
         private mechanism. A handler that reaches a vendor still goes through the AD-32 wrapper and the AD-34 gate.
+    12. **Admission, queue and re-admission (Story 10.3).** One function, `admitJob`, decides who may run, for a new
+        start, a promotion and a re-admission. It runs in ONE transaction holding `SELECT ... FOR UPDATE` on the user's
+        `users` row (a transaction-scoped row lock is safe under the transaction-mode pooler; a session advisory lock is
+        not, AD-32), and applies, in order: reuse (Rule 13), the subscription cap (Rule 14), sharing (Rule 13), then the
+        limits: at most `MAX_CONCURRENT_JOBS_PER_USER` (3) places held, at most `MAX_QUEUED_JOBS_PER_USER` (10) waiting
+        (`JOB_QUEUE_FULL` beyond), every job type counts, a newcomer never jumps an existing queue. A job over the limit is
+        QUEUED with `admitted_at` null and `queued_since` set; promotion (`promoteQueuedJobs`) admits the oldest first
+        (`queued_since`, then id), re-sets `deadline_at` to now plus the type's `maxDurationMs` and invokes the host after
+        the transaction commits; it runs at the end of every worker run (any ending, and WAITING), after a failed start,
+        from `cancelJob`, and in the sweep. A WAITING job is re-admitted like a new start (`readmitWaitingJob`: back to the
+        queue, then promoted); event sources call it directly, the sweep calls it for a due `resume_at`. User jobs only: a
+        SYSTEM job (FR130) uses and waits for no user's place and is admitted at once. A type that has no definition in the
+        Lambda that promotes it stays queued, so every Lambda that promotes must register ALL job type definitions (the
+        pure half of Rule 2).
+    13. **Reuse and sharing (Story 10.3, FR120).** The same work (owner, type, input key) already open for the user is
+        REUSED: nothing written, nothing invoked; the partial unique index `uq_jobs_open_input` is the backstop and a
+        follower counts as open work. A type may declare `sharedAcrossUsers` (its `resultData` is then public by
+        contract): a second user starting the same input joins the oldest admitted, open, non-follower job of another
+        user as a FOLLOWER (`leader_job_id`, status WAITING, phase `following-leader`, no place held, no vendor call). When
+        the leader ends the follower takes its status, reason, message and `resultData` (`settleFollowers`); a follower
+        whose leader row was deleted (`ON DELETE SET NULL`) fails `LEADER_LOST` in the sweep. Two users starting a shared
+        input at the very same instant may both lead (each takes its own user lock): duplicate work, never corruption.
+        Cancelling a leader ends its followers with the same ending (no follower is promoted to leader: a deliberate
+        simplification).
+    14. **The subscription cap (Story 10.3, FR122).** `MAX_SUBSCRIBED_ACCOUNTS_FREE_USER` (5) applies to every user who is
+        not a moderator; there is no tier model yet. It counts active subscriptions plus reserved slots (open jobs of a
+        type with `reservesSubscriptionSlot`). The check runs under the same user row lock, in `admitJob` for a
+        slot-reserving type, and in `subscribeToAccount` (check and insert in one transaction, BEFORE any classification
+        or scrape, so a refusal spends no vendor credit) and `removeSubscription` RESTORE. A refusal is the typed
+        `SubscriptionCapReachedError { activeCount, reservedCount, cap }`, surfaced as the GraphQL error
+        `SUBSCRIPTION_CAP_REACHED` (Story 10.3a shows it).
 *   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
     Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
     (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the
@@ -3521,14 +3558,17 @@ This document defines the core architectural invariants for the FestDaily applic
     `deadline_at` as insert time plus the attempt cap (it would expire a job that is legitimately WAITING, or on its
     second provider attempt); declaring the CHECK in the drizzle schema (drizzle-kit 0.21 omits it, so a later upgrade
     would emit a duplicate constraint).
-*   **Deferred:** admission control, queueing and slot reservation, and the driver that re-invokes a WAITING job when its
-    `resume_at` is due, as a re-admission like a new start (Story 10.3: nothing re-invokes a due WAITING job until it lands); the provider chain and the
+*   **Deferred:** the refusal screen and upgrade call to action (10.3a); a tier model for the cap; promoting a follower to
+    leader when its leader is cancelled; the provider chain and the
     `job_attempts` rows it writes (10.2); the GraphQL surface, the Jobs page and retention-driven deletion of old rows
     (10.4); late vendor results (10.5); moving `manual_extraction_jobs` onto this table (10.9, OI-4); a reverse
     AI-processor to Scraper hand-off.
 *   **Enforced by:** `jobs-schema.test.ts` (constraint, enums, cascade), `run-job.test.ts` (claim, budget, guarded
     writes, WAITING, hand-off), `sweep-expired-jobs.test.ts`, `sweep-stale-manual-extraction-jobs.test.ts`,
-    `job-engine-branches.test.ts`, the CDK assertions of Story 10.1a; Story 10.14z adds the ratchets.
+    `job-engine-branches.test.ts`, the CDK assertions of Story 10.1a; for Story 10.3 `admit-job.test.ts`,
+    `promote-queued-jobs.test.ts`, `readmit-waiting-job.test.ts`, `cancel-job.test.ts`, `settle-followers.test.ts`,
+    `sweep-job-queue.test.ts`, `admission.concurrency.test.ts` (simultaneous starts, exact counts),
+    `subscribe-to-account.cap.test.ts` and the CDK assertion of the four settings; Story 10.14z adds the ratchets.
 
 ---
 

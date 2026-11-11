@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-11-11T08:10:29Z
+last_updated: 2026-11-11T08:30:06Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -2549,7 +2549,7 @@ development_status:
   epic-10: in-progress
   10-1a-build-the-job-engine-core-record-lifecycle-runner-and-sweep: done
   10-2-build-the-post-scraper-provider-chain-with-failover-and-quota-skip: backlog
-  10-3-add-reuse-and-admission-control-to-job-start: ready-for-dev
+  10-3-add-reuse-and-admission-control-to-job-start: in-progress
   10-3a-show-the-subscription-cap-refusal-and-the-upgrade-call-to-action: backlog
   10-4-build-the-jobs-page-and-the-inline-job-progress-component: backlog
   10-5-collect-late-vendor-results-and-finish-the-job: backlog

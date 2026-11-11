@@ -6,7 +6,7 @@ import {
   JOB_TRIGGERS,
   computeJobDeadline,
   getJobTypeDefinition,
-  isPlaceHoldingJobStatus,
+  listJobTypeDefinitions,
   isTerminalJobStatus,
   jobHasValidOwner,
   registerJobTypeDefinition,
@@ -31,11 +31,6 @@ test("isTerminalJobStatus: exactly the four endings are terminal (FR117)", () =>
   assert.deepEqual(terminal, ["SUCCEEDED", "SUCCEEDED_WITH_LIMITS", "FAILED", "EXPIRED"]);
 });
 
-test("isPlaceHoldingJobStatus: only RUNNING holds a place; QUEUED and WAITING hold none (FR121)", () => {
-  const holding = JOB_STATUSES.filter((s: JobStatus) => isPlaceHoldingJobStatus(s));
-  assert.deepEqual(holding, ["RUNNING"]);
-});
-
 test("job type definitions: register, look up, and refuse a duplicate or an invalid bound", () => {
   const def: JobTypeDefinition = { type: "fixture-domain-a", host: "scraper", maxDurationMs: 60_000 };
   assert.equal(getJobTypeDefinition("fixture-domain-a"), undefined);
@@ -55,6 +50,20 @@ test("job type definitions: register, look up, and refuse a duplicate or an inva
   assert.throws(
     () => registerJobTypeDefinition({ type: "", host: "scraper", maxDurationMs: 1 }),
     /type/
+  );
+});
+
+test("job type definitions: the sharing and slot-reservation flags are optional and listed (Story 10.3)", () => {
+  registerJobTypeDefinition({ type: "fixture-domain-flags-on", host: "scraper", maxDurationMs: 1, sharedAcrossUsers: true, reservesSubscriptionSlot: true });
+  registerJobTypeDefinition({ type: "fixture-domain-flags-off", host: "scraper", maxDurationMs: 1 });
+  assert.equal(getJobTypeDefinition("fixture-domain-flags-on")?.sharedAcrossUsers, true);
+  assert.equal(getJobTypeDefinition("fixture-domain-flags-on")?.reservesSubscriptionSlot, true);
+  assert.equal(getJobTypeDefinition("fixture-domain-flags-off")?.sharedAcrossUsers, undefined);
+  const types = listJobTypeDefinitions().map((d) => d.type);
+  assert.ok(types.includes("fixture-domain-flags-on") && types.includes("fixture-domain-flags-off"));
+  assert.deepEqual(
+    listJobTypeDefinitions().filter((d) => d.reservesSubscriptionSlot).map((d) => d.type).filter((t) => t.startsWith("fixture-domain-flags")),
+    ["fixture-domain-flags-on"]
   );
 });
 
