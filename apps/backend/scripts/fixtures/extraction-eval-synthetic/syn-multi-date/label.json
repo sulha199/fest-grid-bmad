@@ -1,0 +1,28 @@
+{
+  "postId": "syn-multi-date",
+  "caption": "[SYNTHETIC] Pasar Malam Contoh, 5-7 Juni 2026 di Lapangan Contoh Bandung. Gratis masuk.",
+  "images": [
+    "cover.png"
+  ],
+  "publishedAt": "2026-05-25T08:00:00Z",
+  "ownerUsername": "contoh_pasar",
+  "groupingReason": "dependent-stages",
+  "events": [
+    {
+      "eventName": "Pasar Malam Contoh",
+      "location": "Lapangan Contoh Bandung",
+      "free": true,
+      "schedules": [
+        {
+          "eventStartDate": "2026-06-05"
+        },
+        {
+          "eventStartDate": "2026-06-06"
+        },
+        {
+          "eventStartDate": "2026-06-07"
+        }
+      ]
+    }
+  ]
+}

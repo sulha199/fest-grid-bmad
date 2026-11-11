@@ -1,0 +1,79 @@
+{
+  "model": "synthetic-recording",
+  "promptHash": "synthetic0000",
+  "date": "2026-11-11",
+  "runs": 3,
+  "fields": {
+    "groupingReason": 0.8333333333333334,
+    "eventCount": 0.875,
+    "eventName": 0.8888888888888888,
+    "startDate": 1,
+    "endDate": null,
+    "startTime": 1,
+    "endTime": 1,
+    "location": 0.6666666666666666,
+    "ticket": 0.8333333333333333,
+    "categoriesPrecision": 1,
+    "categoriesRecall": 1,
+    "performers": 0.75
+  },
+  "posts": {
+    "syn-single": {
+      "groupingReason": 1,
+      "eventCount": 1,
+      "eventName": 1,
+      "startDate": 1,
+      "endDate": null,
+      "startTime": 1,
+      "endTime": 1,
+      "location": 0.5,
+      "ticket": 1,
+      "categoriesPrecision": 1,
+      "categoriesRecall": 1,
+      "performers": 0.75
+    },
+    "syn-three-branches": {
+      "groupingReason": 0.5,
+      "eventCount": 0.5,
+      "eventName": 0.6666666666666666,
+      "startDate": 1,
+      "endDate": null,
+      "startTime": null,
+      "endTime": null,
+      "location": 0.5,
+      "ticket": null,
+      "categoriesPrecision": null,
+      "categoriesRecall": null,
+      "performers": null
+    },
+    "syn-multi-date": {
+      "groupingReason": 1,
+      "eventCount": 1,
+      "eventName": 1,
+      "startDate": 1,
+      "endDate": null,
+      "startTime": null,
+      "endTime": null,
+      "location": 1,
+      "ticket": 0.6666666666666666,
+      "categoriesPrecision": null,
+      "categoriesRecall": null,
+      "performers": null
+    },
+    "syn-not-event": {
+      "groupingReason": null,
+      "eventCount": 1,
+      "eventName": null,
+      "startDate": null,
+      "endDate": null,
+      "startTime": null,
+      "endTime": null,
+      "location": null,
+      "ticket": null,
+      "categoriesPrecision": null,
+      "categoriesRecall": null,
+      "performers": null
+    }
+  },
+  "truncatedRate": 0.09090909090909091
+}
