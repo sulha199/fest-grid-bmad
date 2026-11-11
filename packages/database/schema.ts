@@ -206,6 +206,10 @@ export const scraperProviderUsage = pgTable('scraper_provider_usage', {
   provider: text('provider').notNull().unique(),
   itemsUsedThisCycle: integer('items_used_this_cycle').default(0).notNull(),
   usageCycleResetAt: timestamp('usage_cycle_reset_at', { withTimezone: true }).defaultNow().notNull(),
+  // Story 10.2 (IDEA-101): set when a provider reports its monthly cap used up (Apify's 403 "Monthly usage hard limit
+  // exceeded"), to the END of the current usage cycle, so every caller skips the provider without a refused call until the
+  // cycle rolls over. Null means "not known to be exhausted"; it clears itself because it is a time, not a flag.
+  capacityExhaustedUntil: timestamp('capacity_exhausted_until', { withTimezone: true }),
   ...timestamps,
 });
 

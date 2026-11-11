@@ -167,3 +167,8 @@ test('loadBackendEnv reads the admission and subscription-cap settings (Story 10
     }
   }
 });
+
+test('loadBackendEnv reads POST_SCRAPER_PROVIDER_ORDER raw (parsed with its default by parsePostScraperOrder, Story 10.2)', () => {
+  assert.strictEqual(withRateLimitEnv('POST_SCRAPER_PROVIDER_ORDER', undefined, () => loadBackendEnv().postScraperProviderOrder), undefined);
+  assert.strictEqual(withRateLimitEnv('POST_SCRAPER_PROVIDER_ORDER', 'apify,brightdata', () => loadBackendEnv().postScraperProviderOrder), 'apify,brightdata');
+});

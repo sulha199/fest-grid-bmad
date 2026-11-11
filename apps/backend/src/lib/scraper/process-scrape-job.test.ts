@@ -7,6 +7,13 @@ import { ApifyMonthlyUsageLimitError } from './instagram-adapter.js';
 import { processScrapeJob } from './process-scrape-job.js';
 import { eq, inArray } from 'drizzle-orm';
 import { setSendSqsMessage, sendSqsMessage } from '../aws/send-sqs-message.js';
+import { setRememberExhaustedCapacity } from './usage-store.js';
+// Story 10.2: this file provokes Apify's monthly-limit refusal; do not write the real `apify` usage row (parallel suites share it).
+const rememberedExhausted: string[] = [];
+setRememberExhaustedCapacity(async (provider) => {
+  rememberedExhausted.push(provider);
+});
+
 
 test('process-scrape-job integration tests', async (t) => {
   let testUser: any;

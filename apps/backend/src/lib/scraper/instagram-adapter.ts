@@ -7,13 +7,18 @@ import {
   AccountProfileLookupResult,
   ProfileScrapeOptions,
   ProfileScraperAdapter,
+  PostScraperAdapter,
   ScrapedProfile,
   ApifyRequestTimeoutError,
   nextApifyMemoryLimitWaitMs,
   resolveApifyMemoryLimitMaxWaitMs,
+  isTransientVendorFailure,
+  buildPostImageUrls,
+  PostUnavailableError,
 } from '@festgrid/domain';
-import { assertProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
+import { assertProviderCapacityAvailable, rememberExhaustedCapacity, recordProviderUsage } from './usage-store.js';
 import { fetchScrapedProfile, registerProfileScraperAdapter } from './profile-scraper.js';
+import { registerPostScraperAdapter } from './post-scraper-registry.js';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
 import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
@@ -203,22 +208,14 @@ export function setGetApifyClient(fn: typeof getApifyClient) {
   getApifyClient = fn;
 }
 
-// Story 0.i2d (AD-32 Rule 4) — mirrors isGeminiErrorTransient's exact shape (gemini-client.ts):
-// a 5xx ApifyApiError, or a network-level error code on the error itself or its `cause`, is
-// transient. Never a default-transient fallback.
-const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EAI_AGAIN']);
-
+// Story 0.i2d (AD-32 Rule 4): a 5xx ApifyApiError, or a network-level error code on the error itself or its `cause`, is
+// transient; never a default-transient fallback. Story 10.2 (FIND-082): the rule itself is the shared
+// `isTransientVendorFailure`; this function only says where to read the status and the code from.
 export function isApifyErrorTransient(error: unknown): boolean {
   if (error instanceof ApifyApiError) {
-    return typeof error.statusCode === 'number' && error.statusCode >= 500 && error.statusCode <= 599;
+    return isTransientVendorFailure({ statusCode: error.statusCode });
   }
-
-  const code = (error as any)?.code ?? (error as any)?.cause?.code;
-  if (typeof code === 'string' && TRANSIENT_CONNECTION_CODES.has(code)) {
-    return true;
-  }
-
-  return false;
+  return isTransientVendorFailure({ code: (error as any)?.code ?? (error as any)?.cause?.code });
 }
 
 // Apify refuses a run with 402 + this type when the account's concurrent-memory cap is already in use
@@ -383,6 +380,10 @@ export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorIn
     const err = isApifyMonthlyUsageLimitError(rawErr)
       ? new ApifyMonthlyUsageLimitError(rawErr instanceof Error ? rawErr.message : String(rawErr))
       : rawErr;
+    if (err instanceof ApifyMonthlyUsageLimitError) {
+      // Story 10.2 (IDEA-101): remember it for the rest of the cycle, so no later caller makes a refused start.
+      await rememberExhaustedCapacity('apify').catch((markError) => console.error('Could not remember the exhausted Apify cap:', markError));
+    }
     // A failed or timed-out call used to leave no trace: no audit row, so provider health never saw it
     // (2026-10-23: 11 profiles dropped on a 26s timeout). Recorded OUTSIDE the guarded call, like the
     // success row below; the caller still gets the original error. Except the memory cap: that is a
@@ -555,8 +556,9 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
       const childUrls = item.childPosts
         .map((cp: { displayUrl?: string }) => cp.displayUrl)
         .filter((url: string | undefined): url is string => Boolean(url));
-      const deduped = imageUrl ? dedupeImageUrlsByFileName([imageUrl, ...childUrls]) : dedupeImageUrlsByFileName(childUrls);
-      const additionalImageUrls = imageUrl ? deduped.slice(1) : deduped;
+      const additionalImageUrls = imageUrl
+        ? buildPostImageUrls(imageUrl, childUrls).additionalImageUrls
+        : dedupeImageUrlsByFileName(childUrls);
       return additionalImageUrls.length > 0 ? { additionalImageUrls } : {};
     })()),
   };
@@ -710,44 +712,91 @@ export const apifyProfileAdapter: ProfileScraperAdapter = {
 
 registerProfileScraperAdapter(apifyProfileAdapter);
 
+/**
+ * Apify returned nothing usable for a post and did not say it is gone (an empty list, or an item that cannot be read as a post).
+ * Thrown only to the provider chain (Story 10.2), so the next provider is tried; the existing `getPostByUrl` callers keep
+ * getting `null` for it.
+ */
+export class ApifyPostUnavailableError extends PostUnavailableError {
+  constructor(detail: string) {
+    super(`Apify returned no post: ${detail}`);
+    this.name = 'ApifyPostUnavailableError';
+  }
+}
+
+/**
+ * One post by URL through the Apify post scraper (guarded call, capacity gate, usage recorded, 20 s cap).
+ * `onUnreadable` says what an empty or unreadable result becomes: `'null'` (the behaviour `getPostByUrl` has always had) or
+ * `'throw'` (`ApifyPostUnavailableError`, for the provider chain, where `null` would mean "the post does not exist").
+ * A not-found item is `null` in both: that is an answer.
+ */
+async function fetchApifyPost(url: string, onUnreadable: 'null' | 'throw'): Promise<ScrapedPost | null> {
+  await assertProviderCapacityAvailable('apify', `URL ${url}`);
+
+  const unreadable = (detail: string): null => {
+    if (onUnreadable === 'throw') {
+      throw new ApifyPostUnavailableError(detail);
+    }
+    return null;
+  };
+
+  const runCall = async (): Promise<ScrapedPost | null> => {
+    try {
+      const input: GetPostByUrlActorInput = {
+        username: [url],
+        dataDetailLevel: 'detailedData',
+      };
+      const items = (await callApifyActor(GET_POST_BY_URL_ACTOR, input)) as GetPostByUrlActorOutput;
+
+      if (!items || items.length === 0) {
+        return unreadable('an empty result');
+      }
+
+      const item = items[0];
+      // Only Apify's explicit `not_found` is an ANSWER for the chain. An item that merely lacks a caption or a timestamp
+      // (`isNotFoundItem`'s fallback heuristic) is unreadable: the chain moves on to the next provider; `getPostByUrl` keeps
+      // returning null for it, as before.
+      if (item?.error === 'not_found') {
+        return null;
+      }
+      if (isNotFoundItem(item, 'post')) {
+        return unreadable('the item has no caption or timestamp');
+      }
+
+      const post = await mapApifyItemToScrapedPost(item);
+      if (!post) {
+        return unreadable('the item could not be read as a post');
+      }
+
+      await recordProviderUsage('apify', 1);
+      return post;
+    } catch (err) {
+      if (err instanceof ApifyPostUnavailableError) {
+        throw err;
+      }
+      throw normalizeApifyError(err, `fetching post by URL ${url}`);
+    }
+  };
+
+  return withTimeout(runCall(), 20000);
+}
+
+/** The Apify member of the post-scraper provider chain (Story 10.2). An Apify run is bounded at 20 s, so any budget is worth trying. */
+export const apifyPostAdapter: PostScraperAdapter = {
+  name: 'apify',
+  minBudgetMs: 0,
+  fetchPost: (url) => fetchApifyPost(url, 'throw'),
+};
+
+registerPostScraperAdapter(apifyPostAdapter);
+
 export const instagramScraperAdapter: ScraperAdapter = {
   // apify/instagram-post-scraper filters server-side on both onlyPostsNewerThan and
   // resultsLimit, so the new-subscribe path can fetch once instead of retrying windows.
   supportsNewerThanAndLimitFiltering: true,
 
   async getPostByUrl(url: string): Promise<ScrapedPost | null> {
-    await assertProviderCapacityAvailable('apify', `URL ${url}`);
-
-    const runCall = async (): Promise<ScrapedPost | null> => {
-      try {
-        const input: GetPostByUrlActorInput = {
-          username: [url],
-          dataDetailLevel: 'detailedData',
-        };
-        const items = (await callApifyActor(GET_POST_BY_URL_ACTOR, input)) as GetPostByUrlActorOutput;
-
-        if (!items || items.length === 0) {
-          return null;
-        }
-
-        const item = items[0];
-        if (isNotFoundItem(item, 'post')) {
-          return null;
-        }
-
-        const post = await mapApifyItemToScrapedPost(item);
-        if (!post) {
-          return null;
-        }
-
-        await recordProviderUsage('apify', 1);
-        return post;
-      } catch (err) {
-        throw normalizeApifyError(err, `fetching post by URL ${url}`);
-      }
-    };
-
-    return withTimeout(runCall(), 20000);
+    return fetchApifyPost(url, 'null');
   },
 
   async getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]> {

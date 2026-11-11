@@ -1,3 +1,6 @@
+---
+baseline_commit: 721920476246866d524aa45076c063b2bdfcf1d5
+---
 # Story 10.2: Build the post-scraper provider chain with failover and quota skip
 
 ## Story Details
@@ -28,32 +31,32 @@ so that fetching one post tries each provider in order, moves on when one fails 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Pure chain and rules in `packages/domain`** (AC: 1, 5, 7, 8)
-  - [ ] `packages/domain/src/scraper/post-scraper-adapter.ts` (+ test, 100% coverage): `PostScraperAdapterName`, `PostScrapeCredential`, `PostScraperAdapter { name, minBudgetMs, fetchPost(url, { budgetMs, credential }) }`, `DEFAULT_POST_SCRAPER_ORDER = ['brightdata','apify']`, `parsePostScraperOrder` (same rules as `parseProfileScraperOrder`: case-insensitive, unknown names reported and dropped, duplicates once, empty or all-unknown falls back to the default), `PostAdapterAttempt` (skipped with `reason: 'budget' | 'quota'`, failed, not-found, found), `PostScraperBudgetError`, `runPostScraperChain({ adapters, url, budgetMs, credential, now?, isOverQuota?, onAttempt? })`. An adapter reporting over quota BEFORE its call (`isOverQuota(adapterName)` returning true) is recorded as skipped for quota with no call made.
-  - [ ] `packages/domain/src/scraper/merge-post-image-urls.ts` (+ test): `buildPostImageUrls(cover, slides)` returns `{ imageUrl, additionalImageUrls }` with the cover removed from the slides (compare by `image-url-file-name`, see `packages/domain/src/posts/image-url-file-name.ts`) and duplicates removed, order kept.
-  - [ ] `packages/domain/src/scraper/transient-vendor-failure.ts` (+ test): `isTransientVendorFailure({ statusCode, code })`: true for a 5xx status or one of `ECONNRESET, ETIMEDOUT, ECONNREFUSED, EAI_AGAIN`, else false (never a default-transient fallback).
-  - [ ] Export from the `scraper` barrel and the `public-api` test's barrel list.
-- [ ] **Task 2: Schema and migration** (AC: 6)
-  - [ ] `packages/database/schema.ts`: `scraperProviderUsage.capacityExhaustedUntil: timestamp('capacity_exhausted_until', { withTimezone: true })`. Generate with drizzle-kit (never hand-number: `git fetch origin master` and take the next free number). Nullable, no backfill; RLS is already on the table.
-- [ ] **Task 3: Quota memory** (AC: 6)
-  - [ ] `apps/backend/src/lib/scraper/usage-store.ts`: `markProviderCapacityExhausted(provider)` (sets `capacity_exhausted_until` to the end of the current cycle: `usage_cycle_reset_at + SCRAPER_USAGE_CYCLE_DAYS`, creating the row if absent); `isProviderCapacityAvailable` returns false while `capacity_exhausted_until` is in the future and ignores it once the cycle has elapsed. Call it where `ApifyMonthlyUsageLimitError` is raised (`instagram-adapter.ts` async trigger and the new adapter). Keep every existing usage test green.
-- [ ] **Task 4: Shared transient classifier** (AC: 8)
-  - [ ] Replace the three bodies (`instagram-adapter.ts`, `brightdata-client.ts`, `ai-gateway/gemini-client.ts`) by calls to `isTransientVendorFailure`; keep the exported names, the error-class branches and their tests; add a table test asserting identical results for the same inputs before and after.
-- [ ] **Task 5: Adapters** (AC: 3, 4, 5)
-  - [ ] `brightdata-client.ts`: generalise `_scrapeBrightDataProfile` into a private dataset scrape taking the dataset id and the input URL; keep `scrapeBrightDataProfile` as the profile wrapper (profile tests unchanged) and add `scrapeBrightDataPost(url, budgetMs)` over `brightdataDatasetId` with an injectable seam like `setScrapeBrightDataProfile`.
-  - [ ] `lib/scraper/brightdata-post-adapter.ts` (+ test with the injected seam): `minBudgetMs = BRIGHTDATA_POST_MIN_BUDGET_MS` (90 000 ms, the profile adapter's observed ~80 s; **an assumption: a post snapshot's duration has not been measured, and no vendor call may be made from a build session, so the first real run's attempt rows must be read and the constant tuned**), `assertProviderCapacityAvailable('brightdata', ...)`, `recordProviderUsage('brightdata', 1)`, `dead_page` to `null`, everything else unreadable throws a typed `BrightDataPostUnavailableError`.
-  - [ ] `instagram-adapter.ts`: extract the body of `getPostByUrl` into an exported `apifyFetchPost(url)` used by both `getPostByUrl` (behaviour unchanged for today's callers, empty list still `null` THERE) and the new `apifyPostAdapter` (`minBudgetMs: 0`; empty or unreadable throws `ApifyPostUnavailableError`); both mappers go through `buildPostImageUrls`.
-  - [ ] Twitter: `twitter-adapter.ts` registers a chain of one so `fetchScrapedPost` works for every platform that has `getPostByUrl` (no behaviour change for its callers).
-- [ ] **Task 6: Entry point, attempts store, setting** (AC: 1, 2, 7)
-  - [ ] `lib/scraper/post-scraper.ts`: registry (`registerPostScraperAdapter`, `getPostScraperAdapters` in configured order, a configured name with no adapter skipped with a warning) and `fetchScrapedPost({ platform, url, budgetMs, credential, jobId? })`; one log line when more than one adapter was considered.
-  - [ ] `lib/job-engine/record-job-attempt.ts` (+ test): maps a `PostAdapterAttempt` to a `job_attempts` row (`found` to SUCCEEDED, `not-found` to SUCCEEDED, `failed` to FAILED / TIMED_OUT (the timeout classifier of `profile-lookup-attempts-store.ts`, reused, not copied) / EMPTY (the typed unavailable errors), `skipped` to SKIPPED / OVER_QUOTA); `reason_code` and a plain-words message only, never the raw vendor error, a URL or a caption (the repo and logs are public).
-  - [ ] `apps/backend/src/env.ts` (`postScraperProviderOrder`, raw, parsed by `parsePostScraperOrder`), `.env.example`, and `festgrid-backend-stack.ts` (the Scraper Lambda gets `POST_SCRAPER_PROVIDER_ORDER` like `PROFILE_SCRAPER_PROVIDER_ORDER`); extend `env.test.ts` and the stack test.
-  - [ ] Resolver seam `resolvePostScrapeCredential(jobType, ownerUserId)` returning `{ kind: 'app-funded' }` (test: the default).
-- [ ] **Task 7: Tests** (AC: 1 to 9)
-  - [ ] Domain: chain order, skip for budget and for quota, found, not-found stops, failover on throw, first error rethrown, all skipped, attempts recorded for failures, a throwing `onAttempt` ignored, `parsePostScraperOrder`, `buildPostImageUrls`, `isTransientVendorFailure`; 100% coverage.
-  - [ ] Backend (real Postgres, fakes for every vendor): the default order is Bright Data then Apify; a Bright Data failure falls to Apify and writes two `job_attempts` rows; an exhausted Apify cap is skipped with `OVER_QUOTA` and no call; the memory survives and clears when the cycle rolls over; the slide list never contains the cover for both mappers; the classifier table test; `fetchScrapedPost` with no `jobId` writes no row. Every suite deletes the rows it creates (row-count ratchet).
-- [ ] **Task 8: Docs** (AC: 9)
-  - [ ] AD-53: a rule for the post chain and the quota memory (and that no production caller uses it yet); `architecture-diagram.md` and `high-level-overview.md` (the new setting, the new column; no new service, queue, Lambda or secret); `deferred-work`/backlog: mark FIND-082 and IDEA-101 resolved per `backlog-spec.md`.
+- [x] **Task 1: Pure chain and rules in `packages/domain`** (AC: 1, 5, 7, 8)
+  - [x] `packages/domain/src/scraper/post-scraper-adapter.ts` (+ test, 100% coverage): `PostScraperAdapterName`, `PostScrapeCredential`, `PostScraperAdapter { name, minBudgetMs, fetchPost(url, { budgetMs, credential }) }`, `DEFAULT_POST_SCRAPER_ORDER = ['brightdata','apify']`, `parsePostScraperOrder` (same rules as `parseProfileScraperOrder`: case-insensitive, unknown names reported and dropped, duplicates once, empty or all-unknown falls back to the default), `PostAdapterAttempt` (skipped with `reason: 'budget' | 'quota'`, failed, not-found, found), `PostScraperBudgetError`, `runPostScraperChain({ adapters, url, budgetMs, credential, now?, isOverQuota?, onAttempt? })`. An adapter reporting over quota BEFORE its call (`isOverQuota(adapterName)` returning true) is recorded as skipped for quota with no call made.
+  - [x] `packages/domain/src/scraper/merge-post-image-urls.ts` (+ test): `buildPostImageUrls(cover, slides)` returns `{ imageUrl, additionalImageUrls }` with the cover removed from the slides (compare by `image-url-file-name`, see `packages/domain/src/posts/image-url-file-name.ts`) and duplicates removed, order kept.
+  - [x] `packages/domain/src/scraper/transient-vendor-failure.ts` (+ test): `isTransientVendorFailure({ statusCode, code })`: true for a 5xx status or one of `ECONNRESET, ETIMEDOUT, ECONNREFUSED, EAI_AGAIN`, else false (never a default-transient fallback).
+  - [x] Export from the `scraper` barrel and the `public-api` test's barrel list.
+- [x] **Task 2: Schema and migration** (AC: 6)
+  - [x] `packages/database/schema.ts`: `scraperProviderUsage.capacityExhaustedUntil: timestamp('capacity_exhausted_until', { withTimezone: true })`. Generate with drizzle-kit (never hand-number: `git fetch origin master` and take the next free number). Nullable, no backfill; RLS is already on the table.
+- [x] **Task 3: Quota memory** (AC: 6)
+  - [x] `apps/backend/src/lib/scraper/usage-store.ts`: `markProviderCapacityExhausted(provider)` (sets `capacity_exhausted_until` to the end of the current cycle: `usage_cycle_reset_at + SCRAPER_USAGE_CYCLE_DAYS`, creating the row if absent); `isProviderCapacityAvailable` returns false while `capacity_exhausted_until` is in the future and ignores it once the cycle has elapsed. Call it where `ApifyMonthlyUsageLimitError` is raised (`instagram-adapter.ts` async trigger and the new adapter). Keep every existing usage test green.
+- [x] **Task 4: Shared transient classifier** (AC: 8)
+  - [x] Replace the three bodies (`instagram-adapter.ts`, `brightdata-client.ts`, `ai-gateway/gemini-client.ts`) by calls to `isTransientVendorFailure`; keep the exported names, the error-class branches and their tests; add a table test asserting identical results for the same inputs before and after.
+- [x] **Task 5: Adapters** (AC: 3, 4, 5)
+  - [x] `brightdata-client.ts`: generalise `_scrapeBrightDataProfile` into a private dataset scrape taking the dataset id and the input URL; keep `scrapeBrightDataProfile` as the profile wrapper (profile tests unchanged) and add `scrapeBrightDataPost(url, budgetMs)` over `brightdataDatasetId` with an injectable seam like `setScrapeBrightDataProfile`.
+  - [x] `lib/scraper/brightdata-post-adapter.ts` (+ test with the injected seam): `minBudgetMs = BRIGHTDATA_POST_MIN_BUDGET_MS` (90 000 ms, the profile adapter's observed ~80 s; **an assumption: a post snapshot's duration has not been measured, and no vendor call may be made from a build session, so the first real run's attempt rows must be read and the constant tuned**), `assertProviderCapacityAvailable('brightdata', ...)`, `recordProviderUsage('brightdata', 1)`, `dead_page` to `null`, everything else unreadable throws a typed `BrightDataPostUnavailableError`.
+  - [x] `instagram-adapter.ts`: extract the body of `getPostByUrl` into an exported `apifyFetchPost(url)` used by both `getPostByUrl` (behaviour unchanged for today's callers, empty list still `null` THERE) and the new `apifyPostAdapter` (`minBudgetMs: 0`; empty or unreadable throws `ApifyPostUnavailableError`); both mappers go through `buildPostImageUrls`.
+  - [x] Twitter: `twitter-adapter.ts` registers a chain of one so `fetchScrapedPost` works for every platform that has `getPostByUrl` (no behaviour change for its callers).
+- [x] **Task 6: Entry point, attempts store, setting** (AC: 1, 2, 7)
+  - [x] `lib/scraper/post-scraper.ts`: registry (`registerPostScraperAdapter`, `getPostScraperAdapters` in configured order, a configured name with no adapter skipped with a warning) and `fetchScrapedPost({ platform, url, budgetMs, credential, jobId? })`; one log line when more than one adapter was considered.
+  - [x] `lib/job-engine/record-job-attempt.ts` (+ test): maps a `PostAdapterAttempt` to a `job_attempts` row (`found` to SUCCEEDED, `not-found` to SUCCEEDED, `failed` to FAILED / TIMED_OUT (the timeout classifier of `profile-lookup-attempts-store.ts`, reused, not copied) / EMPTY (the typed unavailable errors), `skipped` to SKIPPED / OVER_QUOTA); `reason_code` and a plain-words message only, never the raw vendor error, a URL or a caption (the repo and logs are public).
+  - [x] `apps/backend/src/env.ts` (`postScraperProviderOrder`, raw, parsed by `parsePostScraperOrder`), `.env.example`, and `festgrid-backend-stack.ts` (the Scraper Lambda gets `POST_SCRAPER_PROVIDER_ORDER` like `PROFILE_SCRAPER_PROVIDER_ORDER`); extend `env.test.ts` and the stack test.
+  - [x] Resolver seam `resolvePostScrapeCredential(jobType, ownerUserId)` returning `{ kind: 'app-funded' }` (test: the default).
+- [x] **Task 7: Tests** (AC: 1 to 9)
+  - [x] Domain: chain order, skip for budget and for quota, found, not-found stops, failover on throw, first error rethrown, all skipped, attempts recorded for failures, a throwing `onAttempt` ignored, `parsePostScraperOrder`, `buildPostImageUrls`, `isTransientVendorFailure`; 100% coverage.
+  - [x] Backend (real Postgres, fakes for every vendor): the default order is Bright Data then Apify; a Bright Data failure falls to Apify and writes two `job_attempts` rows; an exhausted Apify cap is skipped with `OVER_QUOTA` and no call; the memory survives and clears when the cycle rolls over; the slide list never contains the cover for both mappers; the classifier table test; `fetchScrapedPost` with no `jobId` writes no row. Every suite deletes the rows it creates (row-count ratchet).
+- [x] **Task 8: Docs** (AC: 9)
+  - [x] AD-53: a rule for the post chain and the quota memory (and that no production caller uses it yet); `architecture-diagram.md` and `high-level-overview.md` (the new setting, the new column; no new service, queue, Lambda or secret); `deferred-work`/backlog: mark FIND-082 and IDEA-101 resolved per `backlog-spec.md`.
 
 ## Dev Notes
 
@@ -165,8 +168,35 @@ so that fetching one post tries each provider in order, moves on when one fails 
 
 ### Agent Model Used
 
+Claude Sonnet 5.5 (cloud session; built on branch `feat/epic-10-next` from master after PR #224).
+
 ### Debug Log References
+
+- Pre-Coding Approval Gate: the user asked in conversation to "create and build Story 10.2 now" after deciding OI-1 (default order `brightdata,apify`), so the Gate's approval boxes are left for the user to tick. **Open flag, not resolved here:** `BRIGHTDATA_POST_MIN_BUDGET_MS` (90 s) is a guess; read the first real run's `job_attempts.elapsed_ms` and tune it. No vendor call was made at any point.
+- Two parallel-suite interferences found and fixed while building: (1) the quota-memory write touches the shared real `apify` usage row, so it is a test seam (`setRememberExhaustedCapacity`) stubbed in the five suites that provoke Apify's monthly-limit refusal; (2) a circular import (`post-scraper` to `record-job-attempt` to `instagram-adapter` to `post-scraper`) would have read the adapter registry before it existed, so the registry is a leaf module and the attempt writer classifies by a domain base class.
 
 ### Completion Notes List
 
+- **Domain (Task 1).** `post-scraper-adapter.ts` (chain, `parsePostScraperOrder` with default `brightdata,apify`, `PostScraperBudgetError`, `PostUnavailableError`, `PostScrapeCredential`), `merge-post-image-urls.ts` (`buildPostImageUrls`, built on the existing `dedupeImageUrlsByFileName` of BUG-101), `transient-vendor-failure.ts`. 100% coverage kept.
+- **Quota memory (Tasks 2 and 3).** One nullable column (`capacity_exhausted_until`, migration 0101), `markProviderCapacityExhausted`, read by `isProviderCapacityAvailable` (so the daily batch benefits, IDEA-101), cleared on cycle rollover. It stores the end of OUR usage cycle (`SCRAPER_USAGE_CYCLE_DAYS`, 30), not Apify's billing date (the 23rd), so it can over-skip Apify for part of a month; acceptable because Apify is now the failover, noted in AD-53 Rule 15.
+- **Shared classifier (Task 4).** All three classifiers keep their names and error-class checks and call `isTransientVendorFailure`; a table test proves identical results for every status and code (FIND-082).
+- **Adapters (Task 5).** `scrapeBrightDataPost` shares one dataset-scrape routine with the profile scrape (profile tests unchanged); `brightDataPostAdapter`; `apifyPostAdapter` over an extracted `fetchApifyPost` (`getPostByUrl` behaviour unchanged for today's callers). Both mappers go through `buildPostImageUrls`; an old Bright Data mapper test that DOCUMENTED the cover being repeated as a slide was changed to the new rule (it recorded the very bug this story fixes).
+- **Decisions beyond the story text (reviewer, please look at these).**
+  1. *Only an explicit `error: 'not_found'` is a chain answer for Apify.* `isNotFoundItem`'s fallback heuristic (an item missing a caption or a timestamp counts as "not found") would stop the chain on an unreadable item; for the chain such an item throws so Bright Data or the next provider is tried. `getPostByUrl` keeps its old null.
+  2. *Twitter has no chain.* The story said "a chain of one", but the Twitter adapter is entirely unimplemented (it throws); `fetchScrapedPost` falls through to the platform's own adapter for any non-Instagram platform.
+  3. *The registry is `post-scraper-registry.ts`* (a leaf module) and `post-scraper.ts` imports `instagram-adapter.ts` for its registration side effect, like the profile chain.
+  4. *`providerOverQuota` is a seam* in `post-scraper.ts` (default: the usage store inverted) so a test never writes the shared usage rows.
+  5. *`scraper_actor_run_id` is left null on attempt rows* for now: the sync Bright Data path creates no `scraper_actor_runs` row, and linking the Apify sync run is Story 10.5's job (late results).
+  6. *Not-found is recorded SUCCEEDED with reason `POST_NOT_FOUND`* (the vendor answered).
+- **Tests.** Domain 1715 passing, 100% coverage. Backend real-Postgres suites with fake vendors: `post-scraper`, `brightdata-post-adapter`, `brightdata-post-scrape` (client), `record-job-attempt`, the quota-memory cases in `usage-store`, the Apify post adapter cases in `instagram-adapter`, the cross-classifier table `transient-classifiers`, the env and stack tests (`POST_SCRAPER_PROVIDER_ORDER` reaches the Scraper Lambda only when set).
+- **Not done here (by design).** No production caller adopts the chain; no UI; the contributed-key credential (Story 3-4b) and late Bright Data results (Story 10.5) are out of scope.
+
 ### File List
+
+Added: `packages/domain/src/scraper/{post-scraper-adapter,merge-post-image-urls,transient-vendor-failure}.ts` and their `.test.ts`; `packages/database/migrations/0101_scraper_provider_capacity_exhausted_until.sql` and `meta/0101_snapshot.json`; `apps/backend/src/lib/scraper/{post-scraper,post-scraper-registry,brightdata-post-adapter}.ts` and tests `post-scraper`, `brightdata-post-adapter`, `brightdata-post-scrape`; `apps/backend/src/lib/job-engine/record-job-attempt.ts` and `.test.ts`; `apps/backend/src/lib/vendor-gateway/transient-classifiers.test.ts`.
+
+Changed: `packages/domain/src/scraper/index.ts`; `packages/database/schema.ts`, `migrations/meta/_journal.json`; `apps/backend/src/lib/scraper/{usage-store,brightdata-client,brightdata-record-mapper,instagram-adapter,trigger-apify-for-target}.ts`; `apps/backend/src/lib/ai-gateway/gemini-client.ts`; `apps/backend/src/env.ts`; tests `usage-store`, `brightdata-record-mapper`, `instagram-adapter`, `trigger-apify-for-target`, `call-apify-actor`, `process-scrape-job`, `profile-scraper`, `extraction/start-post-reextraction-preview`, `env`; `apps/infrastructure/lib/festgrid-backend-stack.ts` and its test; `.env.example`; `docs/infrastructure/architecture-diagram.md`, `high-level-overview.md`; `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-53 Rule 15); this story and `sprint-status.yaml`.
+
+### Change Log
+
+- 2026-11-11: Story 10.2 built: the post-scraper provider chain (default `brightdata,apify`), Bright Data and Apify post adapters, one `job_attempts` row per provider considered, the remembered Apify monthly cap (migration 0101), the shared transient-error rule, and the cover-never-in-slides rule; AD-53 Rule 15 added.

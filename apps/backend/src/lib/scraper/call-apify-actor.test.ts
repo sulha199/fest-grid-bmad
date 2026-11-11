@@ -22,6 +22,13 @@ import {
 import { processScrapeJob } from './process-scrape-job.js';
 import { VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
 import { clearApifyProviderUsage } from './usage-store-test-helpers.js';
+import { setRememberExhaustedCapacity } from './usage-store.js';
+// Story 10.2: this file provokes Apify's monthly-limit refusal; do not write the real `apify` usage row (parallel suites share it).
+const rememberedExhausted: string[] = [];
+setRememberExhaustedCapacity(async (provider) => {
+  rememberedExhausted.push(provider);
+});
+
 
 // The synchronous Apify call behind the scraper Lambda's queue fallback (2026-10-23: 11 profiles hit the
 // API Lambda's 26s bound inside a 300s Lambda, left no audit row, were stamped as scraped, and the Apify
@@ -230,6 +237,8 @@ test('callApifyActor: the queue path\'s budget, abort and audit trail', async (t
     assert.strictEqual(starts, 1);
     assert.deepStrictEqual(sleeps, []);
     assert.strictEqual((await runs()).length, 0, 'no FAILED row: it must not count against Apify provider health');
+    // Story 10.2 (IDEA-101): remembered for the rest of the usage cycle
+    assert.ok(rememberedExhausted.includes('apify'));
   });
 
   await t.test('other 402s and other start failures are not waited for and still leave a FAILED row', async () => {
