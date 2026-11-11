@@ -666,6 +666,20 @@
       "when": 1794277457341,
       "tag": "0094_posts_extraction_cursor_and_partial",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "6",
+      "when": 1794367291153,
+      "tag": "0095_job_engine_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "6",
+      "when": 1794367292791,
+      "tag": "0096_jobs_user_job_has_owner_check",
+      "breakpoints": true
     }
   ]
 }

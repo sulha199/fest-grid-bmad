@@ -72,6 +72,9 @@ export interface BackendEnv {
   aiProcessingQueueUrl?: string;
   // Story 4.2b -- AI Lambda function name the API Lambda async-invokes for manual extraction.
   aiProcessorFunctionName?: string;
+  // Story 10.1a -- the Scraper Lambda's function name, set on the API Lambda so startJob can invoke a job type whose
+  // `host` is 'scraper' (the API Lambda's mirror of aiProcessorFunctionName).
+  scraperFunctionName?: string;
   aiProcessingInlineFallbackEnabled: boolean;
   // Story 3.6z (AC3) — TTL (minutes) for enqueuePostForProcessing's atomic claim
   // (posts.queued_for_extraction_at). Default derivation: AIProcessingQueue's visibility
@@ -139,6 +142,12 @@ export interface BackendEnv {
   // (social_media_account_profiles.classification_claimed_at). Same 30-minute default and
   // reclaim-after-TTL rationale as postExtractionClaimTtlMinutes (Story 3.6z) above.
   accountClassificationClaimTtlMinutes: number;
+  // Story 10.1a -- the job engine. One RUN of a job handler is capped at this many ms (inside the 300 s Lambda); the
+  // whole job's own bound is its type's maxDurationMs (jobs.deadline_at).
+  jobAttemptDeadlineMs: number;
+  // Story 10.1a -- TTL (minutes) of the worker's claim on a job (jobs.worker_claimed_at), after which a crashed worker's
+  // claim can be taken over. Mirrors accountClassificationClaimTtlMinutes (AD-41 Rule 3).
+  jobWorkerClaimTtlMinutes: number;
   // Story 3.6n (AC5) — remaining-time floor (ms), read from the Lambda Context's
   // getRemainingTimeInMillis() before starting face detection. Below this floor, the stage is
   // skipped defensively rather than risking an AWS-enforced hard kill mid-stage. The 60000ms
@@ -313,6 +322,8 @@ export function loadBackendEnv(): BackendEnv {
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessorFunctionName: process.env.AI_PROCESSOR_FUNCTION_NAME,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperFunctionName: process.env.SCRAPER_FUNCTION_NAME,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingInlineFallbackEnabled: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     postExtractionClaimTtlMinutes: parseInt(process.env.POST_EXTRACTION_CLAIM_TTL_MINUTES || '30', 10),
@@ -410,6 +421,10 @@ export function loadBackendEnv(): BackendEnv {
     postMediaDistributionId: process.env.POST_MEDIA_DISTRIBUTION_ID,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     accountClassificationClaimTtlMinutes: parseInt(process.env.ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES || '30', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobAttemptDeadlineMs: parseInt(process.env.JOB_ATTEMPT_DEADLINE_MS || '150000', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobWorkerClaimTtlMinutes: parseInt(process.env.JOB_WORKER_CLAIM_TTL_MINUTES || '5', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     faceBlurMinRemainingTimeMs: parseNonNegativeInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS, 'FACE_BLUR_MIN_REMAINING_TIME_MS', 60000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

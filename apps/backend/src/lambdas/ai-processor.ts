@@ -1,6 +1,7 @@
 import type { SQSEvent, Context, SQSBatchResponse } from 'aws-lambda';
 import { processAiJob } from '../lib/ai-processor/process-ai-job.js';
 import { processManualExtractionJob } from '../lib/ai-processor/process-manual-extraction-job.js';
+import { runJobEngineJob } from '../lib/job-engine/run-job.js';
 import { type ProcessingJobMessage, type ManualExtractionInvokePayload } from '@festgrid/domain/posts';
 import { pollAndDrainQueue, hasJobType, type PollAndDrainQueueOptions } from '../lib/aws/poll-and-drain-queue.js';
 import { loadBackendEnv } from '../env.js';
@@ -8,6 +9,9 @@ import { resumeDueExtractions } from '../lib/posts/resume-due-extractions.js';
 import { resumeStalledChains } from '../lib/ai-processor/resume-stalled-chains.js';
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
+// Story 10.1a (AD-53): an async invoke carrying only the job id, from the API Lambda (a job type hosted here) or the
+// Scraper Lambda (a cross-Lambda phase hand-off).
+type JobEngineRunEvent = { jobType: 'job-engine-run'; jobId: string };
 
 // Measured on prod 2026-11-02..09 (log gaps between consecutive messages, an upper bound): p50 4.6s,
 // p95 22s, p99 40s, max 71s. One message's budget for receive sizing is therefore ~p99.
@@ -40,7 +44,7 @@ function buildDrainBudget(context: Context): PollAndDrainQueueOptions | undefine
 }
 
 export const handler = async (
-  event: SQSEvent | PollAndDrainEvent | ManualExtractionInvokePayload,
+  event: SQSEvent | PollAndDrainEvent | ManualExtractionInvokePayload | JobEngineRunEvent,
   context: Context
 ): Promise<SQSBatchResponse | void> => {
   // Prod-only (AC3): the EventBridge-scheduled poll-and-drain trigger, replacing the
@@ -52,6 +56,14 @@ export const handler = async (
   // Correction" extraction (no queue involved -- prod's AI Lambda only drains the queue every 5
   // minutes, far too slow for a user waiting on a spinner). Checked before the SQS-batch branch
   // below, which is otherwise untouched.
+  // Story 10.1a: run one job-engine job (no queue: same reasoning as manual extraction above).
+  if (hasJobType(event, 'job-engine-run')) {
+    await runJobEngineJob((event as JobEngineRunEvent).jobId, {
+      getRemainingTimeInMillis: context.getRemainingTimeInMillis?.bind(context),
+    });
+    return;
+  }
+
   if (hasJobType(event, 'manual-extraction')) {
     await processManualExtractionJob(event.jobId, {
       getRemainingTimeInMillis: context.getRemainingTimeInMillis?.bind(context),

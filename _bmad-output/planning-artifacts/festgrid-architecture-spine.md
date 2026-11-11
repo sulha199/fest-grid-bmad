@@ -2719,6 +2719,12 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **Docs** — `docs/infrastructure/architecture-diagram.md` and `high-level-overview.md`
         (the API → scraper async-invoke edge and the sweep) in the same change as story 1
         (CLAUDE.md §4); the `project-context.md` rule added with this AD is updated by the same story.
+*   **Amended 2026-11-11 (pointer to AD-53):** follow-up 1, the classify-account mechanism story (columns, invoke
+    seam, worker branch, claim and attempt logic, CDK grant), is implemented THROUGH the generic job engine of AD-53, not as
+    a classify-account-specific build: one record, one registry, one worker for every long vendor-backed action. Story 10.7
+    moves `subscribeToAccount`'s classification onto it, and is where Rule 1 ("the subscription always succeeds") is amended
+    for an account that is not found, is private or has no reachable provider (PRD FR126, FR122). Rules 1 to 11 otherwise
+    remain accurate descriptions of the classify-account behaviour the engine will host.
 
 ---
 
@@ -3426,6 +3432,94 @@ This document defines the core architectural invariants for the FestDaily applic
     lockstep test; a test that a job failing after in-call retries increments the ledger once.
 
 ---
+
+### AD-53: The Job Engine: One Record, One Registry, One Worker For Every Long-Running Vendor-Backed Action
+
+*   **Binds:** `packages/database/schema.ts` (`jobs`, `job_attempts`; migrations 0095 and 0096);
+    `packages/domain/src/jobs/job-engine.ts`; `apps/backend/src/lib/job-engine/` (registry, `startJob`, worker,
+    sweeps); `apps/backend/src/lib/aws/invoke-job-engine-worker.ts`; the `job-engine-run` branch of the Scraper and
+    AI-processor Lambdas and the `job-engine-sweep` branch of the Scraper Lambda; `festgrid-backend-stack.ts` (two
+    invoke grants, three environment variables, one 5-minute rule). PRD 3.18 and 4.21 (FR116 to FR130). Consumes AD-32
+    (the guarded wrapper stays the only way to a vendor), AD-34 (the scrape gate), AD-51 (a post's own re-scrape).
+    Amends AD-41 by a pointer (below). Epic 10, Story 10.1a.
+*   **Prevents:** each long vendor-backed action inventing its own record, status, deadline and sweep (four such
+    records exist today); an action that outlives the API Lambda's 28 s limit inside the request; a job nobody ends;
+    two workers running one job; a waiting job holding a user's place; a late handler overwriting a job that already
+    ended; the API Lambda bundling a host's handler (the AI-processor's `sharp` and `face-api`, the scraper's vendor
+    adapters).
+*   **Rule:**
+    1.  **One record.** `jobs` (with `job_attempts`) is the user-facing record of every long action. It REFERENCES
+        `apify_pending_jobs`, `brightdata_pending_jobs`, `scraper_actor_runs` (through
+        `job_attempts.scraper_actor_run_id`) and `vendor_call_locks`; it replaces none of them.
+        `manual_extraction_jobs` is untouched; whether it moves onto this table is Story 10.9's decision (PRD OI-4).
+        No `deletedAt`: these are append-only lifecycle records, like `scraper_actor_runs`. `type`, `reason_code`
+        and `phase` are text, so a new job type or reason never needs a migration; `status`, `trigger` and
+        `job_attempts.outcome` are enums (closed PRD sets). The type-specific input a handler needs is `jobs.input`;
+        it never holds a vendor token or a caption. Both tables are server-only: row level security is enabled with no
+        policy in the migration that creates them (migration 0084's rule; the backend connects as the owner, and the
+        Jobs page reads through GraphQL, Story 10.4).
+    2.  **One registry, two halves.** The pure `JobTypeDefinition { type, host, maxDurationMs }` lives in
+        `packages/domain`, importable by the API Lambda, which must not import a handler. A handler is registered
+        only inside its own host Lambda. A job whose type has no handler in the Lambda that runs it ends FAILED with
+        `HANDLER_NOT_REGISTERED`; Story 10.14z later makes that a compile or test-time error for a real type.
+    3.  **Starting.** `startJob` (API Lambda) inserts the row, then fires one async invoke
+        (`InvocationType: 'Event'`) at the type's host with `{ jobType: 'job-engine-run', jobId }` and returns the job
+        id inside about one second. A failed invoke ends the job FAILED (`NO_PROVIDER_REACHABLE`), the shape of
+        `startManualExtractionJob`. It is the only entry point; no entry point for system jobs exists (Rule 10).
+    4.  **One claim.** One conditional `UPDATE ... RETURNING` (the shape of AD-41 Rule 3) with the TTL
+        `JOB_WORKER_CLAIM_TTL_MINUTES` (5). It takes a QUEUED, RUNNING or WAITING row that is admitted, a WAITING row
+        only when its `resume_at` is due or null, and only when no live claim exists. No row returned means another
+        worker owns it, it ended, it is not admitted, or its time has not come: the invocation exits quietly (an
+        async invoke can be delivered twice).
+    5.  **Two bounds.** `deadline_at` bounds the WHOLE job: admission time plus the type's `maxDurationMs`. One RUN
+        of a handler is capped separately by the smallest of `JOB_ATTEMPT_DEADLINE_MS` (150 s), the time left to
+        `deadline_at` and the Lambda's own remaining time. A run past its budget ends the job EXPIRED (`TIMED_OUT`); a
+        handler that throws ends it FAILED (`HANDLER_ERROR`); an ending other than Succeeded without a reason is
+        recorded as `UNSPECIFIED`, never with none (FR117). A job that must outlast one run returns WAITING.
+    6.  **Guarded writes.** Every write after the claim requires the row to be RUNNING and the claim to be this
+        worker's (or released by its own hand-off), so a handler that finishes after its budget cannot overwrite a job
+        that already ended.
+    7.  **Statuses and places.** QUEUED (waiting for a place), RUNNING (the only status that holds a place, FR121),
+        WAITING (waiting for a later time or for a result from elsewhere; holds no place; `resume_at` is the due time
+        or null for an event), then the four endings. `admitted_at` null means the job is waiting for a place
+        (Story 10.3 queues over the user's limit); Story 10.1a admits at insert.
+    8.  **Cross-Lambda hand-off carries only `{ jobId }`.** A handler that needs another Lambda's capabilities calls
+        `handOffToLambda(functionName)` and returns HANDED_OFF. The worker releases its claim BEFORE the invoke (the
+        receiver claims with the same update and would otherwise be refused for the whole TTL), the receiver reloads
+        the row and resumes from its stored `phase`. A vendor token, a caption or a phase is never carried in the
+        message (AD-41 Rule 2: the payload is a hint, the worker decides from the database). Each type's `host` names
+        its first Lambda: a scrape-then-extract type hosts on the Scraper and hands off to the AI-processor (the only
+        direction any known type needs; the reverse grant is added by the first story that does), while a job whose
+        own work makes no vendor call hosts on the AI-processor directly.
+    9.  **One database-only sweep, every 5 minutes.** Its own EventBridge rule (`job-engine-sweep`, Scraper Lambda)
+        ends every admitted, non-terminal job past `deadline_at` (EXPIRED, `TIMED_OUT`) and clears its claim, and
+        enforces retention on `manual_extraction_jobs` (an unclaimed or stuck job keeps no caption past the stale
+        limit, an unapplied re-extract preview keeps no extraction past the Apply window: FIND-086 and FIND-111). It
+        does not touch `vendor_call_locks` (AD-32's own TTL releases a dead worker's lease). **This departs from AD-41
+        Rule 5's "no new rule" on purpose:** the hourly vendor sweep also makes vendor progress calls and must not run
+        more often, while this one makes none, so a hung job ends in minutes, not up to an hour.
+    10. **User job or system job.** `trigger` is USER or SYSTEM and `owner_user_id` is required for USER only, by the
+        CHECK `jobs_user_job_has_owner` (migration 0096; hand-written SQL because drizzle-kit 0.21 does not emit CHECK
+        constraints). Places, queueing, reuse, notifications and the ordinary Jobs page apply to user jobs only
+        (FR130). No system job type is built; the daily scrape, automatic extraction and AD-52 retries stay outside the
+        engine.
+    11. **Adoption.** A new job type registers a definition and, in its host Lambda, a handler; it never adds a second
+        private mechanism. A handler that reaches a vendor still goes through the AD-32 wrapper and the AD-34 gate.
+*   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
+    Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
+    (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the
+    transaction-mode pooler, AD-32); a new queue (an invoke carrying only `{ jobId }` plus database state already makes
+    redelivery safe, the AD-41 precedent); a `usesVendor` flag with a second limit (every job type can reach a vendor);
+    `deadline_at` as insert time plus the attempt cap (it would expire a job that is legitimately WAITING, or on its
+    second provider attempt); declaring the CHECK in the drizzle schema (drizzle-kit 0.21 omits it, so a later upgrade
+    would emit a duplicate constraint).
+*   **Deferred:** admission control, queueing and slot reservation (Story 10.3); the provider chain and the
+    `job_attempts` rows it writes (10.2); the GraphQL surface, the Jobs page and retention-driven deletion of old rows
+    (10.4); late vendor results (10.5); moving `manual_extraction_jobs` onto this table (10.9, OI-4); a reverse
+    AI-processor to Scraper hand-off.
+*   **Enforced by:** `jobs-schema.test.ts` (constraint, enums, cascade), `run-job.test.ts` (claim, budget, guarded
+    writes, WAITING, hand-off), `sweep-expired-jobs.test.ts`, `sweep-stale-manual-extraction-jobs.test.ts`,
+    `job-engine-branches.test.ts`, the CDK assertions of Story 10.1a; Story 10.14z adds the ratchets.
 
 ---
 

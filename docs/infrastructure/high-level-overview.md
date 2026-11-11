@@ -76,6 +76,10 @@ graph TD
     EventBridge -- triggers --> L_Scrape
     L_Scrape -- triggers async job (webhooks param) --> Apify
     L_Scrape -- polls/recovers (sweep) --> Apify
+    EventBridge -- every 5 minutes: job sweep --> L_Scrape
+    L_API -- starts a job (async invoke) --> L_Scrape
+    L_Scrape -- job phase hand-off (async invoke) --> L_AI
+    L_Scrape -- jobs, job attempts --> Supabase
     Apify -- webhook callback --> L_ApifyWebhook
     L_ApifyWebhook -- persists scraped posts to --> Supabase
     L_Scrape -- triggers async job (webhook endpoint) --> BrightData
