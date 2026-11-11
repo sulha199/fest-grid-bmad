@@ -68,6 +68,7 @@ export function buildEventInsertValues(
       locationKeywords: normalizeLocationKeywords(s.locationKeywords) ?? null,
       ticketPrice: s.ticketPrice || null,
       locationDetails: s.locationDetails || null,
+      locationResolution: s.locationResolution ?? null,
       latitude: s.locationDetails?.coordinates?.latitude ?? null,
       longitude: s.locationDetails?.coordinates?.longitude ?? null,
       timezone: s.timezone || null,

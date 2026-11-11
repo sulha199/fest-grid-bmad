@@ -78,6 +78,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
       },
       placeName: 'Central Park Main Stage',
     },
+    locationResolution: null,
     latitude: 40.785091,
     longitude: -73.968285,
     timezone: 'America/New_York',
@@ -459,4 +460,22 @@ test('buildEventInsertValues - normalizes locationKeywords of a message no norma
   assert.deepStrictEqual(result.event.locationKeywords, ['Sleman']);
   assert.strictEqual(result.schedules[0].locationKeywords, null, 'an empty array is stored as null');
   assert.strictEqual(result.schedules[1].locationKeywords, null);
+});
+
+test('buildEventInsertValues - maps locationResolution onto the schedule, null when no lookup was attempted', () => {
+  const message = {
+    postId: 'post-1',
+    sourceSocialMediaAccountId: 'acc-1',
+    eventName: 'Resolution Event',
+    types: [],
+    categories: [],
+    confidenceScore: 0.9,
+    schedules: [
+      { isMainSchedule: true, eventStartDate: '2026-11-02', location: 'Hall A', locationResolution: 'kw2' as const },
+      { isMainSchedule: false, eventStartDate: '2026-11-03' },
+    ],
+  } as unknown as Parameters<typeof buildEventInsertValues>[0];
+  const { schedules } = buildEventInsertValues(message, null);
+  assert.strictEqual(schedules[0].locationResolution, 'kw2');
+  assert.strictEqual(schedules[1].locationResolution, null);
 });

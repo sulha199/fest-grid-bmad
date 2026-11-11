@@ -11,7 +11,7 @@ query getEvents($limit: Int, $offset: Int, $query: EventQueryConditionInput) {
       durableImageUrl
       durableThumbnailUrl
       location
-      types
+      locationKeywords      types
       categories
       schedules {
         id
@@ -53,7 +53,7 @@ query getEventBySlug($slug: String!) {
     slug
     description
     location
-    types
+    locationKeywords    types
     categories
     imageUrl
     durableImageUrl
@@ -87,6 +87,7 @@ query getEventBySlug($slug: String!) {
         }
         placeName
         formattedAddress
+        city
         confidence
         matchType
       }
@@ -137,7 +138,7 @@ query getEventBySlug($slug: String!) {
       timezoneStatus
       performers
       location
-      locationDetails {
+      locationKeywords      locationDetails {
         coordinates {
           lat
           lng
@@ -221,7 +222,7 @@ query getEventForIcsExport($id: ID!) {
     slug
     description
     location
-    schedules {
+    locationKeywords    schedules {
       id
       eventStartDate
       eventEndDate
@@ -229,7 +230,7 @@ query getEventForIcsExport($id: ID!) {
       eventEndTime
       timezone
       location
-      locationDetails {
+      locationKeywords      locationDetails {
         formattedAddress
       }
     }
@@ -246,7 +247,7 @@ query getEventsForCalendar($limit: Int, $offset: Int, $perDayLimit: Int, $query:
       durableImageUrl
       durableThumbnailUrl
       location
-      types
+      locationKeywords      types
       categories
       isFavorited
       favoriteCount
@@ -284,7 +285,7 @@ query getEventsForMyCalendar($limit: Int, $offset: Int, $query: EventQueryCondit
       durableImageUrl
       durableThumbnailUrl
       location
-      types
+      locationKeywords      types
       categories
       isFavorited
       favoriteCount
@@ -323,7 +324,7 @@ query getArchivedEvents($limit: Int, $offset: Int) {
       durableImageUrl
       durableThumbnailUrl
       location
-      categories
+      locationKeywords      categories
       types
       schedules {
         isMainSchedule

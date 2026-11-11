@@ -104,7 +104,7 @@ merge (the skill dispatches both workflows, which must exist on `master`).
    be read from the domain constants, not copied.
    *As built in B2b-1 (2026-10-31, after an architecture and code review of the spec):* tier `mid`; no earlier undo; anchor `organizerMatch`
    or a shared link plus a venue match (not `sameAccount`); no venue conflict; day gap 0, or up to 90 with a shared link; every
-   schedule of the new event covered inside that window; names do not contradict (`namesContradict`). The 0.3 name floor of
+   schedule of the new event covered inside that window; names do not contradict (`namesContradict`; since 2026-11-11 the floor uses `namesContradictForReview`, which forgives a title against the same title plus a subtitle with an incidental number, AD-45 Rule 3). The 0.3 name floor of
    the first draft was dropped: it equals the ingestion admission floor, so it rejected nothing. Live runs are `READ COMMITTED`
    with row locks and a savepoint per decision, not `REPEATABLE READ` (a long snapshot hides rows other writers add to a loser).
 4. **Starvation**: export drops `kind: 'stale'` rows before applying its limit, takes a `skip_ids` input fed from open
@@ -287,8 +287,8 @@ The attended loop of the `moderator-dedup-review` skill (step 8) offers **Accept
 
 ### As built in FIND-124 (2026-11-07)
 
-The apply side can **merge a pair the floor refuses**, as a moderator's decision. The loop option is `FIND-125`; owner-tunable
-caps are `FIND-126`.
+The apply side can **merge a pair the floor refuses**, as a moderator's decision. The loop option is `FIND-125` (below);
+owner-tunable caps are `FIND-126`.
 
 - **The decision.** `action: accept-override` (exactly that string; the parser takes `accept`, `reject` or it and returns the value
   unchanged). It merges through `resolveSuggestedMatch(..., 'ACCEPT', via: 'ai_skill')` like an accept: the same row lock, the
@@ -301,10 +301,32 @@ caps are `FIND-126`.
   before any code is fetched). The library asserts both itself. Independent of the reject switch.
 - **The guard.** A fifth argument carries the input; a result with the override action in a run that did not allow it fails, and
   the summary says `of which overrides: N`.
-- **Daily review.** `SKILL.md` rule 7 says the skill never sets `allow_floor_override`, pinned by a test; until `FIND-125` no step
-  dispatches it, and the reader refuses a report with the action (fail closed).
+- **Daily review.** `SKILL.md` rule 7 says the skill never sets `allow_floor_override` outside step 8, pinned by a test; the
+  reader refuses a report with the action unless the caller announces its ids (fail closed; see FIND-125).
 - **Known gaps.** The database cannot tell an override from another AI merge (a marker needs an enum migration, with `FIND-114`);
   the resolver is the moderator the invoker hash names (attribution, not authentication).
+
+### As built in FIND-125 (2026-11-11)
+
+The attended loop (step 8) offers the override. Nothing about the daily review changes.
+
+- **The option.** `brief --offer reject,override` for a pair `validate` refused by a floor code: the popup then holds **Reject**,
+  **Merge regardless of the floor** and **Skip**. `accept` and `override` are never offered together (a pair the floor passes is an
+  Accept); a `high` pair gets neither a reject nor an override (the drain's); `per-run-cap` and `event-already-in-run` pairs keep
+  Reject only. The label and its description are constants of the reader (the description says what the override skips and that
+  `undoEventMerge` is the undo), and the popup text says it again, so a cut of one cannot hide it.
+- **The answer.** It counts only as the session's own exact `AskUserQuestion` label, then a Yes on `confirm`. The confirmation lists
+  each override pair by issue number and id prefix, says the floor's checks are skipped, that it is recorded as AI-assisted under the
+  moderator, that `undoEventMerge` undoes it, and that the owner's variable `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` must be on or the
+  whole run is refused. The attended definition is the reject path's: any session that cannot show a typed request offers accepts only.
+- **The batch.** `decisions --override IDS` writes `action: accept-override` (rejects first, accepts, overrides last, so on a shared
+  event the override waits). `confirm --override` is optional; the pairs of a batch stay at most 10. The run is dispatched with
+  `allow_floor_override` true only when it holds an override, and its title reads `override=true`.
+- **Reading and closing.** `apply`, `close-decided` and `insight-comment` take `--expect-override-ids`: a result must say
+  `accept-override` exactly for those ids, so an unannounced override, or an announced one reported as another action, is refused
+  with exit 7. `close-decided` closes an override merge's issue with `outcome:accepted` and its own fixed comment ("merged this
+  suggestion regardless of the floor").
+- **Not changed.** The apply side, the workflow, the guard and the caps (FIND-124, FIND-126).
 
 ## 7. Facts verified while reviewing
 

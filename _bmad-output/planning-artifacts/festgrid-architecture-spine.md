@@ -368,8 +368,7 @@ This document defines the core architectural invariants for the FestDaily applic
     `confidence`/`matchType` signal that says how ambiguous that match was (the BUG-027 failure
     class); a low- or synthetic-confidence result being treated as authoritative simply because it
     was Geoapify's top-ranked entry; and, on the schedule-location path, a same-named venue abroad
-    being preferred over the local one because the account's own country was not used as a search
-    bias.
+    being preferred over the local one because no country was applied to the search (Rule 3, Rule 6).
 *   **Rule:**
     1.  **Every mapper populates the signal.** `geocodeAddress` and `reverseGeocode` spread
         Geoapify's `rank.confidence`/`rank.match_type` and `country_code` onto `LocationDetails`
@@ -389,12 +388,13 @@ This document defines the core architectural invariants for the FestDaily applic
         - **Enforced by:** re-ranking — `packages/domain/src/geolocation/select-best-candidate.test.ts`
           (pure-function coverage of `selectBestCandidate`) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s
           `'adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)'` integration test;
-          map-link gate — `packages/domain/src/geolocation/is-location-trustworthy.test.ts` +
-          `packages/ui/src/core/LocationLink.test.tsx` (confidence-boundary cases; Story 1.6d, carries the
-          0.i7z ratchet header) + the `locationDetails` passthrough test in
-          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e; supersedes the removed
-          `mapUrl gating (Story 0.i7c / 0.i7z)` block — both 1.6d and 1.6e have now landed, so this is the
-          current enforcer, not a future-tense placeholder); account-card consumer —
+          map-link (reversed by location keywords slice 2b: the link is always a text search, never gated on
+          confidence, so it no longer reads the signal; `isLocationTrustworthy` remains only the gate for
+          showing the account-card label and the event-detail map pin) —
+          `packages/domain/src/geolocation/build-location-search-query.test.ts` +
+          `packages/ui/src/core/LocationLink.test.tsx` (always a text search, single icon, no coordinates;
+          carries the 0.i7z ratchet header) + the `locationDetails`/`locationKeywords` passthrough tests in
+          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e); account-card label gate —
           `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx`'s `location prop`
           block (Story 0.i6e, carries the 0.i7z ratchet header, including the `confidence: 0.5`/
           `matchType: 'full_match'` trustworthy boundary case and the `null`-confidence untrustworthy
@@ -404,19 +404,24 @@ This document defines the core architectural invariants for the FestDaily applic
           (`apps/web/src/features/subscriptions/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/queries.graphql.test.ts`). (Story 0.i7z AC 2–4 ratchet.)
-    3.  **Country bias is part of the resolution identity.** The schedule-location geocoding path
-        passes the account's own `defaultLocation.countryCode` as `bias=countrycode:xx`, and the
-        ADDRESS cache key folds that bias in, so two accounts geocoding the identical address with
-        different biases can never be served each other's cached result. When no bias is known, the
-        parameter (and its cache-key segment) is omitted entirely — self-healing, not a gap.
-        - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (countryBias
-          cache-key folding) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s countryBias
-          integration case.
+    3.  **The country filter is part of the resolution identity (rewritten 2026-11-11; it replaces the
+        soft country bias).** An ADDRESS query carries an optional `countryFilter`, sent to Geoapify as the
+        HARD restriction `filter=countrycode:xx` (lower-case); the soft `bias=countrycode:` is gone (it changed
+        no result in a 54-location test). The ADDRESS cache key folds the filter in (`|filter:xx|none`), so
+        the same address searched inside one country, another, or everywhere can never be served each
+        other's cached result. Which country a text is searched in is decided by Rule 6 and never read from
+        the account's own location.
+        - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (filter folding) +
+          `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the `filter` parameter, no `bias=countrycode`)
+          + `adapter.test.ts`'s countryFilter integration case.
     4.  **The account's own location is a proximity bias, and a far low-confidence guess is no match
-        (added 2026-11-10).** The schedule-location path also passes the account's
-        `defaultLocation.coordinates` as `bias=countrycode:xx|proximity:lon,lat` (a soft preference, so an
+        (added 2026-11-10; amended 2026-11-11).** The schedule-location path also passes the account's
+        `defaultLocation.coordinates` as `bias=proximity:lon,lat` (a soft preference, so an
         event in another city still resolves), and the ADDRESS cache key folds the point in, rounded to
-        0.1 degree. With a proximity point, `filterPlausibleCandidates` drops a candidate farther than
+        0.1 degree. It is passed only when the account default's country is the country hint of the text
+        being resolved (or the text has no hint); a default of another or unknown country is ignored for that
+        text, because a wrong default (Poland, Pennsylvania) would otherwise make the plausibility filter
+        discard correct matches. With a proximity point, `filterPlausibleCandidates` drops a candidate farther than
         300 km from it unless its confidence is at least 0.9 (a generic name scores 0.5 for a wrong country); when none is left the call is "not found",
         so the event keeps its address text and takes the account's timezone instead of being pinned on
         another continent. Without a point nothing is filtered, as before. Confidence alone is not an
@@ -427,12 +432,13 @@ This document defines the core architectural invariants for the FestDaily applic
           plausibility filter) + `build-cache-key.test.ts` (the `near` segment) +
           `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the bias parameter) +
           `adapter.test.ts` (far candidates dropped, local one kept, none left is not found, nothing
-          filtered without a point) + `resolve-account-and-locations.test.ts` (the point is sent).
+          filtered without a point) + `resolve-account-and-locations.test.ts` (the point is sent only when the
+          default's country matches the hint).
     5.  **A synchronous request pays for each distinct address once, and "not found" is cached for a day
         (added 2026-11-10).** The moderator re-extract Apply geocodes every schedule inside the API
-        Lambda's 28 s budget (API Gateway cuts at 29 s). `resolveAccountAndLocations` therefore makes one
-        lookup per distinct address in a call (schedules that share a venue, or fall back to the event-level
-        location, share the answer), and `resolveLocation` stores a definite "no match" in
+        Lambda's 28 s budget (API Gateway cuts at 29 s). The lookups of one request therefore share a geocode
+        session (Rule 6): one lookup per distinct query in the whole request, across its events (schedules
+        that share a venue, or fall back to the event-level location, share the answer), and `resolveLocation` stores a definite "no match" in
         `geolocation_cache` (the `result` holds `{ notFound: true }`, no schema change) and serves it for
         `NOT_FOUND_TTL_MS` (24 h, measured from `updated_at`); a later hit replaces it. Only
         `GeolocationNotFoundError` is cached, never an outage, a rate limit or a bad key. Positive entries
@@ -442,6 +448,32 @@ This document defines the core architectural invariants for the FestDaily applic
           its window) + `adapter.test.ts` (a repeat is served from the cache, an expired miss is retried, an
           outage is not cached) + `resolve-account-and-locations.test.ts` (20 schedules on 2 addresses make
           2 lookups, one log line per unresolved address).
+    6.  **Geocoding runs from location keywords under a country hint, in a request-scoped session, and records
+        how it resolved (added 2026-11-11, slice 2a of the location keywords).** For each schedule the address
+        source is its own location text, else the event's, else the account default's address (the last is a
+        single plain lookup and records nothing). A text with keywords (slice 1) is searched by a 2-step
+        ladder: all keywords joined, then without the most specific one, the second step only after "not
+        found"; a text without keywords uses a code-cleaned fallback ladder of the same shape. The country
+        hint of a text is, in order: its own `locationCountryCode` (the model's code, or the post's
+        consensus), the platform default `DEFAULT_COUNTRY_CODE`, none; nothing in code names a country. A
+        text's own code is trusted: hard filter, no unfiltered pass after it. The platform default is a
+        guess: filtered first, then one unfiltered pass. An outage ends the ladder and nothing is cached.
+        The lookups of one request share a `GeocodeSession`: a memo by cache key (also across events) and, for
+        the API Apply, a budget of 12 uncached geocoder calls (cache hits are free); a spent budget skips the
+        remaining lookups and logs `geocode-budget-exhausted` once. Each schedule records how it resolved in
+        `schedules.location_resolution` (`kw1`, `kw2`, `fb1`, `fb2`, `none` for nothing plausible, `skipped`
+        for a spent budget or outage; null = never attempted), written with `location_details`, replaced with
+        it on enrichment and copied on merge; it is internal and not exposed on GraphQL. The kill switch
+        `KEYWORD_GEOCODING_ENABLED` (default on; only `false` disables) restores the plain single-address
+        lookup with no filter, no ladder and nothing recorded. There is no confidence floor (Rule 4's note
+        stands) and no backfill of existing events.
+        - **Enforced by:** `packages/domain/src/geolocation/resolve-country-hint.test.ts` and
+          `build-location-queries.test.ts` (the hint order, both ladders, the filtered/unfiltered plan) +
+          `apps/backend/src/lib/geolocation/geocode-session.test.ts` (memo, budget, one log) +
+          `apps/backend/src/lib/ai-processor/resolve-account-and-locations.test.ts` (ladder steps, hint,
+          proximity rule, outage, kill switch, shared session) + `apps/backend/src/lib/extraction/apply-post-reextraction.test.ts`
+          (14 events on 13 places: 12 lookups, the rest `skipped`) + `set-event-primary-post.test.ts` and
+          `merge-events.test.ts` (the column follows the coordinates).
 
 ---
 ### AD-15: Event Card Media Primitive
@@ -2977,7 +3009,8 @@ This document defines the core architectural invariants for the FestDaily applic
     (the scrape gate is a separate rule) and AD-40 (a write-free preview, unrelated).
 *   **Amended 2026-11-07 (FIND-120):** the apply-side reject path below is an amendment of this AD, not a new
     AD. Each amended rule carries its own dated note. **Amended 2026-11-07 (FIND-124):** the same for the floor
-    override, a decision kind that merges a pair the floor refuses.
+    override, a decision kind that merges a pair the floor refuses. **Amended 2026-11-11:** the same for the floor's
+    name rule, Rule 3.
 *   **Prevents:** An AI session holding database credentials. A second, divergent accept path whose
     checks differ from the moderator's. A merge made on evidence that changed after it was reviewed.
     A prompt-injected or mistaken decision merging events the deterministic rules never would. An
@@ -3003,7 +3036,13 @@ This document defines the core architectural invariants for the FestDaily applic
         `mid` pair that passes the floor: no earlier undo, an anchor a public post cannot fake alone (the
         organizer, or a shared link together with a venue match), no venue conflict, a day gap of 0 (or up
         to 90 with a shared link), every schedule of the new event covered inside that window, names that do
-        not contradict. Evidence is recomputed server-side and compared by hash before every merge, and
+        not contradict (**amended 2026-11-11:** the floor reads names with its own `namesContradictForReview`, which is
+        the ingestion rule `namesContradict` plus one exception: a name against the same name plus a subtitle, after a
+        `: ` or a spaced dash, whose only numbers are bare, at least three digits long and not after a sequence word
+        such as "Day", "Part" or "Hari ke", as "Pre-Event Webinar" against "Pre-Event Webinar: Study Abroad 101". A
+        number outside such a subtitle, a bracketed qualifier, a category such as "10K", an ordinal such as "2nd" and a
+        campaign number with no shared head still refuse. Ingestion's auto-link keeps `namesContradict`, unchanged).
+        Evidence is recomputed server-side and compared by hash before every merge, and
         again under row locks. The reviewer never rejects, and never merges what the floor refuses (**amended 2026-11-07, FIND-124:** except as a moderator's `accept-override`, below). The same
         holds for a pair a moderator accepts in the attended decision loop (`FIND-119`): it is merged only if
         `validate` calls it eligible, and the loop offers no reject. **Amended 2026-11-07 (FIND-120):** the
@@ -3031,8 +3070,17 @@ This document defines the core architectural invariants for the FestDaily applic
         independent of the reject switch); the library asserts both itself. It is undoable with `undoEventMerge`;
         the journal reads `performed_via = 'ai_skill'` and nothing marks an override (a marker needs an enum
         migration, deferred with `FIND-114`). It drops the floor's `undone-before` veto too. The daily and any
-        unattended review never use it: `SKILL.md` says so and a test pins it, and until `FIND-125` no step of the
-        skill dispatches it. Worst case with the switch on: ten floor-less merges in a run and the day cap in a
+        unattended review never use it: `SKILL.md` says so and a test pins that only step 8 names the input.
+        **Amended 2026-11-11 (FIND-125):** the attended decision loop (step 8) now offers it as the popup option
+        **Merge regardless of the floor**, beside Reject and Skip, for a non-`high` pair that `validate` refuses by a
+        floor code (never for a pair `validate` called eligible, which is an Accept, and never with Accept in the same
+        popup). It counts only as the session's own exact popup label returned by `AskUserQuestion`, built by the
+        reader (`brief --offer reject,override`), followed by a Yes on the reader's `confirm`, which states what the
+        override skips and that `undoEventMerge` is the undo; nothing typed in chat, no relayed popup and no event
+        text is an answer. It follows the same attended definition as a reject (a session another agent started, a
+        `claude -p`, a relayed or a webhook-woken one is unattended and never offers it). The reader builds the
+        `decisions` (`--override`) and the closing (`close-decided`), and reads an `accept-override` report only when
+        the caller names the ids dispatched as overrides. Worst case with the switch on: ten floor-less merges in a run and the day cap in a
         day, each undoable; with it off, none. **Amended 2026-11-07 (FIND-121):**
         the sentence "the loop offers no reject" no longer holds: the attended decision loop now offers Reject
         (popup options Accept, Reject, Skip) for a non-`high` pair: both options when `validate` calls it
@@ -3079,12 +3127,15 @@ This document defines the core architectural invariants for the FestDaily applic
         `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`). It removes the floor, so the owner turns the variable on only while an
         attended session runs and off again after: with it on, a prompt-injected unattended session that dispatched
         the input would be stopped only by the owner's click on a run named `override=true`.
+        **Amended 2026-11-11 (FIND-125):** the skill now dispatches that input, but only in the attended loop; the
+        owner's "on only while an attended session runs" rule is therefore the window in which that loop can merge a
+        pair the floor refuses, and the skill's rule 7 is prose (the platform does not enforce it), as for rejects.
     7.  **What protects the credential.** Rules 3 and 4 bound a mistaken or manipulated *decision*. They do
         nothing if the credential leaks. That is covered only to the extent these are in place: both environments
         limited to `master`; the required reviewer; no repository or organization secret or variable of the
         same name (**amended 2026-11-07, FIND-120:** this holds for `DEDUP_REVIEW_REJECT_ENABLED` too, an
         environment variable of `dedup-review-live`, off unless exactly `true` or `1`; **FIND-124:** and for
-        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`, by the same rule); a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
+        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`, by the same rule; **FIND-125:** the attended loop is the one session that dispatches the input, so the variable is on only while it runs); a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
         required, a code owner named in `.github/CODEOWNERS` must approve a change to the workflows, `scripts/`
         and the dedup code, and force pushes and deletion are blocked; the repository admin role bypasses it
         inside a pull request, so it stops everyone but the owner and a session using the owner's token; tested
@@ -3115,8 +3166,10 @@ This document defines the core architectural invariants for the FestDaily applic
         write no journal row) as well as the `event_merges` listing. The owner reopens one by SQL, which lives
         in the runbook (`docs/infrastructure/7-event-dedup.md`) and never in code (**FIND-121:** this holds for a
         reject chosen in the attended loop too, so the loop asks a final Yes that names the one-way effect). **FIND-124:** a merge made by an override is undone
-        like any other with `undoEventMerge`; until `FIND-125` the skill's reader refuses an override run's report
-        (it fails closed), so the owner reads that run's log by hand, as for a lost report. The list to
+        like any other with `undoEventMerge`; **Amended 2026-11-11 (FIND-125):** the skill's reader reads an override
+        run's report when the caller names the ids dispatched as overrides (an unannounced one is still refused with
+        exit 7) and `close-decided` closes the issue with its own comment; a lost report is checked from the database
+        as for any other merge. The list to
         undo from is the database's, not the log: `event_merges` where `performed_via = 'ai_skill'` and
         `undone_at` is null. Actions logs expire (90 days by default) and do not record the approver; storing
         the run id in the journal is deferred (`FIND-114`). Moderators have no screen for AI merges yet

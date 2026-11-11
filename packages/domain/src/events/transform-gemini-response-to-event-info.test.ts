@@ -66,6 +66,31 @@ describe('transformGeminiResponseToEventInfo', () => {
     assert.ok(!('locationKeywords' in result.schedules[4]), 'a blank location counts as none');
   });
 
+  it('carries how each geocoded schedule was resolved, and leaves the key out for a schedule that was never looked up', () => {
+    const payload: GeminiEventPayload = {
+      eventName: 'Bus Samsat Keliling',
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [
+        { isMainSchedule: true, eventStartDate: '2026-11-02', location: 'Pasar Porosjayan' },
+        { isMainSchedule: false, eventStartDate: '2026-11-07', location: 'Kalurahan Caturtunggal' },
+        { isMainSchedule: false, eventStartDate: '2026-11-14' }
+      ],
+      confidenceScore: 0.9
+    };
+
+    const withResolutions = transformGeminiResponseToEventInfo(payload, {
+      ...dummyContext,
+      resolvedScheduleResolutions: new Map([[0, 'kw1' as const], [1, 'skipped' as const]])
+    });
+    assert.strictEqual(withResolutions.schedules[0].locationResolution, 'kw1');
+    assert.strictEqual(withResolutions.schedules[1].locationResolution, 'skipped');
+    assert.ok(!('locationResolution' in withResolutions.schedules[2]));
+
+    const without = transformGeminiResponseToEventInfo(payload, dummyContext);
+    assert.ok(!('locationResolution' in without.schedules[0]), 'no resolutions given: the message keeps its old shape');
+  });
+
   it('drops event keywords when the event location is the account default (they would describe other text)', () => {
     const payload: GeminiEventPayload = {
       eventName: 'Open Mic',

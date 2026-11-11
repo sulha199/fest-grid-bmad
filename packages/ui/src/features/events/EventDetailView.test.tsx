@@ -57,6 +57,7 @@ describe('EventDetailView', () => {
         title: 'Morning Session',
         performers: 'Band A, DJ B',
         location: 'Stage 1',
+        locationKeywords: ['Stage 1', 'Navy Pier', 'Chicago'],
         ticketPrice: '$10',
         locationDetails: {
           coordinates: { lat: 41.8758, lng: -87.6245 },
@@ -109,11 +110,11 @@ describe('EventDetailView', () => {
     expect(screen.getByText('Stage 1')).toBeInTheDocument();
     expect(screen.getByText('Band A, DJ B')).toBeInTheDocument();
     expect(screen.getByText('$10')).toBeInTheDocument();
-    // Trustworthy coordinates (confidence>=0.5, full_match) -> LocationLink links directly
-    // to the coordinate (its own AC2/AC3 from Story 1.6d), not a hardcoded mapUrl.
+    // Slice 2b: the map link is always a text search (here the schedule's keywords), never
+    // coordinates, even though this location is a confident geocode.
     expect(screen.getByRole('link', { name: /Stage 1/i })).toHaveAttribute(
       'href',
-      'https://www.google.com/maps/search/?api=1&query=41.8758,-87.6245'
+      'https://www.google.com/maps/search/?api=1&query=Stage%201%20Navy%20Pier%20Chicago'
     );
 
     // Schedule 2 fallback location (no map link)
@@ -216,12 +217,12 @@ describe('EventDetailView', () => {
 
   // Story 1.6e AC4: LocationLink adoption with the three-way scheduleLocation fallback.
   describe('schedule location via LocationLink (Story 1.6e, AC4)', () => {
-    it('renders LocationLink with the schedule\'s own name and locationDetails when schedule.location is non-blank', () => {
+    it('renders LocationLink with the schedule\'s own name and keyword query when schedule.location is non-blank', () => {
       render(<EventDetailView {...fullProps} />);
       const link = screen.getByRole('link', { name: /Stage 1/i });
       expect(link).toHaveAttribute(
         'href',
-        'https://www.google.com/maps/search/?api=1&query=41.8758,-87.6245'
+        'https://www.google.com/maps/search/?api=1&query=Stage%201%20Navy%20Pier%20Chicago'
       );
       // LocationLink renders exactly its own two icons (pin + trailing ExternalLink) --
       // the standalone MapPin this story removes is not duplicated alongside it.
@@ -229,7 +230,20 @@ describe('EventDetailView', () => {
       expect(row.querySelectorAll('svg').length).toBe(2);
     });
 
-    it('renders a LocationLink (search icon, name-only map query) when schedule.location is blank but the event-level location is not', () => {
+    it('uses the event-level keywords when the schedule has none, else the display name', () => {
+      const props = {
+        ...fullProps,
+        locationKeywords: ['Test Venue', 'Test City'],
+        schedules: [{ id: 'sched-2', eventStartDate: '2026-08-11T14:00:00Z', title: 'Afternoon Session' }],
+      };
+      render(<EventDetailView {...props} />);
+      expect(screen.getByRole('link', { name: /Test Location/i })).toHaveAttribute(
+        'href',
+        'https://www.google.com/maps/search/?api=1&query=Test%20Venue%20Test%20City'
+      );
+    });
+
+    it('renders a LocationLink (name-only map query) when schedule.location is blank but the event-level location is not', () => {
       const testProps = {
         ...fullProps,
         schedules: [
@@ -244,7 +258,7 @@ describe('EventDetailView', () => {
       render(<EventDetailView {...testProps} />);
       const link = screen.getByRole('link', { name: /Test Location/i });
       expect(link).toHaveAttribute('href', 'https://www.google.com/maps/search/?api=1&query=Test%20Location');
-      // MapPin + trailing Search icon (no coordinates, so never the confirmed-pin ExternalLink)
+      // MapPin + trailing ExternalLink icon
       expect(link.querySelectorAll('svg').length).toBe(2);
     });
 

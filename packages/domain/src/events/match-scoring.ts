@@ -299,7 +299,8 @@ export function areNamesAutoLinkable(newName: string, candidateName: string, nam
  * reviewer's floor can accept names a trigram cannot match (bilingual, abbreviated) while still
  * refusing a numbered series ("Part 1" vs "Part 2") or a bracketed category ("(5K)" vs "(10K)"). It does
  * NOT catch a differing word ("Half Marathon" vs "Marathon", "Kids Run" vs "Adult Run"): that is left
- * to the reviewer.
+ * to the reviewer. The floor itself reads names with `namesContradictForReview` (below); this function stays
+ * the ingestion rule.
  */
 export function namesContradict(newName: string, candidateName: string): boolean {
   if (normalizeEventNameForMatch(newName) === '' || normalizeEventNameForMatch(candidateName) === '') return true;
@@ -307,6 +308,54 @@ export function namesContradict(newName: string, candidateName: string): boolean
   const digitsA = digitTokens(normalizeEventNameStrict(newName));
   const digitsB = digitTokens(normalizeEventNameStrict(candidateName));
   return digitsA.length !== digitsB.length || !digitsA.every((token, i) => token === digitsB[i]);
+}
+
+// A subtitle starts at the first ": " or spaced dash. "Webinar: Study Abroad 101" has the head "Webinar".
+const SUBTITLE_SEPARATOR = /\s*:\s+|\s+[-–—]\s+/;
+// Words that make the number after them a position in a series or a split of an event, in English and Indonesian.
+const SEQUENCE_WORDS = new Set(['day', 'days', 'hari', 'ke', 'part', 'bagian', 'vol', 'volume', 'ep', 'episode', 'session', 'sesi', 'round', 'babak', 'week', 'minggu', 'batch', 'gelombang', 'stage', 'tahap', 'edition', 'edisi', 'series', 'seri', 'no', 'number', 'nomor']);
+// A sequence number is small ("Day 12", "Part 2"); a course or product code is not ("Study Abroad 101").
+const MIN_INCIDENTAL_NUMBER_DIGITS = 3;
+
+function splitSubtitle(name: string): { head: string; tail: string } | null {
+  const unbracketed = name.replace(BRACKETED_GROUP, ' ');
+  const match = SUBTITLE_SEPARATOR.exec(unbracketed);
+  if (match === null || match.index === 0) return null;
+  return { head: unbracketed.slice(0, match.index), tail: unbracketed.slice(match.index + match[0].length) };
+}
+
+/**
+ * True when every number in a subtitle is bare, at least `MIN_INCIDENTAL_NUMBER_DIGITS` digits long and
+ * follows a word that is not a sequence word: "Study Abroad 101" qualifies, "Day 12", "Part 2", "10K",
+ * "2nd Edition" and a number that opens the subtitle do not.
+ */
+function subtitleNumbersAreIncidental(tail: string): boolean {
+  let previous = '';
+  for (const token of normalizeEventNameStrict(tail).split(' ').filter((word) => word !== '')) {
+    if (/\d/.test(token) && (!/^\d+$/.test(token) || token.length < MIN_INCIDENTAL_NUMBER_DIGITS || previous === '' || SEQUENCE_WORDS.has(previous))) return false;
+    previous = token;
+  }
+  return true;
+}
+
+/** `shorter` is exactly `longer` before its subtitle, and the subtitle's numbers are incidental. */
+function isTitleOfSubtitledName(shorter: string, longer: string): boolean {
+  const parts = splitSubtitle(longer);
+  return parts !== null && normalizeEventNameStrict(shorter) === normalizeEventNameStrict(parts.head) && subtitleNumbersAreIncidental(parts.tail);
+}
+
+/**
+ * `namesContradict` for the AI reviewer's floor only. It forgives one case the digit rule cannot tell from
+ * a numbered series: a name against the same name plus a subtitle whose only numbers are incidental
+ * ("Global EduFair 2026 Pre-Event Webinar" against "...: Study Abroad 101"). Empty names and bracketed
+ * qualifiers that contradict still refuse, and so does every number outside such a subtitle. Ingestion's
+ * auto-link keeps using `namesContradict` unchanged.
+ */
+export function namesContradictForReview(newName: string, candidateName: string): boolean {
+  if (!namesContradict(newName, candidateName)) return false;
+  if (normalizeEventNameForMatch(newName) === '' || normalizeEventNameForMatch(candidateName) === '') return true;
+  if (qualifiersContradict(bracketedQualifiers(newName), bracketedQualifiers(candidateName))) return true;
+  return !(isTitleOfSubtitledName(newName, candidateName) || isTitleOfSubtitledName(candidateName, newName));
 }
 
 function normalizeVenueText(location: string | null | undefined): string {

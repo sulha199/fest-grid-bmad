@@ -1,9 +1,23 @@
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
-import { LocationDetails } from '@festgrid/shared-types';
+import { Coordinates, LocationDetails, LocationResolution } from '@festgrid/shared-types';
 import { GeminiSchedulePayload } from '@festgrid/domain';
+import { normalizeLocationKeywords } from '@festgrid/domain/events';
+import {
+  buildFallbackLocationQueries,
+  buildKeywordQueries,
+  buildLocationCacheKey,
+  planLocationLookups,
+  resolveCountryHint,
+  type CountryHint,
+  type GeolocationQuery,
+  type LocationLadderStep,
+} from '@festgrid/domain/geolocation';
 import { resolveLocation as defaultResolveLocation } from '../geolocation/adapter.js';
+import { GeolocationNotFoundError } from '../geolocation/geoapify-client.js';
+import { createGeocodeSession, GeocodeBudgetExhaustedError, type GeocodeSession } from '../geolocation/geocode-session.js';
+import { loadBackendEnv } from '../../env.js';
 
 export let resolveLocationSeam = defaultResolveLocation;
 
@@ -11,14 +25,44 @@ export function setResolveLocationSeam(fn: typeof defaultResolveLocation) {
   resolveLocationSeam = fn;
 }
 
+export interface ResolveLocationsOptions {
+  /** The event's own keywords and country code (slice 1), used for schedules that have no location text of their own. */
+  event?: { locationKeywords?: string[]; locationCountryCode?: string };
+  /** Shared by everything one request geocodes (memo across events, budget); omitted = a private one for this call. */
+  session?: GeocodeSession;
+  /** Overrides the backend env (tests): the kill switch and the platform default country. */
+  config?: { keywordGeocoding: boolean; defaultCountryCode: string | null };
+}
+
+interface AddressSource {
+  text: string;
+  keywords?: string[];
+  countryCode?: string;
+}
+
+/**
+ * The account default location only helps (proximity bias and the 300 km plausibility filter) when it is in the same country as
+ * the text's hint: a wrong default (Poland, Pennsylvania) would otherwise discard correct matches. No hint = used as before; a
+ * default whose country is unknown is not trusted against a hint.
+ */
+function proximityFor(defaultLocation: LocationDetails | undefined, hint: CountryHint): Coordinates | undefined {
+  const coordinates = defaultLocation?.coordinates;
+  if (!coordinates) return undefined;
+  if (!hint.code) return coordinates;
+  return defaultLocation?.countryCode?.toUpperCase() === hint.code ? coordinates : undefined;
+}
+
 export async function resolveAccountAndLocations(
   accountId: string,
   schedules: GeminiSchedulePayload[],
-  explicitTopLevelLocation: string | undefined
+  explicitTopLevelLocation: string | undefined,
+  options?: ResolveLocationsOptions
 ): Promise<{
   sourceSocialMediaAccountId: string;
   defaultLocation?: LocationDetails;
   resolvedScheduleLocations: Map<number, LocationDetails>;
+  /** How each geocoded schedule was resolved (see `LocationResolution`); absent for a schedule that was never looked up. */
+  resolvedScheduleResolutions: Map<number, LocationResolution>;
 }> {
   // 1. Look up profile
   const rows = await db
@@ -38,63 +82,109 @@ export async function resolveAccountAndLocations(
   const sourceSocialMediaAccountId = profile.accountId;
   const defaultLocation = profile.defaultLocation || undefined;
 
+  const env = options?.config ? undefined : loadBackendEnv();
+  const keywordGeocoding = options?.config?.keywordGeocoding ?? env!.keywordGeocodingEnabled;
+  const defaultCountryCode = options?.config ? options.config.defaultCountryCode : env!.defaultCountryCode;
+  // One memo for the request (shared across events when the caller passes its session), so a place used by many schedules, or
+  // by many events of one Apply, is looked up once. `null` outcomes are misses; failures are shared too, never retried per schedule.
+  const session = options?.session ?? createGeocodeSession();
+  // One log line per address that failed (not one per schedule), with the schedules it affected.
+  const failures = new Map<string, { indices: number[]; error: unknown }>();
+
+  const lookup = (query: GeolocationQuery): Promise<LocationDetails> =>
+    session.memo(buildLocationCacheKey(query), () => resolveLocationSeam(query, { beforeGeocode: () => session.spend() }));
+
+  const logFailure = (address: string, index: number, error: unknown) => {
+    if (error instanceof GeocodeBudgetExhaustedError) return; // already logged once by the session
+    const known = failures.get(address);
+    if (known) known.indices.push(index);
+    else failures.set(address, { indices: [index], error });
+  };
+
+  // The text is geocoded as one query: the account default's own address, and everything while the kill switch is off.
+  const resolveText = async (address: string, index: number): Promise<LocationDetails | undefined> => {
+    const proximity = defaultLocation?.coordinates;
+    try {
+      return await lookup({ kind: 'ADDRESS', address, ...(proximity ? { proximity } : {}) });
+    } catch (error) {
+      logFailure(address, index, error);
+      return undefined;
+    }
+  };
+
+  const resolveSource = async (
+    source: AddressSource,
+    index: number
+  ): Promise<{ details?: LocationDetails; resolution: LocationResolution; hint: CountryHint }> => {
+    const hint = resolveCountryHint({ stringCountryCode: source.countryCode, platformDefault: defaultCountryCode });
+    const keywords = normalizeLocationKeywords(source.keywords);
+    let steps: LocationLadderStep[] = keywords ? buildKeywordQueries(keywords) : buildFallbackLocationQueries(source.text, hint.code);
+    if (steps.length === 0) steps = [{ step: 'fb1', query: source.text }];
+    const proximity = proximityFor(defaultLocation, hint);
+    for (const attempt of planLocationLookups(steps, hint)) {
+      const query: GeolocationQuery = {
+        kind: 'ADDRESS',
+        address: attempt.query,
+        ...(attempt.countryFilter ? { countryFilter: attempt.countryFilter } : {}),
+        ...(proximity ? { proximity } : {}),
+      };
+      try {
+        return { details: await lookup(query), resolution: attempt.step, hint };
+      } catch (error) {
+        // "Not found" moves down the ladder; anything else (an outage, a spent budget) ends it: nothing was learned about the place.
+        if (error instanceof GeolocationNotFoundError) continue;
+        logFailure(attempt.query, index, error);
+        return { resolution: 'skipped', hint };
+      }
+    }
+    return { resolution: 'none', hint };
+  };
+
   // 2. Resolve schedule locations
   const resolvedScheduleLocations = new Map<number, LocationDetails>();
-  // One lookup per distinct address. Roundup posts put many dates on one venue, or on the event-level fallback (the model's
-  // "Berbagai lokasi di Kabupaten Sleman" for a flyer with a different place per date), and the schedules were geocoded one
-  // after the other, the same text 20 times: a re-extract Apply of that post outlasted the API Lambda's 28 s. `null` is a miss.
-  const lookups = new Map<string, Promise<LocationDetails | null>>();
-  const missedAddresses = new Map<string, { indices: number[]; error: unknown }>();
+  const resolvedScheduleResolutions = new Map<number, LocationResolution>();
+  const eventText = explicitTopLevelLocation?.trim() ?? '';
 
   for (let i = 0; i < schedules.length; i++) {
     const schedule = schedules[i];
-    const addressString =
-      schedule.location ||
-      explicitTopLevelLocation ||
-      (defaultLocation ? (defaultLocation.formattedAddress ?? defaultLocation.placeName) : undefined);
+    const ownText = schedule.location?.trim() ?? '';
+    const defaultAddress = defaultLocation ? (defaultLocation.formattedAddress ?? defaultLocation.placeName) : undefined;
 
-    if (addressString && addressString.trim() !== '') {
-      const addressKey = addressString.trim();
-      let lookup = lookups.get(addressKey);
-      if (!lookup) {
-        lookup = resolveLocationSeam({
-          kind: 'ADDRESS',
-          address: addressString,
-          // Bias Geoapify search toward the account's own country so a same-named venue
-          // abroad is not preferred over the local one. Gracefully no-ops (behaves like
-          // "no bias") when defaultLocation or its countryCode is absent (first-time
-          // resolution, or a cached defaultLocation predating this field) — AD-14.
-          countryBias: defaultLocation?.countryCode,
-          // And bias toward the account's own location: a market or a hall with a common name is, far more often than not, the
-          // one near the account that posted it (the venue name alone put "Pasar Porosjayan" in Palu).
-          ...(defaultLocation?.coordinates ? { proximity: defaultLocation.coordinates } : {})
-        }).catch((error: unknown) => {
-          // Do not fail the whole process, AC6 is best-effort enrichment
-          missedAddresses.set(addressKey, { indices: [], error });
-          return null;
-        });
-        lookups.set(addressKey, lookup);
-      }
-      const resolved = await lookup;
-      if (resolved) {
-        resolvedScheduleLocations.set(i, resolved);
-      } else {
-        missedAddresses.get(addressKey)?.indices.push(i);
-      }
+    let source: AddressSource | undefined;
+    if (ownText !== '') {
+      source = { text: ownText, keywords: schedule.locationKeywords, countryCode: schedule.locationCountryCode };
+    } else if (eventText !== '') {
+      source = { text: eventText, keywords: options?.event?.locationKeywords, countryCode: options?.event?.locationCountryCode };
+    }
+
+    if (source && keywordGeocoding) {
+      const outcome = await resolveSource(source, i);
+      if (outcome.details) resolvedScheduleLocations.set(i, outcome.details);
+      resolvedScheduleResolutions.set(i, outcome.resolution);
+      console.info(
+        `[resolveLocations] schedule=${i} step=${outcome.resolution} hint=${outcome.hint.code ?? 'none'}/${outcome.hint.source}`
+      );
+      continue;
+    }
+
+    // No text of its own, or the kill switch is off: the plain single-address lookup as before keywords existed. Nothing is
+    // recorded about how it was resolved (coordinates from the account default location carry no `location_resolution`).
+    const address = source?.text ?? (defaultAddress && defaultAddress.trim() !== '' ? defaultAddress.trim() : undefined);
+    if (address) {
+      const resolved = await resolveText(address, i);
+      if (resolved) resolvedScheduleLocations.set(i, resolved);
     }
   }
 
-  // One line per address that did not resolve (not one per schedule), with the schedules it affected.
-  for (const [address, { indices, error }] of missedAddresses) {
-    console.error(
-      `Best-effort resolveLocation failed for schedule index ${indices.join(', ')} with address "${address}":`,
-      error
-    );
+  for (const [address, { indices, error }] of failures) {
+    // Best-effort: a failed lookup never fails the post.
+    console.error(`Best-effort resolveLocation failed for schedule index ${indices.join(', ')} with address "${address}":`, error);
   }
 
   return {
     sourceSocialMediaAccountId,
     defaultLocation,
-    resolvedScheduleLocations
+    resolvedScheduleLocations,
+    resolvedScheduleResolutions,
   };
 }
