@@ -2986,7 +2986,7 @@ items:
      title: "Manual post selection runs as a job and shows on the Jobs page",
      ref: [backlog/IDEA-261102-tov-manual-post-selection-runs-as-a-job.md],
      touches: [app:backend, web:posts, cross:prd],
-     note: "Epic 10, Story 10.12a. Makes no vendor call, so it uses the engine's non-vendor lane (limit 2). Added at the product owner's request."}
+     note: "Epic 10, Story 10.12a. Stays open through automatic retries (26 h bound) as a WAITING job that holds no running place (decided 2026-11-11). Added at the product owner's request."}
 
   # ── 2026-11-02 (bmad-create-story, Story 10.1a carve-first) ──────────────────
   FIND-261102-83m:
