@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-10-31"
+last_updated: "2026-11-11"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -3045,3 +3045,12 @@ items:
      ref: [implementation-artifacts/deferred-work.md],
      touches: [app:backend],
      note: "Deferred from: bmad-quick-dev review of spec-location-keywords-extraction: corrections drop keywords, placeholder overwrites a real location (2026-11-10). 2 findings."}
+
+  IDEA-261111-5cc:
+    {type: idea, status: backlog, created: 2026-11-11,
+     impact: internal, effort: l,
+     title: "Per-field accuracy eval of event extraction against labelled posts (akurasi per bidang vs data berlabel), with a baseline and a noise band",
+     ref: [implementation-artifacts/spec-extraction-accuracy-eval.md, backlog/IDEA-261111-5cc-extraction-accuracy-eval-per-field.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction, cross:process],
+     note: "Raised after the location-keywords live A/B (2026-11-11) found a prompt rule collapsing a 7-branch post only through repeated live runs. Slice A (offline scorer, runner, baseline compare, workflow) is buildable without prod data or keys; slice B (labelled set, frozen images, first baseline) needs the maintainer. Related to IDEA-072 (AI-filter golden prompts) and AD-44 Rule 10 (live evals are never a CI gate)."}
+
