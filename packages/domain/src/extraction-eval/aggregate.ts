@@ -35,12 +35,14 @@ export function aggregateRuns(results: RunResult[]): Aggregate {
       missing: [],
       extras: [],
       runFields: [],
+      runIndexes: [],
     });
     if (r.outcome === 'truncated') post.truncatedRuns += 1;
     else if (r.outcome === 'unavailable') post.unavailableRuns += 1;
     else {
       post.okRuns += 1;
       post.runFields.push(r.score!.fields);
+      post.runIndexes.push(r.runIndex);
       if (r.score!.countMismatch) post.countMismatchRuns += 1;
       for (const m of r.score!.missing) {
         const tally = post.missing.find((t) => t.index === m.index);
@@ -61,11 +63,15 @@ export function aggregateRuns(results: RunResult[]): Aggregate {
     post.fields = perField((f) => mean(post.runFields.map((rf) => rf[f]).filter((v): v is number => v !== null))) as FieldScores;
   }
   const fields = perField((f) => mean(postList.map((p) => p.fields[f]).filter((v): v is number => v !== null))) as FieldScores;
+  // The noise of a field is how much its cross-post mean moves from one run to the next. Only posts that answered EVERY run
+  // index take part: if a post dropped out of some runs (truncated, 429) the mean's composition would change between runs,
+  // and that change would be counted as model noise and inflate the band.
+  const runIndexes = [...new Set(results.map((r) => r.runIndex))].sort((a, b) => a - b);
+  const completePosts = postList.filter((p) => runIndexes.every((i) => p.runIndexes.includes(i)));
   const fieldRunMeans = perField((f) => {
-    const maxRuns = Math.max(0, ...postList.map((p) => p.runFields.length));
     const out: number[] = [];
-    for (let i = 0; i < maxRuns; i += 1) {
-      const m = mean(postList.map((p) => p.runFields[i]?.[f]).filter((v): v is number => typeof v === 'number'));
+    for (const runIndex of runIndexes) {
+      const m = mean(completePosts.map((p) => p.runFields[p.runIndexes.indexOf(runIndex)]![f]).filter((v): v is number => v !== null));
       if (m !== null) out.push(m);
     }
     return out;
@@ -85,10 +91,16 @@ export function aggregateRuns(results: RunResult[]): Aggregate {
 
 export const DEFAULT_NOISE_FLOOR = 0.15;
 export const NOISE_BAND_SIGMAS = 2;
+/**
+ * Upper cap on the noise band (50 points). A field whose repeats swing that widely is unstable, not unmeasurable: the cap
+ * keeps a collapse of more than half the pass-rate flaggable. Without it a band above 100 points could never be exceeded,
+ * so a field with a noisy series was never checked at all.
+ */
+export const MAX_NOISE_BAND = 0.5;
 
-/** Noise band for a series of repeat scores: 2 standard deviations of the repeats, never below the floor. */
+/** Noise band for a series of repeat scores: 2 standard deviations of the repeats, within [floor, MAX_NOISE_BAND]; the floor wins. */
 export function noiseBand(repeats: number[], floor: number = DEFAULT_NOISE_FLOOR): number {
-  return Math.max(floor, NOISE_BAND_SIGMAS * sampleStdDev(repeats));
+  return Math.max(floor, Math.min(MAX_NOISE_BAND, NOISE_BAND_SIGMAS * sampleStdDev(repeats)));
 }
 
 export function buildBaseline(aggregate: Aggregate, meta: { model: string; promptHash: string; date: string; runs: number }): Baseline {

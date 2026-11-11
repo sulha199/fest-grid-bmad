@@ -25,6 +25,7 @@ function checkEvent(e: unknown, where: string, errors: string[]): void {
   if (!Array.isArray(e.schedules) || e.schedules.length === 0) errors.push(`${where}.schedules must be a non-empty array`);
   else e.schedules.forEach((s, i) => checkSchedule(s, `${where}.schedules[${i}]`, errors));
   for (const k of ['location', 'ticketPrice']) optionalString(e, k, where, errors);
+  if (typeof e.ticketPrice === 'string' && !/\d/.test(e.ticketPrice)) errors.push(`${where}.ticketPrice must contain a digit (use free: true for a free event, or leave it out when the price is unknown)`);
   if (e.free !== undefined && typeof e.free !== 'boolean') errors.push(`${where}.free must be a boolean`);
   optionalStrings(e, 'categories', where, errors);
   optionalStrings(e, 'performers', where, errors);

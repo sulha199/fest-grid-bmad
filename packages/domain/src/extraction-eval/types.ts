@@ -141,6 +141,8 @@ export interface PostAggregate {
   extras: ExtraEventTally[];
   /** Per-run field scores (answered runs only), in run order. Used for the noise band. */
   runFields: FieldScores[];
+  /** The real run index of each entry of `runFields`, so runs of different posts can be lined up. */
+  runIndexes: number[];
 }
 
 export interface Aggregate {

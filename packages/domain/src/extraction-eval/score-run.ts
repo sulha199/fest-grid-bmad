@@ -27,9 +27,12 @@ function isFree(price: string | undefined): boolean {
 
 function scoreTicket(labelled: LabelledEvent, model: ScorableEvent): number | undefined {
   const prices = (model.schedules ?? []).map((s) => s.ticketPrice);
-  if (labelled.free === true) return flag(prices.every(isFree));
+  // No schedule at all is not "free": there is nothing to compare, so it fails rather than passing vacuously.
+  if (labelled.free === true) return flag(prices.length > 0 && prices.every(isFree));
   if (labelled.ticketPrice === undefined) return undefined;
   const wanted = digitsOnly(labelled.ticketPrice);
+  // A label without a digit ("TBA") states no price to check; it is not scored (parseLabelledPost rejects it at load).
+  if (wanted === '') return undefined;
   return flag(prices.some((p) => digitsOnly(p) === wanted));
 }
 

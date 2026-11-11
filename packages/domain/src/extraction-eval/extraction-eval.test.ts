@@ -8,6 +8,7 @@ import {
   compareToBaseline,
   digitsOnly,
   locationMatches,
+  MAX_NOISE_BAND,
   matchEvents,
   nameMatches,
   noiseBand,
@@ -278,7 +279,8 @@ test('aggregate: truncated and unavailable runs never lower a pass-rate', () => 
   assert.equal(agg.fields.eventName, 0.75);
   assert.equal(agg.fields.performers, 1);
   assert.deepEqual(agg.totals, { ok: 3, truncated: 1, unavailable: 1, countMismatch: 1 });
-  assert.deepEqual(agg.fieldRunMeans.eventName, [1, 0]);
+  // Run indexes 0-3 exist but no post answered all four, so there is no series that is free of who-answered artefacts.
+  assert.deepEqual(agg.fieldRunMeans.eventName, []);
   const empty = aggregateRuns([{ postId: 'x', runIndex: 0, outcome: 'truncated' }]);
   assert.equal(empty.fields.eventName, null);
   assert.deepEqual(empty.fieldRunMeans.eventName, []);
@@ -290,7 +292,40 @@ test('noise band: spread of the repeats with a floor', () => {
   assert.ok(Math.abs(sampleStdDev([1, 1, 0]) - 0.57735) < 1e-4);
   assert.equal(noiseBand([1, 1, 1]), 0.15);
   assert.equal(noiseBand([1, 1, 1], 0.3), 0.3);
-  assert.ok(noiseBand([1, 0, 1]) > 1);
+  // Capped: 2 sd of [1, 0, 1] is 1.15, which no drop could exceed; the cap keeps a collapse of more than half flaggable.
+  assert.equal(noiseBand([1, 0, 1]), MAX_NOISE_BAND);
+  // A floor set above the cap still wins: the floor is the user's choice.
+  assert.equal(noiseBand([1, 0, 1], 0.6), 0.6);
+});
+
+test('noise band: posts that missed some runs do not inflate it, and runs line up by their real index', () => {
+  // A answers all three runs with ticket 1. B answers only run 0 (ticket 0), run 1 truncated, run 2 unavailable.
+  // Lined up by position the cross-post means would be [0.5, 1, 1], an artefact of who answered, not model noise.
+  const runs: RunResult[] = [
+    okRun('A', 0, {}), okRun('A', 1, {}), okRun('A', 2, {}),
+    okRun('B', 0, { ticket: 0 }), { postId: 'B', runIndex: 1, outcome: 'truncated' }, { postId: 'B', runIndex: 2, outcome: 'unavailable' },
+  ];
+  const agg = aggregateRuns(runs);
+  assert.deepEqual(agg.fieldRunMeans.ticket, [1, 1, 1]);
+  const base = baselineOf([okRun('A', 0, {})]);
+  assert.equal(compareToBaseline(agg, base).fields.find((f) => f.field === 'ticket')?.band, 0.15);
+  // Run 1 of post C is missing but its run 2 is not: run 2 is compared with run 2 of the other post, not with its own run 1.
+  const gap = aggregateRuns([okRun('D', 0, {}), okRun('D', 1, { ticket: 0 }), okRun('D', 2, {}), okRun('C', 0, {}), { postId: 'C', runIndex: 1, outcome: 'truncated' }, okRun('C', 2, {})]);
+  assert.deepEqual(gap.fieldRunMeans.ticket, [1, 0, 1]);
+  // No post answered every run: no series, so the band is the floor and the field is simply not flagged on noise.
+  const none = aggregateRuns([okRun('X', 0, {}), { postId: 'X', runIndex: 1, outcome: 'truncated' }, { postId: 'Y', runIndex: 0, outcome: 'truncated' }, okRun('Y', 1, {})]);
+  assert.deepEqual(none.fieldRunMeans.ticket, []);
+  // A field that does not apply to a post (null) is left out of that run's mean.
+  const na = aggregateRuns([okRun('N', 0, { endDate: null }), okRun('N', 1, { endDate: null }), okRun('M', 0, { endDate: 1 }), okRun('M', 1, { endDate: 0 })]);
+  assert.deepEqual(na.fieldRunMeans.endDate, [1, 0]);
+});
+
+test('ticket: a label without a price is not scored, a free label needs a schedule to be free', () => {
+  const tba: LabelledPost = { ...single, events: [{ eventName: 'Contoh Festival', ticketPrice: 'TBA', schedules: [{ eventStartDate: '2026-03-01' }] }] };
+  assert.equal(val(scoreRun(tba, { isEvent: true, events: [{ eventName: 'Contoh Festival', schedules: [sched('2026-03-01')] }] }), 'ticket'), null);
+  const free: LabelledPost = { ...single, events: [{ eventName: 'Gratis', free: true, schedules: [{ eventStartDate: '2026-03-01' }] }] };
+  assert.equal(val(scoreRun(free, { isEvent: true, events: [{ eventName: 'Gratis', schedules: [] }] }), 'ticket'), 0);
+  assert.equal(val(scoreRun(free, { isEvent: true, events: [{ eventName: 'Gratis' }] }), 'ticket'), 0);
 });
 
 const baselineOf = (runs: RunResult[]): Baseline => buildBaseline(aggregateRuns(runs), { model: 'm', promptHash: 'h', date: '2026-11-11', runs: 3 });
@@ -416,6 +451,10 @@ test('parseLabelledPost validates at load and names every problem', () => {
   assert.equal(parseLabelledPost(good, 'f.json').postId, 'ok_1');
   assert.equal(parseLabelledPost({ ...good, events: [] }, 'f.json').events.length, 0);
   assert.equal(parseLabelledPost({ ...good, events: [{ eventName: 'E', schedules: [{ eventStartDate: '2026-01-01', eventEndDate: '2026-01-02' }] }] }, 'f.json').events.length, 1);
+  assert.throws(
+    () => parseLabelledPost({ ...good, events: [{ eventName: 'E', ticketPrice: 'TBA', schedules: [{ eventStartDate: '2026-01-01' }] }] }, 'f.json'),
+    /events\[0\]\.ticketPrice must contain a digit/
+  );
   assert.throws(() => parseLabelledPost([], 'f.json'), /f\.json: label must be a JSON object/);
   assert.throws(() => parseLabelledPost({}, 'f.json'), /postId.*caption.*images.*publishedAt.*events/);
   assert.throws(() => parseLabelledPost({ ...good, images: ['../x.png'], publishedAt: 'nope', ownerUsername: 1, groupingReason: 2 }, 'f'), /plain file names.*ISO.*ownerUsername.*groupingReason/);

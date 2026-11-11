@@ -50,7 +50,7 @@ export function buildReport(aggregate: Aggregate, meta: ReportMeta, baseline: Ba
   }
   lines.push('', '### Outcomes', '');
   const t = aggregate.totals;
-  lines.push(`Scored runs: ${t.ok}. Truncated (cut-off or unparseable, not scored): ${t.truncated}. Unavailable (429/503 after the retry cap, not scored): ${t.unavailable}. Runs with count_mismatch: ${t.countMismatch}.`, '');
+  lines.push(`Scored runs: ${t.ok}. Truncated (cut-off or unparseable, not scored): ${t.truncated}. Unavailable (no answer: 429/503 after the retry cap, a spent quota, or images that could not be sent; not scored): ${t.unavailable}. Runs with count_mismatch: ${t.countMismatch}.`, '');
   const flaggedPosts = Object.entries(aggregate.posts).filter(([, p]) => p.truncatedRuns + p.unavailableRuns + p.countMismatchRuns + p.missing.length + p.extras.length > 0);
   for (const [id, p] of flaggedPosts) {
     const parts = [
