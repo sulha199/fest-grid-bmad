@@ -3,7 +3,7 @@ title: 'Location keywords, slice 2a: keyword geocoding ladder, country hint and 
 type: 'feature'
 created: '2026-11-10'
 revised: '2026-11-11'
-status: 'draft'
+status: 'in-progress'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/project-context.md'
@@ -24,7 +24,7 @@ context:
 
 **Decided (2026-11-11, user):** replace the soft `countryBias` with the hard `countryFilter` (no both); ship with the `KEYWORD_GEOCODING_ENABLED` kill switch, default on; Apply budget 12 uncached calls; store the resolving step in `schedules.location_resolution`; country hint = string/consensus code, then platform default (account history deferred); the account default location is used only when its country equals the hint's country, which changes PR #202's behavior for accounts with a wrong default.
 
-**Ask First:** Adding account history as a country source (most common country of the account's geocoded events, at least 3 events and 60 %), if the platform default proves wrong too often in a new market. Changing the Apply budget after measuring real Apply timings.
+**Ask First:** Adding account history or subscriber origin as a country source (most common country of the account's confidently geocoded events, else the country most of its subscribers come from), if the platform default proves wrong too often in a new market; tracked as IDEA-261111-avw (smarter default-country derivation). Changing the Apply budget after measuring real Apply timings.
 
 **Never:** No change to the map link, `LocationLink`, UI or UX docs (slice 2b). No GraphQL exposure of `location_resolution`. No removal of `confidence`/`matchType` from GraphQL or the mapper (Story 0.i7z AC 4 tests cite them). No backfill of existing events. No new geocoding vendor. No change to distance calculation or timezone resolution. No region derived from the account default and appended to a query. No hard-coded country in code or tests (tests use the configured default).
 
@@ -86,6 +86,7 @@ context:
 - 2026-11-11 (revised after the POC): hard country filter instead of soft bias (the soft bias changed no result), `countryCode` from slice 1, code-cleaned fallback ladder, no confidence floor, default-country rule for the account default.
 - 2026-11-11 (country hint, user decision): no hard-coded country. Hint = the model's code for the string (or the post's consensus, filled in slice 1), else the platform default `DEFAULT_COUNTRY_CODE`. Account history deferred; `SubscribedAccountCard` gate kept (2b).
 - 2026-11-11 (user decision): store which ladder step resolved a schedule in `schedules.location_resolution` (internal, not exposed).
+- 2026-11-11 (approved by the user at Checkpoint 1; the smarter country derivation, from the account's confident events or its subscribers' country, is backlog IDEA-261111-avw and not part of this slice).
 - 2026-11-11 (Checkpoint 1 walkthrough, user decisions): split into 2a (this spec: backend) and 2b (`spec-location-keywords-map-link.md`: link and UI); replace `countryBias` with `countryFilter` instead of keeping both; add the `KEYWORD_GEOCODING_ENABLED` kill switch (default on); Apply budget 12 uncached calls.
 
 ## Design Notes
