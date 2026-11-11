@@ -40,9 +40,20 @@ change that breaks the output visible, the baseline stores the **truncated rate*
 and the report flags a rise beyond the noise floor. A run with no scorable answer at all says "No field had data" instead of
 "nothing dropped".
 
-What the eval does not send: production passes `blurFacesBeforeAi` to the request builder when that setting is on, and the eval
-does not, so it sends the labelled images unblurred. Face blurring can change what the model reads on a poster, so a result here
-can differ slightly from production on a post with faces.
+### Image blurring
+
+The eval mirrors production's default (AD-28: faces are blurred before an image goes to the model). It follows the same switch,
+`BLUR_FACES_BEFORE_AI` (on unless set to false), and passes `blurFacesBeforeAi` to the request builder exactly as the pipeline
+does, so the model reads the same pixels as in production and a labelled photo of a real person is never sent unblurred.
+
+- **Owner opt-in is not simulated.** Production looks it up in the database (`resolvePostPublisherOptIn`); the eval never opens a
+  database, so every post is treated like one from an account that has **not** opted in, which is production's default and the
+  stricter side.
+- **It fails closed.** An image the blur cannot process is not sent. The post then makes no call and is reported `unavailable`
+  (the same rule as an unreadable image), never scored on a text-only request.
+- The blur runs in-process (a WASM face detector and `sharp`): no database and no AWS are needed.
+- **The synthetic set has no faces** (blank placeholder images), so on it the blur finds nothing and changes nothing. It matters
+  for the real labelled set (slice B).
 
 ## Reading the report
 
@@ -111,6 +122,7 @@ location 67 %, ticket 83 %, performers 75 %, endDate n/a; 10 scored runs, 1 trun
 | `EXTRACTION_EVAL_MIN_INTERVAL_MS` | env | Pause between live calls, default 5000 (the system key returns 429 when called quickly) | Optional |
 | `GEMINI_MODEL` | env | Model for the live run; default `gemini-3.5-flash-lite` (see below) | Optional |
 | `GEMINI_MAX_OUTPUT_TOKENS` | env | Read by the production request builder, default 8192; set it like production when comparing | Optional |
+| `BLUR_FACES_BEFORE_AI` | env | The production switch for blurring faces before the model sees an image; the eval follows it (on unless `false`) | Optional |
 | `EXTRACTION_EVAL_S3_URI` | workflow secret | `s3://bucket/prefix` of the private labelled set | Live path in CI only |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | workflow secrets | Read access to that store | Live path in CI only |
 | `GITHUB_STEP_SUMMARY` | set by GitHub Actions | The runner appends the report there | Automatic |

@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { RecordedOutputs, RecordedRun } from '@festgrid/domain/extraction-eval';
+import { detectAndBlurFacesSeam, setDetectAndBlurFacesSeam } from '../ai-processor/detect-and-blur-faces.js';
 import { EVAL_MAX_ATTEMPTS } from './eval-retry-policy.js';
 import { hashPrompt, liveExitCode, loadLabelledPosts, parseLikePipeline, readJsonFile, recordLive, serveImages, type CallGemini, type RecordLiveOptions } from './extraction-eval-run.js';
 
@@ -12,6 +13,7 @@ import { hashPrompt, liveExitCode, loadLabelledPosts, parseLikePipeline, readJso
  * stub in place of the gateway client (the script passes the real one), and the sleeping and the clock are injected.
  */
 const FIXTURES = resolve(__dirname, '../../../scripts/fixtures/extraction-eval-synthetic');
+const originalBlurSeam = detectAndBlurFacesSeam;
 
 const workDirs: string[] = [];
 function tempDir(): string {
@@ -21,6 +23,7 @@ function tempDir(): string {
 }
 
 test.after(() => {
+  setDetectAndBlurFacesSeam(originalBlurSeam);
   for (const dir of workDirs) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -47,8 +50,11 @@ function makeSet(posts: Record<string, string[]>): string {
 
 const answer = (text = '{"events":[]}', finishReason = 'STOP') => ({ text, finishReason });
 const noRetryWait = { sleep: async () => {}, now: () => 0, log: () => {} };
-/** Options for a run with no waiting; `callGemini` is the stub under test. */
-const opts = (callGemini: CallGemini, over: Partial<RecordLiveOptions> = {}): RecordLiveOptions => ({ ...noRetryWait, intervalMs: 0, recordPath: join(tempDir(), 'rec.json'), callGemini, ...over });
+/**
+ * Options for a run with no waiting; `callGemini` is the stub under test. Blurring is off unless a test turns it on: it would load
+ * the real face detector, and the tests below that do want it stub the detector.
+ */
+const opts = (callGemini: CallGemini, over: Partial<RecordLiveOptions> = {}): RecordLiveOptions => ({ ...noRetryWait, intervalMs: 0, recordPath: join(tempDir(), 'rec.json'), callGemini, blurFaces: false, ...over });
 
 test('readJsonFile: a malformed file fails with its name and never quotes its content', () => {
   const file = join(tempDir(), 'label.json');
@@ -227,6 +233,66 @@ test('recordLive: a spent daily quota stops the run: the rest is unavailable wit
   assert.equal(calls, 1);
   assert.equal(recorded.runs.length, 4);
   assert.ok(recorded.runs.every((r) => r.unavailable === true));
+});
+
+// Image blurring (AD-28): the eval mirrors production's default, so labelled photos of real people are blurred before the model sees them.
+const stubBlur = (): { calls: Array<{ bytes: number; contentType: string }> } => {
+  const seen: Array<{ bytes: number; contentType: string }> = [];
+  setDetectAndBlurFacesSeam(async (buffer, contentType) => {
+    seen.push({ bytes: buffer.byteLength, contentType });
+    return { buffer, faceCount: 0 };
+  });
+  return { calls: seen };
+};
+
+test('recordLive: blurring on sends every image (cover and slides) through the face detector before the model', async () => {
+  const dir = makeSet({ p: ['cover.png', 'slide.png'] });
+  const blur = stubBlur();
+  let calls = 0;
+  const recorded = await recordLive(loadLabelledPosts(dir, undefined), 2, 'fake-key', opts(async () => (calls += 1, answer()), { blurFaces: true }));
+  assert.equal(calls, 2);
+  assert.equal(recorded.runs.every((r) => r.unavailable === undefined), true);
+  // Blurred once per image per request, in order; the request is built once per post, so 2 images, not 2 x runs.
+  assert.deepEqual(blur.calls.map((c) => c.contentType), ['image/png', 'image/png']);
+  assert.ok(blur.calls.every((c) => c.bytes > 0));
+});
+
+test('recordLive: blurring off never touches the face detector', async () => {
+  const dir = makeSet({ p: ['cover.png', 'slide.png'] });
+  const blur = stubBlur();
+  await recordLive(loadLabelledPosts(dir, undefined), 1, 'fake-key', opts(async () => answer(), { blurFaces: false }));
+  assert.deepEqual(blur.calls, []);
+});
+
+test('recordLive: with no explicit choice, blurring follows the production switch BLUR_FACES_BEFORE_AI (on unless false)', async (t) => {
+  const dir = makeSet({ p: ['cover.png'] });
+  const blur = stubBlur();
+  const before = process.env.BLUR_FACES_BEFORE_AI;
+  t.after(() => {
+    if (before === undefined) delete process.env.BLUR_FACES_BEFORE_AI;
+    else process.env.BLUR_FACES_BEFORE_AI = before;
+  });
+  // No `blurFaces` key at all: the library falls back to the production switch.
+  const withoutChoice: RecordLiveOptions = { ...noRetryWait, intervalMs: 0, recordPath: join(tempDir(), 'rec.json'), callGemini: async () => answer() };
+  process.env.BLUR_FACES_BEFORE_AI = 'false';
+  await recordLive(loadLabelledPosts(dir, undefined), 1, 'fake-key', withoutChoice);
+  assert.equal(blur.calls.length, 0, 'switch off: no blur');
+  delete process.env.BLUR_FACES_BEFORE_AI;
+  await recordLive(loadLabelledPosts(dir, undefined), 1, 'fake-key', withoutChoice);
+  assert.equal(blur.calls.length, 1, 'switch unset (the default is on): blur');
+});
+
+test('recordLive: an image the blur fails on is never sent unblurred; the post is unavailable and no call is made', async () => {
+  const dir = makeSet({ p: ['cover.png'] });
+  setDetectAndBlurFacesSeam(async () => {
+    throw new Error('face detector crashed');
+  });
+  let calls = 0;
+  const logs: string[] = [];
+  const recorded = await recordLive(loadLabelledPosts(dir, undefined), 2, 'fake-key', opts(async () => (calls += 1, answer()), { blurFaces: true, log: (l) => void logs.push(l) }));
+  assert.equal(calls, 0);
+  assert.deepEqual(recorded.runs.map((r) => r.unavailable), [true, true]);
+  assert.ok(logs.some((l) => /only 0 of 1 image\(s\) could be sent/.test(l)));
 });
 
 test('recordLive: a hard error keeps what was answered, names the file, and is rethrown', async (t) => {

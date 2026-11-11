@@ -120,6 +120,13 @@ export interface RecordLiveOptions {
   intervalMs: number;
   /** The production gateway client's generate call, passed in by the script (see the header). */
   callGemini: CallGemini;
+  /**
+   * Blur faces before the images go to the model, as production does (AD-28). Default: the same switch production reads,
+   * `BLUR_FACES_BEFORE_AI`, which is on unless set to false. Owner opt-in is not simulated: production looks it up in the
+   * database, the eval never opens one, so every post is treated like one from an account that has NOT opted in (production's
+   * default, and the stricter side). The blur is in-process (a WASM detector and sharp); it needs no database and no AWS.
+   */
+  blurFaces?: boolean;
   /** Test seams; the defaults are the real clock and `setTimeout`. */
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
@@ -138,7 +145,9 @@ export async function recordLive(posts: LoadedPost[], runs: number, apiKey: stri
   prepareEvalEnv();
   const { buildGeminiExtractionRequest } = await import('../ai-processor/build-gemini-request.js');
   const { loadBackendEnv } = await import('../../env.js');
-  const model = loadBackendEnv().geminiModel;
+  const env = loadBackendEnv();
+  const model = env.geminiModel;
+  const blurFaces = options.blurFaces ?? env.blurFacesBeforeAi;
 
   const recorded: RecordedRun[] = [];
   let promptHash = '';
@@ -168,14 +177,19 @@ export async function recordLive(posts: LoadedPost[], runs: number, apiKey: stri
             publishedAt: post.publishedAt,
             ...(post.ownerUsername ? { ownerUsername: post.ownerUsername } : {}),
           },
-          // Like the pipeline (process-extraction-step.ts): send every labelled slide, not only the env default.
-          { maxCarouselImages: slides.length }
+          // Like the pipeline (process-extraction-step.ts): send every labelled slide, not only the env default, and blur
+          // faces when the switch is on. The blur fails closed: an image it cannot blur is not sent, which the check below
+          // turns into an unavailable post, so an unblurred photo never reaches the model through the eval.
+          {
+            maxCarouselImages: slides.length,
+            ...(blurFaces ? { blurFacesBeforeAi: { isOwnerOptedIn: false, getRemainingTimeInMillis: () => Number.POSITIVE_INFINITY } } : {}),
+          }
         );
         promptHash ||= hashPrompt(String(built.request.systemInstruction ?? ''), built.request.responseSchema);
         // The builder swallows a failed image fetch and falls back to a text-only request. Scoring that would book a harness fault as
         // a wrong extraction, so a post whose images were not all sent makes no call and counts as unavailable.
         if (built.imagesSent !== post.images.length) {
-          log(`${post.postId}: only ${built.imagesSent} of ${post.images.length} image(s) could be sent to the model (unreadable or unsupported file?); no calls made for this post, its runs are unavailable`);
+          log(`${post.postId}: only ${built.imagesSent} of ${post.images.length} image(s) could be sent to the model (unreadable, unsupported or not blurrable file?); no calls made for this post, its runs are unavailable`);
           for (let runIndex = 0; runIndex < runs; runIndex += 1) recorded.push({ postId: post.postId, runIndex, unavailable: true });
           save();
           continue;
