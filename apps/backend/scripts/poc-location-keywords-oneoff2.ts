@@ -1,3 +1,5 @@
+// NOTE (slice 2a): `countryBias` was removed from geocodeAddress (the soft bias changed no result, which is what this POC measured), so the
+// calls below pass the proximity point only; the numbers recorded in the spec were measured before that removal.
 // One-off POC pass 2, local only (never committed). Strategies, all through the real Geoapify client (no cache, no DB):
 //   A0  production today: text + bias/filter from the PRIMARY account's default location (when it has one)
 //   T0  text only, no bias at all
@@ -25,7 +27,7 @@ async function resolve(query: string, countryBias: string | undefined, near: Reg
       const proximity = near ? { latitude: near.lat, longitude: near.lng } : undefined;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          const candidates = await geocodeAddress(query, { countryBias, proximity });
+          const candidates = await geocodeAddress(query, { proximity });
           const plausible = filterPlausibleCandidates(candidates, proximity);
           if (plausible.length === 0) return null;
           const best = selectBestCandidate(plausible);

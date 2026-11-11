@@ -1,3 +1,5 @@
+// NOTE (slice 2a): `countryBias` was removed from geocodeAddress (the soft bias changed no result, which is what this POC measured), so the
+// calls below pass the proximity point only; the numbers recorded in the spec were measured before that removal.
 // One-off POC, local only (never committed): compares four ways of building the Geoapify query for a schedule/event location,
 // on a sample of REAL locations pulled from the public prod API. No database access, no cache, no writes.
 //   S0  today's production logic (text, bias from the PRIMARY account's default location only)
@@ -37,7 +39,7 @@ async function resolve(query: string, ctx: Region | null): Promise<Resolved | nu
       geoCalls++;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          const candidates = await geocodeAddress(query, { countryBias: ctx?.countryCode ?? undefined, proximity: near });
+          const candidates = await geocodeAddress(query, { proximity: near });
           const plausible = filterPlausibleCandidates(candidates, near);
           if (plausible.length === 0) return null;
           const best = selectBestCandidate(plausible);
