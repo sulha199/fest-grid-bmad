@@ -103,11 +103,10 @@ function toSchedule(event: NonNullable<GetEventBySlugQuery['eventBySlug']>) {
   return mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k).schedules[0];
 }
 
-// Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 3 consumer: this mapper is the
-// event-detail map-link gate. Story 1.6e moves the confidence-gating logic itself into
-// `LocationLink` (Story 1.6d, see `packages/ui/src/core/LocationLink.test.tsx` for the
-// confidence-boundary cases); this mapper's own responsibility is now just an unchanged
-// passthrough of `locationDetails` onto `ScheduleDetail`, proved below.
+// Story 0.i7z ratchet (reversed by location keywords slice 2b) — the map link is no longer
+// confidence-gated (see `packages/ui/src/core/LocationLink.test.tsx`: always a text search).
+// This mapper just passes `locationDetails` (still used for distance) and `locationKeywords`
+// (the map-search query) onto `ScheduleDetail`, proved below.
 describe('mapGraphQLEventToDetailViewProps locationDetails passthrough (Story 1.6e)', () => {
   it('passes locationDetails through onto ScheduleDetail.locationDetails unchanged', () => {
     const locationDetails = {
@@ -121,6 +120,16 @@ describe('mapGraphQLEventToDetailViewProps locationDetails passthrough (Story 1.
     };
     const event = buildEvent({ locationDetails });
     expect(toSchedule(event).locationDetails).toEqual(locationDetails);
+  });
+
+  it('carries schedule and event locationKeywords, null when absent', () => {
+    const event = { ...buildEvent({ locationKeywords: ['A', 'B'] }), locationKeywords: ['X', 'Y'] };
+    const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
+    expect(props.schedules[0].locationKeywords).toEqual(['A', 'B']);
+    expect(props.locationKeywords).toEqual(['X', 'Y']);
+    const bare = mapGraphQLEventToDetailViewProps(buildEvent({}), LABELS, 'en', (k) => k, (k) => k);
+    expect(bare.schedules[0].locationKeywords).toBeNull();
+    expect(bare.locationKeywords).toBeNull();
   });
 
   it('passes through a null locationDetails as null (no locationDetails resolved for this schedule)', () => {
@@ -235,6 +244,7 @@ describe('mapGraphQLEventToDetailViewProps accountLocation derivation (Story 0.i
           coordinates: { lat: 41.8758, lng: -87.6245 },
           placeName: 'The Grand Hall',
           formattedAddress: '1 Main St',
+          city: 'Yogyakarta',
           confidence: 0.9,
           matchType: 'full_match',
         },
@@ -243,6 +253,7 @@ describe('mapGraphQLEventToDetailViewProps accountLocation derivation (Story 0.i
     const props = mapGraphQLEventToDetailViewProps(event, LABELS, 'en', (k) => k, (k) => k);
     expect(props.accountLocation).toEqual({
       name: 'The Grand Hall',
+      city: 'Yogyakarta',
       coordinates: { lat: 41.8758, lng: -87.6245 },
       confidence: 0.9,
       matchType: 'full_match',
