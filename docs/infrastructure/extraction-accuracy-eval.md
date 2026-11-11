@@ -84,6 +84,10 @@ labels). Real labelled sets belong in a private store; the workflow fetches one 
 credentials are configured, keeps it in the runner's temp directory, and never uploads images or captions as artifacts: the
 report in the job summary holds scores and post ids only. The recorded raw answers of a real run are likewise kept out of the repo.
 
+A live run rewrites its recording after every answered call. On a hard error (a bad key, a 400) it keeps what was recorded, prints
+the file name and exits 1; score the partial file with `--replay`. The default recording `./extraction-eval-recorded.json` is
+git-ignored.
+
 ## CI
 
 `.github/workflows/extraction-accuracy-eval.yml`: path-filtered `pull_request` (prompt, schema, gateway, normalizers, the eval

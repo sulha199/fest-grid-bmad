@@ -12,7 +12,8 @@
  * lives in this public repo: the repo only ever holds the synthetic set (see the docs page).
  *
  * Live calls go through the production request builder and gateway client, one at a time, paced (default 5 s),
- * with growing retries on 429/503. Raw answers are recorded to --record (default ./extraction-eval-recorded.json).
+ * with growing retries on 429/503. Raw answers are recorded to --record (default ./extraction-eval-recorded.json), rewritten
+ * after every run; on a hard error (bad key, a 400) the partial recording is kept, the message names the file, and the exit is 1.
  * Never a CI gate: the exit code is 0 for any score, non-zero only when the eval itself cannot run (bad args, bad labels).
  * With no key or no labelled dir the live path prints why and exits 0.
  *
@@ -94,7 +95,13 @@ function serveImages(folder: string): Promise<{ server: Server; base: string }> 
   });
 }
 
-async function recordLive(posts: Array<{ post: LabelledPost; folder: string }>, runs: number, apiKey: string, intervalMs: number): Promise<RecordedOutputs> {
+async function recordLive(
+  posts: Array<{ post: LabelledPost; folder: string }>,
+  runs: number,
+  apiKey: string,
+  intervalMs: number,
+  recordPath: string
+): Promise<RecordedOutputs> {
   process.env.BACKEND_PORT ??= '4001';
   // gemini-client -> guarded-call -> db/client throws at import without a URL; this eval never queries (see the golden-prompt eval).
   process.env.DATABASE_URL ??= 'postgresql://unused:unused@127.0.0.1:5432/unused';
@@ -105,62 +112,76 @@ async function recordLive(posts: Array<{ post: LabelledPost; folder: string }>, 
 
   const recorded: RecordedRun[] = [];
   let promptHash = '';
-  let lastCallAt = 0;
-  let stopped = false;
-  for (const { post, folder } of posts) {
-    const { server, base } = await serveImages(folder);
-    try {
-      const [cover, ...slides] = post.images.map((i) => `${base}/${encodeURIComponent(i)}`);
-      const built = await buildGeminiExtractionRequest({
-        postId: post.postId,
-        accountId: 'eval',
-        content: post.caption,
-        ...(cover ? { imageUrl: cover } : {}),
-        ...(slides.length > 0 ? { additionalImageUrls: slides } : {}),
-        postUrl: `https://example.invalid/${post.postId}`,
-        publishedAt: post.publishedAt,
-        ...(post.ownerUsername ? { ownerUsername: post.ownerUsername } : {}),
-      },
-      // Like the pipeline (process-extraction-step.ts): send every labelled slide, not only the env default.
-      { maxCarouselImages: slides.length });
-      promptHash ||= createHash('sha256').update(String(built.request.systemInstruction ?? '')).update(JSON.stringify(built.request.responseSchema ?? {})).digest('hex').slice(0, 12);
-      for (let runIndex = 0; runIndex < runs; runIndex += 1) {
-        if (stopped) {
-          recorded.push({ postId: post.postId, runIndex, unavailable: true });
-          continue;
-        }
-        let entry: RecordedRun | undefined;
-        for (let attempt = 1; entry === undefined; attempt += 1) {
-          const wait = lastCallAt + intervalMs - Date.now();
-          if (wait > 0) await sleep(wait);
-          lastCallAt = Date.now();
-          try {
-            const result = await callGeminiGenerateContent(apiKey, built.request);
-            entry = { postId: post.postId, runIndex, text: result.text, ...(result.finishReason ? { finishReason: result.finishReason } : {}) };
-          } catch (err) {
-            const message = String((err as Error)?.message);
-            const situation = classifyGeminiMessage(message).situation;
-            const transient = situation === 'rate_limited' || situation === 'unavailable' || situation === 'quota_exhausted_daily';
-            if (!transient) throw err;
-            const delay = situation === 'quota_exhausted_daily' ? undefined : nextEvalRetryDelayMs(message, attempt);
-            if (delay === undefined) {
-              if (situation === 'quota_exhausted_daily') stopped = true;
-              entry = { postId: post.postId, runIndex, unavailable: true };
-              console.log(`${post.postId} run ${runIndex}: unavailable (${situation}) after ${attempt} attempt(s)`);
-            } else {
-              console.log(`${post.postId} run ${runIndex}: ${situation}, retry ${attempt} in ${Math.round(delay / 1000)}s`);
-              await sleep(delay);
+  const snapshot = (): RecordedOutputs => ({ model, promptHash: promptHash || 'unknown', recordedAt: new Date().toISOString(), runs: recorded });
+  // Paid calls must not be lost: the recording is rewritten after every run, so an abort keeps everything answered so far.
+  const save = (): void => writeFileSync(recordPath, `${JSON.stringify(snapshot(), null, 2)}\n`);
+  try {
+    let lastCallAt = 0;
+    let stopped = false;
+    for (const { post, folder } of posts) {
+      const { server, base } = await serveImages(folder);
+      try {
+        const [cover, ...slides] = post.images.map((i) => `${base}/${encodeURIComponent(i)}`);
+        const built = await buildGeminiExtractionRequest({
+          postId: post.postId,
+          accountId: 'eval',
+          content: post.caption,
+          ...(cover ? { imageUrl: cover } : {}),
+          ...(slides.length > 0 ? { additionalImageUrls: slides } : {}),
+          postUrl: `https://example.invalid/${post.postId}`,
+          publishedAt: post.publishedAt,
+          ...(post.ownerUsername ? { ownerUsername: post.ownerUsername } : {}),
+        },
+        // Like the pipeline (process-extraction-step.ts): send every labelled slide, not only the env default.
+        { maxCarouselImages: slides.length });
+        promptHash ||= createHash('sha256').update(String(built.request.systemInstruction ?? '')).update(JSON.stringify(built.request.responseSchema ?? {})).digest('hex').slice(0, 12);
+        for (let runIndex = 0; runIndex < runs; runIndex += 1) {
+          if (stopped) {
+            recorded.push({ postId: post.postId, runIndex, unavailable: true });
+            continue;
+          }
+          let entry: RecordedRun | undefined;
+          for (let attempt = 1; entry === undefined; attempt += 1) {
+            const wait = lastCallAt + intervalMs - Date.now();
+            if (wait > 0) await sleep(wait);
+            lastCallAt = Date.now();
+            try {
+              const result = await callGeminiGenerateContent(apiKey, built.request);
+              entry = { postId: post.postId, runIndex, text: result.text, ...(result.finishReason ? { finishReason: result.finishReason } : {}) };
+            } catch (err) {
+              const message = String((err as Error)?.message);
+              const situation = classifyGeminiMessage(message).situation;
+              const transient = situation === 'rate_limited' || situation === 'unavailable' || situation === 'quota_exhausted_daily';
+              if (!transient) throw err;
+              const delay = situation === 'quota_exhausted_daily' ? undefined : nextEvalRetryDelayMs(message, attempt);
+              if (delay === undefined) {
+                if (situation === 'quota_exhausted_daily') stopped = true;
+                entry = { postId: post.postId, runIndex, unavailable: true };
+                console.log(`${post.postId} run ${runIndex}: unavailable (${situation}) after ${attempt} attempt(s)`);
+              } else {
+                console.log(`${post.postId} run ${runIndex}: ${situation}, retry ${attempt} in ${Math.round(delay / 1000)}s`);
+                await sleep(delay);
+              }
             }
           }
+          recorded.push(entry);
+          save();
+          console.log(`${post.postId} run ${runIndex + 1}/${runs}: ${entry.unavailable ? 'unavailable' : (entry.finishReason ?? 'answered')}`);
         }
-        recorded.push(entry);
-        console.log(`${post.postId} run ${runIndex + 1}/${runs}: ${entry.unavailable ? 'unavailable' : (entry.finishReason ?? 'answered')}`);
+      } finally {
+        server.close();
       }
-    } finally {
-      server.close();
     }
+  } catch (err) {
+    // Hard error (bad key, a 400, an unreadable image): keep what was answered, then fail so the run is not mistaken for a pass.
+    if (recorded.length > 0) {
+      save();
+      console.error(`Aborted after ${recorded.length} recorded run(s); partial recording saved to ${recordPath} (score it with --replay).`);
+    }
+    throw err;
   }
-  return { model, promptHash: promptHash || 'unknown', recordedAt: new Date().toISOString(), runs: recorded };
+  save();
+  return snapshot();
 }
 
 async function main(): Promise<void> {
@@ -204,9 +225,8 @@ async function main(): Promise<void> {
       return;
     }
     const intervalMs = Number(values['interval-ms'] ?? process.env.EXTRACTION_EVAL_MIN_INTERVAL_MS ?? 5000);
-    recorded = await recordLive(posts, runs, apiKey, intervalMs);
     const recordPath = values.record ?? 'extraction-eval-recorded.json';
-    writeFileSync(recordPath, `${JSON.stringify(recorded, null, 2)}\n`);
+    recorded = await recordLive(posts, runs, apiKey, intervalMs, recordPath);
     console.log(`Recorded raw answers to ${recordPath}`);
   }
 
