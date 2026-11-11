@@ -1,4 +1,5 @@
 import { sweepStaleManualExtractionRetention } from '../extraction/sweep-stale-manual-extraction-jobs.js';
+import { collectLateVendorResults } from './late-results.js';
 import { sweepExpiredEngineJobs } from './sweep-expired-jobs.js';
 import {
   expireQueuedJobsWaitedTooLong,
@@ -23,6 +24,7 @@ export interface JobEngineSweepSteps {
   readmitWaitingJobs: () => Promise<number>;
   promoteQueuedJobs: () => Promise<number>;
   reinvokeStranded: () => Promise<number>;
+  collectLateResults: () => Promise<number>;
   retention: () => Promise<void>;
 }
 
@@ -33,6 +35,7 @@ const defaultSteps: JobEngineSweepSteps = {
   readmitWaitingJobs: () => readmitDueWaitingJobs(),
   promoteQueuedJobs: () => promoteOwnersWithQueuedJobs(),
   reinvokeStranded: () => reinvokeStrandedAdmittedJobs(),
+  collectLateResults: () => collectLateVendorResults(),
   retention: () => sweepStaleManualExtractionRetention(),
 };
 
@@ -45,6 +48,7 @@ export async function runJobEngineSweep(steps: JobEngineSweepSteps = defaultStep
     ['re-admitting waiting jobs', steps.readmitWaitingJobs, 're-admitted {n} waiting job(s)'],
     ['promoting queued jobs', steps.promoteQueuedJobs, 'promoted {n} queued job(s)'],
     ['re-invoking stranded jobs', steps.reinvokeStranded, 're-invoked {n} admitted job(s) nobody was running'],
+    ['collecting late vendor results', steps.collectLateResults, 'collected {n} late vendor result(s)'],
   ];
   for (const [label, step, message] of counted) {
     try {

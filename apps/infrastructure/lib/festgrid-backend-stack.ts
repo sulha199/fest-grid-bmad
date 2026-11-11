@@ -449,6 +449,8 @@ export class FestgridBackendStack extends cdk.Stack {
         // Story 10.2: the post-scraper provider order (default brightdata,apify, owner decision 2026-11-11, PRD OI-1). The chain
         // runs in the Scraper Lambda, which holds both vendor tokens.
         POST_SCRAPER_PROVIDER_ORDER: process.env.POST_SCRAPER_PROVIDER_ORDER,
+        // Story 10.5: how long the sweep waits for a Bright Data snapshot still running (default 480 minutes in env.ts).
+        BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES: process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
         GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
         SYSTEM_GEMINI_API_KEY: systemGeminiApiKeySecret.secretValue.unsafeUnwrap(),

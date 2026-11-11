@@ -1237,3 +1237,23 @@ test('FestgridBackendStack: POST_SCRAPER_PROVIDER_ORDER is passed to the Scraper
     else process.env.POST_SCRAPER_PROVIDER_ORDER = saved;
   }
 });
+
+// Story 10.5: the snapshot wait bound reaches the Scraper Lambda only when set (the code default is 480 minutes).
+test('FestgridBackendStack: BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES is passed to the Scraper Lambda only when set (Story 10.5)', () => {
+  const saved = process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
+  const scraperEnv = (value: string | undefined) => {
+    if (value === undefined) delete process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
+    else process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES = value;
+    const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), `TestStackSnapWait${value ?? 'Unset'}`.replace(/[^A-Za-z0-9]/g, ''), { stageName: 'dev' }));
+    const entry = Object.entries(template.findResources('AWS::Lambda::Function')).find(([id]) => id.startsWith('ScraperLambda'));
+    assert.ok(entry, 'ScraperLambda in the template');
+    return (entry![1] as { Properties: { Environment: { Variables: Record<string, unknown> } } }).Properties.Environment.Variables;
+  };
+  try {
+    assert.equal(scraperEnv('240').BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES, '240');
+    assert.equal('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES' in scraperEnv(undefined), false);
+  } finally {
+    if (saved === undefined) delete process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
+    else process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES = saved;
+  }
+});

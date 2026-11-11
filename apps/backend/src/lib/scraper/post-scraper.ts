@@ -9,7 +9,9 @@ import {
   type ScrapablePlatform,
   type ScrapedPost,
 } from '@festgrid/domain';
+import { linkJobVendorSnapshot } from '../job-engine/link-job-vendor-snapshot.js';
 import { recordJobAttempt } from '../job-engine/record-job-attempt.js';
+import { BrightDataSnapshotPendingError } from './brightdata-client.js';
 import './instagram-adapter.js'; // registers the Apify adapter in the registry (as the profile chain does)
 import { getPostScraperAdapters } from './post-scraper-registry.js';
 import { gateDegradedProvider } from './provider-run-health-store.js';
@@ -84,7 +86,16 @@ export async function fetchScrapedPost(input: {
       credential: input.credential ?? resolvePostScrapeCredential(undefined, undefined),
       // A provider whose cap is known to be used up, or that is degraded, is skipped with no call (Story 10.2 AC1, AC6).
       skipReason: (name) => providerSkipReason(name),
-      onAttempt: jobId ? (attempt) => recordJobAttempt({ jobId, attempt }) : undefined,
+      onAttempt: jobId
+        ? async (attempt) => {
+            await recordJobAttempt({ jobId, attempt });
+            // Story 10.5: a Bright Data snapshot still running when the budget ran out stays linked to the job, so the sweep
+            // can collect its records later even if the job has ended by then.
+            if (attempt.outcome === 'failed' && attempt.error instanceof BrightDataSnapshotPendingError) {
+              await linkJobVendorSnapshot({ jobId, provider: 'BRIGHTDATA', snapshotId: attempt.error.snapshotId });
+            }
+          }
+        : undefined,
     });
     if (result.attempts.length > 1) {
       console.log(`[post-scraper] ${result.attempts.map(describeAttempt).join('; ')}`);

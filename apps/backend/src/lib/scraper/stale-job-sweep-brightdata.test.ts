@@ -82,7 +82,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
   });
 
-  async function sweepOneExpiredJob() {
+  async function sweepOneExpiredJob(opts: { ageMs?: number } = {}) {
     const snapshotId = `sd_sweep_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
     const auditRunId = await recordActorRunStart({
       vendor: 'BRIGHTDATA',
@@ -100,7 +100,10 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     });
     await db
       .update(brightdataPendingJobs)
-      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .set({
+        expiresAt: new Date(Date.now() - 1000),
+        ...(opts.ageMs !== undefined && { createdAt: new Date(Date.now() - opts.ageMs) }),
+      })
       .where(eq(brightdataPendingJobs.id, id));
 
     await runStaleJobSweep();
@@ -188,14 +191,58 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     }
   });
 
-  await t.test('a snapshot still running at expiry is TIMED_OUT, expired and re-queued', async () => {
+  const NINE_HOURS = 9 * 60 * 60_000; // past the default 480-minute bound
+
+  await t.test('a snapshot still running PAST the wait bound is TIMED_OUT, expired and re-queued, as before', async () => {
     progress = { status: 'running' };
 
-    const { run, job } = await sweepOneExpiredJob();
+    const { run, job } = await sweepOneExpiredJob({ ageMs: NINE_HOURS });
 
     assert.strictEqual(run.status, 'TIMED_OUT', 'a snapshot still in flight at expiry never delivered: health must see it');
     assert.strictEqual(run.errorMessage, 'Run status from stale-job-sweep: PENDING');
     assert.strictEqual(job.status, 'EXPIRED');
     assert.strictEqual(sqsBodies.length, 1);
+  });
+
+  // Story 10.5 (IDEA-102): wait for a snapshot Bright Data still reports as running instead of falling back to paid Apify.
+  for (const status of ['scheduled', 'building', 'running'] as const) {
+    await t.test(`a snapshot still ${status} UNDER the wait bound is waited for: stays PENDING, no failed run, no fallback`, async () => {
+      progress = { status };
+
+      const before = Date.now();
+      const { run, job } = await sweepOneExpiredJob({ ageMs: 3 * 60 * 60_000 }); // 3 h old: past the 180-minute expiry, under 8 h
+
+      assert.strictEqual(job.status, 'PENDING', 'the job keeps waiting');
+      assert.ok(job.expiresAt.getTime() > before + 59 * 60_000, 'its expiry moved to the next hourly sweep');
+      assert.strictEqual(sqsBodies.length, 0, 'no paid Apify fallback while Bright Data is still working');
+      assert.ok(run.status === 'PENDING', 'no failed run is recorded for a snapshot that is merely slow');
+    });
+  }
+
+  await t.test('the bound follows BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES: a 60-minute bound gives up on a 3-hour-old running snapshot', async () => {
+    progress = { status: 'running' };
+    const saved = process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
+    process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES = '60';
+    try {
+      const { run, job } = await sweepOneExpiredJob({ ageMs: 3 * 60 * 60_000 });
+      assert.strictEqual(run.status, 'TIMED_OUT');
+      assert.strictEqual(job.status, 'EXPIRED');
+      assert.strictEqual(sqsBodies.length, 1);
+    } finally {
+      if (saved === undefined) delete process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
+      else process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES = saved;
+    }
+  });
+
+  await t.test('the bound never delays a ready or a failed snapshot, however young', async () => {
+    progress = { status: 'failed', errorMessage: 'boom' };
+    const failed = await sweepOneExpiredJob({ ageMs: 60_000 });
+    assert.strictEqual(failed.run.status, 'FAILED');
+    assert.strictEqual(failed.job.status, 'EXPIRED');
+
+    progress = { status: 'ready', records: 1, errors: 0 };
+    snapshotItems = [];
+    const ready = await sweepOneExpiredJob({ ageMs: 60_000 });
+    assert.notStrictEqual(ready.job.status, 'PENDING', 'a ready snapshot is processed, not waited for');
   });
 });

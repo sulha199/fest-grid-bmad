@@ -3642,6 +3642,27 @@ This document defines the core architectural invariants for the FestDaily applic
         `isTransientVendorFailure`, serves the Apify, Bright Data and Gemini classifiers (FIND-082). **No production caller uses
         the chain yet**: `start-post-reextraction-preview.ts` and `resume-stalled-chains.ts` still call `getPostByUrl`; Stories 10.5
         to 10.10 adopt it. Only Instagram has a chain; another platform uses its own adapter.
+    16. **Late vendor results (Story 10.5, FR119).** A Bright Data snapshot still running when the post chain's budget ran out is
+        linked to the job (`job_vendor_snapshots`: `job_id`, `provider`, unique `snapshot_id`, `status` PENDING, COLLECTED or
+        GAVE_UP, `wait_until`; row level security on, no policy), written by `fetchScrapedPost` through
+        `BrightDataSnapshotPendingError`, so no handler has to; the chain still moves on to Apify. The 5-minute job sweep step
+        `collectLateVendorResults` asks Bright Data for each PENDING link's progress and applies the pure `decideSnapshotWait`:
+        `ready` is collected, `failed` is given up (a WAITING job ends FAILED / `VENDOR_RUN_FAILED`), still in flight is waited for
+        until `BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES` after it started (default 480: on 2026-10-29, 21 of 38 snapshots took 5 to 6
+        hours; an assumption to tune), then given up (a WAITING job ends EXPIRED / `WAITED_TOO_LONG`). The bound never delays a ready
+        or failed snapshot. **The claim is the only door:** one conditional `UPDATE ... WHERE status = 'PENDING'` (PENDING to
+        COLLECTED), so a duplicate delivery, or two sweeps at once, runs the type's late-result handler at most once; the records
+        are downloaded BEFORE the claim (a failed download leaves the link PENDING) and a handler that throws puts the link back to
+        PENDING for the next sweep, so handlers must be idempotent. The late-result handler is a second registry beside the job
+        handlers (`registerLateResultHandler`, Scraper Lambda only): **no real type registers one yet**; Story 10.6's moderator
+        re-extract saves the fresh image links to `posts` through it. A job is finished from the handler's answer by one guarded
+        update: only a job still WAITING or RUNNING, or EXPIRED for `TIMED_OUT`, is settled (`canSettleFromLateResult`), becoming
+        SUCCEEDED or SUCCEEDED_WITH_LIMITS with `completed_after_deadline` true when the finish is past `deadline_at`, then promotion
+        and follower settling run as for any ending; any other ending (FAILED, CANCELLED, EXPIRED for another reason) is never
+        revived, though its records are still handed to the handler. The daily batch (`stale-job-sweep.ts`) also waits, under the
+        same bound, for a snapshot Bright Data still reports as running, instead of recording it TIMED_OUT and sending it to the paid
+        Apify fallback (IDEA-102): the pending job stays PENDING with its expiry pushed to the next hourly sweep. Only the sweep
+        collects a linked snapshot; the sync post scrape registers no webhook.
 *   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
     Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
     (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the
@@ -3660,7 +3681,8 @@ This document defines the core architectural invariants for the FestDaily applic
     `job-engine-branches.test.ts`, the CDK assertions of Story 10.1a; for Story 10.3 `admit-job.test.ts`,
     `promote-queued-jobs.test.ts`, `readmit-waiting-job.test.ts`, `cancel-job.test.ts`, `settle-followers.test.ts`,
     `sweep-job-queue.test.ts`, `admission.concurrency.test.ts` (simultaneous starts, exact counts),
-    `subscribe-to-account.cap.test.ts` and the CDK assertion of the four settings; for Story 10.2 `post-scraper-adapter.test.ts`
+    `subscribe-to-account.cap.test.ts` and the CDK assertion of the four settings; for Story 10.5 `late-result.test.ts` (domain),
+    `late-results.test.ts`, `link-job-vendor-snapshot.test.ts` and `stale-job-sweep-brightdata.test.ts`; for Story 10.2 `post-scraper-adapter.test.ts`
     (domain), `post-scraper.test.ts`, `brightdata-post-adapter.test.ts`, `record-job-attempt.test.ts`, the quota-memory tests in
     `usage-store.test.ts` and `transient-classifiers.test.ts`; Story 10.14z adds the ratchets.
 

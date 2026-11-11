@@ -1,3 +1,6 @@
+---
+baseline_commit: e570c049f0c6c7722fe70864ca58d883b498671d
+---
 # Story 10.5: Collect late vendor results and finish the job
 
 ## Story Details
@@ -27,23 +30,23 @@ so that a Bright Data snapshot that takes hours heals the post instead of being 
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Pure rules in `packages/domain`** (AC: 2, 3, 6)
-  - [ ] `packages/domain/src/jobs/late-result.ts` (+ test, 100% coverage): `canSettleFromLateResult({ status, reasonCode })` (true for `WAITING`, `RUNNING`, and `EXPIRED` with `TIMED_OUT`), `decideSnapshotWait({ progressStatus, ageMs, maxWaitMs })` returning `COLLECT | GIVE_UP_FAILED | WAIT | GIVE_UP_TOO_LONG`, and the `JobLateResultHandler` / `LateResultOutcome` types. Export from the `jobs` barrel.
-- [ ] **Task 2: Schema and migration** (AC: 1, 7)
-  - [ ] `packages/database/schema.ts`: enum `job_vendor_snapshot_status` and table `job_vendor_snapshots` (`id`, `job_id` fk `jobs.id` ON DELETE CASCADE, `provider` `scraper_run_vendor`, `snapshot_id` text unique, `status` default `PENDING`, `wait_until` timestamptz, `collected_at` nullable, timestamps; index on `(status, wait_until)` and on `job_id`). Generate with drizzle-kit (fetch master first, never hand-number); append `ENABLE ROW LEVEL SECURITY` to the creating migration (the repo RLS test).
-- [ ] **Task 3: Link the snapshot** (AC: 1)
-  - [ ] `brightdata-client.ts`: the "snapshot still running after budget" error becomes `BrightDataSnapshotPendingError { snapshotId }` (same message wording, so `isProfileLookupTimeout` still reads it as a timeout).
-  - [ ] `post-scraper.ts`: when a `jobId` is given and an attempt failed with that error, `linkJobVendorSnapshot({ jobId, provider: 'BRIGHTDATA', snapshotId, waitUntil: now + bound })`; idempotent on `snapshot_id`; failure never changes what the fetch returns.
-- [ ] **Task 4: Collect** (AC: 2, 3, 4, 5)
-  - [ ] `lib/job-engine/late-results.ts`: `collectLateVendorResults()`, `settleJobFromLateResult()` and the second registry (`registerLateResultHandler`, `getLateResultHandler` in `job-registry.ts`).
-  - [ ] `run-job-engine-sweep.ts`: one more step, in its own try/catch, after re-invocation.
-- [ ] **Task 5: Wait for a running snapshot** (AC: 6)
-  - [ ] `stale-job-sweep.ts`: the PENDING branch of `processSingleExpiredBrightDataJob` waits while `decideSnapshotWait` says `WAIT`; `brightdata-pending-jobs-store.ts` gets `extendPendingJobExpiry`.
-  - [ ] `env.ts` `brightdataSnapshotMaxWaitMinutes` (strict `parsePositiveInt`, default 480), `.env.example`, `festgrid-backend-stack.ts` (Scraper Lambda), `env.test.ts` and the stack test.
-- [ ] **Task 6: Tests** (AC: 1 to 8)
-  - [ ] Domain: both rules, every branch. Backend real-Postgres suites with the Bright Data seams: link written only with a `jobId` and idempotent; a ready snapshot runs the handler once and finishes a `WAITING` job and a job `EXPIRED / TIMED_OUT` as `SUCCEEDED` with `completed_after_deadline` true; a second sweep is a no-op; a `FAILED` or `CANCELLED` job is not revived but the handler still ran; a failed snapshot gives up; past `wait_until` a waiting job ends `EXPIRED / WAITED_TOO_LONG`; no handler registered gives up with a warning; the daily batch waits for a running snapshot under the bound and falls back past it, and never delays a `ready` or `failed` one; a progress error is retried; the sweep step cannot throw. Every suite deletes the rows it creates (row-count ratchet).
-- [ ] **Task 7: Docs** (AC: 8)
-  - [ ] AD-53 (a rule for late results: the link table, the claim, the second registry, the finish rule, the bound, the batch wait), `architecture-diagram.md`, `high-level-overview.md`; mark IDEA-102 per `backlog-spec.md`.
+- [x] **Task 1: Pure rules in `packages/domain`** (AC: 2, 3, 6)
+  - [x] `packages/domain/src/jobs/late-result.ts` (+ test, 100% coverage): `canSettleFromLateResult({ status, reasonCode })` (true for `WAITING`, `RUNNING`, and `EXPIRED` with `TIMED_OUT`), `decideSnapshotWait({ progressStatus, ageMs, maxWaitMs })` returning `COLLECT | GIVE_UP_FAILED | WAIT | GIVE_UP_TOO_LONG`, and the `JobLateResultHandler` / `LateResultOutcome` types. Export from the `jobs` barrel.
+- [x] **Task 2: Schema and migration** (AC: 1, 7)
+  - [x] `packages/database/schema.ts`: enum `job_vendor_snapshot_status` and table `job_vendor_snapshots` (`id`, `job_id` fk `jobs.id` ON DELETE CASCADE, `provider` `scraper_run_vendor`, `snapshot_id` text unique, `status` default `PENDING`, `wait_until` timestamptz, `collected_at` nullable, timestamps; index on `(status, wait_until)` and on `job_id`). Generate with drizzle-kit (fetch master first, never hand-number); append `ENABLE ROW LEVEL SECURITY` to the creating migration (the repo RLS test).
+- [x] **Task 3: Link the snapshot** (AC: 1)
+  - [x] `brightdata-client.ts`: the "snapshot still running after budget" error becomes `BrightDataSnapshotPendingError { snapshotId }` (same message wording, so `isProfileLookupTimeout` still reads it as a timeout).
+  - [x] `post-scraper.ts`: when a `jobId` is given and an attempt failed with that error, `linkJobVendorSnapshot({ jobId, provider: 'BRIGHTDATA', snapshotId, waitUntil: now + bound })`; idempotent on `snapshot_id`; failure never changes what the fetch returns.
+- [x] **Task 4: Collect** (AC: 2, 3, 4, 5)
+  - [x] `lib/job-engine/late-results.ts`: `collectLateVendorResults()`, `settleJobFromLateResult()` and the second registry (`registerLateResultHandler`, `getLateResultHandler` in `job-registry.ts`).
+  - [x] `run-job-engine-sweep.ts`: one more step, in its own try/catch, after re-invocation.
+- [x] **Task 5: Wait for a running snapshot** (AC: 6)
+  - [x] `stale-job-sweep.ts`: the PENDING branch of `processSingleExpiredBrightDataJob` waits while `decideSnapshotWait` says `WAIT`; `brightdata-pending-jobs-store.ts` gets `extendPendingJobExpiry`.
+  - [x] `env.ts` `brightdataSnapshotMaxWaitMinutes` (strict `parsePositiveInt`, default 480), `.env.example`, `festgrid-backend-stack.ts` (Scraper Lambda), `env.test.ts` and the stack test.
+- [x] **Task 6: Tests** (AC: 1 to 8)
+  - [x] Domain: both rules, every branch. Backend real-Postgres suites with the Bright Data seams: link written only with a `jobId` and idempotent; a ready snapshot runs the handler once and finishes a `WAITING` job and a job `EXPIRED / TIMED_OUT` as `SUCCEEDED` with `completed_after_deadline` true; a second sweep is a no-op; a `FAILED` or `CANCELLED` job is not revived but the handler still ran; a failed snapshot gives up; past `wait_until` a waiting job ends `EXPIRED / WAITED_TOO_LONG`; no handler registered gives up with a warning; the daily batch waits for a running snapshot under the bound and falls back past it, and never delays a `ready` or `failed` one; a progress error is retried; the sweep step cannot throw. Every suite deletes the rows it creates (row-count ratchet).
+- [x] **Task 7: Docs** (AC: 8)
+  - [x] AD-53 (a rule for late results: the link table, the claim, the second registry, the finish rule, the bound, the batch wait), `architecture-diagram.md`, `high-level-overview.md`; mark IDEA-102 per `backlog-spec.md`.
 
 ## Dev Notes
 
@@ -152,8 +155,35 @@ so that a Bright Data snapshot that takes hours heals the post instead of being 
 
 ### Agent Model Used
 
+Claude Sonnet 5.5 (cloud session; built on branch `feat/job-late-results` from master after PR #237).
+
 ### Debug Log References
+
+- Pre-Coding Approval Gate: the user asked in conversation to continue with the next Epic 10 story, so the Gate's approval boxes are left for the user to tick. **Open flags, not resolved here:** the 480-minute wait bound is an assumption (on 2026-10-29, 21 of 38 snapshots took 5 to 6 hours); and no real job type registers a late-result handler yet, so the linked-snapshot path is idle in production until Story 10.6. No vendor call was made at any point.
+- The two sweep suites (`stale-job-sweep.test.ts` and `stale-job-sweep-brightdata.test.ts`) both call the shared `runStaleJobSweep`, so they interfere when run in parallel (each sweeps the other's expired job). That is how they were before this story; the full-suite runner runs files one at a time.
 
 ### Completion Notes List
 
+- **Domain (Task 1).** `late-result.ts`: `decideSnapshotWait` (COLLECT, GIVE_UP_FAILED, WAIT, GIVE_UP_TOO_LONG), `canSettleFromLateResult`, `isCompletedAfterDeadline`, and the `JobLateResultHandler` / `LateResultOutcome` types. 100% coverage kept.
+- **Table (Task 2).** `job_vendor_snapshots` and its enum (migration 0103, RLS enabled in the creating migration, the repo RLS test passes). The migration number was re-verified against `origin/master` (0102 was the latest).
+- **Link (Task 3).** `BrightDataSnapshotPendingError` carries the snapshot id (message wording unchanged, so the timeout classifier still reads it as a timeout); `fetchScrapedPost` links it when a `jobId` is given, through `linkJobVendorSnapshot` (idempotent, never throws).
+- **Collect (Task 4).** `collectLateVendorResults` as a new step of the 5-minute job sweep, `settleJobFromLateResult`, and the second registry (`registerLateResultHandler`). Records are downloaded before the claim; the claim (PENDING to COLLECTED, one conditional update) is the only door; a throwing handler puts the link back to PENDING.
+- **Wait (Task 5).** The daily batch (`stale-job-sweep.ts`) waits for a snapshot still reporting `scheduled | building | running` under the bound (its expiry is pushed an hour, no failed run, no fallback); past the bound the old TIMED_OUT path runs unchanged; `ready` and `failed` are never delayed. `BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES` (strict positive integer, default 480) is on the Scraper Lambda.
+- **Decisions beyond the story text (reviewer, please look at these).**
+  1. *The wait bound for a link is stored as `wait_until`* when the link is written (`now + bound`), and the sweep derives the age from `created_at`, so changing the setting later does not move links already written.
+  2. *A handler that throws puts the link back to PENDING* (not GAVE_UP): handlers are idempotent by contract and the wait bound still ends the retries.
+  3. *A job that cannot be settled is not revived but its records are still handed to the handler*, so a late result for a cancelled job still heals the post.
+  4. *A `RUNNING` job is also settleable* (domain rule), for a job whose run is still going when the snapshot lands; the run's own guarded writes then refuse, as they do for any ended job.
+  5. *Link rows for an unknown job or a provider other than Bright Data are given up with a warning.*
+- **Tests.** Domain 1781 passing, 100% coverage. Backend real-Postgres suites with the Bright Data seams: `late-results` (the main behaviours incl. duplicate delivery, two sweeps at once, ready, running, failed, past the bound, no handler, progress and download and handler errors, promotion of the next queued job), `link-job-vendor-snapshot`, the link and pending-error cases in `post-scraper` and `brightdata-post-scrape`, the batch wait cases in `stale-job-sweep-brightdata` (the old "still running is TIMED_OUT" test now sets the job age past the bound), the sweep-order test, the env and stack tests.
+- **Not done here (by design).** No real late-result handler and no saving of fresh links to `posts` (Story 10.6); no webhook for the sync post scrape; no UI.
+
 ### File List
+
+Added: `packages/domain/src/jobs/late-result.ts` and `.test.ts`; `packages/database/migrations/0103_job_vendor_snapshots.sql` and `meta/0103_snapshot.json`; `apps/backend/src/lib/job-engine/{late-results,link-job-vendor-snapshot}.ts` and `.test.ts`.
+
+Changed: `packages/domain/src/jobs/index.ts`; `packages/database/schema.ts`, `migrations/meta/_journal.json`; `apps/backend/src/lib/scraper/{brightdata-client,post-scraper,stale-job-sweep,brightdata-pending-jobs-store}.ts`; `apps/backend/src/lib/job-engine/{job-registry,run-job-engine-sweep}.ts`; `apps/backend/src/env.ts`; tests `post-scraper`, `brightdata-post-scrape`, `stale-job-sweep-brightdata`, `run-job-engine-sweep`, `env`, `ai-processor/{rehost-post-image,upload-face-blur-thumbnail}`; `apps/infrastructure/lib/festgrid-backend-stack.ts` and its test; `.env.example`; `docs/infrastructure/architecture-diagram.md`, `high-level-overview.md`; `_bmad-output/planning-artifacts/festgrid-architecture-spine.md` (AD-53 Rule 16); this story and `sprint-status.yaml`.
+
+### Change Log
+
+- 2026-11-11: Story 10.5 built: late Bright Data results are linked to their job, collected by the 5-minute job sweep and finish the job "completed after deadline"; the daily batch waits for a snapshot still running, under `BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES` (default 480), instead of falling back to Apify at once; migration 0103; AD-53 Rule 16 added.

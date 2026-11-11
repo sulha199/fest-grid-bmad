@@ -158,6 +158,10 @@ export interface BackendEnv {
   // Story 10.1a -- TTL (minutes) of the worker's claim on a job (jobs.worker_claimed_at), after which a crashed worker's
   // claim can be taken over. Mirrors accountClassificationClaimTtlMinutes (AD-41 Rule 3).
   jobWorkerClaimTtlMinutes: number;
+  // Story 10.5 (IDEA-102) -- how long (minutes) the sweep waits for a Bright Data snapshot the vendor still reports as running
+  // before giving up (the daily batch falls back to Apify, a linked job snapshot is given up on). On 2026-10-29, 21 of 38
+  // snapshots took 5 to 6 hours; the default is an assumption to tune.
+  brightdataSnapshotMaxWaitMinutes: number;
   // Story 10.3 -- admission (FR121). Places one user may hold at once (an admitted QUEUED or RUNNING job holds one).
   maxConcurrentJobsPerUser: number;
   // Story 10.3 -- jobs one user may have waiting for a place; a start beyond it is refused JOB_QUEUE_FULL.
@@ -460,6 +464,8 @@ export function loadBackendEnv(): BackendEnv {
     jobAttemptDeadlineMs: parsePositiveInt(process.env.JOB_ATTEMPT_DEADLINE_MS, 'JOB_ATTEMPT_DEADLINE_MS', 150000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     jobWorkerClaimTtlMinutes: parsePositiveInt(process.env.JOB_WORKER_CLAIM_TTL_MINUTES, 'JOB_WORKER_CLAIM_TTL_MINUTES', 5),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataSnapshotMaxWaitMinutes: parsePositiveInt(process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES, 'BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', 480),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxConcurrentJobsPerUser: parsePositiveInt(process.env.MAX_CONCURRENT_JOBS_PER_USER, 'MAX_CONCURRENT_JOBS_PER_USER', 3),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

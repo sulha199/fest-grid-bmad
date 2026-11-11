@@ -4,7 +4,7 @@ import { runJobEngineSweep, type JobEngineSweepSteps } from './run-job-engine-sw
 
 // Story 10.1a Task 4 + Story 10.3 Task 6 -- the 5-minute sweep runs every step in order, each in its own try/catch.
 
-const ORDER = ['expire', 'expireQueued', 'settleFollowers', 'readmit', 'promote', 'reinvoke', 'retention'];
+const ORDER = ['expire', 'expireQueued', 'settleFollowers', 'readmit', 'promote', 'reinvoke', 'lateResults', 'retention'];
 
 function steps(calls: string[], fail: string[] = [], counts: number = 0): JobEngineSweepSteps {
   const counted = (name: string) => async () => {
@@ -19,6 +19,7 @@ function steps(calls: string[], fail: string[] = [], counts: number = 0): JobEng
     readmitWaitingJobs: counted('readmit'),
     promoteQueuedJobs: counted('promote'),
     reinvokeStranded: counted('reinvoke'),
+    collectLateResults: counted('lateResults'),
     retention: async () => {
       calls.push('retention');
       if (fail.includes('retention')) throw new Error('retention blip');

@@ -1313,6 +1313,27 @@ export const jobs = pgTable('jobs', {
   // FR120) and `idx_jobs_queue` (a user's waiting jobs in queue order).
 }));
 
+// Story 10.5 (FR119) -- a vendor snapshot that outlived its job's budget, linked to the job so a result that arrives later is still
+// collected by the 5-minute job sweep and the job finished "completed after deadline". The claim (PENDING to COLLECTED, one
+// conditional UPDATE) makes a duplicate delivery a no-op. Plain words only: no caption, URL or vendor error. RLS on, no policy
+// (migration enables it, like jobs and job_attempts).
+export const jobVendorSnapshotStatusEnum = pgEnum('job_vendor_snapshot_status', ['PENDING', 'COLLECTED', 'GAVE_UP']);
+
+export const jobVendorSnapshots = pgTable('job_vendor_snapshots', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  jobId: uuid('job_id').references(() => jobs.id, { onDelete: 'cascade' }).notNull(),
+  provider: scraperRunVendorEnum('provider').notNull(),
+  snapshotId: text('snapshot_id').notNull().unique(),
+  status: jobVendorSnapshotStatusEnum('status').default('PENDING').notNull(),
+  // The latest the sweep waits for the snapshot (BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES after it started); past it the link is given up.
+  waitUntil: timestamp('wait_until', { withTimezone: true }).notNull(),
+  collectedAt: timestamp('collected_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => ({
+  statusWaitUntilIdx: index('idx_job_vendor_snapshots_status_wait_until').on(t.status, t.waitUntil),
+  jobIdIdx: index('idx_job_vendor_snapshots_job_id').on(t.jobId),
+}));
+
 // One row per provider a job considered (PRD 4.21 JobAttempt), written by the provider chain (Story 10.2). `provider`
 // reuses scraper_run_vendor ('APIFY' | 'BRIGHTDATA'): PRD 4.21 spells the second one 'BRIGHT_DATA', mapped at the
 // GraphQL boundary (Story 10.4), never in the database.
