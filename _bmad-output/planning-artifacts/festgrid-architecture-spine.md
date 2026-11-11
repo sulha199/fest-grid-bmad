@@ -3008,7 +3008,8 @@ This document defines the core architectural invariants for the FestDaily applic
     (the scrape gate is a separate rule) and AD-40 (a write-free preview, unrelated).
 *   **Amended 2026-11-07 (FIND-120):** the apply-side reject path below is an amendment of this AD, not a new
     AD. Each amended rule carries its own dated note. **Amended 2026-11-07 (FIND-124):** the same for the floor
-    override, a decision kind that merges a pair the floor refuses.
+    override, a decision kind that merges a pair the floor refuses. **Amended 2026-11-11:** the same for the floor's
+    name rule, Rule 3.
 *   **Prevents:** An AI session holding database credentials. A second, divergent accept path whose
     checks differ from the moderator's. A merge made on evidence that changed after it was reviewed.
     A prompt-injected or mistaken decision merging events the deterministic rules never would. An
@@ -3034,7 +3035,13 @@ This document defines the core architectural invariants for the FestDaily applic
         `mid` pair that passes the floor: no earlier undo, an anchor a public post cannot fake alone (the
         organizer, or a shared link together with a venue match), no venue conflict, a day gap of 0 (or up
         to 90 with a shared link), every schedule of the new event covered inside that window, names that do
-        not contradict. Evidence is recomputed server-side and compared by hash before every merge, and
+        not contradict (**amended 2026-11-11:** the floor reads names with its own `namesContradictForReview`, which is
+        the ingestion rule `namesContradict` plus one exception: a name against the same name plus a subtitle, after a
+        `: ` or a spaced dash, whose only numbers are bare, at least three digits long and not after a sequence word
+        such as "Day", "Part" or "Hari ke", as "Pre-Event Webinar" against "Pre-Event Webinar: Study Abroad 101". A
+        number outside such a subtitle, a bracketed qualifier, a category such as "10K", an ordinal such as "2nd" and a
+        campaign number with no shared head still refuse. Ingestion's auto-link keeps `namesContradict`, unchanged).
+        Evidence is recomputed server-side and compared by hash before every merge, and
         again under row locks. The reviewer never rejects, and never merges what the floor refuses (**amended 2026-11-07, FIND-124:** except as a moderator's `accept-override`, below). The same
         holds for a pair a moderator accepts in the attended decision loop (`FIND-119`): it is merged only if
         `validate` calls it eligible, and the loop offers no reject. **Amended 2026-11-07 (FIND-120):** the
