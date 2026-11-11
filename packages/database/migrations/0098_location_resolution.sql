@@ -1,0 +1,1 @@
+ALTER TABLE "schedules" ADD COLUMN "location_resolution" text;

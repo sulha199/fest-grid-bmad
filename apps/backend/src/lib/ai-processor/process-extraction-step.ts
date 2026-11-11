@@ -35,6 +35,7 @@ import {
 import { resolvePostPublisherOptIn } from '../posts/resolve-post-publisher-opt-in.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { buildExtractedEventMessage } from './build-extracted-event-message.js';
+import { createGeocodeSession } from '../geolocation/geocode-session.js';
 import { generateLocationKeywords } from './generate-location-keywords.js';
 import { buildStepMessage, enqueueStepMessage } from './extraction-chain.js';
 import { writeExtractionAuditLog } from './write-extraction-audit-log.js';
@@ -261,12 +262,15 @@ export async function processExtractionStep(message: ProcessingJobMessage, deps:
     await generateLocationKeywords(fresh, { callGemini: deps.callGemini, subscriberUserIds, sourceText: caption, postId });
     const eventsCompleteness: ExtractionAuditEventCompleteness[] = [];
     const builtMessages = [];
+    // No budget here (the AI Lambda has time); the session still de-duplicates a place used by several of this step's events.
+    const geocodeSession = createGeocodeSession();
     for (let i = 0; i < fresh.length; i++) {
       const { eventMessage } = await buildExtractedEventMessage(fresh[i], {
         postId,
         accountId: post.accountId,
         subscriberUserIds,
         sourcePostText: caption,
+        geocodeSession,
       });
       builtMessages.push(eventMessage);
       eventsCompleteness.push({

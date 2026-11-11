@@ -454,3 +454,12 @@ test('formatDedupReviewApplyReport and countDedupReviewResults - one JSON line b
   assert.strictEqual(lines[2], DEDUP_REVIEW_APPLY_END);
   assert.deepStrictEqual(JSON.parse(lines[1]), report);
 });
+
+test('checkDedupReviewFloor - a title against the same title with a course-style subtitle passes; a campaign label with no shared head still refuses', () => {
+  const named = (candidateName: string, newName: string) =>
+    fresh({ pair: pair({ candidate: eventEvidence({ name: candidateName }), newEvent: eventEvidence({ slug: 'ig_p_def', name: newName }) }) });
+  assert.strictEqual(checkDedupReviewFloor(named('Global EduFair 2026 Pre-Event Webinar: Study Abroad 101', 'Global EduFair 2026 Pre-Event Webinar')), null);
+  assert.strictEqual(checkDedupReviewFloor(named('Global EduFair 2026 Pre-Event Webinar', 'Global EduFair 2026 Pre-Event Webinar: Study Abroad 101')), null);
+  assert.strictEqual(checkDedupReviewFloor(named('Wonderful Treat at Ghin Thai Kitchen', 'Festisale 270th Yogyakarta - Ghin Thai Wonderful Treat')), 'name-mismatch');
+  assert.strictEqual(checkDedupReviewFloor(named('Fest', 'Fest - Day 12')), 'name-mismatch');
+});

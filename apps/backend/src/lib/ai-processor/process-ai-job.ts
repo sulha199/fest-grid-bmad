@@ -29,6 +29,7 @@ import {
 } from '@festgrid/domain';
 import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
 import { buildExtractedEventMessage } from './build-extracted-event-message.js';
+import { createGeocodeSession } from '../geolocation/geocode-session.js';
 import { markPostExtracted as defaultMarkPostExtracted } from '../posts/mark-post-extracted.js';
 import { sendSqsMessageWithRetry } from '../aws/send-sqs-message-with-retry.js';
 import { processIngestionJob } from '../ingestor/process-ingestion-job.js';
@@ -479,6 +480,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // the deferred multi-event case.
   const eventMessages: Awaited<ReturnType<typeof transformGeminiResponseToEventInfo>>[] = [];
   let defaultLocationForBackfill: Awaited<ReturnType<typeof resolveAccountAndLocations>>['defaultLocation'];
+  // One geocode session for the post: a place used by several of its events is looked up once (no budget on the AI Lambda).
+  const geocodeSession = createGeocodeSession();
   // Story 3.6p (AD-29 Rule 6) -- per-event completeness signals collected during this loop,
   // written into the success-path extraction_audit_logs row's eventsCompleteness jsonb array.
   const eventsCompleteness: ExtractionAuditEventCompleteness[] = [];
@@ -516,7 +519,8 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       postId: message.postId,
       accountId: message.accountId,
       subscriberUserIds,
-      sourcePostText: message.content
+      sourcePostText: message.content,
+      geocodeSession,
     });
     eventMessages.push(eventMessage);
     defaultLocationForBackfill = defaultLocation;

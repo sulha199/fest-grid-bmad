@@ -41,7 +41,7 @@ test('geoapify-client geocodeAddress success returns array of candidates', async
   assert.ok(url.includes('text=123%20Main%20St%2C%20Chicago'));
   // geocodeAddress requests up to 5 candidates for Story 0.i7b re-ranking.
   assert.ok(url.includes('limit=5'));
-  // No countryBias passed -> no bias parameter (preserves default countrycode:auto).
+  // No countryFilter passed -> no filter parameter (preserves default countrycode:auto).
   assert.ok(!url.includes('bias='));
 
   assert.equal(Array.isArray(result), true);
@@ -123,7 +123,7 @@ test('geoapify-client geocodeAddress retains only the top 5 candidates for >5 re
   fetchMock.mock.restore();
 });
 
-test('geoapify-client geocodeAddress adds bias=countrycode only when countryBias is passed', async () => {
+test('geoapify-client geocodeAddress adds filter=countrycode only when countryFilter is passed, and bias=proximity only when proximity is', async () => {
   const fetchMock = mock.method(globalThis, 'fetch', async () => {
     return {
       ok: true,
@@ -137,14 +137,17 @@ test('geoapify-client geocodeAddress adds bias=countrycode only when countryBias
     };
   });
 
-  await geocodeAddress('123 Main St', { countryBias: 'us' });
-  const withBiasUrl = fetchMock.mock.calls[0].arguments[0] as string;
-  assert.equal(new URL(withBiasUrl).searchParams.get('bias'), 'countrycode:us');
+  await geocodeAddress('123 Main St', { countryFilter: 'us' });
+  const withFilterUrl = new URL(fetchMock.mock.calls[0].arguments[0] as string);
+  assert.equal(withFilterUrl.searchParams.get('filter'), 'countrycode:us');
+  assert.equal(withFilterUrl.searchParams.get('bias'), null, 'the country is a hard filter, never a soft bias');
 
-  // The account's own location joins the bias, longitude first (Geoapify's `proximity:lon,lat`), the two joined by `|`.
+  // An upper-case code is sent lower-case; the account's own location is the (only) bias, longitude first (`proximity:lon,lat`).
   fetchMock.mock.resetCalls();
-  await geocodeAddress('Pasar Porosjayan', { countryBias: 'id', proximity: { latitude: -7.72, longitude: 110.35 } });
-  assert.equal(new URL(fetchMock.mock.calls[0].arguments[0] as string).searchParams.get('bias'), 'countrycode:id|proximity:110.35,-7.72');
+  await geocodeAddress('Pasar Porosjayan', { countryFilter: 'ID', proximity: { latitude: -7.72, longitude: 110.35 } });
+  const both = new URL(fetchMock.mock.calls[0].arguments[0] as string);
+  assert.equal(both.searchParams.get('filter'), 'countrycode:id');
+  assert.equal(both.searchParams.get('bias'), 'proximity:110.35,-7.72');
 
   fetchMock.mock.resetCalls();
   await geocodeAddress('Pasar Porosjayan', { proximity: { latitude: -7.72, longitude: 110.35 } });
@@ -153,7 +156,7 @@ test('geoapify-client geocodeAddress adds bias=countrycode only when countryBias
   fetchMock.mock.resetCalls();
   await geocodeAddress('123 Main St');
   const withoutBiasUrl = fetchMock.mock.calls[0].arguments[0] as string;
-  assert.ok(!withoutBiasUrl.includes('bias='));
+  assert.ok(!withoutBiasUrl.includes('bias=') && !withoutBiasUrl.includes('filter='));
 
   fetchMock.mock.restore();
 });
@@ -428,4 +431,24 @@ test('geoapify-client getAddressPredictions non-2xx throws GeolocationApiError',
   );
 
   fetchMock.mock.restore();
+});
+
+test('geoapify-client geocodeAddress treats a 400 (a query Geoapify rejects) as not found, other failures as an API error', async () => {
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({ ok: false, status: 400, json: async () => ({}) }));
+  try {
+    await assert.rejects(geocodeAddress('Somewhere', { countryFilter: 'QQ' }), GeolocationNotFoundError);
+    fetchMock.mock.restore();
+    const serverError = mock.method(globalThis, 'fetch', async () => ({ ok: false, status: 503, json: async () => ({}) }));
+    try {
+      await assert.rejects(geocodeAddress('Somewhere'), (error: unknown) => error instanceof GeolocationApiError && error.status === 503);
+    } finally {
+      serverError.mock.restore();
+    }
+  } finally {
+    try {
+      fetchMock.mock.restore();
+    } catch {
+      // already restored above
+    }
+  }
 });

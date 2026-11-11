@@ -7,15 +7,15 @@ export function buildLocationCacheKey(query: GeolocationQuery): string {
         .trim()
         .toLowerCase()
         .replace(/\s+/g, ' ');
-      // countryBias is part of the cache identity: two accounts geocoding the identical
-      // address string with different country biases must not share a cached result
-      // (Design Decision 3, Story 0.i7a). 'none' is the sentinel for "no bias".
+      // countryFilter (a HARD Geoapify `filter=countrycode:`) is part of the cache identity: the identical address string
+      // searched inside two countries, or inside one and everywhere, must not share a cached result. Lower-cased so "ID" and "id" are
+      // one entry; 'none' is the sentinel for "no filter".
       // The proximity point is part of the identity too, rounded to 0.1 degree (about 11 km) so accounts of one town share an
       // entry while a same-named place elsewhere does not (the proximity bias changes which candidate wins).
       const near = query.proximity
         ? `${query.proximity.latitude.toFixed(1)},${query.proximity.longitude.toFixed(1)}`
         : 'none';
-      const base = `geocode:${normalized}|bias:${query.countryBias ?? 'none'}`;
+      const base = `geocode:${normalized}|filter:${query.countryFilter?.toLowerCase() ?? 'none'}`;
       return query.proximity ? `${base}|near:${near}` : base;
     }
     case 'PLACE_ID': {

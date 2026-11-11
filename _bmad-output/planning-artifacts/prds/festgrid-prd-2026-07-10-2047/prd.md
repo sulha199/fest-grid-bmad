@@ -1703,6 +1703,12 @@ enum JobReasonCode {
   CANCELLED,
   WAITED_TOO_LONG,         // queued past JOB_QUEUE_MAX_WAIT_MINUTES (FR121)
   SOME_POSTS_NOT_EXTRACTED, // Section 3.10, FR129
+  // Engine-internal endings (Story 10.1a). The Jobs page shows each as a generic failure, never the raw cause:
+  HANDLER_ERROR,           // the job's code threw
+  HANDLER_NOT_REGISTERED,  // no handler for the type in the Lambda that ran it
+  HANDOFF_MISSING,         // reported a hand-off without handing off
+  START_FAILED,            // the job could not be started (no function name, invoke refused)
+  UNSPECIFIED,             // an ending that carried no reason (never shown as a cause)
 }
 
 interface JobAttempt {

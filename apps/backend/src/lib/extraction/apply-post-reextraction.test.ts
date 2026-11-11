@@ -16,7 +16,7 @@ import {
   users,
 } from '@festgrid/database';
 import type { ManualExtractionRequestPayload, ReextractionPreviewResult } from '@festgrid/domain/posts';
-import { applyPostReextraction } from './apply-post-reextraction.js';
+import { applyPostReextraction, APPLY_GEOCODE_BUDGET } from './apply-post-reextraction.js';
 import { findEventsInconsistentWithEventPosts, insertEventWithPrimaryPost } from '../events/set-event-primary-post.js';
 import { resolveLocationSeam, setResolveLocationSeam } from '../ai-processor/resolve-account-and-locations.js';
 
@@ -257,6 +257,45 @@ test('applyPostReextraction (AD-40 Apply)', async (t) => {
     const byDate = new Map(scheduleRows.map((r) => [r.eventStartDate, r]));
     assert.deepStrictEqual(byDate.get('2026-11-02')?.locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
     assert.strictEqual(byDate.get('2026-11-07')?.locationKeywords, null, 'a schedule without keywords stays null');
+  });
+
+  await t.test('geocoding in one Apply shares a session: a place used by several events is looked up once and the budget leaves the rest as skipped', async () => {
+    const post = await makePost();
+    let lookups = 0;
+    setResolveLocationSeam(async (_query, options) => {
+      options?.beforeGeocode?.();
+      lookups++;
+      return { coordinates: { latitude: -7.7, longitude: 110.4 }, formattedAddress: 'Resolved' };
+    });
+    try {
+      // 14 events on 13 distinct places: the last two share the 13th place, one more than the budget of 12 uncached lookups.
+      const placeOf = (i: number) => `Budget Hall ${suffix} ${Math.min(i, 12)}`;
+      const raws = Array.from({ length: 14 }, (_, i) => {
+        const date = `2026-12-${String(i + 1).padStart(2, '0')}`;
+        return {
+          ...rawEvent(`Budget Event ${suffix} ${i}`, date),
+          schedules: [{ isMainSchedule: true, eventStartDate: date, location: placeOf(i), locationKeywords: [placeOf(i)], locationCountryCode: 'ID' }],
+        };
+      });
+      const job = await makeJob(post, raws);
+      const result = await applyPostReextraction(moderator.id, job.id);
+      assert.ok('summary' in result, JSON.stringify(result));
+      assert.strictEqual(lookups, APPLY_GEOCODE_BUDGET, 'one uncached lookup per distinct place, capped by the budget');
+
+      const rows = await linkRows(post.id);
+      const scheduleRows = await db.select().from(schedules).where(inArray(schedules.eventId, rows.map((r) => r.eventId)));
+      const resolutions = new Map<string, string | null>();
+      for (const r of scheduleRows) resolutions.set(r.location ?? '', r.locationResolution);
+      assert.strictEqual(scheduleRows.length, 14);
+      for (let i = 0; i < 12; i++) assert.strictEqual(resolutions.get(placeOf(i)), 'kw1');
+      assert.strictEqual(resolutions.get(placeOf(12)), 'skipped');
+      assert.strictEqual(scheduleRows.filter((r) => r.locationResolution === 'skipped').length, 2);
+      assert.strictEqual(scheduleRows.filter((r) => r.locationDetails === null).length, 2, 'a skipped schedule keeps its text and has no coordinates');
+    } finally {
+      setResolveLocationSeam(async () => {
+        throw new Error('geocoder disabled in test');
+      });
+    }
   });
 
   await t.test('an item matching an event a moderator soft-deleted is skipped, never recreated (PRD 3.7), and its slot stays reserved', async () => {

@@ -110,7 +110,7 @@ test('startJob', async (t) => {
     assert.equal((result as { errorCode?: string }).errorCode, 'JOB_START_FAILED');
     const [row] = await db.select().from(jobs).where(eq(jobs.inputKey, key));
     assert.equal(row.status, 'FAILED');
-    assert.equal(row.reasonCode, 'NO_PROVIDER_REACHABLE');
+    assert.equal(row.reasonCode, 'START_FAILED');
     assert.ok(row.finishedAt instanceof Date);
     assert.ok(row.errorMessage && row.errorMessage.length > 0);
   });
@@ -128,5 +128,6 @@ test('startJob', async (t) => {
     assert.equal(invoked, false);
     const [row] = await db.select().from(jobs).where(eq(jobs.inputKey, key));
     assert.equal(row.status, 'FAILED');
+    assert.equal(row.reasonCode, 'START_FAILED');
   });
 });

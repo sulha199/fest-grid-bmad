@@ -376,6 +376,9 @@ async function mergeSchedules(
       if (additive && !isUnfilledValue((match as Record<string, unknown>)[field])) continue;
       (patch as Record<string, unknown>)[field] = value;
     }
+    // How the coordinates were found follows the coordinates: replaced together, left alone when `locationDetails` is protected or
+    // kept (a lookup that found nothing, or was skipped, leaves the stored details and their resolution as they are).
+    if ('locationDetails' in patch) patch.locationResolution = newSchedule.locationResolution ?? null;
     // Same rule as the event-level keywords: they follow the schedule's location text, whichever way it went.
     const scheduleKeywords = resolveKeywordsPatch({
       currentText: match.location,
