@@ -50,7 +50,7 @@ export interface BackendEnv {
   defaultCountryCode: string | null;
   // Kill switch for keyword geocoding (slice 2a): on (the default) geocodes from the location keywords with a country hint and a
   // ladder, and records `schedules.location_resolution`; only the value `false` turns it off, which restores the plain
-  // single-address lookup (no keywords, no country filter, no ladder, nothing recorded).
+  // single-address lookup (no keywords, no country filter, no ladder, nothing recorded; the old soft country bias is gone for good).
   keywordGeocodingEnabled: boolean;
   // AD-51 Rule 2: the kill switch for stepped (cursor) extraction. Off (the default: it ships dark) means every post
   // takes the one-request path; a chain in flight stops at its next step and the post is flagged partial.

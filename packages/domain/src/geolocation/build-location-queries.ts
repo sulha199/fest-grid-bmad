@@ -27,9 +27,12 @@ export function buildKeywordQueries(keywords: readonly string[]): LocationLadder
   return steps;
 }
 
-// Floor/level/unit/RT/RW/street-number words that make a venue text a poor geocoder query (Indonesian and English).
+// Floor/level/unit/RT/RW/street-number words that make a venue text a poor geocoder query (Indonesian and English), only WITH their
+// number ("Lt. 3", "Lantai 3", "Level 2", "No. 28"): a bare "Level" (Level Up Cafe) or "Lt." (Lt. Jend. S. Parman) is part of a name.
+// "Blok" counts as noise only when a block code with a digit follows ("Blok A3"): "Blok M" is a place name. `(?![a-z0-9])` ends the
+// match so the "." of "Lt." goes with the word.
 const UNIT_NOISE =
-  /\b(lantai|lt\.?|floor|ground floor|lt\s*\d+|level|ug|lg|blok [a-z0-9]+|rt\.?\s*\d+|rw\.?\s*\d+|no\.?\s*\d+[a-z]?)\b/gi;
+  /\b(?:ground floor|(?:lantai|lt|floor|level|ug|lg)\b\.?\s*\d+[a-z]?|blok [a-z]?\d+[a-z0-9]*|rt\.?\s*\d+|rw\.?\s*\d+|no\.?\s*\d+[a-z]?)(?![a-z0-9])/gi;
 
 function countryNameOf(countryCode: string | undefined): string | undefined {
   if (!countryCode) return undefined;
@@ -44,7 +47,7 @@ function countryNameOf(countryCode: string | undefined): string | undefined {
 /**
  * Fallback ladder for a text WITHOUT keywords (old rows, a failed keywords call): step 1 = the text with parentheticals,
  * floor/level/unit/RT/RW/street-number noise and the hint country's name (or code) removed, comma segments kept; step 2 = its last
- * two segments, only with three or more. Measured on 54 labelled real locations: 38 correct against 29 for the raw text.
+ * two segments of all of them, only with three or more. Measured on 54 labelled real locations: 38 correct against 29 for the raw text.
  */
 export function buildFallbackLocationQueries(text: string, countryCode?: string): LocationLadderStep[] {
   const countryName = countryNameOf(countryCode)?.toLowerCase();
@@ -53,14 +56,14 @@ export function buildFallbackLocationQueries(text: string, countryCode?: string)
     .replace(/\([^)]*\)/g, ' ')
     .split(/[,;|]/)
     .map((segment) => segment.replace(UNIT_NOISE, ' ').replace(/\s+/g, ' ').trim())
-    .filter((segment) => segment.length > 1 && !/^\d+[\s\d-]*$/.test(segment))
+    .filter((segment) => segment.length > 1 && /[a-z]/i.test(segment) && !/^\d+[\s\d-]*$/.test(segment))
     .filter((segment) => {
       const lower = segment.toLowerCase();
       return lower !== countryName && lower !== country;
-    })
-    .slice(0, 5);
+    });
   if (segments.length === 0) return [];
-  const steps: LocationLadderStep[] = [{ step: 'fb1', query: segments.join(', ') }];
+  // Step 1 keeps the first 5 segments (a bounded query); step 2 is the LAST two of all of them, which carry the city and province.
+  const steps: LocationLadderStep[] = [{ step: 'fb1', query: segments.slice(0, 5).join(', ') }];
   if (segments.length >= 3) steps.push({ step: 'fb2', query: segments.slice(-2).join(', ') });
   return steps;
 }

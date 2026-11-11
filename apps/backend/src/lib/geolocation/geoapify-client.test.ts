@@ -432,3 +432,23 @@ test('geoapify-client getAddressPredictions non-2xx throws GeolocationApiError',
 
   fetchMock.mock.restore();
 });
+
+test('geoapify-client geocodeAddress treats a 400 (a query Geoapify rejects) as not found, other failures as an API error', async () => {
+  const fetchMock = mock.method(globalThis, 'fetch', async () => ({ ok: false, status: 400, json: async () => ({}) }));
+  try {
+    await assert.rejects(geocodeAddress('Somewhere', { countryFilter: 'QQ' }), GeolocationNotFoundError);
+    fetchMock.mock.restore();
+    const serverError = mock.method(globalThis, 'fetch', async () => ({ ok: false, status: 503, json: async () => ({}) }));
+    try {
+      await assert.rejects(geocodeAddress('Somewhere'), (error: unknown) => error instanceof GeolocationApiError && error.status === 503);
+    } finally {
+      serverError.mock.restore();
+    }
+  } finally {
+    try {
+      fetchMock.mock.restore();
+    } catch {
+      // already restored above
+    }
+  }
+});

@@ -22,3 +22,8 @@ test('no code and no platform default means no hint', () => {
   assert.deepEqual(resolveCountryHint({ platformDefault: null }), { source: 'none' });
   assert.deepEqual(resolveCountryHint({ platformDefault: '' }), { source: 'none' });
 });
+
+test('a pair that is not an assigned region is no hint (the geocoder would reject it)', () => {
+  assert.deepEqual(resolveCountryHint({ stringCountryCode: 'QQ', platformDefault: 'ID' }), { code: 'ID', source: 'platform' });
+  assert.deepEqual(resolveCountryHint({ stringCountryCode: 'QQ', platformDefault: 'QQ' }), { source: 'none' });
+});

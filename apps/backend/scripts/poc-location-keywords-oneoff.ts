@@ -1,4 +1,4 @@
-// NOTE (slice 2a): `countryBias` was removed from geocodeAddress (the soft bias changed no result, which is what this POC measured), so the
+// NOTE (slice 2a): the soft country bias option was removed from geocodeAddress (it changed no result, which is what this POC measured), so the
 // calls below pass the proximity point only; the numbers recorded in the spec were measured before that removal.
 // One-off POC, local only (never committed): compares four ways of building the Geoapify query for a schedule/event location,
 // on a sample of REAL locations pulled from the public prod API. No database access, no cache, no writes.

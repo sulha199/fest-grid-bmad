@@ -68,6 +68,11 @@ export async function geocodeAddress(
   }
   
   const response = await fetch(url);
+  // A 400 means Geoapify rejects THIS query (for example a country code it does not support): retrying it can never succeed, so it
+  // is "not found" (and is cached as such), not an outage that every later request would pay for again.
+  if (response.status === 400) {
+    throw new GeolocationNotFoundError('Geoapify rejected the geocode query (400)');
+  }
   if (!response.ok) {
     throw new GeolocationApiError(`Geoapify geocode address API returned ${response.status}`, response.status);
   }

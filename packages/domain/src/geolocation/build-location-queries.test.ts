@@ -67,3 +67,35 @@ test('plan: no hint is the unfiltered pass only, and no steps is no lookups', ()
   ]);
   assert.deepEqual(planLocationLookups([], { code: 'ID', source: 'platform' }), []);
 });
+
+test('fallback ladder removes the floor/level word together with its number and its dot (not only inside parentheses)', () => {
+  assert.deepEqual(buildFallbackLocationQueries('Plaza Indonesia, Lt. 3, Jl. MH Thamrin No. 28, Jakarta'), [
+    { step: 'fb1', query: 'Plaza Indonesia, Jl. MH Thamrin, Jakarta' },
+    { step: 'fb2', query: 'Jl. MH Thamrin, Jakarta' },
+  ]);
+  assert.deepEqual(buildFallbackLocationQueries('Mall Kelapa Gading Lantai 3, Jakarta'), [{ step: 'fb1', query: 'Mall Kelapa Gading, Jakarta' }]);
+  assert.deepEqual(buildFallbackLocationQueries('Gedung A Level 2A, Bandung'), [{ step: 'fb1', query: 'Gedung A, Bandung' }]);
+  assert.deepEqual(buildFallbackLocationQueries('Ruang Lt 4B; Kampus X'), [{ step: 'fb1', query: 'Ruang, Kampus X' }]);
+  assert.deepEqual(buildFallbackLocationQueries('Hall, Ground Floor, Kuta'), [{ step: 'fb1', query: 'Hall, Kuta' }]);
+  // A bare word, or one that merely starts with them, is part of a name and is left alone.
+  assert.deepEqual(buildFallbackLocationQueries('Floorball Arena, Level Up Cafe'), [{ step: 'fb1', query: 'Floorball Arena, Level Up Cafe' }]);
+  assert.deepEqual(buildFallbackLocationQueries('Jl. Lt. Jend. S. Parman, Jakarta'), [{ step: 'fb1', query: 'Jl. Lt. Jend. S. Parman, Jakarta' }]);
+});
+
+test('fallback ladder: a block code with a digit is noise, a place called Blok M is not', () => {
+  assert.deepEqual(buildFallbackLocationQueries('Ruko Blok A3, Blok M Square, Jakarta Selatan'), [
+    { step: 'fb1', query: 'Ruko, Blok M Square, Jakarta Selatan' },
+    { step: 'fb2', query: 'Blok M Square, Jakarta Selatan' },
+  ]);
+});
+
+test('fallback ladder: step 2 is the last two of ALL segments, step 1 only the first five', () => {
+  assert.deepEqual(buildFallbackLocationQueries('Gedung Aa, Jl Bb, Kel Cc, Kec Dd, Kota Ee, Sleman, DIY'), [
+    { step: 'fb1', query: 'Gedung Aa, Jl Bb, Kel Cc, Kec Dd, Kota Ee' },
+    { step: 'fb2', query: 'Sleman, DIY' },
+  ]);
+});
+
+test('fallback ladder: a segment with no letters (stray punctuation, numbers) is dropped', () => {
+  assert.deepEqual(buildFallbackLocationQueries('Hall A, ., 3 -, Yogyakarta'), [{ step: 'fb1', query: 'Hall A, Yogyakarta' }]);
+});
