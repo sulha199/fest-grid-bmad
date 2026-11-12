@@ -89,6 +89,15 @@ describe('reextractRefreshReasons', () => {
     assert.deepEqual(reextractRefreshReasons({ platformPostType: 'reel', imageUrl: link('c', inDays(3)), additionalImageUrls: null }, NOW), []);
   });
 
+  it('names a missing caption first when asked (a curator post, or a URL not in the database), whatever the images are', () => {
+    assert.deepEqual(reextractRefreshReasons({ ...settled, imageUrl: link('c', inDays(3)) }, NOW, { captionMissing: true }), ['CAPTION_MISSING']);
+    assert.deepEqual(
+      reextractRefreshReasons({ ...settled, imageUrl: link('c', inDays(-1)) }, NOW, { captionMissing: true }),
+      ['CAPTION_MISSING', 'COVER_EXPIRED']
+    );
+    assert.deepEqual(reextractRefreshReasons({}, NOW, { captionMissing: false }), ['SLIDES_UNKNOWN']);
+  });
+
   it('reports every reason that applies, in a stable order', () => {
     assert.deepEqual(
       reextractRefreshReasons({ platformPostType: null, imageUrl: link('c', inDays(-1), 640), additionalImageUrls: null }, NOW),
@@ -183,5 +192,18 @@ describe('decideFreshImagesToSave', () => {
   it('treats a same-length but different list as new', () => {
     const fresh = [link('n1', inDays(4))];
     assert.deepEqual(decideFreshImagesToSave({ stored: { additionalImageUrls: [link('o1', inDays(-1))] }, fresh: { additionalImageUrls: fresh }, now: NOW }), { additionalImageUrls: fresh });
+  });
+
+  it('never replaces a stored slide list with a SHORTER fresh one, even when the stored links are dead; an equal or longer list replaces', () => {
+    const stored = { additionalImageUrls: [fx_a(1), fx_a(2), fx_a(3)] };
+    function fx_a(n: number) { return link(`stored-${n}`, inDays(-1)); }
+    assert.equal(decideFreshImagesToSave({ stored, fresh: { additionalImageUrls: [link('n1', inDays(4)), link('n2', inDays(4))] }, now: NOW }), null);
+    const equal = [link('e1', inDays(4)), link('e2', inDays(4)), link('e3', inDays(4))];
+    assert.deepEqual(decideFreshImagesToSave({ stored, fresh: { additionalImageUrls: equal }, now: NOW }), { additionalImageUrls: equal });
+    const longer = [...equal, link('e4', inDays(4))];
+    assert.deepEqual(decideFreshImagesToSave({ stored, fresh: { additionalImageUrls: longer }, now: NOW }), { additionalImageUrls: longer });
+    // the cover is judged on its own: a shorter slide list does not stop a fresh cover from being saved
+    const result = decideFreshImagesToSave({ stored: { imageUrl: link('dead', inDays(-1)), ...stored }, fresh: { imageUrl: link('new', inDays(4)), additionalImageUrls: [link('n1', inDays(4))] }, now: NOW });
+    assert.deepEqual(Object.keys(result ?? {}).sort(), ['imageUrl', 'imageUrlExpiresAt']);
   });
 });

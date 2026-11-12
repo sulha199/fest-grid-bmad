@@ -49,6 +49,13 @@ export interface JobTypeDefinition {
    * account is being added and will become a subscription). Default false.
    */
   reservesSubscriptionSlot?: boolean;
+  /**
+   * Story 10.6: the time ONE run of this type's handler may use, instead of the environment default `JOB_ATTEMPT_DEADLINE_MS`
+   * (150 s). It is still capped by the time left to the job's own deadline and by the Lambda's remaining time. A type whose run
+   * needs the Lambda's whole time (the re-extract preview's face blur needs 60 s left at each image) declares it; every type that
+   * declares none keeps the default.
+   */
+  attemptCapMs?: number;
 }
 
 const definitions = new Map<string, JobTypeDefinition>();
@@ -59,6 +66,9 @@ export function registerJobTypeDefinition(definition: JobTypeDefinition): void {
   }
   if (!Number.isFinite(definition.maxDurationMs) || definition.maxDurationMs <= 0) {
     throw new Error(`Job type ${definition.type}: maxDurationMs must be a positive number`);
+  }
+  if (definition.attemptCapMs !== undefined && (!Number.isFinite(definition.attemptCapMs) || definition.attemptCapMs <= 0)) {
+    throw new Error(`Job type ${definition.type}: attemptCapMs must be a positive number`);
   }
   if (definitions.has(definition.type)) {
     throw new Error(`Job type ${definition.type} is already registered`);
@@ -73,6 +83,11 @@ export function getJobTypeDefinition(type: string): JobTypeDefinition | undefine
 /** Every registered definition (the backend asks which types reserve a subscription slot). */
 export function listJobTypeDefinitions(): JobTypeDefinition[] {
   return [...definitions.values()];
+}
+
+/** The per-run cap for a job: the type's own `attemptCapMs`, else the default (`JOB_ATTEMPT_DEADLINE_MS`). */
+export function resolveAttemptCapMs(definition: Pick<JobTypeDefinition, "attemptCapMs"> | undefined, defaultCapMs: number): number {
+  return definition?.attemptCapMs ?? defaultCapMs;
 }
 
 /** The whole-job bound from the moment the job may run (`admittedAt`). */

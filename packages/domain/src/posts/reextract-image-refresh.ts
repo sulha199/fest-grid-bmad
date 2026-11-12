@@ -36,6 +36,7 @@ export function isLowResolutionImageUrl(url: string | null | undefined): boolean
 
 /** Why a refresh is due (FR125). Every reason that applies is reported. */
 export const REEXTRACT_REFRESH_REASONS = [
+  "CAPTION_MISSING",
   "COVER_EXPIRED",
   "COVER_MISSING",
   "SLIDES_EXPIRED",
@@ -52,10 +53,18 @@ export interface StoredPostImageFacts extends StoredPostImages {
 /**
  * The reasons a stored post's images must be refreshed before a re-extract preview (design decision 5): the cover link has
  * expired (or slides are listed with no cover), a slide link has expired, the cover is low resolution, or slides are missing or
- * unknown (no post type and no slide list were ever stored). Empty means nothing to refresh.
+ * unknown (no post type and no slide list were ever stored), or, with `captionMissing`, the caption itself is needed. Empty means
+ * nothing to refresh.
  */
-export function reextractRefreshReasons(post: StoredPostImageFacts, now: Date): ReextractRefreshReason[] {
+export function reextractRefreshReasons(
+  post: StoredPostImageFacts,
+  now: Date,
+  options: { captionMissing?: boolean } = {}
+): ReextractRefreshReason[] {
   const reasons: ReextractRefreshReason[] = [];
+  // The post has no stored caption (a curator post's is cleared on purpose, or the URL is not in the database): the fetch is
+  // needed for the caption itself, whatever state the images are in.
+  if (options.captionMissing) reasons.push("CAPTION_MISSING");
   const slides = post.additionalImageUrls ?? [];
   if (!post.imageUrl) {
     if (slides.length > 0) reasons.push("COVER_MISSING");
@@ -94,8 +103,8 @@ function coverIsUsable(post: StoredPostImages, now: Date): boolean {
 /**
  * What to save of a vendor's fresh image links over the stored ones (design decision 6): a fresh cover replaces the stored one,
  * with its own expiry, unless it is the same link, already expired, or a low-resolution copy that would replace a full-size cover
- * still valid; fresh slides replace the stored list unless they are empty (never an empty list over a non-empty one), the same
- * list, or low-resolution ones that would replace a full-size list still valid. Returns null when nothing should be written.
+ * still valid; fresh slides replace the stored list unless they are empty or shorter than it (never a shorter list over a longer one,
+ * so never an empty list over a non-empty one), the same list, or low-resolution ones that would replace a full-size list still valid. Returns null when nothing should be written.
  */
 export function decideFreshImagesToSave(input: {
   stored: StoredPostImages;
@@ -117,7 +126,8 @@ export function decideFreshImagesToSave(input: {
   const freshSlides = (fresh.additionalImageUrls ?? []).filter((url) => url !== "");
   const storedSlides = stored.additionalImageUrls ?? [];
   const sameSlides = freshSlides.length === storedSlides.length && freshSlides.every((url, i) => url === storedSlides[i]);
-  if (freshSlides.length > 0 && !sameSlides) {
+  // Never a SHORTER list over a longer stored one (a vendor that returns part of a carousel must not shrink what is known); equal or longer replaces.
+  if (freshSlides.length > 0 && !sameSlides && freshSlides.length >= storedSlides.length) {
     const storedFullSizeAndValid =
       storedSlides.length > 0 && !storedSlides.some((url) => isImageUrlExpired(url, now) || isLowResolutionImageUrl(url));
     if (!(freshSlides.some((url) => isLowResolutionImageUrl(url)) && storedFullSizeAndValid)) {
