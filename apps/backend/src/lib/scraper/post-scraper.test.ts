@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { eq, inArray } from 'drizzle-orm';
-import { jobAttempts, jobs, users } from '@festgrid/database';
+import { jobAttempts, jobVendorSnapshots, jobs, users } from '@festgrid/database';
 import type { PostScraperAdapter, ScrapedPost } from '@festgrid/domain';
 import { db } from '../../db/client.js';
 import './register-adapters.js';
 import { fetchScrapedPost, resolvePostScrapeCredential, setProviderSkipReason } from './post-scraper.js';
 import { getPostScraperAdapters, registerPostScraperAdapter } from './post-scraper-registry.js';
+import { BrightDataSnapshotPendingError } from './brightdata-client.js';
 
 // Story 10.2 AC1, AC2, AC6, AC7: the entry point over fake adapters registered in place of the real ones. No vendor is called.
 
@@ -92,6 +93,29 @@ test('fetchScrapedPost', async (t) => {
     assert.deepEqual(calls, ['brightdata']);
     const rows = await db.select().from(jobAttempts).where(eq(jobAttempts.jobId, jobId));
     assert.deepEqual(rows.map((r) => [r.provider, r.outcome, r.reasonCode]).sort(), [['APIFY', 'OVER_QUOTA', 'CAP_KNOWN_USED_UP'], ['BRIGHTDATA', 'SUCCEEDED', null]]);
+  });
+
+  await t.test('a Bright Data snapshot still running at the end of the budget is linked to the job (Story 10.5), and the chain still falls over to Apify', async () => {
+    fake('brightdata', 0, async () => {
+      throw new BrightDataSnapshotPendingError(`s_link_${suffix}`, 'running', 95_000, 100_000);
+    });
+    fake('apify', 0, async () => post);
+    const jobId = await makeJob();
+    assert.equal(await fetchScrapedPost({ platform: 'instagram', url: URL_, budgetMs: 1000, jobId }), post);
+    assert.deepEqual(calls, ['brightdata', 'apify']);
+    const links = await db.select().from(jobVendorSnapshots).where(eq(jobVendorSnapshots.jobId, jobId));
+    assert.deepEqual(links.map((l) => [l.snapshotId, l.status, l.provider]), [[`s_link_${suffix}`, 'PENDING', 'BRIGHTDATA']]);
+    const attempts = await db.select().from(jobAttempts).where(eq(jobAttempts.jobId, jobId));
+    assert.equal(attempts.find((a) => a.provider === 'BRIGHTDATA')?.outcome, 'TIMED_OUT');
+  });
+
+  await t.test('without a jobId a pending snapshot links nothing', async () => {
+    fake('brightdata', 0, async () => {
+      throw new BrightDataSnapshotPendingError(`s_nolink_${suffix}`, 'running', 95_000, 100_000);
+    });
+    fake('apify', 0, async () => post);
+    await fetchScrapedPost({ platform: 'instagram', url: URL_, budgetMs: 1000 });
+    assert.equal((await db.select().from(jobVendorSnapshots).where(eq(jobVendorSnapshots.snapshotId, `s_nolink_${suffix}`))).length, 0);
   });
 
   await t.test('a degraded provider is skipped with no call and recorded SKIPPED / PROVIDER_DEGRADED (AC1)', async () => {

@@ -8,6 +8,7 @@ import {
   setSleepForBrightDataProfile,
   getBrightDataProgress,
   getBrightDataSnapshot,
+  BrightDataSnapshotPendingError,
   type BrightDataProgressResponse,
 } from './brightdata-client.js';
 
@@ -109,7 +110,17 @@ test('scrapeBrightDataPost', async (t) => {
     withEnv(async () => {
       const fetchMock = mockFetch([{ status: 202, body: { snapshot_id: 's_post_2' } }]);
       try {
-        await assert.rejects(() => scrapeBrightDataPost('https://www.instagram.com/p/AAA/', 8_000), /was still running/);
+        await assert.rejects(
+          () => scrapeBrightDataPost('https://www.instagram.com/p/AAA/', 8_000),
+          (e: unknown) => {
+            // Story 10.5: the snapshot id travels with the error so a job can link it; the wording still reads as a timeout
+            assert.ok(e instanceof BrightDataSnapshotPendingError);
+            assert.strictEqual(e.snapshotId, 's_post_2');
+            assert.match(e.message, /was still running/);
+            assert.strictEqual(e.message.includes('instagram.com'), false, 'plain words: no URL');
+            return true;
+          }
+        );
       } finally {
         fetchMock.restore();
       }

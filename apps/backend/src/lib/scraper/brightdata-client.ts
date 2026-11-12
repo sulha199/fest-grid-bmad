@@ -35,7 +35,7 @@ export interface BrightDataTriggerResponse {
 }
 
 export interface BrightDataProgressResponse {
-  status: 'scheduled' | 'building' | 'running' | 'ready' | 'failed';
+  status: 'scheduled' | 'starting' | 'building' | 'running' | 'ready' | 'failed';
   // Reported once a snapshot has finished. A zero-record snapshot is told apart as an empty account
   // (`error_codes.dead_page`) or a vendor failure (neither) from these (BUG-074,
   // classifyBrightDataResult in @festgrid/domain). Only present when Bright Data sent them.
@@ -233,6 +233,23 @@ async function _getBrightDataSnapshot(snapshotId: string): Promise<unknown[]> {
   });
 }
 
+/**
+ * The synchronous scrape's snapshot was still running when the budget ran out (Story 10.5). It keeps running at the vendor and is
+ * billed, so the id travels with the error: a job links it and the sweep collects the records later. The wording keeps
+ * "was still <status>" so the timeout classifier (`isProfileLookupTimeout`) still reads it as a timeout. Plain words: no URL.
+ */
+export class BrightDataSnapshotPendingError extends Error {
+  constructor(
+    public readonly snapshotId: string,
+    status: string,
+    elapsedMs: number,
+    budgetMs: number
+  ) {
+    super(`Bright Data snapshot ${snapshotId} was still ${status} after ${elapsedMs}ms (budget ${budgetMs}ms)`);
+    this.name = 'BrightDataSnapshotPendingError';
+  }
+}
+
 // How often a profile snapshot that outlived the synchronous call is polled.
 export const BRIGHTDATA_PROFILE_POLL_INTERVAL_MS = 5_000;
 // Bright Data's synchronous scrape answers 202 after ~60 s when the collection is still running.
@@ -355,9 +372,7 @@ async function scrapeBrightDataDataset(
       return { kind: 'no-records', errorMessage: progress.errorMessage ?? 'Bright Data reported the snapshot as failed' };
     }
     if (elapsed() + BRIGHTDATA_PROFILE_POLL_INTERVAL_MS >= budgetMs) {
-      throw new Error(
-        `Bright Data profile snapshot ${sync.snapshotId} was still ${progress.status} after ${elapsed()}ms (budget ${budgetMs}ms)`
-      );
+      throw new BrightDataSnapshotPendingError(sync.snapshotId, progress.status, elapsed(), budgetMs);
     }
     await sleepForBrightDataProfile(BRIGHTDATA_PROFILE_POLL_INTERVAL_MS);
   }

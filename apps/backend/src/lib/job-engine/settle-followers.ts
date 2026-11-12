@@ -1,4 +1,4 @@
-import { and, eq, isNull, notInArray } from 'drizzle-orm';
+import { and, eq, isNull, notInArray, or } from 'drizzle-orm';
 import { jobs } from '@festgrid/database';
 import { JOB_TERMINAL_STATUSES, isTerminalJobStatus } from '@festgrid/domain/jobs';
 import { db } from '../../db/client.js';
@@ -13,6 +13,7 @@ export async function settleFollowers(leaderJobId: string): Promise<number> {
     return 0;
   }
   const now = new Date();
+  const leaderSucceeded = leader.status === 'SUCCEEDED' || leader.status === 'SUCCEEDED_WITH_LIMITS';
   const settled = await db
     .update(jobs)
     .set({
@@ -26,7 +27,16 @@ export async function settleFollowers(leaderJobId: string): Promise<number> {
       finishedAt: leader.finishedAt ?? now,
       updatedAt: now,
     })
-    .where(and(eq(jobs.leaderJobId, leaderJobId), notInArray(jobs.status, [...JOB_TERMINAL_STATUSES])))
+    .where(
+      and(
+        eq(jobs.leaderJobId, leaderJobId),
+        // Open followers always. A follower that copied a TIMED_OUT ending is also settled again when the leader was REVIVED by a
+        // late vendor result (Story 10.5): the leader's own success then reaches them too.
+        leaderSucceeded
+          ? or(notInArray(jobs.status, [...JOB_TERMINAL_STATUSES]), and(eq(jobs.status, 'EXPIRED'), eq(jobs.reasonCode, 'TIMED_OUT')))
+          : notInArray(jobs.status, [...JOB_TERMINAL_STATUSES])
+      )
+    )
     .returning({ id: jobs.id });
   return settled.length;
 }

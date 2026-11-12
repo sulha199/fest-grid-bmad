@@ -172,3 +172,15 @@ test('loadBackendEnv reads POST_SCRAPER_PROVIDER_ORDER raw (parsed with its defa
   assert.strictEqual(withRateLimitEnv('POST_SCRAPER_PROVIDER_ORDER', undefined, () => loadBackendEnv().postScraperProviderOrder), undefined);
   assert.strictEqual(withRateLimitEnv('POST_SCRAPER_PROVIDER_ORDER', 'apify,brightdata', () => loadBackendEnv().postScraperProviderOrder), 'apify,brightdata');
 });
+
+test('loadBackendEnv reads BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES (Story 10.5): default 480, strict positive integer', () => {
+  assert.strictEqual(withRateLimitEnv('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', undefined, () => loadBackendEnv().brightdataSnapshotMaxWaitMinutes), 480);
+  assert.strictEqual(withRateLimitEnv('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', ' 120 ', () => loadBackendEnv().brightdataSnapshotMaxWaitMinutes), 120);
+  for (const bad of ['0', '-1', '8h', '1.5', ' ']) {
+    assert.throws(
+      () => withRateLimitEnv('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', bad, () => loadBackendEnv()),
+      /BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES must be a positive integer/,
+      JSON.stringify(bad)
+    );
+  }
+});
