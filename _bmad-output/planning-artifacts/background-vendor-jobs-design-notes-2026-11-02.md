@@ -145,3 +145,6 @@ Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond
   Epic 0.i1's helper.
 - Story 3-4b (BYOK pooled scraper vendor keys): legally gated; its AC6 means chain credentials must depend on the job type.
 - CC-032: the cost model (platform-paid or user-paid).
+22. (2026-11-11, product owner, when Story 10.6 was planned) **Re-extract refreshes in the order Apify then Bright Data**, as a property of the job type (a moderator is waiting; Apify answers in seconds with full-size images; Bright Data needs 90 s and returns 640 px). The default post order stays `brightdata,apify` (decision of the same day, PRD OI-1).
+23. (2026-11-11, product owner) **Story 10.6 is split**: 10.6 is backend only; the moderator screen changes (banner, Retry, minimize and re-open) are Story 10.6a, after Story 10.4.
+24. (2026-11-11, product owner) **The Re-extract engine job runs both phases and owns the result** (refresh in the Scraper Lambda, preview in the AI-processor Lambda by hand-off, result on the job). This moves the re-extract PREVIEW onto the engine ahead of Story 10.9's decision on `manual_extraction_jobs` (PRD OI-4), which keeps serving the other callers meanwhile.

@@ -2554,6 +2554,7 @@ development_status:
   10-4-build-the-jobs-page-and-the-inline-job-progress-component: backlog
   10-5-collect-late-vendor-results-and-finish-the-job: done
   10-6-move-the-moderator-re-extract-rescrape-onto-the-engine: backlog
+  10-6a-show-the-re-extract-progress-the-missing-images-banner-and-retry: backlog
   10-7-move-subscribe-and-profile-lookup-onto-the-engine: backlog
   10-8-auto-extract-the-first-posts-after-subscribe-and-route-the-wizard-to-the-feed: backlog
   10-9-move-ai-assisted-correction-onto-the-engine-and-let-it-re-scrape: backlog
