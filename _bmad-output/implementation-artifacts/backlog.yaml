@@ -2592,13 +2592,13 @@ items:
      note: "Done 2026-11-11 by Story 10.2 (PR #237). Today each target still makes one refused start per batch; the refusal is cheap but fills the logs and delays the fallback to the next provider."}
 
   IDEA-102:
-    {type: idea, status: promoted, created: 2026-10-30, epic: epic-10,
+    {type: idea, status: done, created: 2026-10-30, epic: epic-10,
      impact: internal, effort: xs,
      stories: [10-5-collect-late-vendor-results-and-finish-the-job],
      title: "Bright Data snapshots can take hours; the 180-minute expiry sends them to a paid Apify fallback while the late result still arrives",
      ref: [docs/infrastructure/incidents/2026-10-30-apify-monthly-cap-and-late-brightdata-delivery.md],
      touches: [app:backend],
-     note: "2026-10-29: 21 of 38 snapshots took 5-6 h. Options: longer expiry, or have the sweep wait for a snapshot Bright Data still reports as running."}
+     note: "Done 2026-11-11 by Story 10.5 (PR #250). 2026-10-29: 21 of 38 snapshots took 5-6 h. Options: longer expiry, or have the sweep wait for a snapshot Bright Data still reports as running."}
 
   # ── 2026-10-30 (moderator dedup queue: AI-assisted review, pieces B and C of the split spec) ──
   FIND-107:
