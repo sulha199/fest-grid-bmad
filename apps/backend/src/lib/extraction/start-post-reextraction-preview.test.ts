@@ -250,38 +250,10 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.strictEqual((rows[0].requestPayload as ManualExtractionRequestPayload).message.content, '');
   });
 
-  await t.test('the job status reports its mode so each query can reject the other kind of job', async () => {
-    const post = await makePost('Mode caption');
-    await startPostReextractionPreview(user.id, { postId: post.id }); // fails to start under test, row still created
-    const [job] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    jobIds.push(job.id);
-    const status = await getManualExtractionJobStatus(job.id, user.id);
-    assert.strictEqual(status?.mode, 'REEXTRACT_PREVIEW');
-  });
-
   await t.test('unsupported platform URL (not stored) -> UNSUPPORTED_PLATFORM, no job', async () => {
     const result = await startPostReextractionPreview(user.id, { url: `https://example.com/not-a-post-${suffix}` });
     assert.ok('errorCode' in result);
     assert.strictEqual(result.errorCode, 'UNSUPPORTED_PLATFORM');
-  });
-
-  await t.test('stored post with a caption: no scrape; the job is created in REEXTRACT_PREVIEW mode with the caption blanked once it ends', async () => {
-    const post = await makePost('Stored caption');
-    const result = await startPostReextractionPreview(user.id, { postId: post.id });
-    // No AI Lambda is configured under test, so the start itself fails -- and must still blank.
-    assert.ok('errorCode' in result);
-    assert.strictEqual(result.errorCode, 'EXTRACTION_FAILED');
-
-    const [job] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    assert.ok(job);
-    jobIds.push(job.id);
-    const payload = job.requestPayload as ManualExtractionRequestPayload;
-    assert.strictEqual(payload.mode, 'REEXTRACT_PREVIEW');
-    assert.strictEqual(payload.postStored, true);
-    assert.strictEqual(payload.rescraped, false);
-    assert.strictEqual(payload.message.content, '', 'caption blanked when the job ended');
-    const [stored] = await db.select({ content: posts.content }).from(posts).where(eq(posts.id, post.id));
-    assert.strictEqual(stored.content, 'Stored caption');
   });
 
   await t.test('rescrape cooldown: a recent rescrape of the same URL blocks another before any scrape', async () => {
@@ -362,58 +334,6 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     return rows.map((r) => r.requestPayload as ManualExtractionRequestPayload);
   }
 
-  await t.test('stored caption but expired image links: rescrape for fresh slides, keep the stored caption, posts untouched', async () => {
-    const post = await makeCarouselPost('Stored roundup caption', { cover: expiredUrl(0), slides: [expiredUrl(1), expiredUrl(2)] });
-    fakeAdapter(async () => ({
-      content: 'Rescraped caption that must not replace the stored one',
-      postUrl: post.postUrl,
-      publishedAt: '2026-10-01T00:00:00Z',
-      imageUrl: freshUrl(0),
-      additionalImageUrls: [freshUrl(1), freshUrl(2), freshUrl(3)],
-    }));
-    let startResult;
-    try {
-      startResult = await startPostReextractionPreview(user.id, { postId: post.id }); // fails to start under test, row still created
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'the job was created and then failed to start (no AI Lambda under test)');
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.rescraped, true);
-    assert.strictEqual(payload.postStored, true);
-    assert.strictEqual(payload.message.imageUrl, freshUrl(0));
-    assert.deepStrictEqual(payload.message.additionalImageUrls, [freshUrl(1), freshUrl(2), freshUrl(3)]);
-    const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
-    assert.strictEqual(stored.content, 'Stored roundup caption');
-    assert.strictEqual(stored.imageUrl, expiredUrl(0), 'fresh links are never written to posts');
-    assert.deepStrictEqual(stored.additionalImageUrls, [expiredUrl(1), expiredUrl(2)]);
-  });
-
-  await t.test('stored caption, expired links, scrape fails: previews with the stored data, and the failed scrape counts toward the cooldown', async () => {
-    const post = await makeCarouselPost('Stored caption B', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    fakeAdapter(async () => {
-      throw new Error('scraper down');
-    });
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      // The recorded failure is inside the cooldown, so the second call does not scrape at all.
-      let scrapes = 0;
-      fakeAdapter(async () => {
-        scrapes++;
-        return null;
-      });
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      assert.strictEqual(scrapes, 0);
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const payloads = await payloadsFor(post.postUrl);
-    const started = payloads.filter((p) => p.rescraped === false);
-    assert.strictEqual(started.length, 2, 'both calls fell back to a stored preview job');
-    for (const p of started) assert.strictEqual(p.message.imageUrl, expiredUrl(0));
-    assert.strictEqual(payloads.filter((p) => p.rescraped === true).length, 1, 'one FAILED rescrape row');
-  });
-
   await t.test('a post with no caption is still an error when its scrape fails (images cannot stand in for a caption)', async () => {
     const post = await makeCarouselPost(null, { cover: expiredUrl(0), slides: [expiredUrl(1)] });
     fakeAdapter(async () => null);
@@ -446,124 +366,6 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     const [payload] = await payloadsFor(post.postUrl);
     assert.strictEqual(payload.message.imageUrl, freshUrl(0));
     assert.deepStrictEqual(payload.message.additionalImageUrls, [freshUrl(1), freshUrl(2)]);
-  });
-
-  await t.test('stored caption and still-valid image links: no rescrape (no scraper credit spent)', async () => {
-    const post = await makeCarouselPost('Stored caption C', { cover: freshUrl(0), slides: [freshUrl(1)] });
-    let scrapes = 0;
-    fakeAdapter(async () => {
-      scrapes++;
-      return null;
-    });
-    let startResult;
-    try {
-      startResult = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'the job was created and then failed to start (no AI Lambda under test)');
-    assert.strictEqual(scrapes, 0);
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.rescraped, false);
-  });
-
-  await t.test('re-previewing inside the cooldown reuses the fresh links the first run found, not the dead stored ones', async () => {
-    const post = await makeCarouselPost('Stored caption D', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    fakeAdapter(async () => ({
-      content: 'x',
-      postUrl: post.postUrl,
-      publishedAt: '2026-10-01T00:00:00Z',
-      imageUrl: freshUrl(0),
-      additionalImageUrls: [freshUrl(1), freshUrl(2)],
-    }));
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      let scrapes = 0;
-      fakeAdapter(async () => {
-        scrapes++;
-        return null;
-      });
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      assert.strictEqual(scrapes, 0, 'the cooldown blocked a second scrape');
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const payloads = await payloadsFor(post.postUrl);
-    const second = payloads.find((p) => p.rescraped === false);
-    assert.ok(second, 'the second run is a stored-caption job');
-    assert.strictEqual(second.message.imageUrl, freshUrl(0));
-    assert.deepStrictEqual(second.message.additionalImageUrls, [freshUrl(1), freshUrl(2)]);
-    const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
-    assert.strictEqual(stored.imageUrl, expiredUrl(0), 'still never written to posts');
-  });
-
-  await t.test('the scraper finds a cover but an empty slide list: the stored slides stay in the payload, so the preview counts them and reports a shortfall', async () => {
-    const post = await makeCarouselPost('Stored caption E', { cover: expiredUrl(0), slides: [expiredUrl(1), expiredUrl(2)] });
-    fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: freshUrl(0), additionalImageUrls: [] }));
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.message.imageUrl, freshUrl(0));
-    assert.deepStrictEqual(payload.message.additionalImageUrls, [expiredUrl(1), expiredUrl(2)]);
-  });
-
-  await t.test('inside the cooldown, a rescrape that only returned a dead link is not reused as "fresh"', async () => {
-    const post = await makeCarouselPost('Stored caption F', { cover: expiredUrl(0), slides: [] });
-    fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: expiredUrl(9) }));
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const payloads = await payloadsFor(post.postUrl);
-    const second = payloads.find((p) => p.rescraped === false);
-    assert.ok(second);
-    assert.strictEqual(second.message.imageUrl, expiredUrl(0), 'the stored link, not the first run\'s equally dead one');
-  });
-
-  await t.test('a cover found next to dead stored slides is reused inside the cooldown (judged per link, not per row)', async () => {
-    const post = await makeCarouselPost('Stored caption H', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: freshUrl(5), additionalImageUrls: [] }));
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const payloads = await payloadsFor(post.postUrl);
-    const second = payloads.find((p) => p.rescraped === false);
-    assert.ok(second);
-    assert.strictEqual(second.message.imageUrl, freshUrl(5), 'the fresh cover survives the dead slide beside it');
-    assert.deepStrictEqual(second.message.additionalImageUrls, [expiredUrl(1)], 'the dead slide stays, so it shows as a shortfall');
-  });
-
-  await t.test('a malformed recent job row is ignored by the image reuse and still counts as a cooldown (no scrape, no throw)', async () => {
-    const post = await makeCarouselPost('Stored caption G', { cover: expiredUrl(0), slides: [] });
-    await db.insert(manualExtractionJobs).values({
-      requestedByUserId: user.id,
-      sourceUrl: post.postUrl,
-      requestPayload: { mode: 'REEXTRACT_PREVIEW', rescraped: true } as unknown as ManualExtractionRequestPayload,
-    });
-    let scrapes = 0;
-    fakeAdapter(async () => {
-      scrapes++;
-      return null;
-    });
-    let startResult;
-    try {
-      startResult = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.strictEqual(scrapes, 0, 'the malformed row still blocked the scrape');
-    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'a stored-caption job was created and failed to start under test');
-    const started = (await payloadsFor(post.postUrl)).find((p) => p.mode === 'REEXTRACT_PREVIEW' && p.rescraped === false);
-    assert.ok(started);
-    assert.strictEqual(started.message.imageUrl, expiredUrl(0), 'nothing usable in the malformed row, so the stored link is used');
   });
 
   // ── AD-34 gate and FIND-110 single-flight ───────────────────────────────────────────────────
@@ -602,23 +404,6 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
       if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
       return result ? ({ content: 'c', postUrl: url, publishedAt: '2026-10-01T00:00:00Z', ...result } as ScrapedPost) : null;
     });
-
-  await t.test('gate: a personal account\'s stored post with a caption still previews, with no scrape', async () => {
-    const { post } = await makePersonalPost('Personal caption');
-    let scrapes = 0;
-    countingAdapter(() => scrapes++, { imageUrl: freshUrl(0) });
-    let result;
-    try {
-      result = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.strictEqual(scrapes, 0, 'no scrape for a personal account');
-    assert.ok('errorCode' in result && result.errorCode === 'EXTRACTION_FAILED', 'a stored-caption job started (and failed to invoke under test)');
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.rescraped, false);
-    assert.strictEqual(payload.message.imageUrl, expiredUrl(0));
-  });
 
   await t.test('gate: a personal account\'s stored post with no caption is refused with ACCOUNT_NOT_SCRAPABLE, no scrape, no job', async () => {
     const { post } = await makePersonalPost(null);
@@ -662,26 +447,6 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.strictEqual(rows[0].message.content, '');
   });
 
-  await t.test('single-flight: while another request holds the scrape lease, a stored-caption post previews without scraping', async () => {
-    const post = await makeCarouselPost('Stored caption H2', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    const lease = await claimPostUrlScrape(post.postUrl);
-    assert.ok(lease);
-    let scrapes = 0;
-    countingAdapter(() => scrapes++, { imageUrl: freshUrl(0) });
-    let result;
-    try {
-      result = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-      await lease.release();
-    }
-    assert.strictEqual(scrapes, 0);
-    assert.ok('errorCode' in result && result.errorCode === 'EXTRACTION_FAILED');
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.rescraped, false);
-    assert.strictEqual(payload.message.imageUrl, expiredUrl(0), 'no fresh links exist while the first scrape is still running: stored data, and the preview reports the shortfall');
-  });
-
   await t.test('single-flight: while another request holds the lease, a post with no caption gets SCRAPE_IN_PROGRESS and nothing is scraped', async () => {
     const post = await makeCarouselPost(null, { cover: expiredUrl(0), slides: [] });
     const lease = await claimPostUrlScrape(post.postUrl);
@@ -698,29 +463,6 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
     assert.ok('errorCode' in result && result.errorCode === 'SCRAPE_IN_PROGRESS');
     assert.strictEqual(scrapes, 0);
     assert.strictEqual((await payloadsFor(post.postUrl)).length, 0);
-  });
-
-  await t.test('single-flight: two simultaneous previews of one stale post scrape exactly once', async () => {
-    const post = await makeCarouselPost('Stored caption I', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    let scrapes = 0;
-    countingAdapter(() => scrapes++, { imageUrl: freshUrl(0), additionalImageUrls: [freshUrl(1)] }, 300);
-    try {
-      await Promise.all([
-        startPostReextractionPreview(user.id, { postId: post.id }),
-        startPostReextractionPreview(user.id, { postId: post.id }),
-      ]);
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.strictEqual(scrapes, 1, 'the second request reused the first instead of scraping');
-    const payloads = await payloadsFor(post.postUrl);
-    assert.strictEqual(payloads.length, 2, 'both requests still produced a preview job');
-    const rescraped = payloads.filter((p) => p.rescraped === true);
-    const stored = payloads.filter((p) => p.rescraped === false);
-    assert.strictEqual(rescraped.length, 1, 'exactly one request did the scrape');
-    assert.strictEqual(rescraped[0].message.imageUrl, freshUrl(0));
-    assert.strictEqual(stored.length, 1, 'the other previewed on stored data (the first run had not finished, so its links did not exist yet)');
-    assert.strictEqual(stored[0].message.imageUrl, expiredUrl(0));
   });
 
   await t.test('single-flight: the lease is released after a scrape that throws, so the URL is not stuck', async () => {

@@ -12,6 +12,7 @@ import { settleWithConcurrencyLimit } from '../lib/scraper/settle-with-concurren
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
 import { runJobEngineJob } from '../lib/job-engine/run-job.js';
 import { runJobEngineSweep } from '../lib/job-engine/run-job-engine-sweep.js';
+import { registerScraperJobHandlers } from '../lib/job-engine/register-scraper-job-handlers.js';
 import {
   recordProviderHealthCheck,
   type ProviderHealthCheckPrevious,
@@ -30,6 +31,9 @@ import {
 } from '../lib/scraper/tally-scraper-provider-results.js';
 import { loadBackendEnv } from '../env.js';
 import { emitOpsMetric, OpsMetric } from '../lib/metrics/emit-metric.js';
+
+// Story 10.6: this Lambda's half of each job type that has one (the moderator re-extract's refresh phase and its late-result handler).
+registerScraperJobHandlers();
 
 // FIND-035: fallback window for a target with no `newestPostPublishedAt` (i.e. no posts
 // yet -- its first-ever scrape). Mirrors the fallback branch already proven correct in

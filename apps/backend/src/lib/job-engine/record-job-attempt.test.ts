@@ -5,7 +5,8 @@ import { jobAttempts, jobs, users } from '@festgrid/database';
 import { PostUnavailableError, ScraperCapacityExceededError, type PostAdapterAttempt } from '@festgrid/domain';
 import { ApifyRequestTimeoutError } from '@festgrid/domain';
 import { db } from '../../db/client.js';
-import { VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
+import { VendorCallTimeoutError, VendorDpaNotConfirmedError } from '../vendor-gateway/guarded-call.js';
+import { ApifyMemoryLimitExhaustedError, ApifyMonthlyUsageLimitError } from '../scraper/instagram-adapter.js';
 import { recordJobAttempt, toJobAttemptRow } from './record-job-attempt.js';
 
 // Story 10.2 AC2: one job_attempts row per provider considered, with a reason CODE only (never the raw vendor error).
@@ -46,6 +47,16 @@ test('toJobAttemptRow classifies a failure: cap, empty result, timeout, anything
   assert.equal(toJobAttemptRow(failed(new Error('the snapshot was still running'))).outcome, 'TIMED_OUT');
   const other = toJobAttemptRow(failed(new Error('401 Unauthorized for https://api.example/secret-token')));
   assert.deepEqual([other.outcome, other.reasonCode], ['FAILED', 'PROVIDER_ERROR']);
+});
+
+test('Story 10.6: a refusal raised before any vendor call is never a call that ran (the re-extract cooldown reads these rows)', () => {
+  const memory = toJobAttemptRow(failed(new ApifyMemoryLimitExhaustedError(60_000, 3, 'cap')));
+  const monthly = toJobAttemptRow(failed(new ApifyMonthlyUsageLimitError('cap')));
+  assert.deepEqual([memory.outcome, memory.reasonCode], ['OVER_QUOTA', 'CAP_REACHED']);
+  assert.deepEqual([monthly.outcome, monthly.reasonCode], ['OVER_QUOTA', 'CAP_REACHED']);
+  const dpa = toJobAttemptRow(failed(new VendorDpaNotConfirmedError('the DPA for this vendor is not confirmed')));
+  assert.deepEqual([dpa.outcome, dpa.reasonCode], ['SKIPPED', 'DPA_NOT_CONFIRMED']);
+  assert.equal(JSON.stringify(dpa).includes('DPA for this vendor'), false);
 });
 
 test('no row ever carries the raw error: only codes and numbers', () => {

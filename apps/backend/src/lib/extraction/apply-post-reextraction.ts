@@ -1,12 +1,11 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import { eventPosts, events, manualExtractionJobs, posts, schedules } from '@festgrid/database';
+import { eq, inArray } from 'drizzle-orm';
+import { eventPosts, events, posts, schedules } from '@festgrid/database';
 import {
   REEXTRACT_APPLY_WINDOW_MS,
   isPostGroupingReason,
   postGroupingReasonToGraphQL,
   type ApplyReextractionEventRef,
   type ApplyReextractionSummary,
-  type ManualExtractionRequestPayload,
   type ReextractionPreviewResult,
 } from '@festgrid/domain/posts';
 import { assignApplyOrdinals, assignExtractionOrdinals, buildEventInsertValues, pairPostEventsToItems, slugImpliedOrdinal } from '@festgrid/domain/events';
@@ -19,6 +18,7 @@ import { evaluateIngestionMatch, resolveStubSource } from '../ingestor/evaluate-
 import { writeIngestionDecision } from '../ingestor/write-ingestion-decision.js';
 import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
 import { createGeocodeSession } from '../geolocation/geocode-session.js';
+import { loadPreviewJobForApply, lockPreviewJobResult, writePreviewJobResult } from './reextract-preview-job.js';
 
 /** Uncached geocoder calls one Apply may make (each ladder step is one call); see the geocode session. */
 export const APPLY_GEOCODE_BUDGET = 12;
@@ -51,22 +51,17 @@ type PostRow = typeof posts.$inferSelect;
 
 export async function applyPostReextraction(userId: string, jobId: string, now: Date = new Date()): Promise<ApplyPostReextractionResult> {
   // Owner-scoped, like every manual job read: another moderator's job is NOT_FOUND, not forbidden.
-  // A malformed id is a NOT_FOUND too, not a database error.
+  // A malformed id is a NOT_FOUND too, not a database error. The preview may live on the engine job (Story 10.6) or on a manual job.
   if (!UUID_PATTERN.test(jobId)) return fail('NOT_FOUND', 'Preview not found, or it has not finished.');
-  const [job] = await db
-    .select()
-    .from(manualExtractionJobs)
-    .where(and(eq(manualExtractionJobs.id, jobId), eq(manualExtractionJobs.requestedByUserId, userId)))
-    .limit(1);
-  const requestPayload = job?.requestPayload as ManualExtractionRequestPayload | undefined;
-  if (!job || requestPayload?.mode !== 'REEXTRACT_PREVIEW' || job.status !== 'SUCCEEDED') {
+  const previewJob = await loadPreviewJobForApply(userId, jobId);
+  if (!previewJob) {
     return fail('NOT_FOUND', 'Preview not found, or it has not finished.');
   }
 
-  const result = job.resultData as ReextractionPreviewResult | null;
+  const result = previewJob.result;
   if (result?.applied) return { summary: result.applied };
 
-  const finishedAt = job.completedAt ?? job.updatedAt;
+  const finishedAt = previewJob.finishedAt;
   if (!result?.extracted || now.getTime() - finishedAt.getTime() > REEXTRACT_APPLY_WINDOW_MS) {
     return fail('EXPIRED', 'This preview can no longer be applied (it is too old, or predates Apply). Run the preview again.');
   }
@@ -76,7 +71,7 @@ export async function applyPostReextraction(userId: string, jobId: string, now: 
   if (extracted.events.length === 0) return fail('NOTHING_TO_APPLY', 'This preview found no events, so there is nothing to apply.');
 
   if (!result.postStored) return fail('NOT_STORED', 'Only a post that is stored can be applied.');
-  const [post] = await db.select().from(posts).where(eq(posts.id, requestPayload.message.postId)).limit(1);
+  const [post] = await db.select().from(posts).where(eq(posts.id, previewJob.postId)).limit(1);
   if (!post) return fail('NOT_STORED', 'Only a post that is stored can be applied.');
   // AD-51 Rule 4: a post whose stepped extraction is still running is refused: Apply re-sorts and moves ordinals under the
   // chain's next free value, and rewrites the grouping the chain's decisions rest on.
@@ -107,23 +102,17 @@ export async function applyPostReextraction(userId: string, jobId: string, now: 
       // every apply, so two applies cannot deadlock on the pair.
       await tx.select({ id: posts.id }).from(posts).where(eq(posts.id, post.id)).for('update');
       // Serializes two applies of one job: the second waits here, then sees `applied` and returns it.
-      const [locked] = await tx
-        .select({ resultData: manualExtractionJobs.resultData })
-        .from(manualExtractionJobs)
-        .where(eq(manualExtractionJobs.id, jobId))
-        .for('update');
-      const current = locked?.resultData as ReextractionPreviewResult | null;
+      const current = await lockPreviewJobResult(tx, previewJob);
       if (current?.applied) return { summary: current.applied, committed: null };
 
       const summary = await applyInTransaction(tx, post, messages, extracted.groupingReason, extracted.postTitle);
 
-      await tx
-        .update(manualExtractionJobs)
-        .set({
-          resultData: { ...(current ?? result), extracted: null, appliedAt: now.toISOString(), applied: summary.summary } satisfies ReextractionPreviewResult,
-          updatedAt: new Date(),
-        })
-        .where(eq(manualExtractionJobs.id, jobId));
+      await writePreviewJobResult(tx, previewJob, {
+        ...(current ?? result),
+        extracted: null,
+        appliedAt: now.toISOString(),
+        applied: summary.summary,
+      } satisfies ReextractionPreviewResult);
       return { summary: summary.summary, committed: summary.journal };
     });
 

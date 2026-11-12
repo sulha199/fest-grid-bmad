@@ -1,5 +1,6 @@
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
-import { manualExtractionJobs } from '@festgrid/database';
+import { jobs, manualExtractionJobs } from '@festgrid/database';
+import { REEXTRACT_POST_JOB_TYPE } from '@festgrid/domain/jobs';
 import { MANUAL_EXTRACTION_JOB_STALE_AFTER_MS, REEXTRACT_APPLY_WINDOW_MS } from '@festgrid/domain/posts';
 import { db } from '../../db/client.js';
 import { blankManualJobPayloadContent } from './blank-manual-job-payload.js';
@@ -68,4 +69,43 @@ export async function sweepStaleManualExtractionRetention(now: Date = new Date()
         .where(eq(manualExtractionJobs.id, id));
     });
   }
+
+  await sweepReextractPreviewRetention(now);
+}
+
+const engineResultJson = sql`(${jobs.resultData} #>> '{}')::jsonb`;
+
+/**
+ * Story 10.6, FIND-111 finding 1 for the engine's preview: an unapplied `reextract-post` job keeps `result_data.extracted` past the
+ * 30-minute Apply window (PRD 5, Data Minimization). Nulls just that field in place, under a row lock so an Apply at the window's
+ * edge is never overwritten; every other field of the result (the events, the refresh report) is kept.
+ */
+export async function sweepReextractPreviewRetention(now: Date = new Date()): Promise<number> {
+  const applyWindowEnd = new Date(now.getTime() - REEXTRACT_APPLY_WINDOW_MS);
+  const candidates = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.type, REEXTRACT_POST_JOB_TYPE),
+        inArray(jobs.status, ['SUCCEEDED', 'SUCCEEDED_WITH_LIMITS']),
+        lt(jobs.finishedAt, applyWindowEnd),
+        sql`jsonb_typeof(${engineResultJson} -> 'extracted') in ('object', 'array')`,
+        sql`${engineResultJson} ->> 'appliedAt' is null`
+      )
+    )
+    .limit(BATCH);
+
+  let cleared = 0;
+  for (const { id } of candidates) {
+    const done = await db.transaction(async (tx) => {
+      const [row] = await tx.select({ resultData: jobs.resultData }).from(jobs).where(eq(jobs.id, id)).for('update');
+      const current = row?.resultData as Record<string, unknown> | null | undefined;
+      if (!current || current.extracted == null || current.appliedAt != null) return false;
+      await tx.update(jobs).set({ resultData: { ...current, extracted: null }, updatedAt: now }).where(eq(jobs.id, id));
+      return true;
+    });
+    if (done) cleared += 1;
+  }
+  return cleared;
 }

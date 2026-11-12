@@ -1238,6 +1238,26 @@ test('FestgridBackendStack: POST_SCRAPER_PROVIDER_ORDER is passed to the Scraper
   }
 });
 
+// Story 10.6: the re-extract refresh budget reaches the Scraper Lambda (where the refresh phase runs) only when set.
+test('FestgridBackendStack: REEXTRACT_REFRESH_BUDGET_MS is passed to the Scraper Lambda only when set (Story 10.6)', () => {
+  const saved = process.env.REEXTRACT_REFRESH_BUDGET_MS;
+  const scraperEnv = (value: string | undefined) => {
+    if (value === undefined) delete process.env.REEXTRACT_REFRESH_BUDGET_MS;
+    else process.env.REEXTRACT_REFRESH_BUDGET_MS = value;
+    const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), `TestStackReextractBudget${value ?? 'Unset'}`.replace(/[^A-Za-z0-9]/g, ''), { stageName: 'dev' }));
+    const entry = Object.entries(template.findResources('AWS::Lambda::Function')).find(([id]) => id.startsWith('ScraperLambda'));
+    assert.ok(entry, 'ScraperLambda in the template');
+    return (entry![1] as { Properties: { Environment: { Variables: Record<string, unknown> } } }).Properties.Environment.Variables;
+  };
+  try {
+    assert.equal(scraperEnv('90000').REEXTRACT_REFRESH_BUDGET_MS, '90000');
+    assert.equal('REEXTRACT_REFRESH_BUDGET_MS' in scraperEnv(undefined), false);
+  } finally {
+    if (saved === undefined) delete process.env.REEXTRACT_REFRESH_BUDGET_MS;
+    else process.env.REEXTRACT_REFRESH_BUDGET_MS = saved;
+  }
+});
+
 // Story 10.5: the snapshot wait bound reaches the Scraper Lambda only when set (the code default is 480 minutes).
 test('FestgridBackendStack: BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES is passed to the Scraper Lambda only when set (Story 10.5)', () => {
   const saved = process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;

@@ -61,6 +61,46 @@ test('fetchScrapedPost', async (t) => {
     assert.deepEqual(calls, ['brightdata']);
   });
 
+  await t.test('Story 10.6: a caller\'s own order beats POST_SCRAPER_PROVIDER_ORDER for that call only, and onAttempt sees every provider considered', async () => {
+    fake('apify', 0, async () => {
+      throw new Error('apify down');
+    });
+    fake('brightdata', 0, async () => post);
+    const seen: string[] = [];
+    // Even with the environment saying brightdata first, this caller asks for Apify first.
+    process.env.POST_SCRAPER_PROVIDER_ORDER = 'brightdata,apify';
+    const result = await fetchScrapedPost({
+      platform: 'instagram',
+      url: URL_,
+      budgetMs: 1000,
+      order: ['apify', 'brightdata'],
+      onAttempt: (attempt) => {
+        seen.push(`${attempt.adapter}:${attempt.outcome}`);
+      },
+    });
+    assert.equal(result, post);
+    assert.deepEqual(calls, ['apify', 'brightdata']);
+    assert.deepEqual(seen, ['apify:failed', 'brightdata:found']);
+    // Another caller, with no order of its own, still follows the environment (the default is not changed).
+    calls.length = 0;
+    await fetchScrapedPost({ platform: 'instagram', url: URL_, budgetMs: 1000 });
+    assert.deepEqual(calls, ['brightdata']);
+  });
+
+  await t.test('a throwing onAttempt hook never changes what the fetch returns', async () => {
+    fake('brightdata', 0, async () => post);
+    fake('apify', 0, async () => post);
+    const result = await fetchScrapedPost({
+      platform: 'instagram',
+      url: URL_,
+      budgetMs: 1000,
+      onAttempt: () => {
+        throw new Error('hook failed');
+      },
+    });
+    assert.equal(result, post);
+  });
+
   await t.test('POST_SCRAPER_PROVIDER_ORDER flips the order without a code change', async () => {
     process.env.POST_SCRAPER_PROVIDER_ORDER = 'apify,brightdata';
     fake('brightdata', 0, async () => post);

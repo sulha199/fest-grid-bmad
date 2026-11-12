@@ -104,6 +104,17 @@ test('runJobEngineJob: claim and outcomes', async (t) => {
     assert.deepEqual([(await readJob(b.id)).status, (await readJob(b.id)).reasonCode], ['FAILED', 'ACCOUNT_NOT_FOUND']);
   });
 
+  await t.test('Story 10.6: a handler\'s own plain-words message is stored on FAILED and SUCCEEDED_WITH_LIMITS, and null when it gave none', async () => {
+    const failed = defineType(handlerReturning({ outcome: 'FAILED', reasonCode: 'QUOTA_EXHAUSTED', errorMessage: 'No available Gemini API key to perform this extraction.' }));
+    const limits = defineType(handlerReturning({ outcome: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'COOLDOWN', errorMessage: 'The preview used the stored images.' }));
+    const bare = defineType(handlerReturning({ outcome: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'COOLDOWN' }));
+    const [a, b, c] = [await insertJob(failed), await insertJob(limits), await insertJob(bare)];
+    for (const job of [a, b, c]) await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(a.id)).errorMessage, 'No available Gemini API key to perform this extraction.');
+    assert.equal((await readJob(b.id)).errorMessage, 'The preview used the stored images.');
+    assert.equal((await readJob(c.id)).errorMessage, null);
+  });
+
   await t.test('an ending that needs a reason but gives none is recorded as UNSPECIFIED, never silently', async () => {
     const type = defineType(handlerReturning({ outcome: 'FAILED' }));
     const job = await insertJob(type);

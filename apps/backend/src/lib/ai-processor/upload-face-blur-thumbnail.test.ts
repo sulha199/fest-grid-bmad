@@ -91,6 +91,7 @@ test('uploadFaceBlurThumbnail integration/unit tests', async (t) => {
     jobAttemptDeadlineMs: 150000,
     jobWorkerClaimTtlMinutes: 5,
     brightdataSnapshotMaxWaitMinutes: 480,
+    reextractRefreshBudgetMs: 120000,
     maxConcurrentJobsPerUser: 3,
     maxQueuedJobsPerUser: 10,
     jobQueueMaxWaitMinutes: 30,

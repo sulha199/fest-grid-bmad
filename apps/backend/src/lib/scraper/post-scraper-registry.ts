@@ -11,11 +11,21 @@ export function registerPostScraperAdapter(adapter: PostScraperAdapter): void {
   adapters.set(adapter.name, adapter);
 }
 
-/** The adapters in configured order; a configured name with no registered adapter is skipped with a warning. */
-export function getPostScraperAdapters(): PostScraperAdapter[] {
-  const { order, ignored } = parsePostScraperOrder(loadBackendEnv().postScraperProviderOrder);
-  if (ignored.length > 0) {
-    console.warn(`POST_SCRAPER_PROVIDER_ORDER names unknown provider(s) ${ignored.join(', ')}; ignored`);
+/**
+ * The adapters in configured order; a configured name with no registered adapter is skipped with a warning. A job type that has its
+ * own order (Story 10.6: the moderator re-extract tries Apify first) passes it as `orderOverride`; `POST_SCRAPER_PROVIDER_ORDER`
+ * is then not read, and the default order every other caller gets is unchanged.
+ */
+export function getPostScraperAdapters(orderOverride?: readonly PostScraperAdapterName[]): PostScraperAdapter[] {
+  let order: readonly PostScraperAdapterName[];
+  if (orderOverride && orderOverride.length > 0) {
+    order = orderOverride;
+  } else {
+    const parsed = parsePostScraperOrder(loadBackendEnv().postScraperProviderOrder);
+    if (parsed.ignored.length > 0) {
+      console.warn(`POST_SCRAPER_PROVIDER_ORDER names unknown provider(s) ${parsed.ignored.join(', ')}; ignored`);
+    }
+    order = parsed.order;
   }
   const selected: PostScraperAdapter[] = [];
   for (const name of order) {

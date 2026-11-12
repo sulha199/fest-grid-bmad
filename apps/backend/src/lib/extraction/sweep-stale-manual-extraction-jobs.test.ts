@@ -106,3 +106,65 @@ test('sweepStaleManualExtractionRetention: FIND-111 (an unapplied preview keeps 
     assert.deepEqual((await readJob(correction.id)).resultData, { proposal: { eventName: 'Y' } });
   });
 });
+
+// Story 10.6 -- the same retention for the engine's re-extract preview (PRD 5, Data Minimization).
+test('sweepReextractPreviewRetention: an unapplied engine preview keeps no extraction past the Apply window', async (t) => {
+  const { jobs } = await import('@festgrid/database');
+  const { REEXTRACT_POST_JOB_TYPE } = await import('@festgrid/domain/jobs');
+  const { sweepReextractPreviewRetention } = await import('./sweep-stale-manual-extraction-jobs.js');
+  const extracted = { events: [{ eventName: 'x' }], groupingReason: 'roundup', postTitle: null, childrensDataMatch: false };
+  let n = 0;
+  async function insertEngineJob(overrides: Partial<typeof jobs.$inferInsert> & { finishedAgoMs?: number }) {
+    const { finishedAgoMs = REEXTRACT_APPLY_WINDOW_MS + 60_000, ...rest } = overrides;
+    const [job] = await db
+      .insert(jobs)
+      .values({
+        type: REEXTRACT_POST_JOB_TYPE,
+        ownerUserId: owner,
+        trigger: 'USER',
+        inputKey: `retention-${suffix}-${n++}`,
+        status: 'SUCCEEDED',
+        deadlineAt: new Date(Date.now() + 60_000),
+        finishedAt: new Date(Date.now() - finishedAgoMs),
+        resultData: { events: [], imagesSent: 2, refresh: { outcome: 'REFRESHED' }, extracted },
+        ...rest,
+      })
+      .returning();
+    return job;
+  }
+  const read = async (id: string) => (await db.select().from(jobs).where(eq(jobs.id, id)))[0];
+
+  await t.test('past the window, `extracted` is cleared and every other field of the result is kept', async () => {
+    const old = await insertEngineJob({});
+    const limits = await insertEngineJob({ status: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'COOLDOWN' });
+    assert.ok((await sweepReextractPreviewRetention()) >= 2);
+    for (const job of [old, limits]) {
+      const result = (await read(job.id)).resultData as Record<string, unknown>;
+      assert.equal(result.extracted, null);
+      assert.equal(result.imagesSent, 2);
+      assert.deepEqual(result.refresh, { outcome: 'REFRESHED' });
+    }
+  });
+
+  await t.test('inside the window, an applied preview, another job type and a failed job are untouched', async () => {
+    const young = await insertEngineJob({ finishedAgoMs: 60_000 });
+    const applied = await insertEngineJob({ resultData: { events: [], extracted, appliedAt: new Date().toISOString(), applied: {} } });
+    const other = await insertEngineJob({ type: `fixture-retention-${suffix}` });
+    const failed = await insertEngineJob({ status: 'FAILED' });
+    await sweepReextractPreviewRetention();
+    for (const job of [young, applied, other, failed]) {
+      assert.deepEqual(((await read(job.id)).resultData as { extracted: unknown }).extracted, extracted);
+    }
+  });
+
+  await t.test('a second sweep has nothing left to do', async () => {
+    await sweepReextractPreviewRetention();
+    assert.equal(await sweepReextractPreviewRetention(), 0);
+  });
+
+  await t.test('the engine sweep\'s retention step runs it', async () => {
+    const job = await insertEngineJob({});
+    await sweepStaleManualExtractionRetention();
+    assert.equal(((await read(job.id)).resultData as { extracted: unknown }).extracted, null);
+  });
+});

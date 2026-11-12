@@ -211,6 +211,8 @@ async function applyResult(
         status: result.outcome,
         resultData: result.resultData ?? null,
         reasonCode: result.reasonCode ?? 'UNSPECIFIED',
+        // Story 10.6: plain words the handler wrote itself (never a raw error); null when it gave none.
+        errorMessage: result.errorMessage ?? null,
         completedAfterDeadline: Date.now() > job.deadlineAt.getTime(),
       });
       return;
