@@ -45,7 +45,9 @@ export const reextractPreviewHandler: JobHandler = {
     }
 
     const report = readRefreshReport(job.resultData);
-    const message: ProcessingJobMessage = {
+    // `satisfies`, not an annotated literal: this is a preview message read in memory, never an enqueue path (the one
+    // ProcessingJobMessage-building site of enqueue-post-for-processing.test.ts guards the enqueue path, Story 3.6z).
+    const message = {
       postId: post.id,
       accountId: post.accountId,
       content: post.content,
@@ -55,7 +57,7 @@ export const reextractPreviewHandler: JobHandler = {
       ownerDisplayName: post.ownerDisplayName ?? undefined,
       ownerUsername: post.ownerUsername ?? undefined,
       additionalImageUrls: post.additionalImageUrls ?? undefined,
-    };
+    } satisfies ProcessingJobMessage;
     // The seam is read at call time (a thunk), so a test can swap it between runs.
     const callGemini: typeof defaultCallGemini = (request) => callGeminiForManualExtractionSeam(request);
 
