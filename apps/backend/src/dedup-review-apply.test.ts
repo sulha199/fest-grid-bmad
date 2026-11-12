@@ -149,7 +149,8 @@ test('dedup-review-apply CLI', async (t) => {
         assert.ok(!result.stderr.includes(`=${value}`) && !result.stderr.includes(HASH), 'nothing echoed');
       }
       // Valid values pass the check; the run then stops at the database client (no DATABASE_URL here), which is a different failure.
-      for (const env of [{}, { DEDUP_REVIEW_PER_DAY_CAP: '100' }, { DEDUP_REVIEW_PER_RUN_CAP: '100', DEDUP_REVIEW_PER_DAY_CAP: '200', DEDUP_REVIEW_PER_DAY_REJECT_CAP: '100' }, { DEDUP_REVIEW_PER_DAY_CAP: '' }]) {
+      const good: Array<Record<string, string>> = [{}, { DEDUP_REVIEW_PER_DAY_CAP: '100' }, { DEDUP_REVIEW_PER_RUN_CAP: '100', DEDUP_REVIEW_PER_DAY_CAP: '200', DEDUP_REVIEW_PER_DAY_REJECT_CAP: '100' }, { DEDUP_REVIEW_PER_DAY_CAP: '' }];
+      for (const env of good) {
         const result = runCli(['--mode', mode, '--decisions-file', valid], { ...base, ...env });
         assert.strictEqual(result.status, 1, `${mode} ${JSON.stringify(env)}`);
         assert.ok(!/must be a whole number/.test(result.stderr), `${mode} ${JSON.stringify(env)} passes the cap check: ${result.stderr.slice(0, 200)}`);
