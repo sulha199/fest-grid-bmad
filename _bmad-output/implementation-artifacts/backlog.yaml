@@ -3075,3 +3075,43 @@ items:
      touches: [app:backend, pkg:domain, cross:ai-extraction],
      note: "Raised at the 2a Checkpoint 1 (2026-11-11). Today the hint is the string/consensus code, then the static DEFAULT_COUNTRY_CODE. Revisit if that default proves wrong in a new market; see the detail file."}
 
+
+  FIND-261112-gnf:
+    {type: finding, status: backlog, created: 2026-11-12,
+     impact: user-visible, effort: s,
+     title: "A crash between ordinal reservation and commit in a cursor step can ingest a replayed event twice under new ordinals",
+     ref: [specs/spec-cursor-extraction/build-slices.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Known gap from the slice 5 build (AD-48). Reservation happens before enqueue; a replay after a crash takes fresh ordinals, so one event can get two pages. Dedup may catch it later. Fix: key the replay on content, not only on the ordinal range."}
+
+  FIND-261112-zrr:
+    {type: finding, status: backlog, created: 2026-11-12,
+     impact: user-visible, effort: s,
+     title: "A first extraction request cut off by the token limit is not split, so the chain flags the post partial instead of retrying a smaller window",
+     ref: [specs/spec-cursor-extraction/continue-rules.md, apps/backend/src/lib/ai-processor/process-extraction-step.ts],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Known gap from the slice 5 build (AD-49 split-and-retry). Later windows are halved on an at-risk answer; the first request (cover + 2 slides) is not. Rare for 3 images, so partial is accepted today; revisit if prod shows a first-window MAX_TOKENS."}
+
+  FIND-261112-znv:
+    {type: finding, status: backlog, created: 2026-11-12,
+     impact: internal, effort: s,
+     title: "Apply's CHAIN_IN_FLIGHT guard is a pre-check outside its transaction, so a chain step can start between the check and the write",
+     ref: [apps/backend/src/lib/extraction/apply-post-reextraction.ts, implementation-artifacts/spec-cursor-extraction-moderator-and-note.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Known gap from the slice 7 build (AD-50). The window is small (a moderator Apply racing a chain step on the same post). Fix: take the guard inside the Apply transaction (row lock or compare-and-set on the cursor)."}
+
+  FIND-261112-qjf:
+    {type: finding, status: backlog, created: 2026-11-12,
+     impact: internal, effort: s,
+     title: "The chain's re-scrape cooldown lives in the cursor, not in the moderator preview's ledger, so a chain and a moderator preview can each spend a re-scrape inside one cooldown",
+     ref: [apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, implementation-artifacts/spec-cursor-extraction-resume.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Known gap from the slice 6 build (AD-47 Rule 6, AD-40 cooldown). Both honour a 10 minute cooldown but read different records. Cost is one extra scraper credit at worst. Fix: one shared ledger for both."}
+
+  FIND-261112-ifs:
+    {type: finding, status: backlog, created: 2026-11-12,
+     impact: internal, effort: m,
+     title: "Six deferred findings from the separate keywords call, among them a replayed cursor step that repeats its paid keywords call",
+     ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-location-keywords-extraction.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Deferred from: bmad-quick-dev review of spec-location-keywords-extraction (separate keywords call) (2026-11-11). 6 findings: unabortable 10 s timeout, no salvage of a cut-off answer, replayed step repeats the call, correction clearing, location guard, rule 5 fallback."}
