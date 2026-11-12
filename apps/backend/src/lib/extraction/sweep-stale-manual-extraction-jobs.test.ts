@@ -168,3 +168,71 @@ test('sweepReextractPreviewRetention: an unapplied engine preview keeps no extra
     assert.equal(((await read(job.id)).resultData as { extracted: unknown }).extracted, null);
   });
 });
+
+// Owner decision 2026-11-12 -- the backstop that blanks a post held on a re-extract job between its two phases.
+test('sweepHeldPostRetention: a held post that outlived its job or the 30-minute window is blanked', async (t) => {
+  const { jobs } = await import('@festgrid/database');
+  const { REEXTRACT_POST_JOB_TYPE, readHeldPost } = await import('@festgrid/domain/jobs');
+  const { sweepHeldPostRetention } = await import('./sweep-stale-manual-extraction-jobs.js');
+  const { sweepExpiredEngineJobs } = await import('../job-engine/sweep-expired-jobs.js');
+  const HELD = `held caption ${suffix}`;
+  let n = 0;
+  async function insertHeldJob(overrides: Partial<typeof jobs.$inferInsert> & { ageMs?: number } = {}) {
+    const { ageMs = 0, ...rest } = overrides;
+    const [job] = await db
+      .insert(jobs)
+      .values({
+        type: REEXTRACT_POST_JOB_TYPE,
+        ownerUserId: owner,
+        trigger: 'USER',
+        inputKey: `held-retention-${suffix}-${n++}`,
+        input: { url: `https://www.instagram.com/p/held${n}/`, held: { content: HELD, postUrl: 'https://www.instagram.com/p/x/', publishedAt: '2026-10-01T00:00:00.000Z' } },
+        status: 'RUNNING',
+        admittedAt: new Date(),
+        deadlineAt: new Date(Date.now() + 600_000),
+        createdAt: new Date(Date.now() - ageMs),
+        ...rest,
+      })
+      .returning();
+    return job;
+  }
+  const read = async (id: string) => (await db.select().from(jobs).where(eq(jobs.id, id)))[0];
+
+  await t.test('a job that has ended, however it ended, loses its held post; the identity of the job stays', async () => {
+    const ended = [] as Awaited<ReturnType<typeof insertHeldJob>>[];
+    for (const status of ['SUCCEEDED', 'SUCCEEDED_WITH_LIMITS', 'FAILED', 'EXPIRED'] as const) ended.push(await insertHeldJob({ status, finishedAt: new Date() }));
+    assert.ok((await sweepHeldPostRetention()) >= 4);
+    for (const job of ended) {
+      const row = await read(job.id);
+      assert.equal(readHeldPost(row.input), null);
+      assert.deepEqual(row.input, { url: (job.input as { url: string }).url });
+      assert.equal(JSON.stringify(row).includes(HELD), false, 'the caption is nowhere on the row');
+    }
+  });
+
+  await t.test('a job the engine expired (its run timed out, no phase 2 finally ran) is blanked by the next retention pass', async () => {
+    const overdue = await insertHeldJob({ deadlineAt: new Date(Date.now() - 60_000) });
+    assert.ok((await sweepExpiredEngineJobs()) >= 1);
+    assert.equal((await read(overdue.id)).status, 'EXPIRED');
+    assert.equal(readHeldPost((await read(overdue.id)).input)?.content, HELD, 'still held until the retention step runs');
+    await sweepStaleManualExtractionRetention();
+    assert.equal(readHeldPost((await read(overdue.id)).input), null);
+  });
+
+  await t.test('a job still open but older than the 30-minute window is blanked too; a young open job keeps its held post for phase 2', async () => {
+    const old = await insertHeldJob({ ageMs: REEXTRACT_APPLY_WINDOW_MS + 60_000 });
+    const young = await insertHeldJob({ ageMs: 60_000 });
+    await sweepHeldPostRetention();
+    assert.equal(readHeldPost((await read(old.id)).input), null);
+    assert.equal(readHeldPost((await read(young.id)).input)?.content, HELD);
+  });
+
+  await t.test('jobs with nothing held, other job types and a second pass are left alone', async () => {
+    const plain = await insertHeldJob({ status: 'SUCCEEDED', finishedAt: new Date(), input: { postId: '0a1b2c3d-0000-4000-8000-000000000001' } });
+    const other = await insertHeldJob({ status: 'SUCCEEDED', finishedAt: new Date(), type: `fixture-held-${suffix}` });
+    await sweepHeldPostRetention();
+    assert.deepEqual((await read(plain.id)).input, { postId: '0a1b2c3d-0000-4000-8000-000000000001' });
+    assert.equal(readHeldPost((await read(other.id)).input)?.content, HELD, 'another type\'s input is never touched');
+    assert.equal(await sweepHeldPostRetention(), 0, 'nothing left to blank');
+  });
+});

@@ -1,9 +1,10 @@
-import { and, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import { jobs, manualExtractionJobs } from '@festgrid/database';
-import { REEXTRACT_POST_JOB_TYPE } from '@festgrid/domain/jobs';
+import { JOB_TERMINAL_STATUSES, REEXTRACT_POST_JOB_TYPE } from '@festgrid/domain/jobs';
 import { MANUAL_EXTRACTION_JOB_STALE_AFTER_MS, REEXTRACT_APPLY_WINDOW_MS } from '@festgrid/domain/posts';
 import { db } from '../../db/client.js';
 import { blankManualJobPayloadContent } from './blank-manual-job-payload.js';
+import { blankHeldPost } from './held-post.js';
 
 // Story 10.1a (AC4) -- retention for `manual_extraction_jobs`, run by the job-engine sweep. The table itself is
 // untouched (moving it onto the job table is Story 10.9's decision, OI-4); only new sweep BEHAVIOUR reads and writes it.
@@ -71,6 +72,7 @@ export async function sweepStaleManualExtractionRetention(now: Date = new Date()
   }
 
   await sweepReextractPreviewRetention(now);
+  await sweepHeldPostRetention(now);
 }
 
 const engineResultJson = sql`(${jobs.resultData} #>> '{}')::jsonb`;
@@ -108,4 +110,32 @@ export async function sweepReextractPreviewRetention(now: Date = new Date()): Pr
     if (done) cleared += 1;
   }
   return cleared;
+}
+
+const engineInputJson = sql`(${jobs.input} #>> '{}')::jsonb`;
+
+/**
+ * Story 10.6, the backstop of `blankHeldPost` (owner decision 2026-11-12; PRD 5): a re-extract job holds a fetched post, caption
+ * included, on `jobs.input.held` only between its two phases, and phase 2 blanks it when it ends. This blanks every one that outlived
+ * that: the job has an ending (a run the engine expired, a cancel, a failure with no phase 2 `finally`, a dead Lambda) or it is older
+ * than the 30-minute window (a job that was never ended). The job-engine sweep expires an overdue job first (its earlier step), so a
+ * held caption is gone within one more 5-minute tick of the job ending. Returns how many were blanked.
+ */
+export async function sweepHeldPostRetention(now: Date = new Date()): Promise<number> {
+  const windowStart = new Date(now.getTime() - REEXTRACT_APPLY_WINDOW_MS);
+  const candidates = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(
+      and(
+        eq(jobs.type, REEXTRACT_POST_JOB_TYPE),
+        sql`jsonb_typeof(${engineInputJson} -> 'held') = 'object'`,
+        or(inArray(jobs.status, [...JOB_TERMINAL_STATUSES]), lt(jobs.createdAt, windowStart))
+      )
+    )
+    .limit(BATCH);
+  for (const { id } of candidates) {
+    await blankHeldPost(id);
+  }
+  return candidates.length;
 }

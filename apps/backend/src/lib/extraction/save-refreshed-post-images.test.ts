@@ -90,3 +90,13 @@ test('a post whose stored id disagrees with its URL is left alone', async () => 
   const post = await fx.makePost(accountId, { platformPostType: null, platformPostId: 'someOtherId' });
   assert.equal((await saveRefreshedPostImages({ postId: post.id, scraped: {} })).postTypeFilled, false);
 });
+
+test('Story 10.6 review: a shorter fresh slide list never replaces a longer stored one; an equal or longer one does', async () => {
+  const post = await fx.makePost(accountId, { imageUrl: fx.freshUrl('c-long'), additionalImageUrls: [fx.freshUrl('l1'), fx.freshUrl('l2'), fx.freshUrl('l3')] });
+  const shorter = await saveRefreshedPostImages({ postId: post.id, scraped: { additionalImageUrls: [fx.freshUrl('x1'), fx.freshUrl('x2')] } });
+  assert.equal(shorter.saved, false);
+  assert.deepEqual((await fx.readPost(post.id)).additionalImageUrls, [fx.freshUrl('l1'), fx.freshUrl('l2'), fx.freshUrl('l3')]);
+  const longer = [fx.freshUrl('y1'), fx.freshUrl('y2'), fx.freshUrl('y3'), fx.freshUrl('y4')];
+  assert.equal((await saveRefreshedPostImages({ postId: post.id, scraped: { additionalImageUrls: longer } })).saved, true);
+  assert.deepEqual((await fx.readPost(post.id)).additionalImageUrls, longer);
+});

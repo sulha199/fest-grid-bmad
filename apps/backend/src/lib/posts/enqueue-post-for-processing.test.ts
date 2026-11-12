@@ -331,13 +331,33 @@ test("enqueuePostForProcessing integration tests", async (t) => {
         return [];
       });
     }
-    const messageBuilderSites = findTsFiles(backendSrcRoot).filter((file) =>
-      fs.readFileSync(file, "utf8").includes("ProcessingJobMessage = {")
-    );
+    // Every way of writing a ProcessingJobMessage object literal is counted, per file: an annotated literal (`: ProcessingJobMessage = {`),
+    // `satisfies ProcessingJobMessage` and a cast (`as ProcessingJobMessage`, `<ProcessingJobMessage>`). A form that is not counted would
+    // let a second, parallel enqueue path in unseen (Story 10.6 review: `satisfies` had become exactly such a blind spot).
+    const FORMS = {
+      annotated: /ProcessingJobMessage\s*=\s*\{/g,
+      satisfies: /\bsatisfies\s+ProcessingJobMessage\b/g,
+      cast: /\bas\s+ProcessingJobMessage\b|<ProcessingJobMessage>\s*\{/g,
+    };
+    const sitesByForm = (form: RegExp) =>
+      Object.fromEntries(
+        findTsFiles(backendSrcRoot)
+          .map((file) => [path.relative(backendSrcRoot, file).replace(/\\/g, "/"), (fs.readFileSync(file, "utf8").match(form) ?? []).length] as const)
+          .filter(([, count]) => count > 0)
+      );
+    // The ONE enqueue path builds its message here, as an annotated literal.
     assert.deepStrictEqual(
-      messageBuilderSites,
-      [path.resolve(__dirname, "enqueue-post-for-processing.ts")],
+      sitesByForm(FORMS.annotated),
+      { "lib/posts/enqueue-post-for-processing.ts": 1 },
       "exactly one ProcessingJobMessage-building site should exist (this file) -- a second site would mean a parallel enqueue path"
     );
+    // The allowed non-enqueue sites, listed by name and count: the moderator re-extract's preview handler builds two in-memory preview
+    // messages (a stored post, a held post / URL) that are read by the extraction and never enqueued. A new entry here is a review decision.
+    assert.deepStrictEqual(
+      sitesByForm(FORMS.satisfies),
+      { "lib/ai-processor/reextract-preview-handler.ts": 2 },
+      "ProcessingJobMessage literals written with `satisfies` are limited to the re-extract preview handler's two in-memory messages"
+    );
+    assert.deepStrictEqual(sitesByForm(FORMS.cast), {}, "no ProcessingJobMessage literal may be written as a cast");
   });
 });

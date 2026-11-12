@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { eq } from 'drizzle-orm';
-import { jobVendorSnapshots, jobs } from '@festgrid/database';
+import { jobVendorSnapshots, jobs, unprocessedScraperPayloads } from '@festgrid/database';
+import { sql } from 'drizzle-orm';
 import { REEXTRACT_POST_JOB_TYPE } from '@festgrid/domain/jobs';
 import { db } from '../../db/client.js';
 import {
@@ -124,4 +125,39 @@ test('the handler ignores a job whose input is not a post id', async () => {
   const outcome = await reextractLateResultHandler({ jobId: 'j', input: { nope: true }, records: [{}] });
   assert.deepEqual(outcome, { outcome: 'NO_CHANGE' });
   registerLateResultHandler(REEXTRACT_POST_JOB_TYPE, reextractLateResultHandler); // keep the registration other tests rely on
+});
+
+test('Story 10.6 review (AD-34): a late result for an account that is not scraped now (reclassified in the hours since) is ignored, the link is still collected', async () => {
+  for (const type of [{ accountType: 'PERSONAL', accountTypeStatus: 'CONFIRMED' }, { accountType: 'ORGANIZER_VENUE_EVENT', accountTypeStatus: 'AWAITING_APPROVAL' }] as const) {
+    const account = await fx.makeAccount(type);
+    const post = await fx.makePost(account.id, { imageUrl: fx.expiredUrl(`gate-${type.accountTypeStatus}-c`), additionalImageUrls: [fx.expiredUrl(`gate-${type.accountTypeStatus}-s`)] });
+    const job = await fx.makeJob(post.id, ownerId, { status: 'EXPIRED', reasonCode: 'TIMED_OUT', deadlineAt: new Date(Date.now() - 60_000), finishedAt: new Date(), inputKey: `lh-gate-${fx.suffix}-${counter}` });
+    const snapshotId = `s_lh_gate_${fx.suffix}_${counter++}`;
+    await db.insert(jobVendorSnapshots).values({ jobId: job.id, provider: 'BRIGHTDATA', snapshotId, waitUntil: new Date(Date.now() + 3_600_000) });
+    records = [record(post, [fx.freshUrl(`gate-new-${counter}`)])];
+    await collectLateVendorResults();
+    const stored = await fx.readPost(post.id);
+    assert.equal(stored.imageUrl, post.imageUrl, `${type.accountType}/${type.accountTypeStatus}: nothing saved`);
+    assert.equal((await readLink(snapshotId)).status, 'COLLECTED');
+  }
+});
+
+test('Story 10.6 review: the record\'s caption is never kept, and a record with a malformed date cannot make the mapper store its raw payload', async () => {
+  const before = (await db.select({ n: sql<number>`count(*)::int` }).from(unprocessedScraperPayloads))[0].n;
+  const { post } = await setup('EXPIRED');
+  const marker = `CAPTION-MARKER-${fx.suffix}`;
+  records = [{ url: post.postUrl, photos: [fx.freshUrl('cap-c'), fx.freshUrl('cap-s')], description: marker, date_posted: 12345 }];
+  const logged: string[] = [];
+  const originals = [console.log, console.warn, console.error];
+  console.log = console.warn = console.error = (...args: unknown[]) => void logged.push(args.map(String).join(' '));
+  try {
+    await collectLateVendorResults();
+  } finally {
+    [console.log, console.warn, console.error] = originals;
+  }
+  assert.equal((await fx.readPost(post.id)).imageUrl, fx.freshUrl('cap-c'), 'the links were still saved');
+  assert.equal((await fx.readPost(post.id)).content, post.content);
+  assert.equal((await db.select({ n: sql<number>`count(*)::int` }).from(unprocessedScraperPayloads))[0].n, before, 'no raw payload (caption included) was persisted');
+  assert.equal(logged.some((line) => line.includes(marker)), false, 'the caption reached no log line');
+  assert.equal(JSON.stringify(await fx.readJob((await db.select().from(jobs).where(sql`${jobs.input} is not null and ${jobs.inputKey} like ${'lh-' + fx.suffix + '%'}`).limit(1))[0].id)).includes(marker), false);
 });

@@ -66,11 +66,12 @@ export async function loadPreviewJobForApply(userId: string, jobId: string): Pro
     .limit(1);
   if (engine) {
     const input = parseReextractPostInput(engine.input);
+    // Apply is for a stored post only (a URL that is not stored has nothing to apply to; its preview says so: `postStored: false`).
     if (!input || (engine.status !== 'SUCCEEDED' && engine.status !== 'SUCCEEDED_WITH_LIMITS')) return null;
     return {
       source: 'ENGINE',
       jobId,
-      postId: input.postId,
+      postId: 'postId' in input ? input.postId : '',
       result: engine.resultData as ReextractionPreviewResult | null,
       finishedAt: engine.finishedAt ?? engine.updatedAt,
     };

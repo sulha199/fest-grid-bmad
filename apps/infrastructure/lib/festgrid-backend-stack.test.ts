@@ -1277,3 +1277,21 @@ test('FestgridBackendStack: BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES is passed to th
     else process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES = saved;
   }
 });
+
+// Story 10.6 review: the moderator re-extract declares its own per-run cap (`REEXTRACT_POST_ATTEMPT_CAP_MS`, packages/domain). Both host
+// Lambdas run a phase of it, so the cap must stay safely under BOTH Lambda timeouts, or a run could be killed by the platform before the
+// engine ends it (and the face blur of phase 2 would be told it has time it does not have).
+test('FestgridBackendStack: the re-extract job type\'s per-run cap fits under the Scraper and AI-processor Lambda timeouts (Story 10.6)', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../../../packages/domain/src/jobs/reextract-post.ts'), 'utf8');
+  const match = /REEXTRACT_POST_ATTEMPT_CAP_MS\s*=\s*(\d+)\s*\*\s*1000/.exec(source);
+  assert.ok(match, 'REEXTRACT_POST_ATTEMPT_CAP_MS is declared in seconds times 1000');
+  const capSeconds = Number(match![1]);
+  const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), 'TestStackReextractCap', { stageName: 'dev' }));
+  const functions = template.findResources('AWS::Lambda::Function');
+  for (const prefix of ['ScraperLambda', 'AIProcessorLambda']) {
+    const entry = Object.entries(functions).find(([id]) => id.startsWith(prefix));
+    assert.ok(entry, `${prefix} in the template`);
+    const timeout = (entry![1] as { Properties: { Timeout: number } }).Properties.Timeout;
+    assert.ok(timeout >= capSeconds + 20, `${prefix} has a ${timeout} s timeout; the re-extract run cap is ${capSeconds} s and the engine needs 20 s after it for its final writes`);
+  }
+});

@@ -1,6 +1,12 @@
 import { and, eq, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import { jobs } from '@festgrid/database';
-import { resolveAttemptBudgetMs, type JobHandlerContext, type JobHandlerResult } from '@festgrid/domain/jobs';
+import {
+  getJobTypeDefinition,
+  resolveAttemptBudgetMs,
+  resolveAttemptCapMs,
+  type JobHandlerContext,
+  type JobHandlerResult,
+} from '@festgrid/domain/jobs';
 import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { invokeJobEngineWorker } from '../aws/invoke-job-engine-worker.js';
@@ -88,7 +94,8 @@ export async function runJobEngineJob(
   }
 
   const budgetMs = resolveAttemptBudgetMs({
-    attemptCapMs: env.jobAttemptDeadlineMs,
+    // The type's own per-run cap when it declares one (Story 10.6), else the environment default.
+    attemptCapMs: resolveAttemptCapMs(getJobTypeDefinition(job.type), env.jobAttemptDeadlineMs),
     msToDeadline: job.deadlineAt.getTime() - Date.now(),
     lambdaRemainingMs: lambdaContext.getRemainingTimeInMillis?.(),
   });

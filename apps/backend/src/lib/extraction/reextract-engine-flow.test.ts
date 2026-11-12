@@ -1,13 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { eq } from 'drizzle-orm';
-import { eventPosts, jobAttempts, jobs, posts } from '@festgrid/database';
-import { REEXTRACT_POST_JOB_TYPE } from '@festgrid/domain/jobs';
+import { eq, inArray } from 'drizzle-orm';
+import { apiKeys, eventPosts, jobAttempts, jobs, posts } from '@festgrid/database';
+import { REEXTRACT_POST_JOB_TYPE, readHeldPost } from '@festgrid/domain/jobs';
 import type { ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { db } from '../../db/client.js';
 import { invokeJobEngineWorker, setInvokeJobEngineWorker } from '../aws/invoke-job-engine-worker.js';
 import { resolveLocationSeam, setResolveLocationSeam } from '../ai-processor/resolve-account-and-locations.js';
 import { callGeminiForManualExtractionSeam, setCallGeminiForManualExtractionSeam } from '../ai-processor/process-manual-extraction-job.js';
+import { detectAndBlurFacesSeam, setDetectAndBlurFacesSeam } from '../ai-processor/detect-and-blur-faces.js';
+import { sweepExpiredEngineJobs } from '../job-engine/sweep-expired-jobs.js';
+import { sweepStaleManualExtractionRetention } from './sweep-stale-manual-extraction-jobs.js';
 import { runJobEngineJob } from '../job-engine/run-job.js';
 import { registerAiProcessorJobHandlers } from '../job-engine/register-ai-processor-job-handlers.js';
 import { registerScraperJobHandlers } from '../job-engine/register-scraper-job-handlers.js';
@@ -32,7 +35,10 @@ const saved = {
   gemini: callGeminiForManualExtractionSeam,
   resolve: resolveLocationSeam,
   fetch: globalThis.fetch,
+  faceBlurMin: process.env.FACE_BLUR_MIN_REMAINING_TIME_MS,
+  detect: detectAndBlurFacesSeam,
 };
+const keyIds: string[] = [];
 const invokes: Array<{ fn: string; jobId: string }> = [];
 let moderatorId: string;
 let otherModeratorId: string;
@@ -40,12 +46,12 @@ let accountId: string;
 const geminiRequests: any[] = [];
 
 /** Runs every queued invoke on the half of the job's handlers that Lambda holds, until the queue is empty. */
-async function drain(): Promise<void> {
+async function drain(lambdaRemainingMs: () => number = () => 150_000): Promise<void> {
   while (invokes.length > 0) {
     const { fn, jobId } = invokes.shift()!;
     if (fn === SCRAPER_FN) registerScraperJobHandlers();
     else registerAiProcessorJobHandlers();
-    await runJobEngineJob(jobId, { getRemainingTimeInMillis: () => 150_000 });
+    await runJobEngineJob(jobId, { getRemainingTimeInMillis: lambdaRemainingMs });
   }
 }
 
@@ -72,6 +78,10 @@ test.afterEach(() => {
   globalThis.fetch = saved.fetch;
 });
 test.after(async () => {
+  if (keyIds.length) await db.delete(apiKeys).where(inArray(apiKeys.id, keyIds)); // before the users they belong to
+  setDetectAndBlurFacesSeam(saved.detect);
+  if (saved.faceBlurMin === undefined) delete process.env.FACE_BLUR_MIN_REMAINING_TIME_MS;
+  else process.env.FACE_BLUR_MIN_REMAINING_TIME_MS = saved.faceBlurMin;
   setInvokeJobEngineWorker(saved.invoke);
   setCallGeminiForManualExtractionSeam(saved.gemini);
   setResolveLocationSeam(saved.resolve);
@@ -272,12 +282,132 @@ test('a post whose stepped extraction is running is refused before any job exist
   assert.equal(await getReextractPreviewJobStatus('00000000-0000-4000-8000-0000000000dd', moderatorId), null);
 });
 
-test('a post with no stored caption (and an unknown URL) keeps the unchanged path: no engine job is created', async () => {
-  const account = await fx.makeAccount({ accountType: 'PERSONAL', accountTypeStatus: 'CONFIRMED' });
-  const post = await fx.makePost(account.id, { content: null, imageUrl: fx.expiredUrl('nc') });
-  const result = await startPostReextractionPreview(moderatorId, { postId: post.id });
-  assert.ok('errorCode' in result && result.errorCode === 'ACCOUNT_NOT_SCRAPABLE', 'the legacy gate answered, with no scrape');
-  assert.equal((await db.select().from(jobs).where(eq(jobs.inputKey, post.id))).length, 0);
-  const unsupported = await startPostReextractionPreview(moderatorId, { url: `https://example.com/not-a-post-${fx.suffix}` });
-  assert.ok('errorCode' in unsupported && unsupported.errorCode === 'UNSUPPORTED_PLATFORM');
+const CAPTION = `Held caption ${Date.now()}: weekend roundup, the dates are on the later slides`;
+
+/** Every place a caption could leak to: the job row, its attempts, and every log line. Returns what the run printed. */
+async function assertCaptionNowhere(jobId: string, printed: string[]): Promise<void> {
+  const [row] = await db.select().from(jobs).where(eq(jobs.id, jobId));
+  assert.equal(readHeldPost(row.input), null, 'the held post was blanked when the job ended');
+  const everything = JSON.stringify([row, await db.select().from(jobAttempts).where(eq(jobAttempts.jobId, jobId))]);
+  assert.equal(everything.includes('weekend roundup'), false, 'no caption on the job row, its result, its messages or its attempts');
+  assert.equal(printed.some((line) => line.includes('weekend roundup')), false, 'no log line carried the caption');
+}
+
+/** Runs `body` while recording everything printed to the console. */
+async function recordingLogs<T>(body: () => Promise<T>): Promise<{ value: T; printed: string[] }> {
+  const printed: string[] = [];
+  const originals = [console.log, console.warn, console.error];
+  console.log = console.warn = console.error = (...args: unknown[]) => void printed.push(args.map(String).join(' '));
+  try {
+    return { value: await body(), printed };
+  } finally {
+    [console.log, console.warn, console.error] = originals;
+  }
+}
+
+test('a stored post with NO stored caption goes through the engine too: the caption is fetched, held between the phases, used, and blanked; Apply works', async () => {
+  const post = await fx.makePost(accountId, { content: null, imageUrl: fx.expiredUrl('nc-c'), additionalImageUrls: [fx.expiredUrl('nc-s')], groupingReason: 'single-event' });
+  fx.fakeAdapter('apify', async (url) => ({ content: CAPTION, postUrl: url, publishedAt: '2026-10-01T00:00:00.000Z', imageUrl: fx.freshUrl('nc-c2'), additionalImageUrls: [fx.freshUrl('nc-s2')] }));
+  fakeGemini([rawEvent(`Held Stored Run ${fx.suffix}`, '2026-12-07')]);
+  fakeImages();
+
+  const started = await startPostReextractionPreview(moderatorId, { postId: post.id });
+  assert.ok('jobId' in started, JSON.stringify(started));
+  const { printed } = await recordingLogs(() => drain());
+
+  const [row] = await db.select().from(jobs).where(eq(jobs.id, started.jobId));
+  assert.equal(row.status, 'SUCCEEDED');
+  const status = await getReextractPreviewJobStatus(started.jobId, moderatorId);
+  const preview = status!.data as ReextractionPreviewResult;
+  assert.deepEqual([status?.status, preview.postStored, preview.imagesAvailable, preview.imagesSent], ['SUCCEEDED', true, 2, 2]);
+  assert.ok(JSON.stringify(geminiRequests[0].contents[0]).includes('weekend roundup'), 'the held caption was what the model read');
+  assert.equal((await fx.readPost(post.id)).content, null, 'never written to the post');
+  assert.equal((await fx.readPost(post.id)).imageUrl, fx.freshUrl('nc-c2'), 'the fresh links were saved');
+  await assertCaptionNowhere(started.jobId, printed);
+  const applied = await applyPostReextraction(moderatorId, started.jobId);
+  assert.ok('summary' in applied, JSON.stringify(applied));
+});
+
+test('a URL that is not in the database is an engine job: fetched, previewed with postStored false, nothing saved to posts, the caption blanked', async () => {
+  const url = `https://www.instagram.com/p/engineurl${fx.suffix.replace(/\W/g, '')}/`;
+  const [key] = await db.insert(apiKeys).values({ userId: moderatorId, provider: 'gemini', keyEncrypted: 'mock-encrypted-key', keyLast4: '1234', isValid: true, invalidAttempts: 0 }).returning();
+  keyIds.push(key.id);
+  fx.fakeAdapter('apify', async (u) => ({ content: CAPTION, postUrl: u, publishedAt: '2026-10-01T00:00:00.000Z', imageUrl: fx.freshUrl('url-c'), additionalImageUrls: [fx.freshUrl('url-s')], ownerUsername: 'nobody_we_know' }));
+  fakeGemini([rawEvent(`Url Run ${fx.suffix}`, '2026-12-08')]);
+  fakeImages();
+
+  const started = await startPostReextractionPreview(moderatorId, { url });
+  assert.ok('jobId' in started, JSON.stringify(started));
+  const { printed } = await recordingLogs(() => drain());
+
+  const status = await getReextractPreviewJobStatus(started.jobId, moderatorId);
+  const preview = status!.data as ReextractionPreviewResult;
+  assert.deepEqual([status?.status, preview.postStored, preview.rescraped, preview.imagesSent], ['SUCCEEDED', false, true, 2]);
+  assert.equal((await db.select().from(posts).where(eq(posts.postUrl, url))).length, 0, 'nothing was stored for a post we do not have');
+  await assertCaptionNowhere(started.jobId, printed);
+  assert.deepEqual(await applyPostReextraction(moderatorId, started.jobId), { errorCode: 'NOT_STORED', errorMessage: 'Only a post that is stored can be applied.' }, 'a URL preview has nothing to apply to');
+});
+
+test('the caption is blanked after a FAILED job and after a job the engine EXPIRED (the sweep is the backstop)', async () => {
+  // failure: phase 2 cannot extract
+  const failedPost = await fx.makePost(accountId, { content: null, imageUrl: fx.freshUrl('fl-c'), additionalImageUrls: [] });
+  fx.fakeAdapter('apify', async (url) => ({ content: CAPTION, postUrl: url, publishedAt: '2026-10-01T00:00:00.000Z', imageUrl: fx.freshUrl('fl-c'), additionalImageUrls: [] }));
+  setCallGeminiForManualExtractionSeam(async () => ({ text: 'not json' }) as any);
+  fakeImages();
+  const started = await startPostReextractionPreview(moderatorId, { postId: failedPost.id });
+  assert.ok('jobId' in started);
+  const { printed } = await recordingLogs(() => drain());
+  assert.equal((await getReextractPreviewJobStatus(started.jobId, moderatorId))?.status, 'FAILED');
+  await assertCaptionNowhere(started.jobId, printed);
+
+  // expiry: phase 1 held the post, then nothing ran phase 2 and the job went past its deadline
+  const expiredPost = await fx.makePost(accountId, { content: null, imageUrl: fx.freshUrl('ex-c'), additionalImageUrls: [] });
+  const job = await fx.makeJob(expiredPost.id, moderatorId, {
+    phase: 'preview',
+    deadlineAt: new Date(Date.now() - 60_000),
+    input: { postId: expiredPost.id, held: { content: CAPTION, postUrl: expiredPost.postUrl, publishedAt: '2026-10-01T00:00:00.000Z' } },
+  });
+  assert.ok((await sweepExpiredEngineJobs()) >= 1);
+  assert.equal((await fx.readJob(job.id)).status, 'EXPIRED');
+  await sweepStaleManualExtractionRetention(); // the engine sweep's retention step
+  await assertCaptionNowhere(job.id, []);
+});
+
+test('Story 10.6 review: phase 2 face blur gets the run\'s real remaining time (blur ON, the type\'s 270 s cap), not the engine\'s 150 s default', async () => {
+  process.env.BLUR_FACES_BEFORE_AI = 'true';
+  // The blur needs this much time left at EVERY image. 200 s is more than the 150 s default cap could ever offer and less than the type's 270 s.
+  process.env.FACE_BLUR_MIN_REMAINING_TIME_MS = '200000';
+  const blurred: number[] = [];
+  setDetectAndBlurFacesSeam(async (bytes) => {
+    blurred.push(bytes.length);
+    return { buffer: bytes, faceCount: 0 };
+  });
+  try {
+    const run = async (lambdaRemainingMs: () => number, label: string) => {
+      const post = await fx.makePost(accountId, { imageUrl: fx.freshUrl(`bl-${label}-c`), additionalImageUrls: [fx.freshUrl(`bl-${label}-s1`), fx.freshUrl(`bl-${label}-s2`)], groupingReason: 'single-event' });
+      fx.fakeAdapter('apify', async () => assert.fail('no refresh is needed'));
+      fakeGemini([rawEvent(`Blur ${label} ${fx.suffix}`, '2026-12-09')]);
+      fakeImages();
+      blurred.length = 0;
+      const started = await startPostReextractionPreview(moderatorId, { postId: post.id });
+      assert.ok('jobId' in started);
+      await drain(lambdaRemainingMs);
+      const status = await getReextractPreviewJobStatus(started.jobId, moderatorId);
+      assert.equal(status?.status, 'SUCCEEDED');
+      return { preview: status!.data as ReextractionPreviewResult, blurCalls: blurred.length };
+    };
+
+    // A realistic Lambda: 300 s timeout, a few seconds already used. The type's cap (270 s) is what the handler is given.
+    const startedAt = Date.now();
+    const real = await run(() => 295_000 - (Date.now() - startedAt), 'real');
+    assert.equal(real.preview.imagesSent, 3, 'every image was blurred and read');
+    assert.equal(real.blurCalls, 3);
+
+    // The control: a Lambda with only 150 s left (what the old per-run cap allowed) cannot blur: every image fails closed.
+    const short = await run(() => 150_000, 'short');
+    assert.equal(short.preview.imagesSent, 0, 'with under 200 s left every blur fails closed and the preview is text-only');
+    assert.equal(short.blurCalls, 0);
+  } finally {
+    process.env.BLUR_FACES_BEFORE_AI = 'false';
+  }
 });

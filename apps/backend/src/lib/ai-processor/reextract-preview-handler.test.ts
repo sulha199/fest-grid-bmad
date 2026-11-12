@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { eq } from 'drizzle-orm';
 import { jobs } from '@festgrid/database';
-import { REEXTRACT_PHASE_PREVIEW } from '@festgrid/domain/jobs';
+import { REEXTRACT_PHASE_PREVIEW, readHeldPost } from '@festgrid/domain/jobs';
 import type { ReextractRefreshReport, ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { db } from '../../db/client.js';
 import { AiGatewayExhaustedError } from '../ai-gateway/adapter.js';
@@ -135,6 +135,18 @@ test('a refresh that was due but did not happen ends SUCCEEDED_WITH_LIMITS with 
   assert.equal(data.events.length, 1);
 });
 
+test('Story 10.6 review: a provider that answered but healed nothing while links stay expired ends SUCCEEDED_WITH_LIMITS with a reason (FR117)', async () => {
+  const post = await fx.makePost(accountId, { imageUrl: fx.expiredUrl('c'), additionalImageUrls: [] });
+  gemini([previewEvent(`Not Healed ${fx.suffix}`)]);
+  fakeImages([fx.expiredUrl('c')]);
+  const unhealed: ReextractRefreshReport = { outcome: 'REFRESHED', reasons: ['COVER_EXPIRED'], saved: false, lateResultPending: false, retryAfter: null, expiredLinks: 1 };
+  const result = await runPhase2(post.id, unhealed);
+  assert.equal(result.outcome, 'SUCCEEDED_WITH_LIMITS');
+  assert.equal((result as any).reasonCode, 'REFRESH_DID_NOT_HEAL_IMAGES');
+  assert.match((result as any).errorMessage, /no usable fresh images/);
+  assert.deepEqual(((result as any).resultData as ReextractionPreviewResult).refresh, unhealed, 'the report is kept in the result');
+});
+
 test('a job with no refresh report (never expected) is treated as "no refresh was needed"', async () => {
   const post = await fx.makePost(accountId, { imageUrl: fx.freshUrl('c'), additionalImageUrls: [] });
   gemini([previewEvent(`No Report ${fx.suffix}`)]);
@@ -161,13 +173,16 @@ test('a model answer that is not valid fails the job EXTRACTION_FAILED, in plain
   assert.deepEqual(await runPhase2(post.id, noRefresh), { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: 'The extracted content could not be validated.' });
 });
 
-test('an unexpected error is rethrown for the engine to log and end HANDLER_ERROR (no raw error in the job)', async () => {
+test('an unexpected error is rethrown with its NAME only (the raw error could carry the request), for the engine to end HANDLER_ERROR', async () => {
   const post = await fx.makePost(accountId, { imageUrl: fx.freshUrl('c'), additionalImageUrls: [] });
   setCallGeminiForManualExtractionSeam(async () => {
-    throw new Error('provider exploded with https://secret.example/key');
+    throw new Error('provider exploded with https://secret.example/key and the caption text');
   });
   fakeImages();
-  await assert.rejects(() => runPhase2(post.id, noRefresh), /exploded/);
+  await assert.rejects(
+    () => runPhase2(post.id, noRefresh),
+    (error: Error) => /failed unexpectedly \(Error\)/.test(error.message) && !/exploded|secret|caption/.test(error.message)
+  );
 });
 
 test('a post that was deleted, or whose caption was cleared since the start, fails with a plain reason', async () => {
@@ -189,4 +204,105 @@ test('a job that reaches the AI-processor in the wrong phase, or with no readabl
   const bad = await fx.makeJob(post.id, ownerId, { inputKey: `badin-${fx.suffix}`, phase: REEXTRACT_PHASE_PREVIEW, input: { nope: 1 } });
   const badResult = await reextractPreviewHandler.run(fx.handlerContext(bad).ctx);
   assert.equal(badResult.outcome === 'FAILED' && badResult.reasonCode, 'HANDLER_ERROR');
+});
+
+// ── Owner decision 2026-11-12: the caption of a post that has none stored is HELD on the job between the phases and blanked when phase 2 ends ──
+
+const HELD_CAPTION = 'Held caption: Fun Run on the later slides, held only for phase 2';
+const heldInput = (postId: string | null, url = 'https://www.instagram.com/p/heldpost/') => ({
+  ...(postId ? { postId } : { url }),
+  held: { content: HELD_CAPTION, postUrl: url, publishedAt: '2026-10-01T00:00:00.000Z', imageUrl: fx.freshUrl('held-c'), additionalImageUrls: [fx.freshUrl('held-s')], ownerUsername: 'someone_else' },
+});
+const inputOf = async (jobId: string) => (await db.select({ input: jobs.input }).from(jobs).where(eq(jobs.id, jobId)))[0].input;
+
+async function runHeld(input: unknown, report: ReextractRefreshReport = refreshed) {
+  const job = await fx.makeJob('00000000-0000-4000-8000-0000000000f0', ownerId, { phase: REEXTRACT_PHASE_PREVIEW, input, resultData: { refresh: report }, inputKey: `held-${fx.suffix}-${Math.random()}` });
+  const { ctx } = fx.handlerContext(job);
+  let result; let thrown: unknown;
+  try { result = await reextractPreviewHandler.run(ctx); } catch (error) { thrown = error; }
+  return { job, result, thrown, input: await inputOf(job.id) };
+}
+
+test('a stored post with NO stored caption previews from the held caption, and the held post is blanked afterwards', async () => {
+  const post = await fx.makePost(accountId, { content: null, imageUrl: fx.freshUrl('hc'), additionalImageUrls: [fx.freshUrl('hs')] });
+  const requests: any[] = [];
+  gemini([previewEvent(`Held Stored ${fx.suffix}`)], requests);
+  fakeImages();
+  const { result, input } = await runHeld(heldInput(post.id, post.postUrl));
+  assert.equal((result as any).outcome, 'SUCCEEDED');
+  const data = (result as any).resultData as ReextractionPreviewResult;
+  assert.equal(data.postStored, true);
+  assert.equal(data.imagesAvailable, 2);
+  assert.ok(JSON.stringify(requests[0].contents[0]).includes('Held caption'), 'the held caption reached the model, in memory');
+  assert.equal(JSON.stringify(result).includes('Held caption'), false, 'and is not in the job result');
+  assert.equal(readHeldPost(input), null, 'blanked');
+  assert.deepEqual(input, { postId: post.id }, 'what is left is the identity of the job');
+  assert.equal((await fx.readPost(post.id)).content, null, 'never written to the post');
+});
+
+test('a URL that is not in the database previews from the held post alone: postStored false, nothing to apply to, held post blanked', async () => {
+  gemini([previewEvent(`Held Url ${fx.suffix}`)]);
+  const fetched = fakeImages();
+  const { result, input } = await runHeld(heldInput(null, 'https://www.instagram.com/p/heldurl/'), { ...refreshed, reasons: ['CAPTION_MISSING'], saved: false });
+  assert.equal((result as any).outcome, 'SUCCEEDED');
+  const data = (result as any).resultData as ReextractionPreviewResult;
+  assert.equal(data.postStored, false);
+  assert.equal(data.imagesAvailable, 2, 'the held cover and slide');
+  assert.equal(data.imagesSent, 2);
+  assert.deepEqual(fetched.sort(), [fx.freshUrl('held-c'), fx.freshUrl('held-s')].sort());
+  assert.equal(readHeldPost(input), null);
+  assert.deepEqual(input, { url: 'https://www.instagram.com/p/heldurl/' });
+});
+
+test('the held post is blanked after a failed extraction, an unexpected throw, and a missing caption', async () => {
+  const post = await fx.makePost(accountId, { content: null, imageUrl: fx.freshUrl('f1'), additionalImageUrls: [] });
+  fakeImages();
+
+  setCallGeminiForManualExtractionSeam(async () => ({ text: 'not json' }) as any);
+  const failedRun = await runHeld(heldInput(post.id, post.postUrl));
+  assert.equal((failedRun.result as any).outcome, 'FAILED');
+  assert.equal(readHeldPost(failedRun.input), null, 'blanked after a failure');
+  assert.equal(JSON.stringify(failedRun.result).includes('Held caption'), false);
+
+  setCallGeminiForManualExtractionSeam(async () => {
+    throw new Error(`provider echoed the prompt: ${HELD_CAPTION}`);
+  });
+  const thrownRun = await runHeld(heldInput(post.id, post.postUrl));
+  assert.ok(thrownRun.thrown instanceof Error);
+  assert.equal((thrownRun.thrown as Error).message.includes('Held caption'), false, 'the thrown error carries no caption');
+  assert.equal(readHeldPost(thrownRun.input), null, 'blanked after a throw');
+
+  const noCaption = await fx.makePost(accountId, { content: null });
+  const missing = await runHeld({ postId: noCaption.id });
+  assert.deepEqual(missing.result, { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: 'This post has no stored caption to extract from.' });
+  const urlMissing = await runHeld({ url: 'https://www.instagram.com/p/nothing/' });
+  assert.equal((urlMissing.result as any).reasonCode, 'EXTRACTION_FAILED');
+});
+
+test('an image-only post: a held EMPTY caption is a caption (the post is still extractable from its images)', async () => {
+  gemini([previewEvent(`Held Empty ${fx.suffix}`)]);
+  fakeImages();
+  const input = heldInput(null, 'https://www.instagram.com/p/imageonly/');
+  input.held.content = '';
+  const { result } = await runHeld(input);
+  assert.equal((result as any).outcome, 'SUCCEEDED');
+});
+
+test('no log line carries the held caption, in a run that succeeds and in one that fails', async () => {
+  const post = await fx.makePost(accountId, { content: null, imageUrl: fx.freshUrl('lg'), additionalImageUrls: [] });
+  const lines: string[] = [];
+  const originals = [console.log, console.warn, console.error];
+  console.log = console.warn = console.error = (...args: unknown[]) => void lines.push(args.map(String).join(' '));
+  try {
+    gemini([previewEvent(`Logged ${fx.suffix}`)]);
+    fakeImages();
+    await runHeld(heldInput(post.id, post.postUrl));
+    setCallGeminiForManualExtractionSeam(async () => {
+      throw new Error(`echo ${HELD_CAPTION}`);
+    });
+    await runHeld(heldInput(post.id, post.postUrl));
+  } finally {
+    [console.log, console.warn, console.error] = originals;
+  }
+  assert.equal(lines.some((line) => line.includes('Held caption')), false);
 });
