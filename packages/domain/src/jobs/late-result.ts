@@ -4,14 +4,14 @@ import type { JobStatus } from "./job-engine.js";
 // `apps/backend/src/lib/job-engine/late-results.ts` reads the vendor and the rows and applies these rules.
 
 /** What Bright Data reports for a snapshot (`getBrightDataProgress`). */
-export type SnapshotProgressStatus = "scheduled" | "building" | "running" | "ready" | "failed";
+export type SnapshotProgressStatus = "scheduled" | "starting" | "building" | "running" | "ready" | "failed";
 
 export type SnapshotWaitDecision = "COLLECT" | "GIVE_UP_FAILED" | "WAIT" | "GIVE_UP_TOO_LONG";
 
 /**
  * What to do about a vendor snapshot that outlived its job's budget. A `ready` snapshot is collected and a `failed` one given
  * up on whatever its age (the bound never delays either). One still in flight (`scheduled`, `building`, `running`) is waited for
- * until `maxWaitMs` after it started (`BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES`), then given up on; this replaces sending it to a
+ * until `maxWaitMs` after it started (`starting` counts as in flight) (`BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES`), then given up on; this replaces sending it to a
  * paid fallback at once (IDEA-102).
  */
 export function decideSnapshotWait(input: {
@@ -25,12 +25,13 @@ export function decideSnapshotWait(input: {
 }
 
 /**
- * Which job endings a late result may settle (FR119, FR117): a job still WAITING for the snapshot or RUNNING, and one that ended
- * EXPIRED because it ran out of time (`TIMED_OUT`), which becomes SUCCEEDED "completed after deadline". Any other ending (FAILED,
- * CANCELLED, EXPIRED for another reason, an ending that already succeeded) is never revised.
+ * Which job endings a late result may settle (FR119, FR117): a job still WAITING for the snapshot, RUNNING, or QUEUED (it was
+ * re-admitted between the snapshot being linked and its result arriving), and one that ended EXPIRED because it ran out of time
+ * (`TIMED_OUT`), which becomes SUCCEEDED "completed after deadline". Any other ending (FAILED, CANCELLED, EXPIRED for another
+ * reason, an ending that already succeeded) is never revised.
  */
 export function canSettleFromLateResult(job: { status: JobStatus; reasonCode: string | null | undefined }): boolean {
-  if (job.status === "WAITING" || job.status === "RUNNING") return true;
+  if (job.status === "WAITING" || job.status === "RUNNING" || job.status === "QUEUED") return true;
   return job.status === "EXPIRED" && job.reasonCode === "TIMED_OUT";
 }
 

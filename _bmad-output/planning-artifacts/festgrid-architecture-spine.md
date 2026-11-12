@@ -3643,25 +3643,32 @@ This document defines the core architectural invariants for the FestDaily applic
         the chain yet**: `start-post-reextraction-preview.ts` and `resume-stalled-chains.ts` still call `getPostByUrl`; Stories 10.5
         to 10.10 adopt it. Only Instagram has a chain; another platform uses its own adapter.
     16. **Late vendor results (Story 10.5, FR119).** A Bright Data snapshot still running when the post chain's budget ran out is
-        linked to the job (`job_vendor_snapshots`: `job_id`, `provider`, unique `snapshot_id`, `status` PENDING, COLLECTED or
-        GAVE_UP, `wait_until`; row level security on, no policy), written by `fetchScrapedPost` through
+        linked to the job (`job_vendor_snapshots`: `job_id`, `provider`, unique `snapshot_id`, `status` PENDING, COLLECTING, COLLECTED
+        or GAVE_UP, `wait_until`; row level security on, no policy), written by `fetchScrapedPost` through
         `BrightDataSnapshotPendingError`, so no handler has to; the chain still moves on to Apify. The 5-minute job sweep step
         `collectLateVendorResults` asks Bright Data for each PENDING link's progress and applies the pure `decideSnapshotWait`:
         `ready` is collected, `failed` is given up (a WAITING job ends FAILED / `VENDOR_RUN_FAILED`), still in flight is waited for
         until `BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES` after it started (default 480: on 2026-10-29, 21 of 38 snapshots took 5 to 6
         hours; an assumption to tune), then given up (a WAITING job ends EXPIRED / `WAITED_TOO_LONG`). The bound never delays a ready
         or failed snapshot. **The claim is the only door:** one conditional `UPDATE ... WHERE status = 'PENDING'` (PENDING to
-        COLLECTED), so a duplicate delivery, or two sweeps at once, runs the type's late-result handler at most once; the records
-        are downloaded BEFORE the claim (a failed download leaves the link PENDING) and a handler that throws puts the link back to
-        PENDING for the next sweep, so handlers must be idempotent. The late-result handler is a second registry beside the job
+        COLLECTING), so a duplicate delivery, or two sweeps at once, runs the type's late-result handler at most once; COLLECTED is
+        written only after the handler ran AND the job was settled. The records are downloaded BEFORE the claim (a failed download
+        leaves the link PENDING); a handler or settle that throws puts the link back to PENDING, and a link left COLLECTING by a
+        Lambda that died mid-way (older than 10 minutes) is put back by the next sweep, so handlers must be idempotent. A link is
+        given up when its job already succeeded another way (a slower provider's images must not overwrite them), past the wait
+        bound when the progress call keeps failing, and 24 hours past the bound whatever the snapshot or handler do; one failed
+        snapshot does not end a job that has another open link. The late-result handler is a second registry beside the job
         handlers (`registerLateResultHandler`, Scraper Lambda only): **no real type registers one yet**; Story 10.6's moderator
         re-extract saves the fresh image links to `posts` through it. A job is finished from the handler's answer by one guarded
-        update: only a job still WAITING or RUNNING, or EXPIRED for `TIMED_OUT`, is settled (`canSettleFromLateResult`), becoming
-        SUCCEEDED or SUCCEEDED_WITH_LIMITS with `completed_after_deadline` true when the finish is past `deadline_at`, then promotion
-        and follower settling run as for any ending; any other ending (FAILED, CANCELLED, EXPIRED for another reason) is never
+        update: only a job still WAITING, RUNNING or QUEUED, or EXPIRED for `TIMED_OUT`, is settled (`canSettleFromLateResult`), becoming
+        SUCCEEDED or SUCCEEDED_WITH_LIMITS (UNSPECIFIED when the handler gave no reason) with `completed_after_deadline` true when the
+        finish is past `deadline_at`, then promotion and follower settling run as for any ending, and followers that had copied the
+        leader's TIMED_OUT ending are settled again with its success; any other ending (FAILED, CANCELLED, EXPIRED for another reason) is never
         revived, though its records are still handed to the handler. The daily batch (`stale-job-sweep.ts`) also waits, under the
         same bound, for a snapshot Bright Data still reports as running, instead of recording it TIMED_OUT and sending it to the paid
-        Apify fallback (IDEA-102): the pending job stays PENDING with its expiry pushed to the next hourly sweep. Only the sweep
+        Apify fallback (IDEA-102): the pending job stays PENDING with its expiry pushed 30 minutes (the sweep only reads expired jobs, so it looks again every hour;
+        a full hour would skip every other run); `starting` counts as still running. While a snapshot waits, provider health sees
+        nothing for it (it ignores PENDING), so a vendor outage is noticed only when snapshots finally fail. Only the sweep
         collects a linked snapshot; the sync post scrape registers no webhook.
 *   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
     Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep

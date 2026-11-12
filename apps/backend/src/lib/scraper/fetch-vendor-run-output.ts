@@ -72,6 +72,7 @@ export async function fetchBrightDataRunOutput(snapshotId: string): Promise<Vend
     // Map Bright Data status to our enum
     const statusMap: Record<string, VendorRunOutput['status']> = {
       scheduled: 'PENDING',
+      starting: 'PENDING',
       building: 'PENDING',
       running: 'PENDING',
       ready: 'SUCCEEDED',

@@ -16,7 +16,7 @@ test("decideSnapshotWait: a ready snapshot is collected whatever its age, a fail
 });
 
 test("decideSnapshotWait: a snapshot still in flight waits under the bound and is given up on at it", () => {
-  for (const progressStatus of ["scheduled", "building", "running"] as const) {
+  for (const progressStatus of ["scheduled", "starting", "building", "running"] as const) {
     assert.equal(decideSnapshotWait({ progressStatus, ageMs: 0, maxWaitMs: MAX }), "WAIT", progressStatus);
     assert.equal(decideSnapshotWait({ progressStatus, ageMs: MAX - 1, maxWaitMs: MAX }), "WAIT", `${progressStatus} just under`);
     assert.equal(decideSnapshotWait({ progressStatus, ageMs: MAX, maxWaitMs: MAX }), "GIVE_UP_TOO_LONG", `${progressStatus} at the bound`);
@@ -28,9 +28,9 @@ test("decideSnapshotWait: a negative age (clock skew) still waits", () => {
   assert.equal(decideSnapshotWait({ progressStatus: "running", ageMs: -5_000, maxWaitMs: MAX }), "WAIT");
 });
 
-test("canSettleFromLateResult: only WAITING, RUNNING and EXPIRED with TIMED_OUT may be settled", () => {
+test("canSettleFromLateResult: only WAITING, RUNNING, QUEUED and EXPIRED with TIMED_OUT may be settled", () => {
   const settleable = JOB_STATUSES.filter((status: JobStatus) => canSettleFromLateResult({ status, reasonCode: null }));
-  assert.deepEqual(settleable, ["RUNNING", "WAITING"]);
+  assert.deepEqual(settleable, ["QUEUED", "RUNNING", "WAITING"]);
   assert.equal(canSettleFromLateResult({ status: "EXPIRED", reasonCode: "TIMED_OUT" }), true);
 });
 

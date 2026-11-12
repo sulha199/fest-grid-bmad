@@ -1,5 +1,5 @@
 DO $$ BEGIN
- CREATE TYPE "public"."job_vendor_snapshot_status" AS ENUM('PENDING', 'COLLECTED', 'GAVE_UP');
+ CREATE TYPE "public"."job_vendor_snapshot_status" AS ENUM('PENDING', 'COLLECTING', 'COLLECTED', 'GAVE_UP');
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;

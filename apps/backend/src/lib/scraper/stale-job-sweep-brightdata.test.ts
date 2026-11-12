@@ -205,7 +205,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
   });
 
   // Story 10.5 (IDEA-102): wait for a snapshot Bright Data still reports as running instead of falling back to paid Apify.
-  for (const status of ['scheduled', 'building', 'running'] as const) {
+  for (const status of ['scheduled', 'starting', 'building', 'running'] as const) {
     await t.test(`a snapshot still ${status} UNDER the wait bound is waited for: stays PENDING, no failed run, no fallback`, async () => {
       progress = { status };
 
@@ -213,7 +213,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
       const { run, job } = await sweepOneExpiredJob({ ageMs: 3 * 60 * 60_000 }); // 3 h old: past the 180-minute expiry, under 8 h
 
       assert.strictEqual(job.status, 'PENDING', 'the job keeps waiting');
-      assert.ok(job.expiresAt.getTime() > before + 59 * 60_000, 'its expiry moved to the next hourly sweep');
+      assert.ok(job.expiresAt.getTime() > before + 25 * 60_000 && job.expiresAt.getTime() < before + 59 * 60_000, 'its expiry moved 30 minutes on: expired again by the next hourly run, not skipped');
       assert.strictEqual(sqsBodies.length, 0, 'no paid Apify fallback while Bright Data is still working');
       assert.ok(run.status === 'PENDING', 'no failed run is recorded for a snapshot that is merely slow');
     });

@@ -99,4 +99,28 @@ test('settleFollowers', async (t) => {
     await failOrphanedFollowers('following-leader');
     assert.equal((await read(r.jobId)).status, 'WAITING');
   });
+
+  await t.test('a leader REVIVED by a late vendor result settles the followers that had copied its TIMED_OUT ending (Story 10.5 review)', async () => {
+    const { leaderId, followers } = await leaderWithFollowers(2);
+    await db.update(jobs).set({ status: 'EXPIRED', reasonCode: 'TIMED_OUT', finishedAt: new Date() }).where(eq(jobs.id, leaderId));
+    assert.equal(await settleFollowers(leaderId), 2);
+    assert.equal((await read(followers[0])).status, 'EXPIRED');
+    // the late result arrives: the leader is revived to SUCCEEDED
+    await db.update(jobs).set({ status: 'SUCCEEDED', reasonCode: null, resultData: { late: true }, finishedAt: new Date() }).where(eq(jobs.id, leaderId));
+    assert.equal(await settleFollowers(leaderId), 2);
+    for (const id of followers) {
+      const row = await read(id);
+      assert.equal(row.status, 'SUCCEEDED');
+      assert.deepEqual(row.resultData, { late: true });
+    }
+  });
+
+  await t.test('a follower that copied another ending (not TIMED_OUT) is never revived', async () => {
+    const { leaderId, followers } = await leaderWithFollowers(1);
+    await db.update(jobs).set({ status: 'FAILED', reasonCode: 'CANCELLED', finishedAt: new Date() }).where(eq(jobs.id, leaderId));
+    assert.equal(await settleFollowers(leaderId), 1);
+    await db.update(jobs).set({ status: 'SUCCEEDED', reasonCode: null, finishedAt: new Date() }).where(eq(jobs.id, leaderId));
+    assert.equal(await settleFollowers(leaderId), 0);
+    assert.equal((await read(followers[0])).status, 'FAILED');
+  });
 });

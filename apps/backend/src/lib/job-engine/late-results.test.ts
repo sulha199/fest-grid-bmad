@@ -110,7 +110,7 @@ test('collectLateVendorResults', async (t) => {
     assert.deepEqual(row.resultData, { refreshed: true });
     assert.ok(row.finishedAt && row.finishedAt.getTime() > Date.now() - 60_000);
     const link = await readLink(snapshotId);
-    assert.equal(link.status, 'COLLECTED');
+    assert.equal(link.status, 'COLLECTED', 'COLLECTED only once the handler ran and the job was settled');
     assert.ok(link.collectedAt instanceof Date);
   });
 
@@ -195,8 +195,8 @@ test('collectLateVendorResults', async (t) => {
     assert.equal(handlerCalls.length, 0);
   });
 
-  await t.test('a job that ended another way is never revived, but its records are still handed to the handler', async () => {
-    for (const [jobStatus, reasonCode] of [['FAILED', 'CANCELLED'], ['EXPIRED', 'WAITED_TOO_LONG'], ['SUCCEEDED', undefined]] as const) {
+  await t.test('a job that ended FAILED or EXPIRED for another reason is never revived, but its records are still handed to the handler', async () => {
+    for (const [jobStatus, reasonCode] of [['FAILED', 'CANCELLED'], ['EXPIRED', 'WAITED_TOO_LONG']] as const) {
       const { job, handlerCalls } = await setup({ jobStatus, reasonCode });
       progressFor = () => ({ status: 'ready' });
       await collectLateVendorResults();
@@ -289,6 +289,127 @@ test('collectLateVendorResults', async (t) => {
     await collectLateVendorResults();
     assert.ok((await read(queued.id)).admittedAt instanceof Date);
     assert.ok(fx.invoked.includes(queued.id));
+  });
+});
+
+test('collectLateVendorResults: review fixes', async (t) => {
+  await t.test('a job whose OTHER provider already succeeded is not collected: the link is dropped, the handler does not overwrite it', async () => {
+    const { job, snapshotId, handlerCalls } = await setup({ jobStatus: 'SUCCEEDED' });
+    progressFor = () => ({ status: 'ready' });
+    await collectLateVendorResults();
+    assert.equal(handlerCalls.length, 0);
+    assert.equal((await readLink(snapshotId)).status, 'GAVE_UP');
+    assert.equal((await read(job.id)).status, 'SUCCEEDED');
+    assert.deepEqual(downloads.filter((d) => d === snapshotId), [], 'nothing was even asked of the vendor');
+  });
+
+  await t.test('a QUEUED job (re-admitted while the snapshot ran) is settled by the late result, not re-run', async () => {
+    const { job } = await setup({ jobStatus: 'WAITING' });
+    await db.update(jobs).set({ status: 'QUEUED', admittedAt: null, queuedSince: new Date() }).where(eq(jobs.id, job.id));
+    progressFor = () => ({ status: 'ready' });
+    await collectLateVendorResults();
+    assert.equal((await read(job.id)).status, 'SUCCEEDED');
+  });
+
+  await t.test('a link stuck COLLECTING (the Lambda died after the claim) goes back to PENDING and is collected on the next sweep', async () => {
+    const { job, snapshotId, handlerCalls } = await setup({ jobStatus: 'WAITING' });
+    await db.update(jobVendorSnapshots).set({ status: 'COLLECTING', updatedAt: new Date(Date.now() - 11 * 60_000) }).where(eq(jobVendorSnapshots.snapshotId, snapshotId));
+    progressFor = () => ({ status: 'ready' });
+    await collectLateVendorResults();
+    assert.equal(handlerCalls.length, 1);
+    assert.equal((await readLink(snapshotId)).status, 'COLLECTED');
+    assert.equal((await read(job.id)).status, 'SUCCEEDED');
+  });
+
+  await t.test('a link claimed a moment ago (another sweep is working on it) is left alone', async () => {
+    const { snapshotId, handlerCalls } = await setup({ jobStatus: 'WAITING' });
+    await db.update(jobVendorSnapshots).set({ status: 'COLLECTING', updatedAt: new Date() }).where(eq(jobVendorSnapshots.snapshotId, snapshotId));
+    progressFor = () => ({ status: 'ready' });
+    await collectLateVendorResults();
+    assert.equal(handlerCalls.length, 0);
+    assert.equal((await readLink(snapshotId)).status, 'COLLECTING');
+  });
+
+  await t.test('a settle that throws (after the handler ran) releases the link for a retry, never leaves it COLLECTED unsettled', async () => {
+    const { job, snapshotId } = await setup({
+      jobStatus: 'WAITING',
+      handler: async () => ({ outcome: 'FAILED' as never }), // an invalid ending: the settle refuses it
+    });
+    progressFor = () => ({ status: 'ready' });
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      await collectLateVendorResults();
+    } finally {
+      console.error = originalError;
+    }
+    assert.equal((await readLink(snapshotId)).status, 'PENDING');
+    assert.equal((await read(job.id)).status, 'WAITING', 'the job was not written with the invalid ending');
+  });
+
+  await t.test('past the wait bound, a progress call that keeps failing gives the link up instead of polling forever', async () => {
+    const { job, snapshotId } = await setup({ jobStatus: 'WAITING', linkAgeMs: 61 * 60_000, waitMinutes: 60 });
+    progressFor = () => new Error('permanent 4xx');
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      await collectLateVendorResults();
+    } finally {
+      console.error = originalError;
+    }
+    assert.equal((await readLink(snapshotId)).status, 'GAVE_UP');
+    assert.equal((await read(job.id)).reasonCode, 'WAITED_TOO_LONG');
+  });
+
+  await t.test('the hard stop: 24 hours past the bound even a ready snapshot is given up (a download or handler that always fails cannot retry forever)', async () => {
+    const { job, snapshotId, handlerCalls } = await setup({ jobStatus: 'WAITING', linkAgeMs: (60 + 25 * 60) * 60_000, waitMinutes: 60 });
+    progressFor = () => ({ status: 'ready' });
+    await collectLateVendorResults();
+    assert.equal((await readLink(snapshotId)).status, 'GAVE_UP');
+    assert.equal(handlerCalls.length, 0);
+    assert.equal((await read(job.id)).status, 'EXPIRED');
+  });
+
+  await t.test('a failed snapshot does not end the job while a second snapshot of the same job is still open', async () => {
+    const { job, snapshotId } = await setup({ jobStatus: 'WAITING' });
+    const secondId = `${snapshotId}_second`;
+    await db.insert(jobVendorSnapshots).values({ jobId: job.id, provider: 'BRIGHTDATA', snapshotId: secondId, waitUntil: new Date(Date.now() + 3_600_000) });
+    progressFor = (id) => (id === snapshotId ? { status: 'failed' } : { status: 'running' });
+    await collectLateVendorResults();
+    assert.equal((await readLink(snapshotId)).status, 'GAVE_UP');
+    assert.equal((await read(job.id)).status, 'WAITING', 'the sibling may still deliver');
+    progressFor = (id) => (id === secondId ? { status: 'ready' } : { status: 'failed' });
+    await collectLateVendorResults();
+    assert.equal((await read(job.id)).status, 'SUCCEEDED');
+  });
+
+  await t.test('SUCCEEDED_WITH_LIMITS without a reason is recorded UNSPECIFIED (FR117)', async () => {
+    const { job } = await setup({ jobStatus: 'WAITING', handler: async () => ({ outcome: 'SUCCEEDED_WITH_LIMITS' }) });
+    progressFor = () => ({ status: 'ready' });
+    await collectLateVendorResults();
+    const row = await read(job.id);
+    assert.equal(row.status, 'SUCCEEDED_WITH_LIMITS');
+    assert.equal(row.reasonCode, 'UNSPECIFIED');
+  });
+
+  await t.test('the job row and the logs never carry the raw error text', async () => {
+    const { job } = await setup({
+      jobStatus: 'WAITING',
+      handler: async () => {
+        throw new Error('insert into posts (caption) values (\'secret caption text\')');
+      },
+    });
+    progressFor = () => ({ status: 'ready' });
+    const logged: string[] = [];
+    const originalError = console.error;
+    console.error = (...args: unknown[]) => { logged.push(args.map(String).join(' ')); };
+    try {
+      await collectLateVendorResults();
+    } finally {
+      console.error = originalError;
+    }
+    assert.equal(logged.join('\n').includes('secret caption text'), false, 'errors are logged by name only');
+    assert.equal(JSON.stringify(await read(job.id)).includes('secret caption text'), false);
   });
 });
 

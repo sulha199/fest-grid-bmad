@@ -35,7 +35,7 @@ export interface BrightDataTriggerResponse {
 }
 
 export interface BrightDataProgressResponse {
-  status: 'scheduled' | 'building' | 'running' | 'ready' | 'failed';
+  status: 'scheduled' | 'starting' | 'building' | 'running' | 'ready' | 'failed';
   // Reported once a snapshot has finished. A zero-record snapshot is told apart as an empty account
   // (`error_codes.dead_page`) or a vendor failure (neither) from these (BUG-074,
   // classifyBrightDataResult in @festgrid/domain). Only present when Bright Data sent them.

@@ -12,9 +12,10 @@ import { classifyBrightDataRun, describeBrightDataVendorFailure } from './classi
 import { handleBrightDataFailedRun } from './handle-brightdata-failed-run.js';
 import { reportBrightDataYield } from './run-yield-store.js';
 
-// Story 10.5 (IDEA-102): how long a snapshot the vendor still reports as running keeps its job PENDING between two sweeps. The
-// sweep runs hourly, so it looks again at the next one.
-export const BRIGHTDATA_STILL_RUNNING_RECHECK_MS = 60 * 60_000;
+// Story 10.5 (IDEA-102): how far a still-running snapshot's job expiry is pushed. The sweep runs hourly and only reads jobs whose
+// expiry has PASSED, so the push must be shorter than the hour (30 minutes): it is then expired again by the next run and looked at
+// once an hour. (A full hour pushed from "now" would land just after the next run and skip it, a two-hour cadence.)
+export const BRIGHTDATA_STILL_RUNNING_RECHECK_MS = 30 * 60_000;
 
 export async function runStaleJobSweep(): Promise<void> {
   // Process Bright Data jobs

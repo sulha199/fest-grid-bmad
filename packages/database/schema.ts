@@ -1314,10 +1314,11 @@ export const jobs = pgTable('jobs', {
 }));
 
 // Story 10.5 (FR119) -- a vendor snapshot that outlived its job's budget, linked to the job so a result that arrives later is still
-// collected by the 5-minute job sweep and the job finished "completed after deadline". The claim (PENDING to COLLECTED, one
-// conditional UPDATE) makes a duplicate delivery a no-op. Plain words only: no caption, URL or vendor error. RLS on, no policy
+// collected by the 5-minute job sweep and the job finished "completed after deadline". The claim (PENDING to COLLECTING, one
+// conditional UPDATE) makes a duplicate delivery a no-op; COLLECTED is written only after the handler ran and the job was settled,
+// and a link stuck COLLECTING (a Lambda killed mid-way) is put back to PENDING by the sweep. Plain words only: no caption, URL or vendor error. RLS on, no policy
 // (migration enables it, like jobs and job_attempts).
-export const jobVendorSnapshotStatusEnum = pgEnum('job_vendor_snapshot_status', ['PENDING', 'COLLECTED', 'GAVE_UP']);
+export const jobVendorSnapshotStatusEnum = pgEnum('job_vendor_snapshot_status', ['PENDING', 'COLLECTING', 'COLLECTED', 'GAVE_UP']);
 
 export const jobVendorSnapshots = pgTable('job_vendor_snapshots', {
   id: uuid('id').defaultRandom().primaryKey(),

@@ -1,5 +1,5 @@
 {
-  "id": "0ab90743-097f-4a6e-abfc-e98ab52f10dd",
+  "id": "cdf52d15-89d0-44c7-9c64-f048e1e8725d",
   "prevId": "aeb1525f-5b0e-442d-a6f0-dfda908778a9",
   "version": "6",
   "dialect": "postgresql",
@@ -5267,6 +5267,7 @@
       "schema": "public",
       "values": [
         "PENDING",
+        "COLLECTING",
         "COLLECTED",
         "GAVE_UP"
       ]
