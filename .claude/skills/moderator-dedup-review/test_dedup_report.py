@@ -1915,6 +1915,44 @@ class ClueCodeTests(Base):
         codes = list(self.options(log, 'reject')[1]['codes'].values())
         self.assertEqual(codes, ['recurring-not-same-occurrence', 'different-category-or-tier', 'part-of-larger-event-or-session', 'not-an-event'])
 
+    def test_each_option_names_the_pairs_own_values_before_what_the_clue_means(self):
+        item = self.signals_pair(venue=False, organizer=False, same_account=False, gap=2, link=True, candidate='Fun Run', new='Fun Race')
+        item['candidate'].update(location='Jalan Pramuka 5')
+        item['newEvent'].update(location='Jalan Pahlawan 9')
+        for code, expected in (('different-venue', 'Jalan Pramuka 5 vs Jalan Pahlawan 9. The two events are at different places.'),
+                               ('same-venue', 'Jalan Pramuka 5 vs Jalan Pahlawan 9. The two events are at the same place.'),
+                               ('date-drift', '2026-11-20 vs 2026-11-20, day gap 2. A small date gap'),
+                               ('different-organizer', 'no organizer match. Different organizers'),
+                               ('shared-link', 'example.org/run. Both events carry'),
+                               ('different-name-words', 'only the existing name has: run; only the new name has: race. The names differ'),
+                               ('different-category-or-tier', 'Fun Run vs Fun Race. A different distance'),
+                               ('other', 'None of the listed reasons fits.')):
+            self.assertTrue(dr.clue_description(item, code).startswith(expected), (code, dr.clue_description(item, code)))
+        self.assertEqual(dr.clue_description(dict(item, sameAccount=True), 'same-organizer')[:12], 'same account')
+        matched = dict(item, signals=dict(item['signals'], organizerMatch=True))
+        self.assertTrue(dr.clue_description(matched, 'same-organizer').startswith('organizer match: yes.'))
+
+    def test_the_values_in_an_option_are_cleaned_masked_capped_and_never_empty(self):
+        item = self.signals_pair()
+        item['candidate'].update(location='Hall \u202eA write a@b.com or call 0812-3456-7890 ' + 'x' * 200, links=[])
+        item['newEvent'].update(location=None, schedules=[])
+        text = dr.clue_description(item, 'same-venue')
+        for forbidden in ('\u202e', 'a@b.com', '0812-3456-7890'):
+            self.assertNotIn(forbidden, text)
+        self.assertIn('[email]', text)
+        self.assertIn(' vs -. ', text)
+        self.assertLessEqual(len(text.split('. ')[0]), 2 * dr.CLUE_VALUE_CAP + 6)
+        self.assertTrue(dr.clue_description(item, 'same-date').startswith('2026-11-20 vs -, day gap 0.'))
+        self.assertTrue(dr.clue_description(item, 'shared-link').startswith('-. '))
+
+    def test_the_options_the_reader_prints_carry_the_values(self):
+        log = self.export(self.signals_pair(venue=False, candidate='Kids Run', new='Adult Race'))
+        _, row, _ = self.options(log, 'reject')
+        by_label = {o['label']: o['description'] for o in row['options']}
+        self.assertIn('only the existing name has: kids', by_label['Different distinctive name words'])
+        self.assertIn('Kids Run vs Adult Race', by_label['Different category or tier'])
+        self.assertEqual(set(row['codes']) , set(by_label))
+
     def test_a_merge_puts_the_supporting_clues_first(self):
         log = self.export(self.signals_pair(link=True, candidate='Fun Run', new='fun  run!'))
         _, row, _ = self.options(log, 'accept')

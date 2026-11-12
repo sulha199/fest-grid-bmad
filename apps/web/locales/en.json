@@ -160,7 +160,28 @@
       "recurring-not-same-occurrence": "Recurring series, not the same occurrence",
       "not-an-event": "Not an event, or a bad extraction",
       "other": "Another reason"
-    }
+    },
+    "clueAspects": {
+      "venue": "Venue",
+      "organizer": "Organizer",
+      "date": "Date",
+      "name": "Name"
+    },
+    "clueShort": {
+      "same-venue": "Same",
+      "different-venue": "Different",
+      "same-organizer": "Same",
+      "different-organizer": "Different",
+      "same-date": "Same day",
+      "date-drift": "Slightly different",
+      "date-too-far": "Too far apart",
+      "same-name-words": "Same words",
+      "different-name-words": "Different words",
+      "name-translation-or-abbreviation": "Translated or abbreviated"
+    },
+    "clueValues": "Existing: {existing} · New: {incoming}",
+    "clueDayGap": "{days, plural, one {# day apart} other {# days apart}}",
+    "clueReasonsHeading": "Other reasons"
   },
   "ModeratorAccountsPage": {
     "pageHeading": "Accounts Management",

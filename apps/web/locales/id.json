@@ -160,7 +160,28 @@
       "recurring-not-same-occurrence": "Acara berseri, bukan penyelenggaraan yang sama",
       "not-an-event": "Bukan acara, atau hasil ekstraksi yang salah",
       "other": "Alasan lain"
-    }
+    },
+    "clueAspects": {
+      "venue": "Lokasi",
+      "organizer": "Penyelenggara",
+      "date": "Tanggal",
+      "name": "Nama"
+    },
+    "clueShort": {
+      "same-venue": "Sama",
+      "different-venue": "Berbeda",
+      "same-organizer": "Sama",
+      "different-organizer": "Berbeda",
+      "same-date": "Hari sama",
+      "date-drift": "Sedikit berbeda",
+      "date-too-far": "Terlalu jauh",
+      "same-name-words": "Kata sama",
+      "different-name-words": "Kata berbeda",
+      "name-translation-or-abbreviation": "Terjemahan atau singkatan"
+    },
+    "clueValues": "Yang ada: {existing} · Baru: {incoming}",
+    "clueDayGap": "{days, plural, other {selisih # hari}}",
+    "clueReasonsHeading": "Alasan lain"
   },
   "ModeratorAccountsPage": {
     "pageHeading": "Manajemen Akun",

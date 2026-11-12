@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { NextIntlClientProvider } from 'next-intl';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import enMessages from '../../../../../locales/en.json';
 import idMessages from '../../../../../locales/id.json';
 import { DEDUP_DECISION_CLUES } from '@festgrid/domain/events';
 import { DuplicateEventsContent } from './duplicate-events-content';
+import { CLUE_ASPECTS, CLUE_REASONS, dayGap } from './resolution-clue-checklist';
 import {
   useQuerySuggestedEventMatches,
   useResolveSuggestedEventMatchMutation,
@@ -76,6 +77,9 @@ describe('clue labels', () => {
       const labels = messages.DuplicateEventsPage.clues as Record<string, string>;
       expect(Object.keys(labels).sort()).toEqual([...DEDUP_DECISION_CLUES].sort());
       for (const code of DEDUP_DECISION_CLUES) expect(labels[code].trim()).not.toBe('');
+      const shortLabels = messages.DuplicateEventsPage.clueShort as Record<string, string>;
+      expect(Object.keys(shortLabels).sort()).toEqual(CLUE_ASPECTS.flatMap((aspect) => [...aspect.codes]).sort());
+      expect(Object.keys(messages.DuplicateEventsPage.clueAspects).sort()).toEqual(CLUE_ASPECTS.map((aspect) => aspect.key).sort());
     }
   });
 });
@@ -221,19 +225,86 @@ describe('DuplicateEventsContent', () => {
     );
   });
 
-  it('once one clue of an exclusive group is ticked the others of that group are disabled, and unticking frees them', async () => {
+  it('an aspect is one row of toggles: choosing another answer replaces it, a second click clears it, other rows are untouched', async () => {
     const user = userEvent.setup();
     oneSuggestion();
     render(<DuplicateEventsContent />, { wrapper: createWrapper() });
 
     await user.click(screen.getByRole('button', { name: 'Reject' }));
-    const same = await screen.findByLabelText('Same venue');
-    const different = screen.getByLabelText('Different venue');
+    const same = await screen.findByRole('button', { name: 'Same venue' });
+    const different = screen.getByRole('button', { name: 'Different venue' });
+    expect(same).toHaveAttribute('aria-pressed', 'false');
     await user.click(same);
-    expect(different).toBeDisabled();
-    expect(screen.getByLabelText('Another reason')).not.toBeDisabled();
-    await user.click(same);
+    expect(same).toHaveAttribute('aria-pressed', 'true');
     expect(different).not.toBeDisabled();
+    await user.click(different);
+    expect(same).toHaveAttribute('aria-pressed', 'false');
+    expect(different).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'Different organizer' }));
+    expect(different).toHaveAttribute('aria-pressed', 'true');
+    await user.click(different);
+    expect(different).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Different organizer' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Another reason')).not.toBeDisabled();
+  });
+
+  it('each aspect shows the two events\' own values: venue, dates with the day gap, and names', async () => {
+    const user = userEvent.setup();
+    const suggestion = makeSuggestion();
+    suggestion.candidateEvent.location = 'Jalan Pramuka';
+    suggestion.event.location = 'Jalan Pahlawan';
+    suggestion.event.schedules[0].eventStartDate = '2026-12-03';
+    (useQuerySuggestedEventMatches as any).mockReturnValue({
+      data: { suggestedEventMatches: { edges: [{ node: suggestion, cursor: 'c1' }], pageInfo: { hasNextPage: false, endCursor: null } } },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+    render(<DuplicateEventsContent />, { wrapper: createWrapper() });
+
+    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await screen.findByRole('alertdialog');
+    expect(screen.getByText('Existing: Jalan Pramuka · New: Jalan Pahlawan')).toBeInTheDocument();
+    expect(screen.getByText('Existing: 2026-12-01 · New: 2026-12-03 (2 days apart)')).toBeInTheDocument();
+    expect(screen.getByText('Existing: Existing Event · New: New Extraction Event')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', { name: 'Venue' })).getAllByRole('button')).toHaveLength(2);
+    expect(within(screen.getByRole('group', { name: 'Date' })).getAllByRole('button')).toHaveLength(3);
+    expect(within(screen.getByRole('group', { name: 'Name' })).getAllByRole('button')).toHaveLength(3);
+  });
+
+  it('the other reasons start with what suits the decision: reject reasons on a reject, merge reasons on an accept', async () => {
+    const user = userEvent.setup();
+    oneSuggestion();
+    render(<DuplicateEventsContent />, { wrapper: createWrapper() });
+    const reasonLabels = () => within(screen.getByRole('alertdialog')).getAllByRole('checkbox').map((box) => box.closest('label')?.textContent);
+
+    await user.click(screen.getByRole('button', { name: 'Reject' }));
+    await screen.findByRole('alertdialog');
+    expect(reasonLabels()[0]).toBe('Recurring series, not the same occurrence');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Accept' }));
+    await screen.findByRole('alertdialog');
+    expect(reasonLabels()[0]).toBe('Shared link');
+  });
+
+  it('the aspects and the other reasons together are exactly the domain list, each code once, for both decisions', () => {
+    const aspectCodes = CLUE_ASPECTS.flatMap((aspect) => [...aspect.codes]);
+    for (const decision of ['accept', 'reject'] as const) {
+      const all = [...aspectCodes, ...CLUE_REASONS[decision]];
+      expect(new Set(all).size).toBe(all.length);
+      expect([...all].sort()).toEqual([...DEDUP_DECISION_CLUES].sort());
+    }
+  });
+
+  it('dayGap counts whole days and says nothing for a missing or unreadable date', () => {
+    expect(dayGap('2026-12-01', '2026-12-03')).toBe(2);
+    expect(dayGap('2026-12-03', '2026-12-01')).toBe(2);
+    expect(dayGap('2026-12-01', '2026-12-01')).toBe(0);
+    expect(dayGap('2026-12-01', null)).toBeNull();
+    expect(dayGap(undefined, '2026-12-01')).toBeNull();
+    expect(dayGap('2026-12-01', 'soon')).toBeNull();
   });
 
   it('the checklist and the note start empty each time the dialog opens, and Cancel resolves nothing', async () => {
@@ -249,7 +320,7 @@ describe('DuplicateEventsContent', () => {
     expect(mockResolve).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: 'Accept' }));
-    expect(await screen.findByLabelText('Same date')).not.toBeChecked();
+    expect(await screen.findByRole('button', { name: 'Same date' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByLabelText(/Note \(optional/)).toHaveValue('');
   });
 
