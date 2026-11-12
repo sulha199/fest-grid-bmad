@@ -2746,12 +2746,12 @@ items:
      note: "Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07). Built 2026-11-11: popup Merge regardless of the floor, decisions --override, close-decided, SKILL.md rule 7 and step 8. 1 finding."}
 
   FIND-126:
-    {type: finding, status: backlog, created: 2026-11-07,
+    {type: finding, status: done, created: 2026-11-07,
      impact: latent, effort: m,
      title: "AI dedup review: owner-tunable apply caps within code-owned ceilings",
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-find-124-apply-side-floor-override.md, packages/domain/src/events/dedup-review-apply.ts],
      touches: [app:backend, pkg:domain, app:infrastructure, cross:architecture],
-     note: "Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07). Cap variables, ceilings, validate keeps defaults, override sub-cap, early workflow check. Owner: fixed caps stop the daily review scaling. 1 finding."}
+     note: "Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07). Cap variables, ceilings, validate keeps defaults, override sub-cap, early workflow check. Owner: fixed caps stop the daily review scaling. Built 2026-11-12 on feat/dedup-review-tunable-caps (owner asked for a daily cap of 100). One deviation from the note: the three variables are also read by validate when set in the dedup-review environment, because a validate that kept the defaults would report per-day-cap at 25 used and make a raised day cap useless to the review; apply still binds. 1 finding."}
 
   FIND-127:
     {type: finding, status: backlog, created: 2026-11-07,
