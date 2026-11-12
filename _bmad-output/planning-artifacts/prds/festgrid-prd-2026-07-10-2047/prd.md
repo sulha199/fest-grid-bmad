@@ -1703,6 +1703,15 @@ enum JobReasonCode {
   CANCELLED,
   WAITED_TOO_LONG,         // queued past JOB_QUEUE_MAX_WAIT_MINUTES (FR121)
   SOME_POSTS_NOT_EXTRACTED, // Section 3.10, FR129
+  // Added by Story 10.6 (the moderator re-extract, Section 3.9.3, FR125). The refresh reasons end a job SUCCEEDED_WITH_LIMITS
+  // because the preview continued on the stored images; the last four also reuse COOLDOWN, NO_PROVIDER_REACHABLE, PROVIDER_OVER_QUOTA,
+  // ACCOUNT_TYPE_NOT_SCRAPED, POST_UNAVAILABLE and TIMED_OUT above.
+  REFRESH_IN_PROGRESS,     // another request is fetching the same post right now
+  POST_NOT_FOUND,          // the stored post was deleted while the job waited (FAILED)
+  CHAIN_IN_FLIGHT,         // the post's stepped extraction started while the job waited (FAILED)
+  QUOTA_EXHAUSTED,         // no Gemini key left for the preview (FAILED)
+  EXTRACTION_FAILED,       // the preview could not be extracted or validated (FAILED)
+  VENDOR_RUN_FAILED,       // a linked vendor snapshot failed (Story 10.5)
   // Engine-internal endings (Story 10.1a). The Jobs page shows each as a generic failure, never the raw cause:
   HANDLER_ERROR,           // the job's code threw
   HANDLER_NOT_REGISTERED,  // no handler for the type in the Lambda that ran it

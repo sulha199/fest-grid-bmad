@@ -81,7 +81,7 @@ graph TD
     EventBridge -- every 5 minutes: job sweep (expiry, queue promotion, re-admission, late Bright Data results) --> L_Scrape
     L_API -- admits or queues a job, then starts it (async invoke) --> L_Scrape
     L_API -- subscription cap and job admission under a per-user row lock --> Supabase
-    L_Scrape -- job phase hand-off (async invoke) --> L_AI
+    L_Scrape -- job phase hand-off, e.g. re-extract refresh then preview (async invoke, job id only) --> L_AI
     L_Scrape -- jobs, job attempts, queue promotion --> Supabase
     Apify -- webhook callback --> L_ApifyWebhook
     L_ApifyWebhook -- persists scraped posts to --> Supabase
