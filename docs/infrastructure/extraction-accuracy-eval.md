@@ -213,12 +213,15 @@ keep it out of the repository and out of any shared folder.
 3. **Save edits** keeps your work on this computer. **Reset to the draft** throws it away (and clears a damaged saved edit).
    **Skip** and **Flag for later** save any unsaved edits first, record the post (with an optional note) and move to the next
    pending one. Leaving a post by any other link asks before discarding unsaved typing. A verified post cannot be skipped or
-   flagged; if you save a change to it, it goes back to pending ("edited since it was verified") until you verify it again.
+   flagged; if you save a change to it, it goes back to pending ("edited since it was verified") until you verify it again. The
+   label already uploaded stays in the store (and so in CI) until then.
 4. **Verify and upload** re-checks the label with `parseLabelledPost` (the runner's own parser) and the production category list,
    writes the verified `label.json` and the images to `extraction-eval/<postId>/`, and marks the post verified. A problem is
    reported by field name and nothing is uploaded. If a verified label for the post already exists in the store, the tool asks
    before overwriting it; a failed check of that (no permission, expired sign-in) is an error, never treated as "not there".
-   The images are uploaded first and `label.json` last, so a failed upload never leaves a label without its images.
+   The images are uploaded first and `label.json` last, so a failed upload never leaves a label without its images. An upload
+   never deletes: after an overwrite that dropped an image, the old file stays under the prefix, which is harmless (the runner reads
+   only the images the label names).
 
 ### Flags
 
@@ -228,7 +231,7 @@ keep it out of the repository and out of any shared folder.
 | `chain` | the post had more than one extraction pass (`extractionAuditRows` > 1) | The draft is the result of several calls; see "What the first-call eval cannot score" |
 | `before_cursor_path` | `extractedBeforeCursorPath` | The event list was extracted before the chain logic existed and is probably incomplete |
 | `many_schedules` | an event with more than 3 schedules | Check the schedule list against the caption; a date list is one schedule per date (prompt rule 4c) |
-| `price_missing` | an event with no `ticketPrice` that is not marked `free` | Find the price in the images, mark it free, or leave it unstated on purpose |
+| `price_missing` | an event with no `ticketPrice` that is not marked `free` | Find the price in the images, mark it free, or leave it unstated on purpose. The drafts never set `free`, so this fires for most events, free ones included: read it as a to-do, not as an error. Mark a free event `free` |
 
 ### What the first-call eval cannot score (IDEA-261111-9ch)
 

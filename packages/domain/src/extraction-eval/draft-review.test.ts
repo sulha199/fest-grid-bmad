@@ -44,6 +44,8 @@ test('parseDraftMeta: a complete draft.json is read as it is', () => {
 
 test('parseDraftMeta: missing fields are fine; wrong types are ignored with a warning that names the field, never the value', () => {
   assert.deepEqual(parseDraftMeta({}), { meta: {}, warnings: [] });
+  // null means "not recorded" (real exports write it): absent, with no warning
+  assert.deepEqual(parseDraftMeta({ extractedEventCount: null, stratum: null, rescrape: null }), { meta: { rescrape: null }, warnings: [] });
   const { meta, warnings } = parseDraftMeta({ stratum: 7, extractionAuditRows: -1, imagesFetched: Number.POSITIVE_INFINITY, extractedBeforeCursorPath: 'yes', postUrl: 'https://secret.invalid/x', status: 'draft' });
   // postUrl is a valid string, so it is kept; the three wrong ones are dropped.
   assert.deepEqual(meta, { postUrl: 'https://secret.invalid/x', status: 'draft' });

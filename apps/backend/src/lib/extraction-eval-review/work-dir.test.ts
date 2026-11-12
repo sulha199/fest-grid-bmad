@@ -36,10 +36,15 @@ test('the default working directory is in the home folder, and a directory insid
   assert.doesNotThrow(() => assertOutsideRepo('/repository-two/work', '/repo'));
 });
 
-test('assertOutsideRepo: a folder whose name merely starts with two dots is inside, and a symlink into the repository is seen through', () => {
+test('assertOutsideRepo: a folder whose name merely starts with two dots is inside the repository', () => {
   const repo = tempDir('review-repo-real');
   mkdirSync(join(repo, '..x'), { recursive: true });
   assert.throws(() => assertOutsideRepo(join(repo, '..x'), repo), /inside the repository checkout/);
+});
+
+// creating a symlink needs developer mode or an administrator on Windows (EPERM otherwise)
+test('assertOutsideRepo: a symlink into the repository is seen through', { skip: process.platform === 'win32' && 'symlinks need developer mode on Windows' }, () => {
+  const repo = tempDir('review-repo-real');
   const elsewhere = tempDir('review-elsewhere');
   symlinkSync(repo, join(elsewhere, 'link'));
   assert.throws(() => assertOutsideRepo(join(elsewhere, 'link', 'work'), repo), /inside the repository checkout/);

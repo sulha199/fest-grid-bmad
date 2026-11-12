@@ -49,7 +49,7 @@ test('AwsCliStorage builds the expected aws commands', async () => {
     ['s3', 'sync', 's3://my-private-bucket/extraction-eval-drafts/', '/work/drafts', '--only-show-errors'],
     ['s3api', 'head-object', '--bucket', 'my-private-bucket', '--key', 'extraction-eval/p-1/label.json'],
     ['s3', 'sync', '/work/verified/p-1', 's3://my-private-bucket/extraction-eval/p-1/', '--exclude', 'label.json', '--only-show-errors'],
-    ['s3', 'cp', '/work/verified/p-1/label.json', 's3://my-private-bucket/extraction-eval/p-1/label.json', '--only-show-errors'],
+    ['s3', 'cp', join('/work/verified/p-1', 'label.json'), 's3://my-private-bucket/extraction-eval/p-1/label.json', '--only-show-errors'],
   ]);
 });
 
@@ -79,7 +79,8 @@ test('AwsCliStorage refuses a name that is not an S3 bucket name and a post id t
   await assert.rejects(() => new AwsCliStorage('my-private-bucket', fakeAws([], [])).uploadVerified('../x', '/w'), /not a valid post id/);
 });
 
-test('awsCliRunner runs the aws binary without a shell and returns its output; a missing binary has a friendly message', async () => {
+// the stub is a shell script, so this case runs where /bin/sh exists (the CI runners); the code itself spawns no shell on any system
+test('awsCliRunner runs the aws binary without a shell and returns its output; a missing binary has a friendly message', { skip: process.platform === 'win32' && 'needs /bin/sh for the stub' }, async () => {
   const bin = tempDir('review-bin');
   const script = join(bin, 'aws');
   writeFileSync(script, '#!/bin/sh\necho "args:$*"\necho "problem" 1>&2\nexit 3\n');

@@ -56,7 +56,8 @@ export function parseDraftMeta(raw: unknown): { meta: DraftMeta; warnings: strin
   const warnings: string[] = [];
   for (const [field, kind] of META_FIELDS) {
     const value = raw[field];
-    if (value === undefined) continue;
+    // an exporter writes null for "not recorded": that is the same as absent, not a type error
+    if (value === undefined || value === null) continue;
     const ok = kind === 'number' ? typeof value === 'number' && Number.isFinite(value) && value >= 0 : typeof value === kind;
     if (ok) meta[field] = value;
     else warnings.push(`draft.json: ${field} should be a ${kind === 'number' ? 'non-negative number' : kind}; ignored`);
