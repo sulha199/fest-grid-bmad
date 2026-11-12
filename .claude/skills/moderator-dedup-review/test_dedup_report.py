@@ -1896,7 +1896,24 @@ class ClueCodeTests(Base):
         self.assertIn('cannot be undone in the app', row['question'])
         self.assertEqual(list(row['codes'].values()), ['different-venue', 'different-organizer', 'date-too-far', 'different-name-words'])
         _, merge, _ = self.options(log, 'accept')
-        self.assertEqual(list(merge['codes'].values())[:4], ['different-venue', 'different-organizer', 'date-too-far', 'different-name-words'], 'only evidence against is flagged, so it still leads')
+        self.assertEqual(list(merge['codes'].values()), ['name-translation-or-abbreviation', 'registration-vs-event-day', 'date-drift', 'other'],
+                         'a merge is not offered the evidence against it while a reason that suits it is left')
+
+    def test_a_reject_of_a_matching_pair_is_offered_reject_reasons_not_the_matches(self):
+        # The pair is queued because venue, organizer and date match; only the names differ. The matches are why it was
+        # queued, not why it is rejected (a reviewer saw "Same venue, Same organizer, Same date" offered for a reject).
+        log = self.export(self.signals_pair(candidate='Kids Run', new='Adult Race'))
+        _, row, _ = self.options(log, 'reject')
+        codes = list(row['codes'].values())
+        self.assertEqual(codes, ['different-name-words', 'recurring-not-same-occurrence', 'different-category-or-tier', 'part-of-larger-event-or-session'])
+        for matching in ('same-venue', 'same-organizer', 'same-date', 'shared-link', 'same-name-words'):
+            self.assertNotIn(matching, codes)
+        self.assertEqual(self.answer(log, 'reject', [dr.CLUE_TEXT['different-category-or-tier'][0]])[1]['clues'], ['different-category-or-tier'])
+
+    def test_a_reject_with_no_evidence_against_gets_only_reject_reasons(self):
+        log = self.export(self.signals_pair(link=True, candidate='Fun Run', new='fun  run!'))
+        codes = list(self.options(log, 'reject')[1]['codes'].values())
+        self.assertEqual(codes, ['recurring-not-same-occurrence', 'different-category-or-tier', 'part-of-larger-event-or-session', 'not-an-event'])
 
     def test_a_merge_puts_the_supporting_clues_first(self):
         log = self.export(self.signals_pair(link=True, candidate='Fun Run', new='fun  run!'))
