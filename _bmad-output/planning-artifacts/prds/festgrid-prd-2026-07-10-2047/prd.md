@@ -1704,9 +1704,12 @@ enum JobReasonCode {
   WAITED_TOO_LONG,         // queued past JOB_QUEUE_MAX_WAIT_MINUTES (FR121)
   SOME_POSTS_NOT_EXTRACTED, // Section 3.10, FR129
   // Added by Story 10.6 (the moderator re-extract, Section 3.9.3, FR125). The refresh reasons end a job SUCCEEDED_WITH_LIMITS
-  // because the preview continued on the stored images; the last four also reuse COOLDOWN, NO_PROVIDER_REACHABLE, PROVIDER_OVER_QUOTA,
-  // ACCOUNT_TYPE_NOT_SCRAPED, POST_UNAVAILABLE and TIMED_OUT above.
+  // because the preview continued on the stored images; they also reuse COOLDOWN, NO_PROVIDER_REACHABLE, PROVIDER_OVER_QUOTA,
+  // ACCOUNT_TYPE_NOT_SCRAPED, POST_UNAVAILABLE and TIMED_OUT above. When the post has NO stored caption (or is a URL not in the
+  // database) a refusal ends the job FAILED instead, with the same reason, because there is nothing to preview from. A fetched caption
+  // is held on the job only between the two phases and blanked when the job's preview ends (Section 5, Data Minimization).
   REFRESH_IN_PROGRESS,     // another request is fetching the same post right now
+  REFRESH_DID_NOT_HEAL_IMAGES, // a provider answered but nothing could be saved and the stored links stay expired
   POST_NOT_FOUND,          // the stored post was deleted while the job waited (FAILED)
   CHAIN_IN_FLIGHT,         // the post's stepped extraction started while the job waited (FAILED)
   QUOTA_EXHAUSTED,         // no Gemini key left for the preview (FAILED)
@@ -1774,7 +1777,7 @@ interface Job {
 *   **Start Latency:** starting a job returns its identifier in under one second, however slow the vendor is (FR116).
 *   **Bounded Time:** every job attempt runs inside a deadline (about 150 seconds, within the worker's 300-second limit), and a sweep ends every job past its bound, so none stays Running and none is dropped silently (FR117).
 *   **Vendor Trouble Is Recorded, Never Raw:** a vendor outage, a quota refusal or a late delivery produces a recorded fail-over or a recorded reason (FR118, FR119), never an unhandled error shown to the user.
-*   **Data Minimization:** a job keeps no post caption. A re-extract preview held on a job is cleared once its apply window has passed (Section 3.9.3), and the image links a refresh saves are hotlinks, never durable copies (Section 3.16).
+*   **Data Minimization:** a job keeps no post caption. (The one bounded exception, owner decision 2026-11-12: a re-extract of a post whose caption is not stored, or of a URL, holds the fetched caption on its job for the minutes between its refresh and its preview, and blanks it when the preview ends, however it ends; a sweep removes any that remain.) A re-extract preview held on a job is cleared once its apply window has passed (Section 3.9.3), and the image links a refresh saves are hotlinks, never durable copies (Section 3.16).
 *   **Accessibility and Language:** every job state change is announced to assistive technology, and all job copy exists in English and Indonesian (FR123).
 
 ### Usability

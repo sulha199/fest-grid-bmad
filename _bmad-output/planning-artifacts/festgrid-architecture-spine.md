@@ -2421,6 +2421,10 @@ This document defines the core architectural invariants for the FestDaily applic
         refused account skips the REFRESH only: no vendor call is made, the job reports
         `ACCOUNT_TYPE_NOT_SCRAPED` and still previews on the stored images (a caption we hold previews,
         as above), ending `SUCCEEDED_WITH_LIMITS`. A post that needs no refresh does not touch the gate.
+        With NO caption stored there is nothing to preview from, so the job ends FAILED with the same
+        reason (`ACCOUNT_NOT_SCRAPABLE` to the screen, as before); a URL that is not stored is gated on the
+        owner the fetch returns, after it, exactly as the old path did, and the fetch counts toward the
+        cooldown. The late-result handler gates the post's account again (hours may have passed).
 *   **Enforced by:** the unit tests in Rule 1 and the lockstep tests in Rule 3. No lint or source-scan
     ratchet yet; see Deferred.
 *   **Deferred:** a source-scan ratchet forbidding a raw `accountTypeStatus === ` comparison outside
@@ -2510,10 +2514,11 @@ This document defines the core architectural invariants for the FestDaily applic
         stub rule (AD-30 Rule 10), the roundup/curator organizer discount (BUG-058, IDEA-068) and
         `findMatchingEvent`. `processIngestionJob` acts on its result; the preview reports it. The
         preview does not reimplement any part of it.
-    3.  **Reuse the manual extraction job.** (**Amended 2026-11-12, Story 10.6:** for a stored post that
-        keeps its caption the preview is the engine job `reextract-post` (Rule 9) and its result lives on
-        `jobs.result_data`; the manual job below still serves a post with no stored caption and a URL not in
-        the database, until Story 10.9 decides on `manual_extraction_jobs`, PRD OI-4. The shared extraction
+    3.  **Reuse the manual extraction job.** (**Amended 2026-11-12, Story 10.6:** EVERY preview is now the
+        engine job `reextract-post` (Rule 9) and its result lives on `jobs.result_data`; a new preview no
+        longer creates a `manual_extraction_jobs` row. The manual job's `REEXTRACT_PREVIEW` branch, its read
+        and its Apply are kept only for rows written before the change (a 30-minute window; remove with Story
+        10.9, PRD OI-4, which decides `manual_extraction_jobs` for the other callers). The shared extraction
         code is `extract-events-with-gemini.ts` and `generate-reextraction-preview.ts`.) A `REEXTRACT_PREVIEW` job runs in the AI Lambda like a
         correction job (same face blur, same key tiers, same `manual_extraction_jobs` row, owner-
         scoped to the requesting moderator), and stores a `ReextractionPreviewResult` in
@@ -2527,9 +2532,10 @@ This document defines the core architectural invariants for the FestDaily applic
         locations, so the venue signal is the location string only; a match that relies on
         coordinates within 150 m will score lower in the preview than in ingestion.
     5.  **Rescrape when the caption is missing or the stored image links have expired**, via
-        `getScraperAdapter(platform).getPostByUrl`. (**Amended 2026-11-12, Story 10.6:** for a stored post
-        with a caption the refresh is Rule 9's: the post chain, Apify first, saved to `posts`; this rule is
-        what remains for a caption-less post and an unknown URL.) (Amended 2026-10-31, BUG-099: the rule used to be
+        `getScraperAdapter(platform).getPostByUrl`. (**Amended 2026-11-12, Story 10.6:** the fetch is now
+        always Rule 9's: the post chain, Apify first, with its cooldown read from `job_attempts` and its
+        lease; the text below describes what it replaced, and its guarantees (cooldown only when a vendor
+        call ran, one fetch of a URL at a time, the AD-34 gate) are kept.) (Amended 2026-10-31, BUG-099: the rule used to be
         "only when the caption is missing"; the cover and slide URLs are hotlinks that expire, so a
         stored caption with dead links previewed a carousel from its first image at best.) A stored
         caption is never replaced by the rescraped one: an image refresh supplies only the scraper's
@@ -2555,7 +2561,9 @@ This document defines the core architectural invariants for the FestDaily applic
         limit). An image-only post (empty caption) is not a failure. A URL that is not in the
         database is scraped, previewed without an account signal (`postStored: false`, authorship
         assumed to be the organizer's, so not a stub), and never stored.
-    6.  **The caption never persists.** (a) A rescraped caption is held only in the job's
+    6.  **The caption never persists.** (**Amended 2026-11-12, Story 10.6:** a re-extract's fetched caption is held on the engine job,
+        `jobs.input.held`, only between its two phases and blanked when phase 2 ends, with a sweep as the backstop: Rule 9. The text below
+        describes the manual job's guarantee, which the engine job keeps in the same terms.) (a) A rescraped caption is held only in the job's
         `request_payload` and is **never written to `posts.content`**, for any account type. (b)
         `request_payload.message.content` is blanked as soon as the AI Lambda claims the job
         (the run works from its in-memory copy, so a timeout or crash mid-run leaves nothing), and
@@ -2604,32 +2612,52 @@ This document defines the core architectural invariants for the FestDaily applic
         undo; a `reextract_apply` JSON log line records the event ids touched. (Amended 2026-11-12, Story 10.6:
         Apply reads and marks the preview on whichever row holds it, `jobs` or `manual_extraction_jobs`,
         through `reextract-preview-job.ts`; its window runs from `jobs.finished_at` for an engine job.)
-    9.  **The engine job `reextract-post` (Story 10.6, 2026-11-12; AD-53 Rule 17).** A stored post that keeps
-        its caption is re-extracted by a two-phase engine job that OWNS THE RESULT. Phase 1, in the Scraper
-        Lambda: `reextractRefreshReasons` (pure, `packages/domain/src/posts/reextract-image-refresh.ts`)
-        says whether the stored images need a refresh: the cover link expired (or slides with no cover), a
-        slide link expired, the cover is low resolution (an `s<W>x<H>` token of at most 640 in the `stp`
-        query), or slides are unknown (no post type and no slide list). If one applies and the account is
-        scrapable (Rule 7 of AD-34), the post chain fetches the post with this type's own order, Apify then
-        Bright Data, inside `REEXTRACT_REFRESH_BUDGET_MS` (120 s), under the per-URL lease, and not within
-        10 minutes of a refresh whose vendor call ran (read from `job_attempts`: an attempt counts when its
-        outcome is SUCCEEDED, EMPTY, TIMED_OUT or FAILED; a refusal before any call, FIND-261102-4qm, is
-        OVER_QUOTA or SKIPPED and never starts it). A fetch saves, through `saveRefreshedPostImages`, the
-        cover, the slides and the cover's expiry, and fills a NULL post type from the post URL; it never
-        saves the caption and applies `decideFreshImagesToSave`. Phase 2, in the AI-processor Lambda after a
-        hand-off (AD-53 Rule 8): the stored caption (read in memory only) and the now-refreshed images go
-        through the same Gemini extraction and preview code as the manual job, and the result, `ReextractionPreviewResult`
-        plus the `refresh` report, is the job's `result_data`. **No refresh problem fails the job**: the
-        preview continues on the stored images and the job ends SUCCEEDED_WITH_LIMITS with the reason (`COOLDOWN`, `ACCOUNT_TYPE_NOT_SCRAPED`,
-        `REFRESH_IN_PROGRESS`, `POST_UNAVAILABLE`, `NO_PROVIDER_REACHABLE`, `PROVIDER_OVER_QUOTA`, `TIMED_OUT`) and a plain
-        message; the report names the outcome, why a refresh was due, whether links were saved, whether a
-        late result is pending, when a retry is possible and how many stored links are still expired
-        (the banner is Story 10.6a). The job never WAITS for a Bright Data snapshot: one that outlives the
-        budget is linked to the job (AD-53 Rule 16) and the type's late-result handler saves its links
-        through the same writer, answering `NO_CHANGE` so a finished or expired job is never revived. The
-        job holds no caption (input `{ postId }`, key the post id, so a second click joins the open job);
-        an unapplied job's `extracted` is cleared past the 30-minute window by the job-engine sweep. The
-        moderator operations are unchanged and read whichever row holds the preview.
+    9.  **The engine job `reextract-post` (Story 10.6, 2026-11-12; AD-53 Rule 17).** Every re-extract (a
+        stored post with its caption, a stored post whose caption is not stored, a URL not in the database) is
+        a two-phase engine job that OWNS THE RESULT. Phase 1, in the Scraper Lambda: `reextractRefreshReasons`
+        (pure, `packages/domain/src/posts/reextract-image-refresh.ts`) says whether a fetch is needed: the
+        caption is missing, the cover link expired (or slides with no cover), a slide link expired, the cover
+        is low resolution (an `s<W>x<H>` token of at most 640 in the `stp` query), or slides are unknown (no
+        post type and no slide list). If one applies, the post chain fetches the post with this type's own
+        order, Apify then Bright Data, inside `REEXTRACT_REFRESH_BUDGET_MS` (120 s), under the per-URL lease
+        (held for the budget plus 30 s, `claimPostUrlScrape(url, ttl)`), and not within 10 minutes of a
+        refresh whose vendor call ran (read from `job_attempts` by the job's input key; an attempt counts when
+        its outcome is SUCCEEDED, EMPTY, TIMED_OUT or FAILED; a refusal before any call, FIND-261102-4qm, is
+        OVER_QUOTA or SKIPPED and never starts it; a re-run of phase 1 for a job that already made its call
+        does not make it again). For a stored post the fetch saves, through `saveRefreshedPostImages` and the
+        pure `decideFreshImagesToSave`, the cover, the slides and the cover's expiry, and fills a NULL post
+        type from the post URL; it never saves the caption, never an empty or SHORTER slide list over a stored
+        one, never a 640 px image over a full-size one still valid. For a URL that is not stored nothing is
+        saved: there is no post. Phase 2, in the AI-processor Lambda after a hand-off (AD-53 Rule 8): the same
+        Gemini extraction and preview code as the manual job, and the result, `ReextractionPreviewResult` plus
+        the `refresh` report, is the job's `result_data`. One run of either phase may use 270 s (`attemptCapMs`
+        of the type, under both Lambdas' 300 s), so the face blur's 60 s floor holds at every image, as it did
+        for the manual job.
+        **The held caption (owner decision 2026-11-12).** A caption that had to be fetched (a post with none
+        stored, a URL) is HELD on the job (`jobs.input.held`, with the fetched cover, slides and owner handle)
+        ONLY between the two phases. Phase 2 blanks it in its `finally` (success, expected failure, throw),
+        `sweepHeldPostRetention` blanks any that outlived the job (an expired or cancelled one, a dead Lambda)
+        or the 30-minute window, and the start path blanks the one of a job it cancels. It never reaches
+        `result_data`, `job_attempts`, an error message, a log line (an unexpected error is rethrown by name
+        only) or the GraphQL output; the late-result handler reads only the image list of a record.
+        **Endings.** With the caption stored, no refresh problem fails the job: the preview continues on the
+        stored images and the job ends SUCCEEDED_WITH_LIMITS with the reason (`COOLDOWN`,
+        `ACCOUNT_TYPE_NOT_SCRAPED`, `REFRESH_IN_PROGRESS`, `POST_UNAVAILABLE`, `NO_PROVIDER_REACHABLE`,
+        `PROVIDER_OVER_QUOTA`, `TIMED_OUT`, or `REFRESH_DID_NOT_HEAL_IMAGES` when a provider answered but saved
+        nothing and links stay expired) and a plain message; the report names the outcome, why a fetch was
+        due, whether links were saved, whether a late result is pending, when a retry is possible and how many
+        stored links are still expired (the banner is Story 10.6a). With NO caption stored, the same refusals
+        end the job FAILED with the reason, mapped to the codes the screen already reads
+        (`ACCOUNT_NOT_SCRAPABLE`, `RATE_LIMITED`, `SCRAPE_IN_PROGRESS`, `SCRAPE_FAILED`). The job never WAITS
+        for a Bright Data snapshot: one that outlives the budget is linked to the job (AD-53 Rule 16) and the
+        type's late-result handler saves its links (after the AD-34 gate again) through the same writer,
+        answering `NO_CHANGE` so a finished or expired job is never revived. **Starting.** The input is
+        `{ postId }` (key the post id) or `{ url }` (key the platform identity), so a second click joins the
+        open job, EXCEPT an admitted, open job with no write to it for 5 minutes, which is cancelled (plain
+        reason) and replaced by a fresh job; the rule is in the re-extract start path, never `admitJob`, and a
+        job still waiting for a place is never replaced. An unapplied job's `extracted` is cleared past the
+        30-minute window by the job-engine sweep. The moderator operations are unchanged and read whichever row
+        holds the preview.
 *   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
     written from a JS object as a jsonb **string** holding the JSON (`events.links`,
     `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it
@@ -3560,7 +3588,8 @@ This document defines the core architectural invariants for the FestDaily applic
         No `deletedAt`: these are append-only lifecycle records, like `scraper_actor_runs`. `type`, `reason_code`
         and `phase` are text, so a new job type or reason never needs a migration; `status`, `trigger` and
         `job_attempts.outcome` are enums (closed PRD sets). The type-specific input a handler needs is `jobs.input`;
-        it never holds a vendor token or a caption. Both tables are server-only: row level security is enabled with no
+        it never holds a vendor token or a caption, with ONE bounded exception: the moderator re-extract holds a
+        fetched post (`input.held`) for the minutes between its two phases and blanks it when phase 2 ends (Rule 17). Both tables are server-only: row level security is enabled with no
         policy in the migration that creates them (migration 0084's rule; the backend connects as the owner, and the
         Jobs page reads through GraphQL, Story 10.4).
     2.  **One registry, two halves.** The pure `JobTypeDefinition { type, host, maxDurationMs }` lives in
@@ -3577,8 +3606,8 @@ This document defines the core architectural invariants for the FestDaily applic
         WAITING job back through admission first (Rule 12). No row returned means another worker owns it, it ended, it is
         not admitted, or it is WAITING: the invocation exits quietly (an async invoke can be delivered twice).
     5.  **Two bounds.** `deadline_at` bounds the WHOLE job: admission time plus the type's `maxDurationMs`. One RUN
-        of a handler is capped separately by the smallest of `JOB_ATTEMPT_DEADLINE_MS` (150 s), the time left to
-        `deadline_at` and the Lambda's own remaining time. A run past its budget ends the job EXPIRED (`TIMED_OUT`); a
+        of a handler is capped separately by the smallest of the type's own `attemptCapMs` (Story 10.6; absent, the
+        environment's `JOB_ATTEMPT_DEADLINE_MS`, 150 s), the time left to `deadline_at` and the Lambda's own remaining time. A run past its budget ends the job EXPIRED (`TIMED_OUT`); a
         handler that throws ends it FAILED (`HANDLER_ERROR`) with a FIXED plain-words `error_message`: the raw error goes
         to the logs only, because the Jobs page reads that column and a vendor error can carry a URL, a response body or
         caption text (PRD: vendor trouble is recorded, never raw). An ending other than Succeeded without a reason is
@@ -3685,7 +3714,8 @@ This document defines the core architectural invariants for the FestDaily applic
         that meets the remembered cap is dropped with one warning, never redelivered into the DLQ. The credential comes from the job type through
         `resolvePostScrapeCredential` (`app-funded` only until Story 3-4b, PRD OI-3). **For adopters (Stories 10.5 to 10.10):** a chain that skipped every provider
         throws `PostScraperBudgetError`, which is a pre-vendor-call failure like `ScraperCapacityExceededError`: it must not start
-        the 10-minute re-extract cooldown (add it to `isPreVendorCallFailure`). `POST_SCRAPER_PROVIDER_ORDER` is set only on the
+        the 10-minute re-extract cooldown (the cooldown reads `job_attempts`, where a chain that skipped every provider writes only
+        SKIPPED or OVER_QUOTA rows). `POST_SCRAPER_PROVIDER_ORDER` is set only on the
         Scraper Lambda, where the chain runs; set it on the API Lambda too if a caller there ever uses the chain. The cover and the slide list come from
         `buildPostImageUrls`, so the slides never repeat the cover (BUG-261102-4rm). One transient-error rule,
         `isTransientVendorFailure`, serves the Apify, Bright Data and Gemini classifiers (FIND-082). **No production caller uses
@@ -3693,8 +3723,7 @@ This document defines the core architectural invariants for the FestDaily applic
         to 10.10 adopt it. Only Instagram has a chain; another platform uses its own adapter. (**Amended 2026-11-12, Story
         10.6:** the first production caller is the moderator re-extract job (Rule 17). A caller may pass its own `order`
         (`getPostScraperAdapters(order)`; `POST_SCRAPER_PROVIDER_ORDER` is then not read) and an `onAttempt` hook that sees each
-        provider considered; the default `brightdata,apify` is unchanged for every other caller. `isPreVendorCallFailure` moved to
-        `lib/scraper/pre-vendor-call-failure.ts` and now includes `PostScraperBudgetError`; `toJobAttemptRow` records Apify's
+        provider considered; the default `brightdata,apify` is unchanged for every other caller. `toJobAttemptRow` records Apify's
         memory and monthly caps as OVER_QUOTA and the DPA gate as SKIPPED, so a refusal before any call is distinguishable from a
         call that ran.)
     16. **Late vendor results (Story 10.5, FR119).** A Bright Data snapshot still running when the post chain's budget ran out is
@@ -3729,18 +3758,23 @@ This document defines the core architectural invariants for the FestDaily applic
         collects a linked snapshot; the sync post scrape registers no webhook.
     17. **The first two-phase type: the moderator re-extract (Story 10.6, FR125).** `reextract-post` is the model of a
         scrape-then-extract job. Its pure definition (`packages/domain/src/jobs/reextract-post.ts`: type, host `scraper`, 10 minute
-        bound, input `{ postId }`, input key the post id, its own provider order `apify,brightdata`, the ending and status mapping)
-        **registers itself when the `jobs` barrel is imported**, so the API, Scraper and AI-processor Lambdas all know it (Rule 12)
-        without any of them importing a handler. The handlers are registered per host at cold start
-        (`register-scraper-job-handlers.ts`: phase 1 and the late-result handler; `register-ai-processor-job-handlers.ts`: phase 2);
-        a Lambda holds only its own half, which `lambda-sharp-isolation.test.ts` proves by bundling. Phase 1 records its report on the job,
-        sets the phase to `preview` and `handOffToLambda`s to the AI-processor, which resumes from the phase (Rule 8). A handler result
-        may carry `errorMessage`, the plain words of a FAILED or SUCCEEDED_WITH_LIMITS ending (never a raw error). The job type owns its
-        result on `result_data`; reading and Apply serve it without a schema change. The rules of the refresh, the save, the cooldown and
-        the ending are AD-40 Rule 9, the account gate AD-34 Rule 7, the saved columns AD-12. Dispatch to the two result stores
-        (`jobs` and `manual_extraction_jobs`) lives in `reextract-preview-job.ts` until Story 10.9 decides (PRD OI-4). A stored post
-        whose caption is not stored, and a URL not in the database, stay on the manual job: a job keeps no caption and a hand-off
-        carries only `{ jobId }`, so there is nowhere to hold a rescraped one between the phases.
+        bound, a per-run cap of 270 s, input `{ postId }` or `{ url }`, the reuse keys, its own provider order `apify,brightdata`,
+        the ending and status mapping) **registers itself when the `jobs` barrel is imported**, so the API, Scraper and AI-processor
+        Lambdas all know it (Rule 12) without any of them importing a handler. A type may declare `attemptCapMs`, the time one run of
+        its handler may use instead of `JOB_ATTEMPT_DEADLINE_MS` (still bounded by the job's deadline and the Lambda's remaining time):
+        phase 2's face blur needs 60 s left at each image and the handler's remaining time is the run's budget, so the 150 s default
+        would have let the blur work only in the first 90 s; `festgrid-backend-stack.test.ts` fails if either host Lambda's timeout
+        drops to the cap plus 20 s. The handlers are registered per host at cold start (`register-scraper-job-handlers.ts`: phase 1
+        and the late-result handler; `register-ai-processor-job-handlers.ts`: phase 2); a Lambda holds only its own half, which
+        `lambda-sharp-isolation.test.ts` proves by bundling. Phase 1 records its report on the job, holds a fetched caption on the job
+        when the post has none stored (`input.held`, AD-40 Rule 9; blanked when phase 2 ends, by the sweep as a backstop), sets the phase
+        to `preview` and `handOffToLambda`s to the AI-processor, which resumes from the phase (Rule 8). A handler result may carry
+        `errorMessage`, the plain words of a FAILED or SUCCEEDED_WITH_LIMITS ending (never a raw error). The job type owns its result on
+        `result_data`; reading and Apply serve it without a schema change. The rules of the refresh, the save, the cooldown, the held
+        caption and the ending are AD-40 Rule 9, the account gate AD-34 Rule 7, the saved columns AD-12. The start path replaces an
+        admitted job with no progress for 5 minutes (cancelled with a plain reason) instead of returning its id; every other type keeps
+        plain reuse. Dispatch to the two result stores (`jobs` and `manual_extraction_jobs`, for rows written before the change) lives
+        in `reextract-preview-job.ts` until Story 10.9 decides (PRD OI-4).
 *   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
     Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
     (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the
