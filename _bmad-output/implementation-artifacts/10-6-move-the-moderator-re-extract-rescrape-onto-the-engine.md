@@ -1,0 +1,166 @@
+---
+baseline_commit: d2785314f5c464bbcb6aa642b2dce0930262cae9
+---
+# Story 10.6: Move the moderator re-extract rescrape onto the engine
+
+## Story Details
+
+- Epic: 10 (Background vendor jobs: one engine, one Jobs page)
+- Story ID: 10.6
+- Status: ready-for-dev
+
+<!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
+
+## Story
+
+As a moderator,
+I want Re-extract to fetch fresh image links in the background,
+so that the preview reads every slide even when the stored links have expired or were never captured.
+
+## Acceptance Criteria
+
+1. **Given** a stored post that keeps its caption, **when** the moderator clicks Re-extract (`previewPostReextraction`, by post id or by the post's URL), **then** an engine job of the new type `reextract-post` starts through `startJob` and its id is returned at once (the same id the existing `postReextractionPreview` and `applyPostReextraction` take). The type's **pure `JobTypeDefinition`** lives in `packages/domain/src/jobs/` and registers itself when the barrel is imported (so the API Lambda and both host Lambdas know it, AD-53 Rule 12), host `scraper`, whole-job bound 10 minutes; its input is `{ postId }`, its **input key is the post id**, so a second click by the same moderator joins the open job (REUSED, FR120), and admission (3 places, queue of 10, no cap slot) applies unchanged. A start the engine refuses comes back as `EXTRACTION_FAILED` with a plain message. A post whose stepped extraction is still running is still refused `CHAIN_IN_FLIGHT` before any job exists. [PRD §3.18 FR116, FR120, FR121; AD-53 Rules 2, 3, 12, 13]
+2. **And** the refresh runs when (pure rule `reextractRefreshReasons` in `packages/domain/src/posts/`, built on the existing `postImagesNeedRefresh` / `isImageUrlExpired`): the cover link has expired (or slides are listed with no cover), a slide link has expired, the cover is low resolution (an `s<W>x<H>` token with the larger side at most 640 in the `stp` query), or slides are missing or unknown (no post type and no slide list). It names every reason that applies; none means `NOT_NEEDED` and no vendor is touched. [PRD §3.9.3 FR125; design note decision 5]
+3. **And** phase 1 (refresh) runs in the **Scraper Lambda** with `fetchScrapedPost` and **this type's own order, Apify then Bright Data** (decision 22): a new per-call `order` on the chain entry point; the default `brightdata,apify` of `POST_SCRAPER_PROVIDER_ORDER` is untouched for every other caller. The refresh budget is `REEXTRACT_REFRESH_BUDGET_MS` (default 120000, strict positive integer, Scraper Lambda; Apify answers in about 5 to 25 s and is itself bounded at 20 s, so a failing Apify still leaves Bright Data its 90 s), capped by the run's remaining time minus headroom. Every provider the chain considers writes its `job_attempts` row (Story 10.2); the fetch is wrapped in the per-URL lease (`claimPostUrlScrape`, kept: FIND-110). [AD-53 Rule 15; AD-40 Rule 5]
+4. **And** a refresh that returns a post **saves fresh links to `posts` through one pure rule** (`decideFreshImagesToSave`, `packages/domain`) and one backend writer shared with the late-result handler (AC7): the cover link, the slide list and the cover's expiry; the post type only when it is null (derived from the post URL, never replaced); **never the caption, never an empty slide list over a non-empty one, never a 640 px cover (or slides) over full-size ones that are still valid**. AD-12 ("`posts.imageUrl` is never overwritten") and AD-40 (preview is write-free) are amended in the spine. [design note decision 6]
+5. **And** the refresh is refused or skipped with its reason, and **the preview continues on the stored images** (job ends `SUCCEEDED_WITH_LIMITS`, never `FAILED`), for: an account that is PERSONAL or AWAITING_APPROVAL (`isStoredPostAccountScrapable`, AD-34; `ACCOUNT_TYPE_NOT_SCRAPED`, no vendor call); a refresh less than 10 minutes after a refresh whose vendor call actually ran (`COOLDOWN`, with the time it can be tried again; the cooldown is read from `job_attempts`, so a failure before any vendor call, FIND-261102-4qm, never starts it: capacity gate, DPA gate, Apify memory or monthly cap, every provider skipped); another fetch of the post in flight (`REFRESH_IN_PROGRESS`); the post gone at the vendor (`POST_UNAVAILABLE`); every provider failed or skipped (`NO_PROVIDER_REACHABLE`, or `PROVIDER_OVER_QUOTA` when each was over its cap); the budget used up or a Bright Data snapshot still running (`TIMED_OUT`). The job result's `refresh` report names the outcome, the reasons, whether links were saved, whether a late result is pending, the retry time and how many stored links are still expired, and the result's `imagesAvailable` / `imagesSent` say which images exist and were read. The banner and Retry button are Story 10.6a. [PRD §3.9.3, §3.16; AD-34 Rule 7]
+6. **And** phase 2 (the preview) is **handed off to the AI-processor Lambda** with `handOffToLambda` (AD-53 Rule 8): phase 1 records its report on the job, sets the phase to `preview` and hands off; the receiver resumes from the stored phase, reads the post's stored caption and (now refreshed) images, and runs **the same extraction code the manual job runs** (extracted into one shared module, `process-manual-extraction-job.ts` becomes its second caller). **The preview result lives on the engine job** (`jobs.result_data`, the existing `ReextractionPreviewResult` plus the `refresh` report), the job ends `SUCCEEDED` (or `SUCCEEDED_WITH_LIMITS` with the reason of AC5), and a failed extraction ends `FAILED` with the existing `QUOTA_EXHAUSTED` / `EXTRACTION_FAILED` meanings and a plain message (a handler result may now carry `errorMessage`). No caption is stored on the job, in `input`, in `result_data`, in a log or in a `job_attempts` row. [AD-40 Rule 6; AD-53 Rules 5, 8; PRD §5 Data Minimization]
+7. **And** a Bright Data snapshot that outlives the refresh budget is linked to the job by `fetchScrapedPost` (Story 10.5) and this type registers a **late-result handler** (Scraper Lambda only) that saves the fresh links through the same rule as AC4. **Decision, documented:** the job never returns `WAITING`: the moderator is waiting, so the preview continues on the stored images at once, and the late result only heals `posts` (the late-result outcome gains `NO_CHANGE`, "the result was saved, the job's own ending stands", so a job that already ended, or expired, is never revived into a result-less success). [PRD FR119; AD-53 Rule 16]
+8. **And** the moderator's existing operations work **without any front-end change**: `previewPostReextraction`, `postReextractionPreview` and `applyPostReextraction` (and `extractionJob`, which still rejects a re-extract id) serve the engine job: the job status maps to the existing states (`QUEUED` to `PENDING`, `RUNNING` and `WAITING` to `PROCESSING`, the two successes to `SUCCEEDED`, `FAILED` and `EXPIRED` to `FAILED`), the result and its Apply window (30 minutes from the job's `finished_at`) are read from the job, Apply applies the stored extraction once in one transaction and marks the job (`applied`), owner-scoped, and the sweep clears an unapplied job's `extracted` after the window like the manual one. The GraphQL schema does not change. A **post with no stored caption, and a URL that is not in the database, keep today's path unchanged** (decision, see Dev Notes). [AD-40 Rules 3, 7, 8]
+9. **And** BUG-099's cases are tests at the job level: a carousel whose stored cover link has expired is refreshed and its preview reads every slide (up to the preview cap), and a cover that cannot be fetched still reads the slides. **Prod `/p/DcntzF0mB7z/` reading 5 images could not be verified by this build (no vendor call is allowed); it is a post-deploy check recorded on the board.**
+10. **And** no vendor call and no Lambda invoke happens in any test: vendors are replaced by fake `PostScraperAdapter`s and the existing seams (`setProviderSkipReason`, `setRememberExhaustedCapacity`, `setInvokeJobEngineWorker`), Gemini by `setCallGeminiForManualExtractionSeam`, images by a fake `fetch`. The API Lambda bundle contains neither handler, the Scraper bundle no preview handler or `sharp`. The setting is wired into `env.ts`, `.env.example` and the Scraper Lambda in the CDK stack; AD-53 (new rule), AD-12, AD-40, AD-34, `architecture-diagram.md`, `high-level-overview.md` and PRD 4.21's reason codes are updated.
+
+## Tasks / Subtasks
+
+- [ ] **Task 1: Pure rules in `packages/domain`** (AC: 1, 2, 4, 5, 6, 8)
+  - [ ] `posts/reextract-image-refresh.ts` (+ test, 100%): `isLowResolutionImageUrl`, `reextractRefreshReasons`, `decideFreshImagesToSave`, `countExpiredLinks`, the report types, `ReextractionPreviewResult.refresh`.
+  - [ ] `jobs/reextract-post.ts` (+ test, 100%): the type constant, phases, definition (registered at import), `reextractPostInputKey`, `parseReextractPostInput`, `REEXTRACT_POST_PROVIDER_ORDER`, `decideReextractEnding`, `toExtractionJobState`, `toExtractionError`. `LateResultOutcome` gains `NO_CHANGE`; `JobHandlerResult` gains `errorMessage`.
+- [ ] **Task 2: The chain takes an order and reports** (AC: 3, 5)
+  - [ ] `post-scraper-registry.ts` `getPostScraperAdapters(order?)`; `fetchScrapedPost` takes `order` and `onAttempt`; `isPreVendorCallFailure` moves to `lib/scraper/pre-vendor-call-failure.ts` (+ `PostScraperBudgetError`); `toJobAttemptRow` maps pre-vendor failures so the cooldown can read `job_attempts`.
+- [ ] **Task 3: Persist fresh links** (AC: 4, 7)
+  - [ ] `lib/extraction/save-refreshed-post-images.ts`: loads the post, applies `decideFreshImagesToSave`, one guarded UPDATE, best-effort post-type fill. Used by phase 1 and the late-result handler.
+- [ ] **Task 4: Phase 1, the refresh handler (Scraper Lambda)** (AC: 2, 3, 5, 6, 7)
+  - [ ] `lib/extraction/reextract-refresh-handler.ts`; cooldown read (`lib/extraction/reextract-cooldown.ts`); late-result handler; `register-scraper-job-handlers.ts` called from `lambdas/scraper.ts`; `env.ts` `reextractRefreshBudgetMs`.
+- [ ] **Task 5: Phase 2, the preview handler (AI-processor Lambda)** (AC: 6)
+  - [ ] Extract `lib/ai-processor/extract-events-with-gemini.ts` and `generate-reextraction-preview.ts` from `process-manual-extraction-job.ts` (behaviour unchanged, its tests stay green); `lib/ai-processor/reextract-preview-handler.ts`; `register-ai-processor-job-handlers.ts` called from `lambdas/ai-processor.ts`; `run-job.ts` writes a handler's `errorMessage`.
+- [ ] **Task 6: Start, read and apply on the engine** (AC: 1, 8)
+  - [ ] `startPostReextractionPreview` starts the job for a captioned stored post (legacy path kept for the rest, dead branches removed); `lib/extraction/reextract-preview-job.ts` (status read for either source); `applyPostReextraction` reads and marks either source; `resolvers.ts` uses the unified read; `sweep-stale-manual-extraction-jobs.ts` clears engine previews.
+- [ ] **Task 7: Tests** (AC: 1 to 10)
+  - [ ] Domain: both new modules, every branch. Backend real-Postgres suites: handler phase 1 (every outcome, cooldown, lease, gate, late link, order override), save rule persistence, phase 2, late-result handler, start/status/apply through the engine, the end-to-end start to preview to apply, the BUG-099 cases, retention, env and stack tests, the bundle-isolation test, the ported cases of `start-post-reextraction-preview.test.ts`. Every suite deletes the rows it creates (row-count ratchet).
+- [ ] **Task 8: Config, docs, architecture** (AC: 10)
+  - [ ] `env.ts`, `.env.example`, CDK (Scraper Lambda), `env.test.ts`, stack test; AD-53 Rule 17, AD-12, AD-40, AD-34, `project-context.md`, PRD 4.21 reason codes, `architecture-diagram.md`, `high-level-overview.md`; backlog row BUG-099.
+
+## Dev Notes
+
+- **What exists today (read these first).** `start-post-reextraction-preview.ts` (the API half: gate, lease, cooldown read from `manual_extraction_jobs`, a direct `getScraperAdapter(...).getPostByUrl` rescrape, then `startManualExtractionJob`); `process-manual-extraction-job.ts` (AI Lambda: blanks the caption, builds the Gemini request, calls Gemini with the tier-2 fallback, validates, builds the preview with `buildReextractionPreview`); `apply-post-reextraction.ts` and the two resolvers; the engine of Stories 10.1a to 10.5 (`run-job.ts`, `startJob`, `admit-job.ts`, `late-results.ts`, `job-registry.ts`); the post chain (`post-scraper.ts`, Story 10.2) with no production caller yet.
+- **Decisions beyond the story text (owner, please look).** (1) **Only a stored post that keeps its caption goes through the engine.** A post whose caption is not stored (a curator post's caption is deliberately cleared, Story 3.4o) or a URL not in the database needs the caption from the scrape, and PRD §5 says a job keeps no caption and a hand-off carries only `{ jobId }`: there is no place to hold it between phases. Those two cases keep today's path unchanged (the legacy `manual_extraction_jobs` row, whose caption is blanked on claim). Closing this gap needs a decision on a transient caption hold (it overlaps Story 10.9 and PRD OI-4). (2) **A PERSONAL / AWAITING_APPROVAL account refuses the REFRESH, not the preview**: AD-40's existing rule (a caption we hold still previews, no scrape) and the PRD banner list ("the account type is not scraped") both describe a preview that continues; the job ends `SUCCEEDED_WITH_LIMITS` / `ACCOUNT_TYPE_NOT_SCRAPED`. A post that needs no refresh does not touch the gate. (3) **The job never waits for a snapshot** (AC7). (4) **The cooldown is read from `job_attempts`**, the truth about vendor calls (no new table, no migration); a cooldown hit reports `COOLDOWN` instead of the old `RATE_LIMITED` error because the preview continues. (5) **The post type is filled only when null** (it is part of the event slug identity, AD-16 Rule 2, insert-only; a partial unique index covers it), derived from the URL by `parsePlatformPostIdentity`; a vendor never supplies one. (6) **`SCRAPE_IN_PROGRESS` / `claimPostUrlScrape` are kept**: the lease now wraps the chain call in phase 1 (a busy lease continues on stored images with `REFRESH_IN_PROGRESS`) and still serves the legacy path and `extractEventDataFromUrl`. (7) The refresh order is a constant of the type (`REEXTRACT_POST_PROVIDER_ORDER`), not an environment variable. (8) The result's `refresh` report is **not added to the GraphQL schema** (no front-end change, no codegen); Story 10.6a surfaces it.
+- **Guardrails.** Vendor calls only through `fetchScrapedPost` (AD-32 wrapper inside the adapters) and the existing no-bypass lint ratchet; no secret, caption, signed URL or raw vendor error in a log, a job row or `job_attempts`; `packages/domain` pure and 100% covered; the API Lambda imports no handler (the isolation test proves it); the Scraper bundle never reaches `sharp`; use `activeOnly(table)` where a soft-deleted table is read; no migration (the job, attempt and link tables exist; if a later review asks for a `(type, input_key)` index on `jobs` it is a drizzle-kit migration, taking the number after the highest on `origin/master`, 0103 today); no vendor call and no Lambda invoke in any test or by the build session.
+- **Reusable mechanisms (project rule).** The refresh trigger, the save rule, the ending rule and the status mapping are pure and live in `packages/domain`; the writer, the handlers and the registrations in `apps/backend`. No UI, analytics or i18n (Story 10.6a owns the screen and its copy); no new service (no `SETUP_WALKTHROUGH.md` change).
+- **State and loaders (project rule).** No front-end change: the existing polling hook keeps its Server State (React Query) behaviour; the existing non-blocking progress of the source-post panel is unchanged.
+
+### Data Type Compatibility & Migration Requirements
+
+- **Compatibility finding:** no mismatch. `jobs.input`, `jobs.result_data` (jsonb) and `jobs.reason_code` (text) carry the new type without DDL (AD-53 Rule 1). `posts.image_url`, `image_url_expires_at`, `additional_image_urls` and `platform_post_type` already exist.
+- **Impacted contracts:** `ReextractionPreviewResult` gains an optional `refresh` report (old rows have none, readers use `?.`); `LateResultOutcome` becomes a union with `NO_CHANGE`; `JobHandlerResult` gains an optional `errorMessage`; `getPostScraperAdapters` and `fetchScrapedPost` gain optional arguments; `Env` gains `reextractRefreshBudgetMs`. GraphQL schema: none.
+- **Required DB migration changes:** No changes required. **Required TypeScript type changes:** as listed. **Backward compatibility and rollout:** a re-extract started before the deploy finishes on the manual job (its id is read from that table); one started after is read from `jobs`; the two ids never collide (both uuids, looked up in turn). Jobs of type `reextract-post` need the Scraper and AI-processor Lambdas deployed together with the API (a hand-off to an old AI-processor would end the job `HANDLER_NOT_REGISTERED`, a plain failure the moderator can retry).
+- **Verification checks:** domain tests; the engine suites; `jobs-schema` and the RLS test unchanged; the stack test for the setting.
+
+### Architecture & UX Gate Findings
+
+- **No gap found.** **Gate 1 and Gate 3 cited from the epic-wide sweep** (`epic-readiness/epic-10-readiness.md`, `swept: true`, which already added the cross-Lambda hand-off to Story 10.1a). **Lightweight guard performed:** the one thing the sweep did not anticipate is that the API's existing preview read and Apply must serve two result stores (the manual job and the engine job) until Story 10.9; handled by one read function, no new service, queue, Lambda, secret or table. The Scraper to AI-processor invoke grant and function name already exist (Story 10.1a).
+- **Gate 2:** not applicable, no UI (Story 10.6a).
+- **Prerequisites:** Stories 10.1a, 10.2, 10.3 and 10.5 are done.
+
+### Project Structure Notes
+
+- **New:** `packages/domain/src/posts/reextract-image-refresh.ts`, `packages/domain/src/jobs/reextract-post.ts` (+ tests); `apps/backend/src/lib/scraper/pre-vendor-call-failure.ts`; `apps/backend/src/lib/extraction/{save-refreshed-post-images,reextract-cooldown,reextract-refresh-handler,reextract-late-result-handler,reextract-preview-job,start-reextract-post-job}.ts`; `apps/backend/src/lib/ai-processor/{extract-events-with-gemini,generate-reextraction-preview,reextract-preview-handler}.ts`; `apps/backend/src/lib/job-engine/{register-scraper-job-handlers,register-ai-processor-job-handlers}.ts` (+ tests).
+- **Modified:** `packages/domain/src/{jobs,posts}/index.ts`, `jobs/late-result.ts`, `jobs/job-engine.ts`, `posts/types.ts`; `apps/backend/src/lib/scraper/{post-scraper,post-scraper-registry}.ts`; `lib/job-engine/{record-job-attempt,run-job,late-results}.ts`; `lib/extraction/{start-post-reextraction-preview,apply-post-reextraction,sweep-stale-manual-extraction-jobs}.ts`; `lib/ai-processor/process-manual-extraction-job.ts`; `schema/resolvers.ts`; `lambdas/{scraper,ai-processor}.ts`; `env.ts`, `.env.example`; `apps/infrastructure/lib/festgrid-backend-stack.ts` (+ test, isolation test); spine AD-53, AD-12, AD-40, AD-34; `project-context.md`; PRD 4.21; both infrastructure docs; `backlog.yaml`.
+- **Not modified:** any `.graphql` file, `apps/web`, `packages/ui`, `manual_extraction_jobs` (the table), migrations.
+
+### References
+
+- [Source: `_bmad-output/planning-artifacts/epics.md#Epic 10`, Stories 10.6 and 10.6a] and `epic-readiness/epic-10-readiness.md`.
+- [Source: design notes `background-vendor-jobs-design-notes-2026-11-02.md` decisions 5, 6, 7, 8, 10, 16, 21 to 24.]
+- [Source: PRD 3.9.3 (Moderator Re-extract and Apply, FR125), 3.16 (account-type filtering), 3.18 (FR116 to FR121, FR123), 4.21, 5 (Background Jobs, Data Minimization).]
+- [Source: Architecture Spine AD-53, AD-40, AD-34 Rule 7, AD-32, AD-16 Rule 2, AD-12, AD-51 Rule 4.]
+- [Source: code read while creating this story: `lib/extraction/*`, `lib/ai-processor/{process-manual-extraction-job,build-reextraction-preview,build-gemini-request}.ts`, `lib/scraper/{post-scraper,post-scraper-registry,post-scrape-gate,post-url-scrape-lease,brightdata-post-adapter,instagram-adapter}.ts`, `lib/job-engine/*`, `packages/domain/src/{jobs,posts,scraper}/*`, `schema/resolvers.ts`, `apps/web/src/features/moderation/use-post-reextraction-preview.ts`, `festgrid-backend-stack.ts`.]
+
+## Global Rules References
+
+- `_bmad-output/project-context.md` (Drizzle only, real-Postgres tests, row-count ratchet, `packages/domain` purity and 100% coverage, scrape gate, `activeOnly`, never a caption in a job row).
+- `_bmad-output/planning-artifacts/story-content-structure.md`.
+- Architecture spine: AD-53, AD-40, AD-34, AD-32, AD-12; PRD 3.9.3, 3.16, 3.18.
+- Infrastructure docs: `docs/infrastructure/index.md`, `architecture-diagram.md`, `high-level-overview.md` (CLAUDE.md section 4).
+
+## Implementation Plan (Rule-Compliant)
+
+- **File Change Plan:** see Project Structure Notes.
+- **Rule Mapping:**
+  - Pure trigger, save, ending and mapping rules in `packages/domain`, 100% covered → `project-context.md` → Task 1.
+  - No handler in the API bundle; handlers registered per host Lambda → AD-53 Rules 2 and 11 → Tasks 4, 5, 7.
+  - Vendor calls only through the chain and the guarded adapters; pre-vendor failures never start the cooldown → AD-32, AD-53 Rule 15, FIND-261102-4qm → Tasks 2, 4.
+  - The caption never persists; the post chain never stores it → AD-40 Rule 6, PRD §5 → Tasks 4 to 6.
+  - Scrape gate for a post fetched by URL → AD-34 Rule 7 → Task 4.
+  - CLAUDE.md section 4 diagram upkeep → Task 8.
+  - Story-split-gate: Gate 1 and 3 cited from the swept report plus a lightweight guard; Gate 2 not applicable → Dev Notes.
+- **Verification Plan:**
+  - `pnpm --filter @festgrid/domain test` (100% coverage), `lint`, `build`; rebuild domain before the backend typecheck.
+  - New and changed backend suites, then the full suite (`GEOAPIFY_API_KEY=test-geoapify-key pnpm test`, row-count ratchet); `pnpm run lint:invariants`; `npx eslint` on touched backend directories; `pnpm --filter infrastructure test`; root `pnpm build`.
+
+## Pre-Coding Approval Gate
+
+- [ ] Scope confirmation: the two-phase job, the refresh rule, the save rule, the late-result handler, the engine-served preview, read and Apply; legacy path kept for a caption-less post and an unknown URL. Pending approval.
+- [ ] Architecture and boundary confirmation: pure rules in `packages/domain`; no new service, table or migration; one new setting. Pending approval.
+- [ ] Testing plan confirmation: domain 100% coverage; real-Postgres suites with fake vendors, a fake Gemini and a fake image fetch; the row-count ratchet; the infra tests. Pending approval.
+- [ ] Explicit human approval state: **pending approval.**
+- [ ] Gate 1/2/3 prerequisites confirmed from the swept readiness report plus the lightweight guard. Pending user acknowledgement.
+- [ ] Decisions acknowledged: Dev Notes decisions 1 to 8 (above all 1, the legacy path for a caption-less post, and 2, the account gate refusing the refresh only). Pending user acknowledgement.
+
+## Testing Requirements
+
+- [ ] Unit tests (required, `packages/domain`, 100% coverage): `reextract-image-refresh.test.ts`, `reextract-post.test.ts`.
+- [ ] Integration tests (required, real local Postgres, fake vendors, no vendor call, no Lambda invoke): the refresh handler, the save writer, the preview handler, the late-result handler, start/status/apply, the end-to-end flow, retention, the env and stack tests, the bundle-isolation test.
+- [ ] E2E tests: not applicable (no UI change).
+
+## Deliverables Checklist
+
+- [ ] `reextract-image-refresh.ts` and `reextract-post.ts` in `packages/domain`, exported, 100% covered.
+- [ ] Per-call order on the chain; the refresh handler, preview handler and late-result handler registered in their Lambdas.
+- [ ] Fresh links saved to `posts` through the one rule.
+- [ ] Preview start, read and Apply served from the engine job; the schema unchanged.
+- [ ] `REEXTRACT_REFRESH_BUDGET_MS` in `env.ts`, `.env.example` and the CDK stack.
+- [ ] AD-53, AD-12, AD-40, AD-34, `project-context.md`, PRD 4.21, both infrastructure docs and the board updated.
+- [ ] All new tests passing; `pnpm build`, lint, `lint:invariants` clean.
+
+## Out of Scope
+
+- The moderator screen: the missing-images banner, Retry, minimize and re-open, copy and the Jobs page row: Stories 10.6a and 10.4.
+- A caption-less stored post and a URL not in the database on the engine; moving `manual_extraction_jobs` onto the engine: Story 10.9 (PRD OI-4).
+- Verifying prod `/p/DcntzF0mB7z/`: a post-deploy check (no vendor call from a build session).
+- A webhook for the sync post scrape; a late result for Apify (its call is bounded at 20 s).
+- A `(type, input_key)` index on `jobs` (the cooldown query is over the last 10 minutes of attempts; revisit if the table grows).
+
+## Definition of Done
+
+- [ ] AC 1-10 satisfied.
+- [ ] All new unit, integration and infra tests passing.
+- [ ] `pnpm lint` and `pnpm build` passing for `packages/domain`, `apps/backend`, `apps/infrastructure`; `lint:invariants` clean.
+- [ ] `docs/infrastructure/architecture-diagram.md`, `high-level-overview.md`, AD-53, AD-12, AD-40 and AD-34 updated in the same change.
+- [ ] Pre-Coding Approval Gate explicitly approved by the user before implementation begins.
+
+## Completion Status
+
+- [ ] Not started
+- Creation note (2026-11-12): created from the owner's decisions of 2026-11-11 (design notes 22 to 24; the split into 10.6 and 10.6a). Eight decisions beyond the story text are flagged in Dev Notes. Backlog row BUG-099 promoted.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+### Debug Log References
+
+### Completion Notes List
+
+### File List
+
+### Change Log

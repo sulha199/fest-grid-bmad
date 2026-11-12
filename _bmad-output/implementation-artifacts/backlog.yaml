@@ -2821,12 +2821,21 @@ items:
 
   # ── 2026-10-31 (bmad-quick-dev: re-extract preview of a carousel roundup showed only the first image's events) ──
   BUG-099:
-    {type: bug, status: backlog, created: 2026-10-31, epic: epic-10,
+    {type: bug, status: promoted, created: 2026-10-31, epic: epic-10,
      impact: user-visible, effort: s,
+     stories: [10-6-move-the-moderator-re-extract-rescrape-onto-the-engine],
      title: "Moderator re-extract preview drops carousel slides: expired image URLs, cover failure skips slides, scraped slides discarded",
      ref: [implementation-artifacts/spec-reextract-read-all-slide-images.md, apps/backend/src/lib/extraction/start-post-reextraction-preview.ts, apps/backend/src/lib/ai-processor/build-gemini-request.ts],
      touches: [app:backend, pkg:domain, web:moderation, cross:ai-extraction],
      note: "Merged in PR #133. Prod check 2026-11-02: the rescrape throws in the API Lambda (it registers no scraper adapters) and the stored cover link is expired, so the preview still reads 0 of 1 images. Follow-up: the background-jobs epic."}
+
+  BUG-261112-d6v:
+    {type: bug, status: backlog, created: 2026-11-12, parent: BUG-099, epic: epic-10,
+     impact: user-visible, effort: xs,
+     title: "Verify on prod that the re-extract preview of /p/DcntzF0mB7z/ reads all 5 images once Story 10.6 is deployed (BUG-099 closing check)",
+     ref: [implementation-artifacts/10-6-move-the-moderator-re-extract-rescrape-onto-the-engine.md],
+     touches: [app:backend],
+     note: "Carved from BUG-099 when Story 10.6 was created (2026-11-12): the build session may not make a vendor call, so the prod check is a post-deploy step. The moderator screen part (banner naming missing images, Retry) is Story 10.6a."}
 
   IDEA-103:
     {type: idea, status: backlog, created: 2026-10-31,
