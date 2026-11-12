@@ -45,6 +45,19 @@ test('startReview downloads the drafts once, serves them, and does not download 
   }
 });
 
+test('an interrupted first download is not mistaken for the full set: without the finished marker the drafts are fetched again', async () => {
+  const bucket = buildFakeBucket();
+  const workDir = join(tempDir('review-home'), 'work');
+  mkdirSync(join(workDir, 'drafts', 'p-partial'), { recursive: true });
+  const started = await startReview({ localBucket: bucket, workDir }, {}, { repoRoot, categories: [] });
+  try {
+    assert.equal(started.downloaded, true);
+    assert.equal(started.draftCount, 3);
+  } finally {
+    await started.review.close();
+  }
+});
+
 test('startReview refuses a working directory inside the repository and a store with no drafts', async () => {
   await assert.rejects(() => startReview({ localBucket: buildFakeBucket(), workDir: join(repoRoot, 'work') }, {}, { repoRoot, categories: [] }), /inside the repository checkout/);
   const empty = tempDir('review-empty-bucket');

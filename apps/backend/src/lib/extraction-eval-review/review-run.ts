@@ -3,8 +3,8 @@
  * directory, fetch the drafts, start the local server. The script `scripts/review-extraction-drafts.ts` only calls this.
  * Everything printed here names counts and folders, never the content of a post.
  */
-import { mkdirSync, readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { assertOutsideRepo, defaultWorkDir, layoutOf, listDraftIds, type Layout } from './work-dir.js';
 import { startReviewServer, type RunningReview } from './review-server.js';
 import { AwsCliStorage, DirectoryStorage, type AwsRunner, type DraftStorage } from './storage.js';
@@ -43,9 +43,13 @@ export async function startReview(args: ReviewArgs, env: Record<string, string |
   assertOutsideRepo(root, options.repoRoot);
   const layout = layoutOf(root);
   mkdirSync(layout.drafts, { recursive: true });
-  const haveDrafts = readdirSync(layout.drafts).length > 0;
-  const downloaded = args.refresh === true || !haveDrafts;
-  if (downloaded) await storage.downloadDrafts(layout.drafts);
+  // The marker is written only after a download finished, so an interrupted first download is never mistaken for the full set.
+  const marker = join(layout.root, 'drafts.complete');
+  const downloaded = args.refresh === true || !existsSync(marker);
+  if (downloaded) {
+    await storage.downloadDrafts(layout.drafts);
+    writeFileSync(marker, `${new Date().toISOString()}\n`);
+  }
   const draftCount = listDraftIds(layout.drafts).length;
   if (draftCount === 0) throw new Error('there are no drafts to review (no <postId>/label.json found in the working directory)');
   const review = await startReviewServer({ layout, storage, categories: options.categories }, args.port ?? 0);

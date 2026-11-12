@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -34,6 +34,16 @@ test('the default working directory is in the home folder, and a directory insid
   assert.throws(() => assertOutsideRepo('/repo/../repo/x', '/repo'), /inside the repository checkout/);
   assert.doesNotThrow(() => assertOutsideRepo('/home/me/.extraction-eval-review', '/repo'));
   assert.doesNotThrow(() => assertOutsideRepo('/repository-two/work', '/repo'));
+});
+
+test('assertOutsideRepo: a folder whose name merely starts with two dots is inside, and a symlink into the repository is seen through', () => {
+  const repo = tempDir('review-repo-real');
+  mkdirSync(join(repo, '..x'), { recursive: true });
+  assert.throws(() => assertOutsideRepo(join(repo, '..x'), repo), /inside the repository checkout/);
+  const elsewhere = tempDir('review-elsewhere');
+  symlinkSync(repo, join(elsewhere, 'link'));
+  assert.throws(() => assertOutsideRepo(join(elsewhere, 'link', 'work'), repo), /inside the repository checkout/);
+  assert.doesNotThrow(() => assertOutsideRepo(join(elsewhere, 'plain', 'work'), repo));
 });
 
 test('listDraftIds lists folders that hold a label.json, sorted, and tolerates a missing directory', async () => {
@@ -94,9 +104,11 @@ test('loadEntry returns the draft, flags and any saved edit, and never throws', 
   writeEdited(layout, DRAFT_IDS.multi, { groupingReason: 'single-event' });
   entry = loadEntry(layout, DRAFT_IDS.multi);
   assert.ok(entry.ok && entry.edited);
+  // an edit file that is not JSON must not lock the post: the draft is shown with a warning, and saving replaces the file
   writeFileSync(join(layout.edits, `${DRAFT_IDS.multi}.json`), 'not json');
-  const broken = loadEntry(layout, DRAFT_IDS.multi);
-  assert.deepEqual(broken, { postId: DRAFT_IDS.multi, ok: false, problem: 'the saved edit is not readable as JSON' });
+  const damaged = loadEntry(layout, DRAFT_IDS.multi);
+  assert.ok(damaged.ok && !damaged.edited);
+  if (damaged.ok) assert.deepEqual(damaged.draft.warnings, ['the saved edit is damaged and was ignored; saving or resetting replaces it']);
   assert.deepEqual(loadEntry(layout, 'p-nothere'), { postId: 'p-nothere', ok: false, problem: 'label.json is not readable as JSON' });
 });
 
@@ -104,6 +116,9 @@ test('safeFlags: a working label that is not shaped like a label has no flags in
   const layout = await freshLayout();
   const draft = loadDraft(layout.drafts, DRAFT_IDS.single);
   assert.deepEqual(safeFlags({ ...draft.label, events: [{ eventName: 'x', schedules: null }] } as never, draft), []);
+  // an empty price box counts as "not stated", the same as when the label is verified
+  const blankPrice = safeFlags({ ...draft.label, events: [{ eventName: 'x', ticketPrice: '', schedules: [{ eventStartDate: '2026-01-01' }] }] }, draft);
+  assert.deepEqual(blankPrice.map((f) => f.flag), ['price_missing']);
 });
 
 test('edits are written, read and cleared per post, and only for a valid post id', async () => {
@@ -127,6 +142,24 @@ test('progress is saved atomically, read back, and a damaged file starts an empt
   const damaged = loadProgress(layout);
   assert.deepEqual(damaged.record, {});
   assert.match(damaged.warnings[0]!, /progress.json is not readable as JSON; starting with an empty record/);
+});
+
+test('saving progress over a damaged or partly invalid file keeps a .bak copy first; an intact file needs none', async () => {
+  const layout = await freshLayout();
+  const at = '2026-01-01T00:00:00.000Z';
+  const stamp = new Date('2026-02-03T04:05:06.789Z');
+  saveProgress(layout, { [DRAFT_IDS.single]: { status: 'skipped', at } }, () => stamp);
+  assert.deepEqual(readdirSync(layout.root).filter((f) => f.includes('.bak')), []);
+  writeFileSync(layout.progress, '{ broken by hand');
+  saveProgress(layout, { [DRAFT_IDS.multi]: { status: 'flagged', at } }, () => stamp);
+  const backups = readdirSync(layout.root).filter((f) => f.includes('.bak'));
+  assert.deepEqual(backups, ['progress.json.bak-2026-02-03T04-05-06-789Z']);
+  assert.equal(readFileSync(join(layout.root, backups[0]!), 'utf8'), '{ broken by hand');
+  assert.deepEqual(Object.keys(loadProgress(layout).record), [DRAFT_IDS.multi]);
+  // a file with one invalid entry is also copied, so the dropped entry can be recovered by hand
+  writeFileSync(layout.progress, JSON.stringify({ [DRAFT_IDS.single]: { status: 'verified', at }, [DRAFT_IDS.multi]: { status: 'nonsense' } }));
+  saveProgress(layout, {}, () => new Date('2026-02-03T04:05:07.000Z'));
+  assert.equal(readdirSync(layout.root).filter((f) => f.includes('.bak')).length, 2);
 });
 
 test('stageVerified writes label.json and the images, replaces an older staging, and never copies draft.json', async () => {

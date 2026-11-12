@@ -109,6 +109,10 @@ function readBody(req: IncomingMessage): Promise<unknown> {
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
+/** JSON with sorted keys, so two labels that say the same thing compare equal whatever order their keys were typed in. */
+const canonical = (v: unknown): string =>
+  JSON.stringify(v, (_key, value: unknown) => (isObject(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : value));
+
 /** The label the page edits: the input fields always come from the draft, so the page cannot be shown (or save) other input. */
 function editable(entry: DraftEntry): Record<string, unknown> {
   const d = entry.draft.label;
@@ -139,7 +143,22 @@ export function createReviewHandler(options: ReviewOptions): { token: string; ha
     return entry;
   };
   const setStatus = (postId: string, status: ReviewStatus, note?: string): void => {
-    saveProgress(layout, setProgress(progress().record, postId, status, now().toISOString(), note));
+    saveProgress(layout, setProgress(progress().record, postId, status, now().toISOString(), note), now);
+  };
+  /** The next pending post that can actually be opened (an unreadable draft is never offered). */
+  const nextReadable = (postId: string): string | null => {
+    const { record } = progress();
+    const readable = ids().filter((id) => id === postId || loadEntry(layout, id).ok);
+    return nextPending(readable, record, postId) ?? null;
+  };
+  /** Does this edit still say what was uploaded as the verified label? Anything that no longer checks out counts as different. */
+  const sameAsUploaded = (entry: DraftEntry, edited: unknown): boolean => {
+    try {
+      const uploaded: unknown = JSON.parse(readFileSync(join(layout.verified, entry.postId, 'label.json'), 'utf8'));
+      return canonical(prepareVerifiedLabel(edited, entry.draft.label, 'label', { categories })) === canonical(uploaded);
+    } catch {
+      return false;
+    }
   };
 
   function listResponse(): unknown {
@@ -181,7 +200,7 @@ export function createReviewHandler(options: ReviewOptions): { token: string; ha
       status: statusOf(record, postId),
       note: record[postId]?.note ?? '',
       edited: entry.edited,
-      next: nextPending(ids(), record, postId) ?? null,
+      next: nextReadable(postId),
     };
   }
 
@@ -206,7 +225,7 @@ export function createReviewHandler(options: ReviewOptions): { token: string; ha
       throw new HttpError(400, (err as Error).message);
     }
     await storage.uploadVerified(postId, staged);
-    setStatus(postId, 'verified', progress().record[postId]?.note);
+    setStatus(postId, 'verified', typeof body.note === 'string' ? body.note : progress().record[postId]?.note);
     return { ok: true };
   }
 
@@ -217,6 +236,12 @@ export function createReviewHandler(options: ReviewOptions): { token: string; ha
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
     const parts = url.pathname.split('/').filter((p) => p !== '');
     if (parts[0] !== token) throw new HttpError(404, 'not found');
+    if (method === 'GET' && parts.length === 1 && !url.pathname.endsWith('/')) {
+      // the page's relative addresses need the trailing slash
+      res.writeHead(301, { ...BASE_HEADERS, location: `/${token}/` });
+      res.end();
+      return;
+    }
     let rest: string[];
     try {
       rest = parts.slice(1).map((p) => decodeURIComponent(p));
@@ -249,7 +274,13 @@ export function createReviewHandler(options: ReviewOptions): { token: string; ha
           const entry = entryOf(postId);
           if (!isObject(body) || !isObject(body.label)) throw new HttpError(400, 'the request must hold a label object');
           writeEdited(layout, postId, body.label);
-          return sendJson(res, 200, { ok: true, flags: safeFlags(body.label as unknown as LabelledPost, entry.draft) });
+          let status = statusOf(progress().record, postId);
+          if (status === 'verified' && !sameAsUploaded(entry, body.label)) {
+            // the uploaded label is now stale: the post needs verifying again, and the record must say so
+            setStatus(postId, 'pending', 'edited since it was verified');
+            status = 'pending';
+          }
+          return sendJson(res, 200, { ok: true, status, flags: safeFlags(body.label as unknown as LabelledPost, entry.draft) });
         }
         if (rest.length === 4 && action === 'edit' && method === 'DELETE') {
           entryOf(postId);
@@ -259,6 +290,7 @@ export function createReviewHandler(options: ReviewOptions): { token: string; ha
         if (rest.length === 4 && action === 'status' && method === 'POST') {
           const body = await readBody(req);
           entryOf(postId);
+          if (statusOf(progress().record, postId) === 'verified') throw new HttpError(409, 'this post is verified and uploaded; edit it and verify again to change it');
           if (!isObject(body) || (body.status !== 'skipped' && body.status !== 'flagged' && body.status !== 'pending')) {
             throw new HttpError(400, 'status must be skipped, flagged or pending (verified is set by verifying)');
           }

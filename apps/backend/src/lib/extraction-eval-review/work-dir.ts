@@ -9,9 +9,9 @@
  * It holds REAL posts, so it must never be inside the git checkout of this public repository: `assertOutsideRepo` refuses that.
  * Error messages name files and fields, never the content of a post.
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import {
   draftFlags,
   parseDraftMeta,
@@ -28,9 +28,20 @@ export const defaultWorkDir = (): string => join(homedir(), '.extraction-eval-re
 
 /** Refuse a working directory inside the repository checkout: real captions and images must never be one `git add` away. */
 export function assertOutsideRepo(workDir: string, repoRoot: string): void {
-  const rel = relative(resolve(repoRoot), resolve(workDir));
-  const inside = rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
+  const rel = relative(realPathOf(repoRoot), realPathOf(workDir));
+  const inside = rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
   if (inside) throw new Error('the working directory is inside the repository checkout; real posts must never be there. Choose a folder outside it (--work-dir).');
+}
+
+/** The real path of a folder that may not exist yet: the deepest existing ancestor is resolved (so a symlink into the repo is seen), the rest is appended. */
+function realPathOf(path: string): string {
+  let existing = resolve(path);
+  const rest: string[] = [];
+  while (!existsSync(existing) && dirname(existing) !== existing) {
+    rest.unshift(existing.slice(dirname(existing).length + 1));
+    existing = dirname(existing);
+  }
+  return join(realpathSync(existing), ...rest);
 }
 
 export interface Layout {
@@ -125,8 +136,15 @@ export interface BrokenEntry {
 export function loadEntry(layout: Layout, postId: string): DraftEntry | BrokenEntry {
   try {
     const draft = loadDraft(layout.drafts, postId);
-    const raw = readEdited(layout, postId);
-    let current = draft.label;
+    let raw: unknown;
+    let draftShown = draft;
+    try {
+      raw = readEdited(layout, postId);
+    } catch {
+      // A damaged edit file must not lock the post: it is ignored (Reset to the draft then clears it) and the reviewer is told.
+      draftShown = { ...draft, warnings: [...draft.warnings, 'the saved edit is damaged and was ignored; saving or resetting replaces it'] };
+    }
+    let current = draftShown.label;
     let edited = false;
     if (typeof raw === 'object' && raw !== null && !Array.isArray(raw)) {
       // A saved edit may be half finished and not valid yet; the editor still opens it. It is only validated on verify.
@@ -134,7 +152,7 @@ export function loadEntry(layout: Layout, postId: string): DraftEntry | BrokenEn
       current = raw as LabelledPost;
       edited = true;
     }
-    return { postId, ok: true, draft, current, edited, flags: safeFlags(current, draft) };
+    return { postId, ok: true, draft: draftShown, current, edited, flags: safeFlags(current, draftShown) };
   } catch (err) {
     return { postId, ok: false, problem: (err as Error).message };
   }
@@ -143,7 +161,9 @@ export function loadEntry(layout: Layout, postId: string): DraftEntry | BrokenEn
 /** Flags of the working label; a half-edited label that is not even shaped like one just has no flags. */
 export function safeFlags(current: LabelledPost, draft: LoadedDraft): DraftFlagHit[] {
   try {
-    return draftFlags({ ...draft.label, events: current.events ?? [] }, draft.meta);
+    // an empty price box in the editor means "not stated", exactly as it does when the label is verified
+    const events = (current.events ?? []).map((e) => (e.ticketPrice === '' ? { ...e, ticketPrice: undefined } : e));
+    return draftFlags({ ...draft.label, events }, draft.meta);
   } catch {
     return [];
   }
@@ -172,13 +192,24 @@ export function clearEdited(layout: Layout, postId: string): void {
 export function loadProgress(layout: Layout): { record: ProgressRecord; warnings: string[] } {
   if (!existsSync(layout.progress)) return { record: {}, warnings: [] };
   try {
-    return parseProgress(readJson(layout.progress, 'progress.json'));
+    const parsed = parseProgress(readJson(layout.progress, 'progress.json'));
+    return parsed.warnings.length > 0 ? { record: parsed.record, warnings: parsed.warnings.map((w) => `${w}; the original is kept as a .bak copy when the next change is saved`) } : parsed;
   } catch (err) {
-    return { record: {}, warnings: [`${(err as Error).message}; starting with an empty record`] };
+    return { record: {}, warnings: [`${(err as Error).message}; starting with an empty record, the damaged file is kept as a .bak copy when the next change is saved`] };
   }
 }
 
-export function saveProgress(layout: Layout, record: ProgressRecord): void {
+/** Save the record. A damaged or partly invalid file is copied to progress.json.bak-<time> first, so a hand edit is never lost silently. */
+export function saveProgress(layout: Layout, record: ProgressRecord, now: () => Date = () => new Date()): void {
+  if (existsSync(layout.progress)) {
+    let intact = false;
+    try {
+      intact = parseProgress(readJson(layout.progress, 'progress.json')).warnings.length === 0;
+    } catch {
+      intact = false;
+    }
+    if (!intact) copyFileSync(layout.progress, `${layout.progress}.bak-${now().toISOString().replace(/[:.]/g, '-')}`);
+  }
   writeJson(layout.progress, record);
 }
 

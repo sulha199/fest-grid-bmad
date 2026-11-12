@@ -48,6 +48,9 @@ const PAGE_SCRIPT = String.raw`
   var app = document.getElementById('app');
   var config = null;
   var dirty = false;
+  var navId = 0;
+  var shownHash = '';
+  var reverting = false;
   var enc = encodeURIComponent;
 
   function append(el, child) {
@@ -90,7 +93,9 @@ const PAGE_SCRIPT = String.raw`
   // ------------------------------------------------------------------------------------------------------------------ list
   function showList() {
     dirty = false;
+    var mine = ++navId;
     Promise.all([loadConfig(), api('GET', 'drafts')]).then(function (results) {
+      if (mine !== navId) return;
       var data = results[1].body;
       var filters = { status: 'all', flag: 'all', text: '' };
       var table = h('table');
@@ -149,7 +154,9 @@ const PAGE_SCRIPT = String.raw`
 
   // ------------------------------------------------------------------------------------------------------------------ post
   function showPost(id) {
+    var mine = ++navId;
     Promise.all([loadConfig(), api('GET', 'post/' + enc(id))]).then(function (results) {
+      if (mine !== navId) return;
       var res = results[1];
       if (res.status !== 200) { clear(); append(app, [h('p', {}, h('a', { href: '#/' }, 'Back to the list')), h('p', { class: 'status error' }, res.body.error || 'Could not load this post.')]); return; }
       var data = res.body;
@@ -221,12 +228,12 @@ const PAGE_SCRIPT = String.raw`
       function after(next) { if (next) go('#/post/' + enc(next)); else go('#/'); }
       function save() {
         return api('PUT', 'post/' + enc(id) + '/edit', { label: label }).then(function (r) {
-          if (r.status === 200) { dirty = false; showFlags(r.body.flags); status('Edits saved on this computer.', 'ok'); } else status(r.body.error || 'Could not save.', 'error');
+          if (r.status === 200) { dirty = false; showFlags(r.body.flags); var wasVerified = badgeEl.textContent === 'verified'; if (r.body.status) showBadge(r.body.status); status(r.body.status === 'pending' && wasVerified ? 'Edits saved. This post was verified before, so it needs verifying again.' : 'Edits saved on this computer.', 'ok'); } else status(r.body.error || 'Could not save.', 'error');
         });
       }
       function verify(overwrite) {
         status('Checking and uploading...');
-        api('POST', 'post/' + enc(id) + '/verify', { label: label, overwrite: !!overwrite }).then(function (r) {
+        api('POST', 'post/' + enc(id) + '/verify', { label: label, overwrite: !!overwrite, note: noteEl.value }).then(function (r) {
           if (r.status === 200) {
             dirty = false; showBadge('verified');
             status('Verified and uploaded.', 'ok');
@@ -238,8 +245,13 @@ const PAGE_SCRIPT = String.raw`
         });
       }
       function mark(st) {
-        api('POST', 'post/' + enc(id) + '/status', { status: st, note: noteEl.value }).then(function (r) {
-          if (r.status === 200) { dirty = false; showBadge(st); status('Marked ' + st + '.', 'ok'); after(nextId); } else status(r.body.error || 'Could not save the status.', 'error');
+        // Never throw away typing: unsaved edits are saved first, and the post is only left when that worked.
+        var saving = dirty ? save() : Promise.resolve();
+        saving.then(function () {
+          if (dirty) return;
+          api('POST', 'post/' + enc(id) + '/status', { status: st, note: noteEl.value }).then(function (r) {
+            if (r.status === 200) { showBadge(st); status('Marked ' + st + '.', 'ok'); after(nextId); } else status(r.body.error || 'Could not save the status.', 'error');
+          });
         });
       }
 
@@ -286,10 +298,23 @@ const PAGE_SCRIPT = String.raw`
 
   function route() {
     var m = /^#\/post\/(.+)$/.exec(location.hash);
-    if (m) showPost(decodeURIComponent(m[1])); else showList();
+    var id = null;
+    if (m) { try { id = decodeURIComponent(m[1]); } catch (e) { id = null; } }
+    if (id !== null) showPost(id); else showList();
   }
-  window.addEventListener('hashchange', route);
+  function onHashChange() {
+    if (reverting) { reverting = false; return; }
+    if (dirty && location.hash !== shownHash && !confirm('You have unsaved changes on this post. Leave without saving them?')) {
+      reverting = true;
+      location.hash = shownHash;
+      return;
+    }
+    shownHash = location.hash;
+    route();
+  }
+  window.addEventListener('hashchange', onHashChange);
   window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+  shownHash = location.hash;
   route();
 })();
 `;

@@ -123,7 +123,12 @@ export class AwsCliStorage implements DraftStorage {
 
   async uploadVerified(postId: string, fromDir: string): Promise<void> {
     assertPostId(postId);
-    const result = await this.run(['s3', 'sync', fromDir, `s3://${this.bucket}/${VERIFIED_PREFIX}/${postId}/`, '--only-show-errors']);
-    if (result.code !== 0) throw new Error(`aws s3 sync (upload) failed with exit code ${result.code}: ${firstLine(result.stderr)}`);
+    // The images first, label.json last: the existence check looks for label.json, so a failed upload can never leave a
+    // label without its images that then reads as "already verified".
+    const target = `s3://${this.bucket}/${VERIFIED_PREFIX}/${postId}/`;
+    const images = await this.run(['s3', 'sync', fromDir, target, '--exclude', 'label.json', '--only-show-errors']);
+    if (images.code !== 0) throw new Error(`aws s3 sync (upload) failed with exit code ${images.code}: ${firstLine(images.stderr)}`);
+    const label = await this.run(['s3', 'cp', join(fromDir, 'label.json'), `${target}label.json`, '--only-show-errors']);
+    if (label.code !== 0) throw new Error(`aws s3 cp (upload of label.json) failed with exit code ${label.code}: ${firstLine(label.stderr)}`);
   }
 }

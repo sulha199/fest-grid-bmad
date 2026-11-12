@@ -88,6 +88,12 @@ describe('review server (synthetic drafts, fake bucket, real HTTP on 127.0.0.1)'
     assert.ok(huge === undefined || huge.status === 413);
   });
 
+  test('opening the address without the trailing slash redirects to the page instead of serving a broken one', async () => {
+    const res = await fetch(`${origin}/tok123`, { redirect: 'manual' });
+    assert.equal(res.status, 301);
+    assert.equal(res.headers.get('location'), '/tok123/');
+  });
+
   test('config and list', async () => {
     const config = (await call('GET', 'api/config')).json;
     assert.match(config.storage, /local directory/);
@@ -193,8 +199,9 @@ describe('review server (synthetic drafts, fake bucket, real HTTP on 127.0.0.1)'
   test('verify writes label.json and the images to the verified prefix (never draft.json), marks the post verified, and keeps the label', async () => {
     const data = await post(DRAFT_IDS.single);
     const label = { ...data.label, caption: 'ignored', events: [{ ...data.label.events[0], eventName: '  Verified Name  ', location: '' }] };
-    const done = await call('POST', `api/post/${DRAFT_IDS.single}/verify`, { label });
+    const done = await call('POST', `api/post/${DRAFT_IDS.single}/verify`, { label, note: 'checked twice' });
     assert.equal(done.status, 200);
+    assert.equal((await post(DRAFT_IDS.single)).note, 'checked twice');
     const target = join(bucket, 'extraction-eval', DRAFT_IDS.single);
     assert.deepEqual(readdirSync(target).sort(), ['cover.png', 'label.json', 'slide-2.png']);
     const written = JSON.parse(readFileSync(join(target, 'label.json'), 'utf8'));
@@ -221,6 +228,35 @@ describe('review server (synthetic drafts, fake bucket, real HTTP on 127.0.0.1)'
     assert.equal(JSON.parse(readFileSync(target, 'utf8')).events[0].eventName, 'Second Version');
   });
 
+  test('a verified post cannot be skipped or flagged; editing it and saving something different sends it back to pending', async () => {
+    const refused = await call('POST', `api/post/${DRAFT_IDS.single}/status`, { status: 'skipped' });
+    assert.equal(refused.status, 409);
+    assert.equal((await post(DRAFT_IDS.single)).status, 'verified');
+    const data = await post(DRAFT_IDS.single);
+    // saving what was uploaded, with the keys in another order, changes nothing
+    const same = await call('PUT', `api/post/${DRAFT_IDS.single}/edit`, { label: Object.fromEntries(Object.entries(data.label).reverse()) });
+    assert.equal(same.json.status, 'verified');
+    const changed = await call('PUT', `api/post/${DRAFT_IDS.single}/edit`, { label: { ...data.label, events: [{ ...data.label.events[0], eventName: 'Changed after verify' }] } });
+    assert.equal(changed.json.status, 'pending');
+    const row = (await call('GET', 'api/drafts')).json.posts.find((p: Json) => p.postId === DRAFT_IDS.single);
+    assert.equal(row.status, 'pending');
+    assert.equal(row.note, 'edited since it was verified');
+    // a label that no longer checks out also counts as changed
+    await call('POST', `api/post/${DRAFT_IDS.single}/verify`, { label: { ...data.label }, overwrite: true });
+    assert.equal((await post(DRAFT_IDS.single)).status, 'verified');
+    const broken = await call('PUT', `api/post/${DRAFT_IDS.single}/edit`, { label: { ...data.label, groupingReason: 'nonsense' } });
+    assert.equal(broken.json.status, 'pending');
+  });
+
+  test('a damaged edit file does not lock the post: it opens from the draft with a warning and Reset clears it', async () => {
+    writeFileSync(join(layout.edits, `${DRAFT_IDS.multi}.json`), 'not json');
+    const open = await call('GET', `api/post/${DRAFT_IDS.multi}`);
+    assert.equal(open.status, 200);
+    assert.match(open.json.warnings.join(' '), /saved edit is damaged/);
+    assert.equal((await call('DELETE', `api/post/${DRAFT_IDS.multi}/edit`)).status, 200);
+    assert.doesNotMatch((await post(DRAFT_IDS.multi)).warnings.join(' '), /damaged/);
+  });
+
   test('verify of a draft whose image file went missing is refused before anything is uploaded', async () => {
     const data = await post(DRAFT_IDS.multi);
     rmSync(join(layout.drafts, DRAFT_IDS.multi, data.images[0]));
@@ -235,6 +271,8 @@ describe('review server (synthetic drafts, fake bucket, real HTTP on 127.0.0.1)'
     const list = (await call('GET', 'api/drafts')).json;
     assert.deepEqual(list.unreadable, [{ postId: DRAFT_IDS.notEvent, problem: 'label.json is not readable as JSON' }]);
     assert.equal(list.posts.length, 2);
+    // the unreadable draft is never offered as the next post
+    assert.equal((await post(DRAFT_IDS.multi)).next, DRAFT_IDS.single);
     const open = await call('GET', `api/post/${DRAFT_IDS.notEvent}`);
     assert.equal(open.status, 422);
     assert.doesNotMatch(open.json.error, /SECRET/);

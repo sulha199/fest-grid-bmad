@@ -23,6 +23,15 @@ test('the page only calls its own api and image routes, with relative addresses'
   assert.doesNotMatch(PAGE_SCRIPT, /fetch\('\//);
 });
 
+test('leaving a post never drops unsaved typing: Skip and Flag save first, and a navigation asks before discarding', () => {
+  assert.match(PAGE_SCRIPT, /var saving = dirty \? save\(\) : Promise\.resolve\(\)/);
+  assert.match(PAGE_SCRIPT, /Leave without saving them\?/);
+  assert.match(PAGE_SCRIPT, /window\.addEventListener\('hashchange', onHashChange\)/);
+  // an older response must not draw over a newer navigation, and a bad address must not throw
+  assert.match(PAGE_SCRIPT, /if \(mine !== navId\) return;/);
+  assert.match(PAGE_SCRIPT, /try \{ id = decodeURIComponent/);
+});
+
 test('the page shows the three things the brief asks for: filters on flags, images beside the form, and the verify action', () => {
   for (const text of ['Open the first pending post', 'Verify and upload', 'Save edits', 'Reset to the draft', 'Skip', 'Flag for later', 'Add a schedule', 'Add an event', 'Remove event', 'Remove schedule', 'Caption (as production saw it)']) {
     assert.ok(PAGE_SCRIPT.includes(text), text);

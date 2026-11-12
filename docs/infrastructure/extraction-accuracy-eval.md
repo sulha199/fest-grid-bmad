@@ -180,7 +180,9 @@ makes no request except the `aws` CLI calls to the bucket you name, and it never
 
 ### Running it
 
-You need the `aws` CLI signed in with your own credentials (`aws sso login`, or `AWS_PROFILE`); the tool never reads them.
+You need the `aws` CLI signed in with your own credentials (`aws sso login`, or `AWS_PROFILE`); the tool never reads them. Those
+credentials need: list and read on `extraction-eval-drafts/`, write on `extraction-eval/`, and list on the bucket (without
+`s3:ListBucket` a missing key answers 403, which the tool treats as an error, not as "not verified yet").
 
 ```bash
 pnpm --filter backend exec tsx scripts/review-extraction-drafts.ts --bucket <bucket>
@@ -189,8 +191,10 @@ pnpm --filter backend exec tsx scripts/review-extraction-drafts.ts --bucket <buc
 
 It copies the drafts to a working directory (default `~/.extraction-eval-review`, change with `--work-dir`; it refuses a folder
 inside the git checkout), starts a server on `127.0.0.1` and prints an address with a random secret in the path. Open it in a
-browser; stop with Ctrl+C. Later runs reuse the local copy and your saved work; `--refresh` downloads the drafts again (your edits
-and progress are kept). `--port N` fixes the port. To rehearse with synthetic data and no AWS, point `--local-bucket <dir>` at a
+browser; stop with Ctrl+C. Later runs reuse the local copy and your saved work (a download that was interrupted is repeated, because the copy is only
+marked complete when it finished); `--refresh` downloads the drafts again (your edits and progress are kept; an edit is shown over
+the new draft, so check a post you had edited). If `progress.json` is damaged or has invalid entries, the tool keeps a
+`progress.json.bak-<time>` copy before it writes a new one. `--port N` fixes the port. To rehearse with synthetic data and no AWS, point `--local-bucket <dir>` at a
 folder laid out like the bucket.
 
 The working directory holds the draft copies (`drafts/`), your work in progress (`edits/<postId>.json`), what was uploaded
@@ -206,12 +210,15 @@ keep it out of the repository and out of any shared folder.
    events and schedules, and edit every event and schedule field. An empty optional field means "not stated" and is left unscored.
    The input of the extraction (caption, images, publish date, owner) is fixed: the eval must send the model exactly what
    production saw, so those cannot be edited here.
-3. **Save edits** keeps your work on this computer. **Reset to the draft** throws it away. **Skip** and **Flag for later** record
-   the post (with an optional note) and move to the next pending one.
+3. **Save edits** keeps your work on this computer. **Reset to the draft** throws it away (and clears a damaged saved edit).
+   **Skip** and **Flag for later** save any unsaved edits first, record the post (with an optional note) and move to the next
+   pending one. Leaving a post by any other link asks before discarding unsaved typing. A verified post cannot be skipped or
+   flagged; if you save a change to it, it goes back to pending ("edited since it was verified") until you verify it again.
 4. **Verify and upload** re-checks the label with `parseLabelledPost` (the runner's own parser) and the production category list,
    writes the verified `label.json` and the images to `extraction-eval/<postId>/`, and marks the post verified. A problem is
    reported by field name and nothing is uploaded. If a verified label for the post already exists in the store, the tool asks
    before overwriting it; a failed check of that (no permission, expired sign-in) is an error, never treated as "not there".
+   The images are uploaded first and `label.json` last, so a failed upload never leaves a label without its images.
 
 ### Flags
 

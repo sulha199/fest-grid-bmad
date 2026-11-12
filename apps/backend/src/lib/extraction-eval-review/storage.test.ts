@@ -40,7 +40,7 @@ test('DirectoryStorage without a drafts folder says so', async () => {
 
 test('AwsCliStorage builds the expected aws commands', async () => {
   const calls: string[][] = [];
-  const storage = new AwsCliStorage('my-private-bucket', fakeAws([{ code: 0, stdout: '', stderr: '' }, { code: 0, stdout: '{}', stderr: '' }, { code: 0, stdout: '', stderr: '' }], calls));
+  const storage = new AwsCliStorage('my-private-bucket', fakeAws([{ code: 0, stdout: '', stderr: '' }, { code: 0, stdout: '{}', stderr: '' }, { code: 0, stdout: '', stderr: '' }, { code: 0, stdout: '', stderr: '' }], calls));
   assert.equal(storage.describe(), 's3://my-private-bucket');
   await storage.downloadDrafts('/work/drafts');
   assert.equal(await storage.verifiedExists('p-1'), true);
@@ -48,7 +48,8 @@ test('AwsCliStorage builds the expected aws commands', async () => {
   assert.deepEqual(calls, [
     ['s3', 'sync', 's3://my-private-bucket/extraction-eval-drafts/', '/work/drafts', '--only-show-errors'],
     ['s3api', 'head-object', '--bucket', 'my-private-bucket', '--key', 'extraction-eval/p-1/label.json'],
-    ['s3', 'sync', '/work/verified/p-1', 's3://my-private-bucket/extraction-eval/p-1/', '--only-show-errors'],
+    ['s3', 'sync', '/work/verified/p-1', 's3://my-private-bucket/extraction-eval/p-1/', '--exclude', 'label.json', '--only-show-errors'],
+    ['s3', 'cp', '/work/verified/p-1/label.json', 's3://my-private-bucket/extraction-eval/p-1/label.json', '--only-show-errors'],
   ]);
 });
 
@@ -63,6 +64,13 @@ test('AwsCliStorage: sync failures name the exit code and the first line of the 
   const failing = new AwsCliStorage('my-private-bucket', fakeAws([{ code: 1, stdout: '', stderr: 'expired token\nsecond line' }, { code: 1, stdout: '', stderr: 'boom' }], []));
   await assert.rejects(() => failing.downloadDrafts('/w'), /download\) failed with exit code 1: expired token$/);
   await assert.rejects(() => failing.uploadVerified('p-1', '/w'), /upload\) failed with exit code 1: boom$/);
+  // label.json goes last: if the images fail it is never sent, so no label is left without its images
+  const calls: string[][] = [];
+  const imagesFail = new AwsCliStorage('my-private-bucket', fakeAws([{ code: 1, stdout: '', stderr: 'no space' }], calls));
+  await assert.rejects(() => imagesFail.uploadVerified('p-1', '/w'), /exit code 1: no space$/);
+  assert.equal(calls.length, 1);
+  const labelFails = new AwsCliStorage('my-private-bucket', fakeAws([{ code: 0, stdout: '', stderr: '' }, { code: 2, stdout: '', stderr: 'denied' }], []));
+  await assert.rejects(() => labelFails.uploadVerified('p-1', '/w'), /aws s3 cp \(upload of label.json\) failed with exit code 2: denied$/);
 });
 
 test('AwsCliStorage refuses a name that is not an S3 bucket name and a post id that is not a post id', async () => {
