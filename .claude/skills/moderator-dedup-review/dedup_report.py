@@ -806,9 +806,11 @@ def names_relation(existing_name, new_name):
 
 
 def clue_choices(pair, decision):
-    """The CLUE_OPTIONS codes to offer for one pair and one decision: the codes the pair's own evidence flags, the ones that
-    support the decision first (a merge: same-*, a shared link; a reject: different-*, too far apart), then padding that no
-    evidence flags, and never two codes of one exclusive group."""
+    """The CLUE_OPTIONS codes to offer for one pair and one decision: the codes the pair's own evidence flags in favour of the
+    decision first (a merge: same-*, a shared link; a reject: different-*, too far apart), then the reasons that suit the decision
+    and that no evidence flags (a reject: another edition, a different category, part of a larger event), and only then the
+    evidence that points the other way. A pair is queued because it matches, so a reject is not offered the matching signals
+    before the reasons it is rejected for. Never two codes of one exclusive group."""
     signals, candidate, new = pair['signals'], pair['candidate'], pair['newEvent']
     support, neutral, against = [], [], []
     if signals['sharedLink']:
@@ -834,9 +836,12 @@ def clue_choices(pair, decision):
         support.append('same-name-words')
     elif relation == 'different':
         against.append('different-name-words')
-    ordered = against + neutral + support if decision == 'reject' else support + neutral + against
+    if decision == 'reject':
+        ordered = against + neutral + list(CLUE_PAD['reject']) + support
+    else:
+        ordered = support + neutral + list(CLUE_PAD['accept']) + against
     chosen = []
-    for code in ordered + list(CLUE_PAD['reject' if decision == 'reject' else 'accept']) + list(CLUE_CODES):
+    for code in ordered + list(CLUE_CODES):
         if code not in chosen and not clue_conflicts(chosen + [code]):
             chosen.append(code)
         if len(chosen) == CLUE_OPTIONS:
