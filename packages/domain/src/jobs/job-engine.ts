@@ -153,6 +153,8 @@ export type JobHandlerResult =
   | {
       outcome: "SUCCEEDED" | "SUCCEEDED_WITH_LIMITS" | "FAILED";
       reasonCode?: string;
+      /** Plain words for the Jobs page and the moderator, written by the handler (never a raw error). Story 10.6. */
+      errorMessage?: string;
       resultData?: unknown;
     }
   /** Started, now waiting for a later time or for a result from elsewhere; holds no place (FR117, FR121). */
