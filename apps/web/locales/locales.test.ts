@@ -47,3 +47,26 @@ describe('EventCategory/EventType enums stay in sync with locale files', () => {
     }
   });
 });
+
+// Story 10.4 Part B: the `Jobs` namespace carries copy for every enum the server can send, and none of the OI-2
+// placeholders (decisions D1, D3, D4 are still open with the owner: nothing renders them, so they are not merged).
+describe('Jobs namespace (Story 10.4)', () => {
+  const walk = (value: unknown, out: string[] = []): string[] => {
+    if (typeof value === 'string') out.push(value);
+    else if (value && typeof value === 'object') Object.values(value).forEach((v) => walk(v, out));
+    return out;
+  };
+
+  it.each([['en', en], ['id', id]] as const)('%s has no lookup.* placeholder keys and no [OPEN ...] text', (_name, messages) => {
+    expect(Object.keys(messages.Jobs)).not.toContain('lookup');
+    expect(walk(messages.Jobs).filter((s) => s.includes('[OPEN'))).toEqual([]);
+  });
+
+  it.each([['en', en], ['id', id]] as const)('%s has a status, chip, type and reason text for every server value', (_name, messages) => {
+    const jobs = messages.Jobs as unknown as Record<string, Record<string, string>>;
+    for (const s of ['QUEUED', 'RUNNING', 'WAITING', 'SUCCEEDED', 'SUCCEEDED_WITH_LIMITS', 'FAILED', 'EXPIRED', 'CANCELLED']) expect(jobs.status[s]).toBeTruthy();
+    for (const t of ['SUBSCRIBE', 'PROFILE_LOOKUP', 'ACCOUNT_REFRESH', 'CORRECTION', 'EXTRACT_FROM_URL', 'EXTRACT_SELECTED_POSTS', 'REEXTRACT_REFRESH', 'ADMIN_OPERATION', 'OTHER']) expect(jobs.type[t]).toBeTruthy();
+    for (const r of ['ACCOUNT_NOT_FOUND', 'ACCOUNT_PRIVATE', 'NO_PROVIDER_REACHABLE', 'PROVIDER_OVER_QUOTA', 'ACCOUNT_TYPE_NOT_SCRAPED', 'POST_UNAVAILABLE', 'COOLDOWN', 'TIMED_OUT', 'CANCELLED', 'WAITED_TOO_LONG', 'SOME_POSTS_NOT_EXTRACTED', 'REFRESH_IN_PROGRESS', 'REFRESH_DID_NOT_HEAL_IMAGES', 'POST_NOT_FOUND', 'CHAIN_IN_FLIGHT', 'QUOTA_EXHAUSTED', 'EXTRACTION_FAILED', 'VENDOR_RUN_FAILED', 'GENERIC']) expect(jobs.reason[r]).toBeTruthy();
+    expect(jobs.chip.done).toBeTruthy();
+  });
+});

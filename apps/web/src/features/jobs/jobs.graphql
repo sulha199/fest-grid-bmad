@@ -1,0 +1,105 @@
+# Story 10.4 Part B -- the job reads and retryJob for the shared progress component. Ordinary-user fields only: no
+# moderatorDetails here (the Jobs detail page of Part C asks for them in its own query), never an input, a caption or an image URL.
+
+fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}
+
+# "Started by {name}" is moderator-only: owner is null for everyone else and the server does no owner work for them.
+fragment JobListFields on Job {
+  ...JobProgressFields
+  owner {
+    displayName
+  }
+}
+
+query JobById($id: ID!) {
+  job(id: $id) {
+    ...JobProgressFields
+  }
+}
+
+query ActiveJobs($filter: JobsFilter, $subject: JobSubjectInput, $endedWithinMinutes: Int) {
+  activeJobs(filter: $filter, subject: $subject, endedWithinMinutes: $endedWithinMinutes) {
+    ...JobListFields
+  }
+}
+
+query MyJobs($filter: JobsFilter, $onlyEnded: Boolean, $first: Int, $after: String) {
+  myJobs(filter: $filter, onlyEnded: $onlyEnded, first: $first, after: $after) {
+    edges {
+      cursor
+      node {
+        ...JobListFields
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+
+mutation RetryJob($jobId: ID!) {
+  retryJob(jobId: $jobId) {
+    outcome
+    errorCode
+    activeCount
+    reservedCount
+    cap
+    maxQueued
+    retryNotBefore
+    job {
+      ...JobProgressFields
+    }
+  }
+}

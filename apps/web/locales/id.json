@@ -1089,5 +1089,230 @@
     "page": "Halaman {page}",
     "total": "{count, number} total",
     "emptyPage": "Tidak ada lagi yang tersisa di halaman ini. Gunakan Sebelumnya untuk kembali."
+  },
+  "Jobs": {
+    "pageTitle": "Tugas",
+    "pageDescription": "Pantau proses yang berjalan di latar belakang, seperti menambah akun dan mengekstrak postingan.",
+    "backToJobs": "Tugas",
+    "activeHeading": "Sedang berjalan",
+    "activeEmpty": "Tidak ada yang berjalan saat ini.",
+    "historyHeading": "Selesai",
+    "emptyTitle": "Belum ada tugas",
+    "emptyBody": "Saat Anda menambah akun atau mengekstrak postingan, Anda dapat memantau prosesnya di sini.",
+    "filteredEmptyTitle": "Tidak ada tugas yang cocok dengan filter ini",
+    "clearFilters": "Hapus filter",
+    "loadError": "Kami tidak dapat memuat tugas Anda.",
+    "jobLoadError": "Kami tidak dapat memuat tugas ini.",
+    "tryAgain": "Coba lagi",
+    "reconnecting": "Menyambung kembali. Menampilkan kemajuan terakhir yang diketahui.",
+    "notFound": "Tugas ini tidak ditemukan.",
+    "filters": {
+      "scopeLabel": "Tampilkan",
+      "scopeMine": "Tugas saya",
+      "scopeAll": "Semua pengguna",
+      "includeSystem": "Sertakan tugas sistem"
+    },
+    "row": {
+      "openDetails": "Buka detail: {title}, {status}",
+      "startedAt": "Dimulai {time}",
+      "runningFor": "Berjalan selama {duration}",
+      "tookDuration": "Memakan waktu {duration}",
+      "queuePosition": "{position, plural, =1 {Berikutnya dalam antrean} other {Nomor # dalam antrean}}",
+      "nextTry": "Percobaan berikutnya {time}",
+      "startedBy": "Dimulai oleh {name}",
+      "systemJob": "Tugas sistem"
+    },
+    "type": {
+      "SUBSCRIBE": "Menambahkan akun",
+      "PROFILE_LOOKUP": "Mencari akun",
+      "ACCOUNT_REFRESH": "Memeriksa postingan baru dari akun",
+      "CORRECTION": "Mengoreksi acara",
+      "EXTRACT_FROM_URL": "Mengekstrak dari tautan postingan",
+      "EXTRACT_SELECTED_POSTS": "Mengekstrak postingan terpilih",
+      "REEXTRACT_REFRESH": "Mengekstrak ulang postingan",
+      "ADMIN_OPERATION": "Operasi moderator",
+      "OTHER": "Proses latar belakang"
+    },
+    "subject": {
+      "account": "@{handle}",
+      "posts": "{count} postingan",
+      "post": "Postingan {code}",
+      "unknown": "Tidak diketahui"
+    },
+    "status": {
+      "QUEUED": "Menunggu giliran",
+      "RUNNING": "Sedang berjalan",
+      "WAITING": "Menunggu",
+      "SUCCEEDED": "Selesai",
+      "SUCCEEDED_WITH_LIMITS": "Selesai, dengan batasan",
+      "FAILED": "Gagal",
+      "EXPIRED": "Kedaluwarsa",
+      "CANCELLED": "Dibatalkan"
+    },
+    "chip": {
+      "ariaLabel": "Tampilkan kemajuan: {title}. {status}",
+      "queued": "Menunggu giliran (nomor {position})",
+      "running": "Berjalan: langkah {current} dari {total}",
+      "runningNoSteps": "Sedang berjalan",
+      "waiting": "Menunggu",
+      "waitingUntil": "Menunggu sampai {time}",
+      "done": "Selesai",
+      "doneWithLimits": "Selesai, dengan batasan",
+      "failed": "Gagal",
+      "expired": "Kedaluwarsa",
+      "cancelled": "Dibatalkan"
+    },
+    "dialog": {
+      "description": "Anda dapat memperkecil ini dan terus memakai aplikasi. Prosesnya tetap berjalan di latar belakang.",
+      "minimize": "Perkecil",
+      "close": "Tutup",
+      "seeAllInJobs": "Lihat semua di Tugas",
+      "viewDetails": "Lihat detail",
+      "leavingNote": "Meninggalkan halaman ini tidak menghentikannya.",
+      "elapsed": "Berjalan selama {duration}",
+      "stepsLabel": "Langkah",
+      "stepOf": "Langkah {current} dari {total}",
+      "stepStateDone": "selesai",
+      "stepStateCurrent": "sedang berjalan",
+      "stepStatePending": "belum dimulai",
+      "stepStateSkipped": "dilewati",
+      "countDetail": "{done} dari {total} selesai"
+    },
+    "queued": {
+      "title": "Menunggu tempat kosong",
+      "body": "Anda dapat menjalankan {limit} proses sekaligus dan semua {limit} tempat sedang terpakai. Proses ini akan mulai sendiri.",
+      "expires": "Jika belum mulai sebelum {time}, proses ini akan dihentikan."
+    },
+    "waiting": {
+      "title": "Menunggu",
+      "retryAt": "Menunggu untuk mencoba lagi pukul {time}.",
+      "result": "Menunggu jawaban datang. Ini bisa memakan waktu beberapa menit.",
+      "extraction": "Menunggu postingan selesai diekstrak ({done} dari {total} selesai).",
+      "extractionRetryAt": "Menunggu untuk mencoba ulang satu postingan pukul {time}.",
+      "noPlaceHeld": "Sementara itu, Anda dapat memulai proses lain."
+    },
+    "outcome": {
+      "succeededTitle": "Selesai",
+      "limitsTitle": "Selesai dengan data yang ada",
+      "failedTitle": "Tidak dapat diselesaikan",
+      "expiredTitle": "Dihentikan",
+      "cancelledTitle": "Dibatalkan",
+      "lateResult": "Jawaban datang terlambat tetapi tetap dipakai.",
+      "openAccount": "Buka akun",
+      "openPreview": "Buka pratinjau",
+      "viewEvents": "Lihat acaranya",
+      "eventsFromPosts": "{events} acara dari {posts} postingan",
+      "took": "Memakan waktu {duration}",
+      "started": "Dimulai {time}",
+      "finished": "Selesai {time}"
+    },
+    "reason": {
+      "ACCOUNT_NOT_FOUND": "Kami tidak menemukan akun ini. Periksa ejaannya dan coba nama pengguna lain.",
+      "ACCOUNT_PRIVATE": "Akun ini privat, sehingga postingannya tidak dapat dibaca.",
+      "NO_PROVIDER_REACHABLE": "Kami tidak dapat menjangkau platform saat ini. Coba lagi dalam beberapa menit.",
+      "PROVIDER_OVER_QUOTA": "Layanan sedang sibuk saat ini. Coba lagi nanti.",
+      "ACCOUNT_TYPE_NOT_SCRAPED": "Jenis akun ini tidak diambil datanya, jadi tidak ada yang diambil.",
+      "POST_UNAVAILABLE": "Postingan ini sudah tidak tersedia di platform.",
+      "COOLDOWN": "Ini baru saja dicoba. Anda dapat mencoba lagi pukul {time}.",
+      "TIMED_OUT": "Prosesnya terlalu lama dan dihentikan. Coba lagi.",
+      "CANCELLED": "Proses ini dibatalkan.",
+      "WAITED_TOO_LONG": "Proses ini menunggu lebih dari {minutes} menit untuk mendapat tempat dan dihentikan. Coba lagi setelah proses Anda yang lain selesai.",
+      "SOME_POSTS_NOT_EXTRACTED": "Beberapa postingan tidak dapat diekstrak. Anda dapat mencobanya lagi.",
+      "REFRESH_IN_PROGRESS": "Permintaan lain sedang mengambil postingan ini. Coba lagi dalam semenit.",
+      "REFRESH_DID_NOT_HEAL_IMAGES": "Penyedia menjawab, tetapi gambarnya tidak dapat dipakai, sehingga gambar yang tersimpan dipakai.",
+      "POST_NOT_FOUND": "Postingan dihapus selagi proses ini menunggu.",
+      "CHAIN_IN_FLIGHT": "Postingan ini sedang diekstrak. Coba lagi setelah selesai.",
+      "QUOTA_EXHAUSTED": "Tidak ada kunci AI yang kuotanya tersisa. Coba lagi besok.",
+      "EXTRACTION_FAILED": "Kami tidak dapat menyelesaikan pembacaan postingan ini. Coba lagi.",
+      "VENDOR_RUN_FAILED": "Platform tidak mengembalikan data yang kami butuhkan. Coba lagi.",
+      "GENERIC": "Terjadi masalah di pihak kami. Coba lagi; jika terus terjadi, beri tahu kami."
+    },
+    "actions": {
+      "retry": "Coba lagi",
+      "retryAt": "Coba lagi pukul {time}",
+      "retryStarted": "Dimulai lagi.",
+      "retryReused": "Ini sudah berjalan.",
+      "startQueueFull": "Terlalu banyak proses yang menunggu ({max}). Buka Tugas untuk melihatnya.",
+      "startQueueFullLink": "Buka Tugas"
+    },
+    "moderator": {
+      "detailsSummary": "Detail teknis (moderator)",
+      "attemptsHeading": "Percobaan penyedia",
+      "noAttempts": "Tidak ada penyedia yang dicoba.",
+      "attemptProvider": "Penyedia",
+      "attemptOutcome": "Hasil",
+      "attemptBudget": "Waktu yang diberikan",
+      "attemptElapsed": "Waktu yang dipakai",
+      "attemptReason": "Alasan",
+      "engineReason": "Kode alasan mesin",
+      "engineMessage": "Pesan mesin",
+      "jobId": "ID tugas",
+      "trigger": "Dimulai oleh",
+      "triggerUser": "Pengguna",
+      "triggerSystem": "Sistem",
+      "provider": {
+        "APIFY": "Apify",
+        "BRIGHT_DATA": "Bright Data"
+      },
+      "outcome": {
+        "SUCCEEDED": "Berhasil",
+        "FAILED": "Gagal",
+        "EMPTY": "Tidak mengembalikan apa pun",
+        "TIMED_OUT": "Kehabisan waktu",
+        "OVER_QUOTA": "Melebihi kuota",
+        "SKIPPED": "Dilewati"
+      }
+    },
+    "phase": {
+      "generic": {
+        "working": "Sedang diproses"
+      },
+      "REEXTRACT_REFRESH": {
+        "refresh": "Mengambil gambar terbaru",
+        "preview": "Membaca postingan dan mencari acara"
+      },
+      "SUBSCRIBE": {
+        "lookup": "Mencari akun",
+        "classify": "Memeriksa jenis akun",
+        "firstScrape": "Mengambil postingan pertamanya"
+      },
+      "PROFILE_LOOKUP": {
+        "lookup": "Mencari akun"
+      },
+      "ACCOUNT_REFRESH": {
+        "scrape": "Mengambil postingan baru"
+      },
+      "EXTRACT_SELECTED_POSTS": {
+        "start": "Memasukkan postingan ke antrean",
+        "extract": "Mengekstrak acara"
+      },
+      "EXTRACT_FROM_URL": {
+        "fetch": "Mengambil postingan",
+        "extract": "Mengekstrak acara"
+      },
+      "CORRECTION": {
+        "fetch": "Mengambil postingan",
+        "apply": "Menyiapkan koreksi"
+      },
+      "ADMIN_OPERATION": {
+        "dryRun": "Memeriksa apa yang akan berubah",
+        "apply": "Menerapkan perubahan"
+      }
+    },
+    "announce": {
+      "started": "{title} dimulai.",
+      "queued": "{title} menunggu tempat kosong. {position}",
+      "running": "{title} kini berjalan.",
+      "step": "{title}: langkah {current} dari {total}, {step}.",
+      "waiting": "{title} menunggu. {reason}",
+      "succeeded": "{title} selesai.",
+      "limits": "{title} selesai dengan batasan. {reason}",
+      "failed": "{title} gagal. {reason}",
+      "expired": "{title} dihentikan. {reason}",
+      "cancelled": "{title} dibatalkan.",
+      "minimized": "Kemajuan diperkecil. Prosesnya tetap berjalan.",
+      "reopened": "Kemajuan dibuka.",
+      "listUpdated": "{count} tugas diperbarui"
+    }
   }
 }

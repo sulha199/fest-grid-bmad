@@ -2068,6 +2068,18 @@ export enum WidgetTheme {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 /**
  * Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
  * events), or PARTIAL (it ended without reading every slide and will not be finished).
@@ -2079,6 +2091,7 @@ export enum WidgetTheme {
  * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
  * or cannot help.
  */
+
 
 
 
@@ -2377,6 +2390,43 @@ export type SubmitReportMutationVariables = Exact<{
 
 
 export type SubmitReportMutation = { submitReport: { id: string, reason: ReportReason, status: ReportStatus, createdAt: string } };
+
+export type JobProgressFieldsFragment = { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null };
+
+export type JobListFieldsFragment = { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, owner: { displayName: string | null } | null, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null };
+
+export type JobByIdQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type JobByIdQuery = { job: { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null } | null };
+
+export type ActiveJobsQueryVariables = Exact<{
+  filter?: JobsFilter | null | undefined;
+  subject?: JobSubjectInput | null | undefined;
+  endedWithinMinutes?: number | null | undefined;
+}>;
+
+
+export type ActiveJobsQuery = { activeJobs: Array<{ id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, owner: { displayName: string | null } | null, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null }> };
+
+export type MyJobsQueryVariables = Exact<{
+  filter?: JobsFilter | null | undefined;
+  onlyEnded?: boolean | null | undefined;
+  first?: number | null | undefined;
+  after?: string | null | undefined;
+}>;
+
+
+export type MyJobsQuery = { myJobs: { edges: Array<{ cursor: string, node: { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, owner: { displayName: string | null } | null, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
+
+export type RetryJobMutationVariables = Exact<{
+  jobId: string | number;
+}>;
+
+
+export type RetryJobMutation = { retryJob: { outcome: RetryJobOutcome, errorCode: JobStartErrorCode | null, activeCount: number | null, reservedCount: number | null, cap: number | null, maxQueued: number | null, retryNotBefore: unknown, job: { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null } | null } };
 
 export type CreateUserLocationMutationVariables = Exact<{
   input: CreateUserLocationInput;
@@ -2765,6 +2815,119 @@ export class TypedDocumentString<TResult, TVariables>
     return this.value;
   }
 }
+export const JobProgressFieldsFragmentDoc = new TypedDocumentString(`
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}
+    `, {"fragmentName":"JobProgressFields"});
+export const JobListFieldsFragmentDoc = new TypedDocumentString(`
+    fragment JobListFields on Job {
+  ...JobProgressFields
+  owner {
+    displayName
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}`, {"fragmentName":"JobListFields"});
 export const ApplyReextractionSummaryFieldsFragmentDoc = new TypedDocumentString(`
     fragment ApplyReextractionSummaryFields on ApplyReextractionSummary {
   groupingReason
@@ -4320,6 +4483,347 @@ export const useSubmitReportMutation = <
       {
     mutationKey: ['submitReport'],
     mutationFn: (variables?: SubmitReportMutationVariables) => fetcher<SubmitReportMutation, SubmitReportMutationVariables>(client, SubmitReportDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const JobByIdDocument = new TypedDocumentString(`
+    query JobById($id: ID!) {
+  job(id: $id) {
+    ...JobProgressFields
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}`);
+
+export const useJobByIdQuery = <
+      TData = JobByIdQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: JobByIdQueryVariables,
+      options?: Omit<UseQueryOptions<JobByIdQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<JobByIdQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<JobByIdQuery, TError, TData>(
+      {
+    queryKey: ['JobById', variables],
+    queryFn: fetcher<JobByIdQuery, JobByIdQueryVariables>(client, JobByIdDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ActiveJobsDocument = new TypedDocumentString(`
+    query ActiveJobs($filter: JobsFilter, $subject: JobSubjectInput, $endedWithinMinutes: Int) {
+  activeJobs(
+    filter: $filter
+    subject: $subject
+    endedWithinMinutes: $endedWithinMinutes
+  ) {
+    ...JobListFields
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}
+fragment JobListFields on Job {
+  ...JobProgressFields
+  owner {
+    displayName
+  }
+}`);
+
+export const useActiveJobsQuery = <
+      TData = ActiveJobsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: ActiveJobsQueryVariables,
+      options?: Omit<UseQueryOptions<ActiveJobsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ActiveJobsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ActiveJobsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ActiveJobs'] : ['ActiveJobs', variables],
+    queryFn: fetcher<ActiveJobsQuery, ActiveJobsQueryVariables>(client, ActiveJobsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const MyJobsDocument = new TypedDocumentString(`
+    query MyJobs($filter: JobsFilter, $onlyEnded: Boolean, $first: Int, $after: String) {
+  myJobs(filter: $filter, onlyEnded: $onlyEnded, first: $first, after: $after) {
+    edges {
+      cursor
+      node {
+        ...JobListFields
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}
+fragment JobListFields on Job {
+  ...JobProgressFields
+  owner {
+    displayName
+  }
+}`);
+
+export const useMyJobsQuery = <
+      TData = MyJobsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: MyJobsQueryVariables,
+      options?: Omit<UseQueryOptions<MyJobsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyJobsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<MyJobsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['MyJobs'] : ['MyJobs', variables],
+    queryFn: fetcher<MyJobsQuery, MyJobsQueryVariables>(client, MyJobsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const RetryJobDocument = new TypedDocumentString(`
+    mutation RetryJob($jobId: ID!) {
+  retryJob(jobId: $jobId) {
+    outcome
+    errorCode
+    activeCount
+    reservedCount
+    cap
+    maxQueued
+    retryNotBefore
+    job {
+      ...JobProgressFields
+    }
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}`);
+
+export const useRetryJobMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RetryJobMutation, TError, RetryJobMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RetryJobMutation, TError, RetryJobMutationVariables, TContext>(
+      {
+    mutationKey: ['RetryJob'],
+    mutationFn: (variables?: RetryJobMutationVariables) => fetcher<RetryJobMutation, RetryJobMutationVariables>(client, RetryJobDocument, variables, headers)(),
     ...options
   }
     )};
