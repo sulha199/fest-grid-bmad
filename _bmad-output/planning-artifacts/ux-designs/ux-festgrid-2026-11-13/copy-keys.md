@@ -11,6 +11,7 @@ Companion to `EXPERIENCE.md`. Each block is valid JSON that can be merged into `
 - Reason codes are looked up as `reason.<CODE>`. An unknown code falls back to `reason.GENERIC`.
 - Namespaces: new `Jobs` (Story 10.4), new `SubscriptionCap` (Story 10.3a, namespace fixed by that story), existing `ReextractPreview` extended (Story 10.6a, fixed here). Small additions to `Metadata` and `UserMenu`.
 - Paging labels come from the existing `Pagination` namespace, unchanged.
+- Two keys were added while building Story 10.4 and are in the blocks below: `Jobs.jobLoadError` (the single-job load error, "We could not load this job."; `loadError` is the list wording) and `Jobs.type.OTHER` (the label of a job type the copy has no entry for, from `JobType.OTHER`).
 
 ## 1. `Jobs` namespace (Story 10.4)
 
@@ -30,6 +31,7 @@ Companion to `EXPERIENCE.md`. Each block is valid JSON that can be merged into `
     "filteredEmptyTitle": "No jobs match these filters",
     "clearFilters": "Clear filters",
     "loadError": "We could not load your jobs.",
+    "jobLoadError": "We could not load this job.",
     "tryAgain": "Try again",
     "reconnecting": "Reconnecting. Showing the last known progress.",
     "notFound": "This job was not found.",
@@ -57,7 +59,8 @@ Companion to `EXPERIENCE.md`. Each block is valid JSON that can be merged into `
       "EXTRACT_FROM_URL": "Extracting from a post link",
       "EXTRACT_SELECTED_POSTS": "Extracting selected posts",
       "REEXTRACT_REFRESH": "Re-extracting a post",
-      "ADMIN_OPERATION": "Moderator operation"
+      "ADMIN_OPERATION": "Moderator operation",
+      "OTHER": "Background job"
     },
     "subject": {
       "account": "@{handle}",
@@ -258,6 +261,7 @@ Companion to `EXPERIENCE.md`. Each block is valid JSON that can be merged into `
     "filteredEmptyTitle": "Tidak ada tugas yang cocok dengan filter ini",
     "clearFilters": "Hapus filter",
     "loadError": "Kami tidak dapat memuat tugas Anda.",
+    "jobLoadError": "Kami tidak dapat memuat tugas ini.",
     "tryAgain": "Coba lagi",
     "reconnecting": "Menyambung kembali. Menampilkan kemajuan terakhir yang diketahui.",
     "notFound": "Tugas ini tidak ditemukan.",
@@ -285,7 +289,8 @@ Companion to `EXPERIENCE.md`. Each block is valid JSON that can be merged into `
       "EXTRACT_FROM_URL": "Mengekstrak dari tautan postingan",
       "EXTRACT_SELECTED_POSTS": "Mengekstrak postingan terpilih",
       "REEXTRACT_REFRESH": "Mengekstrak ulang postingan",
-      "ADMIN_OPERATION": "Operasi moderator"
+      "ADMIN_OPERATION": "Operasi moderator",
+      "OTHER": "Proses latar belakang"
     },
     "subject": {
       "account": "@{handle}",

@@ -3775,6 +3775,15 @@ This document defines the core architectural invariants for the FestDaily applic
         admitted job with no progress for 5 minutes (cancelled with a plain reason) instead of returning its id; every other type keeps
         plain reuse. Dispatch to the two result stores (`jobs` and `manual_extraction_jobs`, for rows written before the change) lives
         in `reextract-preview-job.ts` until Story 10.9 decides (PRD OI-4).
+    18. **The Jobs read API and the Jobs page (Story 10.4, FR123, FR130).** `job`, `myJobs` and `activeJobs` (`requireAuth` first, no `userId`
+        argument) read `jobs` through `read-jobs.ts`, which reads `input` and `result_data` only through named JSON paths and never whole
+        (a held caption and the preview live there, Rule 17; `jobs-read-no-whole-json.ratchet.test.ts` pins it), shows vendor names, attempts
+        and the engine's own message to a moderator only, and answers `null` for another user's job, a system job or a job past retention.
+        `retryJob` starts a new job through a per-type retry starter registered by the type's adoption story (`job-retry-registry.ts`; a type
+        with none is not retryable, and Retry never copies `input.held`). Retention is **hide-only** (owner decision 2026-11-13): a terminal
+        job older than `JOBS_HISTORY_RETENTION_DAYS` (default 30, measured from `finished_at`) is hidden from every read and nothing is
+        deleted; a physical delete is a follow-up. The Jobs page pages its Finished list with Previous and Next through
+        `useListPaginationController` (AD-18 Rule 4), not infinite scroll (owner-confirmed 2026-11-13).
 *   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
     Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
     (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the
