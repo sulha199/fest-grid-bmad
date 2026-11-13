@@ -817,6 +817,9 @@ export class FestgridBackendStack extends cdk.Stack {
       fn.addEnvironment('JOB_QUEUE_MAX_WAIT_MINUTES', process.env.JOB_QUEUE_MAX_WAIT_MINUTES || '30');
       fn.addEnvironment('MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', process.env.MAX_SUBSCRIBED_ACCOUNTS_FREE_USER || '5');
     }
+    // Story 10.4 (FR123) -- how long a finished job stays listed. Only the API Lambda reads jobs for a client, and the rule is hide-only
+    // (nothing is deleted; a physical delete is a follow-up for the owner), so no worker carries it.
+    apiLambda.addEnvironment('JOBS_HISTORY_RETENTION_DAYS', process.env.JOBS_HISTORY_RETENTION_DAYS || '30');
 
     // Scraper needs to enqueue onto AIProcessingQueue too (Story 3.6z, automatic extraction
     // on scrape) -- same prod-incident lesson as above: a queue-URL env var with no matching

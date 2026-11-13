@@ -101,6 +101,7 @@ test('rehostPostImage integration/unit tests', async (t) => {
     maxConcurrentJobsPerUser: 3,
     maxQueuedJobsPerUser: 10,
     jobQueueMaxWaitMinutes: 30,
+    jobsHistoryRetentionDays: 30,
     maxSubscribedAccountsFreeUser: 5,
     faceBlurMinRemainingTimeMs: 60000,
     blurFacesBeforeAi: false,

@@ -1184,6 +1184,8 @@ test('FestgridBackendStack: the job engine wiring (Story 10.1a)', () => {
       assert.equal(envOf(fn).JOB_QUEUE_MAX_WAIT_MINUTES, '30', `${stageName}: ${name} JOB_QUEUE_MAX_WAIT_MINUTES`);
       assert.equal(envOf(fn).MAX_SUBSCRIBED_ACCOUNTS_FREE_USER, '5', `${stageName}: ${name} MAX_SUBSCRIBED_ACCOUNTS_FREE_USER`);
     }
+    // (c3) Story 10.4: the Jobs history retention (hide-only) reaches the API Lambda, the only reader of jobs for a client
+    assert.equal(envOf(apiFn).JOBS_HISTORY_RETENTION_DAYS, '30', `${stageName}: API JOBS_HISTORY_RETENTION_DAYS`);
 
     // (c3) Story 10.3: each worker can start a job hosted on itself (resource policy, no Ref cycle) and knows which host it is
     assert.equal(envOf(scraperFn).JOB_HOST_SELF, 'scraper', `${stageName}: Scraper JOB_HOST_SELF`);
