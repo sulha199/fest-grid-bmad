@@ -44,3 +44,11 @@ export function deriveJobSteps(input: {
   const currentIndex = phaseIndex !== -1 ? phaseIndex : Math.max(0, phases.findIndex((key) => !skipped.has(key)));
   return phases.map((key, index) => step(key, index < currentIndex ? "DONE" : index === currentIndex ? "CURRENT" : "PENDING"));
 }
+
+/**
+ * The status a user sees. A QUEUED job that was already admitted holds a place and runs as soon as a worker claims it, so it reads
+ * RUNNING; only a QUEUED job still waiting for a place (never admitted) reads QUEUED, and only that one has a queue position.
+ */
+export function deriveVisibleJobStatus(status: JobStatus, admittedAt: Date | null): JobStatus {
+  return status === "QUEUED" && admittedAt !== null ? "RUNNING" : status;
+}

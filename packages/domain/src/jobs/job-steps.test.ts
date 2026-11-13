@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { JOB_STATUSES } from "./job-engine.js";
-import { deriveJobSteps } from "./job-steps.js";
+import { deriveJobSteps, deriveVisibleJobStatus } from "./job-steps.js";
 import { getJobTypePresentation } from "./job-presentation.js";
 import { REEXTRACT_POST_JOB_TYPE } from "./reextract-post.js";
 
@@ -54,4 +54,14 @@ test("a type with no phases has no steps in any status; counts are null", () => 
   const [first] = deriveJobSteps({ presentation, status: "RUNNING", phase: "refresh", hasStarted: true, facts });
   assert.equal(first.done, null);
   assert.equal(first.total, null);
+});
+
+test("deriveVisibleJobStatus: an admitted QUEUED job reads RUNNING; a waiting one stays QUEUED; nothing else changes", () => {
+  const at = new Date();
+  assert.equal(deriveVisibleJobStatus("QUEUED", at), "RUNNING");
+  assert.equal(deriveVisibleJobStatus("QUEUED", null), "QUEUED");
+  for (const status of JOB_STATUSES.filter((s) => s !== "QUEUED")) {
+    assert.equal(deriveVisibleJobStatus(status, at), status);
+    assert.equal(deriveVisibleJobStatus(status, null), status);
+  }
 });
