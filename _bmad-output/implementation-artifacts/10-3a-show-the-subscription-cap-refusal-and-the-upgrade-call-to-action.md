@@ -7,7 +7,7 @@ baseline_commit: 42d7f27d7aa3b7e0cf0a3255a32b2c35f2e1441d
 
 - Epic: 10 (Background vendor jobs: one engine, one Jobs page)
 - Story ID: 10.3a
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -31,36 +31,36 @@ so that I understand why it did not work and what will change later.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: `UpgradeCta` primitive in `packages/ui/src/core/`** (AC: 3, 4, 6, 7)
-  - [ ] Add `upgrade-cta.tsx` and `upgrade-cta.types.ts` (+ test). Props: `label`, `comingSoonLabel`, `note`, `afterClickNote`, `onShown?`, `onClick?`, `className?` (plain strings, no `labels` object, no `next-intl`, no analytics import). Renders a `Button` (existing `core/ui/button`) with `min-h-11`, full width below `sm:`, the badge as text, the note in a `<p id={useId()}>` that is also the button's `aria-describedby` and a polite live region; one internal `clicked` flag swaps `note` for `afterClickNote`; the button never becomes disabled.
-  - [ ] `onShown` fires once on first mount (a ref guard, so React StrictMode's double effect fires it once); `onClick` fires on every click. Use the amber/violet tokens of `DESIGN.md` (`upgrade_cta`); no raw `z-*` class (AD-33), no new tier.
-  - [ ] Export from `packages/ui/src/index.ts`. Tests: shows label, badge and note; click swaps the note and keeps the button focusable and enabled; `aria-describedby` points at the note; `onShown` once across re-renders and under StrictMode; `onClick` on every click; no `disabled` and no `aria-disabled` attribute ever.
-- [ ] **Task 2: `SubscriptionCapNotice` in `packages/ui/src/features/subscriptions/`** (AC: 1, 3, 5, 6, 7)
-  - [ ] Add `SubscriptionCapNotice.tsx` + `.types.ts` + test, exported from the folder barrel. Props: `refusal { activeCount, reservedCount, cap }`, a `labels` object of plain strings (`title`, `body`, `hint`, `blockedNote`, `upgradeButton`, `comingSoonBadge`, `comingSoonNote`, `afterClickNote`, `manageLink`), `variant: 'inline' | 'dialog'`, optional `blockedNote` visibility flag, optional `manageHref` (the link renders only when given, the app builds it), `onUpgradeShown`, `onUpgradeClick`. The app resolves the `body` sentence (plural, numbers) with next-intl and passes it as a string; the component never imports `next-intl`.
-  - [ ] Inline variant: `role="status"`, focuses its title on mount (`tabIndex={-1}`), the visually hidden `announce` text is the one thing read; dialog variant: no `role="status"` (the dialog announces its title), no auto-focus of its own. Amber `job_notice.limits`-style box (`DESIGN.md` `subscription_cap_notice`), `min-w-0`, long text wraps.
-  - [ ] Tests: counts and plural variants (`reservedCount` 0, 1, 2; above the cap 7 of 5; Indonesian), focus and role per variant, the Upgrade child wired, no `next-intl` import (a scan, like the Story 10.4 ui components).
-- [ ] **Task 3: One error reader and one hook in `apps/web/src/features/subscriptions/`** (AC: 1, 2, 4, 8)
-  - [ ] `subscription-cap-error.ts`: `readSubscriptionCapRefusal(err): { activeCount, reservedCount, cap } | null`, built on the existing `mapJobStartError` (Story 10.4; accepts a thrown `ClientError` or a start result), so there is one reader and `JOB_QUEUE_FULL`, cooldown and generic answers stay with that helper. A refusal needs a numeric `cap`; missing counts read as 0. No new parser. Test: thrown `ClientError`, start result, missing numbers, other codes, a network error, `SCRAPER_CAPACITY_EXCEEDED` (must return null).
-  - [ ] `use-subscription-cap-refusal.ts`: `{ refusal, surface, accountId, show(err, ctx) -> boolean, clear() }` plus an id that increments per refusal (so "shown once per refusal" re-mounts the notice). `show` returns `true` when the error was a cap refusal (the caller then skips its generic toast) and `false` otherwise. Test with a fake mutation error.
-  - [ ] `subscription-cap-analytics.ts` (pattern of `features/jobs/job-analytics.ts`): `trackSubscriptionCapUpgradeShown` and `trackSubscriptionCapUpgradeClicked` over `capturePostHogEvent`; properties `currentSubscriptionCount`, `reservedCount`, `cap`, `surface` and `accountId` only when defined. `surface` is one of `subscribe_dialog`, `onboarding_wizard`, `event_detail_source`, `event_detail_coauthor`, `restore`, `job_retry` (a string union exported for the callers). Test: exact payloads, `accountId` omitted when unknown, no handle or name ever.
-  - [ ] `SubscriptionCapNoticeConnected.tsx` (apps/web): resolves the `SubscriptionCap` namespace with `useTranslations` and `next-intl` plural, builds `labels`, wires the two analytics callbacks and `manageHref` (`/settings/account`, through the app `Link`, only where the screen is not already that page). `SubscriptionCapDialog.tsx`: the apps/web `Dialog` (`@/components/ui/dialog`, `OVERLAY_MODAL_Z` through it, bounded) with `dialogTitle`, the notice (`variant="dialog"`) and a `closeButton`; opens when `refusal` is set, `onOpenAutoFocus` puts focus on the title, closing calls `clear()`.
-- [ ] **Task 4: Wire the entry points** (AC: 1, 2, 8)
-  - [ ] Read each file in full first (see What exists today). `subscribe-account-dialog.tsx`: in the `catch`, `show(err, ...)` first; when it returns true skip the toast, keep the handle field, and render the inline notice (with `blockedNote`) in place of the Subscribe submit button while `refusal` stands; `onClose` clears it; the `SCRAPER_CAPACITY_EXCEEDED` and generic toasts stay for every other error. `accountId` is omitted here when the user typed a handle, and sent when they picked a voted-account suggestion (its profile's platform account id).
-  - [ ] `onboarding-subscribe-step.tsx`: same, inline below the form with the add button replaced by the notice; never calls `setStepCompleted` on a refusal; no `manageLink` (the wizard must not push the user away); `surface: onboarding_wizard`.
-  - [ ] `EventDetailWrapper.tsx`: in `onError` of the source-account and the coauthor subscribe mutations, `show(err, { surface, accountId })` (the profile's or coauthor's `accountId`) and open `SubscriptionCapDialog`; keep the existing live message and the sanitized `subscription_toggle_failed` event (its `errorCode` will read `SUBSCRIPTION_CAP_REACHED`, unchanged), but swap the generic `subscribeErrorAnnouncement` for the notice's own announcement when it is a cap refusal. The unsubscribe mutations are untouched. Nothing optimistic exists to roll back (confirm-then-refetch, Story 0.i6g).
-  - [ ] Restore: in `subscriptions-content.tsx` and `posts-select-content.tsx`, the Undo callback catches a cap refusal, calls `show(err, { surface: 'restore', accountId })`, shows the short `restoreFailedToast` (with `cap`) and opens `SubscriptionCapDialog`, then rethrows so `useSoftDeleteWithUndo` keeps the row removed; any other error behaves as today. Verify in the test that the row stays removed and the list is not refetched as restored.
-  - [ ] Fill the Story 10.4 slots: `JobRetryFailureNotice` renders `SubscriptionCapNoticeConnected` (`variant="inline"`, `surface: job_retry`, `accountId` from the job's subject when it has one) for `kind: 'cap'` by default; keep the `renderCapNotice` prop only as an override seam. `JobProgressHost` and the job detail page need no other change (the detail page's `notice` slot already renders `JobRetryFailureNotice`). Update the two Story 10.4 tests that pinned the generic fallback (`job-progress-host.test.tsx` around the cap case and `job-detail-content.test.tsx` around the `SUBSCRIPTION_CAP_REACHED` result) to assert the real notice.
-- [ ] **Task 5: Copy** (AC: 5)
-  - [ ] Add the `SubscriptionCap` namespace to `apps/web/locales/en.json` and `id.json` exactly as `copy-keys.md` section 2 gives it (plural forms included). `locales.test.ts` already checks parity; extend it with: the namespace exists in both, every key of the list, `body` renders for 0, 1 and 2 reserved in both languages, and no `[OPEN` text. Keep `body` and `announce` as the only keys with placeholders.
-- [ ] **Task 6: Tests** (AC: 1 to 9; project Definition of Done)
-  - [ ] Component and hook tests (Vitest, msw or a faked mutation as the neighbours do): per entry point a test that a refusal shows the notice with the right numbers and no generic toast, that the blocked action stays blocked, that a non-cap error behaves as before, and that analytics fire once on show and on each click with the exact properties. Unhappy path: network error (no notice, no event); a refusal whose extensions lack `cap` (generic); a refusal while the dialog is already open (updates in place, still one shown event per refusal).
-  - [ ] `subscription-cap-entry-points.ratchet.test.ts` (source scan, `apps/web/src`): every non-test file that uses `useSubscribeToAccountMutation` or the `RESTORE` action imports `readSubscriptionCapRefusal` or `useSubscriptionCapRefusal` (a reasoned allowlist that can only shrink); the votes route and every account-vote hook/file never import them (votes are never blocked). Say in the test header that the moderator exemption is server-side and proven by Story 10.3's real-Postgres tests.
-- [ ] **Task 7: Playwright** (AC: 7, 8)
-  - [ ] `apps/web/e2e/subscription-cap.spec.ts`, signed in with `E2E_FAKE_AUTH=1` on the local stack. A real refusal needs a fifth real subscribe, which would start the classify-then-scrape cascade (a vendor call), and that is forbidden here; so the spec answers the `SubscribeToAccount` GraphQL operation with the typed refusal through `page.route` and never lets the request reach the server (the server side of the refusal, including the moderator exemption, is Story 10.3's real-Postgres suite). Scenarios: (1) Account Settings, open the Subscribe dialog, submit, the inline notice shows "You have 4 accounts added and 1 more being added. The limit is 5." (exact text) with the Upgrade button, "Coming soon" and the note, the Subscribe button is gone and the handle field and Close remain; (2) tap Upgrade, the note changes and the button stays enabled and focusable; (3) the same in Indonesian (`/id/...`); (4) Close and reopen: the notice is gone; (5) a routed non-cap error still shows the generic toast and no notice; (6) the votes page loads and its vote action sends no cap handling (no cap notice can appear: nothing to route, the check is that the page has no Upgrade button after a routed refusal of a subscribe on another page).
-  - [ ] `responsive-popups.spec.ts`: a scenario that opens the Subscribe dialog, routes the refusal, and asserts the opened dialog fits the viewport, scrolls inside itself and has no `scrollWidth > clientWidth`, at 320 px with an Indonesian locale; and a second for the event page's small cap dialog (both the modal route and the direct page, per the project rule). `responsive-overflow.spec.ts`: the Settings account page with the dialog open and refused, at every width; add the wizard subscribe step if its route is reachable under fake auth, otherwise cover its 320 px layout with a component test using the longest Indonesian body.
-- [ ] **Task 8: Documentation pointers** (AC: 1, 4)
-  - [ ] PRD Section 6 "Upgrade CTA & Analytics": add one sentence that the two events also carry `reservedCount`, `cap` and `surface`, and that `accountId` is sent only when known (owner-confirmed UX decision 7). One pointer sentence in `project-context.md` (UI Patterns): a subscribe or restore refused with `SUBSCRIPTION_CAP_REACHED` is shown by `SubscriptionCapNotice` through `useSubscriptionCapRefusal`, never a generic toast, and the Upgrade button is the core `UpgradeCta`. `copy-keys.md` already holds the copy (fold in any wording change made while building). `docs/infrastructure/*` is untouched: no service, queue, Lambda, table, scraper, database, host or library is added.
-  - [ ] Dev Agent Record: list the entry points actually found, the `surface` values used, and the sprint status move.
+- [x] **Task 1: `UpgradeCta` primitive in `packages/ui/src/core/`** (AC: 3, 4, 6, 7)
+  - [x] Add `upgrade-cta.tsx` and `upgrade-cta.types.ts` (+ test). Props: `label`, `comingSoonLabel`, `note`, `afterClickNote`, `onShown?`, `onClick?`, `className?` (plain strings, no `labels` object, no `next-intl`, no analytics import). Renders a `Button` (existing `core/ui/button`) with `min-h-11`, full width below `sm:`, the badge as text, the note in a `<p id={useId()}>` that is also the button's `aria-describedby` and a polite live region; one internal `clicked` flag swaps `note` for `afterClickNote`; the button never becomes disabled.
+  - [x] `onShown` fires once on first mount (a ref guard, so React StrictMode's double effect fires it once); `onClick` fires on every click. Use the amber/violet tokens of `DESIGN.md` (`upgrade_cta`); no raw `z-*` class (AD-33), no new tier.
+  - [x] Export from `packages/ui/src/index.ts`. Tests: shows label, badge and note; click swaps the note and keeps the button focusable and enabled; `aria-describedby` points at the note; `onShown` once across re-renders and under StrictMode; `onClick` on every click; no `disabled` and no `aria-disabled` attribute ever.
+- [x] **Task 2: `SubscriptionCapNotice` in `packages/ui/src/features/subscriptions/`** (AC: 1, 3, 5, 6, 7)
+  - [x] Add `SubscriptionCapNotice.tsx` + `.types.ts` + test, exported from the folder barrel. Props: `refusal { activeCount, reservedCount, cap }`, a `labels` object of plain strings (`title`, `body`, `hint`, `blockedNote`, `upgradeButton`, `comingSoonBadge`, `comingSoonNote`, `afterClickNote`, `manageLink`), `variant: 'inline' | 'dialog'`, optional `blockedNote` visibility flag, optional `manageHref` (the link renders only when given, the app builds it), `onUpgradeShown`, `onUpgradeClick`. The app resolves the `body` sentence (plural, numbers) with next-intl and passes it as a string; the component never imports `next-intl`.
+  - [x] Inline variant: `role="status"`, focuses its title on mount (`tabIndex={-1}`), the visually hidden `announce` text is the one thing read; dialog variant: no `role="status"` (the dialog announces its title), no auto-focus of its own. Amber `job_notice.limits`-style box (`DESIGN.md` `subscription_cap_notice`), `min-w-0`, long text wraps.
+  - [x] Tests: counts and plural variants (`reservedCount` 0, 1, 2; above the cap 7 of 5; Indonesian), focus and role per variant, the Upgrade child wired, no `next-intl` import (a scan, like the Story 10.4 ui components).
+- [x] **Task 3: One error reader and one hook in `apps/web/src/features/subscriptions/`** (AC: 1, 2, 4, 8)
+  - [x] `subscription-cap-error.ts`: `readSubscriptionCapRefusal(err): { activeCount, reservedCount, cap } | null`, built on the existing `mapJobStartError` (Story 10.4; accepts a thrown `ClientError` or a start result), so there is one reader and `JOB_QUEUE_FULL`, cooldown and generic answers stay with that helper. A refusal needs a numeric `cap`; missing counts read as 0. No new parser. Test: thrown `ClientError`, start result, missing numbers, other codes, a network error, `SCRAPER_CAPACITY_EXCEEDED` (must return null).
+  - [x] `use-subscription-cap-refusal.ts`: `{ refusal, surface, accountId, show(err, ctx) -> boolean, clear() }` plus an id that increments per refusal (so "shown once per refusal" re-mounts the notice). `show` returns `true` when the error was a cap refusal (the caller then skips its generic toast) and `false` otherwise. Test with a fake mutation error.
+  - [x] `subscription-cap-analytics.ts` (pattern of `features/jobs/job-analytics.ts`): `trackSubscriptionCapUpgradeShown` and `trackSubscriptionCapUpgradeClicked` over `capturePostHogEvent`; properties `currentSubscriptionCount`, `reservedCount`, `cap`, `surface` and `accountId` only when defined. `surface` is one of `subscribe_dialog`, `onboarding_wizard`, `event_detail_source`, `event_detail_coauthor`, `restore`, `job_retry` (a string union exported for the callers). Test: exact payloads, `accountId` omitted when unknown, no handle or name ever.
+  - [x] `SubscriptionCapNoticeConnected.tsx` (apps/web): resolves the `SubscriptionCap` namespace with `useTranslations` and `next-intl` plural, builds `labels`, wires the two analytics callbacks and `manageHref` (`/settings/account`, through the app `Link`, only where the screen is not already that page). `SubscriptionCapDialog.tsx`: the apps/web `Dialog` (`@/components/ui/dialog`, `OVERLAY_MODAL_Z` through it, bounded) with `dialogTitle`, the notice (`variant="dialog"`) and a `closeButton`; opens when `refusal` is set, `onOpenAutoFocus` puts focus on the title, closing calls `clear()`.
+- [x] **Task 4: Wire the entry points** (AC: 1, 2, 8)
+  - [x] Read each file in full first (see What exists today). `subscribe-account-dialog.tsx`: in the `catch`, `show(err, ...)` first; when it returns true skip the toast, keep the handle field, and render the inline notice (with `blockedNote`) in place of the Subscribe submit button while `refusal` stands; `onClose` clears it; the `SCRAPER_CAPACITY_EXCEEDED` and generic toasts stay for every other error. `accountId` is omitted here when the user typed a handle, and sent when they picked a voted-account suggestion (its profile's platform account id).
+  - [x] `onboarding-subscribe-step.tsx`: same, inline below the form with the add button replaced by the notice; never calls `setStepCompleted` on a refusal; no `manageLink` (the wizard must not push the user away); `surface: onboarding_wizard`.
+  - [x] `EventDetailWrapper.tsx`: in `onError` of the source-account and the coauthor subscribe mutations, `show(err, { surface, accountId })` (the profile's or coauthor's `accountId`) and open `SubscriptionCapDialog`; keep the existing live message and the sanitized `subscription_toggle_failed` event (its `errorCode` will read `SUBSCRIPTION_CAP_REACHED`, unchanged), but swap the generic `subscribeErrorAnnouncement` for the notice's own announcement when it is a cap refusal. The unsubscribe mutations are untouched. Nothing optimistic exists to roll back (confirm-then-refetch, Story 0.i6g).
+  - [x] Restore: in `subscriptions-content.tsx` and `posts-select-content.tsx`, the Undo callback catches a cap refusal, calls `show(err, { surface: 'restore', accountId })`, shows the short `restoreFailedToast` (with `cap`) and opens `SubscriptionCapDialog`, then rethrows so `useSoftDeleteWithUndo` keeps the row removed; any other error behaves as today. Verify in the test that the row stays removed and the list is not refetched as restored.
+  - [x] Fill the Story 10.4 slots: `JobRetryFailureNotice` renders `SubscriptionCapNoticeConnected` (`variant="inline"`, `surface: job_retry`, `accountId` from the job's subject when it has one) for `kind: 'cap'` by default; keep the `renderCapNotice` prop only as an override seam. `JobProgressHost` and the job detail page need no other change (the detail page's `notice` slot already renders `JobRetryFailureNotice`). Update the two Story 10.4 tests that pinned the generic fallback (`job-progress-host.test.tsx` around the cap case and `job-detail-content.test.tsx` around the `SUBSCRIPTION_CAP_REACHED` result) to assert the real notice.
+- [x] **Task 5: Copy** (AC: 5)
+  - [x] Add the `SubscriptionCap` namespace to `apps/web/locales/en.json` and `id.json` exactly as `copy-keys.md` section 2 gives it (plural forms included). `locales.test.ts` already checks parity; extend it with: the namespace exists in both, every key of the list, `body` renders for 0, 1 and 2 reserved in both languages, and no `[OPEN` text. Keep `body` and `announce` as the only keys with placeholders.
+- [x] **Task 6: Tests** (AC: 1 to 9; project Definition of Done)
+  - [x] Component and hook tests (Vitest, msw or a faked mutation as the neighbours do): per entry point a test that a refusal shows the notice with the right numbers and no generic toast, that the blocked action stays blocked, that a non-cap error behaves as before, and that analytics fire once on show and on each click with the exact properties. Unhappy path: network error (no notice, no event); a refusal whose extensions lack `cap` (generic); a refusal while the dialog is already open (updates in place, still one shown event per refusal).
+  - [x] `subscription-cap-entry-points.ratchet.test.ts` (source scan, `apps/web/src`): every non-test file that uses `useSubscribeToAccountMutation` or the `RESTORE` action imports `readSubscriptionCapRefusal` or `useSubscriptionCapRefusal` (a reasoned allowlist that can only shrink); the votes route and every account-vote hook/file never import them (votes are never blocked). Say in the test header that the moderator exemption is server-side and proven by Story 10.3's real-Postgres tests.
+- [x] **Task 7: Playwright** (AC: 7, 8)
+  - [x] `apps/web/e2e/subscription-cap.spec.ts`, signed in with `E2E_FAKE_AUTH=1` on the local stack. A real refusal needs a fifth real subscribe, which would start the classify-then-scrape cascade (a vendor call), and that is forbidden here; so the spec answers the `SubscribeToAccount` GraphQL operation with the typed refusal through `page.route` and never lets the request reach the server (the server side of the refusal, including the moderator exemption, is Story 10.3's real-Postgres suite). Scenarios: (1) Account Settings, open the Subscribe dialog, submit, the inline notice shows "You have 4 accounts added and 1 more being added. The limit is 5." (exact text) with the Upgrade button, "Coming soon" and the note, the Subscribe button is gone and the handle field and Close remain; (2) tap Upgrade, the note changes and the button stays enabled and focusable; (3) the same in Indonesian (`/id/...`); (4) Close and reopen: the notice is gone; (5) a routed non-cap error still shows the generic toast and no notice; (6) the votes page loads and its vote action sends no cap handling (no cap notice can appear: nothing to route, the check is that the page has no Upgrade button after a routed refusal of a subscribe on another page).
+  - [x] `responsive-popups.spec.ts`: a scenario that opens the Subscribe dialog, routes the refusal, and asserts the opened dialog fits the viewport, scrolls inside itself and has no `scrollWidth > clientWidth`, at 320 px with an Indonesian locale; and a second for the event page's small cap dialog (both the modal route and the direct page, per the project rule). `responsive-overflow.spec.ts`: the Settings account page with the dialog open and refused, at every width; add the wizard subscribe step if its route is reachable under fake auth, otherwise cover its 320 px layout with a component test using the longest Indonesian body.
+- [x] **Task 8: Documentation pointers** (AC: 1, 4)
+  - [x] PRD Section 6 "Upgrade CTA & Analytics": add one sentence that the two events also carry `reservedCount`, `cap` and `surface`, and that `accountId` is sent only when known (owner-confirmed UX decision 7). One pointer sentence in `project-context.md` (UI Patterns): a subscribe or restore refused with `SUBSCRIPTION_CAP_REACHED` is shown by `SubscriptionCapNotice` through `useSubscriptionCapRefusal`, never a generic toast, and the Upgrade button is the core `UpgradeCta`. `copy-keys.md` already holds the copy (fold in any wording change made while building). `docs/infrastructure/*` is untouched: no service, queue, Lambda, table, scraper, database, host or library is added.
+  - [x] Dev Agent Record: list the entry points actually found, the `surface` values used, and the sprint status move.
 
 ## Dev Notes
 
@@ -158,17 +158,17 @@ so that I understand why it did not work and what will change later.
 
 ## Testing Requirements
 
-- [ ] Integration tests: component and hook tests for `UpgradeCta`, `SubscriptionCapNotice`, the reader, the hook, analytics payloads, each entry point (refusal shown with numbers, action stays blocked, non-cap error unchanged, network error shows no notice and no event), the Retry notice in the dialog and on the detail page, locale parity; the entry-point source-scan ratchet (votes never import the cap handling)
-- [ ] E2E tests: `subscription-cap.spec.ts` (routed typed refusal, English and Indonesian, Upgrade click, reopen clears, non-cap error unchanged), a scenario in `responsive-popups.spec.ts` (dialog fits at 320 px, no inner overflow) and the overflow matrix entry; no vendor call, no Lambda
+- [x] Integration tests: component and hook tests for `UpgradeCta`, `SubscriptionCapNotice`, the reader, the hook, analytics payloads, each entry point (refusal shown with numbers, action stays blocked, non-cap error unchanged, network error shows no notice and no event), the Retry notice in the dialog and on the detail page, locale parity; the entry-point source-scan ratchet (votes never import the cap handling)
+- [x] E2E tests: `subscription-cap.spec.ts` (routed typed refusal, English and Indonesian, Upgrade click, reopen clears, non-cap error unchanged), a scenario in `responsive-popups.spec.ts` (dialog fits at 320 px, no inner overflow) and the overflow matrix entry; no vendor call, no Lambda
 
 ## Deliverables Checklist
 
-- [ ] `UpgradeCta` core primitive and `SubscriptionCapNotice` in `packages/ui`
-- [ ] Error reader, hook, analytics and connected notice and dialog in `apps/web/src/features/subscriptions/`
-- [ ] All entry points wired (Subscribe dialog, wizard step, event page source and coauthor, two restores, Retry notice in dialog and detail page)
-- [ ] `SubscriptionCap` copy in English and Indonesian with parity tests
-- [ ] The two events with the agreed properties
-- [ ] e2e, responsive scenarios, ratchet, PRD sentence and project-context pointer
+- [x] `UpgradeCta` core primitive and `SubscriptionCapNotice` in `packages/ui`
+- [x] Error reader, hook, analytics and connected notice and dialog in `apps/web/src/features/subscriptions/`
+- [x] All entry points wired (Subscribe dialog, wizard step, event page source and coauthor, two restores, Retry notice in dialog and detail page)
+- [x] `SubscriptionCap` copy in English and Indonesian with parity tests
+- [x] The two events with the agreed properties
+- [x] e2e, responsive scenarios, ratchet, PRD sentence and project-context pointer
 
 ## Out of Scope
 
@@ -180,22 +180,75 @@ so that I understand why it did not work and what will change later.
 
 ## Definition of Done
 
-- [ ] AC satisfaction
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Built and ready for review (2026-11-13)
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-Not yet implemented.
+Recorded in the session transcript (no model identifier is kept in repo files).
 
 ### Debug Log References
 
+- The build started on the owner's delegation (the product owner asked for this story to be built); the Pre-Coding Approval Gate boxes are deliberately left unticked.
+- Sprint status: `ready-for-dev` to `in-progress` at the start, `in-progress` to `review` at the end (`scripts/sprint-status-tool.py`).
+- The Subscribe dialog's voted-account suggestion list opens under the handle field and sits over the Subscribe button (existing behaviour, not changed here), so the e2e specs submit with Enter instead of a click.
+- `posts-select-content.test.tsx` mocked `sonner` with a non-callable `toast`; it is now a callable that also carries `error/success/warning/dismiss`, so the Undo toast can be pressed in a test.
+- Web typecheck still reports the errors it had before this story (43 at the start, 38 now, none in the files this story touched except pre-existing mock-typing lines that only moved).
+
 ### Completion Notes List
 
+**Built**
+- `UpgradeCta` (`packages/ui/src/core`): props-driven button with the "coming soon" badge, a polite live-region note that doubles as `aria-describedby`, never disabled; `onShown` fires once (ref guard, StrictMode safe), `onClick` on every click.
+- `SubscriptionCapNotice` (`packages/ui/src/features/subscriptions`): amber notice, `inline` (status region with the hidden announce text, focus on the title) or `dialog` (no title, no status, no focus grab) variant, optional blocked note and manage link (rendered through an injectable `renderLink`).
+- apps/web `features/subscriptions`: `readSubscriptionCapRefusal` (on top of `mapJobStartError`, a refusal needs a numeric `cap`), `useSubscriptionCapRefusal` (state, `show` returns true for a cap refusal, a per-refusal id), `subscription-cap-analytics.ts` (the two events), `SubscriptionCapNoticeConnected` (copy, plural, analytics, app `Link`, keyed by the refusal id), `SubscriptionCapDialog` (apps/web `Dialog`, plain dialog, title focused, bounded), and `useRestoreCapRefusal` (shared by the two Undo places).
+- Copy: `SubscriptionCap` namespace in `en.json` and `id.json` exactly as `copy-keys.md` section 2 gives it.
+- Entry points found and wired: Subscribe dialog in Account Settings (inline, replaces the Subscribe button, Enter in the field is a no-op while the refusal stands); onboarding subscribe step (inline, no manage link, never completes the step); event page source-account toggle and coauthor toggle (`EventDetailWrapper`, small dialog, live message swapped for the notice's announce text, `subscription_toggle_failed` unchanged); Undo of a removed subscription in the Subscriptions list and in Post Selection (dialog plus `restoreFailedToast`, error rethrown so the row stays removed); Retry notice (`JobRetryFailureNotice` now renders the real notice by default; `renderCapNotice` kept as an override seam; progress host and job detail page pass the subject's account id).
+- `surface` values used: `subscribe_dialog`, `onboarding_wizard`, `event_detail_source`, `event_detail_coauthor`, `restore`, `job_retry`.
+- Docs: PRD Section 6 sentence on the extra event properties; one pointer paragraph in `project-context.md` (UI Patterns). `copy-keys.md` needed no wording change. `docs/infrastructure/*` untouched (nothing added).
+
+**Decisions and deviations**
+- The ui notice renders its hidden announce text in its own `role="status"` element beside the title, instead of making the whole visible box the status region, so the screen reader reads one sentence (the announce text) and not title plus body twice.
+- In the dialog variant the notice has no title of its own; the dialog title (`dialogTitle`) is the heading and gets the focus (a duplicate title would read twice). `SubscriptionCapDialog` hides the corner X so there is one Close button (`closeButton`).
+- While a refusal stands in the Subscribe dialog and the wizard, submitting the form (Enter in the field) does nothing, so the blocked action really stays blocked; a refusal while a notice is open is still handled in place by the hook (tested at the hook level).
+- `accountId` is dropped when it equals the account's handle (a handle-keyed platform id), so a handle is never sent as `accountId` (stricter than the story text; one comparison in the hook and in the Retry notice).
+- The ratchet's vote scan does not count `useVotedAccountSuggestionsQuery`: the Subscribe dialog reads those suggestions and is itself a subscribe entry point. Cast and withdraw vote code, vote files and the votes route are scanned.
+- The wizard route is not in the overflow matrix; its 320 px layout is covered by a component test (wrap and full-width classes with the longest Indonesian body), plus the dialog-open Settings page in the overflow matrix and the three new popup scenarios.
+- No backend, schema, migration, generated-type or infrastructure change.
+
+**Gates run**
+- `@festgrid/ui` Vitest, all: 81 files, 1731 tests passed. ui lint (`--max-warnings 0`) on the touched files: clean.
+- `web` Vitest, all (includes locales parity, the new ratchet, Story 10.4's updated cap tests): 106 files, 948 tests passed.
+- New or changed web unit and component tests: reader, hook, analytics, connected notice and dialog (English and Indonesian), Subscribe dialog, wizard step, Subscriptions list Undo, Post Selection Undo, event page source and coauthor, progress host and job detail Retry, locales.
+- `web` lint: exit clean (warnings are the existing ones; the new files have none). `pnpm --filter web build`: passed.
+- Playwright (`E2E_FAKE_AUTH=1`, local stack, routed refusal, no vendor call, no Lambda): `subscription-cap.spec.ts` 6 passed; `responsive-popups.spec.ts` new scenarios 3 passed (Indonesian Subscribe dialog at five viewports, event page cap dialog direct and modal); `responsive-overflow.spec.ts` new scenario 1 passed (nine widths).
+- `sprint-status-comment-check.py` clean; `backlog-check.py` fails only check 14 (the location-keywords deferred-work section on master, not ours).
+
+**Not run**: the whole backend suite (no backend change), the rest of the existing e2e matrix, any real subscribe past the cap.
+
 ### File List
+
+- `packages/ui/src/core/upgrade-cta.tsx`, `upgrade-cta.types.ts`, `upgrade-cta.test.tsx` (new)
+- `packages/ui/src/features/subscriptions/SubscriptionCapNotice.tsx`, `SubscriptionCapNotice.types.ts`, `SubscriptionCapNotice.test.tsx` (new), `index.ts`
+- `packages/ui/src/index.ts`
+- `apps/web/src/features/subscriptions/subscription-cap-error.ts`, `use-subscription-cap-refusal.ts`, `use-restore-cap-refusal.ts`, `subscription-cap-analytics.ts`, `SubscriptionCapNoticeConnected.tsx`, `SubscriptionCapDialog.tsx` and their tests, `subscription-cap-entry-points.ratchet.test.ts` (all new)
+- `apps/web/src/app/[locale]/settings/account/subscribe-account-dialog.tsx` (+ test), `subscriptions-content.tsx` (+ test)
+- `apps/web/src/app/[locale]/posts/select/posts-select-content.tsx` (+ test)
+- `apps/web/src/features/onboarding/onboarding-subscribe-step.tsx` (+ test)
+- `apps/web/src/features/events/EventDetailWrapper.tsx` (+ test)
+- `apps/web/src/features/jobs/job-retry-failure-notice.tsx`, `job-progress-host.tsx` (+ test)
+- `apps/web/src/app/[locale]/jobs/[jobId]/job-detail-content.tsx` (+ test)
+- `apps/web/locales/en.json`, `id.json`, `locales.test.ts`
+- `apps/web/e2e/subscription-cap.spec.ts` (new), `responsive-popups.spec.ts`, `responsive-overflow.spec.ts`
+- `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md`, `_bmad-output/project-context.md`
+- `_bmad-output/implementation-artifacts/sprint-status.yaml`, this story file
+
+## Change Log
+
+- 2026-11-13: Built Story 10.3a (show the subscription cap refusal and the upgrade call to action): UpgradeCta and SubscriptionCapNotice in packages/ui, one reader and hook in apps/web, every subscribe, restore and Retry entry point wired, copy in English and Indonesian, ratchet and e2e added, Story 10.4's cap slots filled.
