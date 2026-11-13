@@ -1,4 +1,5 @@
 import {
+  REEXTRACT_POST_JOB_TYPE,
   decideJobRetry,
   deriveJobOutcome,
   deriveJobSteps,
@@ -10,6 +11,7 @@ import {
   type JobStatus,
   type JobSubjectKind,
 } from '@festgrid/domain/jobs';
+import { REEXTRACT_IMAGE_ROLES, REEXTRACT_IMAGE_STATES, REEXTRACT_REFRESH_OUTCOMES, type ReextractImageRole, type ReextractImageState, type ReextractRefreshOutcome } from '@festgrid/domain/posts';
 import { hasJobRetryStarter } from './job-retry-registry.js';
 
 // Story 10.4 (Part A) -- turns a `jobs` row and the batched lookups of one page into the GraphQL `Job`. Pure: no query here. The row
@@ -37,6 +39,15 @@ export interface JobRowProjection {
   // named JSON paths (AC5)
   refreshOutcome?: string | null;
   refreshRetryAfter?: string | null;
+  // Story 10.6a -- the refresh report's named paths (moderator reads of a `refresh` selection only)
+  refreshSaved?: string | null;
+  refreshLateResultPending?: string | null;
+  refreshExpiredLinks?: string | null;
+  resultImagesAvailable?: string | null;
+  resultImagesSent?: string | null;
+  resultImageCap?: string | null;
+  /** The stored `images` array as the driver returned it (parsed, or its JSON text): never trusted, copied field by field. */
+  resultImages?: unknown;
   previewApplied?: boolean | null;
   inputPostId?: string | null;
   inputUrl?: string | null;
@@ -82,12 +93,86 @@ export interface JobMapContext {
   lookups: JobPageLookups;
   /** the GraphQL fields the client selected (leaf names of `Job`) */
   requested: ReadonlySet<string>;
+  /** The slide cap an old preview (no `imageCap` stored) is reported with. */
+  defaultPreviewImageCap: number;
 }
 
 function parseDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/** The most image entries one report carries (a post lists a cover and a few dozen slides at most): a hostile array cannot grow the response. */
+export const MAX_REFRESH_REPORT_IMAGES = 100;
+
+export interface JobRefreshImage {
+  position: number;
+  role: ReextractImageRole;
+  state: ReextractImageState;
+}
+
+export interface JobRefreshReportView {
+  outcome: ReextractRefreshOutcome;
+  saved: boolean;
+  lateResultPending: boolean;
+  retryAfter: Date | null;
+  expiredLinks: number;
+  images: JobRefreshImage[];
+  imagesAvailable: number;
+  imagesRead: number;
+  previewImageCap: number;
+}
+
+function nonNegativeInt(value: string | null | undefined): number | null {
+  if (value === null || value === undefined || !/^\d{1,9}$/.test(value)) return null;
+  return Number(value);
+}
+
+/** The stored `images` copied field by field: an entry with an unknown role or state, a bad position or any other shape is dropped, and the list is bounded. */
+export function mapRefreshImages(stored: unknown): JobRefreshImage[] {
+  let list = stored;
+  if (typeof list === 'string') {
+    try {
+      list = JSON.parse(list);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  const images: JobRefreshImage[] = [];
+  for (const entry of list.slice(0, MAX_REFRESH_REPORT_IMAGES)) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const { position, role, state } = entry as { position?: unknown; role?: unknown; state?: unknown };
+    if (typeof position !== 'number' || !Number.isInteger(position) || position < 0 || position > 10_000) continue;
+    if (!REEXTRACT_IMAGE_ROLES.includes(role as ReextractImageRole) || !REEXTRACT_IMAGE_STATES.includes(state as ReextractImageState)) continue;
+    images.push({ position, role: role as ReextractImageRole, state: state as ReextractImageState });
+  }
+  return images;
+}
+
+/**
+ * Story 10.6a (AC1, AC2) -- `Job.refresh`: the refresh report of a Re-extract job for a moderator, built only from the named paths of the
+ * row. Null for any other viewer, any other job type, a job that has not run its refresh phase and an outcome this build does not know.
+ */
+export function mapRefreshReport(row: JobRowProjection, ctx: JobMapContext): JobRefreshReportView | null {
+  if (!ctx.viewer.isModerator || !ctx.requested.has('refresh') || row.type !== REEXTRACT_POST_JOB_TYPE) return null;
+  const outcome = REEXTRACT_REFRESH_OUTCOMES.find((known) => known === row.refreshOutcome);
+  if (!outcome) return null;
+  const images = mapRefreshImages(row.resultImages);
+  const imagesAvailable = nonNegativeInt(row.resultImagesAvailable) ?? 0;
+  const imagesRead = nonNegativeInt(row.resultImagesSent) ?? 0;
+  return {
+    outcome,
+    saved: row.refreshSaved === 'true',
+    lateResultPending: row.refreshLateResultPending === 'true',
+    retryAfter: outcome === 'COOLDOWN' ? parseDate(row.refreshRetryAfter) : null,
+    expiredLinks: nonNegativeInt(row.refreshExpiredLinks) ?? 0,
+    images,
+    imagesAvailable,
+    imagesRead,
+    previewImageCap: nonNegativeInt(row.resultImageCap) ?? ctx.defaultPreviewImageCap,
+  };
 }
 
 function mapSubject(row: JobRowProjection, kind: JobSubjectKind, lookups: JobPageLookups) {
@@ -171,6 +256,7 @@ export function mapJobRow(row: JobRowProjection, ctx: JobMapContext) {
     outcome,
     canRetry: retry.canRetry,
     retryNotBefore: retry.retryNotBefore,
+    refresh: mapRefreshReport(row, ctx),
     owner:
       showOwner && row.ownerUserId !== null && lookups.ownerNames.has(row.ownerUserId)
         ? { displayName: lookups.ownerNames.get(row.ownerUserId) ?? null }

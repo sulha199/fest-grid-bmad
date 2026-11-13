@@ -1,7 +1,7 @@
 # Story 10.4 (Part A) -- the read API of the background-job engine (PRD 3.18, 4.21; Architecture Spine AD-53) as designed in
 # ux-designs/ux-festgrid-2026-11-13/graphql-read-shape.md. `Job` is a projection of the `jobs` row: no input key, no owner id, no raw
 # `input` or `result_data`, no caption and no image URL. Vendor names, the engine's own reason and message and per-attempt history are
-# moderator-only (`moderatorDetails`). `Job.refresh` and `images[]` are Story 10.6a's, added to this type there. Reuses DateTime and PageInfo.
+# moderator-only (`moderatorDetails`). `Job.refresh` (Story 10.6a) is the moderator-only refresh report of a Re-extract job. Reuses DateTime and PageInfo.
 
 enum JobType {
   SUBSCRIBE
@@ -162,6 +162,50 @@ type JobOwner {
   displayName: String
 }
 
+# Story 10.6a -- the Re-extract refresh report and its per-image list (PRD 3.9.3 FR125). Moderator-only, read through named paths of the job's
+# result, and without any caption, image link, vendor name or preview.
+enum JobRefreshOutcome {
+  NOT_NEEDED
+  REFRESHED
+  COOLDOWN
+  NOT_SCRAPED
+  IN_FLIGHT
+  POST_UNAVAILABLE
+  NO_PROVIDER_REACHABLE
+  PROVIDER_OVER_QUOTA
+  TIMED_OUT
+}
+
+enum JobImageRole {
+  COVER
+  SLIDE
+}
+
+enum JobImageState {
+  READ
+  NOT_READ_EXPIRED
+  NOT_READ_UNAVAILABLE
+  NOT_SENT_OVER_CAP
+}
+
+type JobImage {
+  position: Int! # 0 = the cover, 1 and up = the slides in the de-duplicated order
+  role: JobImageRole!
+  state: JobImageState!
+}
+
+type JobRefreshReport {
+  outcome: JobRefreshOutcome!
+  saved: Boolean!
+  lateResultPending: Boolean!
+  retryAfter: DateTime # COOLDOWN only
+  expiredLinks: Int!
+  images: [JobImage!]! # one entry per image the post lists; empty for a job finished before the list existed
+  imagesAvailable: Int!
+  imagesRead: Int!
+  previewImageCap: Int! # the slide cap the preview used
+}
+
 type Job {
   id: ID!
   type: JobType!
@@ -185,6 +229,8 @@ type Job {
   outcome: JobOutcome
   canRetry: Boolean! # the server owns the rule
   retryNotBefore: DateTime # COOLDOWN
+  # Moderator only, and only for a Re-extract job that has run its refresh phase: null for everyone else.
+  refresh: JobRefreshReport
   # Moderator only: null for everyone else.
   owner: JobOwner
   moderatorDetails: JobModeratorDetails

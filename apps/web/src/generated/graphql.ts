@@ -563,6 +563,7 @@ export type Job = {
   reasonCode?: Maybe<JobReasonCode>;
   reasonQueueMaxWaitMinutes?: Maybe<Scalars['Int']['output']>;
   reasonRetryAfter?: Maybe<Scalars['DateTime']['output']>;
+  refresh?: Maybe<JobRefreshReport>;
   retryNotBefore?: Maybe<Scalars['DateTime']['output']>;
   startedAt?: Maybe<Scalars['DateTime']['output']>;
   status: JobStatus;
@@ -603,6 +604,25 @@ export type JobEdge = {
   cursor: Scalars['String']['output'];
   node: Job;
 };
+
+export type JobImage = {
+  __typename?: 'JobImage';
+  position: Scalars['Int']['output'];
+  role: JobImageRole;
+  state: JobImageState;
+};
+
+export enum JobImageRole {
+  Cover = 'COVER',
+  Slide = 'SLIDE'
+}
+
+export enum JobImageState {
+  NotReadExpired = 'NOT_READ_EXPIRED',
+  NotReadUnavailable = 'NOT_READ_UNAVAILABLE',
+  NotSentOverCap = 'NOT_SENT_OVER_CAP',
+  Read = 'READ'
+}
 
 export type JobModeratorDetails = {
   __typename?: 'JobModeratorDetails';
@@ -665,6 +685,31 @@ export enum JobReasonCode {
   VendorRunFailed = 'VENDOR_RUN_FAILED',
   WaitedTooLong = 'WAITED_TOO_LONG'
 }
+
+export enum JobRefreshOutcome {
+  Cooldown = 'COOLDOWN',
+  InFlight = 'IN_FLIGHT',
+  NotNeeded = 'NOT_NEEDED',
+  NotScraped = 'NOT_SCRAPED',
+  NoProviderReachable = 'NO_PROVIDER_REACHABLE',
+  PostUnavailable = 'POST_UNAVAILABLE',
+  ProviderOverQuota = 'PROVIDER_OVER_QUOTA',
+  Refreshed = 'REFRESHED',
+  TimedOut = 'TIMED_OUT'
+}
+
+export type JobRefreshReport = {
+  __typename?: 'JobRefreshReport';
+  expiredLinks: Scalars['Int']['output'];
+  images: Array<JobImage>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesRead: Scalars['Int']['output'];
+  lateResultPending: Scalars['Boolean']['output'];
+  outcome: JobRefreshOutcome;
+  previewImageCap: Scalars['Int']['output'];
+  retryAfter?: Maybe<Scalars['DateTime']['output']>;
+  saved: Scalars['Boolean']['output'];
+};
 
 export enum JobStartErrorCode {
   Cooldown = 'COOLDOWN',
