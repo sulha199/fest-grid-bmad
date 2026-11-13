@@ -6,6 +6,33 @@ mutation PreviewPostReextraction($postId: ID, $url: String) {
   }
 }
 
+# Story 10.6a (show the Re-extract progress, the missing-images banner and Retry) -- the moderator-only refresh report of one Re-extract job
+# and when its preview stops being applicable. Read once for an ended job: an ended job's report does not change.
+query ReextractJobReport($id: ID!) {
+  job(id: $id) {
+    id
+    outcome {
+      previewApplyUntil
+      previewApplied
+    }
+    refresh {
+      outcome
+      saved
+      lateResultPending
+      retryAfter
+      expiredLinks
+      images {
+        position
+        role
+        state
+      }
+      imagesAvailable
+      imagesRead
+      previewImageCap
+    }
+  }
+}
+
 query PostReextractionPreview($id: ID!) {
   postReextractionPreview(id: $id) {
     status

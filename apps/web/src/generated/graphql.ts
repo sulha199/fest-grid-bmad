@@ -2127,6 +2127,9 @@ export enum WidgetTheme {
 
 
 
+
+
+
 /**
  * Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
  * events), or PARTIAL (it ended without reading every slide and will not be finished).
@@ -2612,6 +2615,13 @@ export type PreviewPostReextractionMutationVariables = Exact<{
 
 
 export type PreviewPostReextractionMutation = { previewPostReextraction: { jobId: string | null, errorCode: ExtractionErrorCode | null, errorMessage: string | null } };
+
+export type ReextractJobReportQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type ReextractJobReportQuery = { job: { id: string, outcome: { previewApplyUntil: unknown, previewApplied: boolean | null } | null, refresh: { outcome: JobRefreshOutcome, saved: boolean, lateResultPending: boolean, retryAfter: unknown, expiredLinks: number, imagesAvailable: number, imagesRead: number, previewImageCap: number, images: Array<{ position: number, role: JobImageRole, state: JobImageState }> } | null } | null };
 
 export type PostReextractionPreviewQueryVariables = Exact<{
   id: string | number;
@@ -5558,6 +5568,51 @@ export const usePreviewPostReextractionMutation = <
       {
     mutationKey: ['PreviewPostReextraction'],
     mutationFn: (variables?: PreviewPostReextractionMutationVariables) => fetcher<PreviewPostReextractionMutation, PreviewPostReextractionMutationVariables>(client, PreviewPostReextractionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const ReextractJobReportDocument = new TypedDocumentString(`
+    query ReextractJobReport($id: ID!) {
+  job(id: $id) {
+    id
+    outcome {
+      previewApplyUntil
+      previewApplied
+    }
+    refresh {
+      outcome
+      saved
+      lateResultPending
+      retryAfter
+      expiredLinks
+      images {
+        position
+        role
+        state
+      }
+      imagesAvailable
+      imagesRead
+      previewImageCap
+    }
+  }
+}
+    `);
+
+export const useReextractJobReportQuery = <
+      TData = ReextractJobReportQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ReextractJobReportQueryVariables,
+      options?: Omit<UseQueryOptions<ReextractJobReportQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ReextractJobReportQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ReextractJobReportQuery, TError, TData>(
+      {
+    queryKey: ['ReextractJobReport', variables],
+    queryFn: fetcher<ReextractJobReportQuery, ReextractJobReportQueryVariables>(client, ReextractJobReportDocument, variables, headers),
     ...options
   }
     )};

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { BlockingLoader, ConfirmActionDialog } from '@festgrid/ui';
 import { Link } from '@/i18n/navigation';
@@ -34,6 +34,8 @@ interface ReextractPreviewResultProps {
   preview: ReextractionPreview;
   /** AD-40 Apply. Omit to show the preview read-only. */
   apply?: ReextractionApplyState;
+  /** Story 10.6a: the missing-images banner (`ReextractImagesBanner`), drawn where the single amber line used to be. */
+  banner?: React.ReactNode;
 }
 
 function EventLinks({ events }: { events: Array<{ slug: string; eventName: string }> }) {
@@ -77,7 +79,7 @@ function ReextractApplySummary({ summary }: { summary: ReextractionApplySummary 
 }
 
 /** AD-40 -- what the current extraction and dedup logic would do with a post; with `apply`, a confirmed way to make it so. */
-export function ReextractPreviewResult({ preview, apply }: ReextractPreviewResultProps) {
+export function ReextractPreviewResult({ preview, apply, banner }: ReextractPreviewResultProps) {
   const t = useTranslations('ReextractPreview');
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Only a roundup preview turns events into roundup stubs; any other grouping gets neutral wording.
@@ -91,15 +93,7 @@ export function ReextractPreviewResult({ preview, apply }: ReextractPreviewResul
         {!preview.postStored ? ` · ${t('notStoredNote')}` : ''}
       </p>
 
-      {preview.imagesSent < preview.imagesAvailable && (
-        <p
-          className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
-          role="status"
-          data-testid="reextract-images-warning"
-        >
-          {t('imagesShortfall', { sent: preview.imagesSent, available: preview.imagesAvailable })}
-        </p>
-      )}
+      {banner}
 
       {preview.events.length === 0 ? (
         <p className="text-sm">{t('noEvents')}</p>
