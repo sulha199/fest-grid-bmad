@@ -230,6 +230,26 @@ describe('SubscribeAccountDialog', () => {
       await screen.findByTestId('subscription-cap-body');
       fireEvent.submit(screen.getByPlaceholderText('e.g., jkt_festivals').closest('form')!);
       expect(calls).toBe(1);
+      // Enter is not silent: it takes the user to the notice.
+      expect(screen.getByTestId('subscription-cap-title')).toHaveFocus();
+    });
+
+    it('editing the handle clears the refusal and brings the Subscribe button back, so the user can try again (the server re-checks)', async () => {
+      server.use(capRefusal());
+      renderWithProviders(<SubscribeAccountDialog isOpen={true} onClose={vi.fn()} />);
+      await submit();
+      await screen.findByTestId('subscription-cap-body');
+      expect(screen.queryByRole('button', { name: 'Subscribe' })).toBeNull();
+
+      fireEvent.change(screen.getByPlaceholderText('e.g., jkt_festivals'), { target: { value: 'another_account' } });
+      expect(screen.queryByTestId('subscription-cap-notice')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Subscribe' })).toBeInTheDocument();
+
+      // The retry reaches the server again and is refused again: a new notice (a new showing).
+      mockCapturePostHogEvent.mockClear();
+      fireEvent.click(screen.getByRole('button', { name: 'Subscribe' }));
+      await screen.findByTestId('subscription-cap-body');
+      expect(mockCapturePostHogEvent.mock.calls.filter(([n]) => n === 'subscription_cap_upgrade_cta_shown')).toHaveLength(1);
     });
 
     it('closing and reopening clears the notice and brings Subscribe back', async () => {

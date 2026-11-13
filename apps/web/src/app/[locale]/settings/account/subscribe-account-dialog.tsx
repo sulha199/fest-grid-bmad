@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useRef, useState } from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { ClientError } from "graphql-request"
 import { useSubscriptionCapRefusal } from "@/features/subscriptions/use-subscription-cap-refusal"
 import { SubscriptionCapNoticeConnected } from "@/features/subscriptions/SubscriptionCapNoticeConnected"
+import { focusCapNotice } from "@/features/subscriptions/focus-cap-notice"
 
 interface SubscribeAccountDialogProps {
   isOpen: boolean
@@ -35,6 +36,8 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
   const [pickedAccountId, setPickedAccountId] = useState<string | null>(null)
   const { state: capState, show: showCapRefusal, clear: clearCapRefusal } = useSubscriptionCapRefusal()
 
+  const capNoticeRef = useRef<HTMLDivElement>(null)
+
   const handleClose = () => {
     clearCapRefusal()
     onClose()
@@ -54,8 +57,12 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // The refusal stands until the dialog closes: Enter in the handle field must not submit past the missing button.
-    if (capState) return
+    // While the refusal stands there is no Subscribe button: Enter does not submit, it takes the user to the notice.
+    // Editing the handle or the platform clears the refusal (the server re-checks anyway), which brings the button back.
+    if (capState) {
+      focusCapNotice(capNoticeRef.current)
+      return
+    }
     const cleanHandle = parseSocialMediaAccountHandle(handleInput)
     if (!cleanHandle) {
       toast.error(t("subscribeErrorToast") || "Invalid account handle")
@@ -115,7 +122,7 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
                 <label className="text-sm font-medium text-foreground block">
                   {t("platformLabel")}
                 </label>
-                <Select value={platform} onValueChange={setPlatform}>
+                <Select value={platform} onValueChange={(value) => { setPlatform(value); clearCapRefusal() }}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -139,6 +146,7 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
                   onChange={(e) => {
                     setHandleInput(e.target.value)
                     setPickedAccountId(null)
+                    clearCapRefusal()
                     setIsSuggestionsOpen(true)
                   }}
                   onFocus={() => setIsSuggestionsOpen(true)}
@@ -166,6 +174,7 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
                             type="button"
                             onClick={() => {
                               setPlatform(profile.platform)
+                              clearCapRefusal()
                               setHandleInput(profile.username)
                               setPickedAccountId(profile.accountId ?? null)
                               setIsSuggestionsOpen(false)
@@ -191,7 +200,11 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
               </div>
             </div>
 
-            {capState && <SubscriptionCapNoticeConnected state={capState} variant="inline" showBlockedNote />}
+            {capState && (
+              <div ref={capNoticeRef}>
+                <SubscriptionCapNoticeConnected state={capState} variant="inline" showBlockedNote />
+              </div>
+            )}
 
             <DialogFooter className="gap-2 sm:gap-0 mt-6">
               <button

@@ -48,7 +48,7 @@ export function SubscriptionCapNotice({
         </div>
       )}
       {inline && (
-        <p ref={titleRef} tabIndex={-1} className="text-sm font-semibold outline-none" data-testid="subscription-cap-title">
+        <p ref={titleRef} tabIndex={-1} className="text-sm font-semibold outline-none" data-testid="subscription-cap-title" data-cap-notice-title>
           {labels.title}
         </p>
       )}

@@ -113,6 +113,17 @@ test.describe('Subscription cap refusal, Subscribe dialog', () => {
     await expect(reopened.getByRole('button', { name: 'Subscribe', exact: true })).toBeVisible();
   });
 
+  test('editing the handle after a refusal clears the notice and brings Subscribe back for another try', async ({ page }) => {
+    await routeSubscribe(page, CAP_REFUSAL);
+    const dialog = await openSubscribeDialog(page);
+    await submitHandle(dialog, 'e.g., jkt_festivals');
+    await expect(dialog.getByTestId('subscription-cap-notice')).toBeVisible();
+
+    await dialog.getByPlaceholder('e.g., jkt_festivals').fill('another_account');
+    await expect(dialog.getByTestId('subscription-cap-notice')).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: 'Subscribe', exact: true })).toBeVisible();
+  });
+
   test('a routed error that is not the cap still shows the generic toast and no notice', async ({ page }) => {
     await routeSubscribe(page, { errors: [{ message: 'Something broke', extensions: { code: 'INTERNAL_SERVER_ERROR' } }], data: null });
     const dialog = await openSubscribeDialog(page);

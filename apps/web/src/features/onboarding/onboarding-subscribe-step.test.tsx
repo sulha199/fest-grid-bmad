@@ -197,6 +197,28 @@ describe('OnboardingSubscribeStep', () => {
       expect(mockCapturePostHogEvent.mock.calls).toEqual([['subscription_cap_upgrade_cta_shown', { currentSubscriptionCount: 3, reservedCount: 2, cap: 5, surface: 'onboarding_wizard' }]]);
     });
 
+    it('editing the handle or the platform clears the refusal and brings the add button back; Enter while it stands moves focus to the notice', async () => {
+      mockMutateAsync.mockRejectedValue(capError());
+      render(<OnboardingSubscribeStep />);
+      submitHandle();
+      await screen.findByTestId('subscription-cap-notice');
+
+      fireEvent.submit(screen.getByLabelText('accountLabel').closest('form')!);
+      expect(mockMutateAsync).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('subscription-cap-title')).toHaveFocus();
+
+      fireEvent.change(screen.getByLabelText('accountLabel'), { target: { value: 'seventh_account' } });
+      expect(screen.queryByTestId('subscription-cap-notice')).toBeNull();
+      expect(screen.getByText('subscribeSubmitLabel')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('subscribeSubmitLabel'));
+      await screen.findByTestId('subscription-cap-notice');
+      expect(mockMutateAsync).toHaveBeenCalledTimes(2);
+
+      fireEvent.change(screen.getByLabelText('platformLabel'), { target: { value: 'instagram' } });
+      expect(screen.queryByTestId('subscription-cap-notice')).toBeNull();
+    });
+
     it('a non-cap error keeps the generic toast and fires no cap event; so does a network error', async () => {
       mockMutateAsync.mockRejectedValueOnce(capError({ code: 'INTERNAL_SERVER_ERROR' }));
       render(<OnboardingSubscribeStep />);

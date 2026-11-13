@@ -16,6 +16,11 @@ import { join, relative, sep } from 'node:path';
 const SRC_ROOT = join(__dirname, '..', '..');
 const SKIPPED_DIRS = new Set(['generated', 'node_modules']);
 const CAP_HANDLING = /\b(readSubscriptionCapRefusal|useSubscriptionCapRefusal|useRestoreCapRefusal|SubscriptionCapNoticeConnected|SubscriptionCapDialog)\b|subscriptions\/(subscription-cap-error|use-subscription-cap-refusal|use-restore-cap-refusal|SubscriptionCapNoticeConnected|SubscriptionCapDialog)/;
+/** Source without its import lines, so a bare import (which handles nothing) never counts as a call. */
+const withoutImports = (src: string) => src.replace(/^\s*import[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, '');
+const callsAny = (src: string, names: string[]) => names.some((name) => new RegExp(`\\b${name}\\s*\\(`).test(withoutImports(src)));
+/** The calls that actually handle a refusal in an entry point. */
+const HANDLING_CALLS = ['readSubscriptionCapRefusal', 'useSubscriptionCapRefusal', 'useRestoreCapRefusal'];
 const SUBSCRIBE_MUTATION = /\buseSubscribeToAccountMutation\b/;
 const REMOVE_MUTATION = /\buseRemoveSubscriptionMutation\b/;
 const RESTORE_ACTION = /SoftDeleteAction\.Restore|['"]RESTORE['"]/;
@@ -48,7 +53,8 @@ describe('subscription cap entry points ratchet (Story 10.3a)', () => {
       // The generated hooks and the cap feature folder itself are not entry points.
       .filter(({ rel }) => !rel.startsWith('features/subscriptions/'))
       .filter(({ src }) => raisesCapRefusal(src))
-      .filter(({ rel, src }) => !CAP_HANDLING.test(src) && !(rel in ALLOWLIST))
+      // Importing the reader or the hook is not enough: the file must call it.
+      .filter(({ rel, src }) => !callsAny(src, HANDLING_CALLS) && !(rel in ALLOWLIST))
       .map(({ rel }) => rel);
     expect(offenders, `these files can raise SUBSCRIPTION_CAP_REACHED but do not use readSubscriptionCapRefusal / useSubscriptionCapRefusal:\n${offenders.join('\n')}`).toEqual([]);
   });
@@ -66,9 +72,23 @@ describe('subscription cap entry points ratchet (Story 10.3a)', () => {
     }
   });
 
-  it('the Retry notice (Story 10.4 slot) renders the real cap notice', () => {
-    const notice = files.find(({ rel }) => rel === 'features/jobs/job-retry-failure-notice.tsx');
-    expect(notice?.src).toMatch(CAP_HANDLING);
+  it('the Retry notice (Story 10.4 slot) renders the real cap notice, and both Retry callers call mapJobStartError (the one reader of a refused start)', () => {
+    const byRel = (rel: string) => files.find((f) => f.rel === rel);
+    expect(byRel('features/jobs/job-retry-failure-notice.tsx')?.src).toMatch(/<SubscriptionCapNoticeConnected\b/);
+    for (const rel of ['features/jobs/use-job-progress.ts', 'app/[locale]/jobs/[jobId]/job-detail-content.tsx']) {
+      const file = byRel(rel);
+      expect(file, `${rel} must exist`).toBeTruthy();
+      expect(callsAny(file!.src, ['mapJobStartError']), `${rel} must call mapJobStartError, not only import it`).toBe(true);
+    }
+  });
+
+  it('a file that imports the reader or mapJobStartError must call it', () => {
+    const offenders = files
+      .filter(({ rel }) => !rel.startsWith('features/subscriptions/') && !rel.endsWith('job-start-error.ts'))
+      .filter(({ src }) => /import[^;]*\b(readSubscriptionCapRefusal|mapJobStartError)\b/.test(src))
+      .filter(({ src }) => !callsAny(src, ['readSubscriptionCapRefusal', 'mapJobStartError']))
+      .map(({ rel }) => rel);
+    expect(offenders, `imported but never called:\n${offenders.join('\n')}`).toEqual([]);
   });
 
   it('the allowlist stays empty or reasoned (every key is a real file)', () => {
@@ -93,5 +113,10 @@ describe('subscription cap entry points ratchet (Story 10.3a)', () => {
     expect(raisesCapRefusal('useRemoveSubscriptionMutation(c); removeSubscription({ action: SoftDeleteAction.Restore })')).toBe(true);
     expect(raisesCapRefusal('useRemoveSubscriptionMutation(c); removeSubscription({ action: SoftDeleteAction.Delete })')).toBe(false);
     expect(CAP_HANDLING.test("import { readSubscriptionCapRefusal } from '@/features/subscriptions/subscription-cap-error'")).toBe(true);
+    // A bare import handles nothing; a call does.
+    const importOnly = "import { readSubscriptionCapRefusal } from '@/features/subscriptions/subscription-cap-error';\nconst m = useSubscribeToAccountMutation(c);";
+    expect(callsAny(importOnly, HANDLING_CALLS)).toBe(false);
+    expect(callsAny(`${importOnly}\nconst r = readSubscriptionCapRefusal(err);`, HANDLING_CALLS)).toBe(true);
+    expect(callsAny("import {\n  mapJobStartError,\n} from './job-start-error';", ['mapJobStartError'])).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { BlockingLoader, useWizardStep } from '@festgrid/ui';
@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ClientError } from 'graphql-request';
 import { useSubscriptionCapRefusal } from '@/features/subscriptions/use-subscription-cap-refusal';
 import { SubscriptionCapNoticeConnected } from '@/features/subscriptions/SubscriptionCapNoticeConnected';
+import { focusCapNotice } from '@/features/subscriptions/focus-cap-notice';
 
 export function OnboardingSubscribeStep() {
   const t = useTranslations('OnboardingWizard');
@@ -25,7 +26,8 @@ export function OnboardingSubscribeStep() {
 
   const [platform, setPlatform] = useState<string>(SUPPORTED_PLATFORMS[0]);
   const [handleInput, setHandleInput] = useState('');
-  const { state: capState, show: showCapRefusal } = useSubscriptionCapRefusal();
+  const { state: capState, show: showCapRefusal, clear: clearCapRefusal } = useSubscriptionCapRefusal();
+  const capNoticeRef = useRef<HTMLDivElement>(null);
 
   const subscriptions = subscriptionsData?.mySubscriptions ?? [];
   const hasExistingSubscriptions = subscriptions.length > 0;
@@ -38,8 +40,12 @@ export function OnboardingSubscribeStep() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // The refusal stands until the user leaves the step: Enter in the handle field must not submit past the missing button.
-    if (capState) return;
+    // While the refusal stands there is no add button: Enter does not submit, it takes the user to the notice.
+    // Editing the handle or the platform clears the refusal (the server re-checks anyway), which brings the button back.
+    if (capState) {
+      focusCapNotice(capNoticeRef.current);
+      return;
+    }
     const cleanHandle = parseSocialMediaAccountHandle(handleInput);
     if (!cleanHandle) {
       toast.error(t('invalidHandleError'));
@@ -109,7 +115,10 @@ export function OnboardingSubscribeStep() {
           <select
             id="platform-select"
             value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
+            onChange={(e) => {
+              setPlatform(e.target.value);
+              clearCapRefusal();
+            }}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {SUPPORTED_PLATFORMS.map((plat) => (
@@ -128,7 +137,10 @@ export function OnboardingSubscribeStep() {
             id="account-handle-input"
             type="text"
             value={handleInput}
-            onChange={(e) => setHandleInput(e.target.value)}
+            onChange={(e) => {
+              setHandleInput(e.target.value);
+              clearCapRefusal();
+            }}
             placeholder={t('accountPlaceholder')}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             required
@@ -136,7 +148,9 @@ export function OnboardingSubscribeStep() {
         </div>
 
         {capState ? (
-          <SubscriptionCapNoticeConnected state={capState} variant="inline" showBlockedNote />
+          <div ref={capNoticeRef}>
+            <SubscriptionCapNoticeConnected state={capState} variant="inline" showBlockedNote />
+          </div>
         ) : (
           <div className="flex justify-end pt-2">
             <button

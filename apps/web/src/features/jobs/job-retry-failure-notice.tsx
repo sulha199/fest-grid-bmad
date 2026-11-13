@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import type { JobStartFailure } from './job-start-error';
@@ -22,12 +22,15 @@ export interface JobRetryFailureNoticeProps {
 export function JobRetryFailureNotice({ failure, renderCapNotice, accountId, username }: JobRetryFailureNoticeProps) {
   const t = useTranslations('Jobs');
   const { tr, format } = useJobLabels();
+  // Each refused Retry hands in a new `failure`; a new number per failure makes the cap notice a new showing (one 'shown' event, announced and focused again).
+  const attempts = useRef(0);
+  const refusalId = useMemo(() => ++attempts.current, [failure]); // eslint-disable-line react-hooks/exhaustive-deps
   if (failure.kind === 'cap') {
     if (renderCapNotice) return <>{renderCapNotice(failure)}</>;
     const own = accountId && accountId.toLowerCase() !== (username ?? '').toLowerCase() ? accountId : undefined;
     return (
       <SubscriptionCapNoticeConnected
-        state={{ refusal: { activeCount: failure.activeCount, reservedCount: failure.reservedCount, cap: failure.cap }, surface: 'job_retry', accountId: own, refusalId: 0 }}
+        state={{ refusal: { activeCount: failure.activeCount, reservedCount: failure.reservedCount, cap: failure.cap }, surface: 'job_retry', accountId: own, refusalId }}
         variant="inline"
         showManageLink
       />
