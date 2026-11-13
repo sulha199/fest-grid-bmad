@@ -112,6 +112,7 @@ async function runPreview(ctx: JobHandlerContext): Promise<JobHandlerResult> {
         requestedByUserId: job.ownerUserId,
         postStored: post !== undefined,
         rescraped: report.outcome === 'REFRESHED',
+        coverExpiresAt: post?.imageUrlExpiresAt ?? null,
         getRemainingTimeInMillis: ctx.getRemainingTimeInMillis,
         callGemini,
       });

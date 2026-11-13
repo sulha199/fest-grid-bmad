@@ -17,6 +17,8 @@ export interface GenerateReextractionPreviewInput {
   requestedByUserId: string;
   postStored: boolean;
   rescraped: boolean;
+  /** Story 10.6a: the stored post's `image_url_expires_at`, when the post is stored. */
+  coverExpiresAt?: Date | null;
   getRemainingTimeInMillis?: () => number;
   callGemini: typeof defaultCallGemini;
 }
@@ -29,6 +31,7 @@ export async function generateReextractionPreview(input: GenerateReextractionPre
     existingPostAccountId: input.existingPostAccountId,
     requestedByUserId: input.requestedByUserId,
     isPreview: true,
+    coverExpiresAt: input.coverExpiresAt ?? null,
     getRemainingTimeInMillis: input.getRemainingTimeInMillis,
     callGemini: input.callGemini,
   });

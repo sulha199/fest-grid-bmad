@@ -1074,6 +1074,24 @@ test('buildGeminiExtractionRequest imageOutcomes (Story 10.6a)', async (t) => {
     assert.strictEqual(readCount(result.imageOutcomes), result.imagesSent);
   });
 
+  await t.test('a cover with no oe parameter reads as expired only when the stored expiry (posts.image_url_expires_at) has passed, like the refresh rule', async () => {
+    installFetch({ c: 'status' });
+    const bare = 'https://cdn.example.com/v/c.jpg';
+    const past = await buildGeminiExtractionRequest(messageOf(bare, []), { maxCarouselImages: 10, slidesWhenCoverFails: true, coverExpiresAt: new Date(Date.now() - 60_000) });
+    assert.strictEqual(past.imageOutcomes.cover, 'NOT_READ_EXPIRED');
+    const future = await buildGeminiExtractionRequest(messageOf(bare, []), { maxCarouselImages: 10, slidesWhenCoverFails: true, coverExpiresAt: new Date(Date.now() + 60_000) });
+    assert.strictEqual(future.imageOutcomes.cover, 'NOT_READ_UNAVAILABLE');
+    const none = await buildGeminiExtractionRequest(messageOf(bare, []), { maxCarouselImages: 10, slidesWhenCoverFails: true });
+    assert.strictEqual(none.imageOutcomes.cover, 'NOT_READ_UNAVAILABLE');
+  });
+
+  await t.test('a link expiring in 3 minutes whose fetch failed is unavailable (its own expiry has not passed: no safety margin in the banner)', async () => {
+    installFetch({ c: 'status', s1: 'status' });
+    const soon = hex(Date.now() + 3 * 60_000);
+    const result = await buildGeminiExtractionRequest(messageOf(img('c', soon), [img('s1', soon)]), { maxCarouselImages: 10, slidesWhenCoverFails: true });
+    assert.deepStrictEqual(result.imageOutcomes, { cover: 'NOT_READ_UNAVAILABLE', slides: ['NOT_READ_UNAVAILABLE'], overCapSlides: 0 });
+  });
+
   await t.test('cover fetch failed, slidesWhenCoverFails off: the slides are never tried and read as unavailable', async () => {
     installFetch({ c: 'status' });
     const result = await buildGeminiExtractionRequest(messageOf(img('c'), [img('s1')]));

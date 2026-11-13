@@ -30,14 +30,25 @@ describe('constants', () => {
 });
 
 describe('classifyUnreadImage', () => {
-  it('is expired only when the link carries an expiry that has passed', () => {
+  it('is expired once the link\'s own expiry has passed', () => {
     assert.equal(classifyUnreadImage(signed('a', new Date(NOW.getTime() - 60_000)), NOW), 'NOT_READ_EXPIRED');
+    assert.equal(classifyUnreadImage(signed('a', NOW), NOW), 'NOT_READ_EXPIRED');
   });
-  it('is unavailable for a link that is still valid', () => {
+  it('is unavailable for a link that is still valid, and for one expiring in 3 minutes (no safety margin: its own expiry has not passed)', () => {
     assert.equal(classifyUnreadImage(signed('a', new Date(NOW.getTime() + 86_400_000)), NOW), 'NOT_READ_UNAVAILABLE');
+    assert.equal(classifyUnreadImage(signed('a', new Date(NOW.getTime() + 3 * 60_000)), NOW), 'NOT_READ_UNAVAILABLE');
   });
-  it('is unavailable for a link with no readable expiry, and for a missing link', () => {
+  it('a cover with no oe parameter and a past stored expiry is expired, like the refresh rule says; a future stored expiry is not', () => {
+    const bare = 'https://cdn.example.com/cover.jpg';
+    assert.equal(classifyUnreadImage(bare, NOW, new Date(NOW.getTime() - 60_000)), 'NOT_READ_EXPIRED');
+    assert.equal(classifyUnreadImage(bare, NOW, new Date(NOW.getTime() + 60_000)), 'NOT_READ_UNAVAILABLE');
+  });
+  it('the link\'s own oe parameter wins over the stored expiry', () => {
+    assert.equal(classifyUnreadImage(signed('a', new Date(NOW.getTime() + 86_400_000)), NOW, new Date(NOW.getTime() - 60_000)), 'NOT_READ_UNAVAILABLE');
+  });
+  it('is unavailable for a link with no expiry anywhere, and for a missing link', () => {
     assert.equal(classifyUnreadImage('https://cdn.example.com/a.jpg', NOW), 'NOT_READ_UNAVAILABLE');
+    assert.equal(classifyUnreadImage('https://cdn.example.com/a.jpg', NOW, null), 'NOT_READ_UNAVAILABLE');
     assert.equal(classifyUnreadImage(undefined, NOW), 'NOT_READ_UNAVAILABLE');
   });
 });

@@ -260,4 +260,37 @@ test('Job.refresh (Story 10.6a Part A, real Postgres)', async (t) => {
     const id = await makeJob({ resultData: result() });
     assert.equal((await run(JOB_QUERY, { id }, null)).errors?.[0]?.extensions?.code, 'UNAUTHENTICATED');
   });
+
+  // Story 10.6a review fix: a FAILED phase 2 now keeps `{ refresh: report }` as its result (it used to be null). Two things read that report for a
+  // FAILED job: the step list (a refresh that was not needed is shown as skipped) and the retry rule (a cooldown keeps its `retryAfter`).
+  await t.test('a FAILED job that keeps its report: a refresh that was not needed reads as a skipped step, and the report stays readable', async () => {
+    const id = await makeJob({
+      status: 'FAILED',
+      reasonCode: 'EXTRACTION_FAILED',
+      phase: 'preview',
+      resultData: { refresh: { outcome: 'NOT_NEEDED', reasons: [], saved: false, lateResultPending: false, retryAfter: null, expiredLinks: 0 } },
+    });
+    const res = await run(`query($id: ID!) { job(id: $id) { steps { key state } ${REFRESH_FIELDS} } }`, { id }, moderator);
+    assert.equal(res.errors, undefined);
+    const job = plain((res.data as any).job);
+    assert.deepEqual(job.steps.map((step: { key: string; state: string }) => [step.key, step.state]), [['refresh', 'SKIPPED'], ['preview', 'CURRENT']]);
+    assert.equal(job.refresh.outcome, 'NOT_NEEDED');
+    assert.deepEqual(job.refresh.images, []);
+  });
+
+  await t.test('a FAILED cooldown job keeps refresh.retryAfter, and the retry rule reads it (Retry at that time)', async () => {
+    const retryAfter = new Date(Date.now() + 8 * MINUTE);
+    const id = await makeJob({
+      status: 'FAILED',
+      reasonCode: 'COOLDOWN',
+      phase: 'refresh',
+      resultData: { refresh: { outcome: 'COOLDOWN', reasons: [], saved: false, lateResultPending: false, retryAfter: retryAfter.toISOString(), expiredLinks: 0 } },
+    });
+    const res = await run(`query($id: ID!) { job(id: $id) { canRetry retryNotBefore ${REFRESH_FIELDS} } }`, { id }, moderator);
+    assert.equal(res.errors, undefined);
+    const job = plain((res.data as any).job);
+    assert.equal(new Date(job.refresh.retryAfter).getTime(), retryAfter.getTime());
+    assert.equal(job.canRetry, true);
+    assert.equal(new Date(job.retryNotBefore).getTime(), retryAfter.getTime());
+  });
 });

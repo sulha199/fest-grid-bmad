@@ -38,6 +38,8 @@ export interface ExtractEventsInput {
   requestedByUserId: string;
   /** A re-extract preview reads more slides and keeps trying them when the cover link has expired (BUG-099). */
   isPreview: boolean;
+  /** Story 10.6a: the stored post's `image_url_expires_at` (the cover's fallback expiry for the per-image report). */
+  coverExpiresAt?: Date | null;
   getRemainingTimeInMillis?: () => number;
   /** The Gemini call (a seam in tests). Read at call time, so a test may swap it between runs. */
   callGemini: typeof defaultCallGemini;
@@ -63,7 +65,7 @@ export async function extractEventsWithGemini(input: ExtractEventsInput): Promis
     ...(env.blurFacesBeforeAi
       ? { blurFacesBeforeAi: { isOwnerOptedIn: false, getRemainingTimeInMillis: input.getRemainingTimeInMillis } }
       : {}),
-    ...(input.isPreview ? { maxCarouselImages: env.maxReextractCarouselImages, slidesWhenCoverFails: true } : {}),
+    ...(input.isPreview ? { maxCarouselImages: env.maxReextractCarouselImages, slidesWhenCoverFails: true, coverExpiresAt: input.coverExpiresAt ?? null } : {}),
   };
   const { request, imagesAvailable, imagesSent, imageOutcomes } = await buildGeminiExtractionRequest(
     message,

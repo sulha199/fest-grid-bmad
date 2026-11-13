@@ -1,4 +1,4 @@
-import { isImageUrlExpired } from "./post-images-need-refresh.js";
+import { parseImageUrlExpiry } from "../scraper/parse-image-url-expiry.js";
 import type { ReextractRefreshOutcome } from "./reextract-image-refresh.js";
 
 // Story 10.6a (PRD 3.9.3 FR125; Architecture Spine AD-40 Rule 9, AD-53 Rule 18) -- the pure rules of the per-image report of a
@@ -35,11 +35,19 @@ export interface ReextractImageOutcomes {
 }
 
 /**
- * Why an image could not be read: `NOT_READ_EXPIRED` only when its own stored link has passed its expiry, otherwise
- * `NOT_READ_UNAVAILABLE` (a non-OK answer, a non-image, a blur that failed closed or had no time).
+ * Why an image could not be read: `NOT_READ_EXPIRED` only once the link's OWN expiry has passed, otherwise `NOT_READ_UNAVAILABLE` (a non-OK
+ * answer, a non-image, a blur that failed closed or had no time). The expiry is the link's `oe` parameter, else `storedExpiry` (the cover's
+ * `posts.image_url_expires_at`, the same fallback `postImagesNeedRefresh` uses). Unlike the refresh rule, no safety margin applies: the refresh
+ * acts early because the job runs a moment later, but the banner reports what happened, and a link that had not expired did not fail for that reason
+ * (Story 10.6a, decision 18).
  */
-export function classifyUnreadImage(url: string | null | undefined, now: Date): "NOT_READ_EXPIRED" | "NOT_READ_UNAVAILABLE" {
-  return isImageUrlExpired(url, now) ? "NOT_READ_EXPIRED" : "NOT_READ_UNAVAILABLE";
+export function classifyUnreadImage(
+  url: string | null | undefined,
+  now: Date,
+  storedExpiry: Date | null = null
+): "NOT_READ_EXPIRED" | "NOT_READ_UNAVAILABLE" {
+  const expiresAt = parseImageUrlExpiry(url) ?? storedExpiry;
+  return expiresAt !== null && expiresAt.getTime() <= now.getTime() ? "NOT_READ_EXPIRED" : "NOT_READ_UNAVAILABLE";
 }
 
 /** The entry list of a preview: the cover (when there is one) first, then the tried slides in order, then the over-cap slides. */

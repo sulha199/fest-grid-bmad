@@ -234,6 +234,9 @@ export interface BuildGeminiExtractionRequestOptions {
   // ingestion's request shape, aiImageInput and thumbnail/blur bookkeeping stay exactly as before:
   // a slides-only request would carry aiImageInput 'blurred' with no cover bytes for them to read.
   slidesWhenCoverFails?: boolean;
+  // Story 10.6a -- moderator re-extract only. The stored post's `image_url_expires_at`: the cover's fallback expiry when its link has no `oe`
+  // parameter, so a failed cover reads as expired exactly when the refresh rule (`postImagesNeedRefresh`) calls it expired.
+  coverExpiresAt?: Date | null;
 }
 
 export async function buildGeminiExtractionRequest(
@@ -376,7 +379,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   const slideOutcomes: ReextractFetchedImageState[] = dedupedAdditionalImageUrls
     .slice(0, options?.maxCarouselImages ?? env.maxCarouselImages)
     .map(() => 'NOT_READ_UNAVAILABLE');
-  const unreadOutcome = (url: string): ReextractFetchedImageState => classifyUnreadImage(url, new Date());
+  const unreadOutcome = (url: string, storedExpiry: Date | null = null): ReextractFetchedImageState => classifyUnreadImage(url, new Date(), storedExpiry);
 
   // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request,
   // in slide order, stopping at the cap (MAX_CAROUSEL_IMAGES, or the caller's override). AD-13:
@@ -515,7 +518,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
       await appendSlideImages();
     } catch (error) {
       console.error(`Multimodal extraction image processing failed for post ${message.postId} (image index 0, cover):`, error);
-      coverOutcome = unreadOutcome(message.imageUrl!);
+      coverOutcome = unreadOutcome(message.imageUrl!, options?.coverExpiresAt ?? null);
       // Fallback to text-only caption extraction. Never the original, unblurred cover bytes
       // (AC3) -- `contents` is reset to the caption text only.
       contents = captionWithAccountContext;
