@@ -1,5 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 import { checkPopupContainment, measurePopup, settleLayout } from '@festgrid/visual-audit/page-overflow';
+import { FIXTURE_JOB_IDS } from '../../../packages/database/seed';
+import { blockReextractWrites } from './reextract-guard';
 
 /**
  * Popups, dropdowns, dialogs and sheets must stay usable on small screens: the opened box fits the
@@ -119,13 +121,14 @@ const scenarios: PopupScenario[] = [
   {
     // The modal a card click opens (an intercepted route), not the direct page: its content sits in a
     // single-column grid, where one wide child used to stretch the whole column past the screen.
-    name: 'event detail modal (moderator): content and Re-extract button',
+    name: 'event detail modal (moderator): content and Re-extract control',
     route: '/en',
     session: 'moderator',
     open: async (page) => {
       await page.locator('article h3').first().click();
       await page.waitForURL(/\/en\/events\//);
-      await expect(page.getByRole('button', { name: 'Re-extract' }).first()).toBeVisible({ timeout: 30_000 });
+      // Story 10.6a: a source post with a recent job of the moderator shows its chip instead of the button (the seed has such rows).
+      await expect(page.getByRole('button', { name: 'Re-extract' }).or(page.getByTestId('job-chip')).first()).toBeVisible({ timeout: 30_000 });
       return page.locator(DIALOG).last();
     },
   },
@@ -186,12 +189,48 @@ const scenarios: PopupScenario[] = [
     },
   },
   {
-    name: 'event detail (moderator): Re-extract dialog',
+    // Story 10.6a (show the Re-extract progress, the missing-images banner and Retry): the Re-extract dialog is opened from the chip of a SEEDED job
+    // (the tallest content: the banner with the missing images, the cause, Retry and the preview). The old scenario clicked Re-extract, which would start a
+    // real job: e2e never clicks Re-extract, Retry or Apply, and the writes are blocked behind that rule.
+    name: 'event detail (moderator): Re-extract dialog from a seeded job chip',
     route: EVENT_ROUTE,
     session: 'moderator',
     open: async (page) => {
-      await page.getByRole('button', { name: 'Re-extract' }).first().click();
-      return page.locator(DIALOG).last();
+      await blockReextractWrites(page);
+      const chip = page.getByTestId('job-chip').first();
+      await expect(chip).toBeVisible({ timeout: 30_000 });
+      await chip.click();
+      const dialog = page.getByTestId('job-progress-dialog');
+      await expect(dialog.getByTestId('reextract-images-warning')).toBeVisible({ timeout: 30_000 });
+      return dialog;
+    },
+  },
+  {
+    // An open job: the stepper view of the same dialog.
+    name: 'event detail (moderator): Re-extract dialog of a running job (seeded chip)',
+    route: '/en/events/past-jazz-night-2025-fixed',
+    session: 'moderator',
+    open: async (page) => {
+      await blockReextractWrites(page);
+      const chip = page.getByTestId('job-chip').first();
+      await expect(chip).toBeVisible({ timeout: 30_000 });
+      await chip.click();
+      const dialog = page.getByTestId('job-progress-dialog');
+      await expect(dialog.getByRole('list', { name: 'Steps' })).toBeVisible();
+      return dialog;
+    },
+  },
+  {
+    // The same dialog opened from "Open the preview" on a job's own page.
+    name: 'job page (moderator): Open the preview dialog',
+    route: `/en/jobs/${FIXTURE_JOB_IDS.moderatorPreviewLimits}`,
+    session: 'moderator',
+    open: async (page) => {
+      await blockReextractWrites(page);
+      await page.getByTestId('job-open-preview').click();
+      const dialog = page.getByTestId('job-progress-dialog');
+      await expect(dialog.getByTestId('reextract-images-warning')).toBeVisible({ timeout: 30_000 });
+      return dialog;
     },
   },
 ];

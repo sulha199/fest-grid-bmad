@@ -1255,9 +1255,44 @@ export const FIXTURE_JOB_IDS = {
   moderatorFailedCooldown: 'e1000000-0000-0000-0000-000000000006',
   otherUserSucceeded: 'e1000000-0000-0000-0000-000000000007',
   systemSucceeded: 'e1000000-0000-0000-0000-000000000008',
+  // Story 10.6a (show the Re-extract progress, the missing-images banner and Retry): the moderator's own Re-extract jobs for the source posts of four
+  // fixture events, so the screen can be checked without ever starting a re-extract (no vendor call, no Lambda).
+  moderatorPreviewLimits: 'e1000000-0000-0000-0000-000000000009',
+  moderatorPreviewOverCap: 'e1000000-0000-0000-0000-00000000000a',
+  moderatorPreviewCooldown: 'e1000000-0000-0000-0000-00000000000b',
+  moderatorRunning: 'e1000000-0000-0000-0000-00000000000c',
 } as const;
 
 const REEXTRACT_JOB_TYPE = 'reextract-post';
+
+/** Story 10.6a: a small preview a Re-extract job holds in `result_data`: no caption, no image link, no vendor name (the same shape the engine writes). */
+const seedPreviewResult = (
+  images: ReadonlyArray<{ position: number; role: 'COVER' | 'SLIDE'; state: 'READ' | 'NOT_READ_EXPIRED' | 'NOT_READ_UNAVAILABLE' | 'NOT_SENT_OVER_CAP' }>,
+  refresh: Record<string, unknown>
+) => ({
+  groupingReason: 'single-event',
+  postStored: true,
+  rescraped: false,
+  imagesAvailable: images.length,
+  imagesSent: images.filter((image) => image.state === 'READ').length,
+  images,
+  imageCap: 10,
+  events: [
+    {
+      extractionOrdinal: 0,
+      eventName: 'Seeded preview: Culture Fest',
+      alreadyRepresentedBySlug: null,
+      isStub: false,
+      links: [],
+      schedules: [{ title: 'Opening day', startDate: '2027-01-15', endDate: null, isMain: true }],
+      dedup: { tier: 'none', score: null, candidateSlug: null, candidateName: null },
+    },
+  ],
+  refresh,
+});
+
+const SEED_SLIDES = (count: number, state: 'READ' | 'NOT_READ_EXPIRED' = 'READ') =>
+  Array.from({ length: count }, (_, i) => ({ position: i + 1, role: 'SLIDE' as const, state }));
 
 export const FIXTURE_JOBS = [
   {
@@ -1355,6 +1390,97 @@ export const FIXTURE_JOBS = [
     admittedAt: minutesAgo(21),
     finishedAt: minutesAgo(20),
     createdAt: minutesAgo(22),
+  },
+  {
+    // Story 10.6a: the moderator's finished preview for the source post of the e2e event: five images, the cover and slides 3 to 5 not read (links
+    // expired, no provider reached). Retry is offered (never clicked); finished minutes ago so the 30-minute chip window and the Apply window are open.
+    id: FIXTURE_JOB_IDS.moderatorPreviewLimits,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-preview-limits',
+    input: { postId: FIXTURE_POSTS[1].id },
+    status: 'SUCCEEDED_WITH_LIMITS' as const,
+    phase: 'preview',
+    reasonCode: 'NO_PROVIDER_REACHABLE',
+    resultData: seedPreviewResult(
+      [
+        { position: 0, role: 'COVER', state: 'NOT_READ_EXPIRED' },
+        { position: 1, role: 'SLIDE', state: 'READ' },
+        { position: 2, role: 'SLIDE', state: 'READ' },
+        { position: 3, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+        { position: 4, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+        { position: 5, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+      ],
+      { outcome: 'NO_PROVIDER_REACHABLE', saved: false, lateResultPending: false, expiredLinks: 4 }
+    ),
+    deadlineAt: minutesFromNow(5),
+    admittedAt: minutesAgo(5),
+    finishedAt: minutesAgo(3),
+    createdAt: minutesAgo(5),
+  },
+  {
+    // Story 10.6a: a carousel of twelve slides; the two beyond the preview cap were never sent. Nothing failed: the banner is the one cap line.
+    id: FIXTURE_JOB_IDS.moderatorPreviewOverCap,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-preview-over-cap',
+    input: { postId: FIXTURE_POSTS[3].id },
+    status: 'SUCCEEDED' as const,
+    phase: 'preview',
+    resultData: seedPreviewResult(
+      [
+        { position: 0, role: 'COVER', state: 'READ' },
+        ...SEED_SLIDES(10),
+        { position: 11, role: 'SLIDE', state: 'NOT_SENT_OVER_CAP' },
+        { position: 12, role: 'SLIDE', state: 'NOT_SENT_OVER_CAP' },
+      ],
+      { outcome: 'NOT_NEEDED', saved: false, lateResultPending: false, expiredLinks: 0 }
+    ),
+    deadlineAt: minutesFromNow(5),
+    admittedAt: minutesAgo(4),
+    finishedAt: minutesAgo(3),
+    createdAt: minutesAgo(4),
+  },
+  {
+    // Story 10.6a: the refresh was not tried (cooldown) and links expired: Retry reads "Retry at {time}" and is not clickable until then.
+    id: FIXTURE_JOB_IDS.moderatorPreviewCooldown,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-preview-cooldown',
+    input: { postId: FIXTURE_POSTS[2].id },
+    status: 'SUCCEEDED_WITH_LIMITS' as const,
+    phase: 'preview',
+    reasonCode: 'COOLDOWN',
+    resultData: seedPreviewResult(
+      [
+        { position: 0, role: 'COVER', state: 'READ' },
+        { position: 1, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+        { position: 2, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+      ],
+      { outcome: 'COOLDOWN', saved: false, lateResultPending: false, retryAfter: minutesFromNow(180).toISOString(), expiredLinks: 2 }
+    ),
+    deadlineAt: minutesFromNow(5),
+    admittedAt: minutesAgo(3),
+    finishedAt: minutesAgo(2),
+    createdAt: minutesAgo(3),
+  },
+  {
+    // Story 10.6a: an open Re-extract (refresh done, preview running): its row shows the chip "In progress: step 2 of 2" and the dialog opens on the stepper.
+    id: FIXTURE_JOB_IDS.moderatorRunning,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-running',
+    input: { postId: FIXTURE_POSTS[0].id },
+    status: 'RUNNING' as const,
+    phase: 'preview',
+    resultData: { refresh: { outcome: 'REFRESHED' } },
+    deadlineAt: minutesFromNow(60),
+    admittedAt: minutesAgo(1),
+    createdAt: minutesAgo(1),
   },
   {
     // Another user's job: a moderator sees it only with "All users" ("Started by Alice Reporter").

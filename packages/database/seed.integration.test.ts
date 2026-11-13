@@ -23,6 +23,9 @@ import {
 import {
   FIXTURE_API_KEY_IDS,
   FIXTURE_COUNTS,
+  FIXTURE_JOBS,
+  FIXTURE_JOB_IDS,
+  FIXTURE_USERS,
   FIXTURE_EVENTS,
   FIXTURE_EVENT_IDS,
   FIXTURE_EVENT_SLUGS,
@@ -414,3 +417,45 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
     }
   },
 );
+
+// Story 10.6a (show the Re-extract progress, the missing-images banner and Retry): the Re-extract rows the e2e specs open. They are the moderator fixture
+// user's own jobs for four fixture posts, hold a preview with the per-image list and no caption, no image link and no vendor name, and are never
+// started again by a spec (no vendor call, no Lambda).
+test('the seeded Re-extract preview jobs hold the per-image report and nothing that must not reach a screen', () => {
+  const byId = new Map(FIXTURE_JOBS.map((job) => [job.id, job]));
+  const ids = [FIXTURE_JOB_IDS.moderatorPreviewLimits, FIXTURE_JOB_IDS.moderatorPreviewOverCap, FIXTURE_JOB_IDS.moderatorPreviewCooldown, FIXTURE_JOB_IDS.moderatorRunning];
+  const moderator = FIXTURE_USERS[0];
+  assert.equal(moderator.role, 'moderator');
+  for (const id of ids) {
+    const job = byId.get(id);
+    assert.ok(job, `job ${id} is seeded`);
+    assert.equal(job.ownerUserId, moderator.id);
+    assert.equal(job.type, 'reextract-post');
+  }
+  assert.equal(new Set(FIXTURE_JOBS.map((job) => job.id)).size, FIXTURE_JOBS.length);
+  assert.equal(new Set(FIXTURE_JOBS.map((job) => job.inputKey)).size, FIXTURE_JOBS.length, 'every row has its own reuse key');
+  // One post per row, so each source-post row finds exactly its own job (the newest one of the moderator for that post).
+  assert.equal(new Set(ids.map((id) => (byId.get(id)?.input as { postId: string }).postId)).size, ids.length);
+
+  for (const id of ids.slice(0, 3)) {
+    const result = byId.get(id)?.resultData as unknown as { images: Array<{ position: number; role: string; state: string }>; imagesAvailable: number; imagesSent: number; imageCap: number; refresh: Record<string, unknown> };
+    assert.equal(result.images.length, result.imagesAvailable, 'one entry per image');
+    assert.equal(result.images.filter((image) => image.state === 'READ').length, result.imagesSent, 'READ entries equal imagesSent');
+    assert.equal(result.images[0].position, 0);
+    assert.equal(result.images[0].role, 'COVER');
+    // Nothing that must not reach a screen or a log: no link, no caption, no vendor name (the leak canaries of the read tests, here on the seed).
+    const text = JSON.stringify(result);
+    assert.doesNotMatch(text, /https?:|cdninstagram|apify|brightdata|bright data|caption/i);
+  }
+  const limits = byId.get(FIXTURE_JOB_IDS.moderatorPreviewLimits);
+  assert.equal(limits?.status, 'SUCCEEDED_WITH_LIMITS');
+  assert.equal((limits?.resultData as unknown as { images: Array<{ state: string }> }).images.filter((image) => image.state === 'NOT_READ_EXPIRED').length, 4, 'the cover and slides 3 to 5');
+  const overCap = byId.get(FIXTURE_JOB_IDS.moderatorPreviewOverCap)?.resultData as unknown as { images: Array<{ state: string }>; imageCap: number };
+  assert.equal(overCap.images.filter((image) => image.state === 'NOT_SENT_OVER_CAP').length, 2);
+  assert.equal(overCap.imageCap, 10);
+  // Finished recently enough for the 30-minute chip window and the Apply window to be open when a spec runs soon after the seed.
+  for (const id of ids.slice(0, 3)) {
+    const job = byId.get(id);
+    assert.ok(job?.finishedAt && Date.now() - job.finishedAt.getTime() < 10 * 60_000, `${id} finished minutes ago`);
+  }
+});
