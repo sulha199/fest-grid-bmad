@@ -121,17 +121,18 @@ describe('SubscriptionCap namespace (Story 10.3a)', () => {
 // three extra keys of the story exist in both languages, every cause key the domain can choose has a sentence, and the obsolete keys are gone.
 describe('ReextractPreview namespace (Story 10.6a)', () => {
   const NEW_KEYS = [
-    'progressTitle', 'chipPreviewReady', 'chipPreviewLimits', 'openPreview', 'bannerTitle', 'bannerMissing', 'imageCover', 'imageSlideSingle', 'imageSlideRange', 'bannerOverCap',
+    'chipPreviewReady', 'chipPreviewLimits', 'bannerTitle', 'bannerMissing', 'imageCover', 'imageSlideSingle', 'imageSlideRange', 'bannerOverCap',
     'causeExpiredRefreshFailed', 'causeNotHealed', 'causeRefreshRunning', 'causeCooldown', 'causeNotScraped', 'causePostGone', 'causeInFlight', 'causeTimedOut', 'causeNoProvider', 'causeOverQuota',
     'bannerApplyNote', 'bannerRetry', 'bannerRetryAt', 'bannerRetryHint', 'attachTooOld', 'startNew', 'causeImagesUnavailable', 'previewNotAvailable', 'startRefused',
   ];
   const ns = (messages: unknown) => (messages as Record<string, Record<string, string>>).ReextractPreview;
 
-  it.each([['en', en], ['id', id]] as const)('%s has every new key, non-empty, and neither obsolete key', (_name, messages) => {
+  it.each([['en', en], ['id', id]] as const)('%s has every new key, non-empty, and neither obsolete key, nor the keys no component reads (progressTitle, openPreview, dialogTitle, dialogDescription)', (_name, messages) => {
     for (const k of NEW_KEYS) expect(ns(messages)[k]?.length).toBeGreaterThan(0);
     expect(Object.keys(ns(messages))).not.toContain('running');
     expect(Object.keys(ns(messages))).not.toContain('imagesShortfall');
-    for (const k of ['dialogTitle', 'retry', 'genericError']) expect(ns(messages)[k]).toBeTruthy();
+    for (const k of ['progressTitle', 'openPreview', 'dialogTitle', 'dialogDescription']) expect(Object.keys(ns(messages))).not.toContain(k);
+    for (const k of ['retry', 'genericError']) expect(ns(messages)[k]).toBeTruthy();
   });
 
   it.each([['en', en], ['id', id]] as const)('%s has a sentence for every cause key the domain can choose', (_name, messages) => {

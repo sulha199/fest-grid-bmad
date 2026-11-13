@@ -7,8 +7,7 @@ import type { Page } from '@playwright/test';
  */
 const BLOCKED_OPERATIONS = ['PreviewPostReextraction', 'RetryJob', 'ApplyPostReextraction'] as const;
 
-export async function blockReextractWrites(page: Page): Promise<string[]> {
-  const attempted: string[] = [];
+export async function blockReextractWrites(page: Page, attempted: string[] = []): Promise<string[]> {
   await page.route('**/api/graphql', async (route) => {
     const post = route.request().postDataJSON() as { operationName?: string; query?: string } | null;
     const query = post?.query ?? '';

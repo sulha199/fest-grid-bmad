@@ -9,6 +9,9 @@ import { blockReextractWrites } from './reextract-guard';
  * with no max-height used to hide its bottom categories.)
  *
  * Short viewports matter as much as narrow ones, so landscape phones are included.
+ *
+ * The seeded finished previews are young (finished 2 to 3 minutes before the seed) and the chip and Apply windows are 30 minutes: global setup re-seeds before every
+ * run, but a spec started more than about 25 minutes after that seed will find chips and previews gone. Re-seed (start the run again) before each run.
  */
 
 const VIEWPORTS = [
@@ -35,6 +38,8 @@ interface PopupScenario {
 const POPOVER = '[data-radix-popper-content-wrapper] > [data-state="open"]';
 // Radix dialogs carry data-state; the AI filter overlay is hand-rolled (role only). Closed Radix dialogs unmount.
 const DIALOG = '[role="dialog"], [role="alertdialog"]';
+/** Every blocked Re-extract write of a scenario lands here; the test asserts it stays empty (a blocked write would otherwise pass silently). */
+const attemptedWrites: string[] = [];
 const EVENT_ROUTE = '/en/events/ongoing-culture-fest-2026-2027-fixed';
 
 /**
@@ -196,7 +201,7 @@ const scenarios: PopupScenario[] = [
     route: EVENT_ROUTE,
     session: 'moderator',
     open: async (page) => {
-      await blockReextractWrites(page);
+      await blockReextractWrites(page, attemptedWrites);
       const chip = page.getByTestId('job-chip').first();
       await expect(chip).toBeVisible({ timeout: 30_000 });
       await chip.click();
@@ -211,7 +216,7 @@ const scenarios: PopupScenario[] = [
     route: '/en/events/past-jazz-night-2025-fixed',
     session: 'moderator',
     open: async (page) => {
-      await blockReextractWrites(page);
+      await blockReextractWrites(page, attemptedWrites);
       const chip = page.getByTestId('job-chip').first();
       await expect(chip).toBeVisible({ timeout: 30_000 });
       await chip.click();
@@ -226,7 +231,7 @@ const scenarios: PopupScenario[] = [
     route: `/en/jobs/${FIXTURE_JOB_IDS.moderatorPreviewLimits}`,
     session: 'moderator',
     open: async (page) => {
-      await blockReextractWrites(page);
+      await blockReextractWrites(page, attemptedWrites);
       await page.getByTestId('job-open-preview').click();
       const dialog = page.getByTestId('job-progress-dialog');
       await expect(dialog.getByTestId('reextract-images-warning')).toBeVisible({ timeout: 30_000 });
@@ -256,6 +261,7 @@ for (const scenario of scenarios) {
         for (const problem of problems) failures.push(`${viewport.width}x${viewport.height}: ${problem}`);
         await page.keyboard.press('Escape');
       }
+      expect(attemptedWrites, 'e2e must never start a re-extract, tap Retry or tap Apply').toEqual([]);
       expect(failures, 'popup containment problems').toEqual([]);
     });
   });

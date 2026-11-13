@@ -9,6 +9,9 @@ import { blockReextractWrites } from './reextract-guard';
  *
  * Nothing here starts a re-extract, taps Retry or taps Apply: each would start a vendor scrape or invoke a Lambda. The scenarios open the chips and
  * the dialogs of the seeded jobs and read what they show; `blockReextractWrites` is the net behind that rule and every test asserts it caught nothing.
+ *
+ * The seeded finished previews are young (finished 2 to 3 minutes before the seed) and the chip and Apply windows are 30 minutes: global setup re-seeds before every
+ * run, but a spec started more than about 25 minutes after that seed will find chips and previews gone. Re-seed (start the run again) before each run.
  */
 
 const moderatorState = process.env.E2E_AUTH_MODERATOR_STORAGE_STATE;

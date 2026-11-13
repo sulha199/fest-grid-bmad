@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { drizzle } from 'drizzle-orm/postgres-js';
-import { eq, isNull, sql } from 'drizzle-orm';
+import { eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   apiKeys,
   events,
@@ -96,6 +96,16 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.equal(scheduleCount.count, FIXTURE_COUNTS.schedules);
       assert.equal(reportCount.count, FIXTURE_COUNTS.reports);
       assert.equal(jobCount.count, FIXTURE_COUNTS.jobs);
+
+      // Story 10.6a: the seeded finished previews must be young in the DATABASE (not only in the constants): the chip window and the Apply window are 30 minutes.
+      const previewRows = await db
+        .select({ id: jobs.id, finishedAt: jobs.finishedAt })
+        .from(jobs)
+        .where(inArray(jobs.id, [FIXTURE_JOB_IDS.moderatorPreviewLimits, FIXTURE_JOB_IDS.moderatorPreviewOverCap, FIXTURE_JOB_IDS.moderatorPreviewCooldown]));
+      assert.equal(previewRows.length, 3);
+      for (const row of previewRows) {
+        assert.ok(row.finishedAt && Date.now() - row.finishedAt.getTime() < 10 * 60_000, `seeded job ${row.id} finished minutes ago`);
+      }
       assert.equal(jobAttemptCount.count, FIXTURE_COUNTS.jobAttempts);
 
       // Guard new unique constraint on postUrl from being broken by duplicate seed data
