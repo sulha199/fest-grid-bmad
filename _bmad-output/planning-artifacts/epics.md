@@ -6234,6 +6234,8 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Depends on:** Stories 10.4 and 10.6.
 
+**Story file (2026-11-13):** `implementation-artifacts/10-6a-show-the-re-extract-progress-the-missing-images-banner-and-retry.md`. The owner-confirmed UX spec (choice 10, naming the missing images) needs a small backend addition that Story 10.6 did not make: the refresh report and a per-image availability list are exposed as a moderator-only `Job.refresh` through the existing job read, with the per-image list written into the job result by the preview phase. No migration, service or queue.
+
 ### Story 10.7: Move subscribe and profile lookup onto the engine
 
 **As a** user subscribing to an account,
