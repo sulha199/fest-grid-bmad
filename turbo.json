@@ -25,6 +25,7 @@
     "build": {
       "dependsOn": ["^build", "codegen"],
       "env": [
+        "E2E_FAKE_AUTH",
         "NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM",
         "NEXT_PUBLIC_POSTHOG_KEY",
         "NEXT_PUBLIC_POSTHOG_HOST",
@@ -44,6 +45,7 @@
     "lint": {
       "dependsOn": [],
       "env": [
+        "E2E_FAKE_AUTH",
         "NEXT_PUBLIC_NEARBY_BADGE_DISTANCE_KM",
         "NEXT_PUBLIC_POSTHOG_KEY",
         "NEXT_PUBLIC_POSTHOG_HOST",
