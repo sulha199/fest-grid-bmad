@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { scraperActorRuns, socialMediaAccountProfiles, unprocessedScraperPayloads } from '@festgrid/database';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { graphql } from 'graphql';
+import { createSchema } from 'graphql-yoga';
+import { jobs, scraperActorRuns, socialMediaAccountProfiles, unprocessedScraperPayloads, users } from '@festgrid/database';
 import { decodeActorRunCursor, encodeActorRunCursor, resolvers } from './resolvers.js';
 
 // The four moderator-tools lists (unprocessed payloads, actor runs, moderator accounts and, in
@@ -239,4 +243,45 @@ test('rows that tie on the sort key page in id order (real DB)', async (t) => {
     );
     assertWalkedWithoutOverlap(walk, byIdDesc(rows.map((r) => r.id)));
   });
+});
+
+// Story 10.4 (Part A): `myJobs` pages with the same cursor (the position after its row) and ends its ORDER BY in `id`, so rows that share
+// one `created_at` (a batch written in one transaction) are neither repeated nor skipped. Executed through the real schema, because the
+// resolver reads the selection set.
+test('myJobs pages without overlap when rows share one created_at (real DB)', async (t) => {
+  const suffix = `${Date.now()}-jobs`;
+  const schemaDir = path.resolve(process.cwd(), 'src/schema');
+  const typeDefs = fs.readdirSync(schemaDir).filter((f) => f.endsWith('.graphql')).map((f) => fs.readFileSync(path.join(schemaDir, f), 'utf8')).join('\n');
+  const schema = createSchema({ typeDefs, resolvers: resolvers as any });
+
+  const [owner] = await db.insert(users).values({ email: `mlp-jobs-${suffix}@example.test` }).returning({ id: users.id });
+  const sameInstant = new Date(Date.UTC(2026, 5, 1, 12, 0, 0));
+  const rows = await db
+    .insert(jobs)
+    .values(
+      [0, 1, 2, 3, 4].map((i) => ({
+        type: 'reextract-post',
+        ownerUserId: owner.id,
+        trigger: 'USER' as const,
+        inputKey: `mlp-${suffix}-${i}`,
+        status: 'SUCCEEDED' as const,
+        deadlineAt: new Date(),
+        finishedAt: new Date(),
+        createdAt: sameInstant,
+      })),
+    )
+    .returning({ id: jobs.id });
+  t.after(async () => {
+    await db.delete(jobs).where(inArray(jobs.id, rows.map((r) => r.id)));
+    await db.delete(users).where(eq(users.id, owner.id));
+  });
+
+  const source = `query($first: Int, $after: String) { myJobs(onlyEnded: true, first: $first, after: $after) { totalCount pageInfo { hasNextPage endCursor } edges { cursor node { id } } } }`;
+  const walk = await walkPages(async (after) => {
+    const result = await graphql({ schema, source, variableValues: { first: PAGE_SIZE, after }, contextValue: { user: { userId: owner.id, role: 'user' } } });
+    assert.strictEqual(result.errors, undefined);
+    return (result.data as any).myJobs as Connection;
+  });
+  assertWalkedWithoutOverlap(walk, rows.map((r) => r.id).sort().reverse());
+  assert.strictEqual(walk.pages[0].totalCount, 5);
 });

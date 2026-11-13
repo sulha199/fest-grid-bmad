@@ -8,7 +8,7 @@ import {
 } from '@festgrid/domain/jobs';
 import { db } from '../../db/client.js';
 import { cancelJob } from '../job-engine/cancel-job.js';
-import { startJob } from '../job-engine/start-job.js';
+import { startJob, type StartJobResult } from '../job-engine/start-job.js';
 import { blankHeldPost } from './held-post.js';
 
 // Story 10.6 (AC1; AD-53 Rule 3) -- starts the engine job `reextract-post` for a stored post (with or without a stored caption) or a
@@ -28,11 +28,15 @@ export type StartReextractPostJobResult = { jobId: string } | { errorCode: 'EXTR
 
 export const STUCK_JOB_CANCEL_MESSAGE = 'The job made no progress for 5 minutes and was replaced by a new Re-extract.';
 
-export async function startReextractPostJob(
+/**
+ * The engine's own answer (ADMITTED, QUEUED, REUSED, SHARED or a refusal with its numbers), for a caller that needs more than the
+ * moderator screen's `{ jobId }` (Story 10.4's `retryJob` tells STARTED from REUSED and reports a full queue). Same stuck-job rule.
+ */
+export async function startReextractPostJobDetailed(
   userId: string,
   target: { inputKey: string; payload: ReextractPostJobInput },
   now: Date = new Date()
-): Promise<StartReextractPostJobResult> {
+): Promise<StartJobResult> {
   const [open] = await db
     .select()
     .from(jobs)
@@ -52,7 +56,15 @@ export async function startReextractPostJob(
     }
   }
 
-  const result = await startJob(REEXTRACT_POST_JOB_TYPE, { inputKey: target.inputKey, payload: target.payload }, userId);
+  return startJob(REEXTRACT_POST_JOB_TYPE, { inputKey: target.inputKey, payload: target.payload }, userId);
+}
+
+export async function startReextractPostJob(
+  userId: string,
+  target: { inputKey: string; payload: ReextractPostJobInput },
+  now: Date = new Date()
+): Promise<StartReextractPostJobResult> {
+  const result = await startReextractPostJobDetailed(userId, target, now);
   if ('jobId' in result) {
     return { jobId: result.jobId };
   }

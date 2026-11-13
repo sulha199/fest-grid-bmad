@@ -547,6 +547,225 @@ export enum InstagramEmbedStatus {
   Unavailable = 'UNAVAILABLE'
 }
 
+export type Job = {
+  __typename?: 'Job';
+  canRetry: Scalars['Boolean']['output'];
+  completedAfterDeadline: Scalars['Boolean']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  deadlineAt: Scalars['DateTime']['output'];
+  finishedAt?: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  isCancelled: Scalars['Boolean']['output'];
+  moderatorDetails?: Maybe<JobModeratorDetails>;
+  outcome?: Maybe<JobOutcome>;
+  owner?: Maybe<JobOwner>;
+  queue?: Maybe<JobQueueInfo>;
+  reasonCode?: Maybe<JobReasonCode>;
+  reasonQueueMaxWaitMinutes?: Maybe<Scalars['Int']['output']>;
+  reasonRetryAfter?: Maybe<Scalars['DateTime']['output']>;
+  retryNotBefore?: Maybe<Scalars['DateTime']['output']>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
+  status: JobStatus;
+  steps: Array<JobStep>;
+  subject: JobSubject;
+  trigger: JobTrigger;
+  type: JobType;
+  waiting?: Maybe<JobWaitingInfo>;
+};
+
+export type JobAttempt = {
+  __typename?: 'JobAttempt';
+  budgetMs: Scalars['Int']['output'];
+  elapsedMs: Scalars['Int']['output'];
+  outcome: JobAttemptOutcome;
+  provider: JobProvider;
+  reasonCode?: Maybe<JobReasonCode>;
+};
+
+export enum JobAttemptOutcome {
+  Empty = 'EMPTY',
+  Failed = 'FAILED',
+  OverQuota = 'OVER_QUOTA',
+  Skipped = 'SKIPPED',
+  Succeeded = 'SUCCEEDED',
+  TimedOut = 'TIMED_OUT'
+}
+
+export type JobConnection = {
+  __typename?: 'JobConnection';
+  edges: Array<JobEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type JobEdge = {
+  __typename?: 'JobEdge';
+  cursor: Scalars['String']['output'];
+  node: Job;
+};
+
+export type JobModeratorDetails = {
+  __typename?: 'JobModeratorDetails';
+  attempts: Array<JobAttempt>;
+  engineMessage?: Maybe<Scalars['String']['output']>;
+  engineReasonCode?: Maybe<Scalars['String']['output']>;
+};
+
+export type JobOutcome = {
+  __typename?: 'JobOutcome';
+  eventCount?: Maybe<Scalars['Int']['output']>;
+  kind: JobOutcomeKind;
+  postCount?: Maybe<Scalars['Int']['output']>;
+  previewApplied?: Maybe<Scalars['Boolean']['output']>;
+  previewApplyUntil?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export enum JobOutcomeKind {
+  Account = 'ACCOUNT',
+  Events = 'EVENTS',
+  None = 'NONE',
+  Preview = 'PREVIEW'
+}
+
+export type JobOwner = {
+  __typename?: 'JobOwner';
+  displayName?: Maybe<Scalars['String']['output']>;
+};
+
+export enum JobProvider {
+  Apify = 'APIFY',
+  BrightData = 'BRIGHT_DATA'
+}
+
+export type JobQueueInfo = {
+  __typename?: 'JobQueueInfo';
+  expiresAt: Scalars['DateTime']['output'];
+  maxConcurrent: Scalars['Int']['output'];
+  position: Scalars['Int']['output'];
+};
+
+export enum JobReasonCode {
+  AccountNotFound = 'ACCOUNT_NOT_FOUND',
+  AccountPrivate = 'ACCOUNT_PRIVATE',
+  AccountTypeNotScraped = 'ACCOUNT_TYPE_NOT_SCRAPED',
+  Cancelled = 'CANCELLED',
+  ChainInFlight = 'CHAIN_IN_FLIGHT',
+  Cooldown = 'COOLDOWN',
+  ExtractionFailed = 'EXTRACTION_FAILED',
+  Generic = 'GENERIC',
+  NoProviderReachable = 'NO_PROVIDER_REACHABLE',
+  PostNotFound = 'POST_NOT_FOUND',
+  PostUnavailable = 'POST_UNAVAILABLE',
+  ProviderOverQuota = 'PROVIDER_OVER_QUOTA',
+  QuotaExhausted = 'QUOTA_EXHAUSTED',
+  RefreshDidNotHealImages = 'REFRESH_DID_NOT_HEAL_IMAGES',
+  RefreshInProgress = 'REFRESH_IN_PROGRESS',
+  SomePostsNotExtracted = 'SOME_POSTS_NOT_EXTRACTED',
+  TimedOut = 'TIMED_OUT',
+  VendorRunFailed = 'VENDOR_RUN_FAILED',
+  WaitedTooLong = 'WAITED_TOO_LONG'
+}
+
+export enum JobStartErrorCode {
+  Cooldown = 'COOLDOWN',
+  JobQueueFull = 'JOB_QUEUE_FULL',
+  JobStartFailed = 'JOB_START_FAILED',
+  SubscriptionCapReached = 'SUBSCRIPTION_CAP_REACHED'
+}
+
+export enum JobStatus {
+  Expired = 'EXPIRED',
+  Failed = 'FAILED',
+  Queued = 'QUEUED',
+  Running = 'RUNNING',
+  Succeeded = 'SUCCEEDED',
+  SucceededWithLimits = 'SUCCEEDED_WITH_LIMITS',
+  Waiting = 'WAITING'
+}
+
+export type JobStep = {
+  __typename?: 'JobStep';
+  done?: Maybe<Scalars['Int']['output']>;
+  key: Scalars['String']['output'];
+  state: JobStepState;
+  total?: Maybe<Scalars['Int']['output']>;
+};
+
+export enum JobStepState {
+  Current = 'CURRENT',
+  Done = 'DONE',
+  Pending = 'PENDING',
+  Skipped = 'SKIPPED'
+}
+
+export type JobSubject = {
+  __typename?: 'JobSubject';
+  accountId?: Maybe<Scalars['ID']['output']>;
+  displayName?: Maybe<Scalars['String']['output']>;
+  kind: JobSubjectKind;
+  platform?: Maybe<Scalars['String']['output']>;
+  postCode?: Maybe<Scalars['String']['output']>;
+  postCount?: Maybe<Scalars['Int']['output']>;
+  postId?: Maybe<Scalars['ID']['output']>;
+  profileImageUrl?: Maybe<Scalars['String']['output']>;
+  username?: Maybe<Scalars['String']['output']>;
+};
+
+export type JobSubjectInput = {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  postId?: InputMaybe<Scalars['ID']['input']>;
+  postUrlKey?: InputMaybe<Scalars['String']['input']>;
+  type: JobType;
+};
+
+export enum JobSubjectKind {
+  Account = 'ACCOUNT',
+  None = 'NONE',
+  Post = 'POST',
+  Posts = 'POSTS'
+}
+
+export enum JobTrigger {
+  System = 'SYSTEM',
+  User = 'USER'
+}
+
+export enum JobType {
+  AccountRefresh = 'ACCOUNT_REFRESH',
+  AdminOperation = 'ADMIN_OPERATION',
+  Correction = 'CORRECTION',
+  ExtractFromUrl = 'EXTRACT_FROM_URL',
+  ExtractSelectedPosts = 'EXTRACT_SELECTED_POSTS',
+  Other = 'OTHER',
+  ProfileLookup = 'PROFILE_LOOKUP',
+  ReextractRefresh = 'REEXTRACT_REFRESH',
+  Subscribe = 'SUBSCRIBE'
+}
+
+export enum JobWaitingFor {
+  ExtractionQueue = 'EXTRACTION_QUEUE',
+  ResultFromProvider = 'RESULT_FROM_PROVIDER',
+  RetryAt = 'RETRY_AT'
+}
+
+export type JobWaitingInfo = {
+  __typename?: 'JobWaitingInfo';
+  done?: Maybe<Scalars['Int']['output']>;
+  resumeAt?: Maybe<Scalars['DateTime']['output']>;
+  total?: Maybe<Scalars['Int']['output']>;
+  waitingFor: JobWaitingFor;
+};
+
+export type JobsFilter = {
+  includeSystem?: InputMaybe<Scalars['Boolean']['input']>;
+  scope?: InputMaybe<JobsScope>;
+};
+
+export enum JobsScope {
+  AllUsers = 'ALL_USERS',
+  Mine = 'MINE'
+}
+
 export type LocationDetails = {
   __typename?: 'LocationDetails';
   adminArea?: Maybe<Scalars['String']['output']>;
@@ -632,6 +851,7 @@ export type Mutation = {
    */
   resolveSuggestedEventMatch: SuggestedEventMatchResolution;
   restoreEvent: Event;
+  retryJob: RetryJobResult;
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
@@ -841,6 +1061,11 @@ export type MutationResolveSuggestedEventMatchArgs = {
 export type MutationRestoreEventArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationRetryJobArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -1117,6 +1342,7 @@ export type PublicWidget = {
 
 export type Query = {
   __typename?: 'Query';
+  activeJobs: Array<Job>;
   addressAutocomplete: Array<AddressSuggestion>;
   embedDomainsForWidget: Array<EmbedDomain>;
   event?: Maybe<Event>;
@@ -1126,6 +1352,7 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
+  job?: Maybe<Job>;
   me: Me;
   /**
    * Combined count of items awaiting moderator action across Moderator Items
@@ -1144,6 +1371,7 @@ export type Query = {
   myAIEventFilters: Array<AiEventFilter>;
   myApiKeys: Array<ApiKey>;
   myExtractionQuota: ExtractionQuota;
+  myJobs: JobConnection;
   myLocations: Array<UserLocation>;
   myReports: Array<Report>;
   mySettings: UserSettings;
@@ -1176,6 +1404,13 @@ export type Query = {
   voteRegionBreakdown: Array<RegionVoteBucket>;
   votedAccountSuggestions: Array<RankedAccountVote>;
   widgetById?: Maybe<PublicWidget>;
+};
+
+
+export type QueryActiveJobsArgs = {
+  endedWithinMinutes?: InputMaybe<Scalars['Int']['input']>;
+  filter?: InputMaybe<JobsFilter>;
+  subject?: InputMaybe<JobSubjectInput>;
 };
 
 
@@ -1226,6 +1461,19 @@ export type QueryInstagramEmbedBySlugArgs = {
 export type QueryIsOriginAllowedForWidgetArgs = {
   origin: Scalars['String']['input'];
   widgetId: Scalars['ID']['input'];
+};
+
+
+export type QueryJobArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryMyJobsArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  filter?: InputMaybe<JobsFilter>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  onlyEnded?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 
@@ -1452,6 +1700,24 @@ export type ResolvedAiEventFilterResult = {
   caveats: Array<Scalars['String']['output']>;
   expression: FilterNode;
   resolvedFilter: EventFilter;
+};
+
+export enum RetryJobOutcome {
+  Refused = 'REFUSED',
+  Reused = 'REUSED',
+  Started = 'STARTED'
+}
+
+export type RetryJobResult = {
+  __typename?: 'RetryJobResult';
+  activeCount?: Maybe<Scalars['Int']['output']>;
+  cap?: Maybe<Scalars['Int']['output']>;
+  errorCode?: Maybe<JobStartErrorCode>;
+  job?: Maybe<Job>;
+  maxQueued?: Maybe<Scalars['Int']['output']>;
+  outcome: RetryJobOutcome;
+  reservedCount?: Maybe<Scalars['Int']['output']>;
+  retryNotBefore?: Maybe<Scalars['DateTime']['output']>;
 };
 
 export type Schedule = {
