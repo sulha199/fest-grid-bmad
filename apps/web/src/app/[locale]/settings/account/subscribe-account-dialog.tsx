@@ -13,6 +13,8 @@ import { useSubscribeToAccountMutation, useVotedAccountSuggestionsQuery } from "
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { ClientError } from "graphql-request"
+import { useSubscriptionCapRefusal } from "@/features/subscriptions/use-subscription-cap-refusal"
+import { SubscriptionCapNoticeConnected } from "@/features/subscriptions/SubscriptionCapNoticeConnected"
 
 interface SubscribeAccountDialogProps {
   isOpen: boolean
@@ -29,6 +31,14 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
   const [platform, setPlatform] = useState<string>(SUPPORTED_PLATFORMS[0])
   const [handleInput, setHandleInput] = useState("")
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
+  // The platform account id of a picked voted-account suggestion; never set for a typed handle (Story 10.3a, analytics).
+  const [pickedAccountId, setPickedAccountId] = useState<string | null>(null)
+  const { state: capState, show: showCapRefusal, clear: clearCapRefusal } = useSubscriptionCapRefusal()
+
+  const handleClose = () => {
+    clearCapRefusal()
+    onClose()
+  }
 
   const debouncedSearch = useDebounce(handleInput, 300)
 
@@ -44,6 +54,8 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // The refusal stands until the dialog closes: Enter in the handle field must not submit past the missing button.
+    if (capState) return
     const cleanHandle = parseSocialMediaAccountHandle(handleInput)
     if (!cleanHandle) {
       toast.error(t("subscribeErrorToast") || "Invalid account handle")
@@ -70,8 +82,11 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
       }
 
       setHandleInput("")
-      onClose()
+      setPickedAccountId(null)
+      handleClose()
     } catch (err) {
+      // A cap refusal is shown as the notice, never as a generic toast; the blocked action stays blocked.
+      if (showCapRefusal(err, { surface: "subscribe_dialog", accountId: pickedAccountId, username: cleanHandle })) return
       if (err instanceof ClientError) {
         const firstError = err.response?.errors?.[0]
         if (firstError?.extensions?.code === "SCRAPER_CAPACITY_EXCEEDED") {
@@ -88,7 +103,7 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
     <>
       <BlockingLoader active={isSaving} label={t("savingLabel") || "Subscribing..."} />
 
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent className="sm:max-w-md bg-background">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">{t("addModalTitle")}</DialogTitle>
@@ -123,6 +138,7 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
                   value={handleInput}
                   onChange={(e) => {
                     setHandleInput(e.target.value)
+                    setPickedAccountId(null)
                     setIsSuggestionsOpen(true)
                   }}
                   onFocus={() => setIsSuggestionsOpen(true)}
@@ -151,6 +167,7 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
                             onClick={() => {
                               setPlatform(profile.platform)
                               setHandleInput(profile.username)
+                              setPickedAccountId(profile.accountId ?? null)
                               setIsSuggestionsOpen(false)
                               toast.info(`Selected voted account: @${profile.username}`)
                             }}
@@ -174,21 +191,25 @@ export function SubscribeAccountDialog({ isOpen, onClose }: SubscribeAccountDial
               </div>
             </div>
 
+            {capState && <SubscriptionCapNoticeConnected state={capState} variant="inline" showBlockedNote />}
+
             <DialogFooter className="gap-2 sm:gap-0 mt-6">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
               >
                 {t("cancelButtonLabel") || "Cancel"}
               </button>
-              <button
-                type="submit"
-                disabled={isSaving || !handleInput.trim()}
-                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2"
-              >
-                {t("subscribeSubmitLabel") || "Subscribe"}
-              </button>
+              {!capState && (
+                <button
+                  type="submit"
+                  disabled={isSaving || !handleInput.trim()}
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2"
+                >
+                  {t("subscribeSubmitLabel") || "Subscribe"}
+                </button>
+              )}
             </DialogFooter>
           </form>
         </DialogContent>

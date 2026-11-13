@@ -93,13 +93,17 @@ vi.mock('@/features/onboarding/use-has-api-key', () => ({
   useApiKeyStatus: () => ({ hasApiKey: mockHasApiKey, isLoading: mockApiKeyLoading }),
 }));
 
+const mockCapturePostHogEvent = vi.fn();
 vi.mock('@festgrid/analytics', () => ({
   usePostHog: () => ({
     capture: mockPosthogCapture,
   }),
+  capturePostHogEvent: (...args: unknown[]) => mockCapturePostHogEvent(...args),
 }));
 
 let removeCalls: { id: string; action: string }[] = [];
+// Story 10.3a: when set, a RESTORE is refused with this error body.
+let restoreRefusal: Record<string, unknown> | null = null;
 
 const handleRequest = async ({ request }: { request: any }) => {
   const { query, variables, operationName } = await request.json() as any;
@@ -114,6 +118,9 @@ const handleRequest = async ({ request }: { request: any }) => {
 
   if (operationName === 'removeSubscription' || query?.includes('removeSubscription')) {
     removeCalls.push({ id: variables.id, action: variables.action });
+    if (variables.action === 'RESTORE' && restoreRefusal) {
+      return HttpResponse.json({ errors: [{ message: 'server English text', extensions: restoreRefusal }] });
+    }
     return HttpResponse.json({
       data: {
         removeSubscription: { id: variables.id },
@@ -140,6 +147,7 @@ afterEach(() => {
   mockApiKeyLoading = false;
   subscriptionsResponse = mockSubscriptions;
   removeCalls = [];
+  restoreRefusal = null;
 });
 afterAll(async () => {
   // sonner's deleteToast schedules a 200ms (TIME_BEFORE_UNMOUNT) setTimeout
@@ -255,6 +263,44 @@ describe('SubscriptionsContent', () => {
     await waitFor(() => {
       expect(removeCalls).toContainEqual({ id: 'sub-1', action: 'RESTORE' });
     });
+  });
+
+  // Story 10.3a (show the subscription cap refusal and the upgrade call to action)
+  it('an Undo refused with the cap opens the cap dialog and a short toast, and the row stays removed', async () => {
+    mockSession = { user: { id: 'user-1' } };
+    mockHasApiKey = true;
+    restoreRefusal = { code: 'SUBSCRIPTION_CAP_REACHED', activeCount: 5, reservedCount: 0, cap: 5 };
+    renderWithProviders(<SubscriptionsContent />);
+    await waitFor(() => expect(screen.getByText('Jakarta Festivals')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByLabelText('Delete')[0]);
+    fireEvent.click(await screen.findByText('Undo'));
+
+    const dialog = await screen.findByTestId('subscription-cap-dialog');
+    expect(dialog).toHaveTextContent('You have 5 accounts added. The limit is 5.');
+    expect(await screen.findByText('Could not restore the account. You have reached your limit of 5.')).toBeInTheDocument();
+    expect(removeCalls.filter((c) => c.action === 'RESTORE')).toEqual([{ id: 'sub-1', action: 'RESTORE' }]);
+    // The row stays in its removed (pending, dimmed, inert) state: the restore was not accepted.
+    expect(screen.getByText('Jakarta Festivals').closest('[tabindex="0"]')).toHaveClass('opacity-40', 'pointer-events-none');
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith('subscription_cap_upgrade_cta_shown', { currentSubscriptionCount: 5, reservedCount: 0, cap: 5, surface: 'restore', accountId: 'acc-1' });
+    expect(screen.getByRole('link', { name: 'Manage subscribed accounts' })).toHaveAttribute('href', '/settings/account');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByTestId('subscription-cap-dialog')).toBeNull());
+  });
+
+  it('an Undo refused for another reason shows no cap dialog and no cap event', async () => {
+    mockSession = { user: { id: 'user-1' } };
+    mockHasApiKey = true;
+    restoreRefusal = { code: 'INTERNAL_SERVER_ERROR' };
+    renderWithProviders(<SubscriptionsContent />);
+    await waitFor(() => expect(screen.getByText('Jakarta Festivals')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByLabelText('Delete')[0]);
+    fireEvent.click(await screen.findByText('Undo'));
+    await waitFor(() => expect(removeCalls.filter((c) => c.action === 'RESTORE')).toHaveLength(1));
+    expect(screen.queryByTestId('subscription-cap-dialog')).toBeNull();
+    expect(screen.queryByText(/reached your limit/)).toBeNull();
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
   });
 
   it('navigates to the platform/username page when the subscription row is clicked, but not when buttons are clicked', async () => {

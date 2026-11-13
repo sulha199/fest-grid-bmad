@@ -61,6 +61,7 @@ vi.mock("@/i18n/navigation", () => ({
     back: vi.fn(),
     prefetch: mockRouterPrefetch,
   }),
+  Link: ({ href, children, ...rest }: any) => React.createElement("a", { href, ...rest }, children),
 }))
 
 let mockSearchParams = new URLSearchParams()
@@ -69,10 +70,12 @@ vi.mock("next/navigation", () => ({
 }))
 
 const mockPosthogCapture = vi.fn()
+const mockCapturePostHogEvent = vi.fn()
 vi.mock("@festgrid/analytics", () => ({
   usePostHog: () => ({
     capture: mockPosthogCapture,
   }),
+  capturePostHogEvent: (...args: unknown[]) => mockCapturePostHogEvent(...args),
 }))
 
 vi.mock("sonner", () => ({
@@ -1458,6 +1461,55 @@ describe("EventDetailWrapper", () => {
     })
   })
 
+  // Story 10.3a (show the subscription cap refusal and the upgrade call to action)
+  it("a source-account subscribe refused with the cap opens the small cap dialog, announces the refusal, keeps the toggle 'not subscribed' and fires the shown event with the account id", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = { accountId: "123", platform: "instagram", username: "org", displayName: "Org", profileImageUrl: null }
+    currentMockSubscriptions = []
+    server.use(
+      api.mutation("SubscribeToAccount", () =>
+        HttpResponse.json({ errors: [{ message: "server English text", extensions: { code: "SUBSCRIPTION_CAP_REACHED", activeCount: 4, reservedCount: 1, cap: 5 } }] })
+      )
+    )
+
+    renderComponent()
+    await waitFor(() => expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false"))
+    fireEvent.click(screen.getByTestId("subscribe-toggle"))
+
+    const dialog = await screen.findByTestId("subscription-cap-dialog")
+    const notice = within(dialog).getByTestId("subscription-cap-notice")
+    expect(notice).toHaveAttribute("data-active-count", "4")
+    expect(notice).toHaveAttribute("data-reserved-count", "1")
+    expect(notice).toHaveAttribute("data-cap", "5")
+    expect(within(dialog).getByRole("button", { name: /SubscriptionCap.upgradeButton/ })).toBeEnabled()
+    // The generic failure message is swapped for the notice's own announcement.
+    expect(screen.getByText("SubscriptionCap.announce")).toBeInTheDocument()
+    expect(screen.queryByText("EventDetailsPage.subscribeErrorAnnouncement")).toBeNull()
+    expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+    // The sanitized toggle-failed event is unchanged and now reads the cap code.
+    expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_failed", { action: "subscribe", platform: "instagram", source: "event_detail_source_account", errorCode: "SUBSCRIPTION_CAP_REACHED" })
+    expect(mockCapturePostHogEvent.mock.calls).toEqual([
+      ["subscription_cap_upgrade_cta_shown", { currentSubscriptionCount: 4, reservedCount: 1, cap: 5, surface: "event_detail_source", accountId: "123" }],
+    ])
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "SubscriptionCap.closeButton" }))
+    await waitFor(() => expect(screen.queryByTestId("subscription-cap-dialog")).toBeNull())
+    expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
+  })
+
+  it("a source-account subscribe failing with another code or a network error opens no cap dialog and fires no cap event", async () => {
+    currentMockEvent.sourceSocialMediaAccountProfile = { accountId: "123", platform: "instagram", username: "org", displayName: "Org", profileImageUrl: null }
+    currentMockSubscriptions = []
+    server.use(api.mutation("SubscribeToAccount", () => HttpResponse.error()))
+
+    renderComponent()
+    await waitFor(() => expect(screen.getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false"))
+    fireEvent.click(screen.getByTestId("subscribe-toggle"))
+
+    await waitFor(() => expect(screen.getByText("EventDetailsPage.subscribeErrorAnnouncement")).toBeInTheDocument())
+    expect(screen.queryByTestId("subscription-cap-dialog")).toBeNull()
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled()
+  })
+
   it("Story 3.19 (AC2, AC4): clicking the source-account toggle to unsubscribe, on a ClientError failure, emits subscription_toggle_failed with the sanitized errorCode from extensions.code", async () => {
     currentMockEvent.sourceSocialMediaAccountProfile = {
       accountId: "123",
@@ -1852,6 +1904,30 @@ describe("EventDetailWrapper", () => {
         source: "event_detail_coauthor",
         errorCode: "SCRAPER_CAPACITY_EXCEEDED",
       })
+    })
+
+    it("Story 10.3a: a coauthor subscribe refused with the cap opens the cap dialog and fires the shown event with that coauthor's account id", async () => {
+      currentMockEvent.coauthors = [coauthorA]
+      currentMockSubscriptions = []
+      server.use(
+        api.mutation("SubscribeToAccount", () =>
+          HttpResponse.json({ errors: [{ message: "server English text", extensions: { code: "SUBSCRIPTION_CAP_REACHED", activeCount: 5, reservedCount: 0, cap: 5 } }] })
+        )
+      )
+
+      renderComponent()
+      const list = await screen.findByRole("list", { name: "EventDetailsPage.coauthorsListAriaLabel" })
+      const toggle = within(list).getByTestId("subscribe-toggle")
+      await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "false"))
+      fireEvent.click(toggle)
+
+      const dialog = await screen.findByTestId("subscription-cap-dialog")
+      expect(within(dialog).getByTestId("subscription-cap-notice")).toHaveAttribute("data-cap", "5")
+      expect(mockCapturePostHogEvent.mock.calls).toEqual([
+        ["subscription_cap_upgrade_cta_shown", { currentSubscriptionCount: 5, reservedCount: 0, cap: 5, surface: "event_detail_coauthor", accountId: "coauthor-a" }],
+      ])
+      expect(mockPosthogCapture).toHaveBeenCalledWith("subscription_toggle_failed", { action: "subscribe", platform: "instagram", source: "event_detail_coauthor", errorCode: "SUBSCRIPTION_CAP_REACHED" })
+      expect(within(list).getByTestId("subscribe-toggle")).toHaveAttribute("aria-pressed", "false")
     })
 
     it("Story 3.19 (AC6, review): two overlapping coauthor subscribe failures each report their own platform, not the last-clicked one", async () => {

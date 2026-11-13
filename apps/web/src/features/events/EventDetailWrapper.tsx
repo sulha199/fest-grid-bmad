@@ -22,6 +22,10 @@ import { EventPreviewCard } from "./event-preview-card"
 import { getPlatformSlug } from "@festgrid/domain/scraper"
 import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
 import { ClientError } from "graphql-request"
+import { useSubscriptionCapRefusal } from "@/features/subscriptions/use-subscription-cap-refusal"
+import { readSubscriptionCapRefusal } from "@/features/subscriptions/subscription-cap-error"
+import { SubscriptionCapDialog } from "@/features/subscriptions/SubscriptionCapDialog"
+import { useSubscriptionCapAnnouncement } from "@/features/subscriptions/SubscriptionCapNoticeConnected"
 
 // Story 3.19 (AC1-4) -- shared sanitized payload shape for both subscribe/unsubscribe toggle
 // instances in this file. Deliberately local/un-exported (see Dev Notes' Gate 2/3 findings --
@@ -364,6 +368,15 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     },
   })
 
+  // Story 10.3a: a subscribe refused with SUBSCRIPTION_CAP_REACHED opens a small dialog with the cap notice instead of the
+  // generic failure message; the toggle stays "not subscribed" (nothing optimistic to roll back, confirm-then-refetch).
+  const { state: capState, show: showCapRefusal, clear: clearCapRefusal } = useSubscriptionCapRefusal()
+  const capAnnouncement = useSubscriptionCapAnnouncement()
+  const announceSubscribeFailure = (err: unknown, ctx: Parameters<typeof showCapRefusal>[1]) => {
+    const refusal = showCapRefusal(err, ctx) ? readSubscriptionCapRefusal(err) : null
+    setLiveMessage(refusal ? capAnnouncement(refusal) : t("subscribeErrorAnnouncement"))
+  }
+
   const { mutate: subscribeToAccount, isPending: isSubscribingToAccount } = useSubscribeToAccountMutation(graphqlClient, {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
@@ -376,7 +389,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       posthog.capture("subscription_toggle_succeeded", payload)
     },
     onError: (err, variables) => {
-      setLiveMessage(t("subscribeErrorAnnouncement"))
+      announceSubscribeFailure(err, { surface: "event_detail_source", accountId: variables.input.accountId, username: variables.input.username })
       const payload: SubscriptionToggleFailedPayload = {
         action: "subscribe",
         platform: variables.input.platform,
@@ -427,7 +440,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       posthog.capture("subscription_toggle_succeeded", payload)
     },
     onError: (err, variables) => {
-      setLiveMessage(t("subscribeErrorAnnouncement"))
+      announceSubscribeFailure(err, { surface: "event_detail_coauthor", accountId: variables.input.accountId, username: variables.input.username })
       const payload: SubscriptionToggleFailedPayload = {
         action: "subscribe",
         // From this mutation's own variables, not shared pending state: another coauthor toggle
@@ -1005,6 +1018,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
         <div aria-live="polite" className="sr-only">
           {liveMessage}
         </div>
+        <SubscriptionCapDialog state={capState} onClose={clearCapRefusal} />
         {navigationHeader}
         <CarouselContent>
           {nav.hasListContext && !nav.previous.disabled && (

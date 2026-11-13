@@ -11,6 +11,8 @@ import { useGetMySubscriptionsQuery, useSubscribeToAccountMutation } from '@/gen
 import { graphqlClient } from '@/lib/graphql-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { ClientError } from 'graphql-request';
+import { useSubscriptionCapRefusal } from '@/features/subscriptions/use-subscription-cap-refusal';
+import { SubscriptionCapNoticeConnected } from '@/features/subscriptions/SubscriptionCapNoticeConnected';
 
 export function OnboardingSubscribeStep() {
   const t = useTranslations('OnboardingWizard');
@@ -23,6 +25,7 @@ export function OnboardingSubscribeStep() {
 
   const [platform, setPlatform] = useState<string>(SUPPORTED_PLATFORMS[0]);
   const [handleInput, setHandleInput] = useState('');
+  const { state: capState, show: showCapRefusal } = useSubscriptionCapRefusal();
 
   const subscriptions = subscriptionsData?.mySubscriptions ?? [];
   const hasExistingSubscriptions = subscriptions.length > 0;
@@ -35,6 +38,8 @@ export function OnboardingSubscribeStep() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // The refusal stands until the user leaves the step: Enter in the handle field must not submit past the missing button.
+    if (capState) return;
     const cleanHandle = parseSocialMediaAccountHandle(handleInput);
     if (!cleanHandle) {
       toast.error(t('invalidHandleError'));
@@ -63,6 +68,8 @@ export function OnboardingSubscribeStep() {
         toast.success(t('subscribeSuccessToast'));
       }
     } catch (err: any) {
+      // A cap refusal is the notice, never a generic toast, and never completes the step (the wizard's Continue and Skip are untouched, FR127).
+      if (showCapRefusal(err, { surface: 'onboarding_wizard', username: cleanHandle })) return;
       if (err instanceof ClientError) {
         const firstError = err.response?.errors?.[0];
         if (firstError?.extensions?.code === 'SCRAPER_CAPACITY_EXCEEDED') {
@@ -128,15 +135,19 @@ export function OnboardingSubscribeStep() {
           />
         </div>
 
-        <div className="flex justify-end pt-2">
-          <button
-            type="submit"
-            disabled={isSaving || !handleInput.trim()}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-indigo-600 text-white hover:bg-indigo-700 h-10 px-4 py-2"
-          >
-            {t('subscribeSubmitLabel')}
-          </button>
-        </div>
+        {capState ? (
+          <SubscriptionCapNoticeConnected state={capState} variant="inline" showBlockedNote />
+        ) : (
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={isSaving || !handleInput.trim()}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-indigo-600 text-white hover:bg-indigo-700 h-10 px-4 py-2"
+            >
+              {t('subscribeSubmitLabel')}
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );
