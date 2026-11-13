@@ -93,10 +93,18 @@ function visibleToViewer(viewer: JobViewer, filter: JobsFilterInput | null | und
 }
 
 /** A finished job older than the retention is hidden (never deleted). */
-function withinRetention(now: Date): SQL {
+export function withinRetention(now: Date): SQL {
   const cutoff = jobHistoryCutoff(now, loadBackendEnv().jobsHistoryRetentionDays);
-  return or(notInArray(jobs.status, [...JOB_TERMINAL_STATUSES]), isNull(jobs.finishedAt), gte(jobs.finishedAt, cutoff)) as SQL;
+  // A terminal job with no finished_at is measured from created_at, so it cannot stay visible forever.
+  return or(notInArray(jobs.status, [...JOB_TERMINAL_STATUSES]), sql`coalesce(${jobs.finishedAt}, ${jobs.createdAt}) >= ${cutoff.toISOString()}::timestamptz`) as SQL;
 }
+
+/**
+ * The only `jobs` columns the optimized select may contribute. `getRequestedFieldNames` reads ALIAS names, so `job(id) { input: id }`
+ * would make `buildOptimizedDrizzleSelect` take the whole `input` column; keeping only these names closes that. Aliased derived fields
+ * are not supported (the generated web client never aliases).
+ */
+const PLAIN_JOB_COLUMNS = new Set(['id', 'type', 'trigger', 'status', 'reasonCode', 'createdAt', 'finishedAt', 'deadlineAt', 'completedAfterDeadline']);
 
 /**
  * The columns to read. The plain columns come from `buildOptimizedDrizzleSelect` (only what the client selected); the dependency columns
@@ -106,7 +114,7 @@ function withinRetention(now: Date): SQL {
 function buildJobSelect(request: JobReadRequest, viewer: JobViewer) {
   const requested = getRequestedFieldNames(request.info, request.path);
   const select: Record<string, PgColumn | SQL> = {
-    ...buildOptimizedDrizzleSelect(jobs, request.info, { path: request.path }),
+    ...Object.fromEntries(Object.entries(buildOptimizedDrizzleSelect(jobs, request.info, { path: request.path })).filter(([name]) => PLAIN_JOB_COLUMNS.has(name))),
     id: jobs.id,
     type: jobs.type,
     trigger: jobs.trigger,

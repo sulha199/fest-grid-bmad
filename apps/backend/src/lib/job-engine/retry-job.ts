@@ -6,7 +6,7 @@ import { getRequestedFieldNames } from '@festgrid/graphql-select';
 import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { getJobRetryStarter, hasJobRetryStarter } from './job-retry-registry.js';
-import { readJobById, type JobViewer } from './read-jobs.js';
+import { readJobById, withinRetention, type JobViewer } from './read-jobs.js';
 import type { JobView } from './job-read-mappers.js';
 
 // Story 10.4 (AC8; Dev Notes decision 6; PRD FR123) -- Retry: a NEW job for the same input through the type's own start path (the registry,
@@ -62,7 +62,7 @@ export async function retryJob(viewer: JobViewer, jobId: string, info: GraphQLRe
       retryAfter: sql<string | null>`${resultJson} #>> '{refresh,retryAfter}'`,
     })
     .from(jobs)
-    .where(and(eq(jobs.id, jobId), eq(jobs.ownerUserId, viewer.userId), eq(jobs.trigger, 'USER')))
+    .where(and(eq(jobs.id, jobId), eq(jobs.ownerUserId, viewer.userId), eq(jobs.trigger, 'USER'), withinRetention(now)))
     .limit(1);
   if (!old) throw notFound();
 

@@ -439,4 +439,40 @@ test('Jobs read API (Story 10.4 Part A, real Postgres)', async (t) => {
     assert.equal(full.retryJob.errorCode, 'JOB_QUEUE_FULL');
     assert.equal(full.retryJob.maxQueued, 1);
   });
+  await t.test('aliased fields never pull a whole column into the select (input: id, errorMessage: id), and nothing leaks', async () => {
+    const CAPTION = `ALIAS-CAPTION-${suffix}`;
+    const id = await makeJob({ errorMessage: `alias engine words ${suffix}`, input: { accountId: 'x', held: { content: CAPTION } }, resultData: { events: [{ title: CAPTION }] } });
+    const selected: string[][] = [];
+    const originalSelect = db.select.bind(db);
+    (db as any).select = (...args: any[]) => {
+      if (args[0] && typeof args[0] === 'object') selected.push(Object.keys(args[0]));
+      return (originalSelect as any)(...args);
+    };
+    let result;
+    try {
+      result = await run(`query($id: ID!) { job(id: $id) { input: id errorMessage: id resultData: id workerClaimedAt: id inputKey: id realId: id } }`, { id }, user);
+    } finally {
+      (db as any).select = originalSelect;
+    }
+    const keys = selected.flat();
+    for (const banned of ['input', 'resultData', 'errorMessage', 'workerClaimedAt', 'inputKey']) {
+      assert.ok(!keys.includes(banned), `the select must not carry ${banned}`);
+    }
+    const text = JSON.stringify(result.data ?? {});
+    assert.ok(!text.includes(CAPTION) && !text.includes('alias engine words'));
+  });
+
+  await t.test('retention also covers a terminal job with no finished_at (measured from created_at) and retryJob', async () => {
+    const m = await fx.makeUser('moderator');
+    const mod: Viewer = { userId: m, role: 'moderator' };
+    const oldNoEnd = await makeJob({ finishedAt: null, createdAt: new Date(Date.now() - 40 * DAY) });
+    const freshNoEnd = await makeJob({ finishedAt: null, createdAt: new Date(Date.now() - 1 * DAY) });
+    assert.equal(((await run(JOB_QUERY, { id: oldNoEnd }, user)).data as any).job, null);
+    assert.equal(((await run(JOB_QUERY, { id: freshNoEnd }, user)).data as any).job.id, freshNoEnd);
+    const listed = ((await run(MY_JOBS_QUERY, { first: 50, onlyEnded: true }, user)).data as any).myJobs.edges.map((e: any) => e.node.id);
+    assert.ok(!listed.includes(oldNoEnd) && listed.includes(freshNoEnd));
+
+    const oldFailed = await makeJob({ ownerUserId: m, type: REEXTRACT_POST_JOB_TYPE, status: 'FAILED', reasonCode: 'TIMED_OUT', input: { postId: '88888888-8888-4888-8888-888888888888' }, finishedAt: new Date(Date.now() - 31 * DAY), createdAt: new Date(Date.now() - 32 * DAY) });
+    assert.equal(codeOf(await run(RETRY_MUTATION, { id: oldFailed }, mod)), 'NOT_FOUND', 'retry of a job past retention reads like a missing job');
+  });
 });
