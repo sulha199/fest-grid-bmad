@@ -56,23 +56,26 @@ async function runPreview(ctx: JobHandlerContext): Promise<JobHandlerResult> {
       console.error(`[reextract-preview] job ${ctx.jobId}: its input or its owner is missing`);
       return { outcome: 'FAILED', reasonCode: 'HANDLER_ERROR', errorMessage: 'The job could not read its input.' };
     }
+    // Story 10.6a: every ending of this phase keeps what phase 1 reported, so the banner of a failed preview can still say what the refresh did
+    // (the engine writes a handler's `resultData`, or null, over the row's).
+    const report = readRefreshReport(job.resultData);
+    const keepReport = { refresh: report };
     // Read from the row, not from `ctx.input`: phase 1 held the post AFTER this job was claimed the first time.
     const held = readHeldPost(job.input);
     let post: typeof posts.$inferSelect | undefined;
     if ('postId' in input) {
       [post] = await db.select().from(posts).where(eq(posts.id, input.postId)).limit(1);
       if (!post) {
-        return { outcome: 'FAILED', reasonCode: 'POST_NOT_FOUND', errorMessage: 'Post not found.' };
+        return { outcome: 'FAILED', reasonCode: 'POST_NOT_FOUND', errorMessage: 'Post not found.', resultData: keepReport };
       }
     }
     // The caption: the stored one, else the held one (an image-only post's is an empty string, which is a caption).
     const caption = post?.content ? post.content : held?.content;
     if (caption === undefined || (!post && !held)) {
       // A caption that was cleared since the start, or one phase 1 could not hold: nothing to extract from.
-      return { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: NO_CAPTION_MESSAGE };
+      return { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: NO_CAPTION_MESSAGE, resultData: keepReport };
     }
 
-    const report = readRefreshReport(job.resultData);
     // `satisfies`, not an annotated literal: these are preview messages read in memory, never an enqueue path (the sites of
     // enqueue-post-for-processing.test.ts, Story 3.6z, guard the enqueue path; this one is listed there by name).
     const message = post
@@ -114,7 +117,7 @@ async function runPreview(ctx: JobHandlerContext): Promise<JobHandlerResult> {
       });
     } catch (error) {
       if (error instanceof ExtractionFailure) {
-        return { outcome: 'FAILED', reasonCode: error.errorCode, errorMessage: error.message };
+        return { outcome: 'FAILED', reasonCode: error.errorCode, errorMessage: error.message, resultData: keepReport };
       }
       // Unexpected: the engine logs what is thrown and ends the job FAILED / HANDLER_ERROR with a fixed message. The raw error could carry
       // the request (and so the caption), so only its name travels (nothing of a held caption may reach a log).

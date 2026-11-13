@@ -24,7 +24,7 @@ export interface GenerateReextractionPreviewInput {
 export async function generateReextractionPreview(input: GenerateReextractionPreviewInput): Promise<ReextractionPreviewResult> {
   const env = loadBackendEnv();
   const { message } = input;
-  const { payload, imagesAvailable, imagesSent, usedSubscriberUserIds } = await extractEventsWithGemini({
+  const { payload, imagesAvailable, imagesSent, imageOutcomes, usedSubscriberUserIds } = await extractEventsWithGemini({
     message,
     existingPostAccountId: input.existingPostAccountId,
     requestedByUserId: input.requestedByUserId,
@@ -52,5 +52,7 @@ export async function generateReextractionPreview(input: GenerateReextractionPre
     maxEvents: env.maxExtractedEventsPerPost,
     imagesAvailable,
     imagesSent,
+    imageOutcomes,
+    imageCap: env.maxReextractCarouselImages,
   });
 }

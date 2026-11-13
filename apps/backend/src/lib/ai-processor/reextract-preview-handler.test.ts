@@ -96,6 +96,17 @@ test('a refreshed post previews: every image is read, the result carries the pre
   assert.equal(data.imagesAvailable, 4);
   assert.equal(data.imagesSent, 4, 'BUG-099: a carousel reads all its slides');
   assert.equal(fetched.length, 4);
+  // Story 10.6a: the per-image list and the cap travel with the preview, beside the refresh report
+  assert.deepEqual(data.images, [
+    { position: 0, role: 'COVER', state: 'READ' },
+    { position: 1, role: 'SLIDE', state: 'READ' },
+    { position: 2, role: 'SLIDE', state: 'READ' },
+    { position: 3, role: 'SLIDE', state: 'READ' },
+  ]);
+  assert.equal(data.imageCap, 10, 'the cap the request used');
+  assert.equal(data.images!.length, data.imagesAvailable);
+  assert.equal(data.images!.filter((image) => image.state === 'READ').length, data.imagesSent);
+  assert.equal(JSON.stringify(data.images).includes('cdn.example.com'), false, 'no image link in the list');
   assert.equal(data.events.length, 1);
   assert.deepEqual(data.refresh, refreshed);
   assert.ok(data.extracted && data.extracted.events.length === 1, 'the extraction is kept for Apply');
@@ -116,6 +127,11 @@ test('BUG-099: a cover that cannot be fetched still reads the slides', async () 
   const data = (result as any).resultData as ReextractionPreviewResult;
   assert.equal(data.imagesAvailable, 3);
   assert.equal(data.imagesSent, 2, 'the two slides were read, the cover was lost');
+  assert.deepEqual(data.images, [
+    { position: 0, role: 'COVER', state: 'NOT_READ_UNAVAILABLE' },
+    { position: 1, role: 'SLIDE', state: 'READ' },
+    { position: 2, role: 'SLIDE', state: 'READ' },
+  ], 'a cover whose link has not expired but that answered an error is unavailable, not expired');
 });
 
 test('a refresh that was due but did not happen ends SUCCEEDED_WITH_LIMITS with its reason and a plain message; the preview still ran', async () => {
@@ -131,8 +147,30 @@ test('a refresh that was due but did not happen ends SUCCEEDED_WITH_LIMITS with 
   assert.equal(data.rescraped, false);
   assert.equal(data.imagesAvailable, 1);
   assert.equal(data.imagesSent, 0, 'the expired cover could not be read: the shortfall is reported, not hidden');
+  assert.deepEqual(data.images, [{ position: 0, role: 'COVER', state: 'NOT_READ_EXPIRED' }], 'its own link has expired');
   assert.deepEqual(data.refresh, cooldown);
   assert.equal(data.events.length, 1);
+});
+
+test('Story 10.6a: a carousel longer than the cap lists the slides beyond it as not sent, and the entries add up to imagesAvailable', async () => {
+  const slides = Array.from({ length: 12 }, (_, i) => fx.freshUrl(`long-${i}`));
+  slides[2] = fx.expiredUrl('long-dead');
+  const post = await fx.makePost(accountId, { imageUrl: fx.freshUrl('long-cover'), additionalImageUrls: slides });
+  gemini([previewEvent(`Over Cap ${fx.suffix}`)]);
+  const fetched = fakeImages([fx.expiredUrl('long-dead')]);
+  const result = await runPhase2(post.id, noRefresh);
+  const data = (result as any).resultData as ReextractionPreviewResult;
+  assert.equal(data.imagesAvailable, 13);
+  assert.equal(data.images!.length, 13);
+  assert.equal(data.images!.filter((image) => image.state === 'READ').length, data.imagesSent);
+  assert.equal(data.imagesSent, 10, 'the cover and nine slides');
+  assert.deepEqual(data.images!.filter((image) => image.state !== 'READ'), [
+    { position: 3, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+    { position: 11, role: 'SLIDE', state: 'NOT_SENT_OVER_CAP' },
+    { position: 12, role: 'SLIDE', state: 'NOT_SENT_OVER_CAP' },
+  ]);
+  assert.equal(data.imageCap, 10);
+  assert.equal(fetched.length, 11, 'the cover and the ten slides of the cap: the two beyond it are never fetched');
 });
 
 test('Story 10.6 review: a provider that answered but healed nothing while links stay expired ends SUCCEEDED_WITH_LIMITS with a reason (FR117)', async () => {
@@ -163,14 +201,14 @@ test('no Gemini key left (the moderator\'s and the account subscribers\') fails 
   });
   fakeImages();
   const result = await runPhase2(post.id, noRefresh);
-  assert.deepEqual(result, { outcome: 'FAILED', reasonCode: 'QUOTA_EXHAUSTED', errorMessage: 'No available Gemini API key to perform this extraction.' });
+  assert.deepEqual(result, { outcome: 'FAILED', reasonCode: 'QUOTA_EXHAUSTED', errorMessage: 'No available Gemini API key to perform this extraction.', resultData: { refresh: noRefresh } });
 });
 
 test('a model answer that is not valid fails the job EXTRACTION_FAILED, in plain words', async () => {
   const post = await fx.makePost(accountId, { imageUrl: fx.freshUrl('c'), additionalImageUrls: [] });
   setCallGeminiForManualExtractionSeam(async () => ({ text: 'not json' }) as any);
   fakeImages();
-  assert.deepEqual(await runPhase2(post.id, noRefresh), { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: 'The extracted content could not be validated.' });
+  assert.deepEqual(await runPhase2(post.id, noRefresh), { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: 'The extracted content could not be validated.', resultData: { refresh: noRefresh } });
 });
 
 test('an unexpected error is rethrown with its NAME only (the raw error could carry the request), for the engine to end HANDLER_ERROR', async () => {
@@ -187,11 +225,11 @@ test('an unexpected error is rethrown with its NAME only (the raw error could ca
 
 test('a post that was deleted, or whose caption was cleared since the start, fails with a plain reason', async () => {
   const noCaption = await fx.makePost(accountId, { content: null });
-  assert.deepEqual(await runPhase2(noCaption.id, noRefresh), { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: 'This post has no stored caption to extract from.' });
+  assert.deepEqual(await runPhase2(noCaption.id, noRefresh), { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: 'This post has no stored caption to extract from.', resultData: { refresh: noRefresh } });
 
   const post = await fx.makePost(accountId);
   const gone = await fx.makeJob(post.id, ownerId, { inputKey: `gone-${fx.suffix}`, phase: REEXTRACT_PHASE_PREVIEW, input: { postId: '00000000-0000-4000-8000-0000000000cc' } });
-  assert.deepEqual(await reextractPreviewHandler.run(fx.handlerContext(gone).ctx), { outcome: 'FAILED', reasonCode: 'POST_NOT_FOUND', errorMessage: 'Post not found.' });
+  assert.deepEqual(await reextractPreviewHandler.run(fx.handlerContext(gone).ctx), { outcome: 'FAILED', reasonCode: 'POST_NOT_FOUND', errorMessage: 'Post not found.', resultData: { refresh: noRefresh } });
 });
 
 test('a job that reaches the AI-processor in the wrong phase, or with no readable input, fails without calling the model', async () => {
@@ -274,7 +312,7 @@ test('the held post is blanked after a failed extraction, an unexpected throw, a
 
   const noCaption = await fx.makePost(accountId, { content: null });
   const missing = await runHeld({ postId: noCaption.id });
-  assert.deepEqual(missing.result, { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: 'This post has no stored caption to extract from.' });
+  assert.deepEqual(missing.result, { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: 'This post has no stored caption to extract from.', resultData: { refresh: refreshed } });
   const urlMissing = await runHeld({ url: 'https://www.instagram.com/p/nothing/' });
   assert.equal((urlMissing.result as any).reasonCode, 'EXTRACTION_FAILED');
 });

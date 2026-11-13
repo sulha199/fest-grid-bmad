@@ -1,5 +1,5 @@
 import { stripMalformedLocationKeywords } from '@festgrid/domain/events';
-import type { ProcessingJobMessage } from '@festgrid/domain/posts';
+import type { ProcessingJobMessage, ReextractImageOutcomes } from '@festgrid/domain/posts';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
@@ -47,6 +47,8 @@ export interface ExtractEventsResult {
   payload: any;
   imagesAvailable: number;
   imagesSent: number;
+  /** Story 10.6a -- what became of each image (no URL). */
+  imageOutcomes: ReextractImageOutcomes;
   /** The keys the extraction call actually ran on: a following keywords call uses the same ones. */
   usedSubscriberUserIds: string[];
 }
@@ -63,7 +65,7 @@ export async function extractEventsWithGemini(input: ExtractEventsInput): Promis
       : {}),
     ...(input.isPreview ? { maxCarouselImages: env.maxReextractCarouselImages, slidesWhenCoverFails: true } : {}),
   };
-  const { request, imagesAvailable, imagesSent } = await buildGeminiExtractionRequest(
+  const { request, imagesAvailable, imagesSent, imageOutcomes } = await buildGeminiExtractionRequest(
     message,
     Object.keys(requestOptions).length > 0 ? requestOptions : undefined
   );
@@ -108,5 +110,5 @@ export async function extractEventsWithGemini(input: ExtractEventsInput): Promis
   if (!validateExtractedEvent(payload)) {
     throw new ExtractionFailure('EXTRACTION_FAILED', NOT_VALID_MESSAGE);
   }
-  return { payload, imagesAvailable, imagesSent, usedSubscriberUserIds };
+  return { payload, imagesAvailable, imagesSent, imageOutcomes, usedSubscriberUserIds };
 }
