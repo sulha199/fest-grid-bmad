@@ -17,7 +17,7 @@ const request = vi.mocked(graphqlClient.request) as unknown as ReturnType<typeof
 const capture = vi.mocked(capturePostHogEvent);
 const subject = { type: 'REEXTRACT_REFRESH' as never, postId: 'p1' };
 
-function Harness({ startId = 'job-1', renderCapNotice }: { startId?: string; renderCapNotice?: boolean }) {
+function Harness({ startId = 'job-1', renderCapNotice, hostProps }: { startId?: string; renderCapNotice?: boolean; hostProps?: Partial<React.ComponentProps<typeof JobProgressHost>> }) {
   const controller = useJobProgress({ subject, endedWithinMinutes: 30 });
   const startRef = useRef<HTMLButtonElement>(null);
   return (
@@ -27,7 +27,7 @@ function Harness({ startId = 'job-1', renderCapNotice }: { startId?: string; ren
       </button>
       <button onClick={() => controller.attach(startId, { open: true, reused: true })}>Start again</button>
       <h1>Page heading</h1>
-      <JobProgressHost controller={controller} returnFocusRef={startRef} renderCapNotice={renderCapNotice ? (f) => <p data-testid="cap-slot">cap {f.cap}</p> : undefined} />
+      <JobProgressHost controller={controller} returnFocusRef={startRef} renderCapNotice={renderCapNotice ? (f) => <p data-testid="cap-slot">cap {f.cap}</p> : undefined} {...hostProps} />
     </>
   );
 }
@@ -243,5 +243,64 @@ describe('JobProgressHost: Retry', () => {
     expect(button).toHaveAttribute('aria-disabled', 'true');
     await userEvent.click(button);
     expect(log.some((l) => l.operation === 'RetryJob')).toBe(false);
+  });
+});
+
+describe('JobProgressHost: the additive props of Story 10.6a (renderEndedBody, dialogSize, chipLabels)', () => {
+  const ended = (overrides: Record<string, unknown> = {}) =>
+    makeFragment({ status: 'SUCCEEDED', finishedAt: '2026-11-13T14:01:20.000Z', steps: [{ key: 'refresh', state: 'DONE', done: null, total: null }, { key: 'preview', state: 'DONE', done: null, total: null }], ...overrides });
+
+  it('a host that passes none of them behaves as before: the narrow dialog, the shared body and the shared chip text', async () => {
+    state.jobs['job-1'] = ended();
+    render(ui());
+    await userEvent.click(screen.getByRole('button', { name: 'Start' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.className).toContain('sm:max-w-md');
+    expect(await within(dialog).findByTestId('job-succeeded-box')).toBeInTheDocument();
+  });
+
+  it('renderEndedBody replaces the progress view of an ended job with its node, and is not asked while the job runs', async () => {
+    const renderEndedBody = vi.fn(() => <p data-testid="own-body">the preview</p>);
+    render(ui({ hostProps: { renderEndedBody, dialogSize: 'wide' } }));
+    await userEvent.click(screen.getByRole('button', { name: 'Start' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Step 2 of 2')).toBeInTheDocument();
+    expect(renderEndedBody).not.toHaveBeenCalled();
+    expect(dialog.className).toContain('sm:max-w-2xl');
+    state.jobs['job-1'] = ended();
+    expect(await within(dialog).findByTestId('own-body', undefined, { timeout: 6000 })).toBeInTheDocument();
+    expect(within(dialog).queryByTestId('job-progress-view')).not.toBeInTheDocument();
+    expect(renderEndedBody).toHaveBeenCalledWith(expect.objectContaining({ id: 'job-1', status: 'SUCCEEDED' }), expect.objectContaining({ postId: 'p1' }));
+    // The footer still closes an ended job.
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  }, 10_000);
+
+  it('a null from renderEndedBody keeps the shared box (Failed, Expired and Cancelled keep their reason and Retry)', async () => {
+    state.jobs['job-1'] = makeFragment({ status: 'FAILED', reasonCode: 'NO_PROVIDER_REACHABLE', canRetry: true, finishedAt: '2026-11-13T14:05:00.000Z' });
+    render(ui({ hostProps: { renderEndedBody: () => null } }));
+    await userEvent.click(screen.getByRole('button', { name: 'Start' }));
+    expect(await screen.findByTestId('job-failed-box')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('the chip sits in a box that may shrink to its row, so a long chip label truncates instead of widening a narrow dialog', async () => {
+    state.active = [makeFragment()];
+    render(ui());
+    const chip = await screen.findByTestId('job-chip');
+    expect(chip.parentElement?.className).toContain('min-w-0');
+    expect(chip.parentElement?.className).toContain('max-w-full');
+    expect(chip.className).toContain('max-w-full');
+  });
+
+  it('chipLabels overrides only the texts it names; the other chip texts keep the shared copy', async () => {
+    state.active = [ended({ status: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'NO_PROVIDER_REACHABLE' })];
+    state.jobs['job-1'] = state.active[0];
+    const { unmount } = render(ui({ hostProps: { chipLabels: { done: 'Preview ready', doneWithLimits: 'Preview ready (some images missing)' } } }));
+    expect(await screen.findByTestId('job-chip')).toHaveTextContent('Preview ready (some images missing)');
+    unmount();
+    state.active = [makeFragment()];
+    state.jobs['job-1'] = state.active[0];
+    render(ui({ hostProps: { chipLabels: { done: 'Preview ready' } } }));
+    expect(await screen.findByTestId('job-chip')).toHaveTextContent('In progress: step 2 of 2');
   });
 });
