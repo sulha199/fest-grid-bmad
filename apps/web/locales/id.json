@@ -54,7 +54,11 @@
     "manualPostSelectionTitle": "Ekstrak Acara | FestDaily",
     "manualPostSelectionDescription": "Pilih postingan dari akun media sosial yang Anda ikuti untuk mengekstrak acara festival musik.",
     "moderatorToolsTitle": "Alat Moderator | FestDaily Moderator",
-    "moderatorToolsDescription": "Kelola operasi scraper, jalankan scraper, dan payload"
+    "moderatorToolsDescription": "Kelola operasi scraper, jalankan scraper, dan payload",
+    "jobsTitle": "Tugas | FestDaily",
+    "jobsDescription": "Pantau proses yang berjalan di latar belakang di FestDaily.",
+    "jobDetailTitle": "Detail tugas | FestDaily",
+    "jobDetailDescription": "Lihat kemajuan dan hasil satu tugas."
   },
   "ModeratorToolsPage": {
     "actorRunsTabLabel": "Jalankan Scraper",
@@ -784,7 +788,8 @@
     "moderatorItems": "Item Moderator",
     "moderatorTools": "Alat Moderator",
     "logout": "Keluar",
-    "close": "Tutup"
+    "close": "Tutup",
+    "jobs": "Tugas"
   },
   "MyAIFiltersPage": {
     "title": "Filter AI Saya",

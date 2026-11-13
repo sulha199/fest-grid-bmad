@@ -219,6 +219,7 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     moderatorItems: tUserMenu('moderatorItems'),
     moderatorTools: tUserMenu('moderatorTools'),
     widgets: tUserMenu('widgets'),
+    jobs: tUserMenu('jobs'),
     logout: tUserMenu('logout'),
     close: tUserMenu('close'),
   };

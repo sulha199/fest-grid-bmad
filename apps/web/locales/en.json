@@ -54,7 +54,11 @@
     "manualPostSelectionTitle": "Extract Events | FestDaily",
     "manualPostSelectionDescription": "Select posts from your subscribed social media accounts to extract music festival events.",
     "moderatorToolsTitle": "Moderator Tools | FestDaily Moderator",
-    "moderatorToolsDescription": "Manage scraper operations, runs, and payloads"
+    "moderatorToolsDescription": "Manage scraper operations, runs, and payloads",
+    "jobsTitle": "Jobs | FestDaily",
+    "jobsDescription": "Follow the work running in the background on FestDaily.",
+    "jobDetailTitle": "Job details | FestDaily",
+    "jobDetailDescription": "See the progress and result of one job."
   },
   "ModeratorToolsPage": {
     "actorRunsTabLabel": "Actor Runs",
@@ -784,7 +788,8 @@
     "moderatorItems": "Moderator Items",
     "moderatorTools": "Moderator Tools",
     "logout": "Log Out",
-    "close": "Close"
+    "close": "Close",
+    "jobs": "Jobs"
   },
   "MyAIFiltersPage": {
     "title": "My AI Filters",

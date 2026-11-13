@@ -1,4 +1,5 @@
 export * from './use-jobs';
+export * from './use-job-detail';
 export * from './use-job-progress';
 export * from './job-progress-host';
 export * from './job-announcer-provider';
@@ -7,3 +8,4 @@ export * from './job-analytics';
 export * from './job-model';
 export * from './use-job-labels';
 export * from './poll-schedule';
+export * from './job-retry-failure-notice';

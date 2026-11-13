@@ -68,6 +68,28 @@ query JobById($id: ID!) {
   }
 }
 
+# The detail page (Story 10.4 Part C). owner and moderatorDetails are null for everyone but a moderator, and for them the server does
+# no owner or attempts work, so one document serves both. moderatorDetails never carries a token, URL, caption or the job's input.
+query JobDetail($id: ID!) {
+  job(id: $id) {
+    ...JobProgressFields
+    owner {
+      displayName
+    }
+    moderatorDetails {
+      attempts {
+        provider
+        outcome
+        budgetMs
+        elapsedMs
+        reasonCode
+      }
+      engineReasonCode
+      engineMessage
+    }
+  }
+}
+
 query ActiveJobs($filter: JobsFilter, $subject: JobSubjectInput, $endedWithinMinutes: Int) {
   activeJobs(filter: $filter, subject: $subject, endedWithinMinutes: $endedWithinMinutes) {
     ...JobListFields

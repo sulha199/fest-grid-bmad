@@ -73,6 +73,8 @@ content = content.replace(/export type ExtractionErrorCode =[\s\S]*?;\r?\n/g, ''
 content = content.replace(/export type ExtractionJobState =[\s\S]*?;\r?\n/g, '');
 
 // Replace duplicate union-type re-declarations of the Job enums (Story 10.4 Part B: the operations plugin re-declares each enum a document uses)
+content = content.replace(/export type JobAttemptOutcome =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobProvider =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type JobOutcomeKind =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type JobReasonCode =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type JobStartErrorCode =[\s\S]*?;\r?\n/g, '');

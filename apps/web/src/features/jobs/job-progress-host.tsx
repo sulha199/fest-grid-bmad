@@ -8,7 +8,7 @@ import { Link } from '@/i18n/navigation';
 import type { JobProgressController } from './use-job-progress';
 import type { JobSubjectView } from './use-jobs';
 import type { JobStartFailure } from './job-start-error';
-import { reasonText } from './job-copy';
+import { JobRetryFailureNotice } from './job-retry-failure-notice';
 import { useJobLabels } from './use-job-labels';
 
 export interface JobProgressHostProps {
@@ -28,7 +28,7 @@ export interface JobProgressHostProps {
  */
 export function JobProgressHost({ controller, returnFocusRef, renderResultAction, renderCapNotice, className }: JobProgressHostProps) {
   const t = useTranslations('Jobs');
-  const { labels, chipLabels, format, tr } = useJobLabels();
+  const { labels, chipLabels, format } = useJobLabels();
   const chipRef = useRef<HTMLButtonElement>(null);
   const { job, subject, state, dialogOpen } = controller;
   const ended = job ? !isJobOpen(job) : false;
@@ -49,25 +49,7 @@ export function JobProgressHost({ controller, returnFocusRef, renderResultAction
 
   const resultAction = job ? (renderResultAction ? renderResultAction(job, subject) : defaultResultAction(job, subject, t('outcome.openAccount'))) : null;
   const failure = controller.retryFailure;
-  let notice: React.ReactNode = null;
-  if (failure) {
-    if (failure.kind === 'cap') notice = renderCapNotice ? renderCapNotice(failure) : null;
-    else
-      notice = (
-        <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200" role="alert" data-testid="job-retry-failure">
-          {failure.kind === 'queue-full' ? (
-            <>
-              <p>{t('actions.startQueueFull', { max: failure.maxQueued ?? '' })}</p>
-              <Link href="/jobs" className="font-medium underline">
-                {t('actions.startQueueFullLink')}
-              </Link>
-            </>
-          ) : (
-            <p>{reasonText(tr, failure.kind === 'cooldown' ? 'COOLDOWN' : 'GENERIC', { time: failure.kind === 'cooldown' && failure.retryNotBefore ? format.time(failure.retryNotBefore) : undefined })}</p>
-          )}
-        </div>
-      );
-  }
+  const notice = failure ? <JobRetryFailureNotice failure={failure} renderCapNotice={renderCapNotice} /> : null;
 
   const viewState = state === 'idle' ? 'loading' : state;
   return (
@@ -115,7 +97,7 @@ export function JobProgressHost({ controller, returnFocusRef, renderResultAction
   );
 }
 
-function defaultResultAction(job: JobProgressJob, subject: JobSubjectView | undefined, label: string): React.ReactNode {
+export function defaultResultAction(job: JobProgressJob, subject: JobSubjectView | undefined, label: string): React.ReactNode {
   if (job.outcome?.kind !== 'ACCOUNT' || !subject?.platform || !subject.username) return null;
   const href = buildAccountHref(subject.platform as Parameters<typeof buildAccountHref>[0], subject.username);
   if (!href) return null;

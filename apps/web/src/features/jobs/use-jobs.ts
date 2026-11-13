@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
+import { keepPreviousData } from '@tanstack/react-query';
 import type { JobProgressJob } from '@festgrid/ui';
 import { isJobOpen } from '@festgrid/ui';
 import {
@@ -13,7 +14,7 @@ import {
   type MyJobsQueryVariables,
 } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
-import { toJobProgressJob } from './job-model';
+import { toJobListItem, toJobProgressJob, type JobListItem } from './job-model';
 import { getJobPollInterval, type JobPollSurface } from './poll-schedule';
 import { useOnReturnToVisible, usePageVisible } from './use-page-visible';
 
@@ -24,13 +25,13 @@ import { useOnReturnToVisible, usePageVisible } from './use-page-visible';
 
 export type JobReadState = 'idle' | 'loading' | 'error' | 'not-found' | 'ready';
 
-type Failing = { state: { status: string; errorUpdatedAt: number } };
+export type Failing = { state: { status: string; errorUpdatedAt: number } };
 
 /**
  * Consecutive failed fetches of a query (0 after a success), the back-off input. React Query resets its own failure
  * counter at the start of every fetch, so the run of errors is counted here, once per distinct error timestamp.
  */
-function useConsecutiveErrors(): (q: Failing) => number {
+export function useConsecutiveErrors(): (q: Failing) => number {
   const count = useRef(0);
   const lastErrorAt = useRef(0);
   return useCallback((q: Failing) => {
@@ -122,7 +123,7 @@ export interface UseActiveJobsOptions {
 }
 
 export interface UseActiveJobsResult {
-  jobs: Array<JobProgressJob & { owner: { displayName: string | null } | null; subject: JobSubjectView }>;
+  jobs: JobListItem[];
   state: JobReadState;
   reconnecting: boolean;
   refetch: () => void;
@@ -151,7 +152,7 @@ export function useActiveJobs({ filter, subject, endedWithinMinutes = 0, enabled
   let state: JobReadState = 'idle';
   if (enabled) state = query.data !== undefined ? 'ready' : query.isError ? 'error' : 'loading';
   return {
-    jobs: (query.data?.activeJobs ?? []).map((j) => ({ ...toJobProgressJob(j), owner: j.owner ?? null, subject: j.subject })),
+    jobs: (query.data?.activeJobs ?? []).map(toJobListItem),
     state,
     reconnecting: query.isError && query.data !== undefined,
     refetch,
@@ -165,14 +166,17 @@ export interface UseMyJobsOptions {
   /** From `useListPaginationController` (`pagination.cursor`), never local state. */
   after?: string | null;
   enabled?: boolean;
+  /** Keep the page on screen (dimmed by the caller) while the next one loads, so Previous/Next never flash an empty list. */
+  keepPreviousPage?: boolean;
 }
 
-export function useMyJobs({ filter, onlyEnded = false, first = 20, after, enabled = true }: UseMyJobsOptions = {}) {
+export function useMyJobs({ filter, onlyEnded = false, first = 20, after, enabled = true, keepPreviousPage = false }: UseMyJobsOptions = {}) {
   const visible = usePageVisible();
   const errors = useConsecutiveErrors();
   const variables: MyJobsQueryVariables = { filter, onlyEnded, first, after: after ?? undefined };
   const query = useMyJobsQuery(graphqlClient, variables, {
     enabled,
+    placeholderData: keepPreviousPage ? keepPreviousData : undefined,
     staleTime: 0,
     gcTime: 0,
     retry: false,

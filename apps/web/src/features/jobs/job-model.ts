@@ -1,5 +1,5 @@
 import type { JobProgressJob } from '@festgrid/ui';
-import type { JobProgressFieldsFragment } from '@/generated/graphql';
+import type { JobListFieldsFragment, JobProgressFieldsFragment } from '@/generated/graphql';
 
 const iso = (v: unknown): string | null => (v === null || v === undefined ? null : String(v));
 
@@ -24,4 +24,16 @@ export function toJobProgressJob(job: JobProgressFieldsFragment): JobProgressJob
     canRetry: job.canRetry,
     retryNotBefore: iso(job.retryNotBefore),
   };
+}
+
+/** What a Jobs list row needs beside the progress shape: who started it (moderators only) and how, plus what it is about. */
+export interface JobListItem extends JobProgressJob {
+  trigger: string;
+  owner: { displayName: string | null } | null;
+  subject: JobListFieldsFragment['subject'];
+}
+
+/** The list fragment as a row item. `owner` is null for everyone but a moderator (the server does no owner work otherwise). */
+export function toJobListItem(job: JobListFieldsFragment): JobListItem {
+  return { ...toJobProgressJob(job), trigger: job.trigger, owner: job.owner ?? null, subject: job.subject };
 }
