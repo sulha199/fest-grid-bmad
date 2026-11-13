@@ -48,4 +48,27 @@ describe('JobProgressDialog', () => {
     );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
+
+  it('is the narrow dialog by default and widens only when asked (Story 10.6a), both bounded and scrolling inside themselves', () => {
+    const { rerender } = render(
+      <JobProgressDialog open ended={false} title="T" labels={dlgLabels} onMinimize={vi.fn()} onClose={vi.fn()}>
+        x
+      </JobProgressDialog>
+    );
+    const narrow = screen.getByTestId('job-progress-dialog');
+    expect(narrow.className).toContain('sm:max-w-md');
+    expect(narrow.className).not.toContain('sm:max-w-2xl');
+    rerender(
+      <JobProgressDialog open ended title="T" size="wide" labels={dlgLabels} onMinimize={vi.fn()} onClose={vi.fn()}>
+        x
+      </JobProgressDialog>
+    );
+    const wide = screen.getByTestId('job-progress-dialog');
+    expect(wide.className).toContain('sm:max-w-2xl');
+    expect(wide.className).not.toContain('sm:max-w-md');
+    for (const el of [narrow, wide]) {
+      expect(el.className).toContain('overflow-y-auto');
+      expect(el.className).toContain('grid-cols-[minmax(0,1fr)]');
+    }
+  });
 });

@@ -10,13 +10,16 @@ export interface JobRetryButtonProps {
   formatTime: (iso: string) => string;
   onRetry: () => void;
   pending?: boolean;
+  /** Story 10.6a: an extra accessible description of what Retry does ("Retrying fetches the images again, then reads the post again."). Read by screen readers only, with the cooldown text when there is one. */
+  hint?: string;
 }
 
 const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 /** Retry. Cooldown: it enables itself at `retryNotBefore` with a timer (no poll). */
-export function JobRetryButton({ retryNotBefore, labels, formatTime, onRetry, pending = false }: JobRetryButtonProps) {
+export function JobRetryButton({ retryNotBefore, labels, formatTime, onRetry, pending = false, hint }: JobRetryButtonProps) {
   const descId = useId();
+  const hintId = useId();
   const target = retryNotBefore ? new Date(retryNotBefore).getTime() : NaN;
   const [coolingDown, setCoolingDown] = useState(() => Number.isFinite(target) && target > Date.now());
 
@@ -44,7 +47,7 @@ export function JobRetryButton({ retryNotBefore, labels, formatTime, onRetry, pe
         variant="outline"
         className="min-h-11 w-full sm:w-auto"
         aria-disabled={blocked || undefined}
-        aria-describedby={coolingDown ? descId : undefined}
+        aria-describedby={[coolingDown ? descId : null, hint ? hintId : null].filter(Boolean).join(' ') || undefined}
         onClick={() => {
           if (!blocked) onRetry();
         }}
@@ -55,6 +58,11 @@ export function JobRetryButton({ retryNotBefore, labels, formatTime, onRetry, pe
       {coolingDown && (
         <span id={descId} className="sr-only">
           {label}
+        </span>
+      )}
+      {hint && (
+        <span id={hintId} className="sr-only">
+          {hint}
         </span>
       )}
     </>
