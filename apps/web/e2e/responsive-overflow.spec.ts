@@ -115,6 +115,36 @@ test.describe('signed in', () => {
     `/en/jobs/${FIXTURE_JOB_IDS.userRunning}`,
     `/en/jobs/${FIXTURE_JOB_IDS.userFailed}`,
   ], { signedIn: true });
+
+  // Story 10.3a (show the subscription cap refusal and the upgrade call to action): the Subscribe dialog open on Account Settings with the cap
+  // notice shown. The refusal is routed (a real fifth subscribe would start a scrape, a vendor call), so nothing reaches the server.
+  test('user: /en/settings/account with the Subscribe dialog refused by the cap has no page-level horizontal overflow', async ({ page }) => {
+    const pageErrors = trackPageErrors(page);
+    await page.route('**/api/graphql', async (route) => {
+      const post = route.request().postDataJSON() as { operationName?: string } | null;
+      if (post?.operationName !== 'SubscribeToAccount') return route.fallback();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: null, errors: [{ message: 'Subscription limit reached', extensions: { code: 'SUBSCRIPTION_CAP_REACHED', activeCount: 4, reservedCount: 1, cap: 5 } }] }),
+      });
+    });
+    await page.setViewportSize({ width: 1280, height: VIEWPORT_HEIGHT });
+    await page.goto('/en/settings/account?tab=subscriptions', { waitUntil: 'domcontentloaded' });
+    await settleLayout(page);
+    await expectSignedIn(page);
+    await page.getByRole('button', { name: 'Subscribe to an Account' }).first().click();
+    const dialog = page.getByRole('dialog');
+    const field = dialog.getByPlaceholder('e.g., jkt_festivals');
+    await field.fill('an_account_with_a_really_long_handle_name_for_wrapping_checks');
+    // Enter, not a click: the voted-account suggestion list under the field sits over the Subscribe button.
+    await field.press('Enter');
+    await expect(dialog.getByTestId('subscription-cap-notice')).toBeVisible();
+    await expectHealthyPage(page, pageErrors);
+    const failures = await overflowAtEveryWidth(page, '/en/settings/account (cap notice open)');
+    await expectHealthyPage(page, pageErrors);
+    expect(failures, 'overflowing widths').toEqual([]);
+  });
 });
 
 test.describe('moderator', () => {

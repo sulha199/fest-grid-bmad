@@ -35,6 +35,34 @@ const POPOVER = '[data-radix-popper-content-wrapper] > [data-state="open"]';
 const DIALOG = '[role="dialog"], [role="alertdialog"]';
 const EVENT_ROUTE = '/en/events/ongoing-culture-fest-2026-2027-fixed';
 
+/**
+ * Story 10.3a (show the subscription cap refusal and the upgrade call to action): answers the SubscribeToAccount operation with the typed
+ * cap refusal and never lets it reach the server (a real fifth subscribe would start the classify-then-scrape cascade, a vendor call).
+ */
+async function routeCapRefusal(page: Page): Promise<void> {
+  await page.route('**/api/graphql', async (route) => {
+    const post = route.request().postDataJSON() as { operationName?: string; query?: string } | null;
+    if (post?.operationName !== 'SubscribeToAccount' && !/mutation\s+SubscribeToAccount\b/.test(post?.query ?? '')) return route.fallback();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: null, errors: [{ message: 'Subscription limit reached', extensions: { code: 'SUBSCRIPTION_CAP_REACHED', activeCount: 4, reservedCount: 1, cap: 5 } }] }),
+    });
+  });
+}
+
+/** Presses the source account's toggle of the event page (never when it would unsubscribe a real subscription) and returns the cap dialog. */
+async function openEventCapDialog(page: Page): Promise<Locator> {
+  await routeCapRefusal(page);
+  const toggle = page.getByTestId('subscribe-toggle').first();
+  await expect(toggle).toBeVisible({ timeout: 30_000 });
+  await expect(toggle, 'the seeded user must not hold this account (a click would unsubscribe)').toHaveAttribute('aria-pressed', 'false');
+  await toggle.click();
+  const dialog = page.getByTestId('subscription-cap-dialog');
+  await expect(dialog.getByTestId('subscription-cap-notice')).toBeVisible();
+  return dialog;
+}
+
 const scenarios: PopupScenario[] = [
   {
     name: 'discovery: Type filter popover',
@@ -121,6 +149,40 @@ const scenarios: PopupScenario[] = [
       const dialog = page.getByTestId('job-progress-dialog');
       await expect(dialog.getByRole('button', { name: 'Retry' })).toBeVisible();
       return dialog;
+    },
+  },
+  {
+    // Story 10.3a: the Subscribe dialog with the cap notice inline, in Indonesian (the longest sentence), at every popup viewport.
+    name: 'account settings: Subscribe dialog with the cap notice (Indonesian)',
+    route: '/id/settings/account?tab=subscriptions',
+    session: 'user',
+    open: async (page) => {
+      await routeCapRefusal(page);
+      await page.getByRole('button', { name: 'Berlangganan Akun' }).first().click();
+      const dialog = page.getByRole('dialog');
+      const field = dialog.getByPlaceholder('misal, jkt_festivals');
+      await field.fill('an_account_with_a_really_long_handle_name_for_wrapping_checks');
+      // Enter, not a click: the voted-account suggestion list under the field sits over the Subscribe button.
+      await field.press('Enter');
+      await expect(dialog.getByTestId('subscription-cap-notice')).toBeVisible();
+      return dialog;
+    },
+  },
+  {
+    // Story 10.3a: the small cap dialog of the event page toggle, on the direct page and in the modal a card click opens.
+    name: 'event detail page: cap dialog from the subscribe toggle (direct page)',
+    route: EVENT_ROUTE,
+    session: 'user',
+    open: openEventCapDialog,
+  },
+  {
+    name: 'event detail modal: cap dialog from the subscribe toggle',
+    route: '/en',
+    session: 'user',
+    open: async (page) => {
+      await page.locator('article h3').first().click();
+      await page.waitForURL(/\/en\/events\//);
+      return openEventCapDialog(page);
     },
   },
   {
