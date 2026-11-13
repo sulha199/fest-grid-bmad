@@ -7,6 +7,8 @@ export * from './core/multi-select';
 export * from './core/checkbox';
 export * from './core/checkbox.types';
 export * from './core/blocking-loader';
+export * from './core/upgrade-cta';
+export * from './core/upgrade-cta.types';
 export * from './core/overlay-z';
 export * from './core/page-container';
 export * from './core/page-header';
