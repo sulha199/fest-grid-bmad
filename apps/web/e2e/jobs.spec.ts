@@ -77,6 +77,8 @@ test.describe('Jobs page, ordinary user', () => {
     await expect(panel).toContainText('We could not reach the platform right now.');
     await expect(page.getByTestId('job-timing')).toContainText('Started');
     await expect(page.getByTestId('job-technical-details')).toHaveCount(0);
+    // The engine's own message is moderator-only: the seeded one must not reach an ordinary user.
+    await expect(page.locator('body')).not.toContainText('No provider could be reached for this post.');
     await expect(page.getByRole('button', { name: /^Retry/ })).toHaveCount(0);
     await expect(page.getByTestId('job-announcer')).toHaveCount(1);
 

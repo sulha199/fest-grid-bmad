@@ -232,7 +232,7 @@ Wayan (moderator) opens Jobs, sets "All users" and "Include system jobs". Rows n
 
 ### Accessibility (Story 10.4)
 
-- One `JobAnnouncer` per page: a visually hidden `role="status" aria-live="polite" aria-atomic="true"` region. It receives a message only when a job's **status or step changes**, never on a poll with no change, and coalesces messages within 3 s so a burst of changes in the list reads as "3 jobs updated" instead of three interruptions. Failure in a dialog the user is watching uses `role="alert"`.
+- One `JobAnnouncer` per page: one visually hidden `role="status" aria-live="polite" aria-atomic="true"` announcer region per page, plus one alert region used only for a watched failure. It receives a message only when a job's **status or step changes**, never on a poll with no change, and coalesces messages within 3 s so a burst of changes in the list reads as "3 jobs updated" instead of three interruptions. Failure in a dialog the user is watching uses `role="alert"`.
 - Status is text plus icon plus color; the badge text is the accessible status. The stepper uses `aria-current="step"` and a hidden state word per item.
 - Rows are real links with an accessible name "Open details: {title}, {status}".
 - The chip is a button with an accessible name that includes title and status.
