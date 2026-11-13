@@ -79,6 +79,9 @@ so that I understand why it did not work and what will change later.
 11. **The extra event properties `reservedCount`, `cap`, `surface`** are additive (UX decision 7); if the owner wants only the PRD's two, drop three keys in `subscription-cap-analytics.ts`.
 12. **Indonesian "Upgrade" is "Tingkatkan"** (as `copy-keys.md` has it); the English word is not kept inside the Indonesian sentence.
 
+- **Accepted limitation (review, 2026-11-13):** the inline notice moves focus to its title and also holds the hidden status line, so a screen reader hears the title once from the focus move and once from the status line. Kept as built (the status line is the single full sentence); revisit only if a real screen-reader pass finds it noisy.
+- **Found in review, not fixed here:** the voted-account suggestion list in the Subscribe dialog covers the Subscribe button and never closes on its own (old behaviour); logged as BUG-261113-kem (Subscribe dialog: the voted-account suggestion list never closes on its own and covers the Subscribe button). The 10.3a e2e specs press Enter to submit because of it.
+
 ### Architecture & UX Gate Findings
 
 - Epic 10's readiness report is swept (`epic-10-readiness.md`, 2026-11-01, and its 2026-11-11 update for this story), so Gate 1 and Gate 3 were not re-run; the update records for 10.3a: no new prerequisite. Lightweight guard: this story adds no service, queue, Lambda, table, scraper, library or GraphQL operation (the refusal already travels in `extensions` and in `RetryJobResult`); the shared foundations it needs (next-intl, `@festgrid/analytics`, `apps/web` Dialog, `PageContainer`, the Story 10.4 start-error helper and Retry notice) all exist. No gap found.
@@ -246,8 +249,17 @@ Recorded in the session transcript (no model identifier is kept in repo files).
 - `apps/web/src/app/[locale]/jobs/[jobId]/job-detail-content.tsx` (+ test)
 - `apps/web/locales/en.json`, `id.json`, `locales.test.ts`
 - `apps/web/e2e/subscription-cap.spec.ts` (new), `responsive-popups.spec.ts`, `responsive-overflow.spec.ts`
+- Review fixes: `apps/web/src/features/subscriptions/focus-cap-notice.ts` (new), `apps/web/src/features/jobs/job-start-error.ts` (+ test), `job-retry-failure-notice.test.tsx` (new), the ratchet test, the Subscribe dialog and wizard (+ tests), `SubscriptionCapNotice.tsx`; `_bmad-output/implementation-artifacts/backlog.yaml` and `backlog/BUG-261113-kem-subscribe-dialog-suggestion-list-covers-the-subscribe-button.md` (new)
 - `_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md`, `_bmad-output/project-context.md`
 - `_bmad-output/implementation-artifacts/sprint-status.yaml`, this story file
+
+### Review fixes (2026-11-13)
+
+- The cap refusal is no longer permanent in the Subscribe dialog and the onboarding wizard: editing the handle or the platform (or picking a suggestion) clears it, so the button comes back and the user can try again (the server re-checks, and frees a slot when an account being added fails). Enter while a refusal stands is not silent: focus moves to the notice. Tests added in the dialog, wizard and e2e specs.
+- `JobRetryFailureNotice` now passes a new refusal id for every refused Retry, so a second refusal is a new showing (shown event, announcement, focus). Test added (`job-retry-failure-notice.test.tsx`).
+- `mapJobStartError` reads a non-numeric `activeCount` or `reservedCount` as 0 (like a missing one) instead of passing it to the plural. Test added.
+- The entry-points ratchet now needs a call, not an import: every file that can raise the refusal must call the reader or a hook, both Retry callers must call `mapJobStartError`, and any file that imports the reader or `mapJobStartError` must call it.
+- All review findings were confirmed in the code, none dropped; the suggestion-list overlap is the separate backlog row above.
 
 ## Change Log
 

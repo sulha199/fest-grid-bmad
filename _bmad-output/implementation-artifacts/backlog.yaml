@@ -2837,6 +2837,14 @@ items:
      touches: [app:backend],
      note: "Carved from BUG-099 when Story 10.6 was created (2026-11-12): the build session may not make a vendor call, so the prod check is a post-deploy step. The moderator screen part (banner naming missing images, Retry) is Story 10.6a."}
 
+  BUG-261113-kem:
+    {type: bug, status: backlog, created: 2026-11-13,
+     impact: user-visible, effort: xs,
+     title: "Subscribe dialog: the voted-account suggestion list never closes on its own and covers the Subscribe button",
+     ref: ["apps/web/src/app/[locale]/settings/account/subscribe-account-dialog.tsx", backlog/BUG-261113-kem-subscribe-dialog-suggestion-list-covers-the-subscribe-button.md],
+     touches: [web:settings],
+     note: "Old behaviour found in Story 10.3a review; the 10.3a e2e specs press Enter to submit because of it. Detail and fix: backlog/BUG-261113-kem-subscribe-dialog-suggestion-list-covers-the-subscribe-button.md."}
+
   IDEA-103:
     {type: idea, status: backlog, created: 2026-10-31,
      impact: user-visible, effort: m,
