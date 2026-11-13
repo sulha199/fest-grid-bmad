@@ -1230,7 +1230,8 @@
       "QUOTA_EXHAUSTED": "No AI key had quota left. Try again tomorrow.",
       "EXTRACTION_FAILED": "We could not finish reading this post. Try again.",
       "VENDOR_RUN_FAILED": "The platform did not return what we needed. Try again.",
-      "GENERIC": "Something went wrong on our side. Try again, and if it keeps happening, tell us."
+      "GENERIC": "Something went wrong on our side. Try again, and if it keeps happening, tell us.",
+      "COOLDOWN_NO_TIME": "This was tried a moment ago. You can try again in a little while."
     },
     "actions": {
       "retry": "Retry",
@@ -1238,7 +1239,8 @@
       "retryStarted": "Started again.",
       "retryReused": "This is already running.",
       "startQueueFull": "Too many jobs are waiting ({max}). Open Jobs to see them.",
-      "startQueueFullLink": "Open Jobs"
+      "startQueueFullLink": "Open Jobs",
+      "startQueueFullNoCount": "Too many jobs are waiting. Open Jobs to see them."
     },
     "moderator": {
       "detailsSummary": "Technical details (moderators)",
@@ -1317,7 +1319,8 @@
       "cancelled": "{title} was cancelled.",
       "minimized": "Progress minimized. The job keeps running.",
       "reopened": "Progress opened.",
-      "listUpdated": "{count, plural, one {# job updated} other {# jobs updated}}"
+      "listUpdated": "{count, plural, one {# job updated} other {# jobs updated}}",
+      "reconnecting": "Reconnecting. Showing the last known progress."
     }
   }
 }

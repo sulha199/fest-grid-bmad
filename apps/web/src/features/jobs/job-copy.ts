@@ -18,6 +18,8 @@ const DEFAULT_QUEUE_MAX_WAIT_MINUTES = 30;
 
 /** Reason text from the reason CODE; an unknown code reads as GENERIC. Never the engine's message. */
 export function reasonText(tr: JobTranslator, code: string | null | undefined, params: { time?: string; minutes?: number }): string {
+  // A cooldown with no time to show reads the sentence without one ; the time-less variant avoids "You can try again at ."
+  if (code === 'COOLDOWN' && !params.time && tr.has('reason.COOLDOWN_NO_TIME')) return tr('reason.COOLDOWN_NO_TIME');
   const key = code && tr.has(`reason.${code}`) ? code : REASON_FALLBACK;
   return tr(`reason.${key}`, { time: params.time ?? '', minutes: params.minutes ?? DEFAULT_QUEUE_MAX_WAIT_MINUTES });
 }

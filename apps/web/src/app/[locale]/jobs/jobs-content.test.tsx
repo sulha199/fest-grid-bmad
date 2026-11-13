@@ -229,6 +229,31 @@ describe('JobsContent, a moderator', () => {
     expect(capture).toHaveBeenCalledWith('jobs_filter_changed', { scope: 'ALL_USERS', includeSystem: true });
   });
 
+  it('a filter change does not refetch Finished just because the In progress list swapped', async () => {
+    const user = userEvent.setup();
+    let allUsers = false;
+    let ended = false;
+    const log = installGraphqlFake(request, (operation, variables) => {
+      if (operation === 'me') return { me: { id: 'm1', email: 'm@example.test', role: 'moderator' } };
+      if (operation === 'ActiveJobs') {
+        const scope = (variables.filter as { scope: string }).scope;
+        allUsers = scope === 'ALL_USERS';
+        // My jobs: one open job (until it ends). All users: none.
+        return { activeJobs: allUsers || ended ? [] : [{ ...makeFragment({ id: 'run-1' }), owner: null }] };
+      }
+      return { myJobs: { edges: [{ cursor: 'c', node: finished('a') }], pageInfo: { hasNextPage: false, endCursor: 'c' } } };
+    });
+    render(ui());
+    await screen.findAllByTestId('job-row');
+    await waitFor(() => expect(screen.getByTestId('jobs-active')).toHaveTextContent('In progress'));
+    const before = calls(log, 'MyJobs').length;
+    await user.click(screen.getByRole('radio', { name: 'All users' }));
+    await waitFor(() => expect(calls(log, 'ActiveJobs').at(-1)!.variables.filter).toEqual({ scope: 'ALL_USERS', includeSystem: false }));
+    await new Promise((r) => setTimeout(r, 300));
+    // Exactly one new Finished request: the one the new filter itself caused.
+    expect(calls(log, 'MyJobs').length).toBe(before + 1);
+  });
+
   it('Clear filters resets the filters and returns to page 1', async () => {
     const user = userEvent.setup();
     const log = installApi({ role: 'moderator', pages: { first: { ids: ['a'], hasNext: true }, 'cur-a': { ids: ['b'] } } });

@@ -140,9 +140,56 @@ describe('JobDetailContent', () => {
     expect(notice).toHaveTextContent('Too many jobs are waiting (10).');
     expect(within(notice).getByRole('link', { name: 'Open Jobs' })).toHaveAttribute('href', '/jobs');
 
+    // A cap refusal with the notice slot (Story 10.3a) still empty reads as the generic message, never as nothing.
     result = { outcome: 'REFUSED', job: null, errorCode: 'SUBSCRIPTION_CAP_REACHED', activeCount: 5, reservedCount: 0, cap: 5 };
     await user.click(screen.getByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(screen.queryByTestId('job-retry-failure')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('job-retry-failure')).toHaveTextContent('Something went wrong on our side'));
+  });
+
+  it('a queue-full or cooldown refusal without its number or time reads as a whole sentence', async () => {
+    const user = userEvent.setup();
+    let result: Record<string, unknown> = { outcome: 'REFUSED', job: null, errorCode: 'JOB_QUEUE_FULL', maxQueued: null };
+    installGraphqlFake(request, (operation) => (operation === 'JobDetail' ? { job: failed() } : { retryJob: result }));
+    render(ui());
+    await user.click(await screen.findByRole('button', { name: 'Retry' }));
+    expect(await screen.findByTestId('job-retry-failure')).toHaveTextContent('Too many jobs are waiting. Open Jobs to see them.');
+    result = { outcome: 'REFUSED', job: null, errorCode: 'COOLDOWN', retryNotBefore: null };
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.getByTestId('job-retry-failure')).toHaveTextContent('You can try again in a little while.'));
+    expect(screen.getByTestId('job-retry-failure').textContent).not.toMatch(/\(\)|at \./);
+  });
+
+  it('a second tap while Retry is in flight sends one request', async () => {
+    let release: (v: unknown) => void = () => {};
+    const log = installGraphqlFake(request, (operation) => {
+      if (operation === 'JobDetail') return { job: failed() };
+      return new Promise((resolve) => {
+        release = resolve;
+      });
+    });
+    render(ui());
+    const button = await screen.findByRole('button', { name: 'Retry' });
+    button.click();
+    button.click();
+    await waitFor(() => expect(log.filter((l) => l.operation === 'RetryJob')).toHaveLength(1));
+    release({ retryJob: { outcome: 'REFUSED', job: null, errorCode: 'JOB_START_FAILED' } });
+    await screen.findByTestId('job-retry-failure');
+  });
+
+  it('announces a status change of the job on this page, urgently for a failure, and not an unchanged poll', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let current: Record<string, unknown> = { ...makeFragment({ id: 'job-9' }), owner: null, moderatorDetails: null };
+    installGraphqlFake(request, () => ({ job: current }));
+    render(ui());
+    await screen.findByTestId('job-progress-view');
+    // The first sighting is recorded silently; an unchanged poll says nothing.
+    await vi.advanceTimersByTimeAsync(4100);
+    expect(screen.getByTestId('job-announcer')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('job-announcer-alert')).toBeEmptyDOMElement();
+    current = failed();
+    await vi.advanceTimersByTimeAsync(2100);
+    await waitFor(() => expect(screen.getByTestId('job-announcer-alert')).toHaveTextContent(/could not finish|failed/i));
+    vi.useRealTimers();
   });
 
   it('a cooldown reads "Retry at {time}" and is aria-disabled', async () => {

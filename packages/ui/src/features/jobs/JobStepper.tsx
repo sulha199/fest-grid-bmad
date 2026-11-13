@@ -8,6 +8,8 @@ export interface JobStepperItem {
   step: JobProgressStep;
   label: string;
   stopped?: boolean;
+  /** The word a screen reader hears for a stopped step: the job's own ending (Failed, Expired, Cancelled). Defaults to `stepState.stopped`. */
+  stoppedWord?: string;
 }
 
 export interface JobStepperProps {
@@ -22,9 +24,9 @@ export function JobStepper({ items, labels }: JobStepperProps) {
   const reduced = usePrefersReducedMotion();
   return (
     <ol aria-label={labels.stepsLabel} className="flex flex-col gap-3" data-testid="job-stepper">
-      {items.map(({ step, label, stopped }, index) => {
+      {items.map(({ step, label, stopped, stoppedWord }, index) => {
         const current = step.state === 'CURRENT';
-        const stateWord = stopped ? labels.stepState.stopped : labels.stepState[step.state.toLowerCase() as 'done' | 'current' | 'pending' | 'skipped'];
+        const stateWord = stopped ? (stoppedWord ?? labels.stepState.stopped) : labels.stepState[step.state.toLowerCase() as 'done' | 'current' | 'pending' | 'skipped'];
         const showCount = typeof step.total === 'number' && step.total > 0 && typeof step.done === 'number';
         let marker: React.ReactNode;
         let markerClass: string;

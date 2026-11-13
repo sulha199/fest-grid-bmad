@@ -85,7 +85,8 @@ describe('JobProgressView states (Story 10.4 table)', () => {
     const failed = makeJob({ status: 'FAILED', reasonCode: 'NO_PROVIDER_REACHABLE', canRetry: true });
     const { unmount } = view(failed, { onRetry });
     expect(screen.getByTestId('job-failed-box')).toHaveTextContent('reason:NO_PROVIDER_REACHABLE');
-    expect(screen.getByText(/stopped/)).toBeInTheDocument();
+    // The hidden state word of the stopped step is the job's own ending, so a screen reader hears "Failed" here and "Expired" below.
+    expect(screen.getByTestId('job-stepper')).toHaveTextContent('(Failed)');
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetry).toHaveBeenCalledTimes(1);
     unmount();
@@ -96,6 +97,7 @@ describe('JobProgressView states (Story 10.4 table)', () => {
   it('expired and cancelled have their own titles', () => {
     const { unmount } = view(makeJob({ status: 'EXPIRED', reasonCode: 'WAITED_TOO_LONG', reasonQueueMaxWaitMinutes: 30 }));
     expect(screen.getByTestId('job-expired-box')).toHaveTextContent('Stopped');
+    expect(screen.getByTestId('job-stepper')).toHaveTextContent('(Expired)');
     expect(screen.getByTestId('job-expired-box')).toHaveTextContent('reason:WAITED_TOO_LONG/30');
     unmount();
     view(makeJob({ status: 'FAILED', isCancelled: true, reasonCode: 'CANCELLED' }));

@@ -159,6 +159,22 @@ describe('useActiveJobs', () => {
     expect(count(empty, 'ActiveJobs')).toBe(1);
   });
 
+  it('a failed first load keeps polling with back-off (no data yet counts as open), and recovers', async () => {
+    let fail = true;
+    const log = installGraphqlFake(request, () => {
+      if (fail) throw new Error('offline');
+      return { activeJobs: [] };
+    });
+    const { result } = renderHook(() => useActiveJobs({ surface: 'list' }), { wrapper });
+    await tick(0);
+    expect(result.current.state).toBe('error');
+    await tick(20_100);
+    expect(count(log, 'ActiveJobs')).toBe(2);
+    fail = false;
+    await tick(30_100);
+    expect(result.current.state).toBe('ready');
+  });
+
   it('poll=false reads once, even with an open job', async () => {
     const log = installGraphqlFake(request, () => ({ activeJobs: [{ ...makeFragment(), owner: null }] }));
     renderHook(() => useActiveJobs({ poll: false }), { wrapper });
@@ -185,5 +201,16 @@ describe('useMyJobs', () => {
     renderHook(() => useMyJobs({ onlyEnded: true }), { wrapper });
     await tick(60_000);
     expect(count(ended, 'MyJobs')).toBe(1);
+  });
+
+  it('a failed first load keeps polling with back-off', async () => {
+    const log = installGraphqlFake(request, () => {
+      throw new Error('offline');
+    });
+    renderHook(() => useMyJobs({ onlyEnded: true }), { wrapper });
+    await tick(0);
+    expect(count(log, 'MyJobs')).toBe(1);
+    await tick(20_100);
+    expect(count(log, 'MyJobs')).toBe(2);
   });
 });

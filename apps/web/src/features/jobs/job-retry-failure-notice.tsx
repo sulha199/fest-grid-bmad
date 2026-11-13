@@ -17,12 +17,13 @@ export interface JobRetryFailureNoticeProps {
 export function JobRetryFailureNotice({ failure, renderCapNotice }: JobRetryFailureNoticeProps) {
   const t = useTranslations('Jobs');
   const { tr, format } = useJobLabels();
-  if (failure.kind === 'cap') return <>{renderCapNotice ? renderCapNotice(failure) : null}</>;
+  // The cap notice is Story 10.3a's slot; until it is filled a cap refusal reads as the generic message, never as nothing.
+  if (failure.kind === 'cap' && renderCapNotice) return <>{renderCapNotice(failure)}</>;
   return (
     <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-200" role="alert" data-testid="job-retry-failure">
       {failure.kind === 'queue-full' ? (
         <>
-          <p>{t('actions.startQueueFull', { max: failure.maxQueued ?? '' })}</p>
+          <p>{failure.maxQueued === null ? t('actions.startQueueFullNoCount') : t('actions.startQueueFull', { max: failure.maxQueued })}</p>
           <Link href="/jobs" className="font-medium underline">
             {t('actions.startQueueFullLink')}
           </Link>

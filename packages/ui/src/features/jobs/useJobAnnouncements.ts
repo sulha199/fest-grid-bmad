@@ -36,6 +36,8 @@ export interface UseJobAnnouncementsResult {
   observe: (jobs: ReadonlyArray<ObservedJobAnnouncement>, options?: { announceFirst?: boolean }) => void;
   /** An explicit message (minimized, started again, reconnecting). */
   announce: (text: string, options?: { urgent?: boolean }) => void;
+  /** Forget what was seen (a page change): the next sighting of a job is recorded silently, so a return to a page never announces a change the user did not watch. */
+  resetSeen: () => void;
 }
 
 const defaultIsHidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
@@ -114,6 +116,10 @@ export function useJobAnnouncements({ coalesceMs = 3000, listUpdated, isHidden =
     [emit, isHidden]
   );
 
+  const resetSeen = useCallback(() => {
+    seen.current.clear();
+  }, []);
+
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
@@ -121,5 +127,5 @@ export function useJobAnnouncements({ coalesceMs = 3000, listUpdated, isHidden =
     []
   );
 
-  return { message, observe, announce };
+  return { message, observe, announce, resetSeen };
 }

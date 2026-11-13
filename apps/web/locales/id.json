@@ -1230,7 +1230,8 @@
       "QUOTA_EXHAUSTED": "Tidak ada kunci AI yang kuotanya tersisa. Coba lagi besok.",
       "EXTRACTION_FAILED": "Kami tidak dapat menyelesaikan pembacaan postingan ini. Coba lagi.",
       "VENDOR_RUN_FAILED": "Platform tidak mengembalikan data yang kami butuhkan. Coba lagi.",
-      "GENERIC": "Terjadi masalah di pihak kami. Coba lagi; jika terus terjadi, beri tahu kami."
+      "GENERIC": "Terjadi masalah di pihak kami. Coba lagi; jika terus terjadi, beri tahu kami.",
+      "COOLDOWN_NO_TIME": "Ini baru saja dicoba. Anda dapat mencoba lagi sebentar lagi."
     },
     "actions": {
       "retry": "Coba lagi",
@@ -1238,7 +1239,8 @@
       "retryStarted": "Dimulai lagi.",
       "retryReused": "Ini sudah berjalan.",
       "startQueueFull": "Terlalu banyak proses yang menunggu ({max}). Buka Tugas untuk melihatnya.",
-      "startQueueFullLink": "Buka Tugas"
+      "startQueueFullLink": "Buka Tugas",
+      "startQueueFullNoCount": "Terlalu banyak proses yang menunggu. Buka Tugas untuk melihatnya."
     },
     "moderator": {
       "detailsSummary": "Detail teknis (moderator)",
@@ -1317,7 +1319,8 @@
       "cancelled": "{title} dibatalkan.",
       "minimized": "Kemajuan diperkecil. Prosesnya tetap berjalan.",
       "reopened": "Kemajuan dibuka.",
-      "listUpdated": "{count} tugas diperbarui"
+      "listUpdated": "{count} tugas diperbarui",
+      "reconnecting": "Menyambung kembali. Menampilkan kemajuan terakhir yang diketahui."
     }
   }
 }

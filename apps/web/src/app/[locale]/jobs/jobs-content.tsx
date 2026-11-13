@@ -12,6 +12,7 @@ import { useJobAnnouncer } from '@/features/jobs/job-announcer-provider';
 import { trackJobProgressReopened, trackJobsFilterChanged } from '@/features/jobs/job-analytics';
 import { toJobListItem, type JobListItem } from '@/features/jobs/job-model';
 import { useJobLabels } from '@/features/jobs/use-job-labels';
+import { useAnnounceReconnecting } from '@/features/jobs/use-announce-reconnecting';
 import { useActiveJobs, useMyJobs } from '@/features/jobs/use-jobs';
 import { EmptyPageNotice } from '@/features/pagination/empty-page-notice';
 import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
@@ -66,17 +67,23 @@ export function JobsContent() {
   const hasOpenJob = active.jobs.length > 0;
   const now = useJobClock(hasOpenJob);
 
-  // A job that left "In progress" has just ended: read the Finished page again (an effect on the data, not a filter handler).
+  // A job that left "In progress" has just ended: read the Finished page again (an effect on the data, not a filter handler). Only while the
+  // filter is unchanged: a filter change swaps the active list as well, and those jobs did not end, so refetching then would cancel the
+  // fetch already running for the new filter.
   const activeKey = active.jobs.map((j) => j.id).join(',');
-  const previousActive = useRef<string[]>([]);
+  const filterId = `${filterKey.scope}|${filterKey.includeSystem}`;
+  const previousActive = useRef<{ filterId: string; ids: string[] }>({ filterId, ids: [] });
   const { refetch: refetchHistory } = history;
   useEffect(() => {
     if (active.state !== 'ready') return;
     const ids = activeKey === '' ? [] : activeKey.split(',');
-    const left = previousActive.current.some((id) => !ids.includes(id));
-    previousActive.current = ids;
-    if (left) refetchHistory();
-  }, [activeKey, active.state, refetchHistory]);
+    const before = previousActive.current;
+    previousActive.current = { filterId, ids };
+    if (before.filterId !== filterId) return;
+    if (before.ids.some((id) => !ids.includes(id))) refetchHistory();
+  }, [activeKey, active.state, filterId, refetchHistory]);
+
+  useAnnounceReconnecting(active.reconnecting || (query.isError && query.data !== undefined));
 
   // Spoken channel: one announcer for the page (mounted in the layout). Only a status or step change is announced, never an unchanged poll.
   const observed = [...active.jobs, ...finished];

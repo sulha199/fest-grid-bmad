@@ -9,6 +9,7 @@ import { useJobAnnouncer } from './job-announcer-provider';
 import { mapJobStartError, type JobStartFailure } from './job-start-error';
 import { useActiveJobs, useJob, type JobReadState, type JobSubjectView } from './use-jobs';
 import { useJobLabels } from './use-job-labels';
+import { useAnnounceReconnecting } from './use-announce-reconnecting';
 
 export interface UseJobProgressOptions {
   /** What the action is about. On mount the server is asked for an open job for it, so the chip returns after a reload. */
@@ -73,6 +74,8 @@ export function useJobProgress({ subject, endedWithinMinutes = 0, enabled = true
   }, [active.state, active.jobs, jobId, dismissed]);
 
   const read = useJob(jobId, { surface: dialogOpen ? 'dialog' : 'chip', enabled });
+  useAnnounceReconnecting(read.reconnecting);
+  const retryingRef = useRef(false);
   const job = read.job;
   const title = job ? titleOf(job.type, read.subject) : '';
 
@@ -129,7 +132,9 @@ export function useJobProgress({ subject, endedWithinMinutes = 0, enabled = true
   }, [jobId]);
 
   const retry = useCallback(async () => {
-    if (!job || retryMutation.isPending) return;
+    // A ref set synchronously: two quick taps in one render would both read a stale isPending.
+    if (!job || retryingRef.current) return;
+    retryingRef.current = true;
     trackJobRetryClicked({ jobType: job.type, reasonCode: job.reasonCode ?? null });
     setRetryFailure(null);
     try {
@@ -142,6 +147,8 @@ export function useJobProgress({ subject, endedWithinMinutes = 0, enabled = true
       announcer.announce(tr(result.outcome === 'REUSED' ? 'actions.retryReused' : 'actions.retryStarted'));
     } catch (error) {
       setRetryFailure(mapJobStartError(error));
+    } finally {
+      retryingRef.current = false;
     }
   }, [announcer, job, retryMutation, tr]);
 

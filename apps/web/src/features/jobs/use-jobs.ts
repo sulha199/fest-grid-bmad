@@ -141,7 +141,8 @@ export function useActiveJobs({ filter, subject, endedWithinMinutes = 0, enabled
     refetchOnWindowFocus: false,
     refetchInterval: (q) => {
       const jobs = q.state.data?.activeJobs;
-      const hasOpenJob = poll && (jobs === undefined ? false : jobs.some((j) => isJobOpen({ status: j.status })));
+      // No data yet (a failed first load) counts as open: polling goes on with back-off, like useJob.
+      const hasOpenJob = poll && (jobs === undefined ? true : jobs.some((j) => isJobOpen({ status: j.status })));
       return getJobPollInterval({ surface, hasOpenJob, consecutiveErrors: errors(q as unknown as Failing), hidden: !visible });
     },
   });
@@ -183,7 +184,7 @@ export function useMyJobs({ filter, onlyEnded = false, first = 20, after, enable
     refetchOnWindowFocus: false,
     refetchInterval: (q) => {
       const edges = q.state.data?.myJobs.edges;
-      const hasOpenJob = !!edges && edges.some((e) => isJobOpen({ status: e.node.status }));
+      const hasOpenJob = edges === undefined ? true : edges.some((e) => isJobOpen({ status: e.node.status }));
       return getJobPollInterval({ surface: 'list', hasOpenJob, consecutiveErrors: errors(q as unknown as Failing), hidden: !visible });
     },
   });

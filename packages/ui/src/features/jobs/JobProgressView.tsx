@@ -110,7 +110,7 @@ export function JobProgressView({
   const open = isJobOpen(j);
   const steps = resolveSteps(j);
   const progress = getStepProgress(j);
-  const items = steps.map((step) => ({ step, label: labels.phase(j.type, step.key), stopped: isStoppedStep(j, step) }));
+  const items = steps.map((step) => ({ step, label: labels.phase(j.type, step.key), stopped: isStoppedStep(j, step), stoppedWord: labels.status[status] }));
   const startMs = j.startedAt ? new Date(j.startedAt).getTime() : NaN;
   const endMs = j.finishedAt ? new Date(j.finishedAt).getTime() : NaN;
   const tookMs = Number.isFinite(startMs) && Number.isFinite(endMs) ? endMs - startMs : null;

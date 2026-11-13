@@ -9,3 +9,4 @@ export * from './job-model';
 export * from './use-job-labels';
 export * from './poll-schedule';
 export * from './job-retry-failure-notice';
+export * from './use-announce-reconnecting';

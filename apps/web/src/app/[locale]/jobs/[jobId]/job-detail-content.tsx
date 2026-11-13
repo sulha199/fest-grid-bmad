@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft } from 'lucide-react';
-import { JobProgressView, PageContainer, PageHeader, useJobClock } from '@festgrid/ui';
+import { JobProgressView, PageContainer, PageHeader, getJobSignature, useJobClock } from '@festgrid/ui';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useRetryJobMutation } from '@/generated/graphql';
@@ -15,6 +15,7 @@ import { JobRetryFailureNotice } from '@/features/jobs/job-retry-failure-notice'
 import { mapJobStartError, type JobStartFailure } from '@/features/jobs/job-start-error';
 import { useJobDetail } from '@/features/jobs/use-job-detail';
 import { useJobLabels } from '@/features/jobs/use-job-labels';
+import { useAnnounceReconnecting } from '@/features/jobs/use-announce-reconnecting';
 import { JobTechnicalDetails } from './job-technical-details';
 
 /**
@@ -27,7 +28,7 @@ export function JobDetailContent({ jobId }: { jobId: string }) {
   const router = useRouter();
   const { session, isLoading: authLoading } = useAuthSession();
   const announcer = useJobAnnouncer();
-  const { labels, format, tr, titleOf } = useJobLabels();
+  const { labels, format, tr, titleOf, announcementOf } = useJobLabels();
   const retryMutation = useRetryJobMutation(graphqlClient);
   const [retryFailure, setRetryFailure] = useState<JobStartFailure | null>(null);
 
@@ -38,9 +39,22 @@ export function JobDetailContent({ jobId }: { jobId: string }) {
   const detail = useJobDetail(session ? jobId : null);
   const { job, raw, state } = detail;
   const now = useJobClock(job?.status === 'RUNNING');
+  useAnnounceReconnecting(detail.reconnecting);
+  const retryingRef = useRef(false);
+
+  // Spoken channel (AC 12): a status or step change of the job on this page is announced; an unchanged poll is not. The page is watched, so
+  // a failure is urgent (role="alert"). The first sighting is recorded silently by the announcer.
+  const title = raw ? titleOf(raw.type, raw.subject) : t('pageTitle');
+  const signature = job ? getJobSignature(job) : null;
+  useEffect(() => {
+    if (!job) return;
+    announcer.observe([{ id: job.id, signature: getJobSignature(job), text: announcementOf(job, title), urgent: job.status === 'FAILED' && !job.isCancelled }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.id, signature]);
 
   const retry = useCallback(async () => {
-    if (!job || retryMutation.isPending) return;
+    if (!job || retryingRef.current) return;
+    retryingRef.current = true;
     trackJobRetryClicked({ jobType: job.type, reasonCode: job.reasonCode ?? null });
     setRetryFailure(null);
     try {
@@ -54,12 +68,13 @@ export function JobDetailContent({ jobId }: { jobId: string }) {
       router.replace(`/jobs/${result.job.id}`);
     } catch (error) {
       setRetryFailure(mapJobStartError(error));
+    } finally {
+      retryingRef.current = false;
     }
   }, [announcer, job, retryMutation, router, tr]);
 
   if (!session) return null;
 
-  const title = raw ? titleOf(raw.type, raw.subject) : t('pageTitle');
   const viewState = state === 'idle' ? 'loading' : state;
   const showLateNote = !!job && job.completedAfterDeadline && job.status !== 'SUCCEEDED' && job.status !== 'SUCCEEDED_WITH_LIMITS';
   const startMs = job?.startedAt ? new Date(job.startedAt).getTime() : NaN;
