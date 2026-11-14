@@ -4,13 +4,17 @@ import { db } from '../../db/client.js';
 import { users } from '@festgrid/database';
 import { inArray, eq } from 'drizzle-orm';
 import { sendDangerousReportModeratorAlerts } from './send-dangerous-report-moderator-alerts.js';
+import { deleteModeratorNotifyKeysCreatedSince, snapshotModeratorNotifyKeys } from '../test-support/moderator-notify-throttle-cleanup.js';
 
 test('sendDangerousReportModeratorAlerts tests', async (t) => {
   const testRunId = Date.now();
   const createdUsers: any[] = [];
+  // The helper claims a throttle row per template and entity (Story 0.i1a); remove what this file creates.
+  const throttleBefore = await snapshotModeratorNotifyKeys();
 
   // Helper to clean up created entities
   t.after(async () => {
+    await deleteModeratorNotifyKeysCreatedSince(throttleBefore);
     if (createdUsers.length > 0) {
       await db.delete(users).where(inArray(users.id, createdUsers.map(u => u.id)));
     }
@@ -41,7 +45,7 @@ test('sendDangerousReportModeratorAlerts tests', async (t) => {
       return 'mock-msg-id';
     };
 
-    await sendDangerousReportModeratorAlerts('Test Event 1', {
+    await sendDangerousReportModeratorAlerts('Test Event 1', undefined, {
       sendTemplatedEmail: mockSendTemplatedEmail as any,
     });
 
@@ -79,7 +83,7 @@ test('sendDangerousReportModeratorAlerts tests', async (t) => {
         return 'mock-msg-id';
       };
 
-      await sendDangerousReportModeratorAlerts('Test Event Zero', {
+      await sendDangerousReportModeratorAlerts('Test Event Zero', undefined, {
         sendTemplatedEmail: mockSendTemplatedEmail as any,
       });
 
@@ -106,7 +110,7 @@ test('sendDangerousReportModeratorAlerts tests', async (t) => {
     };
 
     // Should resolve without throwing
-    await sendDangerousReportModeratorAlerts('Test Event Partial', {
+    await sendDangerousReportModeratorAlerts('Test Event Partial', undefined, {
       sendTemplatedEmail: mockSendTemplatedEmail as any,
     });
 
@@ -121,10 +125,44 @@ test('sendDangerousReportModeratorAlerts tests', async (t) => {
     };
 
     // Should resolve without throwing
-    await sendDangerousReportModeratorAlerts('Test Event All Fail', {
+    await sendDangerousReportModeratorAlerts('Test Event All Fail', undefined, {
       sendTemplatedEmail: mockSendTemplatedEmail as any,
     });
 
     assert.ok(calls.length >= 2, 'Should attempt at least the 2 calls');
+  });
+
+  await t.test('Throttle: a repeat report of the same event id sends no second mail, a different event id does (AC3, AC8)', async () => {
+    const newMod = await createUser(`throttle-mod-${testRunId}@example.com`, 'Mod Throttle', 'moderator');
+    const calls: any[] = [];
+    const deps = {
+      sendTemplatedEmail: (async (templateKey: string, to: string, variables: any) => {
+        calls.push({ templateKey, to, variables });
+        return 'mock-msg-id';
+      }) as any,
+    };
+
+    await sendDangerousReportModeratorAlerts('Throttled Event', `event-a-${testRunId}`, deps);
+    const afterFirst = calls.filter((c) => c.to === newMod.email).length;
+    assert.strictEqual(afterFirst, 1);
+
+    await sendDangerousReportModeratorAlerts('Throttled Event', `event-a-${testRunId}`, deps);
+    assert.strictEqual(calls.filter((c) => c.to === newMod.email).length, 1, 'the second report inside the cooldown is not mailed');
+
+    await sendDangerousReportModeratorAlerts('Throttled Event', `event-b-${testRunId}`, deps);
+    assert.strictEqual(calls.filter((c) => c.to === newMod.email).length, 2, 'another event is mailed');
+  });
+
+  await t.test('A soft-deleted moderator is no longer mailed (AC8, decision 10)', async () => {
+    const gone = await createUser(`gone-mod-${testRunId}@example.com`, 'Mod Gone', 'moderator');
+    await db.update(users).set({ deletedAt: new Date() }).where(eq(users.id, gone.id));
+    const calls: any[] = [];
+    await sendDangerousReportModeratorAlerts('Soft Delete Event', `event-c-${testRunId}`, {
+      sendTemplatedEmail: (async (templateKey: string, to: string) => {
+        calls.push(to);
+        return 'mock-msg-id';
+      }) as any,
+    });
+    assert.ok(!calls.includes(gone.email));
   });
 });

@@ -116,6 +116,18 @@ test('loadBackendEnv defaults the alert-email budget to 10 per 10 minutes and re
   assert.strictEqual(withRateLimitEnv('SYSTEM_ERROR_ALERT_WINDOW_MINUTES', '30', () => loadBackendEnv().systemErrorAlertWindowMinutes), 30);
 });
 
+test('loadBackendEnv defaults the moderator-notification cooldown to 60 minutes, reads an override and rejects a bad value (Story 0.i1a)', () => {
+  assert.strictEqual(withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', undefined, () => loadBackendEnv().moderatorNotifyCooldownMinutes), 60);
+  assert.strictEqual(withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', ' 15 ', () => loadBackendEnv().moderatorNotifyCooldownMinutes), 15);
+  for (const bad of ['0', '-3', '1e3', '10abc', '1.5']) {
+    assert.throws(
+      () => withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', bad, () => loadBackendEnv()),
+      /MODERATOR_NOTIFY_COOLDOWN_MINUTES must be a positive integer/,
+      JSON.stringify(bad)
+    );
+  }
+});
+
 test('loadBackendEnv rejects an alert-email budget knob that is not a plain positive integer', () => {
   for (const name of ['SYSTEM_ERROR_ALERT_MAX_EMAILS', 'SYSTEM_ERROR_ALERT_WINDOW_MINUTES']) {
     for (const bad of ['0', '-3', '1e3', '10abc', '1.5']) {

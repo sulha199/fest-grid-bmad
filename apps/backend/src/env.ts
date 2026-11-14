@@ -33,6 +33,8 @@ export interface BackendEnv {
   promptFilterRateLimitWindowMinutes: number;
   systemErrorAlertMaxEmails: number;
   systemErrorAlertWindowMinutes: number;
+  // Story 0.i1a (AD-54): the cooldown of one moderator notification per template and entity, in minutes.
+  moderatorNotifyCooldownMinutes: number;
   webAppBaseUrl: string;
   // Batch cap for how many additional carousel (Sidecar) slide images are sent to Gemini in a
   // single extraction request, beyond the cover image (Story 3.6l). Keeps the AI Processor
@@ -349,6 +351,14 @@ export function loadBackendEnv(): BackendEnv {
       process.env.SYSTEM_ERROR_ALERT_WINDOW_MINUTES,
       'SYSTEM_ERROR_ALERT_WINDOW_MINUTES',
       10
+    ),
+    // Story 0.i1a (AD-54): one moderator notification per template and entity per this many minutes
+    // (a fixed window in `alert_email_rate_limits`, see notify-all-moderators.ts). Default 60.
+    moderatorNotifyCooldownMinutes: parsePositiveInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.MODERATOR_NOTIFY_COOLDOWN_MINUTES,
+      'MODERATOR_NOTIFY_COOLDOWN_MINUTES',
+      60
     ),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     webAppBaseUrl: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
