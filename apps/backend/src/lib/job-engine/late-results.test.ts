@@ -303,6 +303,31 @@ test('collectLateVendorResults: review fixes', async (t) => {
     assert.deepEqual(downloads.filter((d) => d === snapshotId), [], 'nothing was even asked of the vendor');
   });
 
+  await t.test('Story 10.6: a handler that answers NO_CHANGE saved its result elsewhere; the job is not settled, whatever its state', async () => {
+    for (const jobStatus of ['EXPIRED', 'WAITING'] as const) {
+      const { job, snapshotId, handlerCalls } = await setup({
+        jobStatus,
+        reasonCode: jobStatus === 'EXPIRED' ? 'TIMED_OUT' : undefined,
+        handler: async () => ({ outcome: 'NO_CHANGE' }),
+      });
+      progressFor = () => ({ status: 'ready' });
+      await collectLateVendorResults();
+      assert.equal(handlerCalls.length, 1);
+      assert.equal((await read(job.id)).status, jobStatus);
+      assert.equal((await readLink(snapshotId)).status, 'COLLECTED');
+    }
+  });
+
+  await t.test('Story 10.6: a job that ended SUCCEEDED_WITH_LIMITS is still collected (nothing answered; the handler heals what it owns)', async () => {
+    const { job, snapshotId, handlerCalls } = await setup({ jobStatus: 'SUCCEEDED', handler: async () => ({ outcome: 'NO_CHANGE' }) });
+    await db.update(jobs).set({ status: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'TIMED_OUT' }).where(eq(jobs.id, job.id));
+    progressFor = () => ({ status: 'ready' });
+    await collectLateVendorResults();
+    assert.equal(handlerCalls.length, 1);
+    assert.equal((await read(job.id)).status, 'SUCCEEDED_WITH_LIMITS');
+    assert.equal((await readLink(snapshotId)).status, 'COLLECTED');
+  });
+
   await t.test('a QUEUED job (re-admitted while the snapshot ran) is settled by the late result, not re-run', async () => {
     const { job } = await setup({ jobStatus: 'WAITING' });
     await db.update(jobs).set({ status: 'QUEUED', admittedAt: null, queuedSince: new Date() }).where(eq(jobs.id, job.id));

@@ -1,5 +1,6 @@
 import type { ExtractionCursor } from './extraction-cursor.js';
 import type { GeminiEventPayload } from '../events/types.js';
+import type { ReextractRefreshReport } from './reextract-image-refresh.js';
 
 /**
  * Closed role vocabulary for `post_account_associations` rows (Story 3.15, PRD §4.7a,
@@ -156,6 +157,11 @@ export interface ReextractionPreviewResult {
   /** AD-40 (Apply) -- set once, when a moderator applies this preview. */
   appliedAt?: string | null;
   applied?: ApplyReextractionSummary | null;
+  /**
+   * Story 10.6 -- what the image-refresh phase of an engine re-extract job did (FR125). Absent on a preview of the manual job
+   * (a caption-less post, a URL not in the database) and on one finished before Story 10.6.
+   */
+  refresh?: ReextractRefreshReport;
 }
 
 /** AD-40 (Apply) -- a preview can be applied this long after it finished. */

@@ -11,6 +11,7 @@ import {
   jobHasValidOwner,
   registerJobTypeDefinition,
   resolveAttemptBudgetMs,
+  resolveAttemptCapMs,
   type Job,
   type JobStatus,
   type JobTypeDefinition,
@@ -109,3 +110,16 @@ test('the Job type carries the product-visible shape of PRD 4.21', () => {
   assert.equal(job.status, 'WAITING');
 });
 
+test("a type may declare its own per-run cap (Story 10.6): it must be a positive number, and resolveAttemptCapMs prefers it over the default", () => {
+  registerJobTypeDefinition({ type: "fixture-domain-cap-ok", host: "scraper", maxDurationMs: 1, attemptCapMs: 270_000 });
+  assert.equal(getJobTypeDefinition("fixture-domain-cap-ok")?.attemptCapMs, 270_000);
+  for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(
+      () => registerJobTypeDefinition({ type: `fixture-domain-cap-bad-${String(bad)}`, host: "scraper", maxDurationMs: 1, attemptCapMs: bad }),
+      /attemptCapMs must be a positive number/
+    );
+  }
+  assert.equal(resolveAttemptCapMs(getJobTypeDefinition("fixture-domain-cap-ok"), 150_000), 270_000);
+  assert.equal(resolveAttemptCapMs({}, 150_000), 150_000, "a type with no cap keeps the default");
+  assert.equal(resolveAttemptCapMs(undefined, 150_000), 150_000, "an unknown type keeps the default");
+});

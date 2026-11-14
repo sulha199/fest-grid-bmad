@@ -173,6 +173,18 @@ test('loadBackendEnv reads POST_SCRAPER_PROVIDER_ORDER raw (parsed with its defa
   assert.strictEqual(withRateLimitEnv('POST_SCRAPER_PROVIDER_ORDER', 'apify,brightdata', () => loadBackendEnv().postScraperProviderOrder), 'apify,brightdata');
 });
 
+test('loadBackendEnv reads REEXTRACT_REFRESH_BUDGET_MS (Story 10.6): default 120000, strict positive integer', () => {
+  assert.strictEqual(withRateLimitEnv('REEXTRACT_REFRESH_BUDGET_MS', undefined, () => loadBackendEnv().reextractRefreshBudgetMs), 120000);
+  assert.strictEqual(withRateLimitEnv('REEXTRACT_REFRESH_BUDGET_MS', ' 90000 ', () => loadBackendEnv().reextractRefreshBudgetMs), 90000);
+  for (const bad of ['0', '-1', '2m', '1.5', ' ']) {
+    assert.throws(
+      () => withRateLimitEnv('REEXTRACT_REFRESH_BUDGET_MS', bad, () => loadBackendEnv()),
+      /REEXTRACT_REFRESH_BUDGET_MS must be a positive integer/,
+      JSON.stringify(bad)
+    );
+  }
+});
+
 test('loadBackendEnv reads BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES (Story 10.5): default 480, strict positive integer', () => {
   assert.strictEqual(withRateLimitEnv('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', undefined, () => loadBackendEnv().brightdataSnapshotMaxWaitMinutes), 480);
   assert.strictEqual(withRateLimitEnv('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', ' 120 ', () => loadBackendEnv().brightdataSnapshotMaxWaitMinutes), 120);

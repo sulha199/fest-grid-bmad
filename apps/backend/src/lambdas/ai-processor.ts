@@ -2,11 +2,15 @@ import type { SQSEvent, Context, SQSBatchResponse } from 'aws-lambda';
 import { processAiJob } from '../lib/ai-processor/process-ai-job.js';
 import { processManualExtractionJob } from '../lib/ai-processor/process-manual-extraction-job.js';
 import { runJobEngineJob } from '../lib/job-engine/run-job.js';
+import { registerAiProcessorJobHandlers } from '../lib/job-engine/register-ai-processor-job-handlers.js';
 import { type ProcessingJobMessage, type ManualExtractionInvokePayload } from '@festgrid/domain/posts';
 import { pollAndDrainQueue, hasJobType, type PollAndDrainQueueOptions } from '../lib/aws/poll-and-drain-queue.js';
 import { loadBackendEnv } from '../env.js';
 import { resumeDueExtractions } from '../lib/posts/resume-due-extractions.js';
 import { resumeStalledChains } from '../lib/ai-processor/resume-stalled-chains.js';
+
+// Story 10.6: this Lambda's half of each job type that has one (the moderator re-extract's preview phase).
+registerAiProcessorJobHandlers();
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
 // Story 10.1a (AD-53): an async invoke carrying only the job id, from the API Lambda (a job type hosted here) or the

@@ -162,6 +162,9 @@ export interface BackendEnv {
   // before giving up (the daily batch falls back to Apify, a linked job snapshot is given up on). On 2026-10-29, 21 of 38
   // snapshots took 5 to 6 hours; the default is an assumption to tune.
   brightdataSnapshotMaxWaitMinutes: number;
+  // Story 10.6 -- the refresh phase of the moderator re-extract job: the time (ms) the post chain may use for one refresh. Apify is
+  // bounded at 20 s and Bright Data needs about 90 s, so the default leaves Bright Data its minimum after a failing Apify. Scraper Lambda only.
+  reextractRefreshBudgetMs: number;
   // Story 10.3 -- admission (FR121). Places one user may hold at once (an admitted QUEUED or RUNNING job holds one).
   maxConcurrentJobsPerUser: number;
   // Story 10.3 -- jobs one user may have waiting for a place; a start beyond it is refused JOB_QUEUE_FULL.
@@ -466,6 +469,8 @@ export function loadBackendEnv(): BackendEnv {
     jobWorkerClaimTtlMinutes: parsePositiveInt(process.env.JOB_WORKER_CLAIM_TTL_MINUTES, 'JOB_WORKER_CLAIM_TTL_MINUTES', 5),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataSnapshotMaxWaitMinutes: parsePositiveInt(process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES, 'BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', 480),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    reextractRefreshBudgetMs: parsePositiveInt(process.env.REEXTRACT_REFRESH_BUDGET_MS, 'REEXTRACT_REFRESH_BUDGET_MS', 120000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxConcurrentJobsPerUser: parsePositiveInt(process.env.MAX_CONCURRENT_JOBS_PER_USER, 'MAX_CONCURRENT_JOBS_PER_USER', 3),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

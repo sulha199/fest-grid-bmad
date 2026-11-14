@@ -1238,6 +1238,26 @@ test('FestgridBackendStack: POST_SCRAPER_PROVIDER_ORDER is passed to the Scraper
   }
 });
 
+// Story 10.6: the re-extract refresh budget reaches the Scraper Lambda (where the refresh phase runs) only when set.
+test('FestgridBackendStack: REEXTRACT_REFRESH_BUDGET_MS is passed to the Scraper Lambda only when set (Story 10.6)', () => {
+  const saved = process.env.REEXTRACT_REFRESH_BUDGET_MS;
+  const scraperEnv = (value: string | undefined) => {
+    if (value === undefined) delete process.env.REEXTRACT_REFRESH_BUDGET_MS;
+    else process.env.REEXTRACT_REFRESH_BUDGET_MS = value;
+    const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), `TestStackReextractBudget${value ?? 'Unset'}`.replace(/[^A-Za-z0-9]/g, ''), { stageName: 'dev' }));
+    const entry = Object.entries(template.findResources('AWS::Lambda::Function')).find(([id]) => id.startsWith('ScraperLambda'));
+    assert.ok(entry, 'ScraperLambda in the template');
+    return (entry![1] as { Properties: { Environment: { Variables: Record<string, unknown> } } }).Properties.Environment.Variables;
+  };
+  try {
+    assert.equal(scraperEnv('90000').REEXTRACT_REFRESH_BUDGET_MS, '90000');
+    assert.equal('REEXTRACT_REFRESH_BUDGET_MS' in scraperEnv(undefined), false);
+  } finally {
+    if (saved === undefined) delete process.env.REEXTRACT_REFRESH_BUDGET_MS;
+    else process.env.REEXTRACT_REFRESH_BUDGET_MS = saved;
+  }
+});
+
 // Story 10.5: the snapshot wait bound reaches the Scraper Lambda only when set (the code default is 480 minutes).
 test('FestgridBackendStack: BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES is passed to the Scraper Lambda only when set (Story 10.5)', () => {
   const saved = process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
@@ -1255,5 +1275,23 @@ test('FestgridBackendStack: BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES is passed to th
   } finally {
     if (saved === undefined) delete process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
     else process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES = saved;
+  }
+});
+
+// Story 10.6 review: the moderator re-extract declares its own per-run cap (`REEXTRACT_POST_ATTEMPT_CAP_MS`, packages/domain). Both host
+// Lambdas run a phase of it, so the cap must stay safely under BOTH Lambda timeouts, or a run could be killed by the platform before the
+// engine ends it (and the face blur of phase 2 would be told it has time it does not have).
+test('FestgridBackendStack: the re-extract job type\'s per-run cap fits under the Scraper and AI-processor Lambda timeouts (Story 10.6)', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../../../packages/domain/src/jobs/reextract-post.ts'), 'utf8');
+  const match = /REEXTRACT_POST_ATTEMPT_CAP_MS\s*=\s*(\d+)\s*\*\s*1000/.exec(source);
+  assert.ok(match, 'REEXTRACT_POST_ATTEMPT_CAP_MS is declared in seconds times 1000');
+  const capSeconds = Number(match![1]);
+  const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), 'TestStackReextractCap', { stageName: 'dev' }));
+  const functions = template.findResources('AWS::Lambda::Function');
+  for (const prefix of ['ScraperLambda', 'AIProcessorLambda']) {
+    const entry = Object.entries(functions).find(([id]) => id.startsWith(prefix));
+    assert.ok(entry, `${prefix} in the template`);
+    const timeout = (entry![1] as { Properties: { Timeout: number } }).Properties.Timeout;
+    assert.ok(timeout >= capSeconds + 20, `${prefix} has a ${timeout} s timeout; the re-extract run cap is ${capSeconds} s and the engine needs 20 s after it for its final writes`);
   }
 });

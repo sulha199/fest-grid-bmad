@@ -104,6 +104,17 @@ test('runJobEngineJob: claim and outcomes', async (t) => {
     assert.deepEqual([(await readJob(b.id)).status, (await readJob(b.id)).reasonCode], ['FAILED', 'ACCOUNT_NOT_FOUND']);
   });
 
+  await t.test('Story 10.6: a handler\'s own plain-words message is stored on FAILED and SUCCEEDED_WITH_LIMITS, and null when it gave none', async () => {
+    const failed = defineType(handlerReturning({ outcome: 'FAILED', reasonCode: 'QUOTA_EXHAUSTED', errorMessage: 'No available Gemini API key to perform this extraction.' }));
+    const limits = defineType(handlerReturning({ outcome: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'COOLDOWN', errorMessage: 'The preview used the stored images.' }));
+    const bare = defineType(handlerReturning({ outcome: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'COOLDOWN' }));
+    const [a, b, c] = [await insertJob(failed), await insertJob(limits), await insertJob(bare)];
+    for (const job of [a, b, c]) await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(a.id)).errorMessage, 'No available Gemini API key to perform this extraction.');
+    assert.equal((await readJob(b.id)).errorMessage, 'The preview used the stored images.');
+    assert.equal((await readJob(c.id)).errorMessage, null);
+  });
+
   await t.test('an ending that needs a reason but gives none is recorded as UNSPECIFIED, never silently', async () => {
     const type = defineType(handlerReturning({ outcome: 'FAILED' }));
     const job = await insertJob(type);
@@ -456,6 +467,57 @@ test('runJobEngineJob: cross-Lambda hand-off (AC3)', async (t) => {
     const row = await readJob(job.id);
     assert.equal(row.status, 'FAILED');
     assert.equal(row.errorMessage, 'The job failed with an internal error.');
+  });
+});
+
+test('runJobEngineJob: a type\'s own per-run cap (Story 10.6 review)', async (t) => {
+  /** Registers a type whose handler records the remaining time the engine gives it. */
+  function defineMeasuringType(attemptCapMs: number | undefined, seen: number[]): string {
+    const type = `fixture-run-cap-${suffix}-${typeCounter++}`;
+    registerJobTypeDefinition({ type, host: 'scraper', maxDurationMs: 600_000, ...(attemptCapMs !== undefined ? { attemptCapMs } : {}) });
+    registerJobHandler(type, {
+      run: async (ctx) => {
+        seen.push(ctx.getRemainingTimeInMillis());
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    return type;
+  }
+
+  await t.test('a type that declares a cap gets it (here larger than the environment default), still bounded by the Lambda\'s remaining time', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '1000';
+    const seen: number[] = [];
+    const type = defineMeasuringType(200_000, seen);
+    await runJobEngineJob((await insertJob(type)).id, {});
+    assert.ok(seen[0] > 150_000 && seen[0] <= 200_000, `the handler saw ${seen[0]} ms, the type's cap and not the 1 s default`);
+
+    const bounded: number[] = [];
+    const boundedType = defineMeasuringType(200_000, bounded);
+    await runJobEngineJob((await insertJob(boundedType)).id, { getRemainingTimeInMillis: () => 90_000 });
+    assert.ok(bounded[0] <= 90_000 && bounded[0] > 80_000, `the Lambda's own remaining time still wins (${bounded[0]} ms)`);
+  });
+
+  await t.test('a type that declares none keeps the environment default, and the type\'s cap is used when the default is smaller', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '150000';
+    const plain: number[] = [];
+    await runJobEngineJob((await insertJob(defineMeasuringType(undefined, plain))).id, {});
+    assert.ok(plain[0] <= 150_000 && plain[0] > 140_000, `default unchanged (${plain[0]} ms)`);
+
+    const small: number[] = [];
+    await runJobEngineJob((await insertJob(defineMeasuringType(30_000, small))).id, {});
+    assert.ok(small[0] <= 30_000 && small[0] > 25_000, `a type may also ask for LESS than the default (${small[0]} ms)`);
+  });
+
+  await t.test('the cap also bounds the run: a handler that outlasts its own type\'s cap ends EXPIRED / TIMED_OUT', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '60000';
+    const type = `fixture-run-cap-expire-${suffix}-${typeCounter++}`;
+    registerJobTypeDefinition({ type, host: 'scraper', maxDurationMs: 600_000, attemptCapMs: 60 });
+    registerJobHandler(type, { run: async () => { await sleep(300); return { outcome: 'SUCCEEDED' }; } });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.deepEqual([row.status, row.reasonCode], ['EXPIRED', 'TIMED_OUT']);
+    await sleep(350);
   });
 });
 

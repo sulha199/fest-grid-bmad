@@ -22,8 +22,8 @@ import { isProviderCapacityAvailable } from './usage-store.js';
  * are adapters (`PostScraperAdapter`, @festgrid/domain) kept in `post-scraper-registry.ts`; the order they are tried in is
  * `POST_SCRAPER_PROVIDER_ORDER` (default `brightdata,apify`, owner decision 2026-11-11, PRD OI-1).
  *
- * NO PRODUCTION CALLER USES THIS YET: `start-post-reextraction-preview.ts` and `resume-stalled-chains.ts` still call
- * `getPostByUrl`; Stories 10.5 to 10.10 adopt the chain.
+ * The first production caller is the moderator re-extract job (Story 10.6, `reextract-refresh-handler.ts`, with its own order);
+ * `resume-stalled-chains.ts` and the other paths still call `getPostByUrl`; Stories 10.7 to 10.10 adopt the chain.
  */
 
 /**
@@ -73,6 +73,10 @@ export async function fetchScrapedPost(input: {
   budgetMs: number;
   credential?: PostScrapeCredential;
   jobId?: string;
+  /** This caller's own provider order (Story 10.6: the re-extract tries Apify first); omitted, `POST_SCRAPER_PROVIDER_ORDER` decides. */
+  order?: readonly PostScraperAdapterName[];
+  /** Called for every provider considered, after its attempt row is written (also when the chain then throws). Never changes the result. */
+  onAttempt?: (attempt: PostAdapterAttempt) => void | Promise<void>;
 }): Promise<ScrapedPost | null> {
   const { platform, url, budgetMs, jobId } = input;
   if (platform !== 'instagram') {
@@ -80,22 +84,26 @@ export async function fetchScrapedPost(input: {
   }
   try {
     const result = await runPostScraperChain({
-      adapters: getPostScraperAdapters(),
+      adapters: getPostScraperAdapters(input.order),
       url,
       budgetMs,
       credential: input.credential ?? resolvePostScrapeCredential(undefined, undefined),
       // A provider whose cap is known to be used up, or that is degraded, is skipped with no call (Story 10.2 AC1, AC6).
       skipReason: (name) => providerSkipReason(name),
-      onAttempt: jobId
-        ? async (attempt) => {
-            await recordJobAttempt({ jobId, attempt });
-            // Story 10.5: a Bright Data snapshot still running when the budget ran out stays linked to the job, so the sweep
-            // can collect its records later even if the job has ended by then.
-            if (attempt.outcome === 'failed' && attempt.error instanceof BrightDataSnapshotPendingError) {
-              await linkJobVendorSnapshot({ jobId, provider: 'BRIGHTDATA', snapshotId: attempt.error.snapshotId });
+      onAttempt:
+        jobId || input.onAttempt
+          ? async (attempt) => {
+              if (jobId) {
+                await recordJobAttempt({ jobId, attempt });
+                // Story 10.5: a Bright Data snapshot still running when the budget ran out stays linked to the job, so the sweep
+                // can collect its records later even if the job has ended by then.
+                if (attempt.outcome === 'failed' && attempt.error instanceof BrightDataSnapshotPendingError) {
+                  await linkJobVendorSnapshot({ jobId, provider: 'BRIGHTDATA', snapshotId: attempt.error.snapshotId });
+                }
+              }
+              await input.onAttempt?.(attempt);
             }
-          }
-        : undefined,
+          : undefined,
     });
     if (result.attempts.length > 1) {
       console.log(`[post-scraper] ${result.attempts.map(describeAttempt).join('; ')}`);

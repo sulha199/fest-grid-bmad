@@ -26,14 +26,16 @@ export function postUrlScrapeLockKey(url: string): string {
 const NO_LEASE: InFlightLease = { release: async () => undefined };
 
 /**
+ * `ttlMs` defaults to the 60 s of the API-Lambda callers; a caller whose fetch can run longer (the engine re-extract's refresh, up to
+ * its budget) passes budget plus a margin, so the lease cannot lapse mid-fetch and let a second job double-scrape the post.
  * `null` when a scrape of this post is already in flight. Always `release()` the result in a
  * `finally`. If the lock table itself cannot be reached the claim FAILS OPEN (a no-op lease, logged):
  * the worst case is the double scrape this lease exists to prevent, which is better than turning
  * every re-extract and URL extraction into an error because of a bookkeeping fault.
  */
-export async function claimPostUrlScrape(url: string): Promise<InFlightLease | null> {
+export async function claimPostUrlScrape(url: string, ttlMs: number = POST_URL_SCRAPE_LEASE_TTL_MS): Promise<InFlightLease | null> {
   try {
-    return await tryClaimInFlight(postUrlScrapeLockKey(url), POST_URL_SCRAPE_LEASE_TTL_MS);
+    return await tryClaimInFlight(postUrlScrapeLockKey(url), ttlMs);
   } catch (error) {
     console.error(`[claimPostUrlScrape] lease unavailable for ${url}; continuing without single-flight:`, error);
     return NO_LEASE;

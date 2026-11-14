@@ -11,14 +11,15 @@ import { afterJobEnded } from './after-job-ended.js';
 
 export type CancelJobResult = 'CANCELLED' | 'NOT_CANCELLABLE';
 
-export async function cancelJob(jobId: string, ownerUserId: string): Promise<CancelJobResult> {
+/** `message`: plain words for the Jobs page when the cancel is not the owner's own (Story 10.6: a stuck job replaced by a new click). */
+export async function cancelJob(jobId: string, ownerUserId: string, options: { message?: string } = {}): Promise<CancelJobResult> {
   const now = new Date();
   const [ended] = await db
     .update(jobs)
     .set({
       status: 'FAILED',
       reasonCode: 'CANCELLED',
-      errorMessage: 'The job was cancelled.',
+      errorMessage: options.message ?? 'The job was cancelled.',
       workerClaimedAt: null,
       resumeAt: null,
       finishedAt: now,

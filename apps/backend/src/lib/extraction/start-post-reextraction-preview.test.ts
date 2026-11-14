@@ -2,49 +2,32 @@ import test from 'node:test';
 import * as assert from 'node:assert';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { apiKeys, manualExtractionJobs, posts, socialMediaAccountProfiles, users } from '@festgrid/database';
-import type { ManualExtractionRequestPayload } from '@festgrid/domain/posts';
-import { clearRegisteredAdapters, registerScraperAdapter, ScraperCapacityExceededError } from '@festgrid/domain/scraper';
-import type { ScrapedPost } from '@festgrid/domain/scraper';
+import { apiKeys, jobs, posts, socialMediaAccountProfiles } from '@festgrid/database';
+import { REEXTRACT_POST_JOB_TYPE, reextractUrlInputKey } from '@festgrid/domain/jobs';
 import { startPostReextractionPreview } from './start-post-reextraction-preview.js';
-import { ApifyApiError } from 'apify-client';
-import {
-  ApifyMemoryLimitExhaustedError,
-  ApifyMonthlyUsageLimitError,
-  getApifyClient,
-  instagramScraperAdapter,
-  setGetApifyClient,
-} from '../scraper/instagram-adapter.js';
-import { getManualExtractionJobStatus } from './manual-extraction-job.js';
-import { claimPostUrlScrape } from '../scraper/post-url-scrape-lease.js';
-import { VendorDpaNotConfirmedError } from '../vendor-gateway/guarded-call.js';
-import { setRememberExhaustedCapacity } from '../scraper/usage-store.js';
-// Story 10.2: this file provokes Apify's monthly-limit refusal; do not write the real `apify` usage row (parallel suites share it).
-const rememberedExhausted: string[] = [];
-setRememberExhaustedCapacity(async (provider) => {
-  rememberedExhausted.push(provider);
-});
+import { createFixtures } from '../job-engine/job-engine-test-support.js';
 
+// AD-40 / Story 10.6 -- the API-Lambda half of the moderator re-extract preview: it validates and finds the target, then starts the engine job
+// `reextract-post` for EVERY re-extract (a stored post with or without a stored caption, a URL not in the database). The job itself (the
+// refresh, the held caption, the preview) is tested in reextract-refresh-handler.test.ts, reextract-preview-handler.test.ts and
+// reextract-engine-flow.test.ts; the stuck-job rule in start-reextract-post-job.test.ts. No Lambda is invoked: the engine's invoke is a stub.
 
-// AD-40 -- the API-Lambda half of the moderator re-extract preview. The AI Lambda invoke is not
-// configured under test, so a job that gets as far as starting fails to start and is marked FAILED:
-// that is exactly the path that must still blank the stored caption.
+const fx = createFixtures('startpreview');
 
-test('startPostReextractionPreview (AD-40)', async (t) => {
+test('startPostReextractionPreview (AD-40, Story 10.6)', async (t) => {
   const suffix = Date.now();
-  const [user] = await db.select().from(users).limit(1);
-  assert.ok(user, 'Must have at least one seeded user');
-
+  fx.stubInvoke();
+  const moderator = await fx.makeUser('moderator');
   const [account] = await db
     .insert(socialMediaAccountProfiles)
     .values({ accountId: 'acc-start-' + suffix, platform: 'instagram', displayName: 'Start', username: 'start_' + suffix })
     .returning();
   const postIds: string[] = [];
-  const jobIds: string[] = [];
+  const keyIds: string[] = [];
 
   t.after(async () => {
-    if (jobIds.length) await db.delete(manualExtractionJobs).where(inArray(manualExtractionJobs.id, jobIds));
-    await db.delete(manualExtractionJobs).where(eq(manualExtractionJobs.requestedByUserId, user.id));
+    if (keyIds.length) await db.delete(apiKeys).where(inArray(apiKeys.id, keyIds));
+    await fx.cleanup(); // the users, and with them their jobs
     if (postIds.length) await db.delete(posts).where(inArray(posts.id, postIds));
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, account.id));
   });
@@ -52,689 +35,81 @@ test('startPostReextractionPreview (AD-40)', async (t) => {
   async function makePost(content: string | null) {
     const [post] = await db
       .insert(posts)
-      .values({
-        accountId: account.id,
-        platform: 'instagram',
-        postUrl: `https://www.instagram.com/p/start-${postIds.length}-${suffix}/`,
-        publishedAt: new Date('2026-10-01T00:00:00Z'),
-        content,
-      })
+      .values({ accountId: account.id, platform: 'instagram', postUrl: `https://www.instagram.com/p/start-${postIds.length}-${suffix}/`, publishedAt: new Date('2026-10-01T00:00:00Z'), content })
       .returning();
     postIds.push(post.id);
     return post;
   }
+  const jobsFor = async (inputKey: string) => db.select().from(jobs).where(eq(jobs.inputKey, inputKey));
 
-  const fakeAdapter = (getPostByUrl: (url: string) => Promise<ScrapedPost | null>) =>
-    registerScraperAdapter('instagram', { getPostByUrl } as any);
-
-  await t.test('AD-51 Rule 4: a post whose stepped extraction is still running -> CHAIN_IN_FLIGHT, no job and no scrape', async () => {
+  await t.test('AD-51 Rule 4: a post whose stepped extraction is still running -> CHAIN_IN_FLIGHT, no job', async () => {
     const post = await makePost('caption');
     await db.update(posts).set({ extractionCursor: { version: 1, placeholder: 'only its presence matters here' } }).where(eq(posts.id, post.id));
-    const jobsBefore = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.requestedByUserId, user.id));
-
-    const byId = await startPostReextractionPreview(user.id, { postId: post.id });
-    const byUrl = await startPostReextractionPreview(user.id, { url: post.postUrl });
-
-    for (const result of [byId, byUrl]) {
+    for (const target of [{ postId: post.id }, { url: post.postUrl }]) {
+      const result = await startPostReextractionPreview(moderator, target);
       assert.ok('errorCode' in result && result.errorCode === 'CHAIN_IN_FLIGHT', JSON.stringify(result));
     }
-    const jobsAfter = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.requestedByUserId, user.id));
-    assert.strictEqual(jobsAfter.length, jobsBefore.length, 'no job row was written');
+    assert.strictEqual((await jobsFor(post.id)).length, 0);
   });
 
-  await t.test('unknown post id -> NOT_FOUND', async () => {
-    const result = await startPostReextractionPreview(user.id, { postId: '00000000-0000-4000-8000-0000000000aa' });
-    assert.deepStrictEqual(result, { errorCode: 'NOT_FOUND', errorMessage: 'Post not found.' });
+  await t.test('unknown post id -> NOT_FOUND; a post id that is not a uuid -> NOT_FOUND, not an internal error', async () => {
+    assert.deepStrictEqual(await startPostReextractionPreview(moderator, { postId: '00000000-0000-4000-8000-0000000000aa' }), { errorCode: 'NOT_FOUND', errorMessage: 'Post not found.' });
+    assert.deepStrictEqual(await startPostReextractionPreview(moderator, { postId: 'not-a-uuid' }), { errorCode: 'NOT_FOUND', errorMessage: 'Post not found.' });
   });
 
-  await t.test('a post id that is not a uuid -> NOT_FOUND, not an internal error', async () => {
-    const result = await startPostReextractionPreview(user.id, { postId: 'not-a-uuid' });
-    assert.deepStrictEqual(result, { errorCode: 'NOT_FOUND', errorMessage: 'Post not found.' });
-  });
-
-  // ── FIND-261102-4qm: a failure before any vendor call started must not start the cooldown ──────────
-
-  await t.test('FIND-261102-4qm: no adapter registered for the platform -> SCRAPE_FAILED, no FAILED row, no cooldown on retry', async () => {
-    const post = await makePost(null); // no adapter is registered yet at this point in the file
-    const first = await startPostReextractionPreview(user.id, { postId: post.id });
-    assert.ok('errorCode' in first);
-    assert.strictEqual(first.errorCode, 'SCRAPE_FAILED');
-
-    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    assert.strictEqual(rows.length, 0, 'no vendor call could even start, so no FAILED row was recorded');
-
-    // An immediate retry must not be refused: nothing started a cooldown.
-    const second = await startPostReextractionPreview(user.id, { postId: post.id });
-    assert.ok('errorCode' in second);
-    assert.strictEqual(second.errorCode, 'SCRAPE_FAILED', 'not RATE_LIMITED: still no adapter, but not cooled down either');
-    const rowsAfter = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    assert.strictEqual(rowsAfter.length, 0);
-  });
-
-  await t.test('FIND-261102-4qm: capacity exhausted before the vendor call -> SCRAPE_FAILED, no FAILED row, no cooldown on retry', async () => {
-    const post = await makePost(null);
-    fakeAdapter(async () => {
-      throw new ScraperCapacityExceededError('capacity exceeded');
-    });
-    let first, second;
-    try {
-      first = await startPostReextractionPreview(user.id, { postId: post.id });
-      second = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
+  await t.test('a stored post WITH a caption and one WITHOUT both start an engine job keyed by the post id (the caption never goes on the job at start)', async () => {
+    for (const content of ['A stored caption that must not be copied', null]) {
+      const post = await makePost(content);
+      const result = await startPostReextractionPreview(moderator, { postId: post.id });
+      assert.ok('jobId' in result, JSON.stringify(result));
+      const [job] = await jobsFor(post.id);
+      assert.strictEqual(job.id, result.jobId);
+      assert.strictEqual(job.type, REEXTRACT_POST_JOB_TYPE);
+      assert.deepStrictEqual(job.input, { postId: post.id });
+      assert.ok(!JSON.stringify(job).includes('must not be copied'));
+      // by the post's URL it is the same post, so the same open job
+      assert.deepStrictEqual(await startPostReextractionPreview(moderator, { url: post.postUrl }), { jobId: result.jobId });
     }
-    assert.ok('errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
-    assert.ok('errorCode' in second && second.errorCode === 'SCRAPE_FAILED', 'the immediate retry is not RATE_LIMITED');
-    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    assert.strictEqual(rows.length, 0, 'a capacity refusal spends no vendor credit, so no row is recorded');
   });
 
-  await t.test('FIND-261102-4qm: the DPA gate refuses before the vendor call -> SCRAPE_FAILED, no FAILED row, no cooldown on retry', async () => {
-    const post = await makePost(null);
-    fakeAdapter(async () => {
-      throw new VendorDpaNotConfirmedError('DPA not confirmed for vendor "apify"');
-    });
-    let first, second;
-    try {
-      first = await startPostReextractionPreview(user.id, { postId: post.id });
-      second = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok('errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
-    assert.ok('errorCode' in second && second.errorCode === 'SCRAPE_FAILED', 'the immediate retry is not RATE_LIMITED');
-    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    assert.strictEqual(rows.length, 0, 'a DPA-gate refusal spends no vendor credit, so no row is recorded');
+  await t.test('a URL that is not in the database starts an engine job keyed by the post identity, after the platform and the key checks', async () => {
+    const url = `https://www.instagram.com/p/unknown-${suffix}/`;
+    const noKey = await startPostReextractionPreview(moderator, { url });
+    assert.ok('errorCode' in noKey && noKey.errorCode === 'NO_API_KEY', 'the moderator needs a Gemini key of their own for a post we do not know');
+    assert.strictEqual((await jobsFor(reextractUrlInputKey(url))).length, 0);
+
+    const [key] = await db.insert(apiKeys).values({ userId: moderator, provider: 'gemini', keyEncrypted: 'mock-encrypted-key', keyLast4: '1234', isValid: true, invalidAttempts: 0 }).returning();
+    keyIds.push(key.id);
+    const started = await startPostReextractionPreview(moderator, { url });
+    assert.ok('jobId' in started, JSON.stringify(started));
+    const [job] = await jobsFor(reextractUrlInputKey(url));
+    assert.strictEqual(job.id, started.jobId);
+    assert.deepStrictEqual(job.input, { url });
+    assert.deepStrictEqual(await startPostReextractionPreview(moderator, { url: `${url}?igsh=abc` }), { jobId: started.jobId }, 'another spelling of the same post joins the open job');
   });
 
-  // Apify refusing to START a run (account memory cap, or the monthly spend cap the free plan hit on
-  // 2026-10-29) means no run exists and no credit was spent: same rule as the gates above.
-  for (const [label, makeError] of [
-    ['the Apify memory cap outlasts the wait', () => new ApifyMemoryLimitExhaustedError(20000, 4, '402 actor-memory-limit-exceeded')],
-    ['the Apify monthly usage cap is reached', () => new ApifyMonthlyUsageLimitError('403 platform-feature-disabled')],
-  ] as const) {
-    await t.test(`FIND-261102-4qm: ${label} (no run started) -> SCRAPE_FAILED, no FAILED row, no cooldown on retry`, async () => {
-      const post = await makePost(null);
-      fakeAdapter(async () => {
-        throw makeError();
-      });
-      let first, second;
-      try {
-        first = await startPostReextractionPreview(user.id, { postId: post.id });
-        second = await startPostReextractionPreview(user.id, { postId: post.id });
-      } finally {
-        clearRegisteredAdapters();
-      }
-      assert.ok('errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
-      assert.ok('errorCode' in second && second.errorCode === 'SCRAPE_FAILED', 'the immediate retry is not RATE_LIMITED');
-      const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-      assert.strictEqual(rows.length, 0, 'a refusal to start a run spends no vendor credit, so no row is recorded');
-    });
-  }
-
-  // The tests above inject the typed errors by hand. This one runs the REAL Apify adapter on the API Lambda's
-  // path (no audit context, so callApifyActor does not wait for memory and rethrows Apify's raw 402) and
-  // checks that the refusal reaches this module typed, not wrapped into a plain Error.
-  const apifyMemoryCapRefusal = () =>
-    new ApifyApiError(
-      {
-        status: 402,
-        data: { error: { type: 'actor-memory-limit-exceeded', message: 'By launching this job you will exceed the memory limit' } },
-        config: { method: 'post', url: 'https://api.apify.com/v2/acts/apify~instagram-post-scraper/runs' },
-        headers: {},
-      } as never,
-      1
-    );
-  const withApifyRefusingToStart = async <T>(run: () => Promise<T>): Promise<T> => {
-    const savedClient = getApifyClient;
-    const { error } = console;
-    setGetApifyClient((() => ({
-      actor: () => ({ start: async () => { throw apifyMemoryCapRefusal(); } }),
-    })) as unknown as typeof savedClient);
-    console.error = () => {};
-    try {
-      return await run();
-    } finally {
-      console.error = error;
-      setGetApifyClient(savedClient);
-    }
-  };
-
-  await t.test('FIND-261102-4qm: the real Apify adapter turns a raw 402 memory-cap refusal into the typed, exempt error', async () => {
-    await withApifyRefusingToStart(async () => {
-      await assert.rejects(
-        () => instagramScraperAdapter.getPostByUrl(`https://www.instagram.com/p/memcap-${suffix}/`),
-        (err: unknown) => err instanceof ApifyMemoryLimitExhaustedError
-      );
-    });
-  });
-
-  await t.test('FIND-261102-4qm: a real 402 memory-cap refusal on the API path -> SCRAPE_FAILED, no FAILED row, no cooldown on retry', async () => {
-    const post = await makePost(null);
-    registerScraperAdapter('instagram', instagramScraperAdapter);
-    type StartResult = Awaited<ReturnType<typeof startPostReextractionPreview>>;
-    let first: StartResult | undefined;
-    let second: StartResult | undefined;
-    try {
-      await withApifyRefusingToStart(async () => {
-        first = await startPostReextractionPreview(user.id, { postId: post.id });
-        second = await startPostReextractionPreview(user.id, { postId: post.id });
-      });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok(first && 'errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
-    assert.ok(second && 'errorCode' in second && second.errorCode === 'SCRAPE_FAILED', 'the immediate retry is not RATE_LIMITED');
-    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    assert.strictEqual(rows.length, 0, 'Apify refused to start a run, so no credit was spent and no row is recorded');
-  });
-
-  await t.test('FIND-261102-4qm: a throw once the vendor call started still records the FAILED row and the cooldown still applies', async () => {
-    const post = await makePost(null);
-    fakeAdapter(async () => {
-      throw new Error('vendor call failed mid-flight');
-    });
-    let first, second;
-    try {
-      first = await startPostReextractionPreview(user.id, { postId: post.id });
-      second = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok('errorCode' in first && first.errorCode === 'SCRAPE_FAILED');
-    assert.ok('errorCode' in second && second.errorCode === 'RATE_LIMITED', 'a real vendor-call failure still starts the cooldown');
-
-    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    for (const r of rows) jobIds.push(r.id);
-    assert.strictEqual(rows.length, 1, 'one FAILED attempt row, no job started');
-    assert.strictEqual((rows[0].requestPayload as ManualExtractionRequestPayload).message.content, '');
-  });
-
-  await t.test('the job status reports its mode so each query can reject the other kind of job', async () => {
-    const post = await makePost('Mode caption');
-    await startPostReextractionPreview(user.id, { postId: post.id }); // fails to start under test, row still created
-    const [job] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    jobIds.push(job.id);
-    const status = await getManualExtractionJobStatus(job.id, user.id);
-    assert.strictEqual(status?.mode, 'REEXTRACT_PREVIEW');
-  });
-
-  await t.test('unsupported platform URL (not stored) -> UNSUPPORTED_PLATFORM, no job', async () => {
-    const result = await startPostReextractionPreview(user.id, { url: `https://example.com/not-a-post-${suffix}` });
+  await t.test('an unsupported platform URL (not stored) -> UNSUPPORTED_PLATFORM, no job', async () => {
+    const url = `https://example.com/not-a-post-${suffix}`;
+    const result = await startPostReextractionPreview(moderator, { url });
     assert.ok('errorCode' in result);
     assert.strictEqual(result.errorCode, 'UNSUPPORTED_PLATFORM');
+    assert.strictEqual((await jobsFor(reextractUrlInputKey(url))).length, 0);
   });
 
-  await t.test('stored post with a caption: no scrape; the job is created in REEXTRACT_PREVIEW mode with the caption blanked once it ends', async () => {
-    const post = await makePost('Stored caption');
-    const result = await startPostReextractionPreview(user.id, { postId: post.id });
-    // No AI Lambda is configured under test, so the start itself fails -- and must still blank.
-    assert.ok('errorCode' in result);
-    assert.strictEqual(result.errorCode, 'EXTRACTION_FAILED');
-
-    const [job] = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, post.postUrl));
-    assert.ok(job);
-    jobIds.push(job.id);
-    const payload = job.requestPayload as ManualExtractionRequestPayload;
-    assert.strictEqual(payload.mode, 'REEXTRACT_PREVIEW');
-    assert.strictEqual(payload.postStored, true);
-    assert.strictEqual(payload.rescraped, false);
-    assert.strictEqual(payload.message.content, '', 'caption blanked when the job ended');
-    const [stored] = await db.select({ content: posts.content }).from(posts).where(eq(posts.id, post.id));
-    assert.strictEqual(stored.content, 'Stored caption');
-  });
-
-  await t.test('rescrape cooldown: a recent rescrape of the same URL blocks another before any scrape', async () => {
-    const post = await makePost(null);
-    const [recent] = await db
-      .insert(manualExtractionJobs)
-      .values({
-        requestedByUserId: user.id,
-        sourceUrl: post.postUrl,
-        requestPayload: {
-          message: { postId: post.id, accountId: account.id, content: '', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z' },
-          mode: 'REEXTRACT_PREVIEW',
-          postStored: true,
-          rescraped: true,
-        },
-      })
-      .returning();
-    jobIds.push(recent.id);
-
-    const result = await startPostReextractionPreview(user.id, { postId: post.id });
-    assert.ok('errorCode' in result);
-    assert.strictEqual(result.errorCode, 'RATE_LIMITED');
-    assert.match(result.errorMessage, /Try again in \d+ minutes?/);
-  });
-
-  await t.test('the cooldown does not apply once it has elapsed (the scrape is attempted)', async () => {
-    const post = await makePost(null);
-    const [old] = await db
-      .insert(manualExtractionJobs)
-      .values({
-        requestedByUserId: user.id,
-        sourceUrl: post.postUrl,
-        requestPayload: {
-          message: { postId: post.id, accountId: account.id, content: '', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z' },
-          mode: 'REEXTRACT_PREVIEW',
-          postStored: true,
-          rescraped: true,
-        },
-      })
-      .returning();
-    jobIds.push(old.id);
-
-    // "now" is 11 minutes after the earlier rescrape; the scrape is attempted; with no scraper
-    // adapter registered under test it returns SCRAPE_FAILED -- the point is that it is not RATE_LIMITED.
-    const result = await startPostReextractionPreview(user.id, { postId: post.id, now: new Date(Date.now() + 11 * 60_000) });
-    assert.ok('errorCode' in result);
-    assert.notStrictEqual(result.errorCode, 'RATE_LIMITED');
-  });
-
-  // ── BUG-099: expired image links, rescrape for fresh slides ─────────────────────────────────
-  const hexOf = (d: Date) => Math.floor(d.getTime() / 1000).toString(16);
-  // Memoized: the URL built for an assertion must equal the one stored earlier, whatever second it is.
-  const urlCache = new Map<string, string>();
-  const memo = (key: string, build: () => string) => urlCache.get(key) ?? (urlCache.set(key, build()), urlCache.get(key)!);
-  const expiredUrl = (n: number) => memo(`e${n}`, () => `https://cdn.example.com/s${n}.jpg?oe=${hexOf(new Date(Date.now() - 3 * 86_400_000))}`);
-  const freshUrl = (n: number) => memo(`f${n}`, () => `https://cdn.example.com/fresh${n}.jpg?oe=${hexOf(new Date(Date.now() + 3 * 86_400_000))}`);
-
-  async function makeCarouselPost(content: string | null, urls: { cover: string; slides: string[] }) {
-    const [post] = await db
-      .insert(posts)
-      .values({
-        accountId: account.id,
-        platform: 'instagram',
-        postUrl: `https://www.instagram.com/p/carousel-${postIds.length}-${suffix}/`,
-        publishedAt: new Date('2026-10-01T00:00:00Z'),
-        content,
-        imageUrl: urls.cover,
-        additionalImageUrls: urls.slides,
-      })
-      .returning();
-    postIds.push(post.id);
-    return post;
-  }
-
-  async function payloadsFor(url: string) {
-    const rows = await db.select().from(manualExtractionJobs).where(eq(manualExtractionJobs.sourceUrl, url));
-    for (const r of rows) jobIds.push(r.id);
-    return rows.map((r) => r.requestPayload as ManualExtractionRequestPayload);
-  }
-
-  await t.test('stored caption but expired image links: rescrape for fresh slides, keep the stored caption, posts untouched', async () => {
-    const post = await makeCarouselPost('Stored roundup caption', { cover: expiredUrl(0), slides: [expiredUrl(1), expiredUrl(2)] });
-    fakeAdapter(async () => ({
-      content: 'Rescraped caption that must not replace the stored one',
-      postUrl: post.postUrl,
-      publishedAt: '2026-10-01T00:00:00Z',
-      imageUrl: freshUrl(0),
-      additionalImageUrls: [freshUrl(1), freshUrl(2), freshUrl(3)],
-    }));
-    let startResult;
-    try {
-      startResult = await startPostReextractionPreview(user.id, { postId: post.id }); // fails to start under test, row still created
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'the job was created and then failed to start (no AI Lambda under test)');
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.rescraped, true);
-    assert.strictEqual(payload.postStored, true);
-    assert.strictEqual(payload.message.imageUrl, freshUrl(0));
-    assert.deepStrictEqual(payload.message.additionalImageUrls, [freshUrl(1), freshUrl(2), freshUrl(3)]);
-    const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
-    assert.strictEqual(stored.content, 'Stored roundup caption');
-    assert.strictEqual(stored.imageUrl, expiredUrl(0), 'fresh links are never written to posts');
-    assert.deepStrictEqual(stored.additionalImageUrls, [expiredUrl(1), expiredUrl(2)]);
-  });
-
-  await t.test('stored caption, expired links, scrape fails: previews with the stored data, and the failed scrape counts toward the cooldown', async () => {
-    const post = await makeCarouselPost('Stored caption B', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    fakeAdapter(async () => {
-      throw new Error('scraper down');
-    });
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      // The recorded failure is inside the cooldown, so the second call does not scrape at all.
-      let scrapes = 0;
-      fakeAdapter(async () => {
-        scrapes++;
-        return null;
-      });
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      assert.strictEqual(scrapes, 0);
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const payloads = await payloadsFor(post.postUrl);
-    const started = payloads.filter((p) => p.rescraped === false);
-    assert.strictEqual(started.length, 2, 'both calls fell back to a stored preview job');
-    for (const p of started) assert.strictEqual(p.message.imageUrl, expiredUrl(0));
-    assert.strictEqual(payloads.filter((p) => p.rescraped === true).length, 1, 'one FAILED rescrape row');
-  });
-
-  await t.test('a post with no caption is still an error when its scrape fails (images cannot stand in for a caption)', async () => {
-    const post = await makeCarouselPost(null, { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    fakeAdapter(async () => null);
-    try {
-      const result = await startPostReextractionPreview(user.id, { postId: post.id });
-      assert.ok('errorCode' in result);
-      assert.strictEqual(result.errorCode, 'SCRAPE_FAILED');
-    } finally {
-      clearRegisteredAdapters();
-    }
-    await payloadsFor(post.postUrl);
-  });
-
-  await t.test('no caption: the scraped cover and slides win over the stored (expired) ones', async () => {
-    const post = await makeCarouselPost(null, { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    fakeAdapter(async () => ({
-      content: 'Scraped caption',
-      postUrl: post.postUrl,
-      publishedAt: '2026-10-01T00:00:00Z',
-      imageUrl: freshUrl(0),
-      additionalImageUrls: [freshUrl(1), freshUrl(2)],
-    }));
-    let startResult;
-    try {
-      startResult = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'the job was created and then failed to start (no AI Lambda under test)');
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.message.imageUrl, freshUrl(0));
-    assert.deepStrictEqual(payload.message.additionalImageUrls, [freshUrl(1), freshUrl(2)]);
-  });
-
-  await t.test('stored caption and still-valid image links: no rescrape (no scraper credit spent)', async () => {
-    const post = await makeCarouselPost('Stored caption C', { cover: freshUrl(0), slides: [freshUrl(1)] });
-    let scrapes = 0;
-    fakeAdapter(async () => {
-      scrapes++;
-      return null;
-    });
-    let startResult;
-    try {
-      startResult = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'the job was created and then failed to start (no AI Lambda under test)');
-    assert.strictEqual(scrapes, 0);
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.rescraped, false);
-  });
-
-  await t.test('re-previewing inside the cooldown reuses the fresh links the first run found, not the dead stored ones', async () => {
-    const post = await makeCarouselPost('Stored caption D', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    fakeAdapter(async () => ({
-      content: 'x',
-      postUrl: post.postUrl,
-      publishedAt: '2026-10-01T00:00:00Z',
-      imageUrl: freshUrl(0),
-      additionalImageUrls: [freshUrl(1), freshUrl(2)],
-    }));
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      let scrapes = 0;
-      fakeAdapter(async () => {
-        scrapes++;
-        return null;
-      });
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      assert.strictEqual(scrapes, 0, 'the cooldown blocked a second scrape');
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const payloads = await payloadsFor(post.postUrl);
-    const second = payloads.find((p) => p.rescraped === false);
-    assert.ok(second, 'the second run is a stored-caption job');
-    assert.strictEqual(second.message.imageUrl, freshUrl(0));
-    assert.deepStrictEqual(second.message.additionalImageUrls, [freshUrl(1), freshUrl(2)]);
-    const [stored] = await db.select().from(posts).where(eq(posts.id, post.id));
-    assert.strictEqual(stored.imageUrl, expiredUrl(0), 'still never written to posts');
-  });
-
-  await t.test('the scraper finds a cover but an empty slide list: the stored slides stay in the payload, so the preview counts them and reports a shortfall', async () => {
-    const post = await makeCarouselPost('Stored caption E', { cover: expiredUrl(0), slides: [expiredUrl(1), expiredUrl(2)] });
-    fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: freshUrl(0), additionalImageUrls: [] }));
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.message.imageUrl, freshUrl(0));
-    assert.deepStrictEqual(payload.message.additionalImageUrls, [expiredUrl(1), expiredUrl(2)]);
-  });
-
-  await t.test('inside the cooldown, a rescrape that only returned a dead link is not reused as "fresh"', async () => {
-    const post = await makeCarouselPost('Stored caption F', { cover: expiredUrl(0), slides: [] });
-    fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: expiredUrl(9) }));
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const payloads = await payloadsFor(post.postUrl);
-    const second = payloads.find((p) => p.rescraped === false);
-    assert.ok(second);
-    assert.strictEqual(second.message.imageUrl, expiredUrl(0), 'the stored link, not the first run\'s equally dead one');
-  });
-
-  await t.test('a cover found next to dead stored slides is reused inside the cooldown (judged per link, not per row)', async () => {
-    const post = await makeCarouselPost('Stored caption H', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    fakeAdapter(async () => ({ content: 'x', postUrl: post.postUrl, publishedAt: '2026-10-01T00:00:00Z', imageUrl: freshUrl(5), additionalImageUrls: [] }));
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-      await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const payloads = await payloadsFor(post.postUrl);
-    const second = payloads.find((p) => p.rescraped === false);
-    assert.ok(second);
-    assert.strictEqual(second.message.imageUrl, freshUrl(5), 'the fresh cover survives the dead slide beside it');
-    assert.deepStrictEqual(second.message.additionalImageUrls, [expiredUrl(1)], 'the dead slide stays, so it shows as a shortfall');
-  });
-
-  await t.test('a malformed recent job row is ignored by the image reuse and still counts as a cooldown (no scrape, no throw)', async () => {
-    const post = await makeCarouselPost('Stored caption G', { cover: expiredUrl(0), slides: [] });
-    await db.insert(manualExtractionJobs).values({
-      requestedByUserId: user.id,
-      sourceUrl: post.postUrl,
-      requestPayload: { mode: 'REEXTRACT_PREVIEW', rescraped: true } as unknown as ManualExtractionRequestPayload,
-    });
-    let scrapes = 0;
-    fakeAdapter(async () => {
-      scrapes++;
-      return null;
-    });
-    let startResult;
-    try {
-      startResult = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.strictEqual(scrapes, 0, 'the malformed row still blocked the scrape');
-    assert.ok('errorCode' in startResult && startResult.errorCode === 'EXTRACTION_FAILED', 'a stored-caption job was created and failed to start under test');
-    const started = (await payloadsFor(post.postUrl)).find((p) => p.mode === 'REEXTRACT_PREVIEW' && p.rescraped === false);
-    assert.ok(started);
-    assert.strictEqual(started.message.imageUrl, expiredUrl(0), 'nothing usable in the malformed row, so the stored link is used');
-  });
-
-  // ── AD-34 gate and FIND-110 single-flight ───────────────────────────────────────────────────
-  const extraProfileIds: string[] = [];
-  const extraKeyIds: string[] = [];
-  t.after(async () => {
-    if (extraKeyIds.length) await db.delete(apiKeys).where(inArray(apiKeys.id, extraKeyIds));
-    if (extraProfileIds.length) await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, extraProfileIds));
-  });
-
-  async function makePersonalPost(content: string | null) {
-    const [profile] = await db
-      .insert(socialMediaAccountProfiles)
-      .values({ accountId: 'acc-personal-' + suffix + extraProfileIds.length, platform: 'instagram', displayName: 'Personal', username: 'personal_' + suffix + extraProfileIds.length, accountType: 'PERSONAL', accountTypeStatus: 'CONFIRMED' })
-      .returning();
-    extraProfileIds.push(profile.id);
-    const [post] = await db
-      .insert(posts)
-      .values({
-        accountId: profile.id,
-        platform: 'instagram',
-        postUrl: `https://www.instagram.com/p/personal-${postIds.length}-${suffix}/`,
-        publishedAt: new Date('2026-10-01T00:00:00Z'),
-        content,
-        imageUrl: expiredUrl(0),
-        additionalImageUrls: [expiredUrl(1)],
-      })
-      .returning();
-    postIds.push(post.id);
-    return { post, profile };
-  }
-
-  const countingAdapter = (onScrape: () => void, result: Partial<ScrapedPost> | null = null, delayMs = 0) =>
-    fakeAdapter(async (url) => {
-      onScrape();
-      if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
-      return result ? ({ content: 'c', postUrl: url, publishedAt: '2026-10-01T00:00:00Z', ...result } as ScrapedPost) : null;
-    });
-
-  await t.test('gate: a personal account\'s stored post with a caption still previews, with no scrape', async () => {
-    const { post } = await makePersonalPost('Personal caption');
-    let scrapes = 0;
-    countingAdapter(() => scrapes++, { imageUrl: freshUrl(0) });
+  await t.test('a start the engine cannot make is EXTRACTION_FAILED with a plain message', async () => {
+    fx.stubInvoke(new Error('AccessDenied for arn:aws:lambda:secret'));
+    const other = await fx.makeUser('moderator'); // a user with a free place (the first has three open jobs by now)
+    const post = await makePost('caption');
+    const errors: unknown[][] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => void errors.push(args);
     let result;
     try {
-      result = await startPostReextractionPreview(user.id, { postId: post.id });
+      result = await startPostReextractionPreview(other, { postId: post.id });
     } finally {
-      clearRegisteredAdapters();
+      console.error = original;
+      fx.stubInvoke();
     }
-    assert.strictEqual(scrapes, 0, 'no scrape for a personal account');
-    assert.ok('errorCode' in result && result.errorCode === 'EXTRACTION_FAILED', 'a stored-caption job started (and failed to invoke under test)');
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.rescraped, false);
-    assert.strictEqual(payload.message.imageUrl, expiredUrl(0));
-  });
-
-  await t.test('gate: a personal account\'s stored post with no caption is refused with ACCOUNT_NOT_SCRAPABLE, no scrape, no job', async () => {
-    const { post } = await makePersonalPost(null);
-    let scrapes = 0;
-    countingAdapter(() => scrapes++, { imageUrl: freshUrl(0) });
-    let result;
-    try {
-      result = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok('errorCode' in result && result.errorCode === 'ACCOUNT_NOT_SCRAPABLE');
-    assert.strictEqual(scrapes, 0);
-    assert.strictEqual((await payloadsFor(post.postUrl)).length, 0, 'no job and no failed-scrape row');
-  });
-
-  await t.test('gate: an unknown URL whose scraped owner is a known personal account is refused after the scrape, no job, and it counts toward the cooldown', async () => {
-    const [key] = await db.insert(apiKeys).values({ userId: user.id, provider: 'gemini', keyEncrypted: 'mock-encrypted-key', keyLast4: '1234', isValid: true, invalidAttempts: 0 }).returning();
-    extraKeyIds.push(key.id);
-    const ownerHandle = 'owner_personal_' + suffix;
-    const [profile] = await db
-      .insert(socialMediaAccountProfiles)
-      .values({ accountId: 'acc-' + ownerHandle, platform: 'instagram', displayName: 'Owner', username: ownerHandle, accountType: 'PERSONAL', accountTypeStatus: 'CONFIRMED' })
-      .returning();
-    extraProfileIds.push(profile.id);
-    const url = `https://www.instagram.com/p/unknown-personal-${suffix}/`;
-    let scrapes = 0;
-    countingAdapter(() => scrapes++, { imageUrl: freshUrl(0), ownerUsername: ownerHandle });
-    let first, second;
-    try {
-      first = await startPostReextractionPreview(user.id, { url });
-      second = await startPostReextractionPreview(user.id, { url });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.ok('errorCode' in first && first.errorCode === 'ACCOUNT_NOT_SCRAPABLE');
-    assert.strictEqual(scrapes, 1, 'scraped once; the refusal was recorded against the cooldown');
-    assert.ok('errorCode' in second && second.errorCode === 'ACCOUNT_NOT_SCRAPABLE', 'the cooldown repeats the real reason, not "rescraped recently"');
-    const rows = await payloadsFor(url);
-    assert.strictEqual(rows.length, 1, 'only the recorded failed-scrape row, no preview job');
-    assert.strictEqual(rows[0].message.content, '');
-  });
-
-  await t.test('single-flight: while another request holds the scrape lease, a stored-caption post previews without scraping', async () => {
-    const post = await makeCarouselPost('Stored caption H2', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    const lease = await claimPostUrlScrape(post.postUrl);
-    assert.ok(lease);
-    let scrapes = 0;
-    countingAdapter(() => scrapes++, { imageUrl: freshUrl(0) });
-    let result;
-    try {
-      result = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-      await lease.release();
-    }
-    assert.strictEqual(scrapes, 0);
-    assert.ok('errorCode' in result && result.errorCode === 'EXTRACTION_FAILED');
-    const [payload] = await payloadsFor(post.postUrl);
-    assert.strictEqual(payload.rescraped, false);
-    assert.strictEqual(payload.message.imageUrl, expiredUrl(0), 'no fresh links exist while the first scrape is still running: stored data, and the preview reports the shortfall');
-  });
-
-  await t.test('single-flight: while another request holds the lease, a post with no caption gets SCRAPE_IN_PROGRESS and nothing is scraped', async () => {
-    const post = await makeCarouselPost(null, { cover: expiredUrl(0), slides: [] });
-    const lease = await claimPostUrlScrape(post.postUrl);
-    assert.ok(lease);
-    let scrapes = 0;
-    countingAdapter(() => scrapes++, { imageUrl: freshUrl(0) });
-    let result;
-    try {
-      result = await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-      await lease.release();
-    }
-    assert.ok('errorCode' in result && result.errorCode === 'SCRAPE_IN_PROGRESS');
-    assert.strictEqual(scrapes, 0);
-    assert.strictEqual((await payloadsFor(post.postUrl)).length, 0);
-  });
-
-  await t.test('single-flight: two simultaneous previews of one stale post scrape exactly once', async () => {
-    const post = await makeCarouselPost('Stored caption I', { cover: expiredUrl(0), slides: [expiredUrl(1)] });
-    let scrapes = 0;
-    countingAdapter(() => scrapes++, { imageUrl: freshUrl(0), additionalImageUrls: [freshUrl(1)] }, 300);
-    try {
-      await Promise.all([
-        startPostReextractionPreview(user.id, { postId: post.id }),
-        startPostReextractionPreview(user.id, { postId: post.id }),
-      ]);
-    } finally {
-      clearRegisteredAdapters();
-    }
-    assert.strictEqual(scrapes, 1, 'the second request reused the first instead of scraping');
-    const payloads = await payloadsFor(post.postUrl);
-    assert.strictEqual(payloads.length, 2, 'both requests still produced a preview job');
-    const rescraped = payloads.filter((p) => p.rescraped === true);
-    const stored = payloads.filter((p) => p.rescraped === false);
-    assert.strictEqual(rescraped.length, 1, 'exactly one request did the scrape');
-    assert.strictEqual(rescraped[0].message.imageUrl, freshUrl(0));
-    assert.strictEqual(stored.length, 1, 'the other previewed on stored data (the first run had not finished, so its links did not exist yet)');
-    assert.strictEqual(stored[0].message.imageUrl, expiredUrl(0));
-  });
-
-  await t.test('single-flight: the lease is released after a scrape that throws, so the URL is not stuck', async () => {
-    const post = await makeCarouselPost(null, { cover: expiredUrl(0), slides: [] });
-    fakeAdapter(async () => {
-      throw new Error('boom');
-    });
-    try {
-      await startPostReextractionPreview(user.id, { postId: post.id });
-    } finally {
-      clearRegisteredAdapters();
-    }
-    const lease = await claimPostUrlScrape(post.postUrl);
-    assert.ok(lease, 'claimable again right after the failure');
-    await lease.release();
+    assert.deepStrictEqual(result, { errorCode: 'EXTRACTION_FAILED', errorMessage: 'The job could not be started. Please try again.' });
   });
 });

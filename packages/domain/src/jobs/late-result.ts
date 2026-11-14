@@ -40,12 +40,14 @@ export function isCompletedAfterDeadline(deadlineAt: Date, finishedAt: Date): bo
   return finishedAt.getTime() > deadlineAt.getTime();
 }
 
-/** What a job type's late-result handler returns: how the job ends, with the same meaning as a handler's own result. */
-export interface LateResultOutcome {
-  outcome: "SUCCEEDED" | "SUCCEEDED_WITH_LIMITS";
-  reasonCode?: string;
-  resultData?: unknown;
-}
+/**
+ * What a job type's late-result handler returns: how the job ends, with the same meaning as a handler's own result, or
+ * `NO_CHANGE` (Story 10.6): the result was saved where it belongs (for the moderator re-extract, to `posts`) and the job's own
+ * ending stands, so the job is not settled again (a job that already ended, or expired with no result of its own, is not revived).
+ */
+export type LateResultOutcome =
+  | { outcome: "SUCCEEDED" | "SUCCEEDED_WITH_LIMITS"; reasonCode?: string; resultData?: unknown }
+  | { outcome: "NO_CHANGE" };
 
 /**
  * A job type's handler for a vendor result that arrived after the job's own run ended (registered only in the host Lambda). It

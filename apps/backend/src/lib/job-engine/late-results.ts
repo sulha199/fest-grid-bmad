@@ -71,8 +71,11 @@ async function reapStuckLinks(now: Date): Promise<void> {
  * FR117), marked "completed after deadline" when the finish is past `deadline_at` (FR119). Returns whether the job was settled.
  */
 export async function settleJobFromLateResult(job: Pick<Job, 'id' | 'ownerUserId' | 'deadlineAt'>, outcome: LateResultOutcome, now: Date = new Date()): Promise<boolean> {
+  if (outcome.outcome === 'NO_CHANGE') {
+    return false; // Story 10.6: the result was saved elsewhere and the job's own ending stands
+  }
   if (outcome.outcome !== 'SUCCEEDED' && outcome.outcome !== 'SUCCEEDED_WITH_LIMITS') {
-    throw new Error('A late-result handler may only end a job SUCCEEDED or SUCCEEDED_WITH_LIMITS');
+    throw new Error('A late-result handler may only end a job SUCCEEDED or SUCCEEDED_WITH_LIMITS, or leave it as it is (NO_CHANGE)');
   }
   const settled = await db
     .update(jobs)
@@ -142,8 +145,10 @@ async function collectOne(link: Link, now: Date): Promise<boolean> {
     return false;
   }
   // Another provider already gave the job its result (the usual case: Bright Data ran long, Apify answered): nothing to collect, and
-  // a slower provider's lower-resolution images must not overwrite what the job saved. Stop polling.
-  if (job.status === 'SUCCEEDED' || job.status === 'SUCCEEDED_WITH_LIMITS') {
+  // a slower provider's lower-resolution images must not overwrite what the job saved. Stop polling. A job that ended
+  // SUCCEEDED_WITH_LIMITS (Story 10.6: the refresh timed out and the preview used the stored images) is NOT in this case: nothing
+  // answered, and the snapshot is exactly what its handler is waiting for; the handler's own rule protects what is stored.
+  if (job.status === 'SUCCEEDED') {
     await claimLink(link.id, 'GAVE_UP', now);
     return false;
   }

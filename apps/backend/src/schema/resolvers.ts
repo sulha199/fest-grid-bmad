@@ -27,6 +27,7 @@ import { checkAndRecordPromptFilterRateLimit } from '../lib/ai-event-filters/pro
 import { REPORT_SYSTEM_ERROR_ALERT_KEY, takeAlertEmailBudget } from '../lib/alerts/alert-email-budget-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { startPostReextractionPreview } from '../lib/extraction/start-post-reextraction-preview.js';
+import { getReextractPreviewJobStatus } from '../lib/extraction/reextract-preview-job.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
 import { isValidIanaTimezone } from '@festgrid/domain/users';
@@ -3105,7 +3106,8 @@ export const resolvers: Resolvers = {
     },
     postReextractionPreview: async (_, { id }, context): Promise<any> => {
       const moderator = requireModerator(context);
-      const job = await getManualExtractionJobStatus(id, moderator.userId);
+      // Story 10.6: a preview lives on the engine job (`reextract-post`) or on a manual job; one read serves both.
+      const job = await getReextractPreviewJobStatus(id, moderator.userId);
       if (!job) {
         throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
       }

@@ -451,6 +451,8 @@ export class FestgridBackendStack extends cdk.Stack {
         POST_SCRAPER_PROVIDER_ORDER: process.env.POST_SCRAPER_PROVIDER_ORDER,
         // Story 10.5: how long the sweep waits for a Bright Data snapshot still running (default 480 minutes in env.ts).
         BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES: process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES,
+        // Story 10.6: the time the moderator re-extract job's image refresh may use (default 120000 ms in env.ts).
+        REEXTRACT_REFRESH_BUDGET_MS: process.env.REEXTRACT_REFRESH_BUDGET_MS,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
         GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
         SYSTEM_GEMINI_API_KEY: systemGeminiApiKeySecret.secretValue.unsafeUnwrap(),
