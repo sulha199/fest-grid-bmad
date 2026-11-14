@@ -5,10 +5,15 @@ import {
   DEDUP_REVIEW_APPLY_END,
   DEDUP_REVIEW_MAX_DECISIONS,
   DEDUP_REVIEW_MAX_DECISIONS_BYTES,
+  DEDUP_REVIEW_OVERRIDE_PER_RUN_CAP,
   DEDUP_REVIEW_PER_DAY_CAP,
+  DEDUP_REVIEW_PER_DAY_CAP_CEILING,
   DEDUP_REVIEW_PER_DAY_REJECT_CAP,
+  DEDUP_REVIEW_PER_DAY_REJECT_CAP_CEILING,
   DEDUP_REVIEW_PER_RUN_CAP,
+  DEDUP_REVIEW_PER_RUN_CAP_CEILING,
   DedupReviewApplyInputError,
+  assertDedupReviewCapsWithinCeilings,
   assertDedupReviewFloorOverrideAllowed,
   assertDedupReviewRejectsAllowed,
   checkDedupReviewFloor,
@@ -21,7 +26,9 @@ import {
   parseDedupReviewApplyOptions,
   parseDedupReviewDecisions,
   parseDedupReviewInvokerHash,
+  resolveDedupReviewCaps,
   type DedupReviewApplyReport,
+  type DedupReviewCapVariables,
   type DedupReviewDecision,
   type DedupReviewFreshLookup,
   type DedupReviewFreshPair,
@@ -84,7 +91,7 @@ function fresh(overrides: Partial<DedupReviewFreshPair> = {}): DedupReviewFreshP
   return { pair: pair(), candidateEventId: EVENT_X, newEventId: EVENT_Y, venueConflict: false, ...overrides };
 }
 
-const EMPTY_STATE: DedupReviewRunState = { claimedEventIds: new Set(), eligibleInRun: 0, rejectsInRun: 0, usedLast24h: 0, usedRejectsLast24h: 0 };
+const EMPTY_STATE: DedupReviewRunState = { claimedEventIds: new Set(), eligibleInRun: 0, overridesInRun: 0, rejectsInRun: 0, usedLast24h: 0, usedRejectsLast24h: 0 };
 const CAPS = { perRun: DEDUP_REVIEW_PER_RUN_CAP, perDay: DEDUP_REVIEW_PER_DAY_CAP, perDayRejects: DEDUP_REVIEW_PER_DAY_REJECT_CAP };
 
 function decisionsJson(entries: unknown[], extra: Record<string, unknown> = {}): string {
@@ -496,4 +503,77 @@ test('checkDedupReviewFloor - a title against the same title with a course-style
   assert.strictEqual(checkDedupReviewFloor(named('Global EduFair 2026 Pre-Event Webinar', 'Global EduFair 2026 Pre-Event Webinar: Study Abroad 101')), null);
   assert.strictEqual(checkDedupReviewFloor(named('Wonderful Treat at Ghin Thai Kitchen', 'Festisale 270th Yogyakarta - Ghin Thai Wonderful Treat')), 'name-mismatch');
   assert.strictEqual(checkDedupReviewFloor(named('Fest', 'Fest - Day 12')), 'name-mismatch');
+});
+
+test('resolveDedupReviewCaps - unset or empty variables keep the defaults', () => {
+  const defaults = { perRun: 10, perDay: 25, perDayRejects: 10 };
+  assert.deepStrictEqual(resolveDedupReviewCaps(), defaults);
+  assert.deepStrictEqual(resolveDedupReviewCaps({}), defaults);
+  assert.deepStrictEqual(resolveDedupReviewCaps({ perRun: '', perDay: undefined, perDayRejects: '' }), defaults);
+});
+
+test('resolveDedupReviewCaps - a valid variable replaces only its own cap, up to the ceiling', () => {
+  assert.deepStrictEqual(resolveDedupReviewCaps({ perDay: '100' }), { perRun: 10, perDay: 100, perDayRejects: 10 });
+  assert.deepStrictEqual(resolveDedupReviewCaps({ perRun: '1', perDay: '1', perDayRejects: '1' }), { perRun: 1, perDay: 1, perDayRejects: 1 });
+  assert.deepStrictEqual(
+    resolveDedupReviewCaps({ perRun: String(DEDUP_REVIEW_PER_RUN_CAP_CEILING), perDay: String(DEDUP_REVIEW_PER_DAY_CAP_CEILING), perDayRejects: String(DEDUP_REVIEW_PER_DAY_REJECT_CAP_CEILING) }),
+    { perRun: 100, perDay: 200, perDayRejects: 100 }
+  );
+});
+
+test('resolveDedupReviewCaps - a malformed or too large variable throws, names the variable and never echoes the value', () => {
+  const bad: Array<[DedupReviewCapVariables, string]> = [
+    [{ perDay: '0' }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perDay: '-5' }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perDay: '025' }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perDay: ' 100' }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perDay: '100 ' }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perDay: '1e2' }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perDay: '12.5' }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perDay: 'abc' }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perDay: '201' }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perDay: '9'.repeat(400) }, 'DEDUP_REVIEW_PER_DAY_CAP'],
+    [{ perRun: '101' }, 'DEDUP_REVIEW_PER_RUN_CAP'],
+    [{ perDayRejects: '101' }, 'DEDUP_REVIEW_PER_DAY_REJECT_CAP'],
+  ];
+  for (const [variables, name] of bad) {
+    assert.throws(
+      () => resolveDedupReviewCaps(variables),
+      (err: unknown) => err instanceof DedupReviewApplyInputError && err.message.includes(name) && !Object.values(variables).some((v) => v && v.length > 2 && err.message.includes(v)),
+      JSON.stringify(variables).slice(0, 60)
+    );
+  }
+});
+
+test('assertDedupReviewCapsWithinCeilings - a caller-built cap above its ceiling, or not a whole number, throws', () => {
+  assert.doesNotThrow(() => assertDedupReviewCapsWithinCeilings({ perRun: 100, perDay: 200, perDayRejects: 100 }));
+  assert.doesNotThrow(() => assertDedupReviewCapsWithinCeilings({ perRun: 0, perDay: 0, perDayRejects: 0 }));
+  assert.throws(() => assertDedupReviewCapsWithinCeilings({ perRun: 101, perDay: 25, perDayRejects: 10 }), DedupReviewApplyInputError);
+  assert.throws(() => assertDedupReviewCapsWithinCeilings({ perRun: 10, perDay: 201, perDayRejects: 10 }), DedupReviewApplyInputError);
+  assert.throws(() => assertDedupReviewCapsWithinCeilings({ perRun: 10, perDay: 25, perDayRejects: 101 }), DedupReviewApplyInputError);
+  assert.throws(() => assertDedupReviewCapsWithinCeilings({ perRun: 10, perDay: 25.5, perDayRejects: 10 }), DedupReviewApplyInputError);
+  assert.throws(() => assertDedupReviewCapsWithinCeilings({ perRun: -1, perDay: 25, perDayRejects: 10 }), DedupReviewApplyInputError);
+});
+
+test('judgeDedupReviewDecision - a raised per-day cap lets more decisions through', () => {
+  const caps = resolveDedupReviewCaps({ perDay: '100' });
+  const decision: DedupReviewDecision = { suggestionId: ID_A, evidenceHash: HASH, action: 'accept', clues: null };
+  const lookup: DedupReviewFreshLookup = { kind: 'pair', ...fresh() };
+  const judge = (state: DedupReviewRunState) => judgeDedupReviewDecision({ decision, fresh: lookup, state, caps });
+  assert.deepStrictEqual(judge({ ...EMPTY_STATE, usedLast24h: 25 }), { outcome: 'eligible' });
+  assert.deepStrictEqual(judge({ ...EMPTY_STATE, usedLast24h: 90, eligibleInRun: 9 }), { outcome: 'eligible' }, 'the hundredth is allowed');
+  assert.deepStrictEqual(judge({ ...EMPTY_STATE, usedLast24h: 100 }), { outcome: 'skipped', reason: 'per-day-cap' });
+});
+
+test('judgeDedupReviewDecision - override merges keep their own per-run cap even when the per-run cap is raised', () => {
+  const caps = { perRun: 100, perDay: 200, perDayRejects: 100 };
+  const lookup: DedupReviewFreshLookup = { kind: 'pair', ...fresh({ pair: pair({}, { tier: 'low' }) }) };
+  const judgeAs = (action: 'accept' | 'accept-override', state: DedupReviewRunState, fresh: DedupReviewFreshLookup) =>
+    judgeDedupReviewDecision({ decision: { suggestionId: ID_A, evidenceHash: HASH, action, clues: null }, fresh, state, caps });
+  assert.strictEqual(DEDUP_REVIEW_OVERRIDE_PER_RUN_CAP, 10);
+  assert.deepStrictEqual(judgeAs('accept-override', { ...EMPTY_STATE, eligibleInRun: 9, overridesInRun: 9 }, lookup), { outcome: 'eligible' });
+  assert.deepStrictEqual(judgeAs('accept-override', { ...EMPTY_STATE, eligibleInRun: 10, overridesInRun: 10 }, lookup), { outcome: 'skipped', reason: 'per-run-cap' });
+  assert.deepStrictEqual(judgeAs('accept-override', { ...EMPTY_STATE, eligibleInRun: 30, overridesInRun: 0 }, lookup), { outcome: 'eligible' }, 'plain accepts alone do not use the override sub-cap');
+  const mid: DedupReviewFreshLookup = { kind: 'pair', ...fresh() };
+  assert.deepStrictEqual(judgeAs('accept', { ...EMPTY_STATE, eligibleInRun: 30, overridesInRun: 10 }, mid), { outcome: 'eligible' }, 'an accept is not held by the override sub-cap');
 });
