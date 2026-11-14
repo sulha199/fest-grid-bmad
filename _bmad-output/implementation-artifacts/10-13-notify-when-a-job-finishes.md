@@ -8,7 +8,7 @@ baseline_commit: feat/moderator-notify-helper tip ba1c0ba (stacked on Story 0.i1
 
 - Epic: 10 (Background vendor jobs: one engine, one Jobs page)
 - Story ID: 10.13
-- Status: ready-for-dev
+- Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -82,27 +82,27 @@ Taken from `epics.md` Story 10.13 and PRD 3.18 (FR124, FR130); the numbering and
   - [x] 5.1 Schema (`apps/backend/src/schema/jobs.graphql`): `Query.jobsFinishedSinceLastOpened: Int!`, `Mutation.markJobsOpened: Boolean!` (sets `jobs_last_opened_at = now()` for the caller), `Mutation.acknowledgeJobEnded(jobId: ID!): Boolean!` (sets `owner_notified_at` for the caller's own terminal job only; any other id is a silent `false`, never an existence leak). Each resolver calls `requireAuth(context)` first, takes no user id argument, and is covered by `auth-surface.ratchet.test.ts` (none is public).
   - [x] 5.2 The count: the caller's USER jobs with a terminal status, `finished_at > jobs_last_opened_at`, inside the `JOBS_HISTORY_RETENTION_DAYS` window (the same hide rule as the three reads of Story 10.4), capped at 99 server-side. It never counts a system job and never counts another user's job. One indexed read; follow the `moderatorPendingItemCount` precedent for how the menu fetches it. It must not run per page: the shell asks once and refetches on the same polling policy as `useActiveJobs` (decision 8).
   - [x] 5.3 Run `pnpm --filter backend codegen` and the web codegen; commit the generated files the repo commits. Resolver tests with a fake `context.user` (no real auth), covering: unauthenticated, a system job not counted, another user's job not counted, retention cut-off, mark-opened clears, acknowledge of someone else's job is a no-op.
-- [ ] **Task 6. Web: the badge, clearing it, and acknowledging** (AC: 1, 2) (all strings from the UX spec `copy-keys.md`, `UserMenu.jobsBadgeLabel`)
-  - [ ] 6.1 `profile-menu-entries.ts` / `UserMenu.tsx` (`packages/ui/src/core/app-shell/`): the "Jobs" entry takes an optional `badgeCount`; render the existing `CountBadge` (max 9) next to the label and put the full sentence in the entry's accessible name (`jobsBadgeLabel`, ICU plural, en and id). The count is text and number, not colour alone. The entry still works with `badgeCount` 0 or undefined (the packages/ui menu stays framework-agnostic: the count comes in through props from `AppShellWrapper.tsx`).
-  - [ ] 6.2 `AppShellWrapper.tsx`: fetch `jobsFinishedSinceLastOpened` through a new hook `useJobsFinishedCount` in `apps/web/src/features/jobs/` (React Query, signed-in only, the polling policy of `poll-schedule.ts`: slow poll, paused while the tab is hidden, one fetch on return). A load error shows no badge (never a wrong number).
-  - [ ] 6.3 `jobs-content.tsx` (the `/jobs` page): on mount and on return to a visible tab, call `markJobsOpened` and set the cached count to 0; opening `/jobs/{id}` also calls it. The badge therefore clears everywhere because the state is the server's, never `localStorage`.
-  - [ ] 6.4 Acknowledging: where the client observes a job reach a terminal status on a **visible** tab (the observe path that feeds `JobAnnouncer`, dialog, panel, detail page, list), it calls `acknowledgeJobEnded(jobId)` once per job (a ref set; never from a hidden tab). It is fire-and-forget: a failure only means the owner may also get a push.
-  - [ ] 6.5 `firebase-messaging-sw.js` has **no** `notificationclick` handler today. Add one that opens `data.path` (a same-origin path only; ignore anything else), focusing an open tab when there is one. Check that an unprefixed `/jobs/{id}` redirects to the locale route through the existing next-intl middleware; if it does not, the push `data.path` must carry the locale (decision 4 then needs a locale column, a second migration: stop and ask the owner).
-  - [ ] 6.6 Copy: `UserMenu.jobsBadgeLabel` (en and id) merged from `copy-keys.md` exactly as written; locale parity test stays green.
-- [ ] **Task 7. Tests, with fakes only** (AC: all)
+- [x] **Task 6. Web: the badge, clearing it, and acknowledging** (AC: 1, 2) (all strings from the UX spec `copy-keys.md`, `UserMenu.jobsBadgeLabel`)
+  - [x] 6.1 `profile-menu-entries.ts` / `UserMenu.tsx` (`packages/ui/src/core/app-shell/`): the "Jobs" entry takes an optional `badgeCount`; render the existing `CountBadge` (max 9) next to the label and put the full sentence in the entry's accessible name (`jobsBadgeLabel`, ICU plural, en and id). The count is text and number, not colour alone. The entry still works with `badgeCount` 0 or undefined (the packages/ui menu stays framework-agnostic: the count comes in through props from `AppShellWrapper.tsx`).
+  - [x] 6.2 `AppShellWrapper.tsx`: fetch `jobsFinishedSinceLastOpened` through a new hook `useJobsFinishedCount` in `apps/web/src/features/jobs/` (React Query, signed-in only, the polling policy of `poll-schedule.ts`: slow poll, paused while the tab is hidden, one fetch on return). A load error shows no badge (never a wrong number).
+  - [x] 6.3 `jobs-content.tsx` (the `/jobs` page): on mount and on return to a visible tab, call `markJobsOpened` and set the cached count to 0; opening `/jobs/{id}` also calls it. The badge therefore clears everywhere because the state is the server's, never `localStorage`.
+  - [x] 6.4 Acknowledging: where the client observes a job reach a terminal status on a **visible** tab (the observe path that feeds `JobAnnouncer`, dialog, panel, detail page, list), it calls `acknowledgeJobEnded(jobId)` once per job (a ref set; never from a hidden tab). It is fire-and-forget: a failure only means the owner may also get a push.
+  - [x] 6.5 `firebase-messaging-sw.js` has **no** `notificationclick` handler today. Add one that opens `data.path` (a same-origin path only; ignore anything else), focusing an open tab when there is one. Check that an unprefixed `/jobs/{id}` redirects to the locale route through the existing next-intl middleware; if it does not, the push `data.path` must carry the locale (decision 4 then needs a locale column, a second migration: stop and ask the owner).
+  - [x] 6.6 Copy: `UserMenu.jobsBadgeLabel` (en and id) merged from `copy-keys.md` exactly as written; locale parity test stays green.
+- [x] **Task 7. Tests, with fakes only** (AC: all)
   - [x] 7.1 Backend integration tests for `announceEndedJobs` with the `getMessagingClient` seam replaced by a recording fake and the helper's `NotifyModeratorsDeps` (`sendTemplatedEmail`, `findRecipients`, `takeBudget`, `releaseBudget`, `pruneThrottle`) replaced by fakes: **no real FCM call, no SES send, no vendor call, no Lambda invoke** (a test that reaches `firebase-admin` or SES for real, or `invokeJobEngineWorker`, is a defect). Cases: one job to one push; three jobs ending inside the window merge into one push to `/jobs`; a job inside the window after a push is held and goes out merged after it; push setting off and no device mark handled with no send; a job seen through `acknowledgeJobEnded` is not pushed; a job younger than the grace is held; a job older than the max age is marked and not pushed; a system job never sends; a late result revival is announced again once; owner cancel is not announced; invalid-token cleanup; Firebase init failure leaves jobs pending and does not mark them; FCM failure marks nothing; two overlapping runs send once (guarded UPDATE).
   - [x] 7.1a **Moderator channel cases (fakes only):** a moderator owner gets the helper called once per group with `recipientUserId` = the owner, a `jobId` entity and no `moderatorReviewUrl` or address in the variables; a merged group makes one call (one mail), not one per job; a non-moderator owner never causes a helper call; a system job never causes one; helper result `sent`, `throttled`, `refused_not_moderator` and `no_moderators` mark handled, `failed` and `error` for a mail-only owner leave the jobs pending and retried, and for an owner whose push was sent mark handled without repeating the push; push off with a moderator owner still mails; the real helper (not a fake of it) with only SES and the budget faked renders a summary holding `<script>`, `&` and a quote escaped in the html and a subject with no line break.
   - [x] 7.2 **Content test**: for every job type in the presentation registry and every ending, the built push (title, body, data) and the moderator mail variables and rendered html, text and subject contain none of: a vendor name (`apify`, `bright`), a caption fixture string, a URL, a signed-URL fixture, an error message fixture. The inputs are poisoned fixtures (a job whose `input.held`, `result_data`, `error_message` carry a unique canary string), and the test fails if the canary appears anywhere in the payload or the mail.
   - [x] 7.3 Backend tests must leave no rows (row-count ratchet, Story 0.51): clean up the `jobs`, `user_settings`, `fcm_tokens` and `users` rows each test created (snapshot, then delete created since). **Throttle rows:** any test that reaches the helper's real throttle store deletes exactly the keys it caused, by exact key, with `deleteModeratorNotifyKeys` from `apps/backend/src/lib/test-support/moderator-notify-throttle-cleanup.ts`, computing each key with `buildModeratorNotifyThrottleKey('JOB_FINISHED_MODERATOR_NOTICE', <the job id used>, <the owner id>)` from ids unique to the run (never "everything created since a snapshot": parallel test files share the table); a test that fakes `takeBudget` leaves nothing. Run the changed files through `scripts/run-tests-with-row-count-ratchet.ts`.
-  - [ ] 7.4 Web tests (Vitest + msw): the badge shows the count, hides at 0, shows "9+" past 9, reads the full sentence to assistive technology, clears after the Jobs page opens, and shows nothing on a load error; the acknowledge call happens once per job and never while hidden.
-  - [ ] 7.5 A11y: the badge sentence is in the entry's accessible name; the `CountBadge` is not the only carrier of the meaning; touch target of the entry unchanged (`min-h-11`); no new focus trap.
-  - [ ] 7.6 E2E (Playwright, `E2E_FAKE_AUTH=1`, local stack only, never real push): extend `apps/web/e2e/jobs.spec.ts`: with a seeded job that ended after the user's `jobs_last_opened_at` the profile menu shows the badge with the sentence; opening `/en/jobs` clears it; a reload keeps it cleared. Add the profile menu with a badge to the 320 to 1440 px matrix in `responsive-overflow.spec.ts` and a scenario in `responsive-popups.spec.ts` (the menu with the badge fits and scrolls). The push itself is not e2e-tested (no real push); it is covered by 7.1 and 7.2.
-- [ ] **Task 8. Documents** (AC: all)
-  - [ ] 8.1 PRD 3.18 FR124: state the as-built rules the design chose (the "watching" rule, the grace, the max age, the throttle shape, the late-result re-announcement, bilingual push text, the moderator mail grouped like the push, linking to the Jobs page) in one short paragraph; no behaviour change to the settled requirement. The FR124 "Moderators" bullet ("Story 10.13 must check that it can address one moderator") becomes "addressed through the built helper's single-recipient mode".
-  - [ ] 8.2 `project-context.md`: one rule, "Job notices come from `announceEndedJobs` only", with the ratchet name, the "no push from `afterJobEnded`" reason and the moderator mail's use of `notifyAllModerators` in single-recipient mode; follow the AD-54 rule line 0.i1a added.
-  - [ ] 8.3 Architecture Spine AD-53: one rule for the announcer (use `python3 scripts/md-outline.py find "^AD-53:" _bmad-output/planning-artifacts/festgrid-architecture-spine.md` for the range). AD-54: one sentence naming the job-finished template as a caller of the single-recipient mode.
+  - [x] 7.4 Web tests (Vitest + msw): the badge shows the count, hides at 0, shows "9+" past 9, reads the full sentence to assistive technology, clears after the Jobs page opens, and shows nothing on a load error; the acknowledge call happens once per job and never while hidden.
+  - [x] 7.5 A11y: the badge sentence is in the entry's accessible name; the `CountBadge` is not the only carrier of the meaning; touch target of the entry unchanged (`min-h-11`); no new focus trap.
+  - [x] 7.6 E2E (Playwright, `E2E_FAKE_AUTH=1`, local stack only, never real push): extend `apps/web/e2e/jobs.spec.ts`: with a seeded job that ended after the user's `jobs_last_opened_at` the profile menu shows the badge with the sentence; opening `/en/jobs` clears it; a reload keeps it cleared. Add the profile menu with a badge to the 320 to 1440 px matrix in `responsive-overflow.spec.ts` and a scenario in `responsive-popups.spec.ts` (the menu with the badge fits and scrolls). The push itself is not e2e-tested (no real push); it is covered by 7.1 and 7.2.
+- [x] **Task 8. Documents** (AC: all)
+  - [x] 8.1 PRD 3.18 FR124: state the as-built rules the design chose (the "watching" rule, the grace, the max age, the throttle shape, the late-result re-announcement, bilingual push text, the moderator mail grouped like the push, linking to the Jobs page) in one short paragraph; no behaviour change to the settled requirement. The FR124 "Moderators" bullet ("Story 10.13 must check that it can address one moderator") becomes "addressed through the built helper's single-recipient mode".
+  - [x] 8.2 `project-context.md`: one rule, "Job notices come from `announceEndedJobs` only", with the ratchet name, the "no push from `afterJobEnded`" reason and the moderator mail's use of `notifyAllModerators` in single-recipient mode; follow the AD-54 rule line 0.i1a added.
+  - [x] 8.3 Architecture Spine AD-53: one rule for the announcer (use `python3 scripts/md-outline.py find "^AD-53:" _bmad-output/planning-artifacts/festgrid-architecture-spine.md` for the range). AD-54: one sentence naming the job-finished template as a caller of the single-recipient mode.
   - [x] 8.4 The three `docs/infrastructure` files exactly as listed in Task 4.7.
-  - [ ] 8.5 `backlog-check.py` exits 0 apart from the known master-only check 14.
+  - [x] 8.5 `backlog-check.py` exits 0 apart from the known master-only check 14.
 
 ## Dev Notes
 
@@ -229,20 +229,20 @@ Story 0.i1a is built on `feat/moderator-notify-helper` (tip `ba1c0ba`) and this 
 
 ## Testing Requirements
 
-- [ ] Integration tests
-- [ ] E2E tests
+- [x] Integration tests
+- [x] E2E tests
 
 ## Deliverables Checklist
 
-- [ ] Migration 0104 (generated) and schema columns
-- [ ] `decideJobNotice` and `buildJobFinishedPush` (domain, 100% covered)
-- [ ] `announceEndedJobs` and its sweep step (push and moderator mail), plus the single-sender ratchet
-- [ ] `JOB_FINISHED_MODERATOR_NOTICE` template, review path and entity rule in the domain email contract
-- [ ] GraphQL count, mark-opened and acknowledge, with auth tests
-- [ ] Jobs menu badge, clearing on open, acknowledging, service-worker click handler
-- [ ] Scraper Lambda Firebase variables, secret read, `JOB_NOTIFY_*` settings and stack test (no alert address: owner override)
-- [ ] en and id copy
-- [ ] PRD, project-context, spine, `architecture-diagram.md`, `high-level-overview.md` and `4-push-notifications.md` updates
+- [x] Migration 0104 (generated) and schema columns
+- [x] `decideJobNotice` and `buildJobFinishedPush` (domain, 100% covered)
+- [x] `announceEndedJobs` and its sweep step (push and moderator mail), plus the single-sender ratchet
+- [x] `JOB_FINISHED_MODERATOR_NOTICE` template, review path and entity rule in the domain email contract
+- [x] GraphQL count, mark-opened and acknowledge, with auth tests
+- [x] Jobs menu badge, clearing on open, acknowledging, service-worker click handler
+- [x] Scraper Lambda Firebase variables, secret read, `JOB_NOTIFY_*` settings and stack test (no alert address: owner override)
+- [x] en and id copy
+- [x] PRD, project-context, spine, `architecture-diagram.md`, `high-level-overview.md` and `4-push-notifications.md` updates
 
 ## Out of Scope
 
@@ -254,19 +254,19 @@ Story 0.i1a is built on `feat/moderator-notify-helper` (tip `ba1c0ba`) and this 
 
 ## Definition of Done
 
-- [ ] AC satisfaction (AC1 to AC6, the moderator mail included)
-- [ ] Required tests passing
-- [ ] Lint and type checks passing for touched packages
+- [x] AC satisfaction (AC1 to AC6, the moderator mail included)
+- [x] Required tests passing
+- [x] Lint and type checks passing for touched packages
 
 ## Completion Status
 
-- [ ] Not started
+- [x] Part 1 (backend, domain, infrastructure) and Part 2 (web, e2e, documents) built; status review. Reviewer: run the gate checks listed in the Dev Agent Record.
 
 ## Dev Agent Record
 
 ### Agent Model Used
 
-Claude (Part 1 build run, 2026-11-14).
+Claude (Part 1 and Part 2 build runs, 2026-11-14).
 
 ### Debug Log References
 
@@ -288,6 +288,18 @@ Claude (Part 1 build run, 2026-11-14).
 - Docs: `architecture-diagram.md`, `high-level-overview.md`, `4-push-notifications.md` as listed in Task 4.7.
 - Safety note: `lambdas/job-engine-branches.test.ts` runs the real sweep (and so the announcer with the real Firebase seam); it only reaches a send if a pending ended job of a user with a device or a moderator exists in the test database.
 
+### Part 2 (web, e2e, documents; 2026-11-14)
+
+- Badge: `UserMenu` takes `jobsBadgeCount` and `jobsBadgeLabel` (`AppShell` passes them through); the Jobs entry shows the existing `CountBadge` (max 9, aria-hidden) and the full sentence in an `sr-only` span, so the accessible name is "Jobs 3 jobs finished since you last looked". No badge or sentence at 0 or undefined. `AppShellWrapper` reads the count through `useJobsFinishedCount` (`use-jobs-notice.ts`): signed-in only, a 60 s poll (`getJobsBadgePollInterval` in `poll-schedule.ts`, doubling after an error up to 4 minutes), none while the tab is hidden, one fetch on return, 0 on a load error. The sentence is formatted only when the count is above 0 (an ICU plural with a count of 0 logged a locale error in a server render of a boundary page; found in the e2e run).
+- Clearing and acknowledging: `useMarkJobsOpenedWhileVisible` (Jobs page and a job's page) calls `markJobsOpened` on mount, on return to a visible tab and whenever the set of shown jobs changes (a job that ends while the page is open must not turn into a badge at the next poll), and sets the cached count to 0. It checks `document.visibilityState` directly as well, because the visibility state hook starts as visible. `useAcknowledgeEndedJobs` is called from the Jobs list, the job page and `useJobProgress` (dialog and chip): once per ended job through a shared set, never from a hidden tab, retried after a failure, fire and forget. Task 6.4 is wired at those three observe points; the Jobs list acknowledges every ended job it shows (a seen job is not pushed).
+- Service worker: `firebase-messaging-sw.js` has a `notificationclick` handler that follows `data.path` (or the SDK's `FCM_MSG.data.path`) for a same-origin path only (absolute URL, `//host`, backslash, script scheme and non-string are ignored), focusing and navigating an open tab or opening a new one, and stopping the SDK's own handling only when it handled the click; a notification with no path (the new-event push) is untouched. Tested in `firebase-messaging-sw.test.ts` (vm context, no Firebase). Locale check (Task 6.5): the `next-intl` middleware has the default locale prefix, and the e2e proves an unprefixed `/jobs/<id>` and `/jobs` redirect to the locale route, so no locale column or second migration is needed.
+- Copy: `UserMenu.jobsBadgeLabel` in `en.json` and `id.json` exactly as in `copy-keys.md`; locale parity stays green (full web suite).
+- Seed: `packages/database/seed.ts` now also inserts one `user_settings` row (`FIXTURE_USER_SETTINGS`, counted in `FIXTURE_COUNTS.userSettings`) with the ordinary user's `jobs_last_opened_at` 180 minutes before the seed, so the two ended fixture jobs of that user count as 2 on the badge. Without a row the watermark is the account's creation time and the count would be 0.
+- E2E (fake auth, local stack, no push): `jobs.spec.ts` first test (badge sentence "Jobs 2 jobs finished since you last looked", opening Jobs clears it, a fresh load and a reload keep it cleared; it must stay first in the file because opening Jobs clears the server state), a test that an unprefixed push path redirects to the locale route; `responsive-overflow.spec.ts` (profile menu with a routed count of 99 at 320 to 1440 px); `responsive-popups.spec.ts` (the same menu on the five phone sizes; the scroll box is the menu's list). The scenario found that the menu's list lacked `min-h-0` as a flex child; `UserMenu` now has it, plus `data-testid="user-menu"`.
+- Documents: PRD FR124 (moderator bullet now says the single-recipient mode, plus an as-built paragraph), project-context rule "Job notices come from `announceEndedJobs` only", spine AD-53 Rule 18 and an AD-54 sentence, UX `EXPERIENCE.md` row of the Jobs entry. `docs/infrastructure` was done in Part 1.
+- Results: web Vitest 112 files, 1040 tests green; packages/ui Vitest 81 files, 1737 tests green (includes the app-shell tests and ratchets); `packages/database` unit tests green and `test:seed` green; `pnpm --filter web build` green; web typecheck shows no new error (38 reported, all in files this story did not touch; baseline 43 with the untracked new files out of the stash); eslint on touched web and ui dirs 0 errors (existing warnings). Playwright (e2e/jobs.spec.ts all 11, the jobs routes and the new menu test of responsive-overflow, the new menu scenario and the Re-extract and job-page popups of responsive-popups) green. Not run: the backend suite, the whole Playwright suite, a real push or mail.
+- Deviations: none from the story beyond the seed row and the `min-h-0` fix above.
+
 ### File List
 
 - packages/database: `schema.ts`, `migrations/0104_job_finished_notice_state.sql`, `migrations/meta/_journal.json`, `migrations/meta/0104_snapshot.json`
@@ -297,3 +309,4 @@ Claude (Part 1 build run, 2026-11-14).
 - apps/infrastructure/lib: `festgrid-backend-stack.ts`, `festgrid-backend-stack.test.ts`
 - docs/infrastructure: `architecture-diagram.md`, `high-level-overview.md`, `4-push-notifications.md`
 - _bmad-output/implementation-artifacts: this story file, `sprint-status.yaml`
+- Part 2: apps/web: `src/features/jobs/use-jobs-notice.ts` (+ test), `jobs-notice.graphql`, `poll-schedule.ts` (+ test), `index.ts`, `use-job-progress.ts`, `src/app/[locale]/jobs/jobs-content.tsx` (+ test), `[jobId]/job-detail-content.tsx`, `src/components/layout/AppShellWrapper.tsx` (+ test), `locales/en.json`, `locales/id.json`, `public/firebase-messaging-sw.js` (+ `firebase-messaging-sw.test.ts`), `src/generated/graphql.ts`, `e2e/jobs.spec.ts`, `e2e/responsive-overflow.spec.ts`, `e2e/responsive-popups.spec.ts`; packages/ui: `core/app-shell/UserMenu.tsx` (+ test), `AppShell.tsx`, `profile-menu-entries.ts`; packages/database: `seed.ts`, `seed.integration.test.ts`; documents: PRD, `project-context.md`, architecture spine, UX `EXPERIENCE.md`, this story file, `sprint-status.yaml`
