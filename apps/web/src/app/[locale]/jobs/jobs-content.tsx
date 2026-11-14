@@ -14,6 +14,7 @@ import { toJobListItem, type JobListItem } from '@/features/jobs/job-model';
 import { useJobLabels } from '@/features/jobs/use-job-labels';
 import { useAnnounceReconnecting } from '@/features/jobs/use-announce-reconnecting';
 import { useActiveJobs, useMyJobs } from '@/features/jobs/use-jobs';
+import { useAcknowledgeEndedJobs, useMarkJobsOpenedWhileVisible } from '@/features/jobs/use-jobs-notice';
 import { EmptyPageNotice } from '@/features/pagination/empty-page-notice';
 import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
 import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
@@ -88,6 +89,14 @@ export function JobsContent() {
   // Spoken channel: one announcer for the page (mounted in the layout). Only a status or step change is announced, never an unchanged poll.
   const observed = [...active.jobs, ...finished];
   const observedKey = observed.map((j) => `${j.id}:${getJobSignature(j)}`).join('|');
+  // Story 10.13: the page is open and visible, so everything on it is seen: the badge clears (on mount, on return to the tab, and when a job
+  // ends while it is open) and a job seen ended is acknowledged so it is not also pushed. Both are fire and forget.
+  const acknowledge = useAcknowledgeEndedJobs();
+  useMarkJobsOpenedWhileVisible(!!session && !authLoading, observedKey);
+  useEffect(() => {
+    acknowledge(active.jobs.concat(finished));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [observedKey]);
   useEffect(() => {
     if (observed.length === 0) return;
     announcer.observe(observed.map((job) => ({ id: job.id, signature: getJobSignature(job), text: announcementOf(job, titleOf(job.type, job.subject)), urgent: false })));

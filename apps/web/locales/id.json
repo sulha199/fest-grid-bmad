@@ -812,7 +812,8 @@
     "moderatorTools": "Alat Moderator",
     "logout": "Keluar",
     "close": "Tutup",
-    "jobs": "Tugas"
+    "jobs": "Tugas",
+    "jobsBadgeLabel": "{count} tugas selesai sejak terakhir Anda melihat"
   },
   "MyAIFiltersPage": {
     "title": "Filter AI Saya",

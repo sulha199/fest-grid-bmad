@@ -812,7 +812,8 @@
     "moderatorTools": "Moderator Tools",
     "logout": "Log Out",
     "close": "Close",
-    "jobs": "Jobs"
+    "jobs": "Jobs",
+    "jobsBadgeLabel": "{count, plural, one {# job finished since you last looked} other {# jobs finished since you last looked}}"
   },
   "MyAIFiltersPage": {
     "title": "My AI Filters",

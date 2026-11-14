@@ -1,11 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { capturePostHogEvent } from '@festgrid/analytics';
 import { graphqlClient } from '@/lib/graphql-client';
 import { installGraphqlFake, makeFragment, setVisibility, TestProviders } from '@/features/jobs/job-test-support';
+import { resetAcknowledgedJobs } from '@/features/jobs/use-jobs-notice';
 import { JobsContent } from './jobs-content';
 import { JOB_ROW_MIN_HEIGHT, JobRowSkeletons } from './job-row';
 
@@ -53,6 +54,9 @@ function installApi(options: { role: 'moderator' | 'user'; pages: Record<string,
         },
       };
     }
+    // Story 10.13: the page tells the server it was opened, and acknowledges the jobs it shows as ended.
+    if (operation === 'markJobsOpened') return { markJobsOpened: true };
+    if (operation === 'acknowledgeJobEnded') return { acknowledgeJobEnded: true };
     throw new Error(`unexpected ${operation}`);
   });
 }
@@ -66,6 +70,7 @@ const calls = (log: Array<{ operation: string; variables: Record<string, unknown
 
 beforeEach(() => {
   setVisibility('visible');
+  resetAcknowledgedJobs();
   capture.mockClear();
 });
 afterEach(() => {
@@ -159,6 +164,37 @@ describe('JobsContent, an ordinary user', () => {
     render(ui());
     expect(await screen.findByText('We could not load your jobs.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+});
+
+describe('JobsContent, the notice (Story 10.13, notify when a job finishes)', () => {
+  it('marks the Jobs page opened and acknowledges each ended job once, not the open one', async () => {
+    const log = installApi({ role: 'user', pages: { first: { ids: ['fin-1', 'fin-2'] } }, active: [makeFragment({ id: 'run-1' })] });
+    render(ui());
+    await screen.findAllByTestId('job-row');
+    await waitFor(() => expect(calls(log, 'markJobsOpened').length).toBeGreaterThanOrEqual(1));
+    await waitFor(() => expect(calls(log, 'acknowledgeJobEnded').map((c) => c.variables.jobId).sort()).toEqual(['fin-1', 'fin-2']));
+  });
+
+  it('marks it opened again when the tab returns to visible', async () => {
+    const log = installApi({ role: 'user', pages: { first: { ids: ['fin-1'] } } });
+    render(ui());
+    await screen.findAllByTestId('job-row');
+    await waitFor(() => expect(calls(log, 'markJobsOpened').length).toBeGreaterThanOrEqual(1));
+    const before = calls(log, 'markJobsOpened').length;
+    act(() => setVisibility('hidden'));
+    expect(calls(log, 'markJobsOpened')).toHaveLength(before);
+    act(() => setVisibility('visible'));
+    await waitFor(() => expect(calls(log, 'markJobsOpened').length).toBeGreaterThan(before));
+  });
+
+  it('acknowledges nothing and marks nothing opened while the tab is hidden', async () => {
+    setVisibility('hidden');
+    const log = installApi({ role: 'user', pages: { first: { ids: ['fin-1'] } } });
+    render(ui());
+    await screen.findAllByTestId('job-row');
+    expect(calls(log, 'markJobsOpened')).toHaveLength(0);
+    expect(calls(log, 'acknowledgeJobEnded')).toHaveLength(0);
   });
 });
 

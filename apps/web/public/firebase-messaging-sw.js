@@ -11,6 +11,45 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Story 10.13 (notify when a job finishes): a click on a notification that carries `data.path` opens that page of this app.
+// Only a same-origin path is followed ("/jobs", "/jobs/<id>"); anything else (an absolute URL, a protocol-relative "//host",
+// a script scheme, a non-string) is ignored, so a push can never send the user to another site. The path has no locale: the
+// next-intl middleware redirects "/jobs/<id>" to the user's locale route. A notification with no such path (the new-event push)
+// is left to the Firebase SDK's own click handling, exactly as before.
+function sameOriginUrlFromPath(path) {
+  if (typeof path !== 'string' || path.charAt(0) !== '/' || path.charAt(1) === '/' || path.indexOf('\\') !== -1) return null;
+  try {
+    const url = new URL(path, self.location.origin);
+    return url.origin === self.location.origin ? url.href : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function notificationPath(data) {
+  if (!data) return undefined;
+  if (typeof data.path === 'string') return data.path;
+  // A notification the Firebase SDK displayed itself keeps the push's data map under FCM_MSG.
+  return data.FCM_MSG && data.FCM_MSG.data ? data.FCM_MSG.data.path : undefined;
+}
+
+self.addEventListener('notificationclick', (event) => {
+  const target = sameOriginUrlFromPath(notificationPath(event.notification && event.notification.data));
+  if (!target) return;
+  event.stopImmediatePropagation();
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => w.url && w.url.indexOf(self.location.origin) === 0 && typeof w.focus === 'function');
+      if (!open) return self.clients.openWindow(target);
+      return open
+        .focus()
+        .then((focused) => (focused && typeof focused.navigate === 'function' ? focused.navigate(target) : undefined))
+        .catch(() => self.clients.openWindow(target));
+    })
+  );
+});
+
 // Extract config from service worker script URL query parameters (passed during registration if dynamic config is needed),
 // or fall back to standard inlined values.
 const urlParams = new URL(location).searchParams;
