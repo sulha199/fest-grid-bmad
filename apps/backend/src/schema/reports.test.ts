@@ -8,7 +8,8 @@ import { db } from '../db/client.js';
 import { users, events, schedules, reports } from '@festgrid/database';
 import { eq, and, inArray } from 'drizzle-orm';
 import { GraphQLError } from 'graphql';
-import { deleteModeratorNotifyKeysCreatedSince, snapshotModeratorNotifyKeys } from '../lib/test-support/moderator-notify-throttle-cleanup.js';
+import { deleteModeratorNotifyKeys } from '../lib/test-support/moderator-notify-throttle-cleanup.js';
+import { buildModeratorNotifyThrottleKey } from '../lib/notifications/notify-all-moderators.js';
 
 // read the generated schema for the yoga server
 const schemaDir = path.resolve(process.cwd(), 'src/schema');
@@ -36,9 +37,10 @@ const yoga = createYoga({
 
 test('reports resolver integration', async (t) => {
   // A dangerous report claims a moderator-notification throttle row (Story 0.i1a, AD-54); remove what this file creates.
-  const throttleBefore = await snapshotModeratorNotifyKeys();
+  // The throttle row is keyed by the reported event's id, so only that exact key is removed.
+  const dangerousThrottleKey = () => buildModeratorNotifyThrottleKey('DANGEROUS_EVENT_MODERATOR_ALERT', testEvent.id);
   t.after(async () => {
-    await deleteModeratorNotifyKeysCreatedSince(throttleBefore);
+    if (testEvent) await deleteModeratorNotifyKeys([dangerousThrottleKey()]);
   });
   let regularUser: any;
   let regularUser2: any;
@@ -642,7 +644,7 @@ test('reports resolver integration', async (t) => {
   await t.test('submitReport - dangerous reason triggers moderator email alert', async (t) => {
     // An earlier test already reported this event as dangerous, which took its throttle slot (one mail per event
     // per cooldown); start this one with a clean slate so it sees the first mail for the event.
-    await deleteModeratorNotifyKeysCreatedSince(throttleBefore);
+    await deleteModeratorNotifyKeys([dangerousThrottleKey()]);
     const consoleInfoCalls: any[] = [];
     const consoleInfoMock = t.mock.method(console, 'info', (...args: any[]) => {
       consoleInfoCalls.push(args);

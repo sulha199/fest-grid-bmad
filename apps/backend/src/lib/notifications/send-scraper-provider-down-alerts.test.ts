@@ -4,7 +4,8 @@ import { db } from '../../db/client.js';
 import { users, scraperProviderHealth } from '@festgrid/database';
 import { inArray, eq } from 'drizzle-orm';
 import { sendScraperProviderDownAlerts, describeFailureReason } from './send-scraper-provider-down-alerts.js';
-import { deleteModeratorNotifyKeysCreatedSince, snapshotModeratorNotifyKeys } from '../test-support/moderator-notify-throttle-cleanup.js';
+import { deleteModeratorNotifyKeys } from '../test-support/moderator-notify-throttle-cleanup.js';
+import { buildModeratorNotifyThrottleKey } from './notify-all-moderators.js';
 
 test('sendScraperProviderDownAlerts tests', async (t) => {
   const testRunId = Date.now();
@@ -14,10 +15,13 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
   const createdUsers: any[] = [];
   // The helper claims a throttle row per provider (Story 0.i1a); each sub-test reseeds the same provider, so the
   // rows this file created are removed on every reseed and at the end.
-  const throttleBefore = await snapshotModeratorNotifyKeys();
+  // The helper's entity here is the provider name (unique to this run); delete exactly those keys.
+  const throttleKeys = [provider, provider2, provider3].map((name) =>
+    buildModeratorNotifyThrottleKey('SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT', name)
+  );
 
   t.after(async () => {
-    await deleteModeratorNotifyKeysCreatedSince(throttleBefore);
+    await deleteModeratorNotifyKeys(throttleKeys);
     if (createdUsers.length > 0) {
       await db.delete(users).where(inArray(users.id, createdUsers.map((u) => u.id)));
     }
@@ -37,7 +41,7 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
     lastAlertSentAt: Date | null = null,
     lastFailureReason: string | null = null
   ) => {
-    await deleteModeratorNotifyKeysCreatedSince(throttleBefore);
+    await deleteModeratorNotifyKeys(throttleKeys);
     await db.delete(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider));
     await db.insert(scraperProviderHealth).values({
       provider,

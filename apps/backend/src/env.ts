@@ -211,13 +211,19 @@ function parseNonNegativeInt(value: string | undefined, name: string, defaultVal
   return parsed;
 }
 
-function parsePositiveInt(value: string | undefined, name: string, defaultValue: number): number {
+/** The longest moderator-notification cooldown accepted (7 days); see alert-email-budget-store.ts pruning. */
+export const MODERATOR_NOTIFY_COOLDOWN_MAX_MINUTES = 10080;
+
+function parsePositiveInt(value: string | undefined, name: string, defaultValue: number, maxValue?: number): number {
   const text = (value || String(defaultValue)).trim();
   // `parseInt` alone would read "1e3" as 1 and "10abc" as 10: a typo must fail loudly, not quietly
   // become a different limit.
   const parsed = /^\d+$/.test(text) ? Number.parseInt(text, 10) : Number.NaN;
   if (!Number.isSafeInteger(parsed) || parsed < 1) {
     throw new Error(`${name} must be a positive integer (>= 1).`);
+  }
+  if (maxValue !== undefined && parsed > maxValue) {
+    throw new Error(`${name} must be at most ${maxValue}.`);
   }
   return parsed;
 }
@@ -358,7 +364,10 @@ export function loadBackendEnv(): BackendEnv {
       // eslint-disable-next-line turbo/no-undeclared-env-vars
       process.env.MODERATOR_NOTIFY_COOLDOWN_MINUTES,
       'MODERATOR_NOTIFY_COOLDOWN_MINUTES',
-      60
+      60,
+      // At most 7 days: the helper prunes throttle rows whose window opened over 30 days ago, so a longer
+      // cooldown could have a live window deleted.
+      MODERATOR_NOTIFY_COOLDOWN_MAX_MINUTES
     ),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     webAppBaseUrl: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',

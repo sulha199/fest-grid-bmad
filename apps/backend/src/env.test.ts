@@ -126,6 +126,12 @@ test('loadBackendEnv defaults the moderator-notification cooldown to 60 minutes,
       JSON.stringify(bad)
     );
   }
+  // The cap keeps the 30-day prune from deleting a live window (7 days is accepted, one minute more is not).
+  assert.strictEqual(withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', '10080', () => loadBackendEnv().moderatorNotifyCooldownMinutes), 10080);
+  assert.throws(
+    () => withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', '10081', () => loadBackendEnv()),
+    /MODERATOR_NOTIFY_COOLDOWN_MINUTES must be at most 10080/
+  );
 });
 
 test('loadBackendEnv rejects an alert-email budget knob that is not a plain positive integer', () => {

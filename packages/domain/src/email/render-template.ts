@@ -1,4 +1,4 @@
-import { escapeHtml, sanitizeSubjectValue } from './escape-html.js';
+import { capSubject, escapeHtml, sanitizeSubjectValue } from './escape-html.js';
 import { EMAIL_TEMPLATES } from './templates.js';
 import { EmailTemplateKey, EmailTemplateVariables, RenderedEmail } from './types.js';
 
@@ -39,7 +39,7 @@ export function renderEmailTemplate<K extends EmailTemplateKey>(
     });
   };
 
-  const subject = render(template.subject, sanitizeSubjectValue);
+  const subject = capSubject(render(template.subject, sanitizeSubjectValue));
   const html = render(template.html, escapeHtml);
   const text = render(template.text, (value) => value);
 

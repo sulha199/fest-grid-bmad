@@ -4,17 +4,23 @@ import { db } from '../../db/client.js';
 import { users } from '@festgrid/database';
 import { inArray, eq } from 'drizzle-orm';
 import { sendDangerousReportModeratorAlerts } from './send-dangerous-report-moderator-alerts.js';
-import { deleteModeratorNotifyKeysCreatedSince, snapshotModeratorNotifyKeys } from '../test-support/moderator-notify-throttle-cleanup.js';
+import { deleteModeratorNotifyKeys } from '../test-support/moderator-notify-throttle-cleanup.js';
+import { buildModeratorNotifyThrottleKey } from './notify-all-moderators.js';
 
 test('sendDangerousReportModeratorAlerts tests', async (t) => {
   const testRunId = Date.now();
   const createdUsers: any[] = [];
   // The helper claims a throttle row per template and entity (Story 0.i1a); remove what this file creates.
-  const throttleBefore = await snapshotModeratorNotifyKeys();
+  // Entities are unique to this run (names carry the run id, ids are event-x-<run>); delete exactly those keys.
+  const nameOf = (label: string) => `${label} ${testRunId}`;
+  const throttleKeys = [
+    ...[nameOf('Test Event 1'), nameOf('Test Event Zero'), nameOf('Test Event Partial'), nameOf('Test Event All Fail')],
+    ...['a', 'b', 'c'].map((x) => `event-${x}-${testRunId}`),
+  ].map((entity) => buildModeratorNotifyThrottleKey('DANGEROUS_EVENT_MODERATOR_ALERT', entity));
 
   // Helper to clean up created entities
   t.after(async () => {
-    await deleteModeratorNotifyKeysCreatedSince(throttleBefore);
+    await deleteModeratorNotifyKeys(throttleKeys);
     if (createdUsers.length > 0) {
       await db.delete(users).where(inArray(users.id, createdUsers.map(u => u.id)));
     }
@@ -45,7 +51,7 @@ test('sendDangerousReportModeratorAlerts tests', async (t) => {
       return 'mock-msg-id';
     };
 
-    await sendDangerousReportModeratorAlerts('Test Event 1', undefined, {
+    await sendDangerousReportModeratorAlerts(nameOf('Test Event 1'), undefined, {
       sendTemplatedEmail: mockSendTemplatedEmail as any,
     });
 
@@ -57,7 +63,7 @@ test('sendDangerousReportModeratorAlerts tests', async (t) => {
 
     for (const call of calls) {
       assert.strictEqual(call.templateKey, 'DANGEROUS_EVENT_MODERATOR_ALERT');
-      assert.strictEqual(call.variables.eventName, 'Test Event 1');
+      assert.strictEqual(call.variables.eventName, nameOf('Test Event 1'));
       assert.ok(call.variables.moderatorReviewUrl.endsWith('/moderator/items'));
     }
   });
@@ -83,7 +89,7 @@ test('sendDangerousReportModeratorAlerts tests', async (t) => {
         return 'mock-msg-id';
       };
 
-      await sendDangerousReportModeratorAlerts('Test Event Zero', undefined, {
+      await sendDangerousReportModeratorAlerts(nameOf('Test Event Zero'), undefined, {
         sendTemplatedEmail: mockSendTemplatedEmail as any,
       });
 
@@ -110,7 +116,7 @@ test('sendDangerousReportModeratorAlerts tests', async (t) => {
     };
 
     // Should resolve without throwing
-    await sendDangerousReportModeratorAlerts('Test Event Partial', undefined, {
+    await sendDangerousReportModeratorAlerts(nameOf('Test Event Partial'), undefined, {
       sendTemplatedEmail: mockSendTemplatedEmail as any,
     });
 
@@ -125,7 +131,7 @@ test('sendDangerousReportModeratorAlerts tests', async (t) => {
     };
 
     // Should resolve without throwing
-    await sendDangerousReportModeratorAlerts('Test Event All Fail', undefined, {
+    await sendDangerousReportModeratorAlerts(nameOf('Test Event All Fail'), undefined, {
       sendTemplatedEmail: mockSendTemplatedEmail as any,
     });
 

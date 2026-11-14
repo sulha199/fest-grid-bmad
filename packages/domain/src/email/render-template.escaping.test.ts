@@ -83,3 +83,12 @@ test('a number value is stringified before escaping (AC2)', () => {
   });
   assert.ok(r.html.includes('3'));
 });
+
+test('a very long value cannot make a subject longer than the cap (AC2)', () => {
+  const r = renderEmailTemplate('DANGEROUS_EVENT_MODERATOR_ALERT', {
+    eventName: 'x'.repeat(5000),
+    moderatorReviewUrl: 'https://festdaily.app/moderator/items',
+  });
+  assert.equal(r.subject.length, 200);
+  assert.ok(r.text.includes('x'.repeat(5000)), 'the text part is not capped');
+});

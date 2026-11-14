@@ -24,3 +24,12 @@ const CONTROL_RUN = new RegExp('[\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029]+'
 export function sanitizeSubjectValue(value: string): string {
   return value.replace(CONTROL_RUN, ' ').trim();
 }
+
+/** The longest e-mail subject produced: a value from scraper or user text cannot make an unbounded header. */
+export const MAX_SUBJECT_LENGTH = 200;
+
+/** Caps a rendered subject at `MAX_SUBJECT_LENGTH` characters, trimmed, ending in an ellipsis when it was cut. */
+export function capSubject(subject: string): string {
+  if (subject.length <= MAX_SUBJECT_LENGTH) return subject;
+  return `${subject.slice(0, MAX_SUBJECT_LENGTH - 1).trimEnd()}\u2026`;
+}

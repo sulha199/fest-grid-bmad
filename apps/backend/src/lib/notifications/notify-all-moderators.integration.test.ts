@@ -1,11 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { inArray, like } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 import { alertEmailRateLimits, users } from '@festgrid/database';
 import { db } from '../../db/client.js';
-import { MODERATOR_NOTIFY_KEY_PREFIX } from '../alerts/alert-email-budget-store.js';
-import { deleteModeratorNotifyKeysCreatedSince, snapshotModeratorNotifyKeys } from '../test-support/moderator-notify-throttle-cleanup.js';
-import { findActiveModeratorRecipients, notifyAllModerators } from './notify-all-moderators.js';
+import { deleteModeratorNotifyKeys } from '../test-support/moderator-notify-throttle-cleanup.js';
+import { buildModeratorNotifyThrottleKey, findActiveModeratorRecipients, notifyAllModerators } from './notify-all-moderators.js';
 
 // Story 0.i1a (Task 6.4): the real lookup and the real throttle store against Postgres, with a recording fake
 // for the sender (nothing is ever mailed). Rows created here (users, throttle rows) are deleted at the end;
@@ -13,10 +12,15 @@ import { findActiveModeratorRecipients, notifyAllModerators } from './notify-all
 test('notifyAllModerators against real Postgres (fake sender)', async (t) => {
   const run = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
   const createdUserIds: string[] = [];
-  const throttleBefore = await snapshotModeratorNotifyKeys();
+  const throttleKeys = new Set<string>();
+  const keyOf = (entity: string, recipientUserId?: string) => {
+    const key = buildModeratorNotifyThrottleKey('DANGEROUS_EVENT_MODERATOR_ALERT', entity, recipientUserId);
+    throttleKeys.add(key);
+    return key;
+  };
 
   t.after(async () => {
-    await deleteModeratorNotifyKeysCreatedSince(throttleBefore);
+    await deleteModeratorNotifyKeys(throttleKeys);
     if (createdUserIds.length > 0) await db.delete(users).where(inArray(users.id, createdUserIds));
   });
 
@@ -62,6 +66,7 @@ test('notifyAllModerators against real Postgres (fake sender)', async (t) => {
   await t.test('all-moderators mode mails the active moderators once, then throttles (AC1, AC3)', async () => {
     const sender = fakeSender();
     const vars = { eventName: `Integration Event ${run}` };
+    keyOf(vars.eventName);
     const first = await notifyAllModerators('DANGEROUS_EVENT_MODERATOR_ALERT', vars, {}, { sendTemplatedEmail: sender.fn });
     assert.equal(first.status, 'sent');
     const to = sender.sent.map((s) => s.to);
@@ -78,6 +83,8 @@ test('notifyAllModerators against real Postgres (fake sender)', async (t) => {
   await t.test('single mode mails the one moderator; non-moderators are refused and spend no budget (AC6)', async () => {
     const sender = fakeSender();
     const vars = { eventName: `Single Event ${run}` };
+    keyOf(vars.eventName, activeMod.id);
+    keyOf(vars.eventName, otherMod.id);
     const ok = await notifyAllModerators('DANGEROUS_EVENT_MODERATOR_ALERT', vars, { recipientUserId: activeMod.id }, { sendTemplatedEmail: sender.fn });
     assert.deepEqual(ok, { status: 'sent', recipients: 1, sent: 1, failed: 0 });
     assert.deepEqual(sender.sent.map((s) => s.to), [activeMod.email]);
@@ -92,6 +99,7 @@ test('notifyAllModerators against real Postgres (fake sender)', async (t) => {
 
   await t.test('a total send failure releases the real throttle slot so the retry is sent (AC3, AC7)', async () => {
     const vars = { eventName: `Retry Event ${run}` };
+    keyOf(vars.eventName, activeMod.id);
     const failing = await notifyAllModerators('DANGEROUS_EVENT_MODERATOR_ALERT', vars, { recipientUserId: activeMod.id }, {
       sendTemplatedEmail: async () => { throw new Error('SES simulated failure'); },
     });
@@ -102,10 +110,12 @@ test('notifyAllModerators against real Postgres (fake sender)', async (t) => {
   });
 
   await t.test('the throttle rows hold a hashed key, never the entity text (AC3)', async () => {
-    const rows = await db.select({ key: alertEmailRateLimits.key }).from(alertEmailRateLimits).where(like(alertEmailRateLimits.key, `${MODERATOR_NOTIFY_KEY_PREFIX}%`));
-    const created = rows.map((r) => r.key).filter((k) => !throttleBefore.has(k));
-    assert.ok(created.length >= 3);
-    assert.ok(created.every((k) => !k.includes(run)));
+    const rows = await db
+      .select({ key: alertEmailRateLimits.key })
+      .from(alertEmailRateLimits)
+      .where(inArray(alertEmailRateLimits.key, [...throttleKeys]));
+    assert.equal(rows.length, 4, 'one row per tracked key');
+    assert.ok(rows.every((r) => !r.key.includes(run)));
   });
 
 });

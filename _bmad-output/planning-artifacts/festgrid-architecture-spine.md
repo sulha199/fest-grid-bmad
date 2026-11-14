@@ -3859,7 +3859,8 @@ This document defines the core architectural invariants for the FestDaily applic
         `MODERATOR_NOTIFICATION_ENTITY_KEYS` (the audit trail uses `source`, never `message` or `context`). A
         database error while claiming sends nothing (fail closed). The claim is released when every send fails, so a
         mail nobody received does not silence the next occurrence; it is kept when at least one send succeeded. Rows older
-        than 30 days are pruned best effort, matching only `moderator-notify:` keys.
+        than 30 days are pruned best effort, matching only `moderator-notify:` keys; the cooldown setting is therefore capped
+        at 10080 minutes (7 days) in `env.ts`, so a live window is never pruned.
     4.  **Single-recipient mode.** `options.recipientUserId` notifies only that user, and only if they are an active
         moderator; any other id is refused (`refused_not_moderator`), nothing is sent and no slot is spent. The slot is per
         template, entity and recipient. Story 10.13 (notify when a job finishes) is its first user.
@@ -3868,8 +3869,7 @@ This document defines the core architectural invariants for the FestDaily applic
         fire-and-forget (the API and AI-processor Lambdas freeze after the response). A log line holds the template key,
         the status and counts, and a user id on a failed send, never an address, a name or a variable value.
     6.  **Adoption.** Moved in Story 0.i1a: the dangerous-report alert (throttle entity: the event id) and the scraper
-        provider-down alert (entity: the provider). Moves next: the two location-change alerts in Story 0.i1b (send the
-        missing AWAITING_APPROVAL location-change notification) and the audit-trail alert in Story 0.i1c (route the
+        provider-down alert (entity: the provider). Moves next: the two location-change alerts in Story 0.i1b (its mail for a change entering AWAITING_APPROVAL already exists; the work is moving it onto the helper) and the audit-trail alert in Story 0.i1c (route the
         scraper audit-trail alert through the shared helper). Story 10.13 adds its own template key, review path and entity
         rule (the exhaustive Records fail the type check until it does).
     7.  **Not covered here.** `SYSTEM_ERROR_ALERT` (one fixed address, its own budget in `Mutation.reportSystemError`) and
