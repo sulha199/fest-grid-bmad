@@ -161,6 +161,93 @@ Leave a field out to leave it unscored. `ticketPrice` must contain a digit (use 
 when the price is unknown). `events: []` marks a non-event post. Image files should be PNG, JPEG, WebP or GIF; any other
 extension is served without an image type and the post is skipped as `unavailable`. Verify the label by hand against the images.
 
+## Reviewing draft labels (slice B)
+
+Slice B needs a labelled set of real posts. A separate session exported 65 real production posts as **draft** labels to a private
+S3 bucket: the draft is what production extracted, so it can be wrong, and nothing in it is a label until a person has checked it
+against the images. `apps/backend/scripts/review-extraction-drafts.ts` is the local tool for that check. It is for **human eyes
+only**: it sends nothing to any AI service (the eval runner blurs faces before the model; this tool shows the real images), it
+makes no request except the `aws` CLI calls to the bucket you name, and it never touches production, secrets or workflows.
+
+### Where things are (placeholders; the real bucket name is not in this repo)
+
+| Prefix | What is there | Who reads it |
+|---|---|---|
+| `s3://<bucket>/extraction-eval-drafts/<postId>/` | `label.json` (UNVERIFIED draft, the runner's `LabelledPost` shape), `draft.json` (provenance: `stratum`, `sourcePostId`, `postUrl`, `extractedEventCount`, `extractionAuditRows`, `imagesAvailable`, `imagesFetched`, `extractedBeforeCursorPath`, `rescrape`, `status`), the images (`cover.*`, `slide-N.*`) | the maintainer, through this tool |
+| `s3://<bucket>/extraction-eval/<postId>/` | verified `label.json` and the images **only** | the eval workflow (its reader key cannot see the drafts prefix) |
+
+`draft.json` holds the real post URL and id, so the tool never uploads it.
+
+### Running it
+
+You need the `aws` CLI signed in with your own credentials (`aws sso login`, or `AWS_PROFILE`); the tool never reads them. Those
+credentials need: list and read on `extraction-eval-drafts/`, write on `extraction-eval/`, and list on the bucket (without
+`s3:ListBucket` a missing key answers 403, which the tool treats as an error, not as "not verified yet").
+
+```bash
+pnpm --filter backend exec tsx scripts/review-extraction-drafts.ts --bucket <bucket>
+# or: EXTRACTION_EVAL_REVIEW_BUCKET=<bucket> pnpm --filter backend exec tsx scripts/review-extraction-drafts.ts
+```
+
+It copies the drafts to a working directory (default `~/.extraction-eval-review`, change with `--work-dir`; it refuses a folder
+inside the git checkout), starts a server on `127.0.0.1` and prints an address with a random secret in the path. Open it in a
+browser; stop with Ctrl+C. Later runs reuse the local copy and your saved work (a download that was interrupted is repeated, because the copy is only
+marked complete when it finished); `--refresh` downloads the drafts again (your edits and progress are kept; an edit is shown over
+the new draft, so check a post you had edited). If `progress.json` is damaged or has invalid entries, the tool keeps a
+`progress.json.bak-<time>` copy before it writes a new one. `--port N` fixes the port. To rehearse with synthetic data and no AWS, point `--local-bucket <dir>` at a
+folder laid out like the bucket.
+
+The working directory holds the draft copies (`drafts/`), your work in progress (`edits/<postId>.json`), what was uploaded
+(`verified/<postId>/`) and `progress.json`, the record of which posts are verified, skipped or flagged. It holds real posts:
+keep it out of the repository and out of any shared folder.
+
+### The review flow
+
+1. **List.** Every draft with its stratum, image count, event count, status and flags; filter by status, flag or stratum.
+   "Open the first pending post" starts the work.
+2. **One post at a time.** The caption and every image on the left, the structured draft on the right. Compare each field with
+   the images, not only the caption: prices and dates are often only in a slide. You can change the grouping reason, add or remove
+   events and schedules, and edit every event and schedule field. An empty optional field means "not stated" and is left unscored.
+   The input of the extraction (caption, images, publish date, owner) is fixed: the eval must send the model exactly what
+   production saw, so those cannot be edited here.
+3. **Save edits** keeps your work on this computer. **Reset to the draft** throws it away (and clears a damaged saved edit).
+   **Skip** and **Flag for later** save any unsaved edits first, record the post (with an optional note) and move to the next
+   pending one. Leaving a post by any other link asks before discarding unsaved typing. A verified post cannot be skipped or
+   flagged; if you save a change to it, it goes back to pending ("edited since it was verified") until you verify it again. The
+   label already uploaded stays in the store (and so in CI) until then.
+4. **Verify and upload** re-checks the label with `parseLabelledPost` (the runner's own parser) and the production category list,
+   writes the verified `label.json` and the images to `extraction-eval/<postId>/`, and marks the post verified. A problem is
+   reported by field name and nothing is uploaded. If a verified label for the post already exists in the store, the tool asks
+   before overwriting it; a failed check of that (no permission, expired sign-in) is an error, never treated as "not there".
+   The images are uploaded first and `label.json` last, so a failed upload never leaves a label without its images. An upload
+   never deletes: after an overwrite that dropped an image, the old file stays under the prefix, which is harmless (the runner reads
+   only the images the label names).
+
+### Flags
+
+| Flag | Raised when | What to do |
+|---|---|---|
+| `possible_miss` | 0 events and 6 or more images | A real event may be hidden in a slide: look at every image before accepting "not an event" |
+| `chain` | the post had more than one extraction pass (`extractionAuditRows` > 1) | The draft is the result of several calls; see "What the first-call eval cannot score" |
+| `before_cursor_path` | `extractedBeforeCursorPath` | The event list was extracted before the chain logic existed and is probably incomplete |
+| `many_schedules` | an event with more than 3 schedules | Check the schedule list against the caption; a date list is one schedule per date (prompt rule 4c) |
+| `price_missing` | an event with no `ticketPrice` that is not marked `free` | Find the price in the images, mark it free, or leave it unstated on purpose. The drafts never set `free`, so this fires for most events, free ones included: read it as a to-do, not as an error. Mark a free event `free` |
+
+### What the first-call eval cannot score (IDEA-261111-9ch)
+
+The eval scores the **first** extraction call of a post. Production extracts long posts in steps, so these cannot be scored
+completely yet, however carefully they are labelled:
+
+- **Cursor chains** (4 posts) and **roundups** (14 posts, most affected): the draft event list is likely incomplete, especially
+  where `before_cursor_path` is set. Label the whole post if you can, but expect the first call to return only part of it and
+  the event count and per-event scores to read low. Do not tune the prompt against these numbers.
+- **Big carousels** (the 15 to 20 image posts in the single-event and separate-events strata) go to the model as one request; a
+  weak result there may be the request size, not the prompt.
+- **Non-events** (4 posts with 11 to 17 images and no events) are possible misses: check every image before verifying.
+
+Until a whole-chain score exists (IDEA-261111-9ch), read these strata separately from the rest and treat them as a trend, not a
+gate. The first baseline is run with `--runs 3` after the labels are verified.
+
 ## Where the baseline lives
 
 `--baseline <file>` defaults to `<labelled dir>/baseline.json`. For a real run the labelled dir is the private set, so the real
@@ -191,6 +278,11 @@ The logic is in `packages/domain/src/extraction-eval/` (pure: matcher, scorers, 
 `apps/backend/src/lib/ai-gateway/extraction-eval-run.ts` (loading, the paced live loop, retries, the exit rule). The script
 `apps/backend/scripts/run-extraction-accuracy-eval.ts` is argument parsing and the report around them. Both have unit tests; one
 domain test loads the committed synthetic labels, recording and baseline and asserts the numbers above, so they cannot drift.
+
+The draft review tool is `packages/domain/src/extraction-eval/draft-review.ts` (flags, preparing a verified label, the progress
+record; pure and fully tested) and `apps/backend/src/lib/extraction-eval-review/` (storage through the `aws` CLI or a local
+directory, the working directory, the local server and its single page), started by `apps/backend/scripts/review-extraction-drafts.ts`.
+Its tests use the synthetic fixtures only.
 
 ## CI
 

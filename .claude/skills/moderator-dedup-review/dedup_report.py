@@ -79,7 +79,7 @@ RATIONALE_MAX = 200
 RATIONALE_FILE_MAX_BYTES = 4096
 TEXT_CAP = 300
 LIST_CAP = 12
-MAX_DECISIONS = 50
+MAX_DECISIONS = 100
 BRIEF_CAP = 1500  # characters of one popup question
 BRIEF_LINE = 120
 BRIEF_WORDS = 6
@@ -134,6 +134,9 @@ CLUE_DATE_FAR_DAYS = 3  # a day gap from here is "too far"; a smaller one is a d
 CLUE_PAD = {'accept': ('name-translation-or-abbreviation', 'registration-vs-event-day', 'date-drift', 'other'),
             'reject': ('recurring-not-same-occurrence', 'different-category-or-tier', 'part-of-larger-event-or-session', 'not-an-event', 'other')}
 CLUE_ANSWER_FILE_MAX_BYTES = 1024
+CLUE_VALUE_CAP = 40  # characters of one value in a clue's description (a venue, a date, a name)
+CLUE_NAME_CONTEXT = ('name-translation-or-abbreviation', 'registration-vs-event-day', 'different-category-or-tier',
+                     'part-of-larger-event-or-session', 'recurring-not-same-occurrence', 'not-an-event')  # judged from the two names
 DECISION_KINDS = ('accept', 'reject', 'override')
 ACTION_OVERRIDE = 'accept-override'  # the apply side's action (FIND-124)
 BRIEF_TIERS = ((BRIEF_LINE, 4, 5), (80, 3, 3), (50, 2, 2), (30, 1, 1))  # field length, schedules and types shown: the text shrinks until it fits
@@ -806,9 +809,11 @@ def names_relation(existing_name, new_name):
 
 
 def clue_choices(pair, decision):
-    """The CLUE_OPTIONS codes to offer for one pair and one decision: the codes the pair's own evidence flags, the ones that
-    support the decision first (a merge: same-*, a shared link; a reject: different-*, too far apart), then padding that no
-    evidence flags, and never two codes of one exclusive group."""
+    """The CLUE_OPTIONS codes to offer for one pair and one decision: the codes the pair's own evidence flags in favour of the
+    decision first (a merge: same-*, a shared link; a reject: different-*, too far apart), then the reasons that suit the decision
+    and that no evidence flags (a reject: another edition, a different category, part of a larger event), and only then the
+    evidence that points the other way. A pair is queued because it matches, so a reject is not offered the matching signals
+    before the reasons it is rejected for. Never two codes of one exclusive group."""
     signals, candidate, new = pair['signals'], pair['candidate'], pair['newEvent']
     support, neutral, against = [], [], []
     if signals['sharedLink']:
@@ -834,14 +839,51 @@ def clue_choices(pair, decision):
         support.append('same-name-words')
     elif relation == 'different':
         against.append('different-name-words')
-    ordered = against + neutral + support if decision == 'reject' else support + neutral + against
+    if decision == 'reject':
+        ordered = against + neutral + list(CLUE_PAD['reject']) + support
+    else:
+        ordered = support + neutral + list(CLUE_PAD['accept']) + against
     chosen = []
-    for code in ordered + list(CLUE_PAD['reject' if decision == 'reject' else 'accept']) + list(CLUE_CODES):
+    for code in ordered + list(CLUE_CODES):
         if code not in chosen and not clue_conflicts(chosen + [code]):
             chosen.append(code)
         if len(chosen) == CLUE_OPTIONS:
             break
     return chosen
+
+
+def clue_values(pair, code):
+    """The facts behind a clue, from the pair's own exported fields, cleaned, masked and capped like every popup line; an empty
+    string when the pair holds nothing to say for it. Organizer and link are only what the export has: no handle, ever."""
+    candidate, new, signals = pair['candidate'], pair['newEvent'], pair['signals']
+
+    def text(value, cap=CLUE_VALUE_CAP):
+        return public_text(value, cap) or '-'
+
+    def start(event):
+        schedules = event['schedules']
+        main = next((item for item in schedules if item.get('isMain')), schedules[0] if schedules else None)
+        return text(main['startDate']) if main else '-'
+
+    if code in ('same-venue', 'different-venue'):
+        return '%s vs %s' % (text(candidate['location']), text(new['location']))
+    if code in ('same-date', 'date-drift', 'date-too-far'):
+        return '%s vs %s, day gap %s' % (start(candidate), start(new), day_gap_text(signals['minDayDiff']))
+    if code in ('same-name-words', 'different-name-words'):
+        return text('; '.join(name_clues(candidate['name'], new['name'])), 3 * CLUE_VALUE_CAP)
+    if code in ('same-organizer', 'different-organizer'):
+        return 'same account' if pair['sameAccount'] else ('organizer match: yes' if signals['organizerMatch'] else 'no organizer match')
+    if code == 'shared-link':
+        return text(candidate['links'][0]) if candidate['links'] else '-'
+    if code in CLUE_NAME_CONTEXT:
+        return '%s vs %s' % (text(candidate['name']), text(new['name']))
+    return ''
+
+
+def clue_description(pair, code):
+    """The option's description: the pair's own values first, then what the clue means."""
+    values = clue_values(pair, code)
+    return '%s. %s' % (values, CLUE_TEXT[code][1]) if values else CLUE_TEXT[code][1]
 
 
 def clue_question(decision):
@@ -882,7 +924,7 @@ def cmd_clue_options(args):
     codes = clue_choices(pair, args.decision)
     header = 'Why? #%d' % numbers[0] if numbers and len('Why? #%d' % numbers[0]) <= 12 else 'Why?'
     print(json.dumps({'suggestionId': suggestion_id, 'header': header, 'question': clue_question(args.decision), 'multiSelect': True,
-                      'options': [{'label': CLUE_TEXT[code][0], 'description': CLUE_TEXT[code][1]} for code in codes],
+                      'options': [{'label': CLUE_TEXT[code][0], 'description': clue_description(pair, code)} for code in codes],
                       'codes': {CLUE_TEXT[code][0]: code for code in codes}}, ensure_ascii=False))
     return 0
 
