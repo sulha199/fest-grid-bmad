@@ -2,6 +2,7 @@ import { and, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { jobs, userSettings, users } from '@festgrid/database';
 import { JOB_TERMINAL_STATUSES } from '@festgrid/domain/jobs';
 import { db } from '../../db/client.js';
+import { newUserSettingsValues } from '../user-settings/new-user-settings-values.js';
 import { withinRetention } from './read-jobs.js';
 
 // Story 10.13 (notify when a job finishes; PRD 3.18 FR124) -- the in-app half: a count of the caller's jobs that ended since the Jobs page was
@@ -46,7 +47,7 @@ export async function countJobsFinishedSinceLastOpened(userId: string, now: Date
 export async function markJobsOpened(userId: string, now: Date = new Date()): Promise<boolean> {
   await db
     .insert(userSettings)
-    .values({ userId, jobsLastOpenedAt: now })
+    .values(newUserSettingsValues(userId, { jobsLastOpenedAt: now }))
     .onConflictDoUpdate({ target: userSettings.userId, set: { jobsLastOpenedAt: now } });
   return true;
 }

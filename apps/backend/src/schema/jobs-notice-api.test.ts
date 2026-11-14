@@ -119,3 +119,36 @@ test('Jobs notice API (Story 10.13, real Postgres)', async (t) => {
     assert.equal((await run(ACK, meViewer, { id: mine })).data?.acknowledgeJobEnded, false, 'already acknowledged');
   });
 });
+
+test('a settings row created by any path starts the badge watermark at the account creation, so unseen ended jobs are never hidden (Story 10.13 review fix)', async (t) => {
+  const fx = createFixtures('notice-watermark');
+  t.after(() => fx.cleanup());
+  const { getOrCreateUserSettings } = await import('../lib/user-settings/get-or-create-user-settings.js');
+  const viewerOf = (userId: string): Viewer => ({ userId, role: 'user' });
+  let n = 0;
+  const endedJob = async (owner: string) => {
+    // The account is older than the job (a fresh fixture user would be created after it ended).
+    await db.update(users).set({ createdAt: new Date(Date.now() - DAY) }).where(eq(users.id, owner));
+    await db.insert(jobs).values({
+      type: fx.defineType(), ownerUserId: owner, trigger: 'USER', inputKey: `wm-${fx.suffix}-${n++}`, status: 'SUCCEEDED',
+      deadlineAt: new Date(Date.now() + 10 * MIN), finishedAt: new Date(Date.now() - MIN),
+    });
+  };
+  const watermark = async (userId: string) => (await db.select({ at: userSettings.jobsLastOpenedAt }).from(userSettings).where(eq(userSettings.userId, userId)))[0]?.at;
+  const createdAt = async (userId: string) => (await db.select({ at: users.createdAt }).from(users).where(eq(users.id, userId)))[0].at;
+
+  const viaGetOrCreate = await fx.makeUser('user');
+  await endedJob(viaGetOrCreate);
+  assert.equal((await run(COUNT, viewerOf(viaGetOrCreate))).data?.jobsFinishedSinceLastOpened, 1, 'no row: measured from the account creation');
+  await getOrCreateUserSettings(viaGetOrCreate);
+  assert.equal((await watermark(viaGetOrCreate))?.getTime(), (await createdAt(viaGetOrCreate)).getTime(), 'the row the helper created agrees with the fallback');
+  assert.equal((await run(COUNT, viewerOf(viaGetOrCreate))).data?.jobsFinishedSinceLastOpened, 1, 'creating the row hides nothing');
+  const again = await getOrCreateUserSettings(viaGetOrCreate);
+  assert.equal(again.jobsLastOpenedAt.getTime(), (await createdAt(viaGetOrCreate)).getTime(), 'an existing row is not moved');
+
+  const viaOpen = await fx.makeUser('user');
+  await endedJob(viaOpen);
+  assert.equal((await run(OPEN, viewerOf(viaOpen))).data?.markJobsOpened, true);
+  assert.ok((await watermark(viaOpen))!.getTime() > (await createdAt(viaOpen)).getTime(), 'an explicit open still means now');
+  assert.equal((await run(COUNT, viewerOf(viaOpen))).data?.jobsFinishedSinceLastOpened, 0);
+});

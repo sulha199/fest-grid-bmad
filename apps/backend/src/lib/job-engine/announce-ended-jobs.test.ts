@@ -7,7 +7,7 @@ import { registerJobTypePresentation } from '@festgrid/domain/jobs';
 import { renderEmailTemplate } from '@festgrid/domain';
 import { db } from '../../db/client.js';
 import type { NotifyModeratorsDeps } from '../notifications/notify-all-moderators.js';
-import { announceEndedJobs } from './announce-ended-jobs.js';
+import { announceEndedJobs as announceRaw, type AnnounceEndedJobsDeps } from './announce-ended-jobs.js';
 import { cancelJob } from './cancel-job.js';
 import { createFixtures } from './job-engine-test-support.js';
 import { settleJobFromLateResult } from './late-results.js';
@@ -17,6 +17,10 @@ import { settleJobFromLateResult } from './late-results.js';
 // fixture cleanup, which cascades jobs, settings and tokens) or is removed explicitly; the fake `takeBudget` leaves no throttle rows.
 
 const fx = createFixtures('announce');
+// Every call is scoped to the owners THIS file made: the shared database may hold other ended jobs (the e2e seed leaves moderator-owned ones),
+// and a run must never claim, stamp, push or mail for rows that are not ours.
+const ownerIds: string[] = [];
+const announceEndedJobs = (deps: AnnounceEndedJobsDeps = {}) => announceRaw({ ...deps, onlyOwnerIds: ownerIds });
 const profileIds: string[] = [];
 test.after(async () => {
   await fx.cleanup();
@@ -73,6 +77,7 @@ let seq = 0;
 
 async function makeOwner(options: { role?: 'user' | 'moderator'; push?: boolean; token?: boolean; lastPushAt?: Date | null } = {}) {
   const ownerId = await fx.makeUser(options.role ?? 'user');
+  ownerIds.push(ownerId);
   const token = `announce-token-${fx.suffix}-${seq++}`;
   if (options.push !== undefined || options.lastPushAt) {
     await db.insert(userSettings).values({ userId: ownerId, pushNotificationsEnabled: options.push ?? true, lastJobPushAt: options.lastPushAt ?? null });
@@ -356,4 +361,97 @@ test('the real helper (only SES and the budget faked) renders a summary with mar
   assert.ok(!/[\r\n]/.test(rendered.subject));
   assert.match(String(mails[0].variables.summaryEn), /2 posts/);
   assert.match(String(mails[0].variables.moderatorReviewUrl), /\/jobs$/);
+});
+
+test('an owned job with the SYSTEM trigger is never announced, stamped or counted as old, even past the max age', async () => {
+  const { ownerId, token } = await makeOwner({ role: 'moderator' });
+  const young = await makeEndedJob(ownerId);
+  const old = await makeEndedJob(ownerId, { ago: 90 * 60 });
+  await db.update(jobs).set({ trigger: 'SYSTEM' }).where(inArray(jobs.id, [young, old]));
+  const fake = fakeMessaging();
+  const moderator = fakeModeratorDeps();
+  await announceEndedJobs({ ...fake, moderatorDeps: moderator.deps, now: NOW });
+  assert.equal(mine(fake.sent, token).length, 0);
+  assert.equal(moderator.claims(), 0);
+  assert.equal(await notifiedAt(young), null);
+  assert.equal(await notifiedAt(old), null, 'the max-age update leaves a system job alone');
+});
+
+test('a push every device failed with a transient code is a failure: the claim is released, the window not started, and the next run retries', async () => {
+  const { ownerId, token } = await makeOwner();
+  const id = await makeEndedJob(ownerId);
+  const transient = {
+    sendEachForMulticast: async (payload: { tokens: string[] }) => ({ responses: payload.tokens.map(() => ({ success: false, error: { code: 'messaging/unavailable' } })) }),
+  } as unknown as Messaging;
+  const errors = console.error;
+  console.error = () => {};
+  try {
+    await announceEndedJobs({ getMessaging: () => transient, now: NOW });
+  } finally {
+    console.error = errors;
+  }
+  assert.equal(await notifiedAt(id), null);
+  assert.equal(await lastPush(ownerId), null);
+  const ok = fakeMessaging();
+  await announceEndedJobs({ ...ok, now: NOW });
+  assert.equal(mine(ok.sent, token).length, 1);
+  assert.ok(await notifiedAt(id));
+});
+
+test('a push whose only failures are dead tokens is not a failure, and one live device is enough', async () => {
+  const dead = await makeOwner();
+  const deadJob = await makeEndedJob(dead.ownerId);
+  await announceEndedJobs({ ...fakeMessaging({ invalidTokens: [dead.token] }), now: NOW });
+  assert.ok(await notifiedAt(deadJob), 'nothing deliverable is not a reason to retry for ever');
+
+  const mixed = await makeOwner();
+  const second = `announce-token-${fx.suffix}-mixed`;
+  await db.insert(fcmTokens).values({ token: second, userId: mixed.ownerId });
+  const mixedJob = await makeEndedJob(mixed.ownerId);
+  const client = {
+    sendEachForMulticast: async (payload: { tokens: string[] }) => ({
+      responses: payload.tokens.map((t) => (t === second ? { success: true } : { success: false, error: { code: 'messaging/internal-error' } })),
+    }),
+  } as unknown as Messaging;
+  await announceEndedJobs({ getMessaging: () => client, now: NOW });
+  assert.ok(await notifiedAt(mixedJob), 'one device accepted it');
+});
+
+test('when a later batch fails after an earlier one was delivered, the notice is kept (no device is pushed twice)', async () => {
+  const { ownerId } = await makeOwner({ token: false });
+  const tokens = Array.from({ length: 501 }, (_, i) => `announce-bulk-${fx.suffix}-${i}`);
+  await db.insert(fcmTokens).values(tokens.map((token) => ({ token, userId: ownerId })));
+  const id = await makeEndedJob(ownerId);
+  let calls = 0;
+  const client = {
+    sendEachForMulticast: async (payload: { tokens: string[] }) => {
+      if (!payload.tokens[0].startsWith(`announce-bulk-${fx.suffix}`)) return { responses: payload.tokens.map(() => ({ success: true })) };
+      calls += 1;
+      if (calls === 2) throw new Error('second batch down');
+      return { responses: payload.tokens.map(() => ({ success: true })) };
+    },
+  } as unknown as Messaging;
+  const errors = console.error;
+  console.error = () => {};
+  try {
+    await announceEndedJobs({ getMessaging: () => client, now: NOW });
+    await announceEndedJobs({ getMessaging: () => client, now: new Date(NOW.getTime() + 11 * 60_000) });
+  } finally {
+    console.error = errors;
+  }
+  assert.equal(calls, 2, 'the delivered batch is not sent again');
+  assert.ok(await notifiedAt(id));
+});
+
+test('a database that already holds other ended jobs (fixtures of another owner) is left alone', async () => {
+  const other = await fx.makeUser('moderator');
+  const foreign = await makeEndedJob(other);
+  const { ownerId, token } = await makeOwner();
+  await makeEndedJob(ownerId);
+  const fake = fakeMessaging();
+  const moderator = fakeModeratorDeps();
+  await announceEndedJobs({ ...fake, moderatorDeps: moderator.deps, now: NOW });
+  assert.equal(mine(fake.sent, token).length, 1);
+  assert.equal(moderator.claims(), 0, 'the foreign moderator owner was never mailed');
+  assert.equal(await notifiedAt(foreign), null, 'and its job was never stamped');
 });

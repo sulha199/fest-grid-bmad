@@ -14,6 +14,7 @@ import { db } from '../../db/client.js';
 import { loadBackendEnv } from '../../env.js';
 import { notifyAllModerators, type NotifyModeratorsDeps } from '../notifications/notify-all-moderators.js';
 import { getMessagingClient, reportErrorSilently } from '../notifications/send-event-notifications.js';
+import { newUserSettingsValues } from '../user-settings/new-user-settings-values.js';
 import { readEndedJobSubjects } from './read-jobs.js';
 
 // Story 10.13 (notify when a job finishes; PRD 3.18 FR124, FR130; Architecture Spine AD-53) -- THE ONE announcer. A job reaches a terminal
@@ -36,16 +37,26 @@ export interface AnnounceEndedJobsDeps {
   /** Passed to the moderator helper (tests never reach SES). */
   moderatorDeps?: NotifyModeratorsDeps;
   now?: Date;
+  /** Test seam: only these owners' jobs are looked at (a test run on a shared database never touches other rows). Production passes nothing. */
+  onlyOwnerIds?: string[];
+}
+
+let defaultDepsForTests: AnnounceEndedJobsDeps | null = null;
+/** Test seam: the deps a bare `announceEndedJobs()` (the sweep step) uses, so a test that runs the real sweep stays on its own rows and fakes. `null` restores production. */
+export function setDefaultAnnounceDepsForTests(deps: AnnounceEndedJobsDeps | null): void {
+  defaultDepsForTests = deps;
 }
 
 type PushOutcome = 'sent' | 'failed';
 type MailOutcome = 'done' | 'failed';
 
 /** Returns how many notice groups were sent (a push or a mail) in this run. */
-export async function announceEndedJobs(deps: AnnounceEndedJobsDeps = {}): Promise<number> {
+export async function announceEndedJobs(deps: AnnounceEndedJobsDeps = defaultDepsForTests ?? {}): Promise<number> {
   const env = loadBackendEnv();
   const now = deps.now ?? new Date();
   const terminal = [...JOB_TERMINAL_STATUSES];
+  // USER jobs only (FR130): a system job is never announced or stamped, even if a row somehow carries an owner.
+  const scope = [eq(jobs.trigger, 'USER'), isNotNull(jobs.ownerUserId), ...(deps.onlyOwnerIds ? [inArray(jobs.ownerUserId, deps.onlyOwnerIds)] : [])];
 
   // Past the max age: handled with no notice (the first run after a deploy and an outage); one guarded UPDATE, no rows read.
   await db
@@ -53,7 +64,7 @@ export async function announceEndedJobs(deps: AnnounceEndedJobsDeps = {}): Promi
     .set({ ownerNotifiedAt: now })
     .where(
       and(
-        isNotNull(jobs.ownerUserId),
+        ...scope,
         inArray(jobs.status, terminal),
         isNull(jobs.ownerNotifiedAt),
         lt(jobs.finishedAt, new Date(now.getTime() - env.jobNotifyMaxAgeMinutes * 60_000))
@@ -63,7 +74,7 @@ export async function announceEndedJobs(deps: AnnounceEndedJobsDeps = {}): Promi
   const pending = await db
     .select({ id: jobs.id, type: jobs.type, ownerUserId: jobs.ownerUserId, finishedAt: jobs.finishedAt })
     .from(jobs)
-    .where(and(isNotNull(jobs.ownerUserId), inArray(jobs.status, terminal), isNull(jobs.ownerNotifiedAt), isNotNull(jobs.finishedAt)))
+    .where(and(...scope, inArray(jobs.status, terminal), isNull(jobs.ownerNotifiedAt), isNotNull(jobs.finishedAt)))
     .orderBy(jobs.finishedAt, jobs.id)
     .limit(JOBS_PER_BATCH);
   if (pending.length === 0) return 0;
@@ -77,7 +88,7 @@ export async function announceEndedJobs(deps: AnnounceEndedJobsDeps = {}): Promi
   const ownerIds = [...byOwner.keys()].slice(0, OWNERS_PER_RUN);
 
   const [owners, settings, tokenRows] = await Promise.all([
-    db.select({ id: users.id, role: users.role, createdAt: users.createdAt }).from(users).where(and(inArray(users.id, ownerIds), activeOnly(users))),
+    db.select({ id: users.id, role: users.role }).from(users).where(and(inArray(users.id, ownerIds), activeOnly(users))),
     db
       .select({ userId: userSettings.userId, pushEnabled: userSettings.pushNotificationsEnabled, lastJobPushAt: userSettings.lastJobPushAt })
       .from(userSettings)
@@ -159,7 +170,7 @@ export async function announceEndedJobs(deps: AnnounceEndedJobsDeps = {}): Promi
       }
       if (pushOutcome === 'sent' || mailSent) {
         groupsSent += 1;
-        await recordNoticeSent(ownerId, now, owner.createdAt);
+        await recordNoticeSent(ownerId, now);
       }
       if (!handled) await release(claimed);
     } catch (error) {
@@ -195,11 +206,11 @@ async function release(ids: string[]): Promise<void> {
 }
 
 /** `last_job_push_at` is the merge-window state for the push and the moderator mail alike. The row is created when a user has none. */
-async function recordNoticeSent(ownerId: string, now: Date, ownerCreatedAt: Date): Promise<void> {
+async function recordNoticeSent(ownerId: string, now: Date): Promise<void> {
   await db
     .insert(userSettings)
-    // A new row's badge watermark is the account's creation, so the row this creates never hides jobs the user has not seen.
-    .values({ userId: ownerId, lastJobPushAt: now, jobsLastOpenedAt: ownerCreatedAt })
+    // A new row's badge watermark is the account's creation (the one helper), so the row this creates never hides jobs the user has not seen.
+    .values(newUserSettingsValues(ownerId, { lastJobPushAt: now }))
     .onConflictDoUpdate({ target: userSettings.userId, set: { lastJobPushAt: now } });
 }
 
@@ -215,9 +226,19 @@ async function buildNoticeInput(group: Array<{ id: string; type: string }>): Pro
   };
 }
 
+const INVALID_TOKEN_CODES = ['messaging/invalid-registration-token', 'messaging/registration-token-not-registered'];
+
+/**
+ * 'sent' when the push went out, 'failed' when the claim must be released and the next run retries. `sendEachForMulticast` resolves normally
+ * even when every token failed, so a batch counts as failed when NONE of its tokens succeeded and a failure was not an invalid-token code (a
+ * transient code: unavailable, quota, internal). A batch whose only failures are dead tokens is fine (they are deleted; nothing is
+ * deliverable). Several batches: once any batch was delivered a later failing batch ends the push as 'sent' (a retry would push the earlier
+ * devices twice; the owner has been told, only some later devices were missed, and it is logged).
+ */
 async function sendPush(messaging: Messaging | null, tokens: string[], input: JobFinishedNoticeInput): Promise<PushOutcome> {
   if (!messaging) return 'failed';
   const content = buildJobFinishedPush(input);
+  let deliveredAny = false;
   for (let i = 0; i < tokens.length; i += FCM_BATCH_SIZE) {
     const batch = tokens.slice(i, i + FCM_BATCH_SIZE);
     try {
@@ -227,18 +248,29 @@ async function sendPush(messaging: Messaging | null, tokens: string[], input: Jo
         data: content.data,
       });
       const invalid: string[] = [];
+      let succeeded = 0;
+      let transientFailures = 0;
       result.responses.forEach((response, index) => {
-        const code = response.error?.code;
-        if (!response.success && (code === 'messaging/invalid-registration-token' || code === 'messaging/registration-token-not-registered')) {
-          invalid.push(batch[index]);
+        if (response.success) {
+          succeeded += 1;
+          return;
         }
+        const code = response.error?.code;
+        if (code && INVALID_TOKEN_CODES.includes(code)) invalid.push(batch[index]);
+        else transientFailures += 1;
       });
       if (invalid.length > 0) {
         console.log(`[job-announcer] deleting ${invalid.length} invalid or inactive device token(s)`);
         await db.delete(fcmTokens).where(inArray(fcmTokens.token, invalid));
       }
+      if (succeeded > 0) deliveredAny = true;
+      else if (transientFailures > 0) throw new Error(`no device accepted the push (${transientFailures} transient failure(s))`);
     } catch (error) {
-      console.error('[job-announcer] FCM batch dispatch failed:', error instanceof Error ? error.message : 'unknown error');
+      console.error('[job-announcer] FCM batch failed:', error instanceof Error ? error.message : 'unknown error');
+      if (deliveredAny) {
+        console.error('[job-announcer] an earlier batch was delivered; not retrying so no device is pushed twice');
+        return 'sent';
+      }
       return 'failed';
     }
   }
