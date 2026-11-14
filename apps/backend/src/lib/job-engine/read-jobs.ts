@@ -11,6 +11,7 @@ import {
   listRegisteredPresentationTypes,
   queuePosition,
   type JobGraphqlType,
+  type JobNoticeSubject,
 } from '@festgrid/domain/jobs';
 import { parsePlatformPostIdentity } from '@festgrid/domain/scraper';
 import { db } from '../../db/client.js';
@@ -264,6 +265,36 @@ async function toJobViews(rows: JobRowProjection[], viewer: JobViewer, requested
   const env = loadBackendEnv();
   const context = { viewer: { userId: viewer.userId, isModerator: viewer.role === 'moderator' }, now, maxConcurrent: env.maxConcurrentJobsPerUser, queueMaxWaitMinutes: env.jobQueueMaxWaitMinutes, lookups, requested, defaultPreviewImageCap: env.maxReextractCarouselImages };
   return rows.map((row) => mapJobRow(row, context));
+}
+
+/**
+ * Story 10.13 -- what each ended job is about, for the push and mail text of the announcer: the account handle (an ACCOUNT job) or the
+ * number of posts (a POSTS job, or 1 for a POST job). Read through the same named input paths and account lookup as the Jobs reads
+ * (never `jobs.input` whole, never a caption or a URL). A job with no resolvable subject maps to no handle and no count.
+ */
+export async function readEndedJobSubjects(rows: ReadonlyArray<{ id: string; type: string }>): Promise<Map<string, JobNoticeSubject>> {
+  const result = new Map<string, JobNoticeSubject>();
+  if (rows.length === 0) return result;
+  const paths = await db
+    .select({
+      id: jobs.id,
+      inputAccountId: sql<string | null>`${inputJson} ->> 'accountId'`,
+      inputPostCount: sql<number | null>`case when jsonb_typeof(${inputJson} -> 'postIds') = 'array' then jsonb_array_length(${inputJson} -> 'postIds') end`,
+    })
+    .from(jobs)
+    .where(inArray(jobs.id, rows.map((row) => row.id)));
+  const byId = new Map(paths.map((row) => [row.id, row]));
+  const accounts = await loadAccounts(paths.map((row) => row.inputAccountId).filter((id): id is string => id !== null));
+  for (const row of rows) {
+    const kind = getJobTypePresentation(row.type).subjectKind;
+    const read = byId.get(row.id);
+    let subject: JobNoticeSubject = { handle: null, postCount: null };
+    if (kind === 'ACCOUNT' && read?.inputAccountId) subject = { handle: accounts.get(read.inputAccountId)?.username ?? null, postCount: null };
+    else if (kind === 'POSTS') subject = { handle: null, postCount: read?.inputPostCount ?? null };
+    else if (kind === 'POST') subject = { handle: null, postCount: 1 };
+    result.set(row.id, subject);
+  }
+  return result;
 }
 
 /** `Query.job`: null for a missing id, someone else's job, a system job (ordinary user) or a job past retention. */

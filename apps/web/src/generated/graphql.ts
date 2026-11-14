@@ -854,6 +854,7 @@ export type ModeratorAccountProfileFilters = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  acknowledgeJobEnded: Scalars['Boolean']['output'];
   applyPostReextraction: ApplyPostReextractionResult;
   castVote: AccountVote;
   clearAccountDefaultLocation: SocialMediaAccountProfile;
@@ -870,6 +871,7 @@ export type Mutation = {
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
+  markJobsOpened: Scalars['Boolean']['output'];
   markSubscriptionViewed: Subscription;
   previewPostReextraction: StartPostReextractionPreviewResult;
   registerEmbedDomain: EmbedDomain;
@@ -927,6 +929,11 @@ export type Mutation = {
   updateUserTimezone: Scalars['Boolean']['output'];
   updateWidget: Widget;
   withdrawVote: AccountVote;
+};
+
+
+export type MutationAcknowledgeJobEndedArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -1398,6 +1405,7 @@ export type Query = {
   instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
   job?: Maybe<Job>;
+  jobsFinishedSinceLastOpened: Scalars['Int']['output'];
   me: Me;
   /**
    * Combined count of items awaiting moderator action across Moderator Items

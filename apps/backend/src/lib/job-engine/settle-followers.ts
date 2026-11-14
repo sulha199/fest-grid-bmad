@@ -25,6 +25,8 @@ export async function settleFollowers(leaderJobId: string): Promise<number> {
       workerClaimedAt: null,
       resumeAt: null,
       finishedAt: leader.finishedAt ?? now,
+      // Story 10.13: the follower has its own owner, who is told when the follower ends (and again if a revival re-settles it).
+      ownerNotifiedAt: null,
       updatedAt: now,
     })
     .where(

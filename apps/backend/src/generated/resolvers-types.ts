@@ -823,6 +823,7 @@ export type ModeratorAccountProfileFilters = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  acknowledgeJobEnded: Scalars['Boolean']['output'];
   applyPostReextraction: ApplyPostReextractionResult;
   castVote: AccountVote;
   clearAccountDefaultLocation: SocialMediaAccountProfile;
@@ -839,6 +840,7 @@ export type Mutation = {
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
+  markJobsOpened: Scalars['Boolean']['output'];
   markSubscriptionViewed: Subscription;
   previewPostReextraction: StartPostReextractionPreviewResult;
   registerEmbedDomain: EmbedDomain;
@@ -896,6 +898,11 @@ export type Mutation = {
   updateUserTimezone: Scalars['Boolean']['output'];
   updateWidget: Widget;
   withdrawVote: AccountVote;
+};
+
+
+export type MutationAcknowledgeJobEndedArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -1364,6 +1371,7 @@ export type Query = {
   instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
   job?: Maybe<Job>;
+  jobsFinishedSinceLastOpened: Scalars['Int']['output'];
   me: Me;
   /**
    * Combined count of items awaiting moderator action across Moderator Items
@@ -2854,6 +2862,7 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
 }>;
 
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
+  acknowledgeJobEnded?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationAcknowledgeJobEndedArgs, 'jobId'>>;
   applyPostReextraction?: Resolver<ResolversTypes['ApplyPostReextractionResult'], ParentType, ContextType, RequireFields<MutationApplyPostReextractionArgs, 'jobId'>>;
   castVote?: Resolver<ResolversTypes['AccountVote'], ParentType, ContextType, RequireFields<MutationCastVoteArgs, 'input'>>;
   clearAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationClearAccountDefaultLocationArgs, 'accountId'>>;
@@ -2870,6 +2879,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   editAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationEditAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   extractEventDataFromUrl?: Resolver<ResolversTypes['ExtractEventDataFromUrlResult'], ParentType, ContextType, RequireFields<MutationExtractEventDataFromUrlArgs, 'url'>>;
   ignoreSubsequentReports?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationIgnoreSubsequentReportsArgs, 'reportId'>>;
+  markJobsOpened?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   markSubscriptionViewed?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationMarkSubscriptionViewedArgs, 'subscriptionId'>>;
   previewPostReextraction?: Resolver<ResolversTypes['StartPostReextractionPreviewResult'], ParentType, ContextType, Partial<MutationPreviewPostReextractionArgs>>;
   registerEmbedDomain?: Resolver<ResolversTypes['EmbedDomain'], ParentType, ContextType, RequireFields<MutationRegisterEmbedDomainArgs, 'pattern' | 'widgetId'>>;
@@ -3026,6 +3036,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   instagramEmbedBySlug?: Resolver<ResolversTypes['InstagramEmbedBySlug'], ParentType, ContextType, RequireFields<QueryInstagramEmbedBySlugArgs, 'slug'>>;
   isOriginAllowedForWidget?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsOriginAllowedForWidgetArgs, 'origin' | 'widgetId'>>;
   job?: Resolver<Maybe<ResolversTypes['Job']>, ParentType, ContextType, RequireFields<QueryJobArgs, 'id'>>;
+  jobsFinishedSinceLastOpened?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   moderatorPendingItemCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   myAIEventFilters?: Resolver<Array<ResolversTypes['AIEventFilter']>, ParentType, ContextType>;
