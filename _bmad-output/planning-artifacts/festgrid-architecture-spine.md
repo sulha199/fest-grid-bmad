@@ -3821,6 +3821,74 @@ This document defines the core architectural invariants for the FestDaily applic
     (domain), `post-scraper.test.ts`, `brightdata-post-adapter.test.ts`, `record-job-attempt.test.ts`, the quota-memory tests in
     `usage-store.test.ts` and `transient-classifiers.test.ts`; Story 10.14z adds the ratchets.
 
+### AD-54: Every Moderator Notification Goes Through One Templated, Throttled, Escaping Helper
+
+*   **Binds:** `apps/backend/src/lib/notifications/notify-all-moderators.ts` (`notifyAllModerators`);
+    `packages/domain/src/email/render-template.ts` and `escape-html.ts`; `packages/domain/src/email/moderator-notification.ts`
+    (the template keys, review paths, default throttle entities and the typed result);
+    `apps/backend/src/lib/alerts/alert-email-budget-store.ts` and the table `alert_email_rate_limits` (no migration);
+    the setting `MODERATOR_NOTIFY_COOLDOWN_MINUTES`; the five moderator template keys
+    `DANGEROUS_EVENT_MODERATOR_ALERT`, `DEFAULT_LOCATION_CHANGE_AWAITING_APPROVAL_ALERT`,
+    `DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT`, `SCRAPER_AUDIT_TRAIL_FAILURE_ALERT` and
+    `SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT`. Covers BUG-003 (no email when a location change enters AWAITING_APPROVAL),
+    FIND-020 (the scraper audit-trail alert lacks throttling and dedup) and FIND-021 (render-template.ts has no
+    HTML-escaping). Consumes the fixed-window rule shared with the AI-filter limiter (`evaluatePromptFilterRateLimit`) and the public-mutation budget precedent
+    (`Mutation.reportSystemError`); consumes AD-8 (`activeOnly`). Epic 0.i1, Story 0.i1a (build the notifyAllModerators
+    helper with escaped, throttled templates).
+*   **Prevents:** a call site that looks up moderators, fans out or builds `moderatorReviewUrl` by itself (it was copied
+    into five places); a template that puts scraper- or user-influenced text into a moderator's inbox unescaped
+    (database error text, a post URL, an event name); a header-injected subject; the same alert sent on every
+    occurrence, so a failing write floods the inbox; a moderator-only mail reaching an ordinary user through a
+    single-recipient call; a mail dropped because the Lambda froze after the response.
+*   **Rule:**
+    1.  **One helper.** `notifyAllModerators(templateKey, vars, options?)` is the only code that looks up moderators or
+        builds `moderatorReviewUrl` (from `WEB_APP_BASE_URL` and the template's path in `MODERATOR_REVIEW_PATHS`). A caller
+        passes the template's variables without the URL; passing one is a type error and is overwritten at runtime.
+        The lookup reads active moderators only (`activeOnly(users)`).
+    2.  **Every template escapes.** `renderEmailTemplate` escapes every interpolated value in the `html` part
+        (`escapeHtml`), removes line breaks and control characters from the `subject` (`sanitizeSubjectValue`) and leaves
+        the `text` part unchanged. It applies to every template key with no opt-in, so a template added later is escaped
+        by construction. A URL variable placed in `href` is protected against attribute break-out only, not against a
+        `javascript:` scheme: every URL variable today is built by the server, and a template that takes a URL from
+        untrusted text needs a scheme check at its call site.
+    3.  **Throttled per template and entity.** Before any send the helper claims one slot in `alert_email_rate_limits`
+        through `takeAlertEmailBudget(key, { maxSends: 1, windowMinutes })`, key
+        `moderator-notify:{templateKey}:{first 32 hex of sha256 of the entity}` (the entity text is hashed, never stored).
+        The window is `MODERATOR_NOTIFY_COOLDOWN_MINUTES`, default 60, a FIXED window opened by the first send, not a
+        sliding one. The entity is the caller's `entityKey` or the template's rule in
+        `MODERATOR_NOTIFICATION_ENTITY_KEYS` (the audit trail uses `source`, never `message` or `context`). A
+        database error while claiming sends nothing (fail closed). The claim is released when every send fails, so a
+        mail nobody received does not silence the next occurrence; it is kept when at least one send succeeded. Rows older
+        than 30 days are pruned best effort, matching only `moderator-notify:` keys.
+    4.  **Single-recipient mode.** `options.recipientUserId` notifies only that user, and only if they are an active
+        moderator; any other id is refused (`refused_not_moderator`), nothing is sent and no slot is spent. The slot is per
+        template, entity and recipient. Story 10.13 (notify when a job finishes) is its first user.
+    5.  **Typed result, awaited, quiet.** The helper never throws and returns `sent`, `failed`, `throttled`,
+        `no_moderators`, `refused_not_moderator` or `error` (stage `lookup` or `throttle`). The send is awaited, never
+        fire-and-forget (the API and AI-processor Lambdas freeze after the response). A log line holds the template key,
+        the status and counts, and a user id on a failed send, never an address, a name or a variable value.
+    6.  **Adoption.** Moved in Story 0.i1a: the dangerous-report alert (throttle entity: the event id) and the scraper
+        provider-down alert (entity: the provider). Moves next: the two location-change alerts in Story 0.i1b (send the
+        missing AWAITING_APPROVAL location-change notification) and the audit-trail alert in Story 0.i1c (route the
+        scraper audit-trail alert through the shared helper). Story 10.13 adds its own template key, review path and entity
+        rule (the exhaustive Records fail the type check until it does).
+    7.  **Not covered here.** `SYSTEM_ERROR_ALERT` (one fixed address, its own budget in `Mutation.reportSystemError`) and
+        the user-facing mails (`QUOTA_EXHAUSTION_WARNING`, `INVALID_API_KEY_ALERT`) are not moderator notifications. FIND-020's
+        residual stays unresolved: the audit-trail alert depends on the same database it may be reporting on, and a
+        database error in the throttle means it is not sent. The repo-wide ratchet that no file bypasses the helper is
+        Story 0.i1z.
+*   **Rejected:** a dedicated throttle table (a migration, a second concurrency mechanism, and a clash in numbering with
+    Story 10.13's migration); a sliding "last sent at" cooldown (needs a column the shared table lacks); a CloudWatch alarm
+    and SNS topic (Story 3.4q chose the database-backed path); failing open when the throttle cannot be read (a flood is the
+    worse failure); escaping the `text` part (it would show `&amp;` to the reader).
+*   **Enforced by:** `render-template.escaping.test.ts` (every template with a script-bearing payload, and the named
+    dangerous-report and audit-trail cases), `moderator-notification.test.ts` (every template that links to the review page
+    is a moderator template and has a path and an entity rule), `notify-all-moderators.test.ts` and
+    `notify-all-moderators.integration.test.ts` (fan-out, URL, throttle, release, single mode, rendering through the helper),
+    `alert-email-budget-store.test.ts` (compare-and-swap under five parallel calls, release, prune), the adapter test for
+    the SES `Html.Data` and `Text.Data` split; Story 0.i1z adds the sweep. Numbering checked on all nine local branches on
+    2026-11-14: AD-53 was the highest.
+
 ---
 
 ## Related Documents
