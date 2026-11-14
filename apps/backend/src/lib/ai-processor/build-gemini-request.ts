@@ -4,6 +4,9 @@ import {
   POST_GROUPING_REASONS,
   POST_PLAN_SLIDE_ROLES,
   type AiImageInput,
+  type ReextractFetchedImageState,
+  type ReextractImageOutcomes,
+  classifyUnreadImage,
   dedupeImageUrlsByFileName,
 } from '@festgrid/domain/posts';
 import { DayOfWeek } from '@festgrid/domain/events';
@@ -203,6 +206,9 @@ export interface BuildGeminiExtractionRequestResult {
   // (cover included) the first window covers. A stepped extraction continues from them (AD-47).
   unreadImageUrls: string[];
   firstWindowImageCount: number;
+  // Story 10.6a -- what became of each image, in order: the cover, the slides tried and the count of slides beyond the cap. No URL
+  // leaves this function (the unread links are classified inside it). Existing callers ignore it.
+  imageOutcomes: ReextractImageOutcomes;
 }
 
 export interface BuildGeminiExtractionRequestOptions {
@@ -228,6 +234,9 @@ export interface BuildGeminiExtractionRequestOptions {
   // ingestion's request shape, aiImageInput and thumbnail/blur bookkeeping stay exactly as before:
   // a slides-only request would carry aiImageInput 'blurred' with no cover bytes for them to read.
   slidesWhenCoverFails?: boolean;
+  // Story 10.6a -- moderator re-extract only. The stored post's `image_url_expires_at`: the cover's fallback expiry when its link has no `oe`
+  // parameter, so a failed cover reads as expired exactly when the refresh rule (`postImagesNeedRefresh`) calls it expired.
+  coverExpiresAt?: Date | null;
 }
 
 export async function buildGeminiExtractionRequest(
@@ -362,6 +371,16 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
 
   let slideFailedClosed = false;
 
+  // Story 10.6a -- one outcome per image. A slide that is never attempted (the cover failed and `slidesWhenCoverFails` is off, or the
+  // cover's blur failed closed so the request went text-only) counts as unavailable; a failed fetch or blur is classified by the
+  // image's own link expiry. The read outcomes are set only where an image is inlined, so their number equals `imagesSent`.
+  const coverUrl = message.imageUrl || undefined;
+  let coverOutcome: ReextractFetchedImageState | null = coverUrl ? 'NOT_READ_UNAVAILABLE' : null;
+  const slideOutcomes: ReextractFetchedImageState[] = dedupedAdditionalImageUrls
+    .slice(0, options?.maxCarouselImages ?? env.maxCarouselImages)
+    .map(() => 'NOT_READ_UNAVAILABLE');
+  const unreadOutcome = (url: string, storedExpiry: Date | null = null): ReextractFetchedImageState => classifyUnreadImage(url, new Date(), storedExpiry);
+
   // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request,
   // in slide order, stopping at the cap (MAX_CAROUSEL_IMAGES, or the caller's override). AD-13:
   // batched not sequential -- a carousel post still costs exactly one Gemini call. Each slide is
@@ -378,11 +397,13 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
         const slideResponse = await fetch(slideUrl);
         if (!slideResponse.ok) {
           console.error(`Carousel slide-fetch failed for post ${message.postId} (image index ${slideIndex + 1}, status ${slideResponse.status}); skipping slide`, slideUrl);
+          slideOutcomes[slideIndex] = unreadOutcome(slideUrl);
           continue;
         }
         const slideContentType = slideResponse.headers.get('content-type') || 'image/jpeg';
         if (!slideContentType.startsWith('image/')) {
           console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId} (image index ${slideIndex + 1})`, slideUrl);
+          slideOutcomes[slideIndex] = unreadOutcome(slideUrl);
           continue;
         }
         const slideArrayBuffer = await slideResponse.arrayBuffer();
@@ -414,11 +435,13 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
             data: slideDataForRequest
           }
         });
+        slideOutcomes[slideIndex] = 'READ';
       } catch (error) {
         // Best-effort: skip only this slide (whether the failure was the fetch or the blur);
         // the cover and all other successfully-processed slides remain in the request (AC2/AC3).
         // Only a failed BLUR is fail-closed; a fetch error is just a missing slide.
         if (blurAttempted) slideFailedClosed = true;
+        slideOutcomes[slideIndex] = unreadOutcome(slideUrl);
         console.error(`Carousel slide-fetch/blur failed for post ${message.postId} (image index ${slideIndex + 1}); skipping slide`, slideUrl, error);
       }
     }
@@ -488,12 +511,14 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
           }
         }
       ];
+      coverOutcome = 'READ';
 
       // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request
       // (see appendSlideImages above).
       await appendSlideImages();
     } catch (error) {
       console.error(`Multimodal extraction image processing failed for post ${message.postId} (image index 0, cover):`, error);
+      coverOutcome = unreadOutcome(message.imageUrl!, options?.coverExpiresAt ?? null);
       // Fallback to text-only caption extraction. Never the original, unblurred cover bytes
       // (AC3) -- `contents` is reset to the caption text only.
       contents = captionWithAccountContext;
@@ -530,6 +555,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     imagesAvailable: (message.imageUrl ? 1 : 0) + dedupedAdditionalImageUrls.length,
     imagesSent: Array.isArray(contents) ? contents.length - 1 : 0,
     unreadImageUrls,
-    firstWindowImageCount: dedupedImageUrls.length - unreadImageUrls.length
+    firstWindowImageCount: dedupedImageUrls.length - unreadImageUrls.length,
+    imageOutcomes: { cover: coverOutcome, slides: slideOutcomes, overCapSlides: unreadImageUrls.length }
   };
 }

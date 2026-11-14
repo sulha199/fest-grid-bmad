@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { JobProgressView, PageContainer, PageHeader, getJobSignature, useJobClock } from '@festgrid/ui';
 import { useAuthSession } from '@/components/providers/auth-session-provider';
 import { Link, useRouter } from '@/i18n/navigation';
-import { useRetryJobMutation } from '@/generated/graphql';
+import { JobType, useRetryJobMutation } from '@/generated/graphql';
 import { graphqlClient } from '@/lib/graphql-client';
 import { useJobAnnouncer } from '@/features/jobs/job-announcer-provider';
 import { trackJobRetryClicked } from '@/features/jobs/job-analytics';
@@ -16,6 +16,7 @@ import { mapJobStartError, type JobStartFailure } from '@/features/jobs/job-star
 import { useJobDetail } from '@/features/jobs/use-job-detail';
 import { useJobLabels } from '@/features/jobs/use-job-labels';
 import { useAnnounceReconnecting } from '@/features/jobs/use-announce-reconnecting';
+import { OpenReextractPreview } from '@/features/moderation/reextract-open-preview';
 import { JobTechnicalDetails } from './job-technical-details';
 
 /**
@@ -76,6 +77,16 @@ export function JobDetailContent({ jobId }: { jobId: string }) {
   if (!session) return null;
 
   const viewState = state === 'idle' ? 'loading' : state;
+  const canOpenReextractPreview =
+    !!job && !!raw && raw.type === JobType.ReextractRefresh && !!raw.moderatorDetails && job.outcome?.kind === 'PREVIEW' && (job.status === 'SUCCEEDED' || job.status === 'SUCCEEDED_WITH_LIMITS');
+  const accountAction = job && raw ? defaultResultAction(job, raw.subject, t('outcome.openAccount')) : null;
+  const resultAction =
+    job && (accountAction || canOpenReextractPreview) ? (
+      <>
+        {accountAction}
+        {canOpenReextractPreview && <OpenReextractPreview jobId={job.id} />}
+      </>
+    ) : null;
   const showLateNote = !!job && job.completedAfterDeadline && job.status !== 'SUCCEEDED' && job.status !== 'SUCCEEDED_WITH_LIMITS';
   const startMs = job?.startedAt ? new Date(job.startedAt).getTime() : NaN;
   const endMs = job?.finishedAt ? new Date(job.finishedAt).getTime() : NaN;
@@ -100,8 +111,9 @@ export function JobDetailContent({ jobId }: { jobId: string }) {
         onRetryLoad={detail.refetch}
         onRetry={retry}
         retryPending={retryMutation.isPending}
-        // SLOT (Story 10.6a, Re-extract progress, missing-images banner and Retry): "Open the preview" for a Re-extract job joins the result link here.
-        resultAction={job && raw ? defaultResultAction(job, raw.subject, t('outcome.openAccount')) : null}
+        // Story 10.6a (show the Re-extract progress, the missing-images banner and Retry): "Open the preview" for an ended Re-extract job that has a preview, seen by a
+        // moderator (the server sends `moderatorDetails` only to one), joins the result link here. Another moderator's preview reads "not available to you" in the dialog.
+        resultAction={resultAction}
         // Story 10.3a (show the subscription cap refusal and the upgrade call to action): a cap refusal renders the real notice inside the failure notice.
         notice={retryFailure ? <JobRetryFailureNotice failure={retryFailure} accountId={raw?.subject?.accountId} username={raw?.subject?.username} /> : null}
         notFoundAction={

@@ -76,6 +76,10 @@ content = content.replace(/export type ExtractionJobState =[\s\S]*?;\r?\n/g, '')
 content = content.replace(/export type JobAttemptOutcome =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type JobProvider =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type JobOutcomeKind =[\s\S]*?;\r?\n/g, '');
+// Story 10.6a: the refresh report's enums, re-declared once the Re-extract report document selects them.
+content = content.replace(/export type JobImageRole =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobImageState =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobRefreshOutcome =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type JobReasonCode =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type JobStartErrorCode =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type JobStatus =[\s\S]*?;\r?\n/g, '');

@@ -5,7 +5,7 @@ import type { GeminiEventPayload } from '@festgrid/domain/events';
 import { transformGeminiResponseToEventInfo } from '@festgrid/domain/events';
 import { matchesChildrensDataKeywordFilter } from '@festgrid/domain/events';
 import { parsePlatformPostIdentity } from '@festgrid/domain/scraper';
-import type { ProcessingJobMessage, ReextractionPreviewResult } from '@festgrid/domain/posts';
+import { buildReextractImageReport, type ProcessingJobMessage, type ReextractImageOutcomes, type ReextractionPreviewResult } from '@festgrid/domain/posts';
 import type { DbExecutor } from '../events/set-event-primary-post.js';
 import { evaluateIngestionMatch, type IngestionSourcePost } from '../ingestor/evaluate-ingestion-match.js';
 
@@ -31,6 +31,9 @@ export interface BuildReextractionPreviewInput {
   /** BUG-099 -- from the Gemini request builder: images the post lists / images actually sent. */
   imagesAvailable: number;
   imagesSent: number;
+  /** Story 10.6a -- what became of each image, and the slide cap the request used. Both are kept on the preview (no URL). */
+  imageOutcomes?: ReextractImageOutcomes;
+  imageCap?: number;
 }
 
 /** The post as ingestion sees it (with the in-memory platform-identity healing, minus the write). Shared with Apply. */
@@ -132,6 +135,7 @@ export async function buildReextractionPreview(input: BuildReextractionPreviewIn
     rescraped,
     imagesAvailable: input.imagesAvailable,
     imagesSent: input.imagesSent,
+    ...(input.imageOutcomes ? { images: buildReextractImageReport(input.imageOutcomes), imageCap: input.imageCap } : {}),
     events: previewEvents,
     // AD-40 (Apply): what a later Apply needs, with the one caption-derived fact computed now, while
     // the caption exists. The caption itself is never kept.

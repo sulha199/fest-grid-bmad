@@ -24,3 +24,35 @@ test('read-jobs.ts, retry-job.ts and job-read-mappers.ts never select input, res
     assert.ok(!/\bselect\(\)\s*\.from\(jobs\)/.test(text), `${name}: db.select() with no column list on jobs would read every column`);
   }
 });
+
+// Story 10.6a (AC2) -- `Job.refresh` reads `result_data` through these named paths and no other, only for a moderator who selected `refresh`,
+// and the mapper copies `images` field by field. The set of paths is pinned so a new one is a deliberate edit of this list.
+test('every use of the result_data helper is a named path, and the refresh paths are the pinned set behind the moderator and selection guard', () => {
+  for (const { name, text } of files) {
+    const code = text.split('\n').filter((line) => !line.trim().startsWith('//') && !line.trim().startsWith('*') && !line.trim().startsWith('/*'));
+    for (const line of code) {
+      for (const match of line.matchAll(/\$\{(resultJson|inputJson)\}(.{0,12})/g)) {
+        assert.match(match[2], /^( #>> '\{|  ?#> '\{| ->> '| -> '|\) )/, `${name}: ${match[1]} used without a named path: ${line.trim()}`);
+      }
+    }
+  }
+  const read = files.find((f) => f.name === 'read-jobs.ts')!.text;
+  const start = read.indexOf("if (viewer.role === 'moderator' && wants('refresh')) {");
+  assert.ok(start > 0, 'the refresh block is guarded by the moderator check and the selection');
+  const block = read.slice(start, read.indexOf('\n  }\n', start));
+  const paths = [...block.matchAll(/\$\{resultJson\} (#>>?) '(\{[^']*\})'/g)].map((m) => `${m[1]} ${m[2]}`);
+  assert.deepEqual(paths, [
+    "#>> {refresh,outcome}",
+    "#>> {refresh,saved}",
+    "#>> {refresh,lateResultPending}",
+    "#>> {refresh,retryAfter}",
+    "#>> {refresh,expiredLinks}",
+    "#>> {imagesAvailable}",
+    "#>> {imagesSent}",
+    "#>> {imageCap}",
+    "#> {images}",
+  ]);
+  const mappers = files.find((f) => f.name === 'job-read-mappers.ts')!.text;
+  assert.ok(/export function mapRefreshImages/.test(mappers) && /const \{ position, role, state \} = entry/.test(mappers), 'images are copied field by field');
+  assert.ok(!/\.\.\.entry\b|\.\.\.row\b/.test(mappers.slice(mappers.indexOf('export function mapRefreshImages'), mappers.indexOf('function mapSubject'))), 'no spread of a stored entry into the response');
+});

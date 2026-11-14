@@ -151,7 +151,21 @@ test.describe('moderator', () => {
   test.skip(!moderatorState, 'Set E2E_FAKE_AUTH=1 (or E2E_AUTH_MODERATOR_STORAGE_STATE) to run moderator routes.');
   if (moderatorState) test.use({ storageState: moderatorState });
 
-  describeRoutes('moderator', ['/en/moderator/items', EVENT_ROUTE, '/en/jobs'], { signedIn: true });
+  // Story 10.6a (show the Re-extract progress, the missing-images banner and Retry): the moderator event pages whose source-post row is a chip (a finished
+  // preview, an over-the-cap carousel, a cooldown and a running job) and a Re-extract job's own page with "Open the preview". The Re-extract tab of Moderator Tools is measured by the every-tab test below.
+  describeRoutes(
+    'moderator',
+    [
+      '/en/moderator/items',
+      EVENT_ROUTE,
+      '/en/jobs',
+      '/en/events/cancellation-threshold-test-fixed',
+      '/en/events/upcoming-family-workshop-2027-fixed',
+      '/en/events/past-jazz-night-2025-fixed',
+      `/en/jobs/${FIXTURE_JOB_IDS.moderatorPreviewLimits}`,
+    ],
+    { signedIn: true }
+  );
 
   test('moderator: a job detail with its technical details open has no page-level horizontal overflow', async ({ page }) => {
     const pageErrors = trackPageErrors(page);

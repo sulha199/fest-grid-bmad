@@ -1,5 +1,5 @@
 import { stripMalformedLocationKeywords } from '@festgrid/domain/events';
-import type { ProcessingJobMessage } from '@festgrid/domain/posts';
+import type { ProcessingJobMessage, ReextractImageOutcomes } from '@festgrid/domain/posts';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
@@ -38,6 +38,8 @@ export interface ExtractEventsInput {
   requestedByUserId: string;
   /** A re-extract preview reads more slides and keeps trying them when the cover link has expired (BUG-099). */
   isPreview: boolean;
+  /** Story 10.6a: the stored post's `image_url_expires_at` (the cover's fallback expiry for the per-image report). */
+  coverExpiresAt?: Date | null;
   getRemainingTimeInMillis?: () => number;
   /** The Gemini call (a seam in tests). Read at call time, so a test may swap it between runs. */
   callGemini: typeof defaultCallGemini;
@@ -47,6 +49,8 @@ export interface ExtractEventsResult {
   payload: any;
   imagesAvailable: number;
   imagesSent: number;
+  /** Story 10.6a -- what became of each image (no URL). */
+  imageOutcomes: ReextractImageOutcomes;
   /** The keys the extraction call actually ran on: a following keywords call uses the same ones. */
   usedSubscriberUserIds: string[];
 }
@@ -61,9 +65,9 @@ export async function extractEventsWithGemini(input: ExtractEventsInput): Promis
     ...(env.blurFacesBeforeAi
       ? { blurFacesBeforeAi: { isOwnerOptedIn: false, getRemainingTimeInMillis: input.getRemainingTimeInMillis } }
       : {}),
-    ...(input.isPreview ? { maxCarouselImages: env.maxReextractCarouselImages, slidesWhenCoverFails: true } : {}),
+    ...(input.isPreview ? { maxCarouselImages: env.maxReextractCarouselImages, slidesWhenCoverFails: true, coverExpiresAt: input.coverExpiresAt ?? null } : {}),
   };
-  const { request, imagesAvailable, imagesSent } = await buildGeminiExtractionRequest(
+  const { request, imagesAvailable, imagesSent, imageOutcomes } = await buildGeminiExtractionRequest(
     message,
     Object.keys(requestOptions).length > 0 ? requestOptions : undefined
   );
@@ -108,5 +112,5 @@ export async function extractEventsWithGemini(input: ExtractEventsInput): Promis
   if (!validateExtractedEvent(payload)) {
     throw new ExtractionFailure('EXTRACTION_FAILED', NOT_VALID_MESSAGE);
   }
-  return { payload, imagesAvailable, imagesSent, usedSubscriberUserIds };
+  return { payload, imagesAvailable, imagesSent, imageOutcomes, usedSubscriberUserIds };
 }

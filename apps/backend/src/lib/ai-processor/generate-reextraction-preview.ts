@@ -17,6 +17,8 @@ export interface GenerateReextractionPreviewInput {
   requestedByUserId: string;
   postStored: boolean;
   rescraped: boolean;
+  /** Story 10.6a: the stored post's `image_url_expires_at`, when the post is stored. */
+  coverExpiresAt?: Date | null;
   getRemainingTimeInMillis?: () => number;
   callGemini: typeof defaultCallGemini;
 }
@@ -24,11 +26,12 @@ export interface GenerateReextractionPreviewInput {
 export async function generateReextractionPreview(input: GenerateReextractionPreviewInput): Promise<ReextractionPreviewResult> {
   const env = loadBackendEnv();
   const { message } = input;
-  const { payload, imagesAvailable, imagesSent, usedSubscriberUserIds } = await extractEventsWithGemini({
+  const { payload, imagesAvailable, imagesSent, imageOutcomes, usedSubscriberUserIds } = await extractEventsWithGemini({
     message,
     existingPostAccountId: input.existingPostAccountId,
     requestedByUserId: input.requestedByUserId,
     isPreview: true,
+    coverExpiresAt: input.coverExpiresAt ?? null,
     getRemainingTimeInMillis: input.getRemainingTimeInMillis,
     callGemini: input.callGemini,
   });
@@ -52,5 +55,7 @@ export async function generateReextractionPreview(input: GenerateReextractionPre
     maxEvents: env.maxExtractedEventsPerPost,
     imagesAvailable,
     imagesSent,
+    imageOutcomes,
+    imageCap: env.maxReextractCarouselImages,
   });
 }

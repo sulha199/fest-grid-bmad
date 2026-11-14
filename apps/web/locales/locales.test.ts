@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createTranslator } from 'next-intl';
 import { EventCategory, EventType } from '@festgrid/shared-types';
+import { REEXTRACT_BANNER_CAUSES } from '@festgrid/domain/posts';
 import en from './en.json';
 import id from './id.json';
 
@@ -113,5 +114,41 @@ describe('SubscriptionCap namespace (Story 10.3a)', () => {
     expect(t('body', { active: 5, reserved: 0, cap: 5 })).toBe('Anda memiliki 5 akun yang sudah ditambahkan. Batasnya 5.');
     expect(t('body', { active: 4, reserved: 1, cap: 5 })).toBe('Anda memiliki 4 akun yang sudah ditambahkan dan 1 lagi sedang ditambahkan. Batasnya 5.');
     expect(t('body', { active: 3, reserved: 2, cap: 5 })).toBe('Anda memiliki 3 akun yang sudah ditambahkan dan 2 lagi sedang ditambahkan. Batasnya 5.');
+  });
+});
+
+// Story 10.6a (show the Re-extract progress, the missing-images banner and Retry): the `ReextractPreview` additions of copy-keys.md section 3 and the
+// three extra keys of the story exist in both languages, every cause key the domain can choose has a sentence, and the obsolete keys are gone.
+describe('ReextractPreview namespace (Story 10.6a)', () => {
+  const NEW_KEYS = [
+    'chipPreviewReady', 'chipPreviewLimits', 'bannerTitle', 'bannerMissing', 'imageCover', 'imageSlideSingle', 'imageSlideRange', 'bannerOverCap',
+    'causeExpiredRefreshFailed', 'causeNotHealed', 'causeRefreshRunning', 'causeCooldown', 'causeNotScraped', 'causePostGone', 'causeInFlight', 'causeTimedOut', 'causeNoProvider', 'causeOverQuota',
+    'bannerApplyNote', 'bannerRetry', 'bannerRetryAt', 'bannerRetryHint', 'attachTooOld', 'startNew', 'causeImagesUnavailable', 'previewNotAvailable', 'startRefused',
+  ];
+  const ns = (messages: unknown) => (messages as Record<string, Record<string, string>>).ReextractPreview;
+
+  it.each([['en', en], ['id', id]] as const)('%s has every new key, non-empty, and neither obsolete key, nor the keys no component reads (progressTitle, openPreview, dialogTitle, dialogDescription)', (_name, messages) => {
+    for (const k of NEW_KEYS) expect(ns(messages)[k]?.length).toBeGreaterThan(0);
+    expect(Object.keys(ns(messages))).not.toContain('running');
+    expect(Object.keys(ns(messages))).not.toContain('imagesShortfall');
+    for (const k of ['progressTitle', 'openPreview', 'dialogTitle', 'dialogDescription']) expect(Object.keys(ns(messages))).not.toContain(k);
+    for (const k of ['retry', 'genericError']) expect(ns(messages)[k]).toBeTruthy();
+  });
+
+  it.each([['en', en], ['id', id]] as const)('%s has a sentence for every cause key the domain can choose', (_name, messages) => {
+    for (const cause of REEXTRACT_BANNER_CAUSES) expect(ns(messages)[cause]?.length).toBeGreaterThan(0);
+  });
+
+  it.each([['en', en], ['id', id]] as const)('%s keeps the same placeholders as the English text', (_name, messages) => {
+    const holes = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+    for (const k of NEW_KEYS) expect(holes(ns(messages)[k])).toEqual(holes(ns(en)[k]));
+  });
+
+  it.each([['en', en], ['id', id]] as const)('%s renders the banner title, the slide range and the cooldown time', (name, messages) => {
+    const t = createTranslator({ locale: name, messages: messages as never, namespace: 'ReextractPreview' as never }) as unknown as (key: string, values: Record<string, string | number>) => string;
+    expect(t('bannerTitle', { read: 3, available: 5 })).toMatch(/3.*5/);
+    expect(t('imageSlideRange', { from: 3, to: 5 })).toMatch(/3.*5/);
+    expect(t('causeCooldown', { time: '14:42' })).toContain('14:42');
+    expect(t('bannerOverCap', { cap: 10 })).toContain('10');
   });
 });

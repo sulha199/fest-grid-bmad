@@ -3,7 +3,7 @@
 import React, { useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { buildAccountHref } from '@festgrid/domain/scraper';
-import { JobChip, JobProgressDialog, JobProgressView, useJobClock, isJobOpen, type JobProgressJob } from '@festgrid/ui';
+import { JobChip, JobProgressDialog, JobProgressView, useJobClock, isJobOpen, type JobChipLabels, type JobProgressJob } from '@festgrid/ui';
 import { Link } from '@/i18n/navigation';
 import type { JobProgressController } from './use-job-progress';
 import type { JobSubjectView } from './use-jobs';
@@ -19,6 +19,16 @@ export interface JobProgressHostProps {
   renderResultAction?: (job: JobProgressJob, subject: JobSubjectView | undefined) => React.ReactNode;
   /** An override seam only: a Retry refused with SUBSCRIPTION_CAP_REACHED renders the real cap notice of Story 10.3a (show the subscription cap refusal and the upgrade call to action) by default. */
   renderCapNotice?: (failure: Extract<JobStartFailure, { kind: 'cap' }>) => React.ReactNode;
+  /**
+   * Story 10.6a (show the Re-extract progress, the missing-images banner and Retry): a non-null node replaces the progress view in the dialog
+   * body of an ENDED job (Re-extract draws its preview result here). Return null to keep the shared view (Failed, Expired and Cancelled keep
+   * their box and Retry). Never called while the job is open. A host that passes none behaves as in Story 10.4.
+   */
+  renderEndedBody?: (job: JobProgressJob, subject: JobSubjectView | undefined) => React.ReactNode | null;
+  /** `wide` makes the dialog `sm:max-w-2xl` (a result that needs room). Default: the narrow progress dialog. */
+  dialogSize?: 'default' | 'wide';
+  /** Overrides of single chip texts (Re-extract: "Preview ready" for the ended chip). Anything not given keeps the shared Jobs copy. */
+  chipLabels?: Partial<JobChipLabels>;
   className?: string;
 }
 
@@ -26,9 +36,10 @@ export interface JobProgressHostProps {
  * Story 10.4 Part B -- renders the chip (in flow, where the host is mounted) and the progress dialog for one
  * controller. apps/web owns data and copy; packages/ui owns the pictures.
  */
-export function JobProgressHost({ controller, returnFocusRef, renderResultAction, renderCapNotice, className }: JobProgressHostProps) {
+export function JobProgressHost({ controller, returnFocusRef, renderResultAction, renderCapNotice, renderEndedBody, dialogSize = 'default', chipLabels: chipLabelOverrides, className }: JobProgressHostProps) {
   const t = useTranslations('Jobs');
-  const { labels, chipLabels, format } = useJobLabels();
+  const { labels, chipLabels: sharedChipLabels, format } = useJobLabels();
+  const chipLabels = chipLabelOverrides ? { ...sharedChipLabels, ...chipLabelOverrides } : sharedChipLabels;
   const chipRef = useRef<HTMLButtonElement>(null);
   const { job, subject, state, dialogOpen } = controller;
   const ended = job ? !isJobOpen(job) : false;
@@ -51,11 +62,34 @@ export function JobProgressHost({ controller, returnFocusRef, renderResultAction
   const failure = controller.retryFailure;
   const notice = failure ? <JobRetryFailureNotice failure={failure} renderCapNotice={renderCapNotice} accountId={subject?.accountId} username={subject?.username} /> : null;
 
+  const endedBody = job && ended && state === 'ready' && renderEndedBody ? renderEndedBody(job, subject) : null;
   const viewState = state === 'idle' ? 'loading' : state;
+  const body = endedBody ?? (
+    <JobProgressView
+      state={viewState}
+      job={job}
+      labels={labels}
+      format={format}
+      form="dialog"
+      now={now}
+      reconnecting={controller.reconnecting}
+      onRetryLoad={controller.refetch}
+      onRetry={controller.retry}
+      retryPending={controller.retryPending}
+      resultAction={resultAction}
+      notice={notice}
+      notFoundAction={
+        <Link href="/jobs" className="text-sm font-medium underline">
+          {t('backToJobs')}
+        </Link>
+      }
+    />
+  );
   return (
     <>
+      {/* min-w-0 and max-w-full: as a flex item the chip's box may shrink to its row and the label truncates, so a long label never widens a 320 px dialog. */}
       {controller.chipVisible && job && (
-        <span className={className}>
+        <span className={className ? `min-w-0 max-w-full ${className}` : 'min-w-0 max-w-full'}>
           <JobChip ref={chipRef} job={job} title={controller.title} labels={chipLabels} statusLabels={labels.status} format={format} onOpen={() => controller.openDialog('chip')} />
         </span>
       )}
@@ -67,31 +101,14 @@ export function JobProgressHost({ controller, returnFocusRef, renderResultAction
         onMinimize={controller.minimize}
         onClose={controller.closeEnded}
         onCloseAutoFocus={onCloseAutoFocus}
+        size={dialogSize}
         footerLinks={
           <Link href="/jobs" className="inline-flex min-h-11 items-center justify-center text-sm font-medium underline" data-testid="job-see-all">
             {t('dialog.seeAllInJobs')}
           </Link>
         }
       >
-        <JobProgressView
-          state={viewState}
-          job={job}
-          labels={labels}
-          format={format}
-          form="dialog"
-          now={now}
-          reconnecting={controller.reconnecting}
-          onRetryLoad={controller.refetch}
-          onRetry={controller.retry}
-          retryPending={controller.retryPending}
-          resultAction={resultAction}
-          notice={notice}
-          notFoundAction={
-            <Link href="/jobs" className="text-sm font-medium underline">
-              {t('backToJobs')}
-            </Link>
-          }
-        />
+        {body}
       </JobProgressDialog>
     </>
   );

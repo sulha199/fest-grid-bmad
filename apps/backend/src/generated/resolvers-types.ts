@@ -547,6 +547,7 @@ export type Job = {
   reasonCode?: Maybe<JobReasonCode>;
   reasonQueueMaxWaitMinutes?: Maybe<Scalars['Int']['output']>;
   reasonRetryAfter?: Maybe<Scalars['DateTime']['output']>;
+  refresh?: Maybe<JobRefreshReport>;
   retryNotBefore?: Maybe<Scalars['DateTime']['output']>;
   startedAt?: Maybe<Scalars['DateTime']['output']>;
   status: JobStatus;
@@ -586,6 +587,23 @@ export type JobEdge = {
   cursor: Scalars['String']['output'];
   node: Job;
 };
+
+export type JobImage = {
+  __typename?: 'JobImage';
+  position: Scalars['Int']['output'];
+  role: JobImageRole;
+  state: JobImageState;
+};
+
+export type JobImageRole =
+  | 'COVER'
+  | 'SLIDE';
+
+export type JobImageState =
+  | 'NOT_READ_EXPIRED'
+  | 'NOT_READ_UNAVAILABLE'
+  | 'NOT_SENT_OVER_CAP'
+  | 'READ';
 
 export type JobModeratorDetails = {
   __typename?: 'JobModeratorDetails';
@@ -645,6 +663,30 @@ export type JobReasonCode =
   | 'TIMED_OUT'
   | 'VENDOR_RUN_FAILED'
   | 'WAITED_TOO_LONG';
+
+export type JobRefreshOutcome =
+  | 'COOLDOWN'
+  | 'IN_FLIGHT'
+  | 'NOT_NEEDED'
+  | 'NOT_SCRAPED'
+  | 'NO_PROVIDER_REACHABLE'
+  | 'POST_UNAVAILABLE'
+  | 'PROVIDER_OVER_QUOTA'
+  | 'REFRESHED'
+  | 'TIMED_OUT';
+
+export type JobRefreshReport = {
+  __typename?: 'JobRefreshReport';
+  expiredLinks: Scalars['Int']['output'];
+  images: Array<JobImage>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesRead: Scalars['Int']['output'];
+  lateResultPending: Scalars['Boolean']['output'];
+  outcome: JobRefreshOutcome;
+  previewImageCap: Scalars['Int']['output'];
+  retryAfter?: Maybe<Scalars['DateTime']['output']>;
+  saved: Scalars['Boolean']['output'];
+};
 
 export type JobStartErrorCode =
   | 'COOLDOWN'
@@ -2135,6 +2177,9 @@ export type ResolversTypes = ResolversObject<{
   JobAttemptOutcome: JobAttemptOutcome;
   JobConnection: ResolverTypeWrapper<JobConnection>;
   JobEdge: ResolverTypeWrapper<JobEdge>;
+  JobImage: ResolverTypeWrapper<JobImage>;
+  JobImageRole: JobImageRole;
+  JobImageState: JobImageState;
   JobModeratorDetails: ResolverTypeWrapper<JobModeratorDetails>;
   JobOutcome: ResolverTypeWrapper<JobOutcome>;
   JobOutcomeKind: JobOutcomeKind;
@@ -2142,6 +2187,8 @@ export type ResolversTypes = ResolversObject<{
   JobProvider: JobProvider;
   JobQueueInfo: ResolverTypeWrapper<JobQueueInfo>;
   JobReasonCode: JobReasonCode;
+  JobRefreshOutcome: JobRefreshOutcome;
+  JobRefreshReport: ResolverTypeWrapper<JobRefreshReport>;
   JobStartErrorCode: JobStartErrorCode;
   JobStatus: JobStatus;
   JobStep: ResolverTypeWrapper<JobStep>;
@@ -2288,10 +2335,12 @@ export type ResolversParentTypes = ResolversObject<{
   JobAttempt: JobAttempt;
   JobConnection: JobConnection;
   JobEdge: JobEdge;
+  JobImage: JobImage;
   JobModeratorDetails: JobModeratorDetails;
   JobOutcome: JobOutcome;
   JobOwner: JobOwner;
   JobQueueInfo: JobQueueInfo;
+  JobRefreshReport: JobRefreshReport;
   JobStep: JobStep;
   JobSubject: JobSubject;
   JobSubjectInput: JobSubjectInput;
@@ -2662,6 +2711,7 @@ export type JobResolvers<ContextType = GraphQLContext, ParentType extends Resolv
   reasonCode?: Resolver<Maybe<ResolversTypes['JobReasonCode']>, ParentType, ContextType>;
   reasonQueueMaxWaitMinutes?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   reasonRetryAfter?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  refresh?: Resolver<Maybe<ResolversTypes['JobRefreshReport']>, ParentType, ContextType>;
   retryNotBefore?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   startedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
   status?: Resolver<ResolversTypes['JobStatus'], ParentType, ContextType>;
@@ -2695,6 +2745,13 @@ export type JobEdgeResolvers<ContextType = GraphQLContext, ParentType extends Re
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type JobImageResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobImage'] = ResolversParentTypes['JobImage']> = ResolversObject<{
+  position?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  role?: Resolver<ResolversTypes['JobImageRole'], ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['JobImageState'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type JobModeratorDetailsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobModeratorDetails'] = ResolversParentTypes['JobModeratorDetails']> = ResolversObject<{
   attempts?: Resolver<Array<ResolversTypes['JobAttempt']>, ParentType, ContextType>;
   engineMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -2720,6 +2777,19 @@ export type JobQueueInfoResolvers<ContextType = GraphQLContext, ParentType exten
   expiresAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
   maxConcurrent?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   position?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobRefreshReportResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobRefreshReport'] = ResolversParentTypes['JobRefreshReport']> = ResolversObject<{
+  expiredLinks?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  images?: Resolver<Array<ResolversTypes['JobImage']>, ParentType, ContextType>;
+  imagesAvailable?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  imagesRead?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  lateResultPending?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  outcome?: Resolver<ResolversTypes['JobRefreshOutcome'], ParentType, ContextType>;
+  previewImageCap?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  retryAfter?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  saved?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
@@ -3348,10 +3418,12 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   JobAttempt?: JobAttemptResolvers<ContextType>;
   JobConnection?: JobConnectionResolvers<ContextType>;
   JobEdge?: JobEdgeResolvers<ContextType>;
+  JobImage?: JobImageResolvers<ContextType>;
   JobModeratorDetails?: JobModeratorDetailsResolvers<ContextType>;
   JobOutcome?: JobOutcomeResolvers<ContextType>;
   JobOwner?: JobOwnerResolvers<ContextType>;
   JobQueueInfo?: JobQueueInfoResolvers<ContextType>;
+  JobRefreshReport?: JobRefreshReportResolvers<ContextType>;
   JobStep?: JobStepResolvers<ContextType>;
   JobSubject?: JobSubjectResolvers<ContextType>;
   JobWaitingInfo?: JobWaitingInfoResolvers<ContextType>;

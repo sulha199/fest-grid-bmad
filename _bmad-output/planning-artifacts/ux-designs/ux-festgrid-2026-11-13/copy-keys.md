@@ -128,8 +128,7 @@ Companion to `EXPERIENCE.md`. Each block is valid JSON that can be merged into `
       "cancelledTitle": "Cancelled",
       "lateResult": "The answer arrived late but was still used.",
       "openAccount": "Open the account",
-      "openPreview": "Open the preview",
-      "viewEvents": "See the events",
+        "viewEvents": "See the events",
       "eventsFromPosts": "{events, plural, one {# event} other {# events}} from {posts, plural, one {# post} other {# posts}}",
       "took": "Took {duration}",
       "started": "Started {time}",
@@ -358,8 +357,7 @@ Companion to `EXPERIENCE.md`. Each block is valid JSON that can be merged into `
       "cancelledTitle": "Dibatalkan",
       "lateResult": "Jawaban datang terlambat tetapi tetap dipakai.",
       "openAccount": "Buka akun",
-      "openPreview": "Buka pratinjau",
-      "viewEvents": "Lihat acaranya",
+        "viewEvents": "Lihat acaranya",
       "eventsFromPosts": "{events} acara dari {posts} postingan",
       "took": "Memakan waktu {duration}",
       "started": "Dimulai {time}",
@@ -527,17 +525,15 @@ Interpolation: `active`, `reserved` and `cap` are numbers from the error's `exte
 
 ## 3. `ReextractPreview` additions (Story 10.6a)
 
-New keys on the existing namespace. Remove `running` ("Extracting. This can take up to a minute."): the shared progress view replaces it. Keep `imagesShortfall` only until the banner replaces its one use, then remove it. `dialogTitle`, `retry` (the failed-state "Try again") and `genericError` stay.
+New keys on the existing namespace. `running` ("Extracting. This can take up to a minute.") and `imagesShortfall` are removed (built in Story 10.6a, show the Re-extract progress, the missing-images banner and Retry): the shared progress view and the banner replace them. `retry` (the failed-state "Try again") and `genericError` stay. `dialogTitle`, `dialogDescription`, `progressTitle` and `openPreview` are removed too: the dialog title comes from the shared controller and the job page button reads `Jobs.outcome.openPreview`, so no component read them. Three keys beyond the original list were added while building: `causeImagesUnavailable` (a slide failed to load although the refresh was not the problem), `previewNotAvailable` (another moderator's preview opened from Jobs) and `startRefused` (a start that was refused with no number to show).
 
 ### English
 
 ```json
 {
   "ReextractPreview": {
-    "progressTitle": "Re-extracting this post",
     "chipPreviewReady": "Preview ready",
     "chipPreviewLimits": "Preview ready (some images missing)",
-    "openPreview": "Open preview",
     "bannerTitle": "{read} of {available} images were read",
     "bannerMissing": "Not read: {list}.",
     "imageCover": "the cover",
@@ -554,12 +550,15 @@ New keys on the existing namespace. Remove `running` ("Extracting. This can take
     "causeTimedOut": "Refreshing the images took too long.",
     "causeNoProvider": "No provider could be reached to refresh the images.",
     "causeOverQuota": "Every provider has used up its quota, so the images were not refreshed.",
+    "causeImagesUnavailable": "Some images could not be loaded.",
     "bannerApplyNote": "You can still apply this preview. Events shown only on unread images will be missing.",
     "bannerRetry": "Retry",
     "bannerRetryAt": "Retry at {time}",
     "bannerRetryHint": "Retrying fetches the images again, then reads the post again.",
     "attachTooOld": "This preview is too old to apply. Start a new one.",
-    "startNew": "Re-extract again"
+    "startNew": "Re-extract again",
+    "previewNotAvailable": "This preview is not available to you.",
+    "startRefused": "Re-extract could not be started. Try again in a moment."
   }
 }
 ```
@@ -569,10 +568,8 @@ New keys on the existing namespace. Remove `running` ("Extracting. This can take
 ```json
 {
   "ReextractPreview": {
-    "progressTitle": "Mengekstrak ulang postingan ini",
     "chipPreviewReady": "Pratinjau siap",
     "chipPreviewLimits": "Pratinjau siap (sebagian gambar hilang)",
-    "openPreview": "Buka pratinjau",
     "bannerTitle": "{read} dari {available} gambar dibaca",
     "bannerMissing": "Tidak terbaca: {list}.",
     "imageCover": "sampul",
@@ -589,17 +586,20 @@ New keys on the existing namespace. Remove `running` ("Extracting. This can take
     "causeTimedOut": "Memperbarui gambar memakan waktu terlalu lama.",
     "causeNoProvider": "Tidak ada penyedia yang dapat dijangkau untuk memperbarui gambar.",
     "causeOverQuota": "Semua penyedia telah menghabiskan kuotanya, jadi gambar tidak diperbarui.",
+    "causeImagesUnavailable": "Sebagian gambar tidak dapat dimuat.",
     "bannerApplyNote": "Anda tetap dapat menerapkan pratinjau ini. Acara yang hanya tampil di gambar yang tidak terbaca akan hilang.",
     "bannerRetry": "Coba lagi",
     "bannerRetryAt": "Coba lagi pukul {time}",
     "bannerRetryHint": "Mencoba lagi akan mengambil gambar kembali, lalu membaca postingan lagi.",
     "attachTooOld": "Pratinjau ini terlalu lama untuk diterapkan. Mulai yang baru.",
-    "startNew": "Ekstrak ulang lagi"
+    "startNew": "Ekstrak ulang lagi",
+    "previewNotAvailable": "Pratinjau ini tidak tersedia untuk Anda.",
+    "startRefused": "Ekstrak ulang tidak dapat dimulai. Coba lagi sebentar lagi."
   }
 }
 ```
 
-Which cause key the banner uses is chosen from the job's refresh outcome (graphql-read-shape.md, `JobRefreshReport`): `NO_PROVIDER_REACHABLE` -> `causeNoProvider` joined with `causeExpiredRefreshFailed` when links expired; `PROVIDER_OVER_QUOTA` -> `causeOverQuota`; `TIMED_OUT` -> `causeTimedOut`; `lateResultPending` -> `causeRefreshRunning`; `COOLDOWN` -> `causeCooldown`; `NOT_SCRAPED` -> `causeNotScraped`; `POST_UNAVAILABLE` -> `causePostGone`; `IN_FLIGHT` -> `causeInFlight`; refreshed but nothing saved -> `causeNotHealed`. Two sentences may be shown together (the cause and, when links expired, "the image links have expired and refreshing them failed").
+Which cause key the banner uses is chosen from the job's refresh outcome (graphql-read-shape.md, `JobRefreshReport`): `NO_PROVIDER_REACHABLE` -> `causeNoProvider` joined with `causeExpiredRefreshFailed` when links expired; `PROVIDER_OVER_QUOTA` -> `causeOverQuota`; `TIMED_OUT` -> `causeTimedOut`; `lateResultPending` -> `causeRefreshRunning`; `COOLDOWN` -> `causeCooldown`; `NOT_SCRAPED` -> `causeNotScraped`; `POST_UNAVAILABLE` -> `causePostGone`; `IN_FLIGHT` -> `causeInFlight`; refreshed but nothing saved -> `causeNotHealed`; none of these but a slide still failed to load -> `causeImagesUnavailable`. Two sentences may be shown together (the cause and, when links expired, "the image links have expired and refreshing them failed").
 
 ## 4. Small additions
 

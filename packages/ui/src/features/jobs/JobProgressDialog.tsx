@@ -18,6 +18,8 @@ export interface JobProgressDialogProps {
   onCloseAutoFocus?: (event: Event) => void;
   /** "See all in Jobs" and similar, built by the host with its router link. */
   footerLinks?: React.ReactNode;
+  /** `wide` (Story 10.6a, the Re-extract result) widens the dialog from `sm:max-w-md` to `sm:max-w-2xl`; it is still bounded and scrolls inside itself. */
+  size?: 'default' | 'wide';
   children: React.ReactNode;
 }
 
@@ -26,7 +28,7 @@ export interface JobProgressDialogProps {
  * shape as the other dialogs: bounded height, scrolls inside itself, `minmax(0,1fr)` column so no child
  * stretches it past a 320 px screen).
  */
-export function JobProgressDialog({ open, ended, title, labels, onMinimize, onClose, onCloseAutoFocus, footerLinks, children }: JobProgressDialogProps) {
+export function JobProgressDialog({ open, ended, title, labels, onMinimize, onClose, onCloseAutoFocus, footerLinks, size = 'default', children }: JobProgressDialogProps) {
   const dismiss = ended ? onClose : onMinimize;
   return (
     <Dialog.Root open={open} onOpenChange={(next) => !next && dismiss()}>
@@ -34,8 +36,9 @@ export function JobProgressDialog({ open, ended, title, labels, onMinimize, onCl
         <Dialog.Overlay className={`fixed inset-0 ${OVERLAY_MODAL_Z} bg-black/80`} />
         <Dialog.Content
           onCloseAutoFocus={onCloseAutoFocus}
-          className={`fixed left-[50%] top-[50%] ${OVERLAY_MODAL_Z} grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100vw-2rem)] grid-cols-[minmax(0,1fr)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border bg-background p-6 shadow-lg sm:max-w-md sm:rounded-lg`}
+          className={`fixed left-[50%] top-[50%] ${OVERLAY_MODAL_Z} grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100vw-2rem)] grid-cols-[minmax(0,1fr)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border bg-background p-6 shadow-lg ${size === 'wide' ? 'sm:max-w-2xl' : 'sm:max-w-md'} sm:rounded-lg`}
           data-testid="job-progress-dialog"
+          data-size={size}
         >
           <div className="space-y-1.5">
             <Dialog.Title className="break-words text-lg font-semibold leading-tight tracking-tight" tabIndex={-1}>

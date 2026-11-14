@@ -563,6 +563,7 @@ export type Job = {
   reasonCode?: Maybe<JobReasonCode>;
   reasonQueueMaxWaitMinutes?: Maybe<Scalars['Int']['output']>;
   reasonRetryAfter?: Maybe<Scalars['DateTime']['output']>;
+  refresh?: Maybe<JobRefreshReport>;
   retryNotBefore?: Maybe<Scalars['DateTime']['output']>;
   startedAt?: Maybe<Scalars['DateTime']['output']>;
   status: JobStatus;
@@ -603,6 +604,25 @@ export type JobEdge = {
   cursor: Scalars['String']['output'];
   node: Job;
 };
+
+export type JobImage = {
+  __typename?: 'JobImage';
+  position: Scalars['Int']['output'];
+  role: JobImageRole;
+  state: JobImageState;
+};
+
+export enum JobImageRole {
+  Cover = 'COVER',
+  Slide = 'SLIDE'
+}
+
+export enum JobImageState {
+  NotReadExpired = 'NOT_READ_EXPIRED',
+  NotReadUnavailable = 'NOT_READ_UNAVAILABLE',
+  NotSentOverCap = 'NOT_SENT_OVER_CAP',
+  Read = 'READ'
+}
 
 export type JobModeratorDetails = {
   __typename?: 'JobModeratorDetails';
@@ -665,6 +685,31 @@ export enum JobReasonCode {
   VendorRunFailed = 'VENDOR_RUN_FAILED',
   WaitedTooLong = 'WAITED_TOO_LONG'
 }
+
+export enum JobRefreshOutcome {
+  Cooldown = 'COOLDOWN',
+  InFlight = 'IN_FLIGHT',
+  NotNeeded = 'NOT_NEEDED',
+  NotScraped = 'NOT_SCRAPED',
+  NoProviderReachable = 'NO_PROVIDER_REACHABLE',
+  PostUnavailable = 'POST_UNAVAILABLE',
+  ProviderOverQuota = 'PROVIDER_OVER_QUOTA',
+  Refreshed = 'REFRESHED',
+  TimedOut = 'TIMED_OUT'
+}
+
+export type JobRefreshReport = {
+  __typename?: 'JobRefreshReport';
+  expiredLinks: Scalars['Int']['output'];
+  images: Array<JobImage>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesRead: Scalars['Int']['output'];
+  lateResultPending: Scalars['Boolean']['output'];
+  outcome: JobRefreshOutcome;
+  previewImageCap: Scalars['Int']['output'];
+  retryAfter?: Maybe<Scalars['DateTime']['output']>;
+  saved: Scalars['Boolean']['output'];
+};
 
 export enum JobStartErrorCode {
   Cooldown = 'COOLDOWN',
@@ -2082,6 +2127,9 @@ export enum WidgetTheme {
 
 
 
+
+
+
 /**
  * Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
  * events), or PARTIAL (it ended without reading every slide and will not be finished).
@@ -2567,6 +2615,13 @@ export type PreviewPostReextractionMutationVariables = Exact<{
 
 
 export type PreviewPostReextractionMutation = { previewPostReextraction: { jobId: string | null, errorCode: ExtractionErrorCode | null, errorMessage: string | null } };
+
+export type ReextractJobReportQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type ReextractJobReportQuery = { job: { id: string, outcome: { previewApplyUntil: unknown, previewApplied: boolean | null } | null, refresh: { outcome: JobRefreshOutcome, saved: boolean, lateResultPending: boolean, retryAfter: unknown, expiredLinks: number, imagesAvailable: number, imagesRead: number, previewImageCap: number, images: Array<{ position: number, role: JobImageRole, state: JobImageState }> } | null } | null };
 
 export type PostReextractionPreviewQueryVariables = Exact<{
   id: string | number;
@@ -5513,6 +5568,51 @@ export const usePreviewPostReextractionMutation = <
       {
     mutationKey: ['PreviewPostReextraction'],
     mutationFn: (variables?: PreviewPostReextractionMutationVariables) => fetcher<PreviewPostReextractionMutation, PreviewPostReextractionMutationVariables>(client, PreviewPostReextractionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const ReextractJobReportDocument = new TypedDocumentString(`
+    query ReextractJobReport($id: ID!) {
+  job(id: $id) {
+    id
+    outcome {
+      previewApplyUntil
+      previewApplied
+    }
+    refresh {
+      outcome
+      saved
+      lateResultPending
+      retryAfter
+      expiredLinks
+      images {
+        position
+        role
+        state
+      }
+      imagesAvailable
+      imagesRead
+      previewImageCap
+    }
+  }
+}
+    `);
+
+export const useReextractJobReportQuery = <
+      TData = ReextractJobReportQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ReextractJobReportQueryVariables,
+      options?: Omit<UseQueryOptions<ReextractJobReportQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ReextractJobReportQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ReextractJobReportQuery, TError, TData>(
+      {
+    queryKey: ['ReextractJobReport', variables],
+    queryFn: fetcher<ReextractJobReportQuery, ReextractJobReportQueryVariables>(client, ReextractJobReportDocument, variables, headers),
     ...options
   }
     )};

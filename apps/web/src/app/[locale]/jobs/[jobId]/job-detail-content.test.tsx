@@ -204,4 +204,115 @@ describe('JobDetailContent', () => {
     const button = await screen.findByRole('button', { name: /^Retry at / });
     expect(button).toHaveAttribute('aria-disabled', 'true');
   });
+
+  describe('Open the preview (Story 10.6a)', () => {
+    const preview = {
+      status: 'SUCCEEDED',
+      errorCode: null,
+      errorMessage: null,
+      preview: {
+        applicable: true,
+        applied: null,
+        groupingReason: 'SINGLE_EVENT',
+        postStored: true,
+        rescraped: false,
+        imagesAvailable: 5,
+        imagesSent: 2,
+        events: [{ extractionOrdinal: 0, eventName: 'GembiRun Loka 2026', alreadyRepresentedBySlug: null, isStub: false, links: [], schedules: [], dedup: { tier: 'NONE', score: null, candidateSlug: null, candidateName: null } }],
+      },
+    };
+    const report = {
+      id: 'job-9',
+      outcome: { previewApplyUntil: new Date(Date.now() + 20 * 60_000).toISOString(), previewApplied: false },
+      refresh: {
+        outcome: 'NO_PROVIDER_REACHABLE',
+        saved: false,
+        lateResultPending: false,
+        retryAfter: null,
+        expiredLinks: 3,
+        images: [
+          { position: 0, role: 'COVER', state: 'NOT_READ_EXPIRED' },
+          { position: 1, role: 'SLIDE', state: 'READ' },
+        ],
+        imagesAvailable: 2,
+        imagesRead: 1,
+        previewImageCap: 10,
+      },
+    };
+    const previewJob = (overrides: Record<string, unknown> = {}) =>
+      failed({
+        status: 'SUCCEEDED_WITH_LIMITS',
+        reasonCode: 'NO_PROVIDER_REACHABLE',
+        canRetry: false,
+        outcome: { kind: 'PREVIEW', eventCount: null, postCount: null, previewApplyUntil: report.outcome.previewApplyUntil, previewApplied: false },
+        steps: [
+          { key: 'refresh', state: 'DONE', done: null, total: null },
+          { key: 'preview', state: 'DONE', done: null, total: null },
+        ],
+        ...overrides,
+      });
+    const route = (job: unknown, previewAnswer: unknown = preview) =>
+      installGraphqlFake(request, (operation, variables) => {
+        if (operation === 'JobDetail') return { job };
+        if (operation === 'JobById') return { job: { ...(job as object), owner: undefined } };
+        if (operation === 'PostReextractionPreview') {
+          if (previewAnswer instanceof Error) throw previewAnswer;
+          return { postReextractionPreview: previewAnswer };
+        }
+        if (operation === 'ReextractJobReport') return { job: report };
+        throw new Error(`unexpected ${operation} ${JSON.stringify(variables)}`);
+      });
+
+    it('a moderator sees "Open the preview" on an ended Re-extract job; it opens the dialog attached to THIS job at the result, with no new job and no restart', async () => {
+      const user = userEvent.setup();
+      const log = route({ ...previewJob(), moderatorDetails });
+      render(ui());
+      const open = await screen.findByTestId('job-open-preview');
+      expect(open).toHaveTextContent('Open the preview');
+      expect(screen.queryByTestId('job-chip')).not.toBeInTheDocument();
+      await user.click(open);
+      const dialog = await screen.findByRole('dialog');
+      expect(await within(dialog).findByTestId('reextract-preview-result')).toBeInTheDocument();
+      expect(within(dialog).getByTestId('reextract-banner-missing')).toHaveTextContent('Not read: the cover.');
+      expect(log.find((l) => l.operation === 'PostReextractionPreview')?.variables).toEqual({ id: 'job-9' });
+      expect(log.some((l) => l.operation === 'PreviewPostReextraction' || l.operation === 'RetryJob')).toBe(false);
+      expect(capture).toHaveBeenCalledWith('job_progress_reopened', { jobType: 'REEXTRACT_REFRESH', status: 'SUCCEEDED_WITH_LIMITS', source: 'jobs_page' });
+      await user.click(within(dialog).getByRole('button', { name: 'Close' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      await waitFor(() => expect(open).toHaveFocus());
+    });
+
+    it('another moderator\'s job reads "This preview is not available to you." in the dialog, not an error', async () => {
+      const user = userEvent.setup();
+      route({ ...previewJob(), moderatorDetails }, Object.assign(new Error('Extraction job not found'), { response: { errors: [{ extensions: { code: 'NOT_FOUND' } }] } }));
+      render(ui());
+      await user.click(await screen.findByTestId('job-open-preview'));
+      expect(await screen.findByTestId('reextract-preview-unavailable')).toHaveTextContent('This preview is not available to you.');
+    });
+
+    it('is not offered to an ordinary user, nor for a job without a preview (Failed, a running job, another type)', async () => {
+      route({ ...previewJob(), moderatorDetails: null });
+      const { unmount } = render(ui());
+      await screen.findByTestId('job-progress-view');
+      expect(screen.queryByTestId('job-open-preview')).not.toBeInTheDocument();
+      unmount();
+
+      route({ ...failed(), moderatorDetails });
+      const failedRun = render(ui());
+      await screen.findByTestId('job-progress-view');
+      expect(screen.queryByTestId('job-open-preview')).not.toBeInTheDocument();
+      failedRun.unmount();
+
+      route({ ...previewJob({ status: 'RUNNING', reasonCode: null, finishedAt: null, outcome: null }), moderatorDetails });
+      const running = render(ui());
+      await screen.findByTestId('job-progress-view');
+      expect(screen.queryByTestId('job-open-preview')).not.toBeInTheDocument();
+      running.unmount();
+
+      route({ ...previewJob({ type: 'SUBSCRIBE' }), moderatorDetails });
+      render(ui());
+      await screen.findByTestId('job-progress-view');
+      expect(screen.queryByTestId('job-open-preview')).not.toBeInTheDocument();
+    });
+  });
 });

@@ -2658,6 +2658,12 @@ This document defines the core architectural invariants for the FestDaily applic
         job still waiting for a place is never replaced. An unapplied job's `extracted` is cleared past the
         30-minute window by the job-engine sweep. The moderator operations are unchanged and read whichever row
         holds the preview.
+        **The per-image report (Story 10.6a, show the Re-extract progress, the missing-images banner and Retry, 2026-11-13).** Phase 2 also
+        writes `result_data.images` (one `{ position, role, state }` for each image the post lists after the file-name de-duplication,
+        position 0 the cover, state `READ`, `NOT_READ_EXPIRED`, `NOT_READ_UNAVAILABLE` or `NOT_SENT_OVER_CAP`; never a URL) and
+        `result_data.imageCap` (the slide cap the request used) beside `imagesAvailable` and `imagesSent`. They reach a screen only as the
+        moderator-only `Job.refresh` (AD-53 Rule 18), so the banner can name the missing images and a carousel longer than the preview cap
+        gets its own line and no Retry; a job finished before Story 10.6a has neither and the banner shows the counts.
 *   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
     written from a JS object as a jsonb **string** holding the JSON (`events.links`,
     `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it
@@ -3793,6 +3799,10 @@ This document defines the core architectural invariants for the FestDaily applic
         job older than `JOBS_HISTORY_RETENTION_DAYS` (default 30, measured from `finished_at`) is hidden from every read and nothing is
         deleted; a physical delete is a follow-up. The Jobs page pages its Finished list with Previous and Next through
         `useListPaginationController` (AD-18 Rule 4), not infinite scroll (owner-confirmed 2026-11-13).
+        **`Job.refresh` (Story 10.6a, 2026-11-13).** The Re-extract report is a field of `Job` for a moderator viewer and a `reextract-post` job
+        only (`null` for everyone else, with no query work for them); it is read through the named paths `{refresh,*}`, `{imagesAvailable}`,
+        `{imagesSent}`, `{imageCap}` and `#> '{images}'` (never the column whole), and `images` is copied field by field with each value
+        checked against its enum and the list bounded, so no caption, image URL or vendor name can reach the response.
 *   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
     Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
     (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the

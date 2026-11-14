@@ -197,6 +197,20 @@ describe('JobRetryButton cooldown', () => {
   });
 });
 
+describe('JobRetryButton hint (Story 10.6a)', () => {
+  it('adds the hint to the accessible description, beside the cooldown text when there is one, and changes nothing without it', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-13T14:00:00.000Z'));
+    const { rerender } = render(<JobRetryButton labels={labels} formatTime={format.time} onRetry={vi.fn()} hint="Retrying fetches the images again." />);
+    expect(screen.getByRole('button', { name: 'Retry' })).toHaveAccessibleDescription('Retrying fetches the images again.');
+    rerender(<JobRetryButton retryNotBefore="2026-11-13T14:00:30.000Z" labels={labels} formatTime={format.time} onRetry={vi.fn()} hint="Retrying fetches the images again." />);
+    expect(screen.getByRole('button', { name: 'Retry at T(14:00)' })).toHaveAccessibleDescription('Retry at T(14:00) Retrying fetches the images again.');
+    rerender(<JobRetryButton labels={labels} formatTime={format.time} onRetry={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Retry' })).not.toHaveAttribute('aria-describedby');
+    vi.useRealTimers();
+  });
+});
+
 describe('pure helpers', () => {
   it('formats durations and times with Intl', () => {
     expect(formatJobDuration(80_000, 'en-US')).toMatch(/1\s?min.*20\s?(s|sec)/);

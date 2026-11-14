@@ -1,6 +1,7 @@
 import type { ExtractionCursor } from './extraction-cursor.js';
 import type { GeminiEventPayload } from '../events/types.js';
 import type { ReextractRefreshReport } from './reextract-image-refresh.js';
+import type { ReextractImageEntry } from './reextract-image-report.js';
 
 /**
  * Closed role vocabulary for `post_account_associations` rows (Story 3.15, PRD §4.7a,
@@ -151,6 +152,12 @@ export interface ReextractionPreviewResult {
   /** BUG-099 -- images the post lists (cover + slides) and images actually read by the extraction. */
   imagesAvailable: number;
   imagesSent: number;
+  /**
+   * Story 10.6a -- one entry per image the post lists (cover first, position 0; slides from 1), what became of it, and the slide cap the request
+   * used. No URL. Absent on a preview finished before Story 10.6a.
+   */
+  images?: ReextractImageEntry[];
+  imageCap?: number;
   events: ReextractionPreviewEvent[];
   /** AD-40 (Apply) -- kept for Apply; nulled once applied. Absent on jobs finished before Apply existed. */
   extracted?: ReextractionExtracted | null;

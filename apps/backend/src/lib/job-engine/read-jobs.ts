@@ -130,6 +130,19 @@ function buildJobSelect(request: JobReadRequest, viewer: JobViewer) {
     select.phase = jobs.phase;
     select.refreshOutcome = sql<string | null>`${resultJson} #>> '{refresh,outcome}'`;
   }
+  // Story 10.6a (AC1, AC2) -- the refresh report: moderator-only, and only when the client selected `refresh`. Named paths of `result_data`
+  // only (never the column whole, never a caption, an image link or the preview); the mapper copies them field by field.
+  if (viewer.role === 'moderator' && wants('refresh')) {
+    select.refreshOutcome = sql<string | null>`${resultJson} #>> '{refresh,outcome}'`;
+    select.refreshSaved = sql<string | null>`${resultJson} #>> '{refresh,saved}'`;
+    select.refreshLateResultPending = sql<string | null>`${resultJson} #>> '{refresh,lateResultPending}'`;
+    select.refreshRetryAfter = sql<string | null>`${resultJson} #>> '{refresh,retryAfter}'`;
+    select.refreshExpiredLinks = sql<string | null>`${resultJson} #>> '{refresh,expiredLinks}'`;
+    select.resultImagesAvailable = sql<string | null>`${resultJson} #>> '{imagesAvailable}'`;
+    select.resultImagesSent = sql<string | null>`${resultJson} #>> '{imagesSent}'`;
+    select.resultImageCap = sql<string | null>`${resultJson} #>> '{imageCap}'`;
+    select.resultImages = sql<unknown>`${resultJson} #> '{images}'`;
+  }
   if (wants('queue')) {
     select.queuedSince = jobs.queuedSince;
     select.createdAt = jobs.createdAt;
@@ -249,7 +262,7 @@ async function toJobViews(rows: JobRowProjection[], viewer: JobViewer, requested
   ]);
   const lookups: JobPageLookups = { accounts, postCodes, queuePositions, ownerNames, attempts, postCodeFromUrl };
   const env = loadBackendEnv();
-  const context = { viewer: { userId: viewer.userId, isModerator: viewer.role === 'moderator' }, now, maxConcurrent: env.maxConcurrentJobsPerUser, queueMaxWaitMinutes: env.jobQueueMaxWaitMinutes, lookups, requested };
+  const context = { viewer: { userId: viewer.userId, isModerator: viewer.role === 'moderator' }, now, maxConcurrent: env.maxConcurrentJobsPerUser, queueMaxWaitMinutes: env.jobQueueMaxWaitMinutes, lookups, requested, defaultPreviewImageCap: env.maxReextractCarouselImages };
   return rows.map((row) => mapJobRow(row, context));
 }
 
