@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { renderEmailTemplate } from './render-template.js';
 import { EMAIL_TEMPLATES } from './templates.js';
 import type { EmailTemplateKey, EmailTemplateVariables } from './types.js';
+import { MODERATOR_REVIEW_PATHS, buildModeratorReviewUrl } from './moderator-notification.js';
 
 // Story 0.i1a, Task 1.5 (FIND-021, render-template.ts has no HTML-escaping): a script-bearing payload through
 // EVERY template. Variables are built from the placeholders each template contains, so a template added later
@@ -91,4 +92,19 @@ test('a very long value cannot make a subject longer than the cap (AC2)', () => 
   });
   assert.equal(r.subject.length, 200);
   assert.ok(r.text.includes('x'.repeat(5000)), 'the text part is not capped');
+});
+
+test('the job-finished moderator notice escapes both summaries, keeps the subject on one line and links to the Jobs page (Story 10.13)', () => {
+  const r = renderEmailTemplate('JOB_FINISHED_MODERATOR_NOTICE', {
+    jobId: 'job-1',
+    summaryEn: `<script>alert(1)</script> & "q"\nnext`,
+    summaryId: '<b>x</b>',
+    moderatorReviewUrl: buildModeratorReviewUrl('https://festdaily.app/', MODERATOR_REVIEW_PATHS.JOB_FINISHED_MODERATOR_NOTICE),
+  });
+  assert.ok(!r.html.includes('<script'));
+  assert.ok(r.html.includes('&lt;script&gt;') && r.html.includes('&amp;') && r.html.includes('&quot;q&quot;'));
+  assert.ok(!r.html.includes('<b>x'));
+  assert.ok(!/[\r\n]/.test(r.subject));
+  assert.ok(r.html.includes('https://festdaily.app/jobs') && r.text.includes('https://festdaily.app/jobs'));
+  assert.ok(!r.text.includes('job-1'), 'the job id is the throttle entity and is not printed');
 });

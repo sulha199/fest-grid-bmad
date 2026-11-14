@@ -1,5 +1,6 @@
 import { db } from '../../db/client.js';
 import { userSettings } from '@festgrid/database';
+import { newUserSettingsValues } from './new-user-settings-values.js';
 
 /**
  * Atomically fetches (or creates, on first access) a user's settings row.
@@ -19,7 +20,7 @@ import { userSettings } from '@festgrid/database';
  */
 export async function getOrCreateUserSettings(userId: string) {
   const [settings] = await db.insert(userSettings)
-    .values({ userId })
+    .values(newUserSettingsValues(userId))
     .onConflictDoUpdate({
       target: userSettings.userId,
       set: { userId },

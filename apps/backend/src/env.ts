@@ -176,6 +176,12 @@ export interface BackendEnv {
   // Story 10.4 (FR123; owner override 2026-11-13: hide-only) -- days a finished job stays listed on the Jobs page and readable by id.
   // Older finished jobs are hidden from the read API; nothing is deleted. API Lambda only.
   jobsHistoryRetentionDays: number;
+  // Story 10.13 (notify when a job finishes) -- Scraper Lambda only (the 5-minute sweep step that announces ended jobs).
+  // One notice per owner per window (minutes); the grace (seconds) a just-ended job waits so a watching owner can acknowledge it;
+  // the age (minutes) past which an ended job is marked handled with no notice.
+  jobNotifyWindowMinutes: number;
+  jobNotifyGraceSeconds: number;
+  jobNotifyMaxAgeMinutes: number;
   // Story 10.3 -- the subscription cap (FR122) for every user who is not a moderator.
   maxSubscribedAccountsFreeUser: number;
   // Story 3.6n (AC5) — remaining-time floor (ms), read from the Lambda Context's
@@ -501,6 +507,12 @@ export function loadBackendEnv(): BackendEnv {
     jobQueueMaxWaitMinutes: parsePositiveInt(process.env.JOB_QUEUE_MAX_WAIT_MINUTES, 'JOB_QUEUE_MAX_WAIT_MINUTES', 30),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     jobsHistoryRetentionDays: parsePositiveInt(process.env.JOBS_HISTORY_RETENTION_DAYS, 'JOBS_HISTORY_RETENTION_DAYS', 30),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobNotifyWindowMinutes: parsePositiveInt(process.env.JOB_NOTIFY_WINDOW_MINUTES, 'JOB_NOTIFY_WINDOW_MINUTES', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobNotifyGraceSeconds: parsePositiveInt(process.env.JOB_NOTIFY_GRACE_SECONDS, 'JOB_NOTIFY_GRACE_SECONDS', 45),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobNotifyMaxAgeMinutes: parsePositiveInt(process.env.JOB_NOTIFY_MAX_AGE_MINUTES, 'JOB_NOTIFY_MAX_AGE_MINUTES', 60),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxSubscribedAccountsFreeUser: parsePositiveInt(process.env.MAX_SUBSCRIBED_ACCOUNTS_FREE_USER, 'MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', 5),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

@@ -29,6 +29,7 @@ import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/e
 import { startPostReextractionPreview } from '../lib/extraction/start-post-reextraction-preview.js';
 import { assertJobsFilterAllowed, readActiveJobs, readJobById, readMyJobsPage, type JobViewer } from '../lib/job-engine/read-jobs.js';
 import { retryJob } from '../lib/job-engine/retry-job.js';
+import { acknowledgeJobEnded, countJobsFinishedSinceLastOpened, markJobsOpened } from '../lib/job-engine/job-notice-state.js';
 import '../lib/job-engine/register-job-retry-starters.js'; // Story 10.4: the retry starters of the job types the API Lambda can start
 import { getReextractPreviewJobStatus } from '../lib/extraction/reextract-preview-job.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
@@ -414,6 +415,14 @@ export const resolvers: Resolvers = {
       const authUser = requireAuth(context);
       const viewer: JobViewer = { userId: authUser.userId, role: authUser.role };
       return retryJob(viewer, jobId, info);
+    },
+    markJobsOpened: async (_, __, context): Promise<boolean> => {
+      const authUser = requireAuth(context);
+      return markJobsOpened(authUser.userId);
+    },
+    acknowledgeJobEnded: async (_, { jobId }, context): Promise<boolean> => {
+      const authUser = requireAuth(context);
+      return acknowledgeJobEnded(authUser.userId, jobId);
     },
     resolvePromptToEventFilter: async (_, { prompt }, context) => {
       const authUser = requireAuth(context);
@@ -2954,6 +2963,10 @@ export const resolvers: Resolvers = {
       const viewer: JobViewer = { userId: authUser.userId, role: authUser.role };
       assertJobsFilterAllowed(viewer, filter);
       return readActiveJobs(viewer, { filter, subject, endedWithinMinutes }, { info });
+    },
+    jobsFinishedSinceLastOpened: async (_, __, context): Promise<number> => {
+      const authUser = requireAuth(context);
+      return countJobsFinishedSinceLastOpened(authUser.userId);
     },
     myAIEventFilters: async (_, __, context) => {
       const authUser = requireAuth(context);

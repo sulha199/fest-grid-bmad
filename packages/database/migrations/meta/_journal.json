@@ -729,6 +729,13 @@
       "when": 1794442721286,
       "tag": "0103_job_vendor_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "6",
+      "when": 1794618577685,
+      "tag": "0104_job_finished_notice_state",
+      "breakpoints": true
     }
   ]
 }

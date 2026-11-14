@@ -24,15 +24,17 @@ test('every template that links to the moderator review page is a moderator temp
   );
   assert.deepEqual([...linking].sort(), [...MODERATOR_TEMPLATE_KEYS].sort());
   for (const key of MODERATOR_TEMPLATE_KEYS) {
-    assert.ok(MODERATOR_REVIEW_PATHS[key].startsWith('/moderator/'), `${key} has a review path`);
+    assert.ok(MODERATOR_REVIEW_PATHS[key].startsWith('/'), `${key} has a review path`);
     assert.equal(typeof MODERATOR_NOTIFICATION_ENTITY_KEYS[key], 'function', `${key} has an entity rule`);
   }
   assert.ok(!(MODERATOR_TEMPLATE_KEYS as readonly string[]).includes('SYSTEM_ERROR_ALERT'));
 });
 
-test('provider-down links to the tools page and the other four to the items page (AC1)', () => {
+test('provider-down links to the tools page, the job notice to the Jobs page and the other four to the items page (AC1)', () => {
   assert.equal(MODERATOR_REVIEW_PATHS.SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT, '/moderator/tools');
-  for (const key of MODERATOR_TEMPLATE_KEYS.filter((k) => k !== 'SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT')) {
+  assert.equal(MODERATOR_REVIEW_PATHS.JOB_FINISHED_MODERATOR_NOTICE, '/jobs');
+  assert.equal(MODERATOR_NOTIFICATION_ENTITY_KEYS.JOB_FINISHED_MODERATOR_NOTICE({ jobId: 'job-1', summaryEn: 'a', summaryId: 'b' }), 'job-1');
+  for (const key of MODERATOR_TEMPLATE_KEYS.filter((k) => k !== 'SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT' && k !== 'JOB_FINISHED_MODERATOR_NOTICE')) {
     assert.equal(MODERATOR_REVIEW_PATHS[key], '/moderator/items');
   }
 });

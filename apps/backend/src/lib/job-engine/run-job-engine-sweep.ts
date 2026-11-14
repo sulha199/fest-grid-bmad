@@ -1,4 +1,5 @@
 import { sweepStaleManualExtractionRetention } from '../extraction/sweep-stale-manual-extraction-jobs.js';
+import { announceEndedJobs } from './announce-ended-jobs.js';
 import { collectLateVendorResults } from './late-results.js';
 import { sweepExpiredEngineJobs } from './sweep-expired-jobs.js';
 import {
@@ -26,6 +27,8 @@ export interface JobEngineSweepSteps {
   reinvokeStranded: () => Promise<number>;
   collectLateResults: () => Promise<number>;
   retention: () => Promise<void>;
+  /** Story 10.13: tells each job owner about the jobs that ended (the one announcer); last, so everything that ended this tick is in its final state. */
+  announceEnded: () => Promise<number>;
 }
 
 const defaultSteps: JobEngineSweepSteps = {
@@ -37,6 +40,7 @@ const defaultSteps: JobEngineSweepSteps = {
   reinvokeStranded: () => reinvokeStrandedAdmittedJobs(),
   collectLateResults: () => collectLateVendorResults(),
   retention: () => sweepStaleManualExtractionRetention(),
+  announceEnded: () => announceEndedJobs(),
 };
 
 /** Each step has its own try/catch, so one failing never skips the others, and the sweep itself never throws. */
@@ -62,5 +66,11 @@ export async function runJobEngineSweep(steps: JobEngineSweepSteps = defaultStep
     await steps.retention();
   } catch (error) {
     console.error('[job-engine-sweep] manual-extraction retention failed:', error);
+  }
+  try {
+    const n = await steps.announceEnded();
+    if (n > 0) console.log(`[job-engine-sweep] announced ${n} job notice group(s)`);
+  } catch (error) {
+    console.error('[job-engine-sweep] announcing ended jobs failed; continuing:', error);
   }
 }

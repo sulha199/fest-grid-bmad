@@ -5,6 +5,7 @@ import { jobs, users } from '@festgrid/database';
 import { registerJobTypeDefinition } from '@festgrid/domain/jobs';
 import { db } from '../db/client.js';
 import { registerJobHandler } from '../lib/job-engine/job-registry.js';
+import { setDefaultAnnounceDepsForTests } from '../lib/job-engine/announce-ended-jobs.js';
 import { handler as scraperHandler } from './scraper.js';
 import { handler as aiProcessorHandler } from './ai-processor.js';
 
@@ -72,7 +73,29 @@ test('the scraper Lambda runs the job-engine sweep', async () => {
   const job = await makeJob(type);
   await db.update(jobs).set({ status: 'RUNNING', deadlineAt: new Date(Date.now() - 60_000) }).where(eq(jobs.id, job.id));
 
-  await scraperHandler({ jobType: 'job-engine-sweep' }, lambdaContext);
+  // The sweep ends with the REAL announcer (Story 10.13). It must never run against the shared database's other rows (the e2e seed leaves ended
+  // moderator-owned jobs, and a real run would stamp them and claim a moderator-mail throttle slot): keep it on this test's own owner, with a
+  // Firebase seam that cannot send and a helper whose SES, recipient lookup and throttle are fakes. Nothing real can be reached.
+  setDefaultAnnounceDepsForTests({
+    onlyOwnerIds: [job.ownerUserId as string],
+    getMessaging: () => {
+      throw new Error('the sweep test must not reach Firebase');
+    },
+    moderatorDeps: {
+      sendTemplatedEmail: async () => {
+        throw new Error('the sweep test must not send mail');
+      },
+      findRecipients: async () => [],
+      takeBudget: async () => false,
+      releaseBudget: async () => {},
+      pruneThrottle: async () => {},
+    },
+  });
+  try {
+    await scraperHandler({ jobType: 'job-engine-sweep' }, lambdaContext);
+  } finally {
+    setDefaultAnnounceDepsForTests(null);
+  }
 
   const [row] = await db.select().from(jobs).where(eq(jobs.id, job.id));
   assert.equal(row.status, 'EXPIRED');

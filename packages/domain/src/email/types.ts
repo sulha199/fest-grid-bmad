@@ -6,7 +6,8 @@ export type EmailTemplateKey =
   | 'DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT'
   | 'SYSTEM_ERROR_ALERT'
   | 'SCRAPER_AUDIT_TRAIL_FAILURE_ALERT'
-  | 'SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT';
+  | 'SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT'
+  | 'JOB_FINISHED_MODERATOR_NOTICE';
 
 export interface EmailTemplateVariables {
   QUOTA_EXHAUSTION_WARNING: {
@@ -54,6 +55,13 @@ export interface EmailTemplateVariables {
     consecutiveFailureDays: number;
     moderatorReviewUrl: string;
     failureReasonSummary: string;
+  };
+  // Story 10.13 (notify when a job finishes). `jobId` is the throttle entity and is not printed.
+  JOB_FINISHED_MODERATOR_NOTICE: {
+    jobId: string;
+    summaryEn: string;
+    summaryId: string;
+    moderatorReviewUrl: string;
   };
 }
 

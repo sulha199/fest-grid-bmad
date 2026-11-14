@@ -238,6 +238,26 @@ const scenarios: PopupScenario[] = [
       return dialog;
     },
   },
+  {
+    // Story 10.13 (notify when a job finishes): the profile menu with the Jobs badge. The count is routed (99 ended jobs, the largest the server
+    // returns) so the "9+" bubble and the longest sentence are measured whatever the seed's watermark is; nothing reaches the server for it.
+    name: 'profile menu (user): the Jobs entry with a badge',
+    route: '/en/feed',
+    session: 'user',
+    open: async (page) => {
+      await page.route('**/api/graphql', async (route) => {
+        const post = route.request().postDataJSON() as { operationName?: string; query?: string } | null;
+        if (post?.operationName !== 'jobsFinishedSinceLastOpened' && !/query\s+jobsFinishedSinceLastOpened\b/.test(post?.query ?? '')) return route.fallback();
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { jobsFinishedSinceLastOpened: 99 } }) });
+      });
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.locator('nav[aria-label="Main"] button[aria-expanded]:visible').last().click();
+      const menu = page.getByTestId('user-menu').filter({ visible: true });
+      await expect(menu.getByRole('link', { name: /^Jobs/ })).toHaveAccessibleName('Jobs 99 jobs finished since you last looked', { timeout: 30_000 });
+      // The menu's list is its scroll container (the header stays put); it is the box that must fit and reach Log Out.
+      return menu.locator('ul');
+    },
+  },
 ];
 
 for (const scenario of scenarios) {

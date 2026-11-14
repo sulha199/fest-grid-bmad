@@ -274,6 +274,8 @@ extend type Query {
   # Open jobs (QUEUED, RUNNING, WAITING), newest first, not paged (bounded by a safety limit of 50). With subject: only that
   # subject's jobs. endedWithinMinutes (0 to 60) also returns jobs that ended inside that window.
   activeJobs(filter: JobsFilter, subject: JobSubjectInput, endedWithinMinutes: Int = 0): [Job!]!
+  # Story 10.13: the caller's own jobs that ended since the Jobs page was last opened (the profile-menu badge), at most 99; never a system job.
+  jobsFinishedSinceLastOpened: Int!
 }
 
 enum RetryJobOutcome {
@@ -304,4 +306,8 @@ type RetryJobResult {
 extend type Mutation {
   # Owner only; starts a NEW job for the same input through the type's own start path (reuse, admission, cooldown, slot unchanged).
   retryJob(jobId: ID!): RetryJobResult!
+  # Story 10.13: the caller opened the Jobs page; clears the badge on every device.
+  markJobsOpened: Boolean!
+  # Story 10.13: the client saw the caller's own job end on a visible tab, so no push. Any other id is a silent false.
+  acknowledgeJobEnded(jobId: ID!): Boolean!
 }

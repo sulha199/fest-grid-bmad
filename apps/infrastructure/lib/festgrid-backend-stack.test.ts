@@ -544,7 +544,7 @@ test('FestgridBackendStack: the send grant covers the sender address as an ident
   assert.ok(serialized.includes('FestgridEmailIdentity'), 'the sending domain identity stays covered');
 });
 
-test('FestgridBackendStack: the Ingestor can initialise Firebase and report an alert, and the AI processor holds no Firebase credential (BUG-073)', () => {
+test('FestgridBackendStack: the Ingestor and the Scraper can initialise Firebase, the Ingestor reports an alert, and the AI processor holds no Firebase credential (BUG-073, Story 10.13)', () => {
   const resources = withEnv(
     {
       FIREBASE_PROJECT_ID: 'festdaily-test',
@@ -559,7 +559,7 @@ test('FestgridBackendStack: the Ingestor can initialise Firebase and report an a
   const aiEnv = (aiProcessor.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
   assert.ok(!('FIREBASE_PRIVATE_KEY' in aiEnv), `${aiLogicalId} never sends a push on this code, so it must not hold the Firebase private key`);
 
-  for (const prefix of ['IngestorLambda']) {
+  for (const prefix of ['IngestorLambda', 'ScraperLambda']) {
     const [logicalId, lambdaResource] = lambdaByPrefix(resources, prefix);
     const env = (lambdaResource.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
 
@@ -567,13 +567,30 @@ test('FestgridBackendStack: the Ingestor can initialise Firebase and report an a
     assert.strictEqual(env.FIREBASE_CLIENT_EMAIL, 'firebase-adminsdk@festdaily-test.iam.gserviceaccount.com', `${logicalId} needs FIREBASE_CLIENT_EMAIL`);
     const privateKey = JSON.stringify(env.FIREBASE_PRIVATE_KEY ?? '');
     assert.ok(privateKey.includes('secretsmanager') && privateKey.includes('FirebasePrivateKeySecret'), `${logicalId} needs FIREBASE_PRIVATE_KEY from the Firebase private key secret`);
-    assert.strictEqual(env.SYSTEM_ERROR_ALERT_EMAIL, 'ops@example.test', `${logicalId} needs SYSTEM_ERROR_ALERT_EMAIL to report a failure`);
+    if (prefix === 'IngestorLambda') {
+      assert.strictEqual(env.SYSTEM_ERROR_ALERT_EMAIL, 'ops@example.test', `${logicalId} needs SYSTEM_ERROR_ALERT_EMAIL to report a failure`);
+    } else {
+      // Story 10.13 (owner decision 2026-11-14): the Scraper Lambda sends the job-finished push but is not given the alert address.
+      assert.ok(!('SYSTEM_ERROR_ALERT_EMAIL' in env), `${logicalId} is not given SYSTEM_ERROR_ALERT_EMAIL`);
+    }
 
     const readsFirebaseSecret = policyStatementsFor(resources, lambdaResource).some((stmt) => {
       const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
       return actions.includes('secretsmanager:GetSecretValue') && JSON.stringify(stmt.Resource).includes('FirebasePrivateKeySecret');
     });
     assert.ok(readsFirebaseSecret, `${logicalId} needs read access to the Firebase private key secret`);
+  }
+
+  // Story 10.13: the announcer's three settings are on the Scraper Lambda only (it runs the sweep step), with their defaults.
+  const [, scraper] = lambdaByPrefix(resources, 'ScraperLambda');
+  const scraperEnv = (scraper.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+  assert.strictEqual(scraperEnv.JOB_NOTIFY_WINDOW_MINUTES, '10');
+  assert.strictEqual(scraperEnv.JOB_NOTIFY_GRACE_SECONDS, '45');
+  assert.strictEqual(scraperEnv.JOB_NOTIFY_MAX_AGE_MINUTES, '60');
+  for (const prefix of ['AIProcessorLambda', 'ApiLambda', 'IngestorLambda']) {
+    const [, other] = lambdaByPrefix(resources, prefix);
+    const otherEnv = (other.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+    assert.ok(!('JOB_NOTIFY_WINDOW_MINUTES' in otherEnv), `${prefix} does not run the announcer`);
   }
 });
 

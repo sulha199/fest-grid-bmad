@@ -8,6 +8,7 @@ import { trackJobProgressMinimized, trackJobProgressReopened, trackJobRetryClick
 import { useJobAnnouncer } from './job-announcer-provider';
 import { mapJobStartError, type JobStartFailure } from './job-start-error';
 import { useActiveJobs, useJob, type JobReadState, type JobSubjectView } from './use-jobs';
+import { useAcknowledgeEndedJobs } from './use-jobs-notice';
 import { useJobLabels } from './use-job-labels';
 import { useAnnounceReconnecting } from './use-announce-reconnecting';
 
@@ -91,6 +92,13 @@ export function useJobProgress({ subject, endedWithinMinutes = 0, enabled = true
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.id, job ? getJobSignature(job) : null]);
+
+  // Story 10.13: a job seen ending on a visible tab (dialog or chip) is acknowledged, so it is not also pushed.
+  const acknowledge = useAcknowledgeEndedJobs();
+  useEffect(() => {
+    if (job) acknowledge([{ id: job.id, status: job.status }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.id, job?.status]);
 
   const attach = useCallback(
     (id: string, options?: AttachOptions) => {

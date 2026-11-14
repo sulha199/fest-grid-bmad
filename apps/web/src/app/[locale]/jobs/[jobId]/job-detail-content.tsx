@@ -14,6 +14,7 @@ import { defaultResultAction } from '@/features/jobs/job-progress-host';
 import { JobRetryFailureNotice } from '@/features/jobs/job-retry-failure-notice';
 import { mapJobStartError, type JobStartFailure } from '@/features/jobs/job-start-error';
 import { useJobDetail } from '@/features/jobs/use-job-detail';
+import { useAcknowledgeEndedJobs, useMarkJobsOpenedWhileVisible } from '@/features/jobs/use-jobs-notice';
 import { useJobLabels } from '@/features/jobs/use-job-labels';
 import { useAnnounceReconnecting } from '@/features/jobs/use-announce-reconnecting';
 import { OpenReextractPreview } from '@/features/moderation/reextract-open-preview';
@@ -52,6 +53,14 @@ export function JobDetailContent({ jobId }: { jobId: string }) {
     announcer.observe([{ id: job.id, signature: getJobSignature(job), text: announcementOf(job, title), urgent: job.status === 'FAILED' && !job.isCancelled }]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.id, signature]);
+
+  // Story 10.13: the page is open, so the badge is cleared, and an ended job seen here is acknowledged (not also pushed).
+  const acknowledge = useAcknowledgeEndedJobs();
+  useMarkJobsOpenedWhileVisible(!!session, `${job?.id ?? ''}:${job?.status ?? ''}`);
+  useEffect(() => {
+    if (job) acknowledge([{ id: job.id, status: job.status }]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.id, job?.status]);
 
   const retry = useCallback(async () => {
     if (!job || retryingRef.current) return;

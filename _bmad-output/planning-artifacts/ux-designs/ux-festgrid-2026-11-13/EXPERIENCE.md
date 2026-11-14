@@ -50,7 +50,7 @@ Story 10.4 (Jobs page and inline job progress component) · Story 10.3a (subscri
 | Job detail | `/jobs/{jobId}` | The owner; a moderator for any job | New (Story 10.4) |
 | Job progress dialog | Opens over any page | Owner | New shared component (Story 10.4) |
 | Job chip | At the place an action started (list below) | Owner | New shared component (Story 10.4) |
-| User menu entry "Jobs" | Profile menu, after "Account Settings" | Signed-in | Changed (`profile-menu-entries.ts`): entry `jobs` with a `ListChecks` icon. The finished-since-last-visit `CountBadge` is wired by Story 10.13 (notify when a job finishes), not here. |
+| User menu entry "Jobs" | Profile menu, after "Account Settings" | Signed-in | Changed (`profile-menu-entries.ts`): entry `jobs` with a `ListChecks` icon. The finished-since-last-visit `CountBadge` (max 9, with the full sentence `UserMenu.jobsBadgeLabel` in the entry's accessible name) is wired by Story 10.13 (notify when a job finishes) through `jobsBadgeCount` and `jobsBadgeLabel` props. |
 | Subscription cap notice | Inline in a form, or in a small dialog | Non-moderator users | New (Story 10.3a) |
 | Re-extract progress, banner, Retry | Moderator source-post panel and the Post URL tab of Moderator Tools | Moderator | Changed (Story 10.6a) |
 

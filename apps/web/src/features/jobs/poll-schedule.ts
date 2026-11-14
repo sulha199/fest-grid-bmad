@@ -25,3 +25,17 @@ export function getJobPollInterval({ surface, hasOpenJob, consecutiveErrors, hid
   if (consecutiveErrors <= 0) return base;
   return Math.min(base * 2 ** consecutiveErrors, JOB_POLL_MAX_BACKOFF_MS);
 }
+
+/**
+ * Story 10.13 -- the Jobs menu badge count: one slow poll (the count changes only when a job ends, and the push and the
+ * Jobs page cover the urgent cases), nothing while the tab is hidden (one fetch on return is the caller's), and the
+ * interval doubles after an error, up to 4 minutes.
+ */
+export const JOBS_BADGE_POLL_MS = 60_000;
+export const JOBS_BADGE_POLL_MAX_BACKOFF_MS = 240_000;
+
+export function getJobsBadgePollInterval({ consecutiveErrors, hidden }: { consecutiveErrors: number; hidden: boolean }): number | false {
+  if (hidden) return false;
+  if (consecutiveErrors <= 0) return JOBS_BADGE_POLL_MS;
+  return Math.min(JOBS_BADGE_POLL_MS * 2 ** consecutiveErrors, JOBS_BADGE_POLL_MAX_BACKOFF_MS);
+}

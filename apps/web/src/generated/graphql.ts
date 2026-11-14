@@ -854,6 +854,7 @@ export type ModeratorAccountProfileFilters = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  acknowledgeJobEnded: Scalars['Boolean']['output'];
   applyPostReextraction: ApplyPostReextractionResult;
   castVote: AccountVote;
   clearAccountDefaultLocation: SocialMediaAccountProfile;
@@ -870,6 +871,7 @@ export type Mutation = {
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
+  markJobsOpened: Scalars['Boolean']['output'];
   markSubscriptionViewed: Subscription;
   previewPostReextraction: StartPostReextractionPreviewResult;
   registerEmbedDomain: EmbedDomain;
@@ -927,6 +929,11 @@ export type Mutation = {
   updateUserTimezone: Scalars['Boolean']['output'];
   updateWidget: Widget;
   withdrawVote: AccountVote;
+};
+
+
+export type MutationAcknowledgeJobEndedArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -1398,6 +1405,7 @@ export type Query = {
   instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
   job?: Maybe<Job>;
+  jobsFinishedSinceLastOpened: Scalars['Int']['output'];
   me: Me;
   /**
    * Combined count of items awaiting moderator action across Moderator Items
@@ -2440,6 +2448,23 @@ export type SubmitReportMutationVariables = Exact<{
 
 
 export type SubmitReportMutation = { submitReport: { id: string, reason: ReportReason, status: ReportStatus, createdAt: string } };
+
+export type JobsFinishedSinceLastOpenedQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type JobsFinishedSinceLastOpenedQuery = { jobsFinishedSinceLastOpened: number };
+
+export type MarkJobsOpenedMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MarkJobsOpenedMutation = { markJobsOpened: boolean };
+
+export type AcknowledgeJobEndedMutationVariables = Exact<{
+  jobId: string | number;
+}>;
+
+
+export type AcknowledgeJobEndedMutation = { acknowledgeJobEnded: boolean };
 
 export type JobProgressFieldsFragment = { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null };
 
@@ -4547,6 +4572,76 @@ export const useSubmitReportMutation = <
       {
     mutationKey: ['submitReport'],
     mutationFn: (variables?: SubmitReportMutationVariables) => fetcher<SubmitReportMutation, SubmitReportMutationVariables>(client, SubmitReportDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const JobsFinishedSinceLastOpenedDocument = new TypedDocumentString(`
+    query jobsFinishedSinceLastOpened {
+  jobsFinishedSinceLastOpened
+}
+    `);
+
+export const useJobsFinishedSinceLastOpenedQuery = <
+      TData = JobsFinishedSinceLastOpenedQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: JobsFinishedSinceLastOpenedQueryVariables,
+      options?: Omit<UseQueryOptions<JobsFinishedSinceLastOpenedQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<JobsFinishedSinceLastOpenedQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<JobsFinishedSinceLastOpenedQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['jobsFinishedSinceLastOpened'] : ['jobsFinishedSinceLastOpened', variables],
+    queryFn: fetcher<JobsFinishedSinceLastOpenedQuery, JobsFinishedSinceLastOpenedQueryVariables>(client, JobsFinishedSinceLastOpenedDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const MarkJobsOpenedDocument = new TypedDocumentString(`
+    mutation markJobsOpened {
+  markJobsOpened
+}
+    `);
+
+export const useMarkJobsOpenedMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<MarkJobsOpenedMutation, TError, MarkJobsOpenedMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<MarkJobsOpenedMutation, TError, MarkJobsOpenedMutationVariables, TContext>(
+      {
+    mutationKey: ['markJobsOpened'],
+    mutationFn: (variables?: MarkJobsOpenedMutationVariables) => fetcher<MarkJobsOpenedMutation, MarkJobsOpenedMutationVariables>(client, MarkJobsOpenedDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const AcknowledgeJobEndedDocument = new TypedDocumentString(`
+    mutation acknowledgeJobEnded($jobId: ID!) {
+  acknowledgeJobEnded(jobId: $jobId)
+}
+    `);
+
+export const useAcknowledgeJobEndedMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<AcknowledgeJobEndedMutation, TError, AcknowledgeJobEndedMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<AcknowledgeJobEndedMutation, TError, AcknowledgeJobEndedMutationVariables, TContext>(
+      {
+    mutationKey: ['acknowledgeJobEnded'],
+    mutationFn: (variables?: AcknowledgeJobEndedMutationVariables) => fetcher<AcknowledgeJobEndedMutation, AcknowledgeJobEndedMutationVariables>(client, AcknowledgeJobEndedDocument, variables, headers)(),
     ...options
   }
     )};

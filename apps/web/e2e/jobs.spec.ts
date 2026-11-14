@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 import { FIXTURE_JOB_IDS } from '../../../packages/database/seed';
 
@@ -26,6 +28,59 @@ const row = (page: Page, id: string) => page.locator(`[data-testid="job-row"][da
 test.describe('Jobs page, ordinary user', () => {
   test.skip(!userState, 'Set E2E_FAKE_AUTH=1 (or E2E_AUTH_USER_STORAGE_STATE) to run the signed-in Jobs flow.');
   if (userState) test.use({ storageState: userState });
+
+  // Story 10.13 (notify when a job finishes). The seed gives the ordinary user a "Jobs last opened" time before the two ended fixture jobs
+  // (userSucceeded, userFailed), and opening the Jobs page (this test, or any other spec) clears it on the server. So this test re-seeds
+  // first (the same `seed` command the global setup runs, which refuses a non-local database), and does not depend on test order.
+  // Nothing is pushed or mailed here: only the in-app count and its clearing are exercised, against the real local backend.
+  test.describe('Jobs menu badge', () => {
+  test.beforeEach(() => {
+    execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--filter', '@festgrid/database', 'seed'], {
+      cwd: resolve(__dirname, '../../..'),
+      env: process.env,
+      stdio: 'ignore',
+      shell: process.platform === 'win32',
+    });
+  });
+
+  test('the Jobs menu entry shows how many jobs ended since the page was last opened, and opening Jobs clears it for good', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/en');
+    const trigger = page.locator('nav[aria-label="Main"] button[aria-expanded]').last();
+    await trigger.click();
+    const menu = page.getByTestId('user-menu');
+    const jobsLink = menu.getByRole('link', { name: /^Jobs/ });
+    // The number is text, and the full sentence is part of the entry's accessible name.
+    await expect(jobsLink).toHaveAccessibleName('Jobs 2 jobs finished since you last looked', { timeout: 30_000 });
+    await expect(jobsLink).toContainText('2');
+    // Only the Jobs entry carries it.
+    await expect(menu.getByRole('link', { name: /^Account Settings$/ })).toBeVisible();
+
+    await jobsLink.click();
+    await expect(page).toHaveURL(/\/en\/jobs$/);
+    await expect(page.getByTestId('job-row').first()).toBeVisible({ timeout: 30_000 });
+    // The page told the server it was opened: wait for the mutation's effect, then check the menu from a fresh load (another device's view).
+    await expect
+      .poll(async () => {
+        await page.goto('/en');
+        await page.locator('nav[aria-label="Main"] button[aria-expanded]').last().click();
+        const name = await page.getByTestId('user-menu').getByRole('link', { name: /^Jobs/ }).getAttribute('href');
+        const text = await page.getByTestId('user-menu').getByRole('link', { name: /^Jobs/ }).innerText();
+        return name === '/en/jobs' && text.trim() === 'Jobs';
+      }, { timeout: 30_000 })
+      .toBe(true);
+    await page.reload();
+    await page.locator('nav[aria-label="Main"] button[aria-expanded]').last().click();
+    await expect(page.getByTestId('user-menu').getByRole('link', { name: /^Jobs/ })).toHaveAccessibleName('Jobs');
+  });
+  });
+
+  test('a push path without a locale reaches the Jobs page through the locale redirect', async ({ page }) => {
+    await page.goto(`/jobs/${JOB_ID.userFailed}`);
+    await expect(page).toHaveURL(new RegExp(`/(en|id)/jobs/${JOB_ID.userFailed}$`));
+    await page.goto('/jobs');
+    await expect(page).toHaveURL(/\/(en|id)\/jobs$/);
+  });
 
   test('reaches Jobs from the profile menu and lists In progress above Finished', async ({ page }) => {
     await page.goto('/en');

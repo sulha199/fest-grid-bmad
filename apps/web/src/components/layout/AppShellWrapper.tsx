@@ -15,6 +15,7 @@ import { useAmbientCapabilityAskSlotStore } from '@/lib/state/ambient-capability
 import { useViewerLocation } from '@/lib/hooks/useViewerLocation';
 import { usePwaInstallPrompt } from '@/lib/hooks/usePwaInstallPrompt';
 import { usePostHog } from '@festgrid/analytics';
+import { useJobsFinishedCount } from '@/features/jobs/use-jobs-notice';
 
 // Any route under /wizard is excluded from the PWA install banner (AC12) — not
 // part of onboarding, since Chrome's own beforeinstallprompt engagement gate
@@ -55,6 +56,9 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     refetchInterval: 60_000,
   });
   const moderatorPendingItemCount = pendingItemData?.moderatorPendingItemCount ?? 0;
+
+  // Story 10.13 (notify when a job finishes): jobs that ended since the Jobs page was last opened, for the Jobs menu entry's badge.
+  const jobsFinishedCount = useJobsFinishedCount(isAuthenticated);
 
   React.useEffect(() => {
     router.prefetch(`/events/${MODAL_PREFETCH_WARMUP_SLUG}`);
@@ -220,6 +224,8 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
     moderatorTools: tUserMenu('moderatorTools'),
     widgets: tUserMenu('widgets'),
     jobs: tUserMenu('jobs'),
+    // Formatted only when there is a badge: no sentence is needed (and no plural formatting runs) for a count of 0.
+    jobsBadgeLabel: jobsFinishedCount > 0 ? tUserMenu('jobsBadgeLabel', { count: jobsFinishedCount }) : '',
     logout: tUserMenu('logout'),
     close: tUserMenu('close'),
   };
@@ -236,6 +242,8 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
         labels={labels}
         role={role}
         moderatorPendingItemCount={moderatorPendingItemCount}
+        jobsBadgeCount={jobsFinishedCount}
+        jobsBadgeLabel={userMenuLabels.jobsBadgeLabel}
         onSignOut={signOut}
         userMenuLabels={userMenuLabels}
         resolveHref={(entry) => (entry.requiresApiKey && !hasApiKey ? `/wizard/onboarding/api-key?redirect=${encodeURIComponent(entry.href || '/')}` : entry.href || '/')}

@@ -23,6 +23,8 @@ export async function cancelJob(jobId: string, ownerUserId: string, options: { m
       workerClaimedAt: null,
       resumeAt: null,
       finishedAt: now,
+      // Story 10.13: the owner just pressed Cancel, so they are watching; a cancel by replacement (with a message) is announced.
+      ownerNotifiedAt: options.message === undefined ? now : null,
       updatedAt: now,
     })
     .where(and(eq(jobs.id, jobId), eq(jobs.ownerUserId, ownerUserId), notInArray(jobs.status, [...JOB_TERMINAL_STATUSES])))

@@ -99,4 +99,18 @@ Scrape traffic may be silently funneling entirely onto the remaining provider's 
 
 Review scraper status on the Moderator Tools page: {{moderatorReviewUrl}}`,
   },
+  JOB_FINISHED_MODERATOR_NOTICE: {
+    subject: '[FestDaily] Job finished / Tugas selesai: {{summaryEn}}',
+    html: `<p>{{summaryEn}}</p>
+<p>See it on the Jobs page: <a href="{{moderatorReviewUrl}}">{{moderatorReviewUrl}}</a></p>
+<p>{{summaryId}}</p>
+<p>Lihat di halaman Tugas: <a href="{{moderatorReviewUrl}}">{{moderatorReviewUrl}}</a></p>`,
+    text: `{{summaryEn}}
+
+See it on the Jobs page: {{moderatorReviewUrl}}
+
+{{summaryId}}
+
+Lihat di halaman Tugas: {{moderatorReviewUrl}}`,
+  },
 };

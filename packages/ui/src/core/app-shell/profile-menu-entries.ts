@@ -36,7 +36,7 @@ export const profileMenuEntries: ProfileMenuEntry[] = [
   },
   {
     // Story 10.4 (Jobs page): after Account Settings, not a sixth main-navigation item. The finished-since-last-visit
-    // badge is Story 10.13's (notify when a job finishes), not wired here.
+    // badge (Story 10.13, notify when a job finishes) is passed to UserMenu as props (`jobsBadgeCount`, `jobsBadgeLabel`).
     id: 'jobs',
     labelKey: 'jobs',
     href: '/jobs',

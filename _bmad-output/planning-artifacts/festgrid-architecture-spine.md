@@ -3803,6 +3803,20 @@ This document defines the core architectural invariants for the FestDaily applic
         only (`null` for everyone else, with no query work for them); it is read through the named paths `{refresh,*}`, `{imagesAvailable}`,
         `{imagesSent}`, `{imageCap}` and `#> '{images}'` (never the column whole), and `images` is copied field by field with each value
         checked against its enum and the list bounded, so no caption, image URL or vendor name can reach the response.
+    18. **Job notices come from one announcer that reads row state (Story 10.13, notify when a job finishes, FR124).** A job
+        reaches a terminal state in at least nine places and several never call `afterJobEnded`, so no notice is raised at an
+        ending write. `announceEndedJobs` (`apps/backend/src/lib/job-engine/announce-ended-jobs.ts`) is the last step of the
+        five-minute sweep: it selects terminal user jobs with `owner_notified_at` null, applies the pure `decideJobNotice`
+        (grace `JOB_NOTIFY_GRACE_SECONDS` 45, merge window `JOB_NOTIFY_WINDOW_MINUTES` 10, max age
+        `JOB_NOTIFY_MAX_AGE_MINUTES` 60), claims the group with one UPDATE guarded on `owner_notified_at IS NULL` before it
+        sends (overlapping runs send once), then sends one FCM push (and, for a moderator owner, one mail through the
+        single-recipient mode of AD-54) built only by `buildJobFinishedPush` and `buildJobFinishedSummary`. State is three
+        columns of migration 0104: `user_settings.jobs_last_opened_at` (the badge watermark), `user_settings.last_job_push_at`
+        (the merge window) and `jobs.owner_notified_at`. "Watching" is the client saying so: `acknowledgeJobEnded` from a
+        visible tab; nothing is written on a poll. The Scraper Lambda holds the Firebase variables and the secret read for
+        it; the AI processor holds none. A system job (no owner) is never announced. A late result that revives an expired job
+        and a follower settled from its leader clear `owner_notified_at`, so the owner is told again once; an owner's own
+        cancel sets it. `job-announcer-single-sender.ratchet.test.ts` pins that no other file under `job-engine/` sends.
 *   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
     Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
     (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the
@@ -3872,7 +3886,7 @@ This document defines the core architectural invariants for the FestDaily applic
         at 10080 minutes (7 days) in `env.ts`, so a live window is never pruned.
     4.  **Single-recipient mode.** `options.recipientUserId` notifies only that user, and only if they are an active
         moderator; any other id is refused (`refused_not_moderator`), nothing is sent and no slot is spent. The slot is per
-        template, entity and recipient. Story 10.13 (notify when a job finishes) is its first user.
+        template, entity and recipient. Story 10.13 (notify when a job finishes) is its first user: the template `JOB_FINISHED_MODERATOR_NOTICE` (review path `/jobs`, entity the group's smallest job id) is mailed to a moderator who owns the job, grouped like the push (AD-53 Rule 18).
     5.  **Typed result, awaited, quiet.** The helper never throws and returns `sent`, `failed`, `throttled`,
         `no_moderators`, `refused_not_moderator` or `error` (stage `lookup` or `throttle`). The send is awaited, never
         fire-and-forget (the API and AI-processor Lambdas freeze after the response). A log line holds the template key,

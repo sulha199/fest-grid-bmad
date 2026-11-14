@@ -88,6 +88,8 @@ export async function settleJobFromLateResult(job: Pick<Job, 'id' | 'ownerUserId
       workerClaimedAt: null,
       resumeAt: null,
       finishedAt: now,
+      // Story 10.13: a late result that revives an EXPIRED job is announced again, once ("completed after deadline").
+      ownerNotifiedAt: null,
       updatedAt: now,
     })
     .where(

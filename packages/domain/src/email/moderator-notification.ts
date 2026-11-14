@@ -12,6 +12,7 @@ export const MODERATOR_TEMPLATE_KEYS = [
   'DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT',
   'SCRAPER_AUDIT_TRAIL_FAILURE_ALERT',
   'SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT',
+  'JOB_FINISHED_MODERATOR_NOTICE',
 ] as const satisfies readonly EmailTemplateKey[];
 
 export type ModeratorTemplateKey = (typeof MODERATOR_TEMPLATE_KEYS)[number];
@@ -29,6 +30,7 @@ export const MODERATOR_REVIEW_PATHS: Record<ModeratorTemplateKey, string> = {
   DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT: '/moderator/items',
   SCRAPER_AUDIT_TRAIL_FAILURE_ALERT: '/moderator/items',
   SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT: '/moderator/tools',
+  JOB_FINISHED_MODERATOR_NOTICE: '/jobs',
 };
 
 /** Joins the web base URL and a path with exactly one slash between them. */
@@ -50,6 +52,7 @@ export const MODERATOR_NOTIFICATION_ENTITY_KEYS: {
   DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT: (vars) => vars.accountDisplayName,
   SCRAPER_AUDIT_TRAIL_FAILURE_ALERT: (vars) => vars.source,
   SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT: (vars) => vars.provider,
+  JOB_FINISHED_MODERATOR_NOTICE: (vars) => vars.jobId,
 };
 
 /** What a call answers. No field holds an e-mail address, a name or a variable value. */
