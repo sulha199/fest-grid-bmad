@@ -8,3 +8,4 @@ export * from "./job-reasons.js";
 export * from "./job-retry.js";
 export * from "./job-waiting.js";
 export * from "./job-history.js";
+export * from "./job-notice.js";
