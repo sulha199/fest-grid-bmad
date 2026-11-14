@@ -68,9 +68,9 @@ const ui = () => (
 );
 const calls = (log: Array<{ operation: string; variables: Record<string, unknown> }>, op: string) => log.filter((l) => l.operation === op);
 
-beforeEach(() => {
+beforeEach(async () => {
   setVisibility('visible');
-  resetAcknowledgedJobs();
+  await resetAcknowledgedJobs();
   capture.mockClear();
 });
 afterEach(() => {

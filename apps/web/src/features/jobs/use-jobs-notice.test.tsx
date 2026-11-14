@@ -19,11 +19,11 @@ const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientPro
 beforeEach(() => {
   vi.useFakeTimers();
   setVisibility('visible');
-  resetAcknowledgedJobs();
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await resetAcknowledgedJobs();
   vi.useRealTimers();
   request.mockReset();
 });
@@ -106,18 +106,44 @@ describe('useAcknowledgeEndedJobs', () => {
     expect(count(log, 'acknowledgeJobEnded')).toBe(1);
   });
 
-  it('tries a job again after a failed acknowledgement', async () => {
-    let fail = true;
-    const log = installGraphqlFake(request, () => {
-      if (fail) throw new Error('boom');
+  it('tries a failed job again on the next call, every failure of a batch counts (not only the last), and gives up after 3 attempts', async () => {
+    let failIds = new Set(['a', 'b', 'c']);
+    const log = installGraphqlFake(request, (_op, variables) => {
+      if (failIds.has(String(variables.jobId))) throw new Error('boom');
       return { acknowledgeJobEnded: true };
     });
     const { result } = renderHook(() => useAcknowledgeEndedJobs(), { wrapper });
-    act(() => result.current([{ id: 'a', status: 'SUCCEEDED' }]));
+    const jobs = [{ id: 'a', status: 'SUCCEEDED' }, { id: 'b', status: 'FAILED' }, { id: 'c', status: 'EXPIRED' }];
+    act(() => result.current(jobs));
     await tick(0);
-    fail = false;
-    act(() => result.current([{ id: 'a', status: 'SUCCEEDED' }]));
+    expect(log).toHaveLength(3);
+    // The failures of the first and the second job (not the last mutate call) were un-marked too: all three are offered again.
+    failIds = new Set(['a']);
+    act(() => result.current(jobs));
     await tick(0);
-    expect(count(log, 'acknowledgeJobEnded')).toBe(2);
+    expect(log.slice(3).map((l) => l.variables.jobId)).toEqual(['a', 'b', 'c']);
+    act(() => result.current(jobs));
+    await tick(0);
+    expect(log.slice(6).map((l) => l.variables.jobId)).toEqual(['a']);
+    act(() => result.current(jobs));
+    await tick(0);
+    expect(log).toHaveLength(7);
+  });
+
+  it('sends one request after the other, in order, never in parallel', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    installGraphqlFake(request, async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return { acknowledgeJobEnded: true };
+    });
+    const { result } = renderHook(() => useAcknowledgeEndedJobs(), { wrapper });
+    act(() => result.current(['a', 'b', 'c', 'd'].map((id) => ({ id, status: 'SUCCEEDED' }))));
+    await tick(100);
+    expect(request).toHaveBeenCalledTimes(4);
+    expect(maxInFlight).toBe(1);
   });
 });

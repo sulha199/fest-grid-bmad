@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 import { FIXTURE_JOB_IDS } from '../../../packages/database/seed';
 
@@ -27,9 +29,20 @@ test.describe('Jobs page, ordinary user', () => {
   test.skip(!userState, 'Set E2E_FAKE_AUTH=1 (or E2E_AUTH_USER_STORAGE_STATE) to run the signed-in Jobs flow.');
   if (userState) test.use({ storageState: userState });
 
-  // Story 10.13 (notify when a job finishes). Keep this FIRST in the file: the seed gives the ordinary user a "Jobs last opened" time before
-  // the two ended fixture jobs (userSucceeded, userFailed), and opening the Jobs page (in any later test) clears it on the server.
+  // Story 10.13 (notify when a job finishes). The seed gives the ordinary user a "Jobs last opened" time before the two ended fixture jobs
+  // (userSucceeded, userFailed), and opening the Jobs page (this test, or any other spec) clears it on the server. So this test re-seeds
+  // first (the same `seed` command the global setup runs, which refuses a non-local database), and does not depend on test order.
   // Nothing is pushed or mailed here: only the in-app count and its clearing are exercised, against the real local backend.
+  test.describe('Jobs menu badge', () => {
+  test.beforeEach(() => {
+    execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--filter', '@festgrid/database', 'seed'], {
+      cwd: resolve(__dirname, '../../..'),
+      env: process.env,
+      stdio: 'ignore',
+      shell: process.platform === 'win32',
+    });
+  });
+
   test('the Jobs menu entry shows how many jobs ended since the page was last opened, and opening Jobs clears it for good', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/en');
@@ -59,6 +72,7 @@ test.describe('Jobs page, ordinary user', () => {
     await page.reload();
     await page.locator('nav[aria-label="Main"] button[aria-expanded]').last().click();
     await expect(page.getByTestId('user-menu').getByRole('link', { name: /^Jobs/ })).toHaveAccessibleName('Jobs');
+  });
   });
 
   test('a push path without a locale reaches the Jobs page through the locale redirect', async ({ page }) => {

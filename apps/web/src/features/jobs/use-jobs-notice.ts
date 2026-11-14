@@ -61,29 +61,50 @@ export function useMarkJobsOpenedWhileVisible(enabled: boolean, changeKey: strin
   }, [enabled, visible, changeKey, markOpened]);
 }
 
-// Module-level so every surface (dialog, panel, detail page, list) shares one "already said" set for the page's life.
+// Module-level so every surface (dialog, panel, detail page, list) shares one "already said" set and one queue for the page's life.
 const acknowledged = new Set<string>();
+const failedAttempts = new Map<string, number>();
+const MAX_ACK_ATTEMPTS = 3;
+let ackQueue: Promise<void> = Promise.resolve();
 
-/** Test seam: forget what was acknowledged. */
-export function resetAcknowledgedJobs(): void {
+/** Test seam: forget what was acknowledged (and wait for what is in flight). */
+export async function resetAcknowledgedJobs(): Promise<void> {
+  await ackQueue;
   acknowledged.clear();
+  failedAttempts.clear();
 }
 
 /**
  * The client saw jobs end: says so once per job, from a visible tab only (a hidden tab, a closed app and an offline phone never
- * acknowledge, so they are pushed). Fire and forget: a failure only means the owner may also get a push, and the job is tried again.
+ * acknowledge, so they are pushed). Fire and forget: a failure only means the owner may also get a push. The requests go out one after
+ * the other (a page of ended jobs is not a burst of parallel calls), a failed job is un-marked so the next call offers it again, and
+ * after `MAX_ACK_ATTEMPTS` failures it is left alone (no loop, no storm against a failing server). `mutateAsync` is used because
+ * TanStack Query v5 runs a per-call `onError` only for the LAST `mutate` call of an observer.
  */
 export function useAcknowledgeEndedJobs(): (jobs: ReadonlyArray<{ id: string; status: string }>) => void {
   const mutation = useAcknowledgeJobEndedMutation(graphqlClient);
-  const mutateRef = useRef(mutation.mutate);
-  mutateRef.current = mutation.mutate;
+  const mutateRef = useRef(mutation.mutateAsync);
+  mutateRef.current = mutation.mutateAsync;
   return useCallback((jobs) => {
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+    const todo: string[] = [];
     for (const job of jobs) {
       if (job.status === 'QUEUED' || job.status === 'RUNNING' || job.status === 'WAITING') continue;
-      if (acknowledged.has(job.id)) continue;
+      if (acknowledged.has(job.id) || (failedAttempts.get(job.id) ?? 0) >= MAX_ACK_ATTEMPTS) continue;
       acknowledged.add(job.id);
-      mutateRef.current({ jobId: job.id }, { onError: () => acknowledged.delete(job.id) });
+      todo.push(job.id);
     }
+    if (todo.length === 0) return;
+    const send = mutateRef.current;
+    ackQueue = ackQueue.then(async () => {
+      for (const jobId of todo) {
+        try {
+          await send({ jobId });
+        } catch {
+          acknowledged.delete(jobId);
+          failedAttempts.set(jobId, (failedAttempts.get(jobId) ?? 0) + 1);
+        }
+      }
+    });
   }, []);
 }
