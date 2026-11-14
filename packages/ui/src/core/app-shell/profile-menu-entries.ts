@@ -1,4 +1,4 @@
-import { LucideIcon, User, MapPin, Radio, FileText, ShieldAlert, Archive, Sparkles, Activity, Puzzle } from 'lucide-react';
+import { LucideIcon, User, MapPin, Radio, FileText, ShieldAlert, Archive, Sparkles, Activity, Puzzle, ListChecks } from 'lucide-react';
 
 export interface ProfileMenuEntry {
   id: string;
@@ -33,6 +33,14 @@ export const profileMenuEntries: ProfileMenuEntry[] = [
     labelKey: 'accountSettings',
     href: '/settings/account',
     icon: Radio,
+  },
+  {
+    // Story 10.4 (Jobs page): after Account Settings, not a sixth main-navigation item. The finished-since-last-visit
+    // badge is Story 10.13's (notify when a job finishes), not wired here.
+    id: 'jobs',
+    labelKey: 'jobs',
+    href: '/jobs',
+    icon: ListChecks,
   },
   {
     id: 'manual-post-selection',

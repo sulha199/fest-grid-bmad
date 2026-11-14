@@ -102,6 +102,28 @@ const scenarios: PopupScenario[] = [
     },
   },
   {
+    // Story 10.4: the shared job progress dialog, on the e2e-only fixture page (no start point mounts it until the adoption stories): an open
+    // job (Minimize) and the tallest ended state (a failed job with Retry, a result link and a refusal notice) with a very long handle.
+    name: 'job progress dialog: open job (fixture page)',
+    route: '/en/test-job-progress',
+    session: 'user',
+    open: async (page) => {
+      await page.getByRole('button', { name: 'Open running job' }).click();
+      return page.getByTestId('job-progress-dialog');
+    },
+  },
+  {
+    name: 'job progress dialog: failed job with Retry, result link and notice (fixture page)',
+    route: '/en/test-job-progress',
+    session: 'user',
+    open: async (page) => {
+      await page.getByRole('button', { name: 'Open failed job' }).click();
+      const dialog = page.getByTestId('job-progress-dialog');
+      await expect(dialog.getByRole('button', { name: 'Retry' })).toBeVisible();
+      return dialog;
+    },
+  },
+  {
     name: 'event detail (moderator): Re-extract dialog',
     route: EVENT_ROUTE,
     session: 'moderator',

@@ -171,6 +171,9 @@ export interface BackendEnv {
   maxQueuedJobsPerUser: number;
   // Story 10.3 -- minutes a job may wait for a place (from queued_since) before the sweep ends it EXPIRED / WAITED_TOO_LONG.
   jobQueueMaxWaitMinutes: number;
+  // Story 10.4 (FR123; owner override 2026-11-13: hide-only) -- days a finished job stays listed on the Jobs page and readable by id.
+  // Older finished jobs are hidden from the read API; nothing is deleted. API Lambda only.
+  jobsHistoryRetentionDays: number;
   // Story 10.3 -- the subscription cap (FR122) for every user who is not a moderator.
   maxSubscribedAccountsFreeUser: number;
   // Story 3.6n (AC5) — remaining-time floor (ms), read from the Lambda Context's
@@ -477,6 +480,8 @@ export function loadBackendEnv(): BackendEnv {
     maxQueuedJobsPerUser: parsePositiveInt(process.env.MAX_QUEUED_JOBS_PER_USER, 'MAX_QUEUED_JOBS_PER_USER', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     jobQueueMaxWaitMinutes: parsePositiveInt(process.env.JOB_QUEUE_MAX_WAIT_MINUTES, 'JOB_QUEUE_MAX_WAIT_MINUTES', 30),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobsHistoryRetentionDays: parsePositiveInt(process.env.JOBS_HISTORY_RETENTION_DAYS, 'JOBS_HISTORY_RETENTION_DAYS', 30),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxSubscribedAccountsFreeUser: parsePositiveInt(process.env.MAX_SUBSCRIBED_ACCOUNTS_FREE_USER, 'MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', 5),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

@@ -54,7 +54,11 @@
     "manualPostSelectionTitle": "Extract Events | FestDaily",
     "manualPostSelectionDescription": "Select posts from your subscribed social media accounts to extract music festival events.",
     "moderatorToolsTitle": "Moderator Tools | FestDaily Moderator",
-    "moderatorToolsDescription": "Manage scraper operations, runs, and payloads"
+    "moderatorToolsDescription": "Manage scraper operations, runs, and payloads",
+    "jobsTitle": "Jobs | FestDaily",
+    "jobsDescription": "Follow the work running in the background on FestDaily.",
+    "jobDetailTitle": "Job details | FestDaily",
+    "jobDetailDescription": "See the progress and result of one job."
   },
   "ModeratorToolsPage": {
     "actorRunsTabLabel": "Actor Runs",
@@ -805,7 +809,8 @@
     "moderatorItems": "Moderator Items",
     "moderatorTools": "Moderator Tools",
     "logout": "Log Out",
-    "close": "Close"
+    "close": "Close",
+    "jobs": "Jobs"
   },
   "MyAIFiltersPage": {
     "title": "My AI Filters",
@@ -1110,5 +1115,233 @@
     "page": "Page {page}",
     "total": "{count, number} total",
     "emptyPage": "Nothing is left on this page. Use Previous to go back."
+  },
+  "Jobs": {
+    "pageTitle": "Jobs",
+    "pageDescription": "Follow the work running in the background, like adding accounts and extracting posts.",
+    "backToJobs": "Jobs",
+    "activeHeading": "In progress",
+    "activeEmpty": "Nothing is running right now.",
+    "historyHeading": "Finished",
+    "emptyTitle": "No jobs yet",
+    "emptyBody": "When you add an account or extract posts, you can follow the work here.",
+    "filteredEmptyTitle": "No jobs match these filters",
+    "clearFilters": "Clear filters",
+    "loadError": "We could not load your jobs.",
+    "jobLoadError": "We could not load this job.",
+    "tryAgain": "Try again",
+    "reconnecting": "Reconnecting. Showing the last known progress.",
+    "notFound": "This job was not found.",
+    "filters": {
+      "scopeLabel": "Show",
+      "scopeMine": "My jobs",
+      "scopeAll": "All users",
+      "includeSystem": "Include system jobs"
+    },
+    "row": {
+      "openDetails": "Open details: {title}, {status}",
+      "startedAt": "Started {time}",
+      "runningFor": "Running for {duration}",
+      "tookDuration": "Took {duration}",
+      "queuePosition": "{position, plural, =1 {Next in line} other {Number # in line}}",
+      "nextTry": "Next try {time}",
+      "startedBy": "Started by {name}",
+      "systemJob": "System job"
+    },
+    "type": {
+      "SUBSCRIBE": "Adding an account",
+      "PROFILE_LOOKUP": "Looking up an account",
+      "ACCOUNT_REFRESH": "Checking an account for new posts",
+      "CORRECTION": "Correcting an event",
+      "EXTRACT_FROM_URL": "Extracting from a post link",
+      "EXTRACT_SELECTED_POSTS": "Extracting selected posts",
+      "REEXTRACT_REFRESH": "Re-extracting a post",
+      "ADMIN_OPERATION": "Moderator operation",
+      "OTHER": "Background job"
+    },
+    "subject": {
+      "account": "@{handle}",
+      "posts": "{count, plural, one {# post} other {# posts}}",
+      "post": "Post {code}",
+      "unknown": "Unknown"
+    },
+    "status": {
+      "QUEUED": "Waiting for a place",
+      "RUNNING": "In progress",
+      "WAITING": "Waiting",
+      "SUCCEEDED": "Done",
+      "SUCCEEDED_WITH_LIMITS": "Done, with limits",
+      "FAILED": "Failed",
+      "EXPIRED": "Expired",
+      "CANCELLED": "Cancelled"
+    },
+    "chip": {
+      "ariaLabel": "Show progress: {title}. {status}",
+      "queued": "Waiting for a place (#{position})",
+      "running": "In progress: step {current} of {total}",
+      "runningNoSteps": "In progress",
+      "waiting": "Waiting",
+      "waitingUntil": "Waiting until {time}",
+      "done": "Done",
+      "doneWithLimits": "Done, with limits",
+      "failed": "Failed",
+      "expired": "Expired",
+      "cancelled": "Cancelled"
+    },
+    "dialog": {
+      "description": "You can minimize this and keep using the app. The work continues in the background.",
+      "minimize": "Minimize",
+      "close": "Close",
+      "seeAllInJobs": "See all in Jobs",
+      "viewDetails": "View details",
+      "leavingNote": "Leaving this page does not stop it.",
+      "elapsed": "Running for {duration}",
+      "stepsLabel": "Steps",
+      "stepOf": "Step {current} of {total}",
+      "stepStateDone": "done",
+      "stepStateCurrent": "in progress",
+      "stepStatePending": "not started",
+      "stepStateSkipped": "skipped",
+      "countDetail": "{done} of {total} finished"
+    },
+    "queued": {
+      "title": "Waiting for a free place",
+      "body": "You can run {limit} jobs at once and all {limit} places are in use. This one will start by itself.",
+      "expires": "If it has not started by {time}, it will be dropped."
+    },
+    "waiting": {
+      "title": "Waiting",
+      "retryAt": "Waiting to try again at {time}.",
+      "result": "Waiting for the answer to arrive. This can take a few minutes.",
+      "extraction": "Waiting for the posts to finish extracting ({done} of {total} done).",
+      "extractionRetryAt": "Waiting to retry a post at {time}.",
+      "noPlaceHeld": "You can start other jobs in the meantime."
+    },
+    "outcome": {
+      "succeededTitle": "Done",
+      "limitsTitle": "Finished with what we had",
+      "failedTitle": "Could not finish",
+      "expiredTitle": "Stopped",
+      "cancelledTitle": "Cancelled",
+      "lateResult": "The answer arrived late but was still used.",
+      "openAccount": "Open the account",
+      "openPreview": "Open the preview",
+      "viewEvents": "See the events",
+      "eventsFromPosts": "{events, plural, one {# event} other {# events}} from {posts, plural, one {# post} other {# posts}}",
+      "took": "Took {duration}",
+      "started": "Started {time}",
+      "finished": "Finished {time}"
+    },
+    "reason": {
+      "ACCOUNT_NOT_FOUND": "We could not find this account. Check the spelling and try another handle.",
+      "ACCOUNT_PRIVATE": "This account is private, so its posts cannot be read.",
+      "NO_PROVIDER_REACHABLE": "We could not reach the platform right now. Try again in a few minutes.",
+      "PROVIDER_OVER_QUOTA": "The service is busy at the moment. Try again later.",
+      "ACCOUNT_TYPE_NOT_SCRAPED": "This type of account is not scraped, so nothing was fetched.",
+      "POST_UNAVAILABLE": "The post is no longer available on the platform.",
+      "COOLDOWN": "This was tried a moment ago. You can try again at {time}.",
+      "TIMED_OUT": "It took too long and was stopped. Try again.",
+      "CANCELLED": "It was cancelled.",
+      "WAITED_TOO_LONG": "It waited more than {minutes} minutes for a free place and was dropped. Try again when your other jobs have finished.",
+      "SOME_POSTS_NOT_EXTRACTED": "Some posts could not be extracted. You can retry them.",
+      "REFRESH_IN_PROGRESS": "Another request is fetching this post right now. Try again in a minute.",
+      "REFRESH_DID_NOT_HEAL_IMAGES": "A provider answered, but its images could not be used, so the stored images were used.",
+      "POST_NOT_FOUND": "The post was removed while this was waiting.",
+      "CHAIN_IN_FLIGHT": "This post is already being extracted. Try again when that finishes.",
+      "QUOTA_EXHAUSTED": "No AI key had quota left. Try again tomorrow.",
+      "EXTRACTION_FAILED": "We could not finish reading this post. Try again.",
+      "VENDOR_RUN_FAILED": "The platform did not return what we needed. Try again.",
+      "GENERIC": "Something went wrong on our side. Try again, and if it keeps happening, tell us.",
+      "COOLDOWN_NO_TIME": "This was tried a moment ago. You can try again in a little while."
+    },
+    "actions": {
+      "retry": "Retry",
+      "retryAt": "Retry at {time}",
+      "retryStarted": "Started again.",
+      "retryReused": "This is already running.",
+      "startQueueFull": "Too many jobs are waiting ({max}). Open Jobs to see them.",
+      "startQueueFullLink": "Open Jobs",
+      "startQueueFullNoCount": "Too many jobs are waiting. Open Jobs to see them."
+    },
+    "moderator": {
+      "detailsSummary": "Technical details (moderators)",
+      "attemptsHeading": "Provider attempts",
+      "noAttempts": "No provider was tried.",
+      "attemptProvider": "Provider",
+      "attemptOutcome": "Result",
+      "attemptBudget": "Time given",
+      "attemptElapsed": "Time used",
+      "attemptReason": "Reason",
+      "engineReason": "Engine reason code",
+      "engineMessage": "Engine message",
+      "jobId": "Job ID",
+      "trigger": "Started by",
+      "triggerUser": "A user",
+      "triggerSystem": "The system",
+      "provider": {
+        "APIFY": "Apify",
+        "BRIGHT_DATA": "Bright Data"
+      },
+      "outcome": {
+        "SUCCEEDED": "Succeeded",
+        "FAILED": "Failed",
+        "EMPTY": "Returned nothing",
+        "TIMED_OUT": "Ran out of time",
+        "OVER_QUOTA": "Over quota",
+        "SKIPPED": "Skipped"
+      }
+    },
+    "phase": {
+      "generic": {
+        "working": "Working on it"
+      },
+      "REEXTRACT_REFRESH": {
+        "refresh": "Fetching fresh images",
+        "preview": "Reading the post and finding events"
+      },
+      "SUBSCRIBE": {
+        "lookup": "Finding the account",
+        "classify": "Checking what kind of account it is",
+        "firstScrape": "Fetching its first posts"
+      },
+      "PROFILE_LOOKUP": {
+        "lookup": "Finding the account"
+      },
+      "ACCOUNT_REFRESH": {
+        "scrape": "Fetching new posts"
+      },
+      "EXTRACT_SELECTED_POSTS": {
+        "start": "Queueing the posts",
+        "extract": "Extracting events"
+      },
+      "EXTRACT_FROM_URL": {
+        "fetch": "Fetching the post",
+        "extract": "Extracting events"
+      },
+      "CORRECTION": {
+        "fetch": "Fetching the post",
+        "apply": "Preparing the correction"
+      },
+      "ADMIN_OPERATION": {
+        "dryRun": "Checking what would change",
+        "apply": "Applying the change"
+      }
+    },
+    "announce": {
+      "started": "{title} started.",
+      "queued": "{title} is waiting for a free place. {position}",
+      "running": "{title} is now in progress.",
+      "step": "{title}: step {current} of {total}, {step}.",
+      "waiting": "{title} is waiting. {reason}",
+      "succeeded": "{title} is done.",
+      "limits": "{title} finished with limits. {reason}",
+      "failed": "{title} failed. {reason}",
+      "expired": "{title} was stopped. {reason}",
+      "cancelled": "{title} was cancelled.",
+      "minimized": "Progress minimized. The job keeps running.",
+      "reopened": "Progress opened.",
+      "listUpdated": "{count, plural, one {# job updated} other {# jobs updated}}",
+      "reconnecting": "Reconnecting. Showing the last known progress."
+    }
   }
 }

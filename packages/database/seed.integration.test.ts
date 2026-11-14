@@ -15,6 +15,8 @@ import {
   users,
   socialMediaAccountProfiles,
   reports,
+  jobs,
+  jobAttempts,
   brightdataPendingJobs,
   apifyPendingJobs,
 } from './schema';
@@ -75,6 +77,8 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const [eventCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(events);
       const [scheduleCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(schedules);
       const [reportCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(reports);
+      const [jobCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(jobs);
+      const [jobAttemptCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(jobAttempts);
 
       assert.equal(userCount.count, FIXTURE_COUNTS.users);
       assert.equal(userLocationCount.count, FIXTURE_COUNTS.userLocations);
@@ -88,6 +92,8 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.equal(eventCount.count, FIXTURE_COUNTS.events);
       assert.equal(scheduleCount.count, FIXTURE_COUNTS.schedules);
       assert.equal(reportCount.count, FIXTURE_COUNTS.reports);
+      assert.equal(jobCount.count, FIXTURE_COUNTS.jobs);
+      assert.equal(jobAttemptCount.count, FIXTURE_COUNTS.jobAttempts);
 
       // Guard new unique constraint on postUrl from being broken by duplicate seed data
       assert.equal(new Set(FIXTURE_POSTS.map(p => p.postUrl)).size, FIXTURE_POSTS.length);
@@ -292,6 +298,10 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       const [reportCountSecondRun] = await dbAfterSecondRun
         .select({ count: sql<number>`cast(count(*) as int)` })
         .from(reports);
+      // Story 10.4 Part C: the e2e job rows are re-created, never doubled.
+      const [jobCountSecondRun] = await dbAfterSecondRun
+        .select({ count: sql<number>`cast(count(*) as int)` })
+        .from(jobs);
 
       assert.equal(userCountSecondRun.count, FIXTURE_COUNTS.users);
       assert.equal(userLocationCountSecondRun.count, FIXTURE_COUNTS.userLocations);
@@ -302,6 +312,7 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
       assert.equal(eventCountSecondRun.count, FIXTURE_COUNTS.events);
       assert.equal(scheduleCountSecondRun.count, FIXTURE_COUNTS.schedules);
       assert.equal(reportCountSecondRun.count, FIXTURE_COUNTS.reports);
+      assert.equal(jobCountSecondRun.count, FIXTURE_COUNTS.jobs);
 
       const eventPostJoinsSecondRun = await dbAfterSecondRun
         .select({ eventId: events.id, imageUrl: posts.imageUrl })

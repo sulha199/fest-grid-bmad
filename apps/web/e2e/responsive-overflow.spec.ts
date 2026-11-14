@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { FIXTURE_JOB_IDS } from '../../../packages/database/seed';
 import { classifyPageHealth, describeOverflow, detectPageOverflow, isOverflowing, settleLayout } from '@festgrid/visual-audit/page-overflow';
 
 /**
@@ -109,6 +110,10 @@ test.describe('signed in', () => {
     '/en/settings/locations',
     '/en/settings/widgets',
     '/en/settings/ai-filters',
+    // Story 10.4: the Jobs page and a job's own page (an open job with the stepper, and a failed one).
+    '/en/jobs',
+    `/en/jobs/${FIXTURE_JOB_IDS.userRunning}`,
+    `/en/jobs/${FIXTURE_JOB_IDS.userFailed}`,
   ], { signedIn: true });
 });
 
@@ -116,7 +121,22 @@ test.describe('moderator', () => {
   test.skip(!moderatorState, 'Set E2E_FAKE_AUTH=1 (or E2E_AUTH_MODERATOR_STORAGE_STATE) to run moderator routes.');
   if (moderatorState) test.use({ storageState: moderatorState });
 
-  describeRoutes('moderator', ['/en/moderator/items', EVENT_ROUTE], { signedIn: true });
+  describeRoutes('moderator', ['/en/moderator/items', EVENT_ROUTE, '/en/jobs'], { signedIn: true });
+
+  test('moderator: a job detail with its technical details open has no page-level horizontal overflow', async ({ page }) => {
+    const pageErrors = trackPageErrors(page);
+    const route = `/en/jobs/${FIXTURE_JOB_IDS.moderatorFailedTimedOut}`;
+    await gotoRoute(page, route);
+    await settleLayout(page);
+    await expectSignedIn(page);
+    await expectHealthyPage(page, pageErrors);
+    // The attempts are a Table from md: up and a stacked list below it: measure both with the block open.
+    await page.getByText('Technical details (moderators)').click();
+    await expect(page.getByText('The job ran past its time limit.')).toBeVisible();
+    const failures = await overflowAtEveryWidth(page, `${route} [technical details open]`);
+    await expectHealthyPage(page, pageErrors);
+    expect(failures, 'overflowing widths').toEqual([]);
+  });
 
   test('moderator: every /en/moderator/tools tab has no page-level horizontal overflow', async ({ page }) => {
     const pageErrors = trackPageErrors(page);

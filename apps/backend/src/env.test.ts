@@ -153,6 +153,7 @@ test('loadBackendEnv reads the admission and subscription-cap settings (Story 10
     ['MAX_CONCURRENT_JOBS_PER_USER', 'maxConcurrentJobsPerUser', 3, '6'],
     ['MAX_QUEUED_JOBS_PER_USER', 'maxQueuedJobsPerUser', 10, '12'],
     ['JOB_QUEUE_MAX_WAIT_MINUTES', 'jobQueueMaxWaitMinutes', 30, '45'],
+    ['JOBS_HISTORY_RETENTION_DAYS', 'jobsHistoryRetentionDays', 30, '60'],
     ['MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', 'maxSubscribedAccountsFreeUser', 5, '8'],
   ] as const;
   for (const [name, key, fallback, custom] of settings) {

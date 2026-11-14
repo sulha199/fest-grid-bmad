@@ -27,6 +27,9 @@ import { checkAndRecordPromptFilterRateLimit } from '../lib/ai-event-filters/pro
 import { REPORT_SYSTEM_ERROR_ALERT_KEY, takeAlertEmailBudget } from '../lib/alerts/alert-email-budget-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { startPostReextractionPreview } from '../lib/extraction/start-post-reextraction-preview.js';
+import { assertJobsFilterAllowed, readActiveJobs, readJobById, readMyJobsPage, type JobViewer } from '../lib/job-engine/read-jobs.js';
+import { retryJob } from '../lib/job-engine/retry-job.js';
+import '../lib/job-engine/register-job-retry-starters.js'; // Story 10.4: the retry starters of the job types the API Lambda can start
 import { getReextractPreviewJobStatus } from '../lib/extraction/reextract-preview-job.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
@@ -407,6 +410,11 @@ export const resolvers: Resolvers = {
     },
   },
   Mutation: {
+    retryJob: async (_, { jobId }, context, info): Promise<any> => {
+      const authUser = requireAuth(context);
+      const viewer: JobViewer = { userId: authUser.userId, role: authUser.role };
+      return retryJob(viewer, jobId, info);
+    },
     resolvePromptToEventFilter: async (_, { prompt }, context) => {
       const authUser = requireAuth(context);
 
@@ -2919,6 +2927,34 @@ export const resolvers: Resolvers = {
   },
   Query: {
     health: () => true,
+    job: async (_, { id }, context, info): Promise<any> => {
+      const authUser = requireAuth(context);
+      return readJobById({ userId: authUser.userId, role: authUser.role }, id, { info });
+    },
+    myJobs: async (_, { filter, onlyEnded, first, after }, context, info): Promise<any> => {
+      const authUser = requireAuth(context);
+      const viewer: JobViewer = { userId: authUser.userId, role: authUser.role };
+      assertJobsFilterAllowed(viewer, filter);
+      const offset = decodeActorRunCursor(after);
+      const page = await readMyJobsPage(
+        viewer,
+        { filter, onlyEnded, first, offset },
+        { info, path: 'edges.node' },
+        { wantsTotal: getRequestedFieldNames(info).has('totalCount') }
+      );
+      const edges = page.jobs.map((node, idx) => ({ node, cursor: encodeActorRunCursor(offset + idx + 1) }));
+      return {
+        edges,
+        pageInfo: { hasNextPage: page.hasNextPage, endCursor: edges.length > 0 ? edges[edges.length - 1].cursor : null },
+        totalCount: page.totalCount,
+      };
+    },
+    activeJobs: async (_, { filter, subject, endedWithinMinutes }, context, info): Promise<any> => {
+      const authUser = requireAuth(context);
+      const viewer: JobViewer = { userId: authUser.userId, role: authUser.role };
+      assertJobsFilterAllowed(viewer, filter);
+      return readActiveJobs(viewer, { filter, subject, endedWithinMinutes }, { info });
+    },
     myAIEventFilters: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(aiEventFilters)

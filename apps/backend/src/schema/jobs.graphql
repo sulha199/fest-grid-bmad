@@ -1,0 +1,261 @@
+# Story 10.4 (Part A) -- the read API of the background-job engine (PRD 3.18, 4.21; Architecture Spine AD-53) as designed in
+# ux-designs/ux-festgrid-2026-11-13/graphql-read-shape.md. `Job` is a projection of the `jobs` row: no input key, no owner id, no raw
+# `input` or `result_data`, no caption and no image URL. Vendor names, the engine's own reason and message and per-attempt history are
+# moderator-only (`moderatorDetails`). `Job.refresh` and `images[]` are Story 10.6a's, added to this type there. Reuses DateTime and PageInfo.
+
+enum JobType {
+  SUBSCRIBE
+  PROFILE_LOOKUP
+  ACCOUNT_REFRESH
+  CORRECTION
+  EXTRACT_FROM_URL
+  EXTRACT_SELECTED_POSTS
+  REEXTRACT_REFRESH # the engine's 'reextract-post'
+  ADMIN_OPERATION
+  OTHER # an engine type with no registered presentation: it reads as a generic job and never breaks a page
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  WAITING
+  SUCCEEDED
+  SUCCEEDED_WITH_LIMITS
+  FAILED
+  EXPIRED
+}
+
+enum JobTrigger {
+  USER
+  SYSTEM
+}
+
+# The user-safe reasons (PRD 4.21 JobReasonCode). The engine-internal endings (HANDLER_ERROR, HANDLER_NOT_REGISTERED, HANDOFF_MISSING,
+# START_FAILED, UNSPECIFIED) and any unknown code read as GENERIC for everyone; a moderator also gets the raw code in moderatorDetails.
+enum JobReasonCode {
+  ACCOUNT_NOT_FOUND
+  ACCOUNT_PRIVATE
+  NO_PROVIDER_REACHABLE
+  PROVIDER_OVER_QUOTA
+  ACCOUNT_TYPE_NOT_SCRAPED
+  POST_UNAVAILABLE
+  COOLDOWN
+  TIMED_OUT
+  CANCELLED
+  WAITED_TOO_LONG
+  SOME_POSTS_NOT_EXTRACTED
+  REFRESH_IN_PROGRESS
+  REFRESH_DID_NOT_HEAL_IMAGES
+  POST_NOT_FOUND
+  CHAIN_IN_FLIGHT
+  QUOTA_EXHAUSTED
+  EXTRACTION_FAILED
+  VENDOR_RUN_FAILED
+  GENERIC
+}
+
+enum JobStepState {
+  DONE
+  CURRENT
+  PENDING
+  SKIPPED
+}
+
+type JobStep {
+  key: String! # looked up as Jobs.phase.<JobType>.<key>; unknown -> generic.working
+  state: JobStepState!
+  done: Int # "3 of 8 finished" (EXTRACT_SELECTED_POSTS); null when not a counting step
+  total: Int
+}
+
+# Present only while status = QUEUED.
+type JobQueueInfo {
+  position: Int! # 1-based among this user's queued jobs, oldest first (queued_since)
+  maxConcurrent: Int! # MAX_CONCURRENT_JOBS_PER_USER, so the copy needs no client constant
+  expiresAt: DateTime! # queued_since + JOB_QUEUE_MAX_WAIT_MINUTES
+}
+
+enum JobWaitingFor {
+  RETRY_AT
+  RESULT_FROM_PROVIDER
+  EXTRACTION_QUEUE
+}
+
+# Present only while status = WAITING.
+type JobWaitingInfo {
+  waitingFor: JobWaitingFor!
+  resumeAt: DateTime
+  done: Int
+  total: Int
+}
+
+enum JobSubjectKind {
+  ACCOUNT
+  POSTS
+  POST
+  NONE
+}
+
+# Safe identity of what the job is about. Never a caption, never an image URL of a post.
+type JobSubject {
+  kind: JobSubjectKind!
+  # ACCOUNT. platform + username let the client build the account link with buildAccountHref (the numeric account id never goes in a URL, AD-35).
+  accountId: ID
+  platform: String
+  username: String
+  displayName: String
+  profileImageUrl: String
+  # POSTS
+  postCount: Int
+  # POST (Re-extract). The platform's public short code, e.g. the 'DcntzF0mB7z' of /p/DcntzF0mB7z/.
+  postCode: String
+  postId: ID
+}
+
+enum JobOutcomeKind {
+  ACCOUNT
+  PREVIEW
+  EVENTS
+  NONE
+}
+
+type JobOutcome {
+  kind: JobOutcomeKind!
+  eventCount: Int
+  postCount: Int
+  # PREVIEW (Re-extract): when the Apply window closes (finished_at + 30 min), and whether it was applied.
+  previewApplyUntil: DateTime
+  previewApplied: Boolean
+}
+
+# Moderator-visible only.
+enum JobProvider {
+  APIFY
+  BRIGHT_DATA # the table's BRIGHTDATA, spelled as in PRD 4.21
+}
+
+enum JobAttemptOutcome {
+  SUCCEEDED
+  FAILED
+  EMPTY
+  TIMED_OUT
+  OVER_QUOTA
+  SKIPPED
+}
+
+type JobAttempt {
+  provider: JobProvider!
+  outcome: JobAttemptOutcome!
+  budgetMs: Int!
+  elapsedMs: Int!
+  reasonCode: JobReasonCode
+}
+
+type JobModeratorDetails {
+  attempts: [JobAttempt!]!
+  engineReasonCode: String # the raw jobs.reason_code, including the engine-internal ones
+  engineMessage: String # jobs.error_message (already plain words, never a raw vendor error)
+}
+
+# Moderator only; no email, no user id.
+type JobOwner {
+  displayName: String
+}
+
+type Job {
+  id: ID!
+  type: JobType!
+  trigger: JobTrigger!
+  status: JobStatus!
+  # true when status = FAILED and reasonCode = CANCELLED.
+  isCancelled: Boolean!
+  reasonCode: JobReasonCode # set for every ending other than SUCCEEDED (FR117)
+  # Parameters some reason texts need (COOLDOWN: time; WAITED_TOO_LONG: minutes).
+  reasonRetryAfter: DateTime
+  reasonQueueMaxWaitMinutes: Int
+  createdAt: DateTime!
+  startedAt: DateTime # admitted_at; null while QUEUED
+  finishedAt: DateTime
+  deadlineAt: DateTime!
+  completedAfterDeadline: Boolean!
+  subject: JobSubject!
+  steps: [JobStep!]! # ordered; empty list -> the UI shows the generic step
+  queue: JobQueueInfo
+  waiting: JobWaitingInfo
+  outcome: JobOutcome
+  canRetry: Boolean! # the server owns the rule
+  retryNotBefore: DateTime # COOLDOWN
+  # Moderator only: null for everyone else.
+  owner: JobOwner
+  moderatorDetails: JobModeratorDetails
+}
+
+type JobEdge {
+  node: Job!
+  cursor: String!
+}
+
+type JobConnection {
+  edges: [JobEdge!]!
+  pageInfo: PageInfo!
+  # Counted only when the client selects it.
+  totalCount: Int!
+}
+
+enum JobsScope {
+  MINE
+  ALL_USERS # moderator only
+}
+
+input JobsFilter {
+  scope: JobsScope = MINE
+  includeSystem: Boolean = false # moderator only
+}
+
+# What an action is about, so a start point can find its own open job again after a reload.
+input JobSubjectInput {
+  type: JobType!
+  postId: ID # Re-extract of a stored post
+  postUrlKey: String # Re-extract of a URL that is not stored (the engine's input key)
+  accountId: ID # account jobs
+}
+
+extend type Query {
+  # null for a missing job, another user's job, a system job (for an ordinary user) and a job past retention.
+  job(id: ID!): Job
+  # Newest first, cursor-paged. onlyEnded keeps only the four endings (the Jobs page's "Finished" section).
+  myJobs(filter: JobsFilter, onlyEnded: Boolean = false, first: Int = 20, after: String): JobConnection!
+  # Open jobs (QUEUED, RUNNING, WAITING), newest first, not paged (bounded by a safety limit of 50). With subject: only that
+  # subject's jobs. endedWithinMinutes (0 to 60) also returns jobs that ended inside that window.
+  activeJobs(filter: JobsFilter, subject: JobSubjectInput, endedWithinMinutes: Int = 0): [Job!]!
+}
+
+enum RetryJobOutcome {
+  STARTED
+  REUSED
+  REFUSED
+}
+
+enum JobStartErrorCode {
+  JOB_QUEUE_FULL
+  SUBSCRIPTION_CAP_REACHED
+  COOLDOWN
+  JOB_START_FAILED
+}
+
+type RetryJobResult {
+  outcome: RetryJobOutcome!
+  job: Job # the new job, or the one that was re-attached to
+  errorCode: JobStartErrorCode # when REFUSED
+  # SUBSCRIPTION_CAP_REACHED numbers (same names as the error's extensions).
+  activeCount: Int
+  reservedCount: Int
+  cap: Int
+  maxQueued: Int # JOB_QUEUE_FULL
+  retryNotBefore: DateTime # COOLDOWN
+}
+
+extend type Mutation {
+  # Owner only; starts a NEW job for the same input through the type's own start path (reuse, admission, cooldown, slot unchanged).
+  retryJob(jobId: ID!): RetryJobResult!
+}

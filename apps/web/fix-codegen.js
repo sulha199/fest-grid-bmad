@@ -72,6 +72,30 @@ content = content.replace(/export type CorrectionStatus =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ExtractionErrorCode =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ExtractionJobState =[\s\S]*?;\r?\n/g, '');
 
+// Replace duplicate union-type re-declarations of the Job enums (Story 10.4 Part B: the operations plugin re-declares each enum a document uses)
+content = content.replace(/export type JobAttemptOutcome =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobProvider =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobOutcomeKind =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobReasonCode =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobStartErrorCode =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobStatus =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobStepState =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobSubjectKind =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobTrigger =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobType =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobWaitingFor =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobsScope =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type RetryJobOutcome =[\s\S]*?;\r?\n/g, '');
+// Same for the two Job input object types: keep the schema's first declaration, drop the operations plugin's copy.
+for (const name of ['JobSubjectInput', 'JobsFilter']) {
+  const re = new RegExp(`export type ${name} = \\{[\\s\\S]*?\\r?\\n\\};\\r?\\n`, 'g');
+  const found = content.match(re) ?? [];
+  if (found.length > 1) {
+    let seen = false;
+    content = content.replace(re, (m) => (seen ? '' : ((seen = true), m)));
+  }
+}
+
 // Replace duplicate ImageStorageOptInSource and ModeratorAccountProfileFilters
 content = content.replace(/export type ImageStorageOptInSource =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ModeratorAccountProfileFilters = \{\r?\n\s+search\?\:\s+string[\s\S]*?\};\r?\n/g, '');
