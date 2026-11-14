@@ -144,6 +144,10 @@ export const userSettings = pgTable('user_settings', {
   // (0056 was skipped on prod by journal ordering; 0086 re-applies it, BUG-095).
   hidePastEventsAfterDays: integer('hide_past_events_after_days').default(0).notNull(),
   pushNotificationsEnabled: boolean('push_notifications_enabled').default(true).notNull(),
+  // Story 10.13 (notify when a job finishes): the Jobs badge watermark. DEFAULT now() fills every existing row with the migration time.
+  jobsLastOpenedAt: timestamp('jobs_last_opened_at', { withTimezone: true }).defaultNow().notNull(),
+  // When this user was last sent a job notice group (a push or, for a moderator, the mail of the same group): the merge-window state.
+  lastJobPushAt: timestamp('last_job_push_at', { withTimezone: true }),
   ...timestamps,
 });
 
@@ -1303,6 +1307,8 @@ export const jobs = pgTable('jobs', {
   // When a WAITING job's next step is due (a scheduled retry); null when it waits for an event.
   resumeAt: timestamp('resume_at', { withTimezone: true }),
   finishedAt: timestamp('finished_at', { withTimezone: true }),
+  // Story 10.13: "the owner has been told, or no longer needs telling" (pushed, skipped on purpose, or seen in the app).
+  ownerNotifiedAt: timestamp('owner_notified_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => ({
   ownerCreatedAtIdx: index('idx_jobs_owner_created_at').on(t.ownerUserId, t.createdAt),
