@@ -10,10 +10,17 @@ import { graphqlClient } from '@/lib/graphql-client';
 import { usePostSelectionStore } from './post-selection-store';
 
 const mockRouterPush = vi.fn();
-const { mockToastError, mockToastSuccess, mockToastWarning } = vi.hoisted(() => ({ mockToastError: vi.fn(), mockToastSuccess: vi.fn(), mockToastWarning: vi.fn() }));
+const { mockToastError, mockToastSuccess, mockToastWarning, mockToastBase } = vi.hoisted(() => ({ mockToastError: vi.fn(), mockToastSuccess: vi.fn(), mockToastWarning: vi.fn(), mockToastBase: vi.fn() }));
 
+// `toast(message, { action })` is what useSoftDeleteWithUndo calls for the Undo toast; it is callable so a test can press Undo.
 vi.mock('sonner', () => ({
-  toast: { error: mockToastError, success: mockToastSuccess, warning: mockToastWarning },
+  toast: Object.assign((...args: unknown[]) => mockToastBase(...args), { error: mockToastError, success: mockToastSuccess, warning: mockToastWarning, dismiss: vi.fn() }),
+}));
+
+const mockCapturePostHogEvent = vi.fn();
+vi.mock('@festgrid/analytics', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@festgrid/analytics')>()),
+  capturePostHogEvent: (...args: unknown[]) => mockCapturePostHogEvent(...args),
 }));
 
 vi.mock('@/i18n/navigation', () => ({
@@ -52,6 +59,8 @@ let mockSubscriptions: any[] = [];
 let mockPosts: any[] = [];
 let mockQuota = { limit: 5, used: 2, remaining: 3 };
 let forceError = false;
+// Story 10.3a: when set, a RESTORE of a removed subscription is rejected with this error.
+let restoreError: unknown = null;
 
 beforeEach(() => {
   usePostSelectionStore.getState().clearSelection();
@@ -169,6 +178,7 @@ beforeEach(() => {
   ];
   mockQuota = { limit: 5, used: 2, remaining: 1 }; // Remaining quota is 1
   forceError = false;
+  restoreError = null;
 
   vi.mocked(graphqlClient.request).mockImplementation(async (arg1: any, arg2: any) => {
     if (forceError) {
@@ -227,6 +237,7 @@ beforeEach(() => {
       };
     }
     if (docStr.includes('removeSubscription')) {
+      if ((arg1?.variables?.action ?? arg2?.action) === 'RESTORE' && restoreError) throw restoreError;
       return {
         removeSubscription: {
           id: arg2?.id || 'sub-2',
@@ -710,6 +721,27 @@ describe('PostsSelectContent integration', () => {
       });
       expect(calledRemove).toBe(true);
     });
+  });
+
+  // Story 10.3a (show the subscription cap refusal and the upgrade call to action)
+  it('an Undo of a removed subscription refused with the cap opens the cap dialog and a short toast, and the row is not restored', async () => {
+    const { ClientError } = await import('graphql-request');
+    restoreError = new ClientError({ status: 200, errors: [{ message: 'server English text', extensions: { code: 'SUBSCRIPTION_CAP_REACHED', activeCount: 4, reservedCount: 1, cap: 5 } }] } as never, { query: 'm' });
+    renderComponent();
+    fireEvent.click(await screen.findByText('Inactive Sub'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove Subscription' }));
+    await waitFor(() => expect(mockToastBase).toHaveBeenCalled());
+
+    const undo = (mockToastBase.mock.calls[0]![1] as { action: { onClick: () => void } }).action.onClick;
+    undo();
+
+    const dialog = await screen.findByTestId('subscription-cap-dialog');
+    expect(dialog).toHaveTextContent('You have 4 accounts added and 1 more being added. The limit is 5.');
+    expect(mockToastError).toHaveBeenCalledWith('Could not restore the account. You have reached your limit of 5.');
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith('subscription_cap_upgrade_cta_shown', expect.objectContaining({ surface: 'restore', cap: 5, currentSubscriptionCount: 4, reservedCount: 1 }));
+    // The restore was attempted once, and the list was not told it succeeded (no refetch after the refused restore).
+    const calls = vi.mocked(graphqlClient.request).mock.calls.map((c: any) => [c[0]?.document?.toString() ?? c[0]?.toString() ?? '', c[0]?.variables ?? c[1]]);
+    expect(calls.filter(([q, v]: any) => q.includes('removeSubscription') && v?.action === 'RESTORE')).toHaveLength(1);
   });
 
   it('displays state-specific warning/info banners and tab indicators for gated account types (AC3), and confirms confirmed CURATOR_GUIDE accounts are no longer gated (reverts the stale fd349bc gate now that Story 3.4o has shipped)', async () => {

@@ -1343,5 +1343,20 @@
       "listUpdated": "{count, plural, one {# job updated} other {# jobs updated}}",
       "reconnecting": "Reconnecting. Showing the last known progress."
     }
+  },
+  "SubscriptionCap": {
+    "title": "You have reached your limit",
+    "body": "{reserved, plural, =0 {You have {active, plural, one {# account} other {# accounts}} added. The limit is {cap}.} one {You have {active, plural, one {# account} other {# accounts}} added and # more being added. The limit is {cap}.} other {You have {active, plural, one {# account} other {# accounts}} added and # more being added. The limit is {cap}.}}",
+    "hint": "Remove an account you no longer need to make room. If an account being added fails, its place is freed.",
+    "blockedNote": "Adding another account is paused until you are under the limit.",
+    "upgradeButton": "Upgrade",
+    "comingSoonBadge": "Coming soon",
+    "comingSoonNote": "Paid plans with a higher limit are not available yet.",
+    "afterClickNote": "Thanks for your interest. Paid plans are not available yet.",
+    "manageLink": "Manage subscribed accounts",
+    "dialogTitle": "You have reached your limit",
+    "closeButton": "Close",
+    "restoreFailedToast": "Could not restore the account. You have reached your limit of {cap}.",
+    "announce": "Limit reached. {body}"
   }
 }

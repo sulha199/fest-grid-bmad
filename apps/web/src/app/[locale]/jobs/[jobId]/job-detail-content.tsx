@@ -102,8 +102,8 @@ export function JobDetailContent({ jobId }: { jobId: string }) {
         retryPending={retryMutation.isPending}
         // SLOT (Story 10.6a, Re-extract progress, missing-images banner and Retry): "Open the preview" for a Re-extract job joins the result link here.
         resultAction={job && raw ? defaultResultAction(job, raw.subject, t('outcome.openAccount')) : null}
-        // SLOT (Story 10.3a, show the subscription cap refusal and the upgrade call to action): the cap notice renders inside the failure notice.
-        notice={retryFailure ? <JobRetryFailureNotice failure={retryFailure} /> : null}
+        // Story 10.3a (show the subscription cap refusal and the upgrade call to action): a cap refusal renders the real notice inside the failure notice.
+        notice={retryFailure ? <JobRetryFailureNotice failure={retryFailure} accountId={raw?.subject?.accountId} username={raw?.subject?.username} /> : null}
         notFoundAction={
           <Link href="/jobs" className="inline-flex min-h-11 items-center text-sm font-medium underline">
             {t('backToJobs')}

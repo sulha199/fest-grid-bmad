@@ -15,6 +15,11 @@ describe('mapJobStartError', () => {
     expect(mapJobStartError({ errorCode: 'COOLDOWN', retryNotBefore: '2026-11-13T14:42:00.000Z' })).toEqual({ kind: 'cooldown', retryNotBefore: '2026-11-13T14:42:00.000Z' });
     expect(mapJobStartError({ errorCode: 'COOLDOWN' })).toEqual({ kind: 'cooldown', retryNotBefore: null });
   });
+  it('a cap count that is not a number reads as 0, never reaches the plural as text', () => {
+    expect(mapJobStartError({ errorCode: 'SUBSCRIPTION_CAP_REACHED', activeCount: '4', reservedCount: null, cap: 5 })).toEqual({ kind: 'cap', activeCount: 0, reservedCount: 0, cap: 5 });
+    expect(mapJobStartError({ errorCode: 'SUBSCRIPTION_CAP_REACHED', activeCount: { n: 1 }, reservedCount: Number.NaN, cap: 5 })).toEqual({ kind: 'cap', activeCount: 0, reservedCount: 0, cap: 5 });
+  });
+
   it('maps everything else, including a cap with no number, an Error and junk, to the generic message', () => {
     expect(mapJobStartError({ errorCode: 'JOB_START_FAILED' })).toEqual({ kind: 'generic' });
     expect(mapJobStartError({ errorCode: 'SUBSCRIPTION_CAP_REACHED' })).toEqual({ kind: 'generic' });

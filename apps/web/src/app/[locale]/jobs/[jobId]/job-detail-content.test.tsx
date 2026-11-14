@@ -140,10 +140,15 @@ describe('JobDetailContent', () => {
     expect(notice).toHaveTextContent('Too many jobs are waiting (10).');
     expect(within(notice).getByRole('link', { name: 'Open Jobs' })).toHaveAttribute('href', '/jobs');
 
-    // A cap refusal with the notice slot (Story 10.3a) still empty reads as the generic message, never as nothing.
+    // Story 10.3a (show the subscription cap refusal and the upgrade call to action): a cap refusal shows the real notice inline,
+    // replacing the generic fallback Story 10.4 pinned while the slot was empty.
     result = { outcome: 'REFUSED', job: null, errorCode: 'SUBSCRIPTION_CAP_REACHED', activeCount: 5, reservedCount: 0, cap: 5 };
     await user.click(screen.getByRole('button', { name: 'Retry' }));
-    await waitFor(() => expect(screen.getByTestId('job-retry-failure')).toHaveTextContent('Something went wrong on our side'));
+    const cap = await screen.findByTestId('subscription-cap-notice');
+    expect(within(cap).getByTestId('subscription-cap-body')).toHaveTextContent('You have 5 accounts added. The limit is 5.');
+    expect(within(cap).getByRole('button', { name: /Upgrade/ })).toBeEnabled();
+    expect(screen.queryByTestId('job-retry-failure')).toBeNull();
+    expect(capture).toHaveBeenCalledWith('subscription_cap_upgrade_cta_shown', expect.objectContaining({ currentSubscriptionCount: 5, cap: 5, surface: 'job_retry' }));
   });
 
   it('a queue-full or cooldown refusal without its number or time reads as a whole sentence', async () => {

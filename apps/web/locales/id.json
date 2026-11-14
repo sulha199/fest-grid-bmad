@@ -1343,5 +1343,20 @@
       "listUpdated": "{count} tugas diperbarui",
       "reconnecting": "Menyambung kembali. Menampilkan kemajuan terakhir yang diketahui."
     }
+  },
+  "SubscriptionCap": {
+    "title": "Anda telah mencapai batas",
+    "body": "{reserved, plural, =0 {Anda memiliki {active} akun yang sudah ditambahkan. Batasnya {cap}.} other {Anda memiliki {active} akun yang sudah ditambahkan dan {reserved} lagi sedang ditambahkan. Batasnya {cap}.}}",
+    "hint": "Hapus akun yang tidak lagi Anda perlukan untuk memberi ruang. Jika akun yang sedang ditambahkan gagal, tempatnya dikosongkan kembali.",
+    "blockedNote": "Menambah akun lain dijeda sampai jumlah Anda di bawah batas.",
+    "upgradeButton": "Tingkatkan",
+    "comingSoonBadge": "Segera hadir",
+    "comingSoonNote": "Paket berbayar dengan batas lebih tinggi belum tersedia.",
+    "afterClickNote": "Terima kasih atas minat Anda. Paket berbayar belum tersedia.",
+    "manageLink": "Kelola akun yang diikuti",
+    "dialogTitle": "Anda telah mencapai batas",
+    "closeButton": "Tutup",
+    "restoreFailedToast": "Akun tidak dapat dipulihkan. Anda telah mencapai batas {cap} akun.",
+    "announce": "Batas tercapai. {body}"
   }
 }

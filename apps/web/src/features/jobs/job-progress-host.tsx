@@ -17,7 +17,7 @@ export interface JobProgressHostProps {
   returnFocusRef?: React.RefObject<HTMLElement | null>;
   /** The result link of a finished job. Default: "Open the account" for an account result. A slot for the "Open the preview" link of Story 10.6a (Re-extract progress, missing-images banner and Retry). */
   renderResultAction?: (job: JobProgressJob, subject: JobSubjectView | undefined) => React.ReactNode;
-  /** The cap notice of Story 10.3a (show the subscription cap refusal and the upgrade call to action) renders here when a Retry is refused with SUBSCRIPTION_CAP_REACHED. */
+  /** An override seam only: a Retry refused with SUBSCRIPTION_CAP_REACHED renders the real cap notice of Story 10.3a (show the subscription cap refusal and the upgrade call to action) by default. */
   renderCapNotice?: (failure: Extract<JobStartFailure, { kind: 'cap' }>) => React.ReactNode;
   className?: string;
 }
@@ -49,7 +49,7 @@ export function JobProgressHost({ controller, returnFocusRef, renderResultAction
 
   const resultAction = job ? (renderResultAction ? renderResultAction(job, subject) : defaultResultAction(job, subject, t('outcome.openAccount'))) : null;
   const failure = controller.retryFailure;
-  const notice = failure ? <JobRetryFailureNotice failure={failure} renderCapNotice={renderCapNotice} /> : null;
+  const notice = failure ? <JobRetryFailureNotice failure={failure} renderCapNotice={renderCapNotice} accountId={subject?.accountId} username={subject?.username} /> : null;
 
   const viewState = state === 'idle' ? 'loading' : state;
   return (

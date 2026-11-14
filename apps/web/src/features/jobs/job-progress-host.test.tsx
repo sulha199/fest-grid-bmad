@@ -198,10 +198,29 @@ describe('JobProgressHost: Retry', () => {
     expect(within(box).getByRole('link', { name: 'Open Jobs' })).toHaveAttribute('href', '/jobs');
   });
 
-  it('cap refused: renders the cap notice slot with the numbers (the notice itself is Story 10.3a\'s)', async () => {
+  it('cap refused: renders the real cap notice inline with the numbers, the Upgrade button and the shown event', async () => {
+    state.retry = { outcome: 'REFUSED', errorCode: 'SUBSCRIPTION_CAP_REACHED', activeCount: 3, reservedCount: 2, cap: 5, job: null };
+    capture.mockClear();
+    await userEvent.click(await open());
+    const notice = await screen.findByTestId('subscription-cap-notice');
+    expect(notice).toHaveAttribute('data-variant', 'inline');
+    expect(within(notice).getByTestId('subscription-cap-body')).toHaveTextContent('You have 3 accounts added and 2 more being added. The limit is 5.');
+    expect(within(notice).getByRole('button', { name: /Upgrade/ })).toBeEnabled();
+    expect(within(notice).getByRole('link', { name: 'Manage subscribed accounts' })).toHaveAttribute('href', '/settings/account');
+    // The generic fallback of Story 10.4 is retired: no red failure box for a cap refusal.
+    expect(screen.queryByTestId('job-retry-failure')).toBeNull();
+    expect(capture.mock.calls.filter(([name]) => name === 'subscription_cap_upgrade_cta_shown')).toEqual([
+      ['subscription_cap_upgrade_cta_shown', { currentSubscriptionCount: 3, reservedCount: 2, cap: 5, surface: 'job_retry' }],
+    ]);
+    await userEvent.click(within(notice).getByRole('button', { name: /Upgrade/ }));
+    expect(capture).toHaveBeenCalledWith('subscription_cap_upgrade_cta_clicked', { currentSubscriptionCount: 3, reservedCount: 2, cap: 5, surface: 'job_retry' });
+  });
+
+  it('cap refused: a host-supplied renderCapNotice still overrides the default (seam only)', async () => {
     state.retry = { outcome: 'REFUSED', errorCode: 'SUBSCRIPTION_CAP_REACHED', activeCount: 3, reservedCount: 2, cap: 5, job: null };
     await userEvent.click(await open({ renderCapNotice: true }));
     expect(await screen.findByTestId('cap-slot')).toHaveTextContent('cap 5');
+    expect(screen.queryByTestId('subscription-cap-notice')).toBeNull();
   });
 
   it('any other refusal or a thrown error reads as the generic message', async () => {

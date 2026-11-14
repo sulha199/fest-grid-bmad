@@ -24,6 +24,8 @@ import { PostCard, PostCardSkeleton, BlockingLoader, useSoftDeleteWithUndo, Page
 import { AlertCircle, TriangleAlert, Ban, Clock, Hourglass, History, Loader2 } from 'lucide-react';
 import { usePostSelectionStore } from './post-selection-store';
 import { toast } from 'sonner';
+import { useRestoreCapRefusal } from '@/features/subscriptions/use-restore-cap-refusal';
+import { SubscriptionCapDialog } from '@/features/subscriptions/SubscriptionCapDialog';
 import { SummaryBar } from '@/features/post-selection/components/summary-bar';
 import { ExtractionStatusFilter, type PostExtractionStatus } from '@/features/posts/ExtractionStatusFilter';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
@@ -83,6 +85,7 @@ export function PostsSelectContent() {
 
   // 4. Soft delete subscription with undo setup
   const { mutateAsync: removeSubscription } = useRemoveSubscriptionMutation(graphqlClient);
+  const { state: capState, clear: clearCapRefusal, handleRestoreError } = useRestoreCapRefusal();
 
   const { isPending: isSoftDeletePending, markPending } = useSoftDeleteWithUndo<string>({
     onExpire: (id) => {
@@ -387,6 +390,9 @@ export function PostsSelectContent() {
             refetchSubs();
           } catch (err) {
             console.error('Failed to restore subscription', err);
+            // Story 10.3a: a restore refused with the cap opens the cap dialog and a short toast; the row stays removed.
+            const removed = rawSubscriptions.find((s: any) => s.id === sub.id)?.account;
+            handleRestoreError(err, { accountId: removed?.accountId, username: removed?.username });
             throw err;
           }
         },
@@ -744,6 +750,8 @@ export function PostsSelectContent() {
         isExtracting={isExtracting}
         onExtract={handleExtract}
       />
+
+      <SubscriptionCapDialog state={capState} onClose={clearCapRefusal} />
     </PageContainer>
   );
 }

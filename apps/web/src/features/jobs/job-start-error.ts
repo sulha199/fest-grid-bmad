@@ -41,7 +41,9 @@ export function mapJobStartError(input: unknown): JobStartFailure {
   const code = raw.errorCode ?? raw.code ?? null;
   if (code === 'JOB_QUEUE_FULL') return { kind: 'queue-full', maxQueued: typeof raw.maxQueued === 'number' ? raw.maxQueued : null };
   if (code === 'SUBSCRIPTION_CAP_REACHED' && typeof raw.cap === 'number') {
-    return { kind: 'cap', activeCount: raw.activeCount ?? 0, reservedCount: raw.reservedCount ?? 0, cap: raw.cap };
+    // A count that is not a number (a string, null, NaN) reads as 0, like a missing one, so nothing odd reaches the ICU plural.
+    const count = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+    return { kind: 'cap', activeCount: count(raw.activeCount), reservedCount: count(raw.reservedCount), cap: raw.cap };
   }
   if (code === 'COOLDOWN') return { kind: 'cooldown', retryNotBefore: raw.retryNotBefore ? String(raw.retryNotBefore) : null };
   return { kind: 'generic' };
