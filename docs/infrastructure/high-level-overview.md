@@ -78,7 +78,7 @@ graph TD
     EventBridge -- triggers --> L_Scrape
     L_Scrape -- triggers async job (webhooks param) --> Apify
     L_Scrape -- polls/recovers (sweep) --> Apify
-    EventBridge -- every 5 minutes: job sweep (expiry, queue promotion, re-admission, late Bright Data results) --> L_Scrape
+    EventBridge -- every 5 minutes: job sweep (expiry, queue promotion, re-admission, late Bright Data results, job-finished notices) --> L_Scrape
     L_API -- admits or queues a job, then starts it (async invoke) --> L_Scrape
     L_API -- subscription cap and job admission under a per-user row lock --> Supabase
     L_Scrape -- job phase hand-off, e.g. re-extract refresh then preview (async invoke, job id only) --> L_AI
@@ -108,6 +108,8 @@ graph TD
     L_API -- interacts with --> Supabase
     L_API -- sends to --> FCM
     L_API -- sends to --> SES
+    L_Scrape -- job-finished push (5-minute sweep) --> FCM
+    L_Scrape -- job-finished mail to a moderator owner --> SES
     L_Scrape -- provider and posts-saved metrics --> CW
     L_API -- resolves location via --> Geoapify
 

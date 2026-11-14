@@ -297,8 +297,15 @@ export class FestgridBackendStack extends cdk.Stack {
     // Api Lambda held the Firebase variables: every initialisation in the Ingestor failed (about 40 a
     // day in production, 2026-10-07 to 10-16) and every alert fell back to a log line.
     //
+    // Story 10.13 (notify when a job finishes): the Scraper Lambda also sends push and mail now: the
+    // 5-minute job sweep ends with one step (`announceEndedJobs`) that pushes the job-finished notice
+    // and mails a moderator owner, so it holds `firebaseEnv` and the Firebase secret read (owner
+    // approved 2026-11-14); its mail variables and the SES grant already existed. It does not hold
+    // `systemAlertEnv`: a failed send there is logged only.
+    //
     // Least privilege: on this code the AI processor never reaches the push or the mail path (it only
-    // imports a type from the module that holds them), so it gets none of this. If a later change makes
+    // imports a type from the module that holds them), so it gets none of this; the jobs it ends are
+    // announced by the next sweep tick on the Scraper Lambda. If a later change makes
     // it call `notifyNewEvent` or send mail, give it `firebaseEnv`, `mailEnv`, `systemAlertEnv`,
     // `grantSesSend` and the Firebase secret read in the same change: the walkers in
     // festgrid-backend-stack.test.ts fail for an env var wired without its grant.
@@ -458,6 +465,8 @@ export class FestgridBackendStack extends cdk.Stack {
         SYSTEM_GEMINI_API_KEY: systemGeminiApiKeySecret.secretValue.unsafeUnwrap(),
         SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
         WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
+        // Story 10.13: the job-finished push leaves from the 5-minute sweep (the same Firebase variables as the Ingestor).
+        ...firebaseEnv,
         SCRAPE_SKIP_RECENT_HOURS: process.env.SCRAPE_SKIP_RECENT_HOURS || '12',
         // Posts fetched per account per run (Apify resultsLimit / Bright Data numOfPosts).
         // Kept above the ~1/day posting cadence most accounts see so a missed or delayed
@@ -798,6 +807,11 @@ export class FestgridBackendStack extends cdk.Stack {
     // a Scraper-hosted job: the promotion puts that job back in the queue and the 5-minute sweep, which runs on the Scraper,
     // starts it.
     scraperLambda.addEnvironment('JOB_HOST_SELF', 'scraper');
+    // Story 10.13 -- the announcer step of the 5-minute sweep (Scraper Lambda only). One notice per owner per window; a just-ended job waits
+    // the grace so a watching owner can acknowledge it; a job older than the max age is marked handled with no notice.
+    scraperLambda.addEnvironment('JOB_NOTIFY_WINDOW_MINUTES', process.env.JOB_NOTIFY_WINDOW_MINUTES || '10');
+    scraperLambda.addEnvironment('JOB_NOTIFY_GRACE_SECONDS', process.env.JOB_NOTIFY_GRACE_SECONDS || '45');
+    scraperLambda.addEnvironment('JOB_NOTIFY_MAX_AGE_MINUTES', process.env.JOB_NOTIFY_MAX_AGE_MINUTES || '60');
     aiProcessorLambda.addEnvironment('JOB_HOST_SELF', 'ai-processor');
     scraperLambda.addPermission('SelfInvoke', {
       principal: new iam.ArnPrincipal(scraperLambda.role!.roleArn),
@@ -867,6 +881,8 @@ export class FestgridBackendStack extends cdk.Stack {
     firebasePrivateKeySecret.grantRead(apiLambda);
     // BUG-073: notifyNewEvent runs in the Ingestor, not in the Api Lambda.
     firebasePrivateKeySecret.grantRead(ingestorLambda);
+    // Story 10.13: the job-finished push is sent from the Scraper Lambda's 5-minute sweep (same pattern as the Ingestor's BUG-073 line).
+    firebasePrivateKeySecret.grantRead(scraperLambda);
 
     apifyApiTokenSecret.grantRead(apiLambda);
     apifyApiTokenSecret.grantRead(scraperLambda);
