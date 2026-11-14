@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-11-13T23:45:45Z
+last_updated: 2026-11-14T00:24:42Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -375,7 +375,7 @@ development_status:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.
   # See planning-artifacts/epic-formation/formation-2026-09-08.md for the full pass.
   epic-0-i1: backlog
-  0-i1a-build-the-notifyallmoderators-helper-with-escaped-throttled-templates: backlog
+  0-i1a-build-the-notifyallmoderators-helper-with-escaped-throttled-templates: ready-for-dev
   0-i1b-send-the-missing-awaiting-approval-location-change-notification: backlog
   0-i1c-route-the-scraper-audit-trail-alert-through-the-shared-helper: backlog
   0-i1z-ratchet-no-moderator-notification-bypasses-the-helper: backlog
