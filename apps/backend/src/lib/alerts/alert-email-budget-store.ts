@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, like, sql } from 'drizzle-orm';
 import { alertEmailRateLimits } from '@festgrid/database';
 import { evaluatePromptFilterRateLimit } from '@festgrid/domain/ai-event-filters';
 import { db } from '../../db/client.js';
@@ -29,9 +29,17 @@ export const REPORT_SYSTEM_ERROR_ALERT_KEY = 'reportSystemError';
  * the budget for the current window is spent: the caller must not send, and must log the report instead so
  * nothing is lost. A database error propagates; the caller decides (the resolver treats it as "do not send").
  */
-export async function takeAlertEmailBudget(key: string): Promise<boolean> {
+export interface AlertEmailBudgetLimits {
+  maxSends: number;
+  windowMinutes: number;
+}
+
+export async function takeAlertEmailBudget(key: string, limits?: AlertEmailBudgetLimits): Promise<boolean> {
   const env = loadBackendEnv();
-  const maxSends = env.systemErrorAlertMaxEmails;
+  // No limits argument: the `reportSystemError` budget, exactly as before. The moderator-notification helper
+  // (Story 0.i1a) passes its own: one send per cooldown window.
+  const maxSends = limits?.maxSends ?? env.systemErrorAlertMaxEmails;
+  const windowMinutes = limits?.windowMinutes ?? env.systemErrorAlertWindowMinutes;
   const maxAttempts = maxSends + ROUNDS_BEYOND_MAX_SENDS;
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -39,7 +47,7 @@ export async function takeAlertEmailBudget(key: string): Promise<boolean> {
     const [row] = await db.select().from(alertEmailRateLimits).where(eq(alertEmailRateLimits.key, key));
     const state = row ? { requestCount: row.sendCount, windowStartAt: row.windowStartAt.toISOString() } : null;
 
-    const decision = evaluatePromptFilterRateLimit(state, maxSends, env.systemErrorAlertWindowMinutes, now);
+    const decision = evaluatePromptFilterRateLimit(state, maxSends, windowMinutes, now);
     if (!decision.allowed) return false;
 
     const nextWindowStartAt = new Date(decision.nextState.windowStartAt);
@@ -70,4 +78,43 @@ export async function takeAlertEmailBudget(key: string): Promise<boolean> {
   }
 
   return false;
+}
+
+/**
+ * Gives back one slot of a claimed budget: used only when every send of a claimed call failed, so a failed
+ * send does not silence the next attempt for a whole window (Story 0.i1a, decision 8). Best effort: a database
+ * error is logged (the key only) and swallowed.
+ */
+export async function releaseAlertEmailBudget(key: string): Promise<void> {
+  try {
+    await db
+      .update(alertEmailRateLimits)
+      .set({ sendCount: sql`GREATEST(${alertEmailRateLimits.sendCount} - 1, 0)`, updatedAt: new Date() })
+      .where(eq(alertEmailRateLimits.key, key));
+  } catch (error) {
+    console.error(`[Alert Email Budget] Failed to release a slot for ${key}:`, error instanceof Error ? error.message : 'unknown error');
+  }
+}
+
+export const MODERATOR_NOTIFY_KEY_PREFIX = 'moderator-notify:';
+const MODERATOR_NOTIFY_PRUNE_AFTER_DAYS = 30;
+
+/**
+ * Best-effort cleanup (Story 0.i1a, decision 9): the helper writes one row per distinct template and entity, so
+ * rows whose window opened more than 30 days ago are deleted. It only ever matches `moderator-notify:` keys,
+ * so it can never touch the `reportSystemError` row. Errors are logged and swallowed.
+ */
+export async function pruneModeratorNotifyThrottle(): Promise<void> {
+  try {
+    await db
+      .delete(alertEmailRateLimits)
+      .where(
+        and(
+          like(alertEmailRateLimits.key, `${MODERATOR_NOTIFY_KEY_PREFIX}%`),
+          sql`${alertEmailRateLimits.windowStartAt} < now() - make_interval(days => ${MODERATOR_NOTIFY_PRUNE_AFTER_DAYS})`
+        )
+      );
+  } catch (error) {
+    console.error('[Alert Email Budget] Failed to prune old moderator-notify throttle rows:', error instanceof Error ? error.message : 'unknown error');
+  }
 }

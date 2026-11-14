@@ -1917,7 +1917,7 @@ export const resolvers: Resolvers = {
       }
 
       if (reason === 'dangerous') {
-        await sendDangerousReportModeratorAlerts(existingEvent.eventName);
+        await sendDangerousReportModeratorAlerts(existingEvent.eventName, existingEvent.id);
       }
 
       return {
