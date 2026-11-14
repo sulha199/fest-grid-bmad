@@ -3,9 +3,8 @@ import { activeOnly } from '@festgrid/graphql-select';
 import { eventMatchCandidates, eventMerges, events, users } from '@festgrid/database';
 import {
   DEDUP_REVIEW_APPLY_SCHEMA_VERSION,
-  DEDUP_REVIEW_PER_DAY_CAP,
-  DEDUP_REVIEW_PER_DAY_REJECT_CAP,
-  DEDUP_REVIEW_PER_RUN_CAP,
+  DEDUP_REVIEW_CAP_DEFAULTS,
+  assertDedupReviewCapsWithinCeilings,
   assertDedupReviewFloorOverrideAllowed,
   assertDedupReviewRejectsAllowed,
   countDedupReviewResults,
@@ -144,7 +143,7 @@ export interface DedupReviewApplyInput {
   allowFloorOverride?: boolean;
   /** The owner's override switch is on (`DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`). Off by default; `apply` needs it when the run allows overrides. */
   floorOverrideEnabled?: boolean;
-  /** Tests only: the caps default to the domain constants. */
+  /** The caps for this run (the CLI resolves the owner's variables); any left out default to the domain constants. */
   caps?: Partial<DedupReviewCaps>;
   now?: Date;
 }
@@ -260,12 +259,13 @@ async function processDecisions(
 ): Promise<DedupReviewApplyResult[]> {
   const claimedEventIds = new Set<string>();
   let eligibleInRun = 0;
+  let overridesInRun = 0;
   let rejectsInRun = 0;
   const results: DedupReviewApplyResult[] = [];
 
   for (const decision of input.decisions) {
     const { suggestionId, action } = decision;
-    const state: DedupReviewRunState = { claimedEventIds, eligibleInRun, rejectsInRun, usedLast24h: used.last24h, usedRejectsLast24h: used.rejectsLast24h };
+    const state: DedupReviewRunState = { claimedEventIds, eligibleInRun, overridesInRun, rejectsInRun, usedLast24h: used.last24h, usedRejectsLast24h: used.rejectsLast24h };
     const fresh = await lookupFreshPair(executor, suggestionId);
     const verdict = judgeDedupReviewDecision({ decision, fresh, state, caps });
     if (verdict.outcome === 'skipped') {
@@ -293,6 +293,7 @@ async function processDecisions(
       claimedEventIds.add(pair.candidateEventId);
       claimedEventIds.add(pair.newEventId);
       eligibleInRun += 1;
+      if (action === 'accept-override') overridesInRun += 1;
     }
   }
   return results;
@@ -312,11 +313,9 @@ export async function runDedupReviewApply(database: Pick<typeof appDb, 'transact
   if (input.mode !== 'validate' && input.allowFloorOverride && !input.floorOverrideEnabled) {
     throw new DedupReviewFloorOverrideDisabledError(FLOOR_OVERRIDE_DISABLED_MESSAGE);
   }
-  const caps: DedupReviewCaps = {
-    perRun: input.caps?.perRun ?? DEDUP_REVIEW_PER_RUN_CAP,
-    perDay: input.caps?.perDay ?? DEDUP_REVIEW_PER_DAY_CAP,
-    perDayRejects: input.caps?.perDayRejects ?? DEDUP_REVIEW_PER_DAY_REJECT_CAP,
-  };
+  const caps: DedupReviewCaps = { ...DEDUP_REVIEW_CAP_DEFAULTS, ...input.caps };
+  // The ceilings are the code's, whoever built the caps (the CLI resolves the owner's variables, a test injects its own).
+  assertDedupReviewCapsWithinCeilings(caps);
   const generatedAt = (input.now ?? new Date()).toISOString();
   const mode = input.mode === 'validate' ? 'validate' : input.live ? 'live' : 'dry-run';
 

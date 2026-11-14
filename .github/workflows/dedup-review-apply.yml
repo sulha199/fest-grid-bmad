@@ -62,10 +62,18 @@ run-name: Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'ap
 #      refuses a role that does not bypass row level security). It is not the owner role. The owner decided
 #      (2026-11-01) that this secret is created only once the actions below are pinned by commit SHA, which
 #      this change does. Rotating the role's password means updating this one secret.
-#   5. No repository-level or organization-level secret OR variable may carry the names of the two database
-#      secrets, of DEDUP_REVIEW_APPLY_DISABLED, DEDUP_REVIEW_REJECT_ENABLED or DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED: an outer one is visible to
+#   5. Optional caps (FIND-126), VARIABLES of `dedup-review-live`: DEDUP_REVIEW_PER_RUN_CAP (merges a run, default 10,
+#      ceiling 100), DEDUP_REVIEW_PER_DAY_CAP (AI merges plus rejects in 24 hours, default 25, ceiling 200) and
+#      DEDUP_REVIEW_PER_DAY_REJECT_CAP (rejects in 24 hours, default 10, ceiling 100). Each is a plain positive number
+#      (digits only); anything else, or a number above its ceiling, stops the run before any code is fetched. The
+#      ceilings are in the code (packages/domain/src/events/dedup-review-apply.ts), so changing one needs a reviewed
+#      PR. Override merges keep a fixed cap of 10 a run whatever the per-run cap is. `validate` cannot see
+#      `dedup-review-live`: to judge against the same caps, set the same variables in `dedup-review` too (apply's own
+#      always bind). The run name does not show the caps, so the approver cannot see them there.
+#   6. No repository-level or organization-level secret OR variable may carry the names of the two database
+#      secrets, of DEDUP_REVIEW_APPLY_DISABLED, DEDUP_REVIEW_REJECT_ENABLED, DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED or the three cap variables: an outer one is visible to
 #      every job (a secret) or shows through when the environment's own is deleted (a variable).
-#   6. First run: dispatch `validate` with decisions `{"schemaVersion":1,"decisions":[]}` and your account's
+#   7. First run: dispatch `validate` with decisions `{"schemaVersion":1,"decisions":[]}` and your account's
 #      hash. Then, once the secret exists, one approved dry run (`apply`, `live` false): it also proves the
 #      write role bypasses row level security.
 # The jobs only run from `master`; that is a convenience against an accidental dispatch from another ref, not a
@@ -163,8 +171,8 @@ jobs:
             echo "::error::decisions must be 1 to 65,535 characters."
             exit 1
           fi
-          if ! printf '%s' "$DECISIONS" | jq -e '(.schemaVersion == 1) and (.decisions | type == "array") and ((.decisions | length) <= 50)' > /dev/null 2>&1; then
-            echo "::error::decisions must be JSON of the form {\"schemaVersion\":1,\"decisions\":[...]} with at most 50 decisions."
+          if ! printf '%s' "$DECISIONS" | jq -e '(.schemaVersion == 1) and (.decisions | type == "array") and ((.decisions | length) <= 100)' > /dev/null 2>&1; then
+            echo "::error::decisions must be JSON of the form {\"schemaVersion\":1,\"decisions\":[...]} with at most 100 decisions."
             exit 1
           fi
           # A reject needs allow_rejects. This check is stricter than the script's own: any action other than
@@ -251,6 +259,11 @@ jobs:
           # Inputs reach the script through the environment, never interpolated into the shell text;
           # the script validates every one of them before it opens a database connection.
           DEDUP_REVIEW_INVOKER_HASH: ${{ inputs.invoker_hash }}
+          # Optional, FIND-126: the same cap variables as apply, read from the `dedup-review` environment so a validate
+          # judges against the caps apply will use (set them in both; apply's own are the ones that bind).
+          DEDUP_REVIEW_PER_RUN_CAP: ${{ vars.DEDUP_REVIEW_PER_RUN_CAP }}
+          DEDUP_REVIEW_PER_DAY_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_CAP }}
+          DEDUP_REVIEW_PER_DAY_REJECT_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_REJECT_CAP }}
           DECISIONS: ${{ inputs.decisions }}
           RUN_TAG: ${{ inputs.run_tag }}
           ALLOW_REJECTS: ${{ inputs.allow_rejects }}
@@ -340,6 +353,27 @@ jobs:
             esac
           fi
 
+      # The cap variables (FIND-126) are optional; a set one must be a plain positive number within the code's ceiling
+      # (the script checks the same, but this stops the run before any code is fetched, like the switches above).
+      - name: Check the cap variables
+        env:
+          PER_RUN_CAP: ${{ vars.DEDUP_REVIEW_PER_RUN_CAP }}
+          PER_DAY_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_CAP }}
+          PER_DAY_REJECT_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_REJECT_CAP }}
+        run: |
+          check() {
+            name="$1"; value="$2"; ceiling="$3"
+            if [ -n "$value" ]; then
+              if ! printf '%s' "$value" | grep -Eq '^[1-9][0-9]{0,5}$' || [ "$value" -gt "$ceiling" ]; then
+                echo "::error::The variable $name of the 'dedup-review-live' environment must be a whole number from 1 to $ceiling, in digits only (or unset for the default)."
+                exit 1
+              fi
+            fi
+          }
+          check DEDUP_REVIEW_PER_RUN_CAP "$PER_RUN_CAP" 100
+          check DEDUP_REVIEW_PER_DAY_CAP "$PER_DAY_CAP" 200
+          check DEDUP_REVIEW_PER_DAY_REJECT_CAP "$PER_DAY_REJECT_CAP" 100
+
       - name: Checkout Repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -384,6 +418,9 @@ jobs:
           DEDUP_REVIEW_APPLY_DISABLED: ${{ vars.DEDUP_REVIEW_APPLY_DISABLED }}
           DEDUP_REVIEW_REJECT_ENABLED: ${{ vars.DEDUP_REVIEW_REJECT_ENABLED }}
           DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED: ${{ vars.DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED }}
+          DEDUP_REVIEW_PER_RUN_CAP: ${{ vars.DEDUP_REVIEW_PER_RUN_CAP }}
+          DEDUP_REVIEW_PER_DAY_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_CAP }}
+          DEDUP_REVIEW_PER_DAY_REJECT_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_REJECT_CAP }}
           DECISIONS: ${{ inputs.decisions }}
           RUN_TAG: ${{ inputs.run_tag }}
           LIVE: ${{ inputs.live }}

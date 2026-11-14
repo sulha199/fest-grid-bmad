@@ -131,6 +131,33 @@ test('dedup-review-apply CLI', async (t) => {
     }
   });
 
+  await t.test('the cap variables (FIND-126): a bad one exits 1 naming the variable before any connection, in both modes; a good or unset one gets past the check', () => {
+    const base = { DEDUP_REVIEW_INVOKER_HASH: HASH };
+    const bad: Array<[string, string]> = [
+      ['DEDUP_REVIEW_PER_DAY_CAP', '201'],
+      ['DEDUP_REVIEW_PER_DAY_CAP', '1e2'],
+      ['DEDUP_REVIEW_PER_DAY_CAP', '0'],
+      ['DEDUP_REVIEW_PER_RUN_CAP', '101'],
+      ['DEDUP_REVIEW_PER_DAY_REJECT_CAP', '101'],
+      ['DEDUP_REVIEW_PER_DAY_REJECT_CAP', 'twenty'],
+    ];
+    for (const mode of ['validate', 'apply']) {
+      for (const [name, value] of bad) {
+        const result = runCli(['--mode', mode, '--decisions-file', valid], { ...base, [name]: value });
+        assert.strictEqual(result.status, 1, `${mode} ${name}=${value}`);
+        assert.match(result.stderr, new RegExp(`Invalid input: the variable ${name} must be a whole number`), `${mode} ${name}=${value}`);
+        assert.ok(!result.stderr.includes(`=${value}`) && !result.stderr.includes(HASH), 'nothing echoed');
+      }
+      // Valid values pass the check; the run then stops at the database client (no DATABASE_URL here), which is a different failure.
+      const good: Array<Record<string, string>> = [{}, { DEDUP_REVIEW_PER_DAY_CAP: '100' }, { DEDUP_REVIEW_PER_RUN_CAP: '100', DEDUP_REVIEW_PER_DAY_CAP: '200', DEDUP_REVIEW_PER_DAY_REJECT_CAP: '100' }, { DEDUP_REVIEW_PER_DAY_CAP: '' }];
+      for (const env of good) {
+        const result = runCli(['--mode', mode, '--decisions-file', valid], { ...base, ...env });
+        assert.strictEqual(result.status, 1, `${mode} ${JSON.stringify(env)}`);
+        assert.ok(!/must be a whole number/.test(result.stderr), `${mode} ${JSON.stringify(env)} passes the cap check: ${result.stderr.slice(0, 200)}`);
+      }
+    }
+  });
+
   await t.test('a reject needs --allow-rejects, and apply (dry or live) also needs the owner variable: both refuse before any connection', () => {
     const rejects = file('rejects.json', JSON.stringify({ schemaVersion: 1, decisions: [{ suggestionId: ID, evidenceHash: HASH, reasons: [], action: 'reject' }] }));
     const bad = file('bad-action.json', JSON.stringify({ schemaVersion: 1, decisions: [{ suggestionId: ID, evidenceHash: HASH, reasons: [], action: 'Reject' }] }));

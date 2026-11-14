@@ -3180,7 +3180,16 @@ This document defines the core architectural invariants for the FestDaily applic
         rejections count), one run at a time, and a kill switch (`DEDUP_REVIEW_APPLY_DISABLED`, an
         environment variable of `dedup-review-live`) that stops apply unless it is exactly `false` or `0`.
         **Amended 2026-11-07 (FIND-124):** an `accept-override` is a merge: it counts in the per-run cap of 10 and the
-        shared day cap of 25 like any other, and has no cap of its own (owner-tunable caps are `FIND-126`).
+        shared day cap of 25 like any other. **Amended 2026-11-12 (FIND-126):** the caps are owner-tunable. The
+        variables `DEDUP_REVIEW_PER_RUN_CAP`, `DEDUP_REVIEW_PER_DAY_CAP` and `DEDUP_REVIEW_PER_DAY_REJECT_CAP` of
+        `dedup-review-live` replace the defaults (10, 25 and 10) when set. Each must be digits only, a positive whole
+        number, and not above a ceiling that the code owns (per run 100, per day 200, rejects 100), or the run is
+        refused before any code is fetched; raising a ceiling needs a reviewed PR. The same variables are read by the
+        `validate` job when they are set in the `dedup-review` environment, so a validate judges against the caps
+        apply will use (apply's own variables always bind; validate sees no variable otherwise). `accept-override`
+        merges keep a fixed cap of 10 a run whatever the per-run cap is, so raising it does not widen the floor-less
+        path. The worst case of an unattended day is therefore the day cap, not 25; the daily review never rejects or
+        overrides, so only attended decisions reach the reject cap.
         **Amended 2026-11-07 (FIND-120):** the per-run cap of 10 counts merges only; a reject never counts
         against it. The shared 25-per-24h cap counts merges (undone ones included) plus AI rejections. Rejects
         also have their own cap of 10 per 24 hours, counted from the suggestion rows (`status = 'rejected'` and
