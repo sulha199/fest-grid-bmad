@@ -462,13 +462,13 @@ test('dedup review apply (AI dedup review, piece B2b-1)', async (t) => {
     const rejects = [await makePair('Mix R1', '2027-05-12'), await makePair('Mix R2', '2027-05-13')];
     const decisions = [await acceptOf(accepts[0].suggestion.id), await acceptOf(accepts[1].suggestion.id), await rejectOf(rejects[0].suggestion.id), await rejectOf(rejects[1].suggestion.id)];
 
-    const apart = await runDedupReviewApply(db, rejectInput(decisions, { caps: { perRun: 1, perDayRejects: 25, perDay: 1000 } }));
+    const apart = await runDedupReviewApply(db, rejectInput(decisions, { caps: { perRun: 1, perDayRejects: 25, perDay: 200 } }));
     assert.deepStrictEqual(reasonsOf(apart), ['eligible', 'per-run-cap', 'eligible', 'eligible'], 'one merge fits, and both rejects fit beside it');
     // The shared database already holds rejects of the last day (this file made some), so the cap is set from the real count.
     const usedRejects = await countAiRejectsLast24h(db);
-    const rejectCap = await runDedupReviewApply(db, rejectInput(decisions, { mode: 'validate', caps: { perRun: 10, perDayRejects: usedRejects + 1, perDay: 1000 } }));
+    const rejectCap = await runDedupReviewApply(db, rejectInput(decisions, { mode: 'validate', caps: { perRun: 10, perDayRejects: usedRejects + 1, perDay: 200 } }));
     assert.deepStrictEqual(reasonsOf(rejectCap), ['eligible', 'eligible', 'eligible', 'per-day-cap'], 'the reject cap binds alone (one reject fits), the accepts do not feel it');
-    const noRejects = await runDedupReviewApply(db, rejectInput(decisions, { caps: { perDayRejects: 0, perDay: 1000 } }));
+    const noRejects = await runDedupReviewApply(db, rejectInput(decisions, { caps: { perDayRejects: 0, perDay: 200 } }));
     assert.deepStrictEqual(reasonsOf(noRejects), ['eligible', 'eligible', 'per-day-cap', 'per-day-cap']);
     const noDay = await runDedupReviewApply(db, rejectInput(decisions, { caps: { perDay: 0 } }));
     assert.deepStrictEqual(reasonsOf(noDay), ['per-day-cap', 'per-day-cap', 'per-day-cap', 'per-day-cap'], 'the shared day cap binds merges and rejects alike');

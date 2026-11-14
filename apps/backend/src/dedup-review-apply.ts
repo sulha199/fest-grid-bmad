@@ -13,7 +13,9 @@
  * sit in a process list); `DEDUP_REVIEW_APPLY_DISABLED` (`1` or `true` is the kill switch);
  * `DEDUP_REVIEW_REJECT_ENABLED` (`true` or `1` switches rejects on for `apply`; read in `apply` mode only,
  * because `validate` runs where the owner's variable is not visible); `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` (the same
- * rule for `--allow-floor-override`, FIND-124).
+ * rule for `--allow-floor-override`, FIND-124); `DEDUP_REVIEW_PER_RUN_CAP`, `DEDUP_REVIEW_PER_DAY_CAP` and
+ * `DEDUP_REVIEW_PER_DAY_REJECT_CAP` (optional positive whole numbers up to the code's ceilings, FIND-126; unset keeps
+ * the defaults of 10, 25 and 10; a malformed or too large one fails the run before any database work).
  *
  * - `validate` runs every check in a read-only snapshot and merges nothing; use a read-only role that
  *   bypasses row level security.
@@ -30,9 +32,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import {
   DEDUP_REVIEW_MAX_DECISIONS_BYTES,
-  DEDUP_REVIEW_PER_DAY_CAP,
-  DEDUP_REVIEW_PER_DAY_REJECT_CAP,
-  DEDUP_REVIEW_PER_RUN_CAP,
+  DEDUP_REVIEW_CAP_DEFAULTS,
   DEDUP_REVIEW_APPLY_SCHEMA_VERSION,
   DedupReviewApplyInputError,
   assertDedupReviewFloorOverrideAllowed,
@@ -44,6 +44,7 @@ import {
   parseDedupReviewApplyOptions,
   parseDedupReviewDecisions,
   parseDedupReviewInvokerHash,
+  resolveDedupReviewCaps,
   type DedupReviewApplyOptions,
   type DedupReviewApplyReport,
 } from '@festgrid/domain/events';
@@ -140,7 +141,7 @@ async function main(): Promise<void> {
       mode: 'disabled',
       killSwitch: true,
       usedLast24h: null,
-      caps: { perRun: DEDUP_REVIEW_PER_RUN_CAP, perDay: DEDUP_REVIEW_PER_DAY_CAP, perDayRejects: DEDUP_REVIEW_PER_DAY_REJECT_CAP },
+      caps: { ...DEDUP_REVIEW_CAP_DEFAULTS },
       counts: { eligible: 0, merged: 0, rejected: 0, skipped: 0 },
       results: [],
     });
@@ -153,6 +154,12 @@ async function main(): Promise<void> {
   // The flag and switch checks fail before the database client is imported, like every other bad value.
   assertDedupReviewRejectsAllowed(decisions, options.allowRejects);
   assertDedupReviewFloorOverrideAllowed(decisions, options.allowFloorOverride);
+  // The owner's cap variables (FIND-126): a bad one fails here, before the database client is imported. Unset keeps the default.
+  const caps = resolveDedupReviewCaps({
+    perRun: process.env.DEDUP_REVIEW_PER_RUN_CAP,
+    perDay: process.env.DEDUP_REVIEW_PER_DAY_CAP,
+    perDayRejects: process.env.DEDUP_REVIEW_PER_DAY_REJECT_CAP,
+  });
   // Read only for `apply`: `validate` cannot see the owner's variables and checks the flags alone.
   const rejectsEnabled = options.mode === 'apply' && isDedupReviewRejectEnabled(process.env.DEDUP_REVIEW_REJECT_ENABLED);
   if (options.mode === 'apply' && options.allowRejects && !rejectsEnabled) {
@@ -175,6 +182,7 @@ async function main(): Promise<void> {
     rejectsEnabled,
     allowFloorOverride: options.allowFloorOverride,
     floorOverrideEnabled,
+    caps,
   });
   try {
     await print(report);

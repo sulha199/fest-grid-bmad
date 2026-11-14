@@ -15,7 +15,7 @@ import { MID_PROMOTION_MAX_DAY_DIFF, SHARED_LINK_DATE_WINDOW_DAYS, namesContradi
 export const DEDUP_REVIEW_APPLY_BEGIN = 'DEDUP_REVIEW_APPLY_BEGIN';
 export const DEDUP_REVIEW_APPLY_END = 'DEDUP_REVIEW_APPLY_END';
 export const DEDUP_REVIEW_APPLY_SCHEMA_VERSION = 1;
-export const DEDUP_REVIEW_MAX_DECISIONS = 50;
+export const DEDUP_REVIEW_MAX_DECISIONS = 100;
 export const DEDUP_REVIEW_MAX_DECISIONS_BYTES = 65_535;
 export const DEDUP_REVIEW_MAX_REASONS = 5;
 export const DEDUP_REVIEW_MAX_REASON_LENGTH = 200;
@@ -25,6 +25,15 @@ export const DEDUP_REVIEW_PER_RUN_CAP = 10;
 export const DEDUP_REVIEW_PER_DAY_CAP = 25;
 /** How many of those may be rejections (a reject is not undoable in the app, so it has a cap of its own). */
 export const DEDUP_REVIEW_PER_DAY_REJECT_CAP = 10;
+/**
+ * How many `accept-override` merges (no floor, FIND-124) one run may hold, whatever the per-run cap is. Fixed in code:
+ * the owner can raise the per-run cap (FIND-126) without widening the path that skips the floor.
+ */
+export const DEDUP_REVIEW_OVERRIDE_PER_RUN_CAP = 10;
+/** The most the owner's variables may set each cap to. The code owns these: a typo in a variable cannot lift a cap past them. */
+export const DEDUP_REVIEW_PER_RUN_CAP_CEILING = DEDUP_REVIEW_MAX_DECISIONS;
+export const DEDUP_REVIEW_PER_DAY_CAP_CEILING = 200;
+export const DEDUP_REVIEW_PER_DAY_REJECT_CAP_CEILING = 100;
 
 /** A bad input. The message names the field and never echoes a value, which is untrusted text. */
 export class DedupReviewApplyInputError extends Error {}
@@ -290,6 +299,8 @@ export interface DedupReviewRunState {
   claimedEventIds: ReadonlySet<string>;
   /** Merges (accepts and overrides) already judged eligible in this run (the per-run cap counts nothing else). */
   eligibleInRun: number;
+  /** Of those, the `accept-override` merges (capped apart from the per-run cap, see `DEDUP_REVIEW_OVERRIDE_PER_RUN_CAP`). */
+  overridesInRun: number;
   /** Rejects already judged eligible in this run. */
   rejectsInRun: number;
   /** AI merges (including undone) and AI rejections in the last 24 hours, before this run. */
@@ -304,12 +315,69 @@ export interface DedupReviewCaps {
   perDayRejects: number;
 }
 
+export const DEDUP_REVIEW_CAP_DEFAULTS: Readonly<DedupReviewCaps> = {
+  perRun: DEDUP_REVIEW_PER_RUN_CAP,
+  perDay: DEDUP_REVIEW_PER_DAY_CAP,
+  perDayRejects: DEDUP_REVIEW_PER_DAY_REJECT_CAP,
+};
+
+const CAP_CEILINGS: Readonly<DedupReviewCaps> = {
+  perRun: DEDUP_REVIEW_PER_RUN_CAP_CEILING,
+  perDay: DEDUP_REVIEW_PER_DAY_CAP_CEILING,
+  perDayRejects: DEDUP_REVIEW_PER_DAY_REJECT_CAP_CEILING,
+};
+
+const CAP_VARIABLES: Readonly<Record<keyof DedupReviewCaps, string>> = {
+  perRun: 'DEDUP_REVIEW_PER_RUN_CAP',
+  perDay: 'DEDUP_REVIEW_PER_DAY_CAP',
+  perDayRejects: 'DEDUP_REVIEW_PER_DAY_REJECT_CAP',
+};
+
+/** The owner's cap variables, as the environment gives them (a missing or empty variable keeps the default). */
+export interface DedupReviewCapVariables {
+  perRun?: string | undefined;
+  perDay?: string | undefined;
+  perDayRejects?: string | undefined;
+}
+
+/**
+ * The caps for a run: the owner's variables (`DEDUP_REVIEW_PER_RUN_CAP`, `DEDUP_REVIEW_PER_DAY_CAP`,
+ * `DEDUP_REVIEW_PER_DAY_REJECT_CAP` of `dedup-review-live`, FIND-126) over the defaults. A variable is exactly a positive
+ * whole number written in digits (no sign, no space, no leading zero) and not above the code's ceiling; anything else
+ * throws, naming the variable and never echoing its value, so a typo stops the run instead of quietly widening or
+ * narrowing it. A missing or empty variable keeps the default.
+ */
+export function resolveDedupReviewCaps(variables: DedupReviewCapVariables = {}): DedupReviewCaps {
+  const caps: DedupReviewCaps = { ...DEDUP_REVIEW_CAP_DEFAULTS };
+  for (const key of Object.keys(CAP_VARIABLES) as Array<keyof DedupReviewCaps>) {
+    const raw = variables[key];
+    if (raw === undefined || raw === '') continue;
+    if (!/^[1-9][0-9]*$/.test(raw) || Number(raw) > CAP_CEILINGS[key]) {
+      throw new DedupReviewApplyInputError(
+        `the variable ${CAP_VARIABLES[key]} must be a whole number from 1 to ${CAP_CEILINGS[key]}, written in digits only (or unset for the default)`
+      );
+    }
+    caps[key] = Number(raw);
+  }
+  return caps;
+}
+
+/** The same bounds for caps that did not come through `resolveDedupReviewCaps` (a caller's own object): a cap above its ceiling throws. */
+export function assertDedupReviewCapsWithinCeilings(caps: DedupReviewCaps): void {
+  for (const key of Object.keys(CAP_VARIABLES) as Array<keyof DedupReviewCaps>) {
+    const value = caps[key];
+    if (!Number.isInteger(value) || value < 0 || value > CAP_CEILINGS[key]) {
+      throw new DedupReviewApplyInputError(`the ${key} cap is outside 0 to ${CAP_CEILINGS[key]}`);
+    }
+  }
+}
+
 export type DedupReviewVerdict = { outcome: 'eligible' } | { outcome: 'skipped'; reason: DedupReviewSkipReason };
 
 /**
  * One decision's verdict, in a fixed order. An accept: the pair's state, the evidence hash, the floor, a
  * shared event, the per-run cap, the day cap. An `accept-override` is the same without the floor (FIND-124:
- * no tier skip either; it counts as a merge in both caps). A reject: the pair's state, the evidence hash, `already-high`
+ * no tier skip either; it counts as a merge in both caps, and has a per-run cap of its own, FIND-126). A reject: the pair's state, the evidence hash, `already-high`
  * (the drain merges those, so nothing rejects them), a shared event claimed by an earlier accept (read
  * only: a reject claims none), the reject cap, the day cap. There is no floor for a reject: it limits what
  * may be merged, and a reject merges nothing. The day cap is `used + merges + rejects`; the per-run cap
@@ -341,6 +409,7 @@ export function judgeDedupReviewDecision(input: {
   }
   if (sharesClaimedEvent) return { outcome: 'skipped', reason: 'event-already-in-run' };
   if (state.eligibleInRun >= caps.perRun) return { outcome: 'skipped', reason: 'per-run-cap' };
+  if (decision.action === 'accept-override' && state.overridesInRun >= DEDUP_REVIEW_OVERRIDE_PER_RUN_CAP) return { outcome: 'skipped', reason: 'per-run-cap' };
   if (dayTotal >= caps.perDay) return { outcome: 'skipped', reason: 'per-day-cap' };
   return { outcome: 'eligible' };
 }

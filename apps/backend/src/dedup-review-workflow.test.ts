@@ -185,14 +185,28 @@ test('dedup-review-apply workflow (text checks)', async (t) => {
     assert.match(squash(jobs.apply), /case "\$DISABLED" in false \| 0\) ;; \*\)/, 'only an explicit false or 0 enables apply');
     assert.ok(jobs.apply.includes('DISABLED: ${{ vars.DEDUP_REVIEW_APPLY_DISABLED }}'));
     assert.ok(jobs.apply.includes('DEDUP_REVIEW_APPLY_DISABLED: ${{ vars.DEDUP_REVIEW_APPLY_DISABLED }}'), 'the script gets the variable too');
-    assert.ok(!jobs.validate.includes('vars.'), 'the read-only job reads no variable');
+    assert.ok(!/vars\.(?!DEDUP_REVIEW_PER_(RUN|DAY|DAY_REJECT)_CAP)/.test(jobs.validate), 'the read-only job reads no variable but the three optional cap variables');
+  });
+
+  await t.test('the cap variables (FIND-126): checked before any code is fetched, passed to both the script of apply and of validate', () => {
+    const check = jobs.apply.indexOf('- name: Check the cap variables\n');
+    assert.ok(check > 0 && check < jobs.apply.indexOf('- name: Checkout Repository\n'), 'a bad variable stops the run before the checkout');
+    const names = ['DEDUP_REVIEW_PER_RUN_CAP', 'DEDUP_REVIEW_PER_DAY_CAP', 'DEDUP_REVIEW_PER_DAY_REJECT_CAP'];
+    for (const name of names) {
+      assert.ok(jobs.apply.includes(`${name}: \${{ vars.${name} }}`), `${name} reaches the apply script`);
+      assert.ok(jobs.validate.includes(`${name}: \${{ vars.${name} }}`), `${name} reaches the validate script`);
+      assert.ok(raw.includes(name), `setup step 5 names ${name}`);
+    }
+    assert.ok(jobs.apply.includes('check DEDUP_REVIEW_PER_RUN_CAP "$PER_RUN_CAP" 100') && jobs.apply.includes('check DEDUP_REVIEW_PER_DAY_CAP "$PER_DAY_CAP" 200') && jobs.apply.includes('check DEDUP_REVIEW_PER_DAY_REJECT_CAP "$PER_DAY_REJECT_CAP" 100'), 'the early check uses the code ceilings');
+    assert.match(squash(jobs.apply), /grep -Eq '\^\[1-9\]\[0-9\]\{0,5\}\$'/, 'digits only, no leading zero');
+    assert.ok(!jobs.inputs.includes('vars.'), 'the input check still reads no variable');
   });
 
   await t.test('the inputs job rejects a bad ref, mode, live, hash, tag and decisions before anyone is asked to approve', () => {
     const body = jobs.inputs;
     assert.ok(body.includes('[[ "$INVOKER_HASH" =~ ^[0-9a-fA-F]{64}$ ]]') && body.includes('[[ "$RUN_TAG" =~ ^[A-Za-z0-9._-]{1,64}$ ]]'), 'whole-value regexes (grep would match one line of a multi-line value)');
     assert.ok(body.includes('"$MODE" = validate') && body.includes('"$LIVE" = true'));
-    assert.ok(body.includes('jq -e') && body.includes('.schemaVersion == 1') && body.includes('<= 50'), 'a no-secret check of the decisions file');
+    assert.ok(body.includes('jq -e') && body.includes('.schemaVersion == 1') && body.includes('<= 100'), 'a no-secret check of the decisions file');
     assert.ok(body.includes('-gt 65535'));
   });
 
@@ -224,7 +238,7 @@ test('dedup-review-apply workflow (text checks)', async (t) => {
     for (const name of ['setup steps 3', 'setup step 5']) {
       assert.ok(raw.includes('DEDUP_REVIEW_REJECT_ENABLED'), name);
     }
-    assert.match(raw, /secrets, of DEDUP_REVIEW_APPLY_DISABLED, DEDUP_REVIEW_REJECT_ENABLED or DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED/, 'step 5 forbids an outer variable of the same name');
+    assert.match(raw, /secrets, of DEDUP_REVIEW_APPLY_DISABLED, DEDUP_REVIEW_REJECT_ENABLED, DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED or the three cap variables/, 'step 6 forbids an outer variable of the same name');
     assert.ok(!raw.toLowerCase().includes('update event_match_candidates'), 'no SQL in the workflow');
   });
 
@@ -233,7 +247,7 @@ test('dedup-review-apply workflow (text checks)', async (t) => {
     assert.match(inputsBlock, /allow_floor_override:\n(?:\s+.*\n)*?\s+type: boolean\n\s+default: false/, 'allow_floor_override is a boolean that is off by default');
     assert.ok(jobs.inputs.includes('ALLOW_FLOOR_OVERRIDE: ${{ inputs.allow_floor_override }}'));
     assert.ok(jobs.validate.includes('ALLOW_FLOOR_OVERRIDE: ${{ inputs.allow_floor_override }}') && jobs.validate.includes('args+=(--allow-floor-override)'), 'validate judges overrides, so it gets the flag');
-    assert.ok(!jobs.validate.includes('DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED') && !jobs.validate.includes('vars.'), 'validate runs where the owner variable is not visible');
+    assert.ok(!jobs.validate.includes('DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED') && !/vars\.(?!DEDUP_REVIEW_PER_(RUN|DAY|DAY_REJECT)_CAP)/.test(jobs.validate), 'validate runs where the owner variable is not visible');
     assert.ok(jobs.apply.includes('FLOOR_OVERRIDE_ENABLED: ${{ vars.DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED }}') && jobs.apply.includes('DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED: ${{ vars.DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED }}'), 'the switch step and the script both get the variable');
     assert.ok(jobs.apply.includes('args+=(--allow-floor-override)'));
     const stepAt = jobs.apply.indexOf('- name: Check the floor override switch\n');

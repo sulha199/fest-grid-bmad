@@ -20,7 +20,7 @@ import { useRequireModerator } from '@/features/auth/use-require-moderator';
 import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
 import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
 import { EmptyPageNotice } from '@/features/pagination/empty-page-notice';
-import { ResolutionClueChecklist } from './resolution-clue-checklist';
+import { ResolutionClueChecklist, type ClueEventFacts } from './resolution-clue-checklist';
 import {
   useQuerySuggestedEventMatches,
   useResolveSuggestedEventMatchMutation,
@@ -57,6 +57,13 @@ export interface SuggestedMatch {
   status: string;
   event: SuggestedEvent;
   candidateEvent: SuggestedEvent;
+}
+
+/** What the checklist shows beside each aspect: the event's own name, venue and main start date. */
+function clueFacts(event: SuggestedEvent | undefined): ClueEventFacts {
+  if (!event) return { name: '' };
+  const schedule = event.schedules.find((s) => s.isMainSchedule) ?? event.schedules[0];
+  return { name: event.eventName, location: event.location, startDate: schedule?.eventStartDate };
 }
 
 function EventSummary({ event, label, locale, viewEventLabel }: { event: SuggestedEvent; label: string; locale: string; viewEventLabel: string }) {
@@ -310,7 +317,7 @@ export function DuplicateEventsContent() {
         onConfirm={resolveAction === 'accept' ? handleConfirmAccept : handleConfirmReject}
         onCancel={handleCancelConfirm}
       >
-        <ResolutionClueChecklist clues={clues} note={note} onCluesChange={setClues} onNoteChange={setNote} disabled={isAnyActionInFlight} />
+        <ResolutionClueChecklist decision={resolveAction} existing={clueFacts(confirmSuggestion?.candidateEvent)} incoming={clueFacts(confirmSuggestion?.event)} clues={clues} note={note} onCluesChange={setClues} onNoteChange={setNote} disabled={isAnyActionInFlight} />
       </ConfirmActionDialog>
 
       <BlockingLoader active={isAnyActionInFlight} />
