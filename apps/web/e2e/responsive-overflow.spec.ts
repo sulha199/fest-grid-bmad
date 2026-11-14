@@ -116,6 +116,32 @@ test.describe('signed in', () => {
     `/en/jobs/${FIXTURE_JOB_IDS.userFailed}`,
   ], { signedIn: true });
 
+  // Story 10.13 (notify when a job finishes): the profile menu open with the Jobs badge (count routed to 99: "9+" and the longest sentence).
+  test('user: the profile menu with a Jobs badge has no page-level horizontal overflow', async ({ page }) => {
+    const pageErrors = trackPageErrors(page);
+    await page.route('**/api/graphql', async (route) => {
+      const post = route.request().postDataJSON() as { operationName?: string } | null;
+      if (post?.operationName !== 'jobsFinishedSinceLastOpened') return route.fallback();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { jobsFinishedSinceLastOpened: 99 } }) });
+    });
+    await gotoRoute(page, '/en/feed');
+    await settleLayout(page);
+    await expectSignedIn(page);
+    const failures: string[] = [];
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: VIEWPORT_HEIGHT });
+      await settleLayout(page);
+      await page.locator('nav[aria-label="Main"] button[aria-expanded]:visible').last().click();
+      const jobs = page.getByTestId('user-menu').filter({ visible: true }).getByRole('link', { name: /^Jobs/ });
+      await expect(jobs).toHaveAccessibleName('Jobs 99 jobs finished since you last looked', { timeout: 30_000 });
+      const result = await detectPageOverflow(page);
+      if (isOverflowing(result)) failures.push(`profile menu @ ${width}px: ${describeOverflow(result)}`);
+      await page.keyboard.press('Escape');
+    }
+    await expectHealthyPage(page, pageErrors);
+    expect(failures, 'overflowing widths').toEqual([]);
+  });
+
   // Story 10.3a (show the subscription cap refusal and the upgrade call to action): the Subscribe dialog open on Account Settings with the cap
   // notice shown. The refusal is routed (a real fifth subscribe would start a scrape, a vendor call), so nothing reaches the server.
   test('user: /en/settings/account with the Subscribe dialog refused by the cap has no page-level horizontal overflow', async ({ page }) => {

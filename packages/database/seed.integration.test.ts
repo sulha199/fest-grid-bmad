@@ -17,6 +17,7 @@ import {
   reports,
   jobs,
   jobAttempts,
+  userSettings,
   brightdataPendingJobs,
   apifyPendingJobs,
 } from './schema';
@@ -107,6 +108,8 @@ test('seed is deterministic, relationally valid, and idempotent', async () => {
         assert.ok(row.finishedAt && Date.now() - row.finishedAt.getTime() < 10 * 60_000, `seeded job ${row.id} finished minutes ago`);
       }
       assert.equal(jobAttemptCount.count, FIXTURE_COUNTS.jobAttempts);
+      const [userSettingsCount] = await db.select({ count: sql<number>`cast(count(*) as int)` }).from(userSettings);
+      assert.equal(userSettingsCount.count, FIXTURE_COUNTS.userSettings);
 
       // Guard new unique constraint on postUrl from being broken by duplicate seed data
       assert.equal(new Set(FIXTURE_POSTS.map(p => p.postUrl)).size, FIXTURE_POSTS.length);

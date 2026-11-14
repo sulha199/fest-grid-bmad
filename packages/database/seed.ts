@@ -19,6 +19,7 @@ import {
   parserVersionRegistry,
   jobs,
   jobAttempts,
+  userSettings,
 } from './schema';
 import { loadDatabaseEnv } from './env';
 import { getTablesInDeleteOrder } from './delete-order';
@@ -1540,6 +1541,16 @@ export const FIXTURE_JOB_ATTEMPTS = [
   },
 ];
 
+// Story 10.13 (notify when a job finishes): the ordinary user's "Jobs last opened" time is set before the fixture jobs ended
+// (the newest of the user's ended jobs finished 60 minutes ago), so the Jobs menu badge counts the two ended fixture jobs
+// (userSucceeded, userFailed) until the user opens the Jobs page. Without this row the watermark would be the user's creation time.
+export const FIXTURE_USER_SETTINGS = [
+  {
+    userId: FIXTURE_USERS[1].id,
+    jobsLastOpenedAt: minutesAgo(180),
+  },
+];
+
 export const FIXTURE_COUNTS = {
   users: FIXTURE_USERS.length,
   userLocations: FIXTURE_USER_LOCATIONS.length,
@@ -1556,6 +1567,7 @@ export const FIXTURE_COUNTS = {
   reports: FIXTURE_REPORTS.length,
   jobs: FIXTURE_JOBS.length,
   jobAttempts: FIXTURE_JOB_ATTEMPTS.length,
+  userSettings: FIXTURE_USER_SETTINGS.length,
 } as const;
 
 export const FIXTURE_USER_IDS = FIXTURE_USERS.map((user) => user.id).sort();
@@ -1689,6 +1701,7 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
       await tx.insert(reports).values([...FIXTURE_REPORTS]);
       await tx.insert(jobs).values([...FIXTURE_JOBS]);
       await tx.insert(jobAttempts).values([...FIXTURE_JOB_ATTEMPTS]);
+      await tx.insert(userSettings).values([...FIXTURE_USER_SETTINGS]);
     });
   } finally {
     await sqlClient.end();
