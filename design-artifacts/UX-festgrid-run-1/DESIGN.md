@@ -206,7 +206,7 @@ components:
     negative: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200" # invalid, upheld, reverted, removedByModeration
     pendingReview: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200" # pending, pendingReview, hiddenByMe
     superseded: "bg-slate-100 dark:bg-slate-900/30 text-slate-800 dark:text-slate-200" # added 2026-08-24 (AD-11) -- shares expired's neutral/grey treatment: a superseded request isn't wrong or reverted, it's simply no longer the live one
-  lane_heading: # Added 2026-10-21 -- PRD 3.20 lanes ("closest matches", "no exact location"); a full-width row between two masonry segments (EXPERIENCE.md Component Patterns > Lane Headings and the Location Filter's Area Mode). Mock: mockups/keyscreens-cards-groups-places-2026-10-21.html section 4
+  lane_heading: # Added 2026-10-21 -- PRD 3.21 lanes ("closest matches", "no exact location"); a full-width row between two masonry segments (EXPERIENCE.md Component Patterns > Lane Headings and the Location Filter's Area Mode). Mock: mockups/keyscreens-cards-groups-places-2026-10-21.html section 4
     base: "px-2 pt-5 pb-2 flex flex-col gap-0.5"
     title: "text-base font-semibold text-foreground" # an h2
     subtitle: "text-xs text-muted-foreground"

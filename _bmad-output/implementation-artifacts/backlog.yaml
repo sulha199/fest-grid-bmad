@@ -2977,7 +2977,7 @@ items:
      title: "Target area in production: a mixed-level set with roles and qualifiers, the venue-without-address ladder with account venue memory, an owner-maintained aggregates table, neighbourhood with an anchor",
      ref: [planning-artifacts/event-insight-poc/target-area-spec-2026-10-27.md, planning-artifacts/event-insight-poc/target-area-edits-draft-2026-10-27.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/IDEA-105-target-area-in-production.md],
      touches: [app:backend, pkg:domain, cross:ai-extraction, web:locations],
-     note: "Owner decisions 2026-10-27, applied to the POC and PRD 3.20 on the ecstatic-shannon branch; what is open before building is in backlog/IDEA-105-target-area-in-production.md."}
+     note: "Owner decisions 2026-10-27, applied to the POC and PRD 3.21 on the ecstatic-shannon branch; what is open before building is in backlog/IDEA-105-target-area-in-production.md."}
 
   # ── 2026-10-28 (dedup review of PR #102: tournament results posts become events) ──
   IDEA-106:
@@ -3044,10 +3044,10 @@ items:
   FIND-109:
     {type: finding, status: backlog, created: 2026-10-28,
      impact: internal, effort: s,
-     title: "PRD 3.18 does not describe the 2026-10-25 dedup rules (mid-to-high promotion, stub repeat, backlog drain); it covers exact repeats of one account only",
+     title: "PRD 3.19 does not describe the 2026-10-25 dedup rules (mid-to-high promotion, stub repeat, backlog drain); it covers exact repeats of one account only",
      ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, planning-artifacts/festgrid-architecture-spine.md, docs/infrastructure/7-event-dedup.md],
      touches: [cross:prd],
-     note: "AD-30 Rule 7 and 7-event-dedup.md are current; PRD 3.18 predates PR #102 (cross-account stub repeat, shared-date promotion, drain). Run through bmad-prd; the 2026-10-28 event-report bullet is already in 3.18."}
+     note: "AD-30 Rule 7 and 7-event-dedup.md are current; PRD 3.19 predates PR #102 (cross-account stub repeat, shared-date promotion, drain). Run through bmad-prd; the 2026-10-28 event-report bullet is already in 3.19."}
 
   IDEA-111:
     {type: idea, status: backlog, created: 2026-10-28,

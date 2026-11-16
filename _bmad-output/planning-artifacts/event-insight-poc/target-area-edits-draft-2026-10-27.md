@@ -85,7 +85,7 @@ The caption-only POC call cannot emit `stated_poster`; the production call (whic
 | Step | Where | Notes |
 |---|---|---|
 | Hashtags -> places | new pure function in `packages/domain` | tag must be a gazetteer alias, or alias + generic word (event, info, kuliner, wisata, agenda, kajian); compound brand/origin tags ignored |
-| Venue -> area | existing geocode + gazetteer | verified pin first; else venue text through the gazetteer (PRD 3.20) |
+| Venue -> area | existing geocode + gazetteer | verified pin first; else venue text through the gazetteer (PRD 3.21) |
 | Level policy | new config table: venue type x province -> level | mall / stadium / convention centre / university: province in DIY and DKI Jakarta; otherwise the venue's city or regency; Batam stays city |
 | Account | extend `effectiveAudienceAreas` (`location-policy.ts`) | unclassified accounts follow the curator branch; bio-stated audience area allowed, tagged `account_bio` |
 | Merge | extend `effectiveAudienceAreas` | nested signals -> widest; disjoint -> venue > account > hashtag, conflict flagged |

@@ -8,7 +8,7 @@
  *   3. IMPLICIT, signals tagged by source, merged: venue, then account, then hashtags.
  *      Signals that NEST (one inside the other) resolve to the widest container; signals that are DISJOINT are not merged: the higher-priority
  *      signal stays, the other is dropped and the conflict is reported.
- *   4. Nothing -> unknown (an empty set; the event is published with a lower rank, PRD FR123).
+ *   4. Nothing -> unknown (an empty set; the event is published with a lower rank, PRD FR138).
  *
  * Normalisation (owner decisions, 2026-10-27): members that nest collapse to the widest; at most MAX_TARGET_AREA_MEMBERS members, more are
  * stored as the covering aggregate or ancestor; a national stated audience with a local venue keeps BOTH (country as `participant`, the venue

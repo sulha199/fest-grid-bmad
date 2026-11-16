@@ -28,7 +28,7 @@ Counts. ADOPTED: 26 captured, 11 weak, 5 missing (42). Conflicts: 7 resolved, 2 
 | A16 | Programmes are time-bound | CAPTURED | PRD:355. "A member outside the window extends it" dropped (minor). |
 | A17 | Gap windows 120 / 30 days | CAPTURED | PRD:355, flagged `[ASSUMPTION]` start values (the spine also keeps them start values). Reason dropped: 8 of about 318 grouped pairs exceed 60 days (tours); cross-account pairs never exceed 30. |
 | A18 | Cross-account series conditions | WEAK | PRD:356. "The places differ" does not say positively different: spine requires `different`, and `unresolved` "is not enough, it would label a probable duplicate 'also at 1 other place'". The 0.85 bar is rendered only as "near-identical". |
-| A19 | Collapse option B, no moderator gate | CAPTURED | PRD:359 (collapses only where the promo name is the same; looser joins get a "part of" link). Reason for no gate ("moderators resolved 0 of 147, a gate would make the feature inert") is given for 3.18 and 3.20 but not at PRD:354 where the rule sits. |
+| A19 | Collapse option B, no moderator gate | CAPTURED | PRD:359 (collapses only where the promo name is the same; looser joins get a "part of" link). Reason for no gate ("moderators resolved 0 of 147, a gate would make the feature inert") is given for 3.19 and 3.21 but not at PRD:354 where the rule sits. |
 | A20 | Safety net | CAPTURED | PRD:364, PRD:359, PRD:360; switch and daily limit flagged `[ASSUMPTION]`. |
 | A21 | Country scope | WEAK | PRD:357 and PRD:343 say "events aimed at different countries". "Aimed at" is the audience country (PRD:380), but the rule uses the country where the event takes place, as PRD:382 itself says. Disambiguating examples dropped: BWF Denmark and Egypt rounds, "erafone Run 2026" in Langkawi, AKMU Asia Tour. Cost ("attaches to nothing") is captured. |
 | A22 | Hashtag evidence is link-only | CAPTURED | PRD:356 (planned, off, never collapses). The principle "a wrong tag join adds a wrong link and hides nothing" dropped. |
@@ -57,8 +57,8 @@ Counts. ADOPTED: 26 captured, 11 weak, 5 missing (42). Conflicts: 7 resolved, 2 
 
 | # | PRD sentence | Verdict | Evidence |
 |---|---|---|---|
-| C1 | "Push notifications are sent per event, not per post" | RESOLVED | PRD:100 keeps the sentence and appends "(Amended 2026-10-21, FR119) For an event that belongs to an event group the notification is sent per group and source post, not per event (Section 3.19)." |
-| C2 | First-Organizer-Post Notification, "one notification" | RESOLVED | PRD:106 "For an event in a group the notification goes through the group rule (Section 3.19); an event that has never notified keeps its one future notification until then." |
+| C1 | "Push notifications are sent per event, not per post" | RESOLVED | PRD:100 keeps the sentence and appends "(Amended 2026-10-21, FR134) For an event that belongs to an event group the notification is sent per group and source post, not per event (Section 3.20)." |
+| C2 | First-Organizer-Post Notification, "one notification" | RESOLVED | PRD:106 "For an event in a group the notification goes through the group rule (Section 3.20); an event that has never notified keeps its one future notification until then." |
 | C3 | Merge and Redirect (moderators only); 3.9.3 merge action; `mergedIntoEventId` | RESOLVED | PRD:107 "The system also merges events on its own in two cases ..."; PRD:199 adds the list of automatic merges with undo; PRD:559-564 (4.1) comment amended. |
 | C4 | Matching: high / mid / low | RESOLVED | PRD:103 adds "A new post that is an exact repeat ... is linked to that existing event whatever its score". Unadopted U1 and P2 correctly left out. |
 | C5 | "Different venue" left to the model | RESOLVED (as planned) | PRD:92 "planned to stop depending on the model alone ... Until that ships, the rule above applies as written." |

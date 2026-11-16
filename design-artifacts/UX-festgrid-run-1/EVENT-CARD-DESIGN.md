@@ -297,7 +297,7 @@ components:
       # no wrapping `<span>`+icon container needed -- this is a single text element, no flex/gap.
       base: "text-sm text-muted-foreground text-center break-all line-clamp-1"
     badge_row: "flex items-center gap-1.5 flex-wrap" # status badge (event_card_status_badge, "happeningNow" now labeled "Now") always first, then event_card_nearby_badge -- REVISED <bmad-ux pass, 2026-09-14>, user-directed: the nearby/radius badge now REPLACES the category/type badge in this row entirely (distanceKm < 8 gated, omitted otherwise) rather than appending alongside it (AC15/AC16's original "status badge + nearby badge when present" pairing is unchanged in spirit -- what changed is that a category/type badge no longer competes for the same row at all). Sits below the top row (poster, or top_row_default below) against the card's own bg-card background, so unlike date_box/till_badge it uses solid fills, not glassmorphism. REVISED <bmad-ux pass, 2026-09-16>, user-directed: order is now status badge, then event_card_repeat_badge (icon-only, gated on this card's featured schedule carrying applicableDaysOfWeek -- see EXPERIENCE.md Component Patterns > Day-of-Week Recurring Schedules), then event_card_nearby_badge.
-    # Amended 2026-10-21 (PRD 3.19/3.20): the row holds at most THREE elements, in this order -- status badge, repeat icon, ONE place element (event_card_place_badge, which takes the nearby badge's slot). The group line (event_card_group_line) is not a badge: it sits under the venue line.
+    # Amended 2026-10-21 (PRD 3.20/3.21): the row holds at most THREE elements, in this order -- status badge, repeat icon, ONE place element (event_card_place_badge, which takes the nearby badge's slot). The group line (event_card_group_line) is not a badge: it sits under the venue line.
     top_row_default:
       # New <bmad-ux pass, 2026-09-11>. Replaces "full-width poster with date box overlaid on top" for
       # prominentPoster=false ONLY -- the common case, where the poster image is hotlinked/scraped and can
@@ -656,7 +656,7 @@ components:
     #    change scoped to those three card families' badge slot, not a claim that every other consumer of this
     #    token (e.g. any existing standard-variant EventCard usage outside this pass's scope) changes its own
     #    category-badge behavior too.
-    # Amended 2026-10-21 (PRD 3.1/3.20, AD-39 Rule 5): Nearby is a claim about distance, so it is for a VERIFIED pin only. The primitive still gates on distanceKm alone (AD-24 Rule 2), so the CALLER passes distanceKm only for an event whose precision is EXACT; AREA and UNKNOWN events never reach it. The one threshold stays 8 km (the 5 km this file once carried was a defect).
+    # Amended 2026-10-21 (PRD 3.1/3.21, AD-39 Rule 5): Nearby is a claim about distance, so it is for a VERIFIED pin only. The primitive still gates on distanceKm alone (AD-24 Rule 2), so the CALLER passes distanceKm only for an event whose precision is EXACT; AREA and UNKNOWN events never reach it. The one threshold stays 8 km (the 5 km this file once carried was a defect).
     base: "inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground"
     icon: "w-3 h-3" # lucide-react Navigation icon -- deliberately distinct from the caption's own MapPin (locationName row) so the two location-related glyphs never look identical in an already-dense card; confirm the exact icon name against the installed lucide-react version at implementation time (same caveat already applied to components.calendar.mobile_day_list.multi_day_badge's CalendarRange icon)
     # >>> Event-Card family consolidation (2026-09-26, consolidated-acs.md §2.4, AC-NEARBY-1/2/3): this badge's
@@ -680,7 +680,7 @@ components:
     # convention (project-context.md Locale-Sensitive Data Rendering) -- never a raw enum string.
     icon: "w-3.5 h-3.5 text-muted-foreground shrink-0" # lucide-react Repeat icon, 14px -- between event_card_nearby_badge's 12px and the favorite icon's 24px; confirm the exact icon name against the installed lucide-react version at implementation time (same caveat already applied to the multi_day_badge CalendarRange icon and event_card_nearby_badge's Navigation icon)
   event_card_place_badge:
-    # Added 2026-10-21 -- PRD 3.20 (FR121-FR124), AD-39 Rule 6. The ONE place element a card shows, in the slot event_card_nearby_badge occupies on
+    # Added 2026-10-21 -- PRD 3.21 (FR136-FR139), AD-39 Rule 6. The ONE place element a card shows, in the slot event_card_nearby_badge occupies on
     # all three families (masonry badge_row, compact content badge span, grid-item side_stack/location_row). Exactly one, in this order:
     # nearby badge (EXACT and < 8 km) > in_your_area (the event's area is the viewer's area or inside it; covers/sibling are NOT labelled) >
     # area (precision AREA) > unclear (precision UNKNOWN) > nothing. [ASSUMPTION] for an AREA event inside the viewer's area, "In your area"
@@ -695,7 +695,7 @@ components:
     icon: "w-3 h-3"
     grid_item_cap: "max-w-[7.5rem]" # calendar day cell (174x128): a narrower cap in the same slot
   event_card_group_line:
-    # Added 2026-10-21 -- PRD 3.1/3.19, AD-36 Rules 13 and 15. A single plain-text line inside the card's one link (NOT a chip or link of its own: EXPERIENCE.md
+    # Added 2026-10-21 -- PRD 3.1/3.20, AD-36 Rules 13 and 15. A single plain-text line inside the card's one link (NOT a chip or link of its own: EXPERIENCE.md
     # Accessibility Floor and AD-24 Rule 4 keep card badges non-interactive; the group's members are one tap away on the event page's group section).
     # Two variants: part_of ("Part of {group name}": programme members, loosely linked members, a series with ONE matching occurrence) and more
     # ("+N more places / dates / sessions": the collapsed series cover; N counts the MATCHING members only). Masonry and compact families, under the venue

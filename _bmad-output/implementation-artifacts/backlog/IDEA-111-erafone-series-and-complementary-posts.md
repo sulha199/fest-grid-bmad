@@ -10,15 +10,15 @@ captured: 2026-10-28
 
 The owner asked (2026-10-28) to take the live list at `https://fest-grid.vercel.app/en?q=erafone` and record each event as either a member of an event series / programme or a post that only complements the main event's data, with the post and event ids kept so it can be checked again after the race (2026-10-31). It is a compact real example of every pattern the insight POC and the dedup work meet at once: one organizer race with categories, programme items, pre-event logistics, reposts by curators, and a registration date that split one category into two events.
 
-Terms (PRD 3.19): **Series** = the same activity at different places or dates; **Programme** = different activities under one named umbrella, each promoted on its own. A **repost** is a duplicate (PRD 3.18), not a group member. A **category** (5K, 10K) is not a group member either: by the 2026-10-28 owner decision (personalization plan, Revision 10) category siblings are one event whose tracks carry the difference.
+Terms (PRD 3.20): **Series** = the same activity at different places or dates; **Programme** = different activities under one named umbrella, each promoted on its own. A **repost** is a duplicate (PRD 3.19), not a group member. A **category** (5K, 10K) is not a group member either: by the 2026-10-28 owner decision (personalization plan, Revision 10) category siblings are one event whose tracks carry the difference.
 
 ## Proposed roles
 
 - **MAIN**: the event the others hang off.
 - **CATEGORY**: a race category (5K, 10K). Complements the main event as a track (personalization plan, Revision 10); never its own card once merged.
-- **PROGRAMME**: a different activity under the same umbrella, promoted on its own (PRD 3.19 Programme). Stays its own event, grouped.
+- **PROGRAMME**: a different activity under the same umbrella, promoted on its own (PRD 3.20 Programme). Stays its own event, grouped.
 - **PRE-EVENT**: happens before the race day, at another place or online, for the same participants. Programme member or own event; to decide.
-- **REPOST**: the same event posted by another account. A duplicate of the main event (PRD 3.18), not a series.
+- **REPOST**: the same event posted by another account. A duplicate of the main event (PRD 3.19), not a series.
 - **UNCLEAR**: needs the post opened.
 
 The roles come from names, dates, accounts and categories. The captions were not read (the curators' captions are cleared after extraction anyway, PRD 3.16). Counts: 1 main, 2 categories, 2 programme items, 2 pre-event items, 4 reposts, 1 unclear.
@@ -157,4 +157,4 @@ The race is on 2026-10-31, after which the events leave the list. The ids still 
 3. Do pre-event items (race pack collection) belong to the race's programme group or stay unrelated events?
 4. The unclear 2026-10-30 event: open the post and fix its role.
 
-Related: IDEA-106 (event report vs announcement), IDEA-103 (reposts), IDEA-105 (target area), the personalization plan Revisions 10 and 11 (tracks survive a merge; the per-field merge of an event's several posts, prototype `merge-event-insight.ts`), PRD 3.18 and 3.19.
+Related: IDEA-106 (event report vs announcement), IDEA-103 (reposts), IDEA-105 (target area), the personalization plan Revisions 10 and 11 (tracks survive a merge; the per-field merge of an event's several posts, prototype `merge-event-insight.ts`), PRD 3.19 and 3.20.

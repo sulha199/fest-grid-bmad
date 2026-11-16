@@ -51,7 +51,7 @@ Consequence: a flat limit at the 99th percentile (96) would stop the busiest leg
 |---|---|---|---|
 | Reminder or update | "last call", "registration extended", one post per category | No: 9% of events have two or more posts; the Erafone organizer posts 2.1 per event | dedup links them to one card; never flagged |
 | Duplicate card | the repeat created a second visible card | Yes, to users | a platform defect, not an account behaviour: measured as the share of upcoming events in a same-account identical-name same-date group (13% on 2026-10-29), fixed by IDEA-085 |
-| Same offer on many dates | a tour with ten departures | Only if shown as ten cards | series collapse (PRD 3.19, IDEA-084) |
+| Same offer on many dates | a tour with ten departures | Only if shown as ten cards | series collapse (PRD 3.20, IDEA-084) |
 | Bump or flood | the same event posted 20 times in a week, or hundreds of different posts | Costs money and quota; harmless to users once collapsed | the intake limit above; the alarm message shows posts per event so a moderator can tell a flood from a busy mall |
 
 Proposal: no separate "repeat" flag. A repeat is already collapsed by dedup, and flagging reminders would flag good organizers. Report the repeat rate inside the intake alarm instead.
@@ -63,7 +63,7 @@ Proposal: no separate "repeat" flag. A repeat is already collapsed by dedup, and
 3. When the hard limit stops an account, should its subscribers be told?
 4. Count posts, or events produced? Posts measure the cost; events measure the user-facing flood. Proposal: posts for the stop, events for the display cap.
 
-Related: IDEA-112 (display cap and repeats), IDEA-085 (exact-repeat merge), IDEA-084 (event groups), PRD 3.18, 3.19 and 3.8, AD-34, AD-43.
+Related: IDEA-112 (display cap and repeats), IDEA-085 (exact-repeat merge), IDEA-084 (event groups), PRD 3.19, 3.20 and 3.8, AD-34, AD-43.
 
 ## Where this belongs: personalisation and the move from BYOK to a paid product (owner, 2026-10-29)
 

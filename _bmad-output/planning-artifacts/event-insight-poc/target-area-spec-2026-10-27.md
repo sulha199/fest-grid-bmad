@@ -1,15 +1,15 @@
 # Target area spec (draft 1, 2026-10-27)
 
-Status: SETTLED with the owner on 2026-10-27 and APPLIED to the POC and to PRD Section 3.20 on this branch (nothing is built in production).
+Status: SETTLED with the owner on 2026-10-27 and APPLIED to the POC and to PRD Section 3.21 on this branch (nothing is built in production).
 It replaces the venue-first line in the labelling guides (`labelling-guide-2026-10-21*.md`) and in the `audience-v2` prompt
-(`audience-insight.ts`, now `audience-v3`), and extends PRD Section 3.20 (FR121-FR124). Where each decision landed:
+(`audience-insight.ts`, now `audience-v3`), and extends PRD Section 3.21 (FR136-FR139). Where each decision landed:
 `poc-status.md` ("Target-area change (2026-10-27)") and `target-area-edits-draft-2026-10-27.md`. Sources: owner decisions in the
 2026-10-26/27 discussion; `proposal-target-area-and-scan-safety.md`; `location-policy.ts`; prod checks of 2026-10-26/27.
 
 ## 1. What it is
 
 The **target area** is where an event's audience is drawn from. It is not where the event happens (the pin and the
-place area, PRD 3.20 "Three Facts"). One event has a *set* of target areas. Each is
+place area, PRD 3.21 "Three Facts"). One event has a *set* of target areas. Each is
 `{name, key, level, source, qualifier, anchor, quote, ambiguous}`:
 
 - `level`: `neighbourhood | city | regency | province | country | continent`
@@ -33,13 +33,13 @@ place area, PRD 3.20 "Three Facts"). One event has a *set* of target areas. Each
    Stated national/international -> country/continent, no implicit areas.
    Online with no stated area -> none (unless the account fallback below applies).
 3. IMPLICIT, only if 1 and 2 gave nothing. Collect every signal, tag its source:
-   a. venue: the area of the verified pin, else the venue text resolved through the gazetteer (PRD 3.20)
+   a. venue: the area of the verified pin, else the venue text resolved through the gazetteer (PRD 3.21)
    b. hashtags (#jogja, #sleman): weakest signal, never alone overrides a venue
    c. account: confirmed organizer/venue account of local/regional reach -> its default-location area;
-      curator -> its audience area (PRD 3.20 "Curator Audience Area"), including one stated in its bio
+      curator -> its audience area (PRD 3.21 "Curator Audience Area"), including one stated in its bio
    Merge rule (owner decision R4): signals that NEST (one contains the other) resolve to the widest container.
    Signals that are DISJOINT (venue Sleman, hashtag #jakarta) are not merged: venue > account > hashtag, conflict flagged.
-   Nothing -> unknown (published, lower rank, PRD FR123).
+   Nothing -> unknown (published, lower rank, PRD FR138).
 4. RESOLVE (code, not the model): name -> gazetteer key and level (Section 3).
 5. LEVEL POLICY for implicit areas (Section 4).
 ```
@@ -81,14 +81,14 @@ venue category. A venue with no category falls back to the default. `neighbourho
 
 ## 6. Account rules
 
-- A curator **never lends a location** and its address is **never inferred from a post** (PRD FR122). A curator's *post* may still name
+- A curator **never lends a location** and its address is **never inferred from a post** (PRD FR137). A curator's *post* may still name
   a venue; that is the venue signal.
 - A curator's **audience area stated in its bio counts** (owner decision, 2026-10-27). It is the last resort and is tagged `account-bio`.
 - Attribution is a precondition: the rules depend on the post's publisher being the right profile. BUG-081 (profile backfill overwrote
   usernames) was fixed and 22 rows were repaired on 2026-10-26/27; repost handling beyond that is deferred (IDEA-103, read the audience
   area from the original account).
 - **Unclassified accounts are treated as curators until classified** (owner decision, 2026-10-27): they lend no location and supply an
-  audience area only if their bio states one. This differs from today's code (`mayUseAccountLocation`) and from PRD FR122, where a
+  audience area only if their bio states one. This differs from today's code (`mayUseAccountLocation`) and from PRD FR137, where a
   never-classified account lends at most the area of its default location. In prod on 2026-10-26, 281 accounts with stored posts were
   never classified and produced 539 of the last 30 days' 2,191 posts (about 25%); those lose the account fallback.
 
@@ -116,7 +116,7 @@ venue category. A venue with no category falls back to the default. `neighbourho
 Rows 5 and 6 are one collab/repost pair (corrected 2026-10-27). Caption-only: the POC call does not see posters, so an area that
 appears only on the poster is out of scope until production extraction (which sends images) is checked.
 
-## 8. PRD deltas (3.20): applied on this branch on 2026-10-27 (owner: PRD changes go in the same branch); run them through `bmad-prd` before the branch merges
+## 8. PRD deltas (3.21): applied on this branch on 2026-10-27 (owner: PRD changes go in the same branch); run them through `bmad-prd` before the branch merges
 
 1. "Where an Event's Area Comes From": add hashtags as a weak signal; add the nest/disjoint merge rule for implicit signals; keep stated first.
 2. Add the `neighbourhood` level with a kelurahan/desa anchor and distance-based matching.
@@ -124,7 +124,7 @@ appears only on the poster is out of scope until production extraction (which se
 4. Add the per-province level policy for large venues (mall, stadium, convention centre, university): province in DIY and DKI Jakarta, city or regency elsewhere (Batam stays city).
 5. Curator audience area may come from the bio (PRD already allows "bio, name or captions").
 6. Siblings (Kota X / Kabupaten X) resolve to a set, not the province.
-7. FR122: never-classified accounts are treated as curators until classified (no location lent), replacing "lends at most the area of its default location".
+7. FR137: never-classified accounts are treated as curators until classified (no location lent), replacing "lends at most the area of its default location".
 
 ## 9. Decisions and open points
 
@@ -142,7 +142,7 @@ Also decided (2026-10-27):
   golden set must include poster-only posts, and the rate of `stated_poster` as the only source is reported.
 
 Confirmed by the owner (2026-10-27): "unclassified = curator" (about 25% of last-30-day posts lose the account fallback and land on unknown
-area unless their bio states one; this reverses PRD FR122 for those accounts and the 2026-10-18 decision).
+area unless their bio states one; this reverses PRD FR137 for those accounts and the 2026-10-18 decision).
 
 ## 10. Venue-only locations and duplicate names (SETTLED 2026-10-27; one edge case proposed in step 3)
 
@@ -164,11 +164,11 @@ Proposed ladder, first that answers:
    context area that exists (regency, then province) as the provider's area filter/bias and accept a candidate only if exactly one
    plausible candidate lies inside it; two or more inside it is ambiguous (step 5). With no context at all, only an unambiguous name
    (one candidate >= 0.9, the rest <= 0.5) is accepted. A missing context city never triggers taking the top candidate.
-4. **Accept a candidate** only if: country matches (PRD 3.20), confidence >= 0.5, and it lies inside the context area when one exists.
+4. **Accept a candidate** only if: country matches (PRD 3.21), confidence >= 0.5, and it lies inside the context area when one exists.
    Taking the top candidate of an otherwise ambiguous set is allowed **only when post-level context supports it** (owner, 2026-10-27).
    - Pin precision `EXACT` only when the support is post-level context or the venue is unambiguous (one candidate >= 0.9, the rest <= 0.5).
    - If the only support is account-level context, cap the result at `AREA` (never `EXACT`), flagged `contextSource: account`.
-5. **Ambiguous**: several candidates in different regencies within a small confidence gap, or a **generic name** (alun-alun, taman budaya, masjid agung/jami, pasar, GOR, balai desa/warga, lapangan, gedung serbaguna, taman kota) with no context: do **not** pin and give **no venue signal**; the target area then comes from hashtags/account, else unknown (published, PRD FR123); a nightly job retries with better context.
+5. **Ambiguous**: several candidates in different regencies within a small confidence gap, or a **generic name** (alun-alun, taman budaya, masjid agung/jami, pasar, GOR, balai desa/warga, lapangan, gedung serbaguna, taman kota) with no context: do **not** pin and give **no venue signal**; the target area then comes from hashtags/account, else unknown (published, PRD FR138); a nightly job retries with better context.
 
 Effect on the target area: the venue signal exists only when step 2 or 4 produced an accepted candidate; its area is that candidate's area (then the Section 4 level policy).
 
@@ -185,7 +185,7 @@ on a sample of the real fleet before relying on it.
 **Model.** `targetAreas` is a **set of members at mixed levels** (e.g. Yogyakarta city + Jawa Tengah province + the aggregate "Solo Raya").
 Each member: `{key, level, qualifier, source, role, ancestorPath}`; `role` is `participant | attendee | both` (default `both`).
 - Normalisation: members that nest collapse to the widest container (Sleman + DIY -> DIY), the quotes are kept; disjoint members stay separate.
-- Cap 8 members per event; more are stored as the covering aggregate (island, region, country), as PRD 3.20 already does for very large sets.
+- Cap 8 members per event; more are stored as the covering aggregate (island, region, country), as PRD 3.21 already does for very large sets.
 - Matching: the relation is the **best over event set x user set**; the user side is also a set (home, work). Strict area filter: any member inside.
 - Exclusions ("kecuali X"): not supported in v1 (0 of 3,333 posts).
 
@@ -201,7 +201,7 @@ kecamatan/kabupaten/provinsi/nasional" 5; "dan sekitarnya" 21; two or more citie
 | 5 | Caption, poster and other posts of the same event disagree | seen by design | Nested -> widest; disjoint -> keep both, flag for review (replaces "refuse the poster claim") |
 | 6 | Lists of cities / tours | 12 posts | A set of cities; each split sibling event (AD-38) keeps its own stop unless a stated audience wraps all |
 | 7 | "dan sekitarnya" | 21 posts | The named unit plus its neighbours from an adjacency table; needs data |
-| 8 | Abroad and diaspora (Indonesian audience, venue in Malaysia) | 7 posts | Gazetteer is Indonesia-first, so a foreign place is country-level only; audience country stays separate (PRD 3.21) |
+| 8 | Abroad and diaspora (Indonesian audience, venue in Malaysia) | 7 posts | Gazetteer is Indonesia-first, so a foreign place is country-level only; audience country stays separate (PRD 3.22) |
 | 9 | Online event with a stated region ("webinar untuk warga Jateng") | by design | The stated area wins; the online gate applies only when nothing is stated |
 | 10 | Border users and several saved locations | by design | Adjacency tier (PRD "neighbour") and the user-side set |
 | 11 | Gazetteer drift and aliases (new Papua provinces 2022, IKN; Jogja / Yogya / Ngayogyakarta / DIY) | known | Versioned gazetteer with a revision date and an alias table |

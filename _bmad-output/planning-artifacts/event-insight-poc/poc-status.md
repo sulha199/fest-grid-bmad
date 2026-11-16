@@ -42,13 +42,13 @@ Spec: `target-area-spec-2026-10-27.md` (decisions, edge cases, evidence). Draft 
 - **Scorer:** for v3 runs only, it adds the area source and the area name, compared through the gazetteer ("Jogja" = "DIY").
 - **Policy changes:** a never-classified account is treated as a curator (reverses 2026-10-18); a large venue in DIY or DKI Jakarta resolves to the province; the gazetteer resolves a name inside its province (Depok in DIY is a kecamatan of Sleman).
 - **Seed table:** 12 informal aggregates in `area-resolver.ts` whose member lists the owner must verify.
-- **PRD:** Section 3.20 amended (target area as a mixed-level set, order, venue without an address, unclassified = curator, bio-stated audience area).
+- **PRD:** Section 3.21 amended (target area as a mixed-level set, order, venue without an address, unclassified = curator, bio-stated audience area).
 - **Owner to do:** re-label the 36 tuning posts for the three target-area columns (the 3% agreement on 2026-10-26 was a different reading of the old rule); add the 14 probe cases (spec section 7) as a separate sheet; fill the aggregates table check.
 - **Not done:** the real gazetteer (Kemendagri/BPS), the geocoder wiring of `decideVenue`, account venue memory storage, profile enrichment (IDEA-075). Backlog: BUG-087, IDEA-105.
 
 ## Event report vs announcement (2026-10-28) — applied on this branch
 
-Backlog IDEA-106 (detail in `implementation-artifacts/backlog/IDEA-106-event-report-post-kind.md`); PRD Section 3.18, bullet "Event Reports and News". Evidence: 78 of the 140 events in the 2026-10-28 prod stub-repeat clusters come from one results account.
+Backlog IDEA-106 (detail in `implementation-artifacts/backlog/IDEA-106-event-report-post-kind.md`); PRD Section 3.19, bullet "Event Reports and News". Evidence: 78 of the 140 events in the 2026-10-28 prod stub-repeat clusters come from one results account.
 
 - **Decision (owner):** a three-way value `announcement | report | mixed`; a report is attached to its event when one exists and promoted to an event when there is none. `isEvent` stays the outer gate.
 - **Model:** prompt `audience-v3` (no model run exists yet, so it was extended in place) widens `isEvent` to reports and asks for `postKind` (`none` exactly when `isEvent` is false). Prompt v2 is untouched. Guard: `postKind` is kept consistent with `isEvent`; a `report` or `mixed` answer without results or recap wording is flagged log-only.
