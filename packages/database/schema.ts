@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, date, time, doublePrecision, integer, smallint, pgEnum, index, unique, uniqueIndex, primaryKey, customType as drizzleCustomType, type AnyPgColumn } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, date, time, jsonb, doublePrecision, integer, smallint, pgEnum, index, unique, uniqueIndex, primaryKey, customType as drizzleCustomType, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { LocationDetails, LocationResolution, EventLink } from '@festgrid/shared-types';

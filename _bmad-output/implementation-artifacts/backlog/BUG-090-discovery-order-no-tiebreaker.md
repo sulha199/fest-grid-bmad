@@ -22,6 +22,6 @@ The default branch of `Query.events` in `apps/backend/src/schema/resolvers.ts` o
 
 ## What else this touches
 
-- A duplicate count taken from the public list before this fix is inflated by repeated rows. The 2026-10-29 figures in IDEA-261019-0i7 (41 groups, 90 events) and IDEA-261029-hjq (46 groups, 100 events) were very probably taken that way. A read of the production database on 2026-10-30 (distinct upcoming events, same posting account, same strict name, same start date) found 16 groups holding 37 events among 663 upcoming events, which is about 6%, not 13%.
+- A duplicate count taken from the public list before this fix is inflated by repeated rows. The 2026-10-29 figures in IDEA-085 (41 groups, 90 events) and IDEA-112 (46 groups, 100 events) were very probably taken that way. A read of the production database on 2026-10-30 (distinct upcoming events, same posting account, same strict name, same start date) found 16 groups holding 37 events among 663 upcoming events, which is about 6%, not 13%.
 - Any count from the public list must dedupe by event id and say so when the set is incomplete.
 - Not changed here: the ordering is still by date only, so within a date the order is by id, not by start time. A better within-day order is a product decision for the ranked list.
