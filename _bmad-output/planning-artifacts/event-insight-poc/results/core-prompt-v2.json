@@ -1,0 +1,8595 @@
+{
+ "promptVersion": "v2",
+ "set": "core",
+ "model": "gemini-3.5-flash-lite",
+ "compareModel": "",
+ "runs": 3,
+ "records": [
+  {
+   "caseId": "shopfest",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1211,
+   "inputTokens": 1566,
+   "outputTokens": 220,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "shopping",
+     "rewards",
+     "vouchers"
+    ],
+    "participationModes": [
+     "shop"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "geo",
+     "eligibility",
+     "segments",
+     "participation"
+    ],
+    "evidence": [
+     "#yogyakarta",
+     "PlazaAmbarrukmo",
+     "Ambarrukmo Shopfest October Rewards"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [shopping; rewards; vouchers]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id,en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "shopfest",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1237,
+   "inputTokens": 1566,
+   "outputTokens": 201,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "shopping",
+     "rewards",
+     "vouchers"
+    ],
+    "participationModes": [
+     "shop"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Ambarrukmo Shopfest October Rewards!",
+     "#PlazaAmbarrukmo #yogyakarta"
+    ],
+    "confidence": 0.8
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [shopping; rewards; vouchers]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id,en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "shopfest",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1067,
+   "inputTokens": 1566,
+   "outputTokens": 205,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "shopping",
+     "rewards",
+     "vouchers",
+     "giveaway"
+    ],
+    "participationModes": [
+     "shop"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Ambarrukmo Shopfest October Rewards!",
+     "Kumpulkan poin dari setiap transaksi"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [shopping; rewards; vouchers; giveaway]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id,en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "uss-market",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1247,
+   "inputTokens": 1644,
+   "outputTokens": 241,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "fashion",
+     "shopping",
+     "streetwear",
+     "music",
+     "concert"
+    ],
+    "participationModes": [
+     "attend",
+     "shop",
+     "participate"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "interests"
+    ],
+    "evidence": [
+     "Yogyakarta, WES SIAP?!",
+     "USS Downtown Market siap membawa pengalaman seru dengan kurasi 50+ brand terbaik dari Jogja",
+     "Plaza Ambarrukmo, Yogyakarta"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing young_adults/teens"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [fashion; shopping; streetwear; music; concert]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "uss-market",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1092,
+   "inputTokens": 1644,
+   "outputTokens": 233,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "fashion",
+     "streetwear",
+     "shopping",
+     "live music",
+     "sneakers"
+    ],
+    "participationModes": [
+     "attend",
+     "shop"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "interests",
+     "segments"
+    ],
+    "evidence": [
+     "YOGYAKARTA, WES SIAP?!",
+     "USS Downtown Market siap membawa pengalaman seru",
+     "Plaza Ambarrukmo, Yogyakarta"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing young_adults/teens"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [fashion; streetwear; shopping; live music; sneakers]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "uss-market",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1128,
+   "inputTokens": 1644,
+   "outputTokens": 238,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "fashion",
+     "shopping",
+     "sneakers",
+     "live music"
+    ],
+    "participationModes": [
+     "attend",
+     "shop",
+     "participate"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "YOGYAKARTA, WES SIAP?!",
+     "USS Downtown Market siap membawa pengalaman seru dengan kurasi 50+ brand terbaik",
+     "Plaza Ambarrukmo, Yogyakarta"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing young_adults/teens"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [fashion; shopping; sneakers; live music]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "tropical-playland",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1378,
+   "inputTokens": 1605,
+   "outputTokens": 257,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "pets",
+     "botany",
+     "animals",
+     "gardening",
+     "nature"
+    ],
+    "participationModes": [
+     "attend",
+     "participate",
+     "compete",
+     "learn",
+     "network"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "cost",
+     "geo"
+    ],
+    "evidence": [
+     "Ajak keluarga dan teman-temanmu untuk belajar, ibermain, dan mengenal lebih dekat",
+     "#JogjaEvent #EventJogja"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jogja]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [pets; botany; animals; gardening; nature]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate,compete,learn,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "tropical-playland",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1096,
+   "inputTokens": 1605,
+   "outputTokens": 245,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "pets",
+     "botany",
+     "animals",
+     "aquariums"
+    ],
+    "participationModes": [
+     "attend",
+     "participate",
+     "compete",
+     "learn",
+     "network"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "📍 Plaza Ambarrukmo, Hall Lantai 2",
+     "Ajak keluarga dan teman-temanmu untuk belajar, ibermain, dan mengenal lebih dekat keanekaragaman hayati"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [pets; botany; animals; aquariums], missing plant/botanic/garden/biodiversity/nature"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate,compete,learn,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "tropical-playland",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1293,
+   "inputTokens": 1605,
+   "outputTokens": 258,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "exotic pets",
+     "botany",
+     "animals",
+     "aquarium",
+     "nature"
+    ],
+    "participationModes": [
+     "attend",
+     "participate",
+     "compete",
+     "learn",
+     "network"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo, Hall Lantai 2",
+     "Ajak keluarga dan teman-temanmu",
+     "Mini Contest & Community Meet Up"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [exotic pets; botany; animals; aquarium; nature]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate,compete,learn,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "swasana-budaya",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1237,
+   "inputTokens": 1621,
+   "outputTokens": 231,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "javanese culture",
+     "traditional dance",
+     "wayang",
+     "art exhibition",
+     "crafts"
+    ],
+    "participationModes": [
+     "attend",
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "eligibility",
+     "participation"
+    ],
+    "evidence": [
+     "Ground Floor, Plaza Ambarrukmo",
+     "Saksikan Demo Tatah Sungging, Expo Wayang, & Sajian Tarian"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [javanese culture; traditional dance; wayang; art exhibition; crafts]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "swasana-budaya",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1135,
+   "inputTokens": 1621,
+   "outputTokens": 230,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "javanese culture",
+     "traditional dance",
+     "wayang",
+     "art",
+     "cultural heritage"
+    ],
+    "participationModes": [
+     "attend",
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "cost",
+     "participation"
+    ],
+    "evidence": [
+     "Ground Floor, Plaza Ambarrukmo",
+     "Saksikan Demo Tatah Sungging, Expo Wayang, & Sajian Tarian"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [javanese culture; traditional dance; wayang; art; cultural heritage]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "swasana-budaya",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1069,
+   "inputTokens": 1621,
+   "outputTokens": 205,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "javanese culture",
+     "traditional dance",
+     "wayang",
+     "art exhibition"
+    ],
+    "participationModes": [
+     "attend",
+     "learn"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Mari hadirkan kembali pesona budaya Jawa dalam suasana yang penuh keindahan!"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [javanese culture; traditional dance; wayang; art exhibition]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "1 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "gowes-merdeka",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1025,
+   "inputTokens": 1511,
+   "outputTokens": 191,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "cycling",
+     "fitness",
+     "independence day"
+    ],
+    "participationModes": [
+     "participate"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Gowes Merdeka",
+     "Plaza Ambarrukmo"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [cycling; fitness; independence day]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "gowes-merdeka",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1042,
+   "inputTokens": 1511,
+   "outputTokens": 181,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "cycling"
+    ],
+    "participationModes": [
+     "participate"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Gowes Merdeka",
+     "Plaza Ambarrukmo"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [cycling]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "gowes-merdeka",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1092,
+   "inputTokens": 1511,
+   "outputTokens": 186,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "cycling",
+     "fitness"
+    ],
+    "participationModes": [
+     "participate"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Gowes Merdeka",
+     "Plaza Ambarrukmo"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [cycling; fitness]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "cald-conference",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1099,
+   "inputTokens": 1667,
+   "outputTokens": 220,
+   "insight": {
+    "geoScope": "international",
+    "targetAreas": [
+     {
+      "name": "Asia",
+      "level": "continent"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "professionals"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "politics",
+     "democracy",
+     "public policy",
+     "international relations"
+    ],
+    "participationModes": [
+     "attend",
+     "learn",
+     "network"
+    ],
+    "costTier": "free",
+    "languages": [
+     "en"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "🆓 FREE ADMISSION",
+     "Bringing together political leaders, policymakers, and democracy advocates from across Asia"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got international, accept international"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Asia]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got open_to_public, accept restricted|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [professionals]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [politics; democracy; public policy; international relations]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "cald-conference",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1137,
+   "inputTokens": 1667,
+   "outputTokens": 238,
+   "insight": {
+    "geoScope": "international",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "professionals"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "politics",
+     "democracy",
+     "public policy",
+     "international relations"
+    ],
+    "participationModes": [
+     "attend",
+     "learn",
+     "network"
+    ],
+    "costTier": "free",
+    "languages": [
+     "en",
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "📍 Royal Ambarrukmo, Yogyakarta",
+     "🆓 FREE ADMISSION",
+     "Bringing together political leaders, policymakers, and democracy advocates from across Asia"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got international, accept international"
+     },
+     "areas": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [Yogyakarta], missing asia"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got open_to_public, accept restricted|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [professionals]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [politics; democracy; public policy; international relations]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [en,id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "cald-conference",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1131,
+   "inputTokens": 1667,
+   "outputTokens": 219,
+   "insight": {
+    "geoScope": "international",
+    "targetAreas": [
+     {
+      "name": "Asia",
+      "level": "continent"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "professionals"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "politics",
+     "democracy",
+     "public policy",
+     "international relations"
+    ],
+    "participationModes": [
+     "attend",
+     "learn",
+     "network"
+    ],
+    "costTier": "free",
+    "languages": [
+     "en"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "FREE ADMISSION",
+     "Bringing together political leaders, policymakers, and democracy advocates from across Asia"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got international, accept international"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Asia]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got open_to_public, accept restricted|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [professionals]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [politics; democracy; public policy; international relations]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "porseni-stikes",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1118,
+   "inputTokens": 1787,
+   "outputTokens": 226,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "basketball",
+     "badminton",
+     "sports tournament"
+    ],
+    "participationModes": [
+     "compete",
+     "attend"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "TERBUKA UNTUK UMUM!",
+     "Rp300.000/tim",
+     "Rp250.000/tim"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [basketball; badminton; sports tournament]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,attend]"
+     },
+     "cost": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got high, accept low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "porseni-stikes",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1060,
+   "inputTokens": 1787,
+   "outputTokens": 236,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "students",
+     "young_adults"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "basketball",
+     "badminton",
+     "sports tournament"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "TERBUKA UNTUK UMUM!",
+     "Rp300.000/tim",
+     "Rp250.000/tim"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students,young_adults]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [basketball; badminton; sports tournament]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got high, accept low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "porseni-stikes",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 991,
+   "inputTokens": 1787,
+   "outputTokens": 226,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "basketball",
+     "badminton",
+     "sports"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "TERBUKA UNTUK UMUM!",
+     "Rp300.000/tim",
+     "Rp250.000/tim"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [basketball; badminton; sports]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got high, accept low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "volunteer-sosling",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1058,
+   "inputTokens": 1721,
+   "outputTokens": 214,
+   "insight": {
+    "geoScope": "venue_local",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "environment",
+     "tree planting",
+     "volunteer"
+    ],
+    "participationModes": [
+     "volunteer",
+     "learn",
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "open registration volunteer sosling sosmas kmdtk 2026",
+     "lokasi: omah noto plankton"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got venue_local, accept venue_local|city|unspecified"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [environment; tree planting; volunteer]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [volunteer,learn,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "volunteer-sosling",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1025,
+   "inputTokens": 1721,
+   "outputTokens": 201,
+   "insight": {
+    "geoScope": "venue_local",
+    "targetAreas": [],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "environment",
+     "tree planting",
+     "outbound",
+     "volunteering"
+    ],
+    "participationModes": [
+     "volunteer",
+     "learn"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "segments",
+     "cost"
+    ],
+    "evidence": [
+     "open registration volunteer sosling sosmas kmdtk 2026",
+     "lokasi: omah noto plankton"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got venue_local, accept venue_local|city|unspecified"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [environment; tree planting; outbound; volunteering]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [volunteer,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "volunteer-sosling",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1152,
+   "inputTokens": 1721,
+   "outputTokens": 231,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "environment",
+     "tree planting",
+     "volunteering",
+     "outbound",
+     "education"
+    ],
+    "participationModes": [
+     "volunteer",
+     "participate",
+     "learn"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "cost"
+    ],
+    "evidence": [
+     "open registration volunteer sosling sosmas kmdtk 2026",
+     "lokasi: omah noto plankton"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city|unspecified"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [environment; tree planting; volunteering; outbound; education]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [volunteer,participate,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "volunteer-pulangkesinii",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1053,
+   "inputTokens": 1708,
+   "outputTokens": 181,
+   "insight": {
+    "geoScope": "unspecified",
+    "targetAreas": [],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "volunteering",
+     "social work",
+     "community service"
+    ],
+    "participationModes": [
+     "volunteer"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "segments",
+     "cost"
+    ],
+    "evidence": [
+     "‼️OPEN VOLUNTEER PULANGKESINII BATCH 45‼️"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|online|national"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [volunteering; social work; community service]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [volunteer]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "1 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "volunteer-pulangkesinii",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 944,
+   "inputTokens": 1708,
+   "outputTokens": 186,
+   "insight": {
+    "geoScope": "venue_local",
+    "targetAreas": [],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "volunteering",
+     "social impact",
+     "community"
+    ],
+    "participationModes": [
+     "volunteer"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "segments"
+    ],
+    "evidence": [
+     "‼️OPEN VOLUNTEER PULANGKESINII BATCH 45‼️",
+     "Slot terbatas & selalu cepat penuh!"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got venue_local, accept unspecified|online|national"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [volunteering; social impact; community]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [volunteer]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "volunteer-pulangkesinii",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1210,
+   "inputTokens": 1708,
+   "outputTokens": 172,
+   "insight": {
+    "geoScope": "unspecified",
+    "targetAreas": [],
+    "eligibility": "unspecified",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "volunteering",
+     "social action",
+     "community"
+    ],
+    "participationModes": [
+     "volunteer"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "eligibility"
+    ],
+    "evidence": [
+     "‼️OPEN VOLUNTEER PULANGKESINII BATCH 45‼️"
+    ],
+    "confidence": 0.8
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|online|national"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [volunteering; social action; community]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [volunteer]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "1 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "futsal-mfc",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1129,
+   "inputTokens": 1721,
+   "outputTokens": 238,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "DIY",
+      "level": "province"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "futsal",
+     "sports tournament",
+     "soccer"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "Terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah",
+     "Batch 1: Rp350.000/tim"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [DIY; Jawa Tengah]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [futsal; sports tournament; soccer]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got high, accept low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "futsal-mfc",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1258,
+   "inputTokens": 1721,
+   "outputTokens": 271,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "DIY",
+      "level": "province"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "students",
+     "young_adults"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "futsal",
+     "soccer",
+     "sports tournament"
+    ],
+    "participationModes": [
+     "compete",
+     "attend"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah",
+     "Batch 1: Rp350.000/tim",
+     "Batch 2: Rp400.000/tim"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [DIY; Jawa Tengah]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students,young_adults]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [futsal; soccer; sports tournament]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,attend]"
+     },
+     "cost": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got high, accept low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "futsal-mfc",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1106,
+   "inputTokens": 1721,
+   "outputTokens": 268,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "DIY",
+      "level": "province"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "futsal",
+     "soccer",
+     "sports tournament"
+    ],
+    "participationModes": [
+     "compete",
+     "attend"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "interests",
+     "participation"
+    ],
+    "evidence": [
+     "Terbuka untuk mahasiswa dan umum se-DIY & Jawa Tengah",
+     "Batch 1: Rp350.000/tim",
+     "Batch 2: Rp400.000/tim"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [DIY; Jawa Tengah]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [futsal; soccer; sports tournament]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,attend]"
+     },
+     "cost": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got high, accept low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "lomba-mewarnai",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1212,
+   "inputTokens": 1832,
+   "outputTokens": 240,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "kids",
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "coloring",
+     "art competition",
+     "kids activities"
+    ],
+    "participationModes": [
+     "compete"
+    ],
+    "costTier": "low",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Halo adik adik di Jogja dan sekitarnya,..Yuk mengisi akhir pekan bersama keluarga",
+     "Ikuti Lomba Mewarnai di  Montero Jogja",
+     "💡 Reguler – Rp 40.000"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|region|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [coloring; art competition; kids activities]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got low, accept low"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "lomba-mewarnai",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1054,
+   "inputTokens": 1832,
+   "outputTokens": 242,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "Jogja dan sekitarnya",
+      "level": "province"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "kids",
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "coloring"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "low",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Halo adik adik di Jogja dan sekitarnya,..Yuk mengisi akhir pekan bersama keluarga",
+     "Ikuti Lomba Mewarnai di  Montero Jogja",
+     "Reguler – Rp 40.000"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept city|region|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jogja dan sekitarnya]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [coloring]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got low, accept low"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "lomba-mewarnai",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1054,
+   "inputTokens": 1832,
+   "outputTokens": 238,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "kids",
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "coloring",
+     "art"
+    ],
+    "participationModes": [
+     "compete",
+     "attend"
+    ],
+    "costTier": "low",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Halo adik adik di Jogja dan sekitarnya,..Yuk mengisi akhir pekan bersama keluarga",
+     "Ikuti Lomba Mewarnai di  Montero Jogja",
+     "💡 Reguler – Rp 40.000"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept city|region|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jogja]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [coloring; art]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got low, accept low"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "apecx-talkshow",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1171,
+   "inputTokens": 1698,
+   "outputTokens": 232,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "energy",
+     "geopolitics",
+     "sustainability",
+     "oil and gas"
+    ],
+    "participationModes": [
+     "attend",
+     "learn"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "en"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Auditorium SGLC, Faculty of Engineering, Universitas Gadjah Mada",
+     "RSVP: https://bit.ly/RSVPTalkshowAPECX2026"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|national|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing professionals/students/young_adults"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [energy; geopolitics; sustainability; oil and gas]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "apecx-talkshow",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1144,
+   "inputTokens": 1698,
+   "outputTokens": 230,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "energy",
+     "geopolitics",
+     "sustainability",
+     "engineering"
+    ],
+    "participationModes": [
+     "attend",
+     "learn"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "en"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Auditorium SGLC, Faculty of Engineering, Universitas Gadjah Mada",
+     "RSVP: https://bit.ly/RSVPTalkshowAPECX2026"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|national|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing professionals/students/young_adults"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [energy; geopolitics; sustainability; engineering]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "apecx-talkshow",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1110,
+   "inputTokens": 1698,
+   "outputTokens": 205,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "energy",
+     "geopolitics",
+     "sustainability",
+     "engineering"
+    ],
+    "participationModes": [
+     "attend",
+     "learn"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "en"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Auditorium SGLC, Faculty of Engineering, Universitas Gadjah Mada"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|national|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing professionals/students/young_adults"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [energy; geopolitics; sustainability; engineering]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "1 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "rsih-run",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1036,
+   "inputTokens": 1575,
+   "outputTokens": 213,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "running",
+     "marathon"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "📍 Yogyakarta",
+     "🏃 RSIH 25th Mlayu Mlayu",
+     "📆 Minggu, 11 Oktober 2026"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|region|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [running; marathon]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "rsih-run",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1090,
+   "inputTokens": 1575,
+   "outputTokens": 213,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "running",
+     "marathon"
+    ],
+    "participationModes": [
+     "participate",
+     "compete"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "RSIH 25th Mlayu Mlayu",
+     "Yogyakarta",
+     "Minggu, 11 Oktober 2026"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|region|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [running; marathon]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate,compete]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "rsih-run",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1065,
+   "inputTokens": 1575,
+   "outputTokens": 197,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "running",
+     "marathon"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "📍 Yogyakarta",
+     "🏃 RSIH 25th Mlayu Mlayu"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|region|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [running; marathon]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "erafone-run",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1089,
+   "inputTokens": 1632,
+   "outputTokens": 238,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "running",
+     "lifestyle",
+     "music"
+    ],
+    "participationModes": [
+     "compete",
+     "attend",
+     "participate"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments",
+     "cost"
+    ],
+    "evidence": [
+     "erafone Run 2026 Chapter Yogyakarta kembali hadir",
+     "Museum Gunungapi Merapi, Yogyakarta",
+     "31 Oktober 2026",
+     "5K & 10K"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept region|city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [running; lifestyle; music]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,attend,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "4 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "erafone-run",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1108,
+   "inputTokens": 1632,
+   "outputTokens": 215,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "running",
+     "lifestyle",
+     "music",
+     "entertainment"
+    ],
+    "participationModes": [
+     "compete",
+     "attend"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments",
+     "cost"
+    ],
+    "evidence": [
+     "erafone Run 2026 Chapter Yogyakarta kembali hadir",
+     "📍 Museum Gunungapi Merapi, Yogyakarta"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept region|city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [running; lifestyle; music; entertainment]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "erafone-run",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1104,
+   "inputTokens": 1632,
+   "outputTokens": 233,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "running",
+     "lifestyle",
+     "music"
+    ],
+    "participationModes": [
+     "compete",
+     "participate",
+     "attend"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "erafone Run 2026 Chapter Yogyakarta kembali hadir",
+     "Museum Gunungapi Merapi, Yogyakarta",
+     "31 Oktober 2026",
+     "5K & 10K"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept region|city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [running; lifestyle; music]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "4 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "fixture-sleman-city-hall",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1184,
+   "inputTokens": 1578,
+   "outputTokens": 249,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Sleman",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "live music",
+     "circus",
+     "creative workshop",
+     "market",
+     "competition",
+     "fireworks"
+    ],
+    "participationModes": [
+     "attend",
+     "participate",
+     "compete",
+     "shop",
+     "learn"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Celebrating 8th Anniversary Sleman City Hall: REBORN ✨",
+     "📍 Atrium & Plaza Rama, Sleman City Hall"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Sleman]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [live music; circus; creative workshop; market; competition; fireworks]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate,compete,shop,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "fixture-sleman-city-hall",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1239,
+   "inputTokens": 1578,
+   "outputTokens": 249,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "live music",
+     "circus",
+     "workshops",
+     "shopping",
+     "competitions",
+     "fireworks"
+    ],
+    "participationModes": [
+     "attend",
+     "participate",
+     "compete",
+     "shop",
+     "learn"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Celebrating 8th Anniversary Sleman City Hall: REBORN",
+     "Atrium & Plaza Rama, Sleman City Hall"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Sleman]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [live music; circus; workshops; shopping; competitions; fireworks]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate,compete,shop,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "fixture-sleman-city-hall",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1384,
+   "inputTokens": 1578,
+   "outputTokens": 257,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "live music",
+     "circus",
+     "workshops",
+     "shopping market",
+     "competitions",
+     "fireworks"
+    ],
+    "participationModes": [
+     "attend",
+     "participate",
+     "compete",
+     "shop",
+     "learn"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "geo",
+     "segments"
+    ],
+    "evidence": [
+     "Celebrating 8th Anniversary Sleman City Hall: REBORN ✨",
+     "Atrium & Plaza Rama, Sleman City Hall"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Sleman]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [live music; circus; workshops; shopping market; competitions; fireworks]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate,compete,shop,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "fixture-drum-contest",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1275,
+   "inputTokens": 1669,
+   "outputTokens": 292,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "kids",
+     "teens"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "drum",
+     "music",
+     "competition"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Dibuka untuk UMUM, Usia 7–16 Tahun",
+     "Normal: Rp300.000",
+     "Akan dipilih 30 FINALIS untuk tampil di Babak Penentuan pada 17 Oktober 2026 di Hotel Kotta Go Yogyakarta"
+    ],
+    "confidence": 0.95,
+    "ageMax": 16,
+    "ageMin": 7,
+    "restrictionNote": "Restricted to ages 7 to 16."
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|region|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got restricted, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,teens]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got 7..16"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [drum; music; competition]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": [
+     "marked restricted although the post does not restrict it (would hide the event from users)"
+    ]
+   }
+  },
+  {
+   "caseId": "fixture-drum-contest",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1144,
+   "inputTokens": 1669,
+   "outputTokens": 277,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "kids",
+     "teens"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "drum",
+     "music",
+     "competition"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Dibuka untuk UMUM, Usia 7–16 Tahun",
+     "Normal: Rp300.000",
+     "17 Oktober 2026 di Hotel Kotta Go Yogyakarta"
+    ],
+    "confidence": 0.95,
+    "ageMax": 16,
+    "ageMin": 7,
+    "restrictionNote": "Restricted by age band (7-16 years old)."
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|region|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got restricted, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,teens]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got 7..16"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [drum; music; competition]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": [
+     "marked restricted although the post does not restrict it (would hide the event from users)"
+    ]
+   }
+  },
+  {
+   "caseId": "fixture-drum-contest",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1386,
+   "inputTokens": 1669,
+   "outputTokens": 269,
+   "insight": {
+    "geoScope": "national",
+    "targetAreas": [
+     {
+      "name": "Indonesia",
+      "level": "country"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "kids",
+     "teens"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "drum",
+     "music",
+     "competition"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Dibuka untuk UMUM, Usia 7–16 Tahun",
+     "Normal: Rp300.000",
+     "Audisi 100 peserta melalui online"
+    ],
+    "confidence": 0.95,
+    "ageMax": 16,
+    "ageMin": 7,
+    "restrictionNote": "Restricted to ages 7 to 16"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got national, accept city|region|venue_local"
+     },
+     "areas": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [Indonesia], missing yogyakarta"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got restricted, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,teens]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got 7..16"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [drum; music; competition]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": [
+     "marked restricted although the post does not restrict it (would hide the event from users)"
+    ]
+   }
+  },
+  {
+   "caseId": "fixture-vifation",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1431,
+   "inputTokens": 1829,
+   "outputTokens": 272,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "billiards",
+     "esports",
+     "futsal",
+     "gaming"
+    ],
+    "participationModes": [
+     "compete",
+     "participate"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "🏆 𝐕𝐈𝐅𝐀𝐓𝐈𝐎𝐍 𝐗 𝐏𝐈𝐀𝐋𝐀 𝐆𝐔𝐁𝐄𝐑𝐍𝐔𝐑 𝐃𝐈𝐘 🏆",
+     "𝐁𝐈𝐋𝐋𝐈𝐀𝐑𝐃 🎱, 𝐏𝐄𝐒 🎮 & 𝐅𝐔𝐓𝐒𝐀𝐋 ⚽ TOURNAMENT",
+     "OPEN REGISTRATION‼️"
+    ],
+    "confidence": 0.85
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept region|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing students/young_adults"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [billiards; esports; futsal; gaming]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "fixture-vifation",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1299,
+   "inputTokens": 1829,
+   "outputTokens": 223,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "DIY",
+      "level": "province"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "billiards",
+     "pes",
+     "futsal",
+     "esports",
+     "sports"
+    ],
+    "participationModes": [
+     "compete"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "PIALA GUBERNUR DIY",
+     "BILLIARD, PES & FUTSAL TOURNAMENT",
+     "OPEN REGISTRATION"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept region|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [DIY]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing students/young_adults"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [billiards; pes; futsal; esports; sports]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "fixture-vifation",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1143,
+   "inputTokens": 1829,
+   "outputTokens": 240,
+   "insight": {
+    "geoScope": "region",
+    "targetAreas": [
+     {
+      "name": "DIY",
+      "level": "province"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "billiards",
+     "pes",
+     "futsal",
+     "esports",
+     "tournament"
+    ],
+    "participationModes": [
+     "compete"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id",
+     "en"
+    ],
+    "inferredFields": [
+     "geo",
+     "eligibility",
+     "cost"
+    ],
+    "evidence": [
+     "PIALA GUBERNUR DIY",
+     "BILLIARD 🎱, PES 🎮 & FUTSAL ⚽ TOURNAMENT",
+     "OPEN REGISTRATION"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got region, accept region|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [DIY]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing students/young_adults"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [billiards; pes; futsal; esports; tournament]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [compete]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|low|medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-women-tech",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1268,
+   "inputTokens": 1525,
+   "outputTokens": 246,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [],
+    "genderFocus": "women",
+    "interests": [
+     "technology",
+     "career development",
+     "software engineering",
+     "product management",
+     "startups"
+    ],
+    "participationModes": [
+     "attend",
+     "learn",
+     "network"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Khusus perempuan!",
+     "Bukan untuk laki-laki ya, tapi boleh titip salam 😄",
+     "💸 Gratis, kuota 60 peserta"
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Exclusively for women as stated in the post."
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jogja]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing professionals/adults/young_adults"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got women, accept women"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [technology; career development; software engineering; product management; startups]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-women-tech",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1085,
+   "inputTokens": 1525,
+   "outputTokens": 228,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [],
+    "genderFocus": "women",
+    "interests": [
+     "technology",
+     "career",
+     "software engineering",
+     "product management"
+    ],
+    "participationModes": [
+     "attend",
+     "learn",
+     "network"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Khusus perempuan!",
+     "Bukan untuk laki-laki ya",
+     "Gratis, kuota 60 peserta"
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Event is exclusively for women."
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jogja]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing professionals/adults/young_adults"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got women, accept women"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [technology; career; software engineering; product management]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-women-tech",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1167,
+   "inputTokens": 1525,
+   "outputTokens": 261,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jogja",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "professionals"
+    ],
+    "genderFocus": "women",
+    "interests": [
+     "technology",
+     "career development",
+     "software engineering",
+     "product management"
+    ],
+    "participationModes": [
+     "attend",
+     "learn",
+     "network"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Khusus perempuan!",
+     "Bukan untuk laki-laki ya, tapi boleh titip salam",
+     "💸 Gratis, kuota 60 peserta"
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Event is exclusively for women as stated by 'Khusus perempuan!' and 'Bukan untuk laki-laki ya'"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jogja]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [professionals]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got women, accept women"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [technology; career development; software engineering; product management]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-senam-lansia",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1386,
+   "inputTokens": 1489,
+   "outputTokens": 258,
+   "insight": {
+    "geoScope": "venue_local",
+    "targetAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "seniors",
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "seniors aerobics",
+     "health checkup",
+     "elderly health"
+    ],
+    "participationModes": [
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "Gratis untuk seluruh lansia usia 60 tahun ke atas!",
+     "Setiap Minggu pagi pukul 06.30 WIB di Lapangan Puskesmas Depok 1, Sleman."
+    ],
+    "confidence": 1,
+    "ageMin": 60,
+    "restrictionNote": "Hanya untuk lansia usia 60 tahun ke atas"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got venue_local, accept venue_local|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Sleman]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted|open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [seniors,families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got 60..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [seniors aerobics; health checkup; elderly health]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-senam-lansia",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1076,
+   "inputTokens": 1489,
+   "outputTokens": 264,
+   "insight": {
+    "geoScope": "venue_local",
+    "targetAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "seniors",
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "aerobics",
+     "senior health"
+    ],
+    "participationModes": [
+     "participate",
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Gratis untuk seluruh lansia usia 60 tahun ke atas!",
+     "Setiap Minggu pagi pukul 06.30 WIB di Lapangan Puskesmas Depok 1, Sleman."
+    ],
+    "confidence": 0.95,
+    "ageMin": 60,
+    "restrictionNote": "Khusus untuk lansia usia 60 tahun ke atas"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got venue_local, accept venue_local|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Sleman]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted|open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [seniors,families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got 60..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [aerobics; senior health]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-senam-lansia",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1209,
+   "inputTokens": 1489,
+   "outputTokens": 247,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "seniors",
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "senam lansia",
+     "health check"
+    ],
+    "participationModes": [
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "Gratis untuk seluruh lansia usia 60 tahun ke atas!",
+     "Cek tekanan darah gratis.",
+     "Ajak ayah, ibu, kakek dan nenek ya!"
+    ],
+    "confidence": 0.95,
+    "ageMin": 60,
+    "restrictionNote": "Khusus untuk lansia usia 60 tahun ke atas"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Sleman]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted|open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [seniors,families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got 60..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [senam lansia; health check]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-webinar-nasional",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1084,
+   "inputTokens": 1487,
+   "outputTokens": 216,
+   "insight": {
+    "geoScope": "national",
+    "targetAreas": [
+     {
+      "name": "Indonesia",
+      "level": "country"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "students",
+     "young_adults"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "career development",
+     "creative industry"
+    ],
+    "participationModes": [
+     "attend",
+     "learn"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "WEBINAR NASIONAL GRATIS",
+     "Terbuka untuk seluruh mahasiswa tingkat akhir & fresh graduate di seluruh Indonesia."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got national, accept online|national"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Indonesia]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students,young_adults]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [career development; creative industry]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-webinar-nasional",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1051,
+   "inputTokens": 1487,
+   "outputTokens": 234,
+   "insight": {
+    "geoScope": "national",
+    "targetAreas": [
+     {
+      "name": "Indonesia",
+      "level": "country"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "young_adults",
+     "students",
+     "professionals"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "career development",
+     "creative industry",
+     "job search",
+     "professional networking"
+    ],
+    "participationModes": [
+     "attend",
+     "learn"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "WEBINAR NASIONAL GRATIS",
+     "Terbuka untuk seluruh mahasiswa tingkat akhir & fresh graduate di seluruh Indonesia."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got national, accept online|national"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Indonesia]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [young_adults,students,professionals]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [career development; creative industry; job search; professional networking]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-webinar-nasional",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1117,
+   "inputTokens": 1487,
+   "outputTokens": 222,
+   "insight": {
+    "geoScope": "national",
+    "targetAreas": [
+     {
+      "name": "Indonesia",
+      "level": "country"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "students",
+     "young_adults"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "career development",
+     "creative industry",
+     "job search"
+    ],
+    "participationModes": [
+     "attend",
+     "learn"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "WEBINAR NASIONAL GRATIS",
+     "Terbuka untuk seluruh mahasiswa tingkat akhir & fresh graduate di seluruh Indonesia."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got national, accept online|national"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Indonesia]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students,young_adults]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [career development; creative industry; job search]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-open-house-internal",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1111,
+   "inputTokens": 1492,
+   "outputTokens": 252,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Sleman",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "campus tour",
+     "student clubs",
+     "games"
+    ],
+    "participationModes": [
+     "participate",
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "OPEN HOUSE KHUSUS MAHASISWA BARU UNIVERSITAS KARYA BANGSA 2026",
+     "Hanya untuk mahasiswa baru angkatan 2026 (wajib membawa KTM).",
+     "Tidak terbuka untuk umum."
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Hanya untuk mahasiswa baru angkatan 2026"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Sleman]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [campus tour; student clubs; games]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-open-house-internal",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1170,
+   "inputTokens": 1492,
+   "outputTokens": 270,
+   "insight": {
+    "geoScope": "venue_local",
+    "targetAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "campus tour",
+     "student clubs",
+     "games"
+    ],
+    "participationModes": [
+     "participate",
+     "attend"
+    ],
+    "costTier": "unspecified",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "participation"
+    ],
+    "evidence": [
+     "OPEN HOUSE KHUSUS MAHASISWA BARU UNIVERSITAS KARYA BANGSA 2026",
+     "Hanya untuk mahasiswa baru angkatan 2026 (wajib membawa KTM).",
+     "Tidak terbuka untuk umum."
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Restricted exclusively to new students of Universitas Karya Bangsa class of 2026."
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got venue_local, accept venue_local|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Sleman]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [campus tour; student clubs; games]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-open-house-internal",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1128,
+   "inputTokens": 1492,
+   "outputTokens": 274,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Sleman",
+      "level": "city"
+     }
+    ],
+    "eligibility": "restricted",
+    "segments": [
+     "students"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "campus tour",
+     "student clubs",
+     "games"
+    ],
+    "participationModes": [
+     "participate",
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "cost",
+     "interests"
+    ],
+    "evidence": [
+     "OPEN HOUSE KHUSUS MAHASISWA BARU UNIVERSITAS KARYA BANGSA 2026",
+     "Hanya untuk mahasiswa baru angkatan 2026 (wajib membawa KTM).",
+     "Tidak terbuka untuk umum."
+    ],
+    "confidence": 0.95,
+    "restrictionNote": "Restricted to new students of Universitas Karya Bangsa 2026 with student ID (KTM)"
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Sleman]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got restricted, accept restricted"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [students]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [campus tour; student clubs; games]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept unspecified|free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-konser-jakarta",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1316,
+   "inputTokens": 1480,
+   "outputTokens": 222,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "live music",
+     "concert",
+     "pop music"
+    ],
+    "participationModes": [
+     "attend",
+     "shop"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "interests",
+     "participation"
+    ],
+    "evidence": [
+     "Istora Senayan, Jakarta",
+     "Tiket mulai Rp750.000 (festival) hingga Rp3.500.000 (VIP)."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [live music; concert; pop music]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got high, accept high"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-konser-jakarta",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1050,
+   "inputTokens": 1480,
+   "outputTokens": 226,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "live music",
+     "concert",
+     "pop music"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "interests",
+     "segments"
+    ],
+    "evidence": [
+     "Konser Akhir Tahun",
+     "Istora Senayan, Jakarta",
+     "Tiket mulai Rp750.000 (festival) hingga Rp3.500.000 (VIP)."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [live music; concert; pop music]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got high, accept high"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-konser-jakarta",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1238,
+   "inputTokens": 1480,
+   "outputTokens": 217,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "live music",
+     "concert",
+     "pop music"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "interests",
+     "segments"
+    ],
+    "evidence": [
+     "Istora Senayan, Jakarta",
+     "Tiket mulai Rp750.000 (festival) hingga Rp3.500.000 (VIP)."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [live music; concert; pop music]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got high, accept high"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-pameran-origin",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1101,
+   "inputTokens": 1471,
+   "outputTokens": 168,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "art exhibition",
+     "fine arts"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [],
+    "evidence": [
+     "Gratis, terbuka untuk umum."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [art exhibition; fine arts]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "1 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-pameran-origin",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1037,
+   "inputTokens": 1471,
+   "outputTokens": 199,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "art exhibition",
+     "fine arts",
+     "painting"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "interests"
+    ],
+    "evidence": [
+     "Gratis, terbuka untuk umum.",
+     "PAMERAN SENI RUPA \"AKAR & TANAH\""
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [art exhibition; fine arts; painting]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-pameran-origin",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1022,
+   "inputTokens": 1471,
+   "outputTokens": 181,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Jakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "art exhibition",
+     "fine arts"
+    ],
+    "participationModes": [
+     "attend"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments",
+     "interests"
+    ],
+    "evidence": [
+     "Gratis, terbuka untuk umum."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Jakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [art exhibition; fine arts]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "1 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-expat-bali",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1085,
+   "inputTokens": 1469,
+   "outputTokens": 236,
+   "insight": {
+    "geoScope": "venue_local",
+    "targetAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "tourists_expats",
+     "young_adults",
+     "adults"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "yoga",
+     "vegan food",
+     "networking"
+    ],
+    "participationModes": [
+     "participate",
+     "network"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "en"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Every Friday in Canggu, Bali.",
+     "IDR 180,000 per person incl. dinner."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got venue_local, accept venue_local|city|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Canggu]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [tourists_expats,young_adults,adults]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [yoga; vegan food; networking]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-expat-bali",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1145,
+   "inputTokens": 1469,
+   "outputTokens": 220,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Canggu",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "tourists_expats"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "yoga",
+     "vegan food",
+     "networking"
+    ],
+    "participationModes": [
+     "participate",
+     "attend"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "en"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Every Friday in Canggu, Bali.",
+     "IDR 180,000 per person incl. dinner."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept venue_local|city|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Canggu]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [tourists_expats]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [yoga; vegan food; networking]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate,attend]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-expat-bali",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1169,
+   "inputTokens": 1469,
+   "outputTokens": 241,
+   "insight": {
+    "geoScope": "venue_local",
+    "targetAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "tourists_expats"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "yoga",
+     "vegan food",
+     "networking"
+    ],
+    "participationModes": [
+     "participate",
+     "network"
+    ],
+    "costTier": "medium",
+    "languages": [
+     "en"
+    ],
+    "inferredFields": [
+     "eligibility",
+     "segments"
+    ],
+    "evidence": [
+     "Every Friday in Canggu, Bali.",
+     "Meet fellow digital nomads, remote workers and expats",
+     "IDR 180,000 per person incl. dinner."
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got venue_local, accept venue_local|city|region"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Canggu]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [tourists_expats]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [yoga; vegan food; networking]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [participate,network]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got medium, accept medium"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [en]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-family-day",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1113,
+   "inputTokens": 1466,
+   "outputTokens": 259,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "kids",
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "puppet show",
+     "storytelling",
+     "science",
+     "family activities"
+    ],
+    "participationModes": [
+     "attend",
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "interests"
+    ],
+    "evidence": [
+     "Anak di bawah 12 tahun masuk GRATIS dengan didampingi orang tua!",
+     "Ada pentas boneka, mendongeng, dan pojok sains.",
+     "Ajak seluruh keluarga ya!"
+    ],
+    "confidence": 0.9,
+    "ageMax": 11
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..11"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [puppet show; storytelling; science; family activities]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "3 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-family-day",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1111,
+   "inputTokens": 1466,
+   "outputTokens": 240,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "kids",
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "puppet show",
+     "storytelling",
+     "science",
+     "family activities"
+    ],
+    "participationModes": [
+     "attend",
+     "participate",
+     "learn"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "interests"
+    ],
+    "evidence": [
+     "Anak di bawah 12 tahun masuk GRATIS",
+     "Ajak seluruh keluarga ya!"
+    ],
+    "confidence": 0.9,
+    "ageMax": 11
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,families]"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..11"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [puppet show; storytelling; science; family activities]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate,learn]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-family-day",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1022,
+   "inputTokens": 1466,
+   "outputTokens": 221,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [
+     "kids",
+     "families"
+    ],
+    "genderFocus": "all",
+    "interests": [
+     "puppet show",
+     "storytelling",
+     "science",
+     "family activities"
+    ],
+    "participationModes": [
+     "attend",
+     "participate"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Anak di bawah 12 tahun masuk GRATIS",
+     "Ajak seluruh keluarga ya!"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [kids,families]"
+     },
+     "age": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [puppet show; storytelling; science; family activities]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,participate]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free|unspecified"
+     },
+     "language": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [id]"
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-gala-dinner",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1123,
+   "inputTokens": 1486,
+   "outputTokens": 213,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "unspecified",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "charity",
+     "gala dinner",
+     "philanthropy"
+    ],
+    "participationModes": [
+     "attend",
+     "shop"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "eligibility",
+     "segments"
+    ],
+    "evidence": [
+     "Hotel Tentrem Yogyakarta",
+     "Investasi Rp2.500.000 per orang"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got unspecified, accept restricted|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing adults/professionals"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [charity; gala dinner; philanthropy]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got high, accept high"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-gala-dinner",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1046,
+   "inputTokens": 1486,
+   "outputTokens": 226,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "charity",
+     "gala dinner",
+     "philanthropy",
+     "social impact"
+    ],
+    "participationModes": [
+     "attend",
+     "shop"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "eligibility",
+     "segments",
+     "interests"
+    ],
+    "evidence": [
+     "Hotel Tentrem Yogyakarta",
+     "Investasi Rp2.500.000 per orang"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got open_to_public, accept restricted|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing adults/professionals"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [charity; gala dinner; philanthropy; social impact]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got high, accept high"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-gala-dinner",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 990,
+   "inputTokens": 1486,
+   "outputTokens": 198,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "charity",
+     "gala dinner"
+    ],
+    "participationModes": [
+     "attend",
+     "shop"
+    ],
+    "costTier": "high",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo"
+    ],
+    "evidence": [
+     "Hotel Tentrem Yogyakarta",
+     "Investasi Rp2.500.000 per orang"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Yogyakarta]"
+     },
+     "eligibility": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got open_to_public, accept restricted|unspecified"
+     },
+     "segments": {
+      "pass": false,
+      "applicable": true,
+      "detail": "got [], missing adults/professionals"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [charity; gala dinner]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got high, accept high"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-kota-lama",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1078,
+   "inputTokens": 1450,
+   "outputTokens": 191,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Semarang",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "live music",
+     "street food",
+     "bazaar"
+    ],
+    "participationModes": [
+     "attend",
+     "shop"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments"
+    ],
+    "evidence": [
+     "Kota Lama Semarang",
+     "gratis!"
+    ],
+    "confidence": 0.95
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Semarang]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [live music; street food; bazaar]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-kota-lama",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1126,
+   "inputTokens": 1450,
+   "outputTokens": 205,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Semarang",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "live music",
+     "street food",
+     "bazaar"
+    ],
+    "participationModes": [
+     "attend",
+     "shop"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "geo",
+     "segments"
+    ],
+    "evidence": [
+     "Malam Minggu Seru di Kota Lama Semarang!",
+     "Datang yuk, gratis!"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Semarang]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [live music; street food; bazaar]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "2 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  },
+  {
+   "caseId": "syn-kota-lama",
+   "variant": "standalone",
+   "model": "gemini-3.5-flash-lite",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1158,
+   "inputTokens": 1450,
+   "outputTokens": 191,
+   "insight": {
+    "geoScope": "city",
+    "targetAreas": [
+     {
+      "name": "Semarang",
+      "level": "city"
+     }
+    ],
+    "eligibility": "open_to_public",
+    "segments": [],
+    "genderFocus": "all",
+    "interests": [
+     "live music",
+     "street food",
+     "bazaar"
+    ],
+    "participationModes": [
+     "attend",
+     "shop"
+    ],
+    "costTier": "free",
+    "languages": [
+     "id"
+    ],
+    "inferredFields": [
+     "segments",
+     "geo"
+    ],
+    "evidence": [
+     "Datang yuk, gratis!"
+    ],
+    "confidence": 0.9
+   },
+   "score": {
+    "dimensions": {
+     "geoScope": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got city, accept city|venue_local"
+     },
+     "areas": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [Semarang]"
+     },
+     "eligibility": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got open_to_public, accept open_to_public|unspecified"
+     },
+     "segments": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got []"
+     },
+     "age": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got -..-"
+     },
+     "gender": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got all, accept all"
+     },
+     "interests": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [live music; street food; bazaar]"
+     },
+     "participation": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got [attend,shop]"
+     },
+     "cost": {
+      "pass": true,
+      "applicable": true,
+      "detail": "got free, accept free"
+     },
+     "language": {
+      "pass": true,
+      "applicable": false
+     },
+     "evidence": {
+      "pass": true,
+      "applicable": true,
+      "detail": "1 quote(s), 0 not verbatim"
+     }
+    },
+    "criticalErrors": []
+   }
+  }
+ ]
+}

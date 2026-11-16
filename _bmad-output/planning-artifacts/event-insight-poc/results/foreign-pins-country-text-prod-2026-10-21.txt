@@ -1,0 +1,23 @@
+             text_situation             | pins_outside_the_box 
+----------------------------------------+----------------------
+ 1 country named in the schedule text   |                    8
+ 2 country named only in the event text |                   88
+ 3 no country named                     |                  336
+(3 rows)
+
+ country_named_in_the_text | pin_country_code | pins 
+---------------------------+------------------+------
+ denmark                   | DK               |   27
+ egypt                     | EG               |   13
+ denmark                   | US               |    5
+ united states             | US               |    5
+ indonesia                 | US               |    4
+ france                    | US               |    2
+ india                     | IN               |    2
+ prancis                   | US               |    2
+ france                    | FR               |    1
+ indonesia                 | PK               |    1
+ indonesia                 | IT               |    1
+ indonesia                 | DE               |    1
+(12 rows)
+

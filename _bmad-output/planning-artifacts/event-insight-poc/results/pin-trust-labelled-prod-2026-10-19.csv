@@ -1,0 +1,88 @@
+pin_box,confidence_band,match_class,stratum_population,stratum_sampled,row_ref,schedule_location_text,pin_address,pin_city,pin_country,confidence,match_type,label
+inside,0.00,full_match,218,4,00dacb55,Museum Gunungapi Merapi Yogyakarta,"Museum Perjuangan Yogyakarta, Jalan Kolonel Sugiono, Yogyakarta 55153, YO, Indonesia",Yogyakarta,id,0.00,full_match,C
+inside,0.00,full_match,218,4,00df80f3,,"Politeknik Negeri Kupang, Gang Paulus Sabaat II, Pondok Indah Matani 85361, East Nusa Tenggara, Indonesia",Pondok Indah Matani,id,0.00,full_match,N
+inside,0.00,full_match,218,4,011ea4be,"Grha Sabha Pramana, Universitas Gadjah Mada","Grha Prodia, Jalan Raya Diponegoro, Darmo, Surabaya 60264, JI, Indonesia",Surabaya,id,0.00,full_match,C
+inside,0.00,full_match,218,4,01a38f8e,"Atrium UG, Pakuwon Mall Jogja","Gang Pakuwon, 45193, JR, Indonesia",,id,0.00,full_match,N
+inside,0.00,other,3,3,5be4fa36,"Ballroom Lantai 2 Jambuluwuk Malioboro Hotel, Jl. Gajah Mada No. 67, Purwokinanti, Pakuala","Jalan TG. Lopan Praya Jl. Gajah Mada No 110, Praya 83511, NB, Indonesia",Praya,id,0.00,match_by_building,N
+inside,0.00,other,3,3,6bf1621e,,"Jalan Ipda Tut Harsono, Muja muju, Yogyakarta 55165, Special Region of Yogyakarta, Indonesia",Yogyakarta,id,0.00,match_by_street,Y
+inside,0.00,other,3,3,bdcf4321,,"Gang Pakuwon, 45193, JR, Indonesia",,id,0.00,match_by_street,N
+inside,0.01-0.24,full_match,95,4,027618a5,"Chadol Gujeolpan – Lantai GF, Plaza Ambarrukmo","Plaza Ambarrukmo, Jalan Laksda Adisucipto, Depok 55281, Special Region of Yogyakarta, Indonesia",Depok,id,0.18,full_match,Y
+inside,0.01-0.24,full_match,95,4,029ea7a2,,"Plaza Ambarrukmo, Jalan Laksda Adisucipto, Depok 55281, Special Region of Yogyakarta, Indonesia",Depok,id,0.18,full_match,Y
+inside,0.01-0.24,full_match,95,4,03da98a2,"Society Atrium, UG, Pakuwon Mall Jogja","Jalan Pakuwon, Cirebon 45183, JR, Indonesia",Cirebon,id,0.23,full_match,N
+inside,0.01-0.24,full_match,95,4,04c11e8f,Taman Budaya Embung Giwangan,"Taman Rajawali, Sandakan, Malaysia",Taman Rajawali,my,0.24,full_match,N
+inside,0.01-0.24,other,11,4,11a77977,"Pemerintahan Kalurahan Banguntapan, Bantul","YO, Indonesia",,id,0.13,match_by_city_or_disrict,N
+inside,0.01-0.24,other,11,4,6b4de0ab,,"Jalan Magelang 155, Mlati 55242, YO, Indonesia",Mlati,id,0.15,match_by_building,C
+inside,0.01-0.24,other,11,4,885d911f,"Batik Benang Ratu Yogyakarta, Jln. Gedong Kuning no.01/42 Rejowinangun Bantul Yogyakarta","Yogyakarta, YO, Indonesia",Yogyakarta,id,0.08,match_by_city_or_disrict,C
+inside,0.01-0.24,other,11,4,9408e3e4,"Rumah Ta'lim Kalasan, Jl. Flamboyan No. 47, Sidokerto, Purwomartani, Kalasan","Jalan Jenderal Sudirman Sudirman 47, Padang 25113, SB, Indonesia",Padang,id,0.23,match_by_building,N
+inside,0.25-0.49,full_match,57,4,0291fa3b,,"Jalan Pakuwon, 45187, JR, Indonesia",,id,0.42,full_match,N
+inside,0.25-0.49,full_match,57,4,05edbfed,"Pakuwon Mall Jogja, 1st Floor","Jalan Pakuwon, Cirebon 45183, JR, Indonesia",Cirebon,id,0.29,full_match,N
+inside,0.25-0.49,full_match,57,4,0748be03,"1st Floor, Pakuwon Mall Jogja","Jalan Pakuwon, Cirebon 45183, JR, Indonesia",Cirebon,id,0.29,full_match,N
+inside,0.25-0.49,full_match,57,4,0aabe585,"Hotel Cakra Kusuma, Jl. Kaliurang KM 5,2, Sleman, Yogyakarta","Hotel Grand Cakra Malang, Jalan Blimbing Indah Megah, Purwodadi, Malang 65126, JI, Indonesia",Malang,id,0.25,full_match,N
+inside,0.25-0.49,other,38,4,0253837d,,"South Tangerang, Banten, Indonesia",South Tangerang,id,0.25,match_by_city_or_disrict,C
+inside,0.25-0.49,other,38,4,04cbdf9f,"Masjid Jami’ al-Mubarok Yapadi, Dusun Donotirto RT 08, Bangunjiwo, Kasihan, Bantul","Bantul, YO, Indonesia",Bantul,id,0.25,match_by_city_or_disrict,C
+inside,0.25-0.49,other,38,4,0bcc062a,"Plaza Ambarrukmo Lt. 2, Yogyakarta","Ambarrukmo Plaza 2, Yogyakarta 55221, YO, Indonesia",Yogyakarta,id,0.45,inner_part,Y
+inside,0.25-0.49,other,38,4,0df2bcaf,"Lap. Sanggrahan, Tirtoadi, Mlati","Tirtoadi, Mlati, Special Region of Yogyakarta, Indonesia",Mlati,id,0.25,match_by_city_or_disrict,C
+inside,0.50-0.74,full_match,162,4,00e7dff5,Balai Kota Yogyakarta,"Balai Kota, Jalan Medan Merdeka Selatan, Gambir, Central Jakarta 10110, JK, Indonesia",Central Jakarta,id,0.67,full_match,N
+inside,0.50-0.74,full_match,162,4,027038ec,"XT Square, Yogyakarta","XT Square, Jalan Veteran, Yogyakarta 55173, Special Region of Yogyakarta, Indonesia",Yogyakarta,id,0.67,full_match,Y
+inside,0.50-0.74,full_match,162,4,03aff5a3,Transmart Cirebon,"Transmart, dukuh kupang timur, Dukuh Pakis, Surabaya 60225, JI, Indonesia",Surabaya,id,0.50,full_match,N
+inside,0.50-0.74,full_match,162,4,05e20db4,,"Plaza Ambarrukmo, Jalan Laksda Adisucipto, Depok 55281, Special Region of Yogyakarta, Indonesia",Depok,id,0.67,full_match,Y
+inside,0.50-0.74,other,55,4,0f00c53b,,"Jalan Kolonel Sugiono, Yogyakarta 55153, Special Region of Yogyakarta, Indonesia",Yogyakarta,id,0.50,match_by_street,C
+inside,0.50-0.74,other,55,4,10dcaee8,,"Jalan Kolonel Sugiono, Yogyakarta 55153, Special Region of Yogyakarta, Indonesia",Yogyakarta,id,0.50,match_by_street,C
+inside,0.50-0.74,other,55,4,120debb5,,"Jalan Kolonel Sugiono, Yogyakarta 55153, Special Region of Yogyakarta, Indonesia",Yogyakarta,id,0.50,match_by_street,C
+inside,0.50-0.74,other,55,4,120e0934,,"Jalan Kolonel Sugiono, Yogyakarta 55153, Special Region of Yogyakarta, Indonesia",Yogyakarta,id,0.50,match_by_street,C
+inside,0.75-0.99,full_match,57,4,0b20458f,,"Hotel Kotta GO, Jalan Diponegoro, Yogyakarta 55231, Special Region of Yogyakarta, Indonesia",Yogyakarta,id,0.75,full_match,Y
+inside,0.75-0.99,full_match,57,4,0d7d95b9,,"Plaza Ambarrukmo, Jalan Laksda Adisucipto, Depok 55281, Special Region of Yogyakarta, Indonesia",Depok,id,0.78,full_match,Y
+inside,0.75-0.99,full_match,57,4,11afd390,,"STIKES Panti Rapih, Jalan Tantular, Depok 55281, Special Region of Yogyakarta, Indonesia",Depok,id,0.75,full_match,Y
+inside,0.75-0.99,full_match,57,4,15ce8d66,,"Hotel Kotta GO, Jalan Diponegoro, Yogyakarta 55231, Special Region of Yogyakarta, Indonesia",Yogyakarta,id,0.75,full_match,Y
+inside,0.75-0.99,other,2,2,60929abe,"1st Floor, Plaza Ambarrukmo","Gang Ambar Asri 62, Plaza Ambarrukmo, Depok 55281, YO, Indonesia",Depok,id,0.90,inner_part,C
+inside,0.75-0.99,other,2,2,83f16efd,Hush Puppies store Plaza Ambarrukmo Lt.2,"Gang Ambar Asri 62, Depok 55281, YO, Indonesia",Depok,id,0.81,match_by_building,C
+inside,1.00,full_match,288,4,00473e8b,,"Universitas Papua, Jalan Gunung Salju, Manokwari Barat 98314, West Papua, Indonesia",Manokwari Barat,id,1.00,full_match,Y
+inside,1.00,full_match,288,4,00d08f33,Jakarta,"Special Capital Region of Jakarta, Java, Indonesia",Special Capital Region of Jakarta,id,1.00,full_match,C
+inside,1.00,full_match,288,4,01952abd,,"Yogyakarta, Special Region of Yogyakarta, Indonesia",Yogyakarta,id,1.00,full_match,C
+inside,1.00,full_match,288,4,025d9ea7,Pakuwon Mall Jogja,"Pakuwon Mall Jogja, Ring Road Utara, Depok 55283, Special Region of Yogyakarta, Indonesia",Depok,id,1.00,full_match,Y
+inside,none,other,122,4,0533a26f,Sleman City Hall,"Sleman City Hall, Jalan Gito Gati, Sleman 55512, Special Region of Yogyakarta, Indonesia",Sleman,,,,Y
+inside,none,other,122,4,056ea584,Pakuwon Mall Jogja,"Pakuwon Mall Jogja, Ring Road Utara, Depok 55283, Special Region of Yogyakarta, Indonesia",Depok,,,,Y
+inside,none,other,122,4,061d4c1c,,"Plaza Ambarrukmo, Jalan Laksda Adisucipto, Depok 55281, Special Region of Yogyakarta, Indonesia",Depok,,,,Y
+inside,none,other,122,4,07db313e,"UG Floor, Pakuwon Mall Jogja","Jalan Pakuwon, Cirebon 45183, JR, Indonesia",Cirebon,,,,N
+outside,0.00,full_match,115,4,024cd1b8,"Mini Hall UG, Jogja City Mall","City Mall, Limerick, Ireland",Limerick,ie,0.00,full_match,N
+outside,0.00,full_match,115,4,030cedd0,"Atrium Rama, Ground Floor, Sleman City Hall","West Pike Street & West Pike Plaza (Sign-o-rama), West Pike Street, Lawrenceville, GA 30045, United States of America",Lawrenceville,us,0.00,full_match,N
+outside,0.00,full_match,115,4,08e7714d,,"West Pike Street & West Pike Plaza (Sign-o-rama), West Pike Street, Lawrenceville, GA 30045, United States of America",Lawrenceville,us,0.00,full_match,N
+outside,0.00,full_match,115,4,0bdf8aae,"Concierge Lobby Utama Lt. G / Concierge Lobby North Lt. G / PG Lounge Lt. 1, Pakuwon Mall ","Lt 1 Lt 1 LT 1, 130008 Cartagena, BL, Colombia",Cartagena,co,0.00,full_match,N
+outside,0.00,other,7,4,2ab1402e,,"13215 Vallentine Row Row, Houston, TX 77044, United States of America",Houston,us,0.00,match_by_building,N
+outside,0.00,other,7,4,40a52d50,,"501 Coffee Place, Dalhart, TX 79022, United States of America",Dalhart,us,0.00,match_by_building,N
+outside,0.00,other,7,4,70baeccb,"Masjid Baitul Muttaqien (MBM), Mejing Kidul RW 09, Ambarketawang, Gamping, Sleman, DI Yogy","9 Row Boat Row, Bald Head Island, NC 28461, United States of America",Bald Head Island,us,0.00,match_by_building,N
+outside,0.00,other,7,4,73450bc2,"Redy Camp, Jl. Alam Zahra permai, sardonoharjo, Ngaglik, Sleman, DIY","Redy Road, Portsmouth, MI 48708, United States of America",Portsmouth,us,0.00,match_by_street,N
+outside,0.01-0.24,full_match,50,4,0943385d,"Jogja City Mall, Outlet Cheon Lantai GF","City Mall, Limerick, Ireland",Limerick,ie,0.12,full_match,N
+outside,0.01-0.24,full_match,50,4,0cfcc665,"Lantai GF, Jogja City Mall","City Mall, Limerick, Ireland",Limerick,ie,0.18,full_match,N
+outside,0.01-0.24,full_match,50,4,0d841ba4,The Merapi Park – Yogyakarta,"The Park, Sligo",Sligo,,0.07,full_match,N
+outside,0.01-0.24,full_match,50,4,131b0877,"Kipling, Lantai 1 – Plaza Ambarrukmo","Tassach - Via Tassach, 1, 39013 Moos in Passeier - Moso in Passiria BZ, Italy",Moos in Passeier - Moso in Passiria,it,0.15,full_match,N
+outside,0.01-0.24,other,6,4,20462462,,"Menara, UP, India",Menara,in,0.13,match_by_city_or_disrict,N
+outside,0.01-0.24,other,6,4,6c4106fa,"Tamansari Foodcourt, Lantai 3 – Plaza Ambarrukmo","3/39, Korattur – Thiruninravur – Periyapalayam Road, Vengal, Pagalamedu - 601103, TN, India",Pagalamedu,in,0.14,match_by_building,N
+outside,0.01-0.24,other,6,4,a1e207b2,,"Menara, UP, India",Menara,in,0.13,match_by_city_or_disrict,N
+outside,0.01-0.24,other,6,4,bf66514d,"Sour Sally, Lantai LG Plaza Ambarrukmo","Plaza Plaza, 37174 Villarino De Los Aires, Spain",Villarino De Los Aires,es,0.17,match_by_street,N
+outside,0.25-0.49,full_match,37,4,073b0b6d,"XStation, Lower Ground Floor, Galeria Mall","Galería, 78426, SLP, Mexico",,mx,0.48,full_match,N
+outside,0.25-0.49,full_match,37,4,0b1920fb,,"Cobar, Australia",Cobar,au,0.33,full_match,N
+outside,0.25-0.49,full_match,37,4,0cdf7166,,"Taman', KD, Russia",Taman',ru,0.40,full_match,N
+outside,0.25-0.49,full_match,37,4,0e305988,,"Jogya Thanda, Warangal, India",Jogya Thanda,in,0.27,full_match,N
+outside,0.25-0.49,other,4,4,214a45b0,"Plaza Ambarrukmo, Lantai 3A (bekas Azko)","3A Pz Plaza De La Zarzuela, 41400, TN, Tanzania",,tz,0.27,match_by_building,N
+outside,0.25-0.49,other,4,4,45122ab7,"Lantai 3A, Plaza Ambarrukmo","3A Pz Plaza De La Zarzuela, 41400, TN, Tanzania",,tz,0.30,inner_part,N
+outside,0.25-0.49,other,4,4,87fb04e1,,"Úny, Central Transdanubia, Hungary",Úny,hu,0.25,match_by_city_or_disrict,N
+outside,0.25-0.49,other,4,4,b3d02028,,"Úny, Central Transdanubia, Hungary",Úny,hu,0.25,match_by_city_or_disrict,N
+outside,0.50-0.74,full_match,44,4,0243caa7,"Tennis Indoor Senayan, Jakarta","Indoor Tennis, Cherry Creek Trail, Denver, CO 80218, United States of America",Denver,us,0.50,full_match,N
+outside,0.50-0.74,full_match,44,4,13e9becc,"Customer Service, Ground Floor, Sleman City Hall","Customer Service, Pueblo, CO 81005, United States of America",Pueblo,us,0.55,full_match,N
+outside,0.50-0.74,full_match,44,4,1ac37da3,Le Gareca Space,"Le Space, 39700 Éclans-Nenon, France",Éclans-Nenon,fr,0.67,full_match,N
+outside,0.50-0.74,full_match,44,4,1e8dc6da,,"Mother Store, F.M. Delgado Barangay Road, Batan, AK, Philippines",Batan,ph,0.67,full_match,N
+outside,0.50-0.74,other,15,4,0ce5bc76,,"شارع فوزي قاوقجي, Tripoli 1300, Lebanon",Tripoli,lb,0.50,match_by_street,N
+outside,0.50-0.74,other,15,4,1e2ae553,,"شارع فوزي قاوقجي, Tripoli 1300, Lebanon",Tripoli,lb,0.50,match_by_street,N
+outside,0.50-0.74,other,15,4,3934cfc1,,"شارع فوزي قاوقجي, Tripoli 1300, Lebanon",Tripoli,lb,0.50,match_by_street,N
+outside,0.50-0.74,other,15,4,5dac3843,,"شارع فوزي قاوقجي, Tripoli 1300, Lebanon",Tripoli,lb,0.50,match_by_street,N
+outside,0.75-0.99,full_match,2,2,2a80daf9,Convention Hall Lt.2,"Convention Hall, Wascana Centre, Regina, SK S4S 7L3, Canada",Regina,ca,0.81,full_match,N
+outside,0.75-0.99,full_match,2,2,a552bc54,Convention Hall Lt.2,"Convention Hall, Wascana Centre, Regina, SK S4S 7L3, Canada",Regina,ca,0.81,full_match,N
+outside,1.00,full_match,93,4,0422772c,,"Fest, Poznańska 140, 62-052 Komorniki, Poland",Komorniki,pl,1.00,full_match,N
+outside,1.00,full_match,93,4,0820138e,,"Online, Croix d'Argent, Montpellier, Hérault, France",Montpellier,fr,1.00,full_match,N
+outside,1.00,full_match,93,4,0a1fcd9e,Fortuna Suites,"La Fortuna Suites, Avenida 331A, A, La Fortuna, Pastoral, 21007 Costa Rica",La Fortuna,cr,1.00,full_match,N
+outside,1.00,full_match,93,4,0dae37bd,Egypt,Egypt,,eg,1.00,full_match,N
+outside,none,other,36,4,07853e1c,"Sports Station – Upper Ground Floor, Lippo Plaza Jogja","Kangaroo Ground – Warrandyte Road, Warrandyte VIC 3113, Australia",Warrandyte,,,,N
+outside,none,other,36,4,07ecfbad,Lantai LG Island Corner Plaza Ambarrukmo,"Corner Island, VIC, Australia",,,,,N
+outside,none,other,36,4,0a5c9c7b,"Minimal Store, Lantai 1 Galeria Mall","1 Mall, Lava Hot Springs, ID 83246, United States of America",Lava Hot Springs,,,,N
+outside,none,other,36,4,0b825916,Lower Ground Galeria Mall,"Gale, Charlotte, MI 48813, United States of America",Charlotte,,,,N

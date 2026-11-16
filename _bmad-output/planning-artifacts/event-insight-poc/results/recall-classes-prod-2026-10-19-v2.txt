@@ -1,0 +1,11 @@
+BEGIN
+SET
+                                class                                 | pairs | in_candidate_list 
+----------------------------------------------------------------------+-------+-------------------
+ 1 same post (sibling guard, by design)                               |     1 |                 0
+ 2 created before the matcher produced its first candidate            |   160 |                 0
+ 3 dates more than 2 days apart (recurring or a different occurrence) |   107 |                 0
+ 4 reachable by the matcher                                           |   178 |                23
+(4 rows)
+
+ROLLBACK

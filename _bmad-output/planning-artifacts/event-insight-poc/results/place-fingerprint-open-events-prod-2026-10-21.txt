@@ -1,0 +1,12 @@
+     account_type      |    fingerprint     | open_events | with_a_pin | account_has_a_default_location 
+-----------------------+--------------------+-------------+------------+--------------------------------
+ (unclassified)        | geocoded_from_text |          73 |         67 |                             17
+ (unclassified)        | legacy_unknown     |          30 |         21 |                             17
+ CURATOR_GUIDE         | account_default    |           3 |          3 |                              3
+ CURATOR_GUIDE         | geocoded_from_text |          95 |         77 |                             82
+ CURATOR_GUIDE         | legacy_unknown     |          61 |         57 |                             59
+ ORGANIZER_VENUE_EVENT | account_default    |          23 |         23 |                             23
+ ORGANIZER_VENUE_EVENT | geocoded_from_text |         145 |        109 |                            143
+ ORGANIZER_VENUE_EVENT | legacy_unknown     |          36 |         23 |                             35
+(8 rows)
+

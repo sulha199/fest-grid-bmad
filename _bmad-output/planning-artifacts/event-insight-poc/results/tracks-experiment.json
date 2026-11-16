@@ -1,0 +1,999 @@
+{
+ "model": "gemini-3.5-flash-lite",
+ "runs": 2,
+ "records": [
+  {
+   "id": "lomba-mewarnai",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1233,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood"
+      ],
+      "genderFocus": "all",
+      "label": "Kategori A: Paud /TK"
+     },
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "label": "Kategori B: 1 - 3 SD"
+     }
+    ],
+    "evidence": [
+     "Kategori A: Paud /TK",
+     "Kategori B: 1 - 3 SD"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 2,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "lomba-mewarnai",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1123,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood"
+      ],
+      "genderFocus": "all",
+      "label": "Kategori A: Paud /TK"
+     },
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "label": "Kategori B: 1 - 3 SD"
+     }
+    ],
+    "evidence": [
+     "Kategori A: Paud /TK",
+     "Kategori B: 1 - 3 SD"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 2,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "porseni-stikes",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 900,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult"
+      ],
+      "genderFocus": "men",
+      "label": "BASKET PUTRA 3x3"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult"
+      ],
+      "genderFocus": "men",
+      "label": "Ganda Putra"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult"
+      ],
+      "genderFocus": "all",
+      "label": "Ganda Campuran"
+     }
+    ],
+    "evidence": [
+     "TERBUKA UNTUK UMUM!",
+     "BASKET PUTRA 3x3",
+     "Ganda Putra & Ganda Campuran"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 2,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "porseni-stikes",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 989,
+   "audience": {
+    "allAges": true,
+    "tracks": [
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult"
+      ],
+      "genderFocus": "men",
+      "label": "BASKET PUTRA 3x3"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult"
+      ],
+      "genderFocus": "men",
+      "label": "Ganda Putra"
+     },
+     {
+      "lifeStages": [
+       "young_adult",
+       "adult"
+      ],
+      "genderFocus": "all",
+      "label": "Ganda Campuran"
+     }
+    ],
+    "evidence": [
+     "TERBUKA UNTUK UMUM!",
+     "BASKET PUTRA 3x3",
+     "Ganda Putra & Ganda Campuran"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 2,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "fixture-drum-contest",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 793,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child",
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMin": 7,
+      "label": "Usia 7-16 Tahun"
+     }
+    ],
+    "evidence": [
+     "Dibuka untuk UMUM, Usia 7–16 Tahun"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[7],\"ageMax\":[16]}"
+    ]
+   }
+  },
+  {
+   "id": "fixture-drum-contest",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 988,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child",
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMin": 7,
+      "label": "Usia 7–16 Tahun"
+     }
+    ],
+    "evidence": [
+     "Dibuka untuk UMUM, Usia 7–16 Tahun"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[7],\"ageMax\":[16]}"
+    ]
+   }
+  },
+  {
+   "id": "ho-coding-camp",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 790,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMax": 12,
+      "ageMin": 8,
+      "label": "anak usia 8–12 tahun"
+     }
+    ],
+    "evidence": [
+     "Untuk anak usia 8–12 tahun"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-coding-camp",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 787,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMax": 12,
+      "ageMin": 8,
+      "label": "Untuk anak usia 8–12 tahun"
+     }
+    ],
+    "evidence": [
+     "Untuk anak usia 8–12 tahun"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-layang-layang",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1067,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "label": "Kategori anak"
+     },
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "label": "remaja"
+     },
+     {
+      "lifeStages": [
+       "adult"
+      ],
+      "genderFocus": "all",
+      "label": "dewasa"
+     }
+    ],
+    "evidence": [
+     "Kategori anak, remaja dan dewasa."
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-layang-layang",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1019,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "label": "Kategori anak"
+     },
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "label": "remaja"
+     },
+     {
+      "lifeStages": [
+       "adult"
+      ],
+      "genderFocus": "all",
+      "label": "dewasa"
+     }
+    ],
+    "evidence": [
+     "Kategori anak, remaja dan dewasa."
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-family-day",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 867,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMax": 12,
+      "label": "Anak di bawah 12 tahun"
+     }
+    ],
+    "evidence": [
+     "Anak di bawah 12 tahun masuk GRATIS",
+     "Ajak seluruh keluarga ya!"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-family-day",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 914,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMax": 12,
+      "label": "Anak di bawah 12 tahun"
+     }
+    ],
+    "evidence": [
+     "Anak di bawah 12 tahun masuk GRATIS",
+     "Ajak seluruh keluarga ya!"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-senam-lansia",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 832,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 60,
+      "label": "Lansia usia 60 tahun ke atas"
+     }
+    ],
+    "evidence": [
+     "SENAM LANSIA CERIA",
+     "Gratis untuk seluruh lansia usia 60 tahun ke atas!"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "syn-senam-lansia",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1076,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 60,
+      "label": "Lansia usia 60 tahun ke atas"
+     }
+    ],
+    "evidence": [
+     "SENAM LANSIA CERIA",
+     "Gratis untuk seluruh lansia usia 60 tahun ke atas!"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-srikandi-run",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1080,
+   "audience": {
+    "allAges": true,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child",
+       "teen",
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "women",
+      "label": "SRIKANDI RUN 5K"
+     }
+    ],
+    "evidence": [
+     "SRIKANDI RUN 5K",
+     "Lari khusus perempuan!",
+     "Semua usia"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "ho-srikandi-run",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 875,
+   "audience": {
+    "allAges": true,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child",
+       "teen",
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "women",
+      "label": "SRIKANDI RUN 5K"
+     }
+    ],
+    "evidence": [
+     "SRIKANDI RUN 5K",
+     "Lari khusus perempuan!",
+     "Semua usia"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "trk-fun-run-categories",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1317,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMin": 6,
+      "label": "Kids Dash 1K"
+     },
+     {
+      "lifeStages": [
+       "teen",
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 12,
+      "label": "5K Terbuka"
+     },
+     {
+      "lifeStages": [
+       "teen",
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 17,
+      "label": "10K Kompetitif"
+     },
+     {
+      "lifeStages": [
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 45,
+      "label": "Master 10K"
+     }
+    ],
+    "evidence": [
+     "Kids Dash 1K — usia 6–10 tahun",
+     "5K Terbuka — usia 12 tahun ke atas",
+     "10K Kompetitif — usia 17 tahun ke atas",
+     "Master 10K — usia 45 tahun ke atas"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 4,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[6],\"ageMax\":[10]}"
+    ]
+   }
+  },
+  {
+   "id": "trk-fun-run-categories",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1409,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMin": 6,
+      "label": "Kids Dash 1K"
+     },
+     {
+      "lifeStages": [
+       "teen",
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 12,
+      "label": "5K Terbuka"
+     },
+     {
+      "lifeStages": [
+       "teen",
+       "young_adult",
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 17,
+      "label": "10K Kompetitif"
+     },
+     {
+      "lifeStages": [
+       "adult",
+       "senior"
+      ],
+      "genderFocus": "all",
+      "ageMin": 45,
+      "label": "Master 10K"
+     }
+    ],
+    "evidence": [
+     "Kids Dash 1K — usia 6–10 tahun",
+     "5K Terbuka — usia 12 tahun ke atas",
+     "10K Kompetitif — usia 17 tahun ke atas",
+     "Master 10K — usia 45 tahun ke atas"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 3,
+    "expectationsTotal": 4,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[6],\"ageMax\":[10]}"
+    ]
+   }
+  },
+  {
+   "id": "trk-kelas-musik",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1129,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMin": 5,
+      "label": "Piano Anak (usia 5–8 tahun)"
+     },
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMin": 13,
+      "label": "Piano Remaja (13–17 tahun)"
+     },
+     {
+      "lifeStages": [
+       "adult"
+      ],
+      "genderFocus": "all",
+      "label": "Kelas Dewasa Pemula"
+     }
+    ],
+    "evidence": [
+     "Piano Anak (usia 5–8 tahun)",
+     "Piano Remaja (13–17 tahun)",
+     "Kelas Dewasa Pemula"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[5],\"ageMax\":[8]}",
+     "no track matches {\"ageMin\":[13],\"ageMax\":[17]}"
+    ]
+   }
+  },
+  {
+   "id": "trk-kelas-musik",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 1339,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "early_childhood",
+       "child"
+      ],
+      "genderFocus": "all",
+      "ageMin": 5,
+      "label": "Piano Anak"
+     },
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "ageMin": 13,
+      "label": "Piano Remaja"
+     },
+     {
+      "lifeStages": [
+       "adult"
+      ],
+      "genderFocus": "all",
+      "label": "Kelas Dewasa Pemula"
+     }
+    ],
+    "evidence": [
+     "Piano Anak (usia 5–8 tahun)",
+     "Piano Remaja (13–17 tahun)",
+     "Kelas Dewasa Pemula"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 3,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": false,
+    "detail": [
+     "no track matches {\"ageMin\":[5],\"ageMax\":[8]}",
+     "no track matches {\"ageMin\":[13],\"ageMax\":[17]}"
+    ]
+   }
+  },
+  {
+   "id": "trk-karya-tulis",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 882,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "teen",
+       "young_adult"
+      ],
+      "genderFocus": "all",
+      "label": "pelajar SMA/sederajat ATAU mahasiswa S1"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk pelajar SMA/sederajat ATAU mahasiswa S1"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 2,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "trk-karya-tulis",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 869,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "teen"
+      ],
+      "genderFocus": "all",
+      "label": "pelajar SMA/sederajat"
+     },
+     {
+      "lifeStages": [
+       "young_adult"
+      ],
+      "genderFocus": "all",
+      "label": "mahasiswa S1"
+     }
+    ],
+    "evidence": [
+     "Terbuka untuk pelajar SMA/sederajat",
+     "mahasiswa S1 dari seluruh Indonesia"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 2,
+    "expectationsTotal": 2,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "trk-debat",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 813,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "young_adult"
+      ],
+      "genderFocus": "all",
+      "ageMax": 25,
+      "label": "mahasiswa aktif, usia maksimal 25 tahun"
+     }
+    ],
+    "evidence": [
+     "3 mahasiswa aktif",
+     "usia maksimal 25 tahun"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "trk-debat",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "latencyMs": 779,
+   "audience": {
+    "allAges": false,
+    "tracks": [
+     {
+      "lifeStages": [
+       "young_adult"
+      ],
+      "genderFocus": "all",
+      "ageMax": 25,
+      "label": "mahasiswa aktif, usia maksimal 25 tahun"
+     }
+    ],
+    "evidence": [
+     "3 mahasiswa aktif",
+     "usia maksimal 25 tahun"
+    ]
+   },
+   "score": {
+    "trackCount": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "allAges": true,
+    "fabricatedNumbers": [],
+    "pass": true,
+    "detail": []
+   }
+  }
+ ]
+}

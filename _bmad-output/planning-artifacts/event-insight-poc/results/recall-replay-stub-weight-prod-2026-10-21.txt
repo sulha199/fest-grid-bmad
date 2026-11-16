@@ -1,0 +1,17 @@
+ stub_weight |                 newer_event                  | replay_tier | pairs | in_candidate_list | should_have_been_candidate_but_is_not | exact_repeat_pairs | venue_matched | mean_score 
+-------------+----------------------------------------------+-------------+-------+-------------------+---------------------------------------+--------------------+---------------+------------
+        0.00 | newer event is a full event                  | high        |     5 |                 1 |                                     4 |                  4 |             5 |      0.800
+        0.00 | newer event is a full event                  | mid         |    45 |                20 |                                    25 |                  0 |             5 |      0.650
+        0.00 | newer event is a stub (organizer discounted) | low         |   123 |                 0 |                                     0 |                108 |           111 |      0.384
+        0.00 | newer event is a stub (organizer discounted) | mid         |    11 |                 7 |                                     4 |                  6 |             6 |      0.532
+        0.10 | newer event is a full event                  | high        |     5 |                 1 |                                     4 |                  4 |             5 |      0.800
+        0.10 | newer event is a full event                  | mid         |    45 |                20 |                                    25 |                  0 |             5 |      0.650
+        0.10 | newer event is a stub (organizer discounted) | low         |    14 |                 0 |                                     0 |                  0 |             2 |      0.272
+        0.10 | newer event is a stub (organizer discounted) | mid         |   120 |                 7 |                                   113 |                114 |           115 |      0.508
+        0.20 | newer event is a full event                  | high        |     5 |                 1 |                                     4 |                  4 |             5 |      0.800
+        0.20 | newer event is a full event                  | mid         |    45 |                20 |                                    25 |                  0 |             5 |      0.650
+        0.20 | newer event is a stub (organizer discounted) | high        |     6 |                 5 |                                     1 |                  6 |             6 |      0.800
+        0.20 | newer event is a stub (organizer discounted) | low         |    12 |                 0 |                                     0 |                  0 |             0 |      0.245
+        0.20 | newer event is a stub (organizer discounted) | mid         |   116 |                 2 |                                   114 |                108 |           111 |      0.592
+(13 rows)
+

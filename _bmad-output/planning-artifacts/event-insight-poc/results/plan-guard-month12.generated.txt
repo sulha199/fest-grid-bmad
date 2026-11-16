@@ -1,0 +1,8 @@
+FAIL Discovery page, anonymous: events page — 1139.3 ms, cost 765435, Seq:events, Bitmap Heap:schedules, Index:schedules, Index:posts, Index:social_media_account_profiles, Index:schedules, Index:schedules, Index Only:schedules, Index Only:favorites | seq-scan: Seq Scan on events (300012 rows); cost: estimated cost 765435 > 400000; jit: 75 JIT-compiled functions; amplification: scanned 405559 rows to return 11 (x36869)
+FAIL Discovery page, anonymous: count(*) — 382.4 ms, cost 114060, Seq:events, Bitmap Heap:schedules, Index:schedules | seq-scan: Seq Scan on events (300012 rows); jit: 33 JIT-compiled functions; amplification: scanned 330608 rows to return 1 (x330608)
+FAIL Discovery page, signed in: events page — 1236.6 ms, cost 523324, Bitmap Heap:schedules, Index:events, Seq:reports, Index:schedules, Index:posts, Index:social_media_account_profiles, Index:schedules, Index:schedules, Index Only:schedules, Bitmap Heap:favorites, Index Only:favorites | cost: estimated cost 523324 > 400000; jit: 105 JIT-compiled functions; amplification: scanned 146253 rows to return 11 (x13296)
+FAIL Discovery page, signed in: count(*) — 285.8 ms, cost 194115, Bitmap Heap:schedules, Index:events, Seq:reports, Index:schedules | jit: 48 JIT-compiled functions; amplification: scanned 52555 rows to return 1 (x52555)
+ok   junction-3000.sql — 8.1 ms, cost 16286, Index Only:bench_event_area, Index Only:bench_event_area, Index Only:bench_event_area, Bitmap Heap:events
+ok   overlap-3000.sql — 9.6 ms, cost 16231, Bitmap Heap:events
+
+4 of 6 statements violate the plan rules ({"noSeqScanOn":"5 relations","minRows":1000,"maxTotalCost":400000,"forbidJit":true,"maxAmplification":2000})

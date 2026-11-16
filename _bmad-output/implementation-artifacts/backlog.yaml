@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-11-11"
+last_updated: "2026-11-16"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -3132,3 +3132,503 @@ items:
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-location-keywords-extraction.md],
      touches: [app:backend, cross:ai-extraction],
      note: "Deferred from: bmad-quick-dev review of spec-location-keywords-extraction (separate keywords call) (2026-11-11). 6 findings: unabortable 10 s timeout, no salvage of a cut-off answer, replayed step repeats the call, correction clearing, location guard, rule 5 fallback."}
+
+  # ── Rows authored on the event-insight POC branch (claude/ecstatic-shannon-e8eh9h), merged with master on 2026-11-16 ──
+  # IDs that collided with a different master row were renumbered (BUG-063..066,076..078 -> BUG-261018-ij7..108; FIND-086..091,109 -> FIND-261018-p1z..137;
+  # IDEA-073,097,098,102,103,105,113 -> IDEA-261018-iv7..127); the branch's own copies of master rows are dropped in favour of master's.
+
+  BUG-261018-ij7:
+    {type: bug, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: s,
+     title: "AI filter region match (adminArea) has no data: nothing in production writes LocationDetails.adminArea",
+     ref: [backlog/BUG-261018-ij7-admin-area-never-written.md, apps/backend/src/lib/geolocation/geoapify-client.ts],
+     touches: [app:backend, pkg:domain, web:events, web:locations, cross:ai-extraction],
+     note: "Confirmed on production 2026-10-19: adminArea written for 0 of 1,460 pins (venueType 37). Same class as BUG-062. Fix direction is IDEA-261018-iv7, not one more free-text field."}
+
+  BUG-261018-nyt:
+    {type: bug, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m,
+     title: "Online events are geocoded as places, multi-venue events lose their venues, location filters see only the main schedule",
+     ref: [backlog/BUG-261018-nyt-online-and-multi-venue-events.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
+     touches: [app:backend, pkg:domain, web:events, web:locations, cross:ai-extraction, cross:prd],
+     note: "Gemini behaviour measured (4 runs per post); consequences inferred from code. 2026-10-19: multi-venue is solved by AD-38 (one place-set per event, split); non-place guard is AD-14 Rule 5; filter semantics AD-39 Rule 5."}
+
+  IDEA-261018-iv7:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m,
+     title: "Canonical area ladder: geocoder writes a country>province>regency>city path; hierarchical, case-insensitive matching for the AI filter and area-first ordering",
+     ref: [backlog/BUG-261018-ij7-admin-area-never-written.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md],
+     touches: [app:backend, pkg:domain, pkg:shared-types, pkg:database, web:locations, cross:ai-extraction, cross:prd],
+     note: "Approved as its own first story (2026-10-18). Shares the backfill with IDEA-071; prerequisite for area-first ordering. Event area keys, area_status and the source order: AD-39 Rules 1-2 (IDEA-261019-lfd)."}
+
+  BUG-261018-jwf:
+    {type: bug, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: s, blocks: [IDEA-261018-i9a],
+     title: "Curator events fall back to the curator's account location; inference gives it an arbitrary place",
+     ref: [backlog/BUG-261018-jwf-curator-events-fall-back-to-account-location.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
+     touches: [app:backend, pkg:domain, web:accounts, web:locations, cross:ai-extraction, cross:prd],
+     note: "Curator: 12 posts, 12 places, all applied. 11 of 17 curators hold a default; clear after the code gate. Decided (AD-39 Rule 3): never Geoapify; Gemini + gazetteer, validated by the first posts; scraping never waits; unresolved events publish as unknown."}
+
+  BUG-261018-abg:
+    {type: bug, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m, blocks: [IDEA-261018-i9a],
+     title: "Geocoding can land in the wrong country: soft bias only, no bias at bootstrap, no confidence floor",
+     ref: [backlog/BUG-261018-abg-geocoder-can-resolve-to-the-wrong-country.md, apps/backend/src/lib/geolocation/geoapify-client.ts],
+     touches: [app:backend, pkg:domain, web:locations],
+     note: "Round 3 (87 labels): today's rule is 44% precise; all 42 pins outside Indonesia are wrong at any confidence; a country-code leg gives 56% and keeps every correct pin; floor 0.5 stays. Compound texts: 4 of 21 right as stored, 16 with the venue segment only. Proposed: AD-14 Rule 4 (e), Rule 5."}
+
+  IDEA-261018-i9a:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: l,
+     title: "Personalized Discovery: extract each event's target audience (area first), order by it not the venue",
+     ref: [backlog/IDEA-261018-i9a-audience-extraction-and-audience-area-ordering.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, planning-artifacts/event-insight-poc/poc-report.md],
+     touches: [app:backend, pkg:domain, pkg:shared-types, pkg:database, web:events, cross:ai-extraction, cross:prd, cross:architecture],
+     note: "POC only. 18/18 on 6 author-written posts. Contract in AD-42; gate IDEA-261021-8q8. Depends on IDEA-261018-iv7, BUG-261018-jwf, BUG-261018-abg, IDEA-261018-vld."}
+
+  IDEA-261018-vld:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m, blocks: [IDEA-261018-i9a],
+     title: "Profile enrichment: country, reach and default time zone from the initial profile scrape, with retry",
+     ref: [backlog/IDEA-261018-vld-profile-enrichment-country-reach-retry.md, backlog/IDEA-261018-vld-legacy-bulk-update/README.md, planning-artifacts/event-insight-poc/poc-report.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:accounts, web:locations, cross:ai-extraction],
+     note: "POC: 18 profiles (5 real, 13 synthetic), 0 wrong country / 0 wrong zone in 54 runs. Legacy bulk-update runbook tested on scratch, not run on production. Also derives the audience area of legacy curators (AD-39 Rule 3)."}
+
+  FIND-261018-p1z:
+    {type: finding, status: backlog, created: 2026-10-18,
+     impact: compliance, effort: s,
+     title: "A never-classified curator account is treated as an organizer: its captions are not cleared after extraction",
+     ref: [backlog/FIND-261018-p1z-never-classified-curator-escapes-minimization.md, apps/backend/src/lib/ai-processor/process-ai-job.ts],
+     touches: [app:backend, web:accounts, cross:prd],
+     note: "Found by reading code, not reproduced; unknown whether any such account exists (SQL in the note). Story 3.4n grandfathered null-type accounts on purpose."}
+
+  FIND-261018-9y3:
+    {type: finding, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: xs,
+     title: "Query.events: JIT compilation adds ~50 ms or ~800 ms depending on whether the plan's estimated cost crosses 500k; cost follows total history, not the visible set",
+     ref: [backlog/FIND-261018-9y3-event-list-jit-compilation-and-total-catalogue-cost.md, planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, apps/backend/src/schema/resolvers.ts],
+     touches: [app:backend, app:infrastructure, pkg:database],
+     note: "Scratch Postgres 16.15 + seed:volume, DB only. JIT is a cliff set by plan cost vs 500k (+700-840 ms over, ~50 ms under), not a constant 80%; corrected 2026-10-19. Production jit is OFF (2026-10-19): insurance, not a live risk."}
+
+  BUG-261018-q2a:
+    {type: bug, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: xs,
+     title: "Query.events orders by the next date alone, so offset paging repeats and skips events that share a date",
+     ref: [backlog/BUG-261018-q2a-event-list-order-has-no-tie-break.md, apps/backend/src/schema/resolvers.ts],
+     touches: [app:backend, web:events],
+     note: "Reproduced on seed data (20 pages of 10: 48 events on more than one page, 98 of the first 200 never returned); seed has more same-day ties than production probably does. Not reproduced on production."}
+
+  IDEA-261018-5lm:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m, blocks: [IDEA-261018-i9a],
+     title: "Scale-safe event list: maintained next-open-date column, open-events index, id tie-break, pinned-session cursor",
+     ref: [planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, backlog/FIND-261018-9y3-event-list-jit-compilation-and-total-catalogue-cost.md, backlog/BUG-261018-q2a-event-list-order-has-no-tie-break.md],
+     touches: [app:backend, pkg:database, pkg:domain, web:events, cross:architecture],
+     note: "Measured end state 0.4 ms vs 175-880 ms today (30k) and 2,084 vs 4.4 requests/s. Write side (trigger + nightly roll-forward) and users with hide-past grace above 0 are NOT measured. At production size (431 open, 2026-10-19) a page is ~8-10 ms: act at p95 > 50 ms or open set > 20k."}
+
+  IDEA-261018-25r:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: m,
+     title: "AI filter closest matches: keep events that miss one condition, with a score and the unmet conditions, in a separate bounded lane",
+     ref: [planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, apps/backend/scripts/poc-event-insight/partial-match.ts],
+     touches: [app:backend, pkg:domain, web:events, cross:ai-extraction],
+     note: "Semantics prototyped and unit-tested; weights are unvalidated. Scoring every event costs 140-458 ms, a bounded lane 5-6 ms, so it must not ride on Query.events. Relaxed-candidate query not built or measured."}
+
+  IDEA-261018-i93:
+    {type: idea, status: backlog, created: 2026-10-18,
+     impact: user-visible, effort: s,
+     title: "Discovery freshness pull (post published_at) and session-snapshot demotion of already-seen events, behind a flag and an A/B",
+     ref: [planning-artifacts/event-insight-poc/proposal-discovery-ranking-and-scale.md, apps/backend/scripts/poc-event-insight/discovery-sort.ts],
+     touches: [app:backend, pkg:domain, web:events],
+     note: "Bounded perturbation of the date order (7 days earlier, 14 later); cost ~6 ms and ~0 at 30k. Depends on IDEA-261018-5lm and IDEA-261018-i9a; no user-facing effect has been tested."}
+
+  FIND-261019-whr:
+    {type: finding, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: xs,
+     title: "Discovery selects totalCount it never reads, so every page request runs an extra count(*)",
+     ref: [planning-artifacts/event-insight-poc/proposal-posthog-and-list-scale.md, apps/web/src/features/events/queries.graphql, "apps/web/src/app/[locale]/home-content.tsx"],
+     touches: [app:backend, web:events],
+     note: "Scratch Postgres + seed:volume (JIT off): the count is 20-33% of a page today and ~98% of a request after IDEA-261018-5lm. hasMore already exists; nothing reads this totalCount (Archive and favorited ids use their own documents). Production: ~2 ms at its size, not urgent."}
+
+  FIND-261019-s82:
+    {type: finding, status: backlog, created: 2026-10-19,
+     impact: internal, effort: xs,
+     title: "Every signed-in Query.events request upserts user_settings only to read hidePastEventsAfterDays",
+     ref: [apps/backend/src/lib/user-settings/get-or-create-user-settings.ts, apps/backend/src/schema/resolvers.ts, planning-artifacts/event-insight-poc/proposal-posthog-and-list-scale.md],
+     touches: [app:backend],
+     note: "Found by reading code and seen in the captured statements: INSERT ... ON CONFLICT DO UPDATE on the hot read path (~0.1 ms, but a write per request). A SELECT with the default of 0 would do. Not load-tested."}
+
+  IDEA-261019-4nt:
+    {type: idea, status: triaged, created: 2026-10-19,
+     impact: internal, effort: m,
+     title: "PostHog: page views, Discovery impressions and rank context, cost-model calibration funnel, fake-door test, ranking experiments",
+     ref: [planning-artifacts/event-insight-poc/proposal-posthog-and-list-scale.md, packages/analytics/src/posthog-provider.tsx],
+     touches: [web:events, web:system, pkg:analytics, cross:architecture],
+     note: "Today: 96 capture sites, no page views (capture_pageview false, none manual), no impressions, favorites carry only eventId, no AI-filter result events. AD-5 not followed (helper used once). Consent/host region undecided."}
+
+  IDEA-261019-2cy:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: m,
+     title: "Ranked mode: rank a frozen list of ids once per session, hydrate pages by id, cache content by (id, content_version)",
+     ref: [planning-artifacts/event-insight-poc/proposal-posthog-and-list-scale.md, "apps/web/src/app/[locale]/favorites/favorites-content.tsx"],
+     touches: [app:backend, pkg:database, web:events, cross:architecture],
+     note: "Extends the Favorites id-snapshot pattern. Measured: hydrating 10 ids 0.3-0.5 ms, 200 ranked ids 21-52 ms once; ids-only saves nothing on today's query, so it depends on IDEA-261018-5lm. Write cost of content_version not measured."}
+
+  IDEA-261019-3bp:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: m, blocks: [IDEA-261018-i9a],
+     title: "Target-area resolver: place name as written to canonical admin keys from a gazetteer (aggregates as sets, level from the gazetteer, ambiguity flagged)",
+     ref: [planning-artifacts/event-insight-poc/proposal-target-area-and-scan-safety.md, apps/backend/scripts/poc-event-insight/area-resolver.ts, planning-artifacts/event-insight-poc/results/area-kinds-probe.generated.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:locations, cross:ai-extraction],
+     note: "In 73 recorded model mentions its level was wrong 8x (Jabodetabek, Jawa, Canggu) and ambiguous 9x. POC gazetteer is hand-typed and fitted to those names: needs the official data source, its licence, and the Geoapify key for the geocoder half."}
+
+  IDEA-261019-kv3:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: internal, effort: m, blocks: [IDEA-261018-i9a],
+     title: "Prevent slow scans on hot paths: plan-shape guard in CI on the volume seed, JIT off and a statement timeout for the API role, junction-table candidate generation",
+     ref: [planning-artifacts/event-insight-poc/proposal-target-area-and-scan-safety.md, apps/backend/scripts/poc-event-insight/plan-guard.ts],
+     touches: [app:backend, app:infrastructure, pkg:database, cross:process],
+     note: "Guard fails all 4 of today's Discovery statements at 300k events; junction candidates 1.0-2.3 ms vs 29 ms at 91k open. Thresholds are starting values; pooler behaviour of SET LOCAL/timeout untested; junction write path unmeasured. Not urgent at production size (see IDEA-261018-5lm)."}
+
+  FIND-261019-yjt:
+    {type: finding, status: backlog, created: 2026-10-19,
+     impact: internal, effort: xs,
+     title: "The cloud-session environment holds production-named secrets; the POC's live Gemini runs used SYSTEM_GEMINI_API_KEY",
+     ref: [planning-artifacts/event-insight-poc/prod-readonly/README.md, .env.example],
+     touches: [app:infrastructure, cross:process],
+     note: "Variable names seen, values never printed: SYSTEM_GEMINI_API_KEY (the app's platform-funded fallback, used for hundreds of POC calls and rate-limited), an Apify token and AWS credentials (not used). Check the key's usage/quota, use a separate experiment key, review the others."}
+
+  IDEA-261019-vi0:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: internal, effort: xs,
+     title: "Read-only production check: a least-privilege role, an aggregate-only pack and a plan guard that a person runs against a replica",
+     ref: [planning-artifacts/event-insight-poc/prod-readonly/README.md, apps/backend/scripts/poc-event-insight/prod-readonly-check.ts],
+     touches: [app:backend, pkg:database, cross:process],
+     note: "Tested on a scratch Postgres only: the role, the pack, the refusal of a write-capable role. Supabase RLS, pooler SET LOCAL and pg_stat_statements access are unverified. Confirms FIND-261018-9y3, FIND-261019-whr, BUG-261018-ij7, BUG-261018-abg and the IDEA-261018-vld legacy set on real data."}
+
+  BUG-261019-ud2:
+    {type: bug, status: triaged, created: 2026-10-19,
+     impact: user-visible, effort: s, blocks: [IDEA-261018-iv7, IDEA-261019-3bp],
+     title: "27 plain jsonb() columns are stored as JSON strings, not objects (schedules.location_details in every production row); extend customJsonb, then migrate the rows",
+     ref: [backlog/BUG-261019-ud2-jsonb-columns-double-encoded-by-drizzle.md, backlog/BUG-261019-ud2-jsonb-migration/README.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md, apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts, apps/backend/src/db/client.ts],
+     touches: [app:backend, pkg:database, web:locations],
+     note: "Writer fix implemented 2026-10-19 (27 columns to customJsonb, ratchet + DB regression test), not yet deployed. Pending: deploy, run backlog/BUG-261019-ud2-jsonb-migration/ on production, verify with the pack. 2,231 of 2,231 non-null values in 4 columns were strings."}
+
+  FIND-261019-wfg:
+    {type: finding, status: backlog, created: 2026-10-19,
+     impact: internal, effort: xs,
+     title: "Production snapshot 2026-10-19: wrong-country pins, matcher recall 5%, caption duplicates, pack artifacts",
+     ref: [planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
+     touches: [app:backend, pkg:database, cross:process],
+     note: "379 of 1,460 pins lie outside Indonesia (BUG-261018-abg seen live); the matcher proposes 23 of 446 same-name pairs. One snapshot of about 7 weeks. Rechecked 2026-10-19 (results review): 1.08 events/post confirmed; the 5% is not a clean recall."}
+
+  IDEA-261019-0i7:
+    {type: idea, status: triaged, created: 2026-10-19,
+     impact: user-visible, effort: m, blocks: [IDEA-261019-hnl, IDEA-261019-wc7],
+     title: "Duplicate events: sweep the legacy pairs, let stub pairs reach the candidate threshold, work the moderator queue",
+     ref: [backlog/IDEA-261019-0i7-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
+     touches: [app:backend, pkg:database, web:events, web:moderation],
+     note: "181 reachable pairs, 25 listed: 33 mid/high pairs are the sweep's job, 123 stub pairs score low (stub rule, AD-30 Rule 7). Exact-repeat merge adopted 2026-10-20 but unbuilt; the 2026-10-30 recount shrank the problem to 16 groups / 37 events, mostly venue spelling (IDEA-110): see the detail file."}
+
+  IDEA-261019-hnl:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: l,
+     title: "Event groups: series and programme kinds, deterministic series detection, Discovery collapse, per-group notifications, group surface",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md, planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture, cross:notifications, cross:prd],
+     note: "Decided 2026-10-19/20 (AD-36 Rules 1-16). Programme members promoted individually (no cap); series = one cover, nearest first. SCH 8th Anniversary: 4 umbrella rows, 9 children. Backlog run needs IDEA-261019-0i7 and BUG-261019-ud2 deployed; per-group notifications need a PRD change."}
+
+  IDEA-261019-1pm:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: l, blocks: [IDEA-261018-i9a, IDEA-261019-0i7],
+     title: "Event identity core: one activity at one place-set; isSamePlace, place normalizer, sibling ordinals, write-path order",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md, planning-artifacts/event-insight-poc/prod-check-results-review-2026-10-19.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:events, cross:ai-extraction, cross:architecture, cross:notifications, cross:prd],
+     note: "Decided 2026-10-19 (AD-38 Rules 1-3, 6-8). Core: isSamePlace, normalizeName, Indonesia-only gazetteer file, place normalizer, siblingOrdinal, flag. Needs the IDEA-261019-hnl group schema and writer first; IDEA-261019-0i7 needs isSamePlace from here. Split/backfill is IDEA-261019-wc7."}
+
+  IDEA-261019-lfd:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: l, blocks: [IDEA-261018-i9a],
+     title: "Place model: pin trust, area keys and provenance as three facts; curator audience area; unknown-area handling; strict area filter",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/.memlog.md, planning-artifacts/event-insight-poc/prod-check-results-review-2026-10-19.md],
+     touches: [app:backend, pkg:domain, pkg:database, web:accounts, web:events, web:locations, cross:ai-extraction, cross:architecture, cross:prd],
+     note: "Decided 2026-10-19 (AD-39, AD-14 Rules 3a-5). Replaces BUG-261018-jwf's fallback and widens BUG-261018-ij7/064/066 into one model. Open: trust floor, gazetteer source and licence, area-key storage, audience-area inheritance by group members."}
+
+  IDEA-261019-wc7:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: l,
+     title: "Split existing multi-place events and backfill upcoming ones: journal, undo, dry-run queue, quota ledger",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/architecture/architecture-festgrid-2026-09-22/reviews/review-data-integrity.md],
+     touches: [app:backend, pkg:database, web:events, web:moderation, cross:ai-extraction, cross:architecture],
+     note: "Decided 2026-10-19/20 (AD-38 Rules 4-5). Split existing multi-place events: calendar_additions repoint, main schedule, journal and undo, dry-run queue, 3 gated steps, never notifies. Re-extraction uses subscribed contributors' keys only. Sizing waits on Round 3 items 9, 11, 12."}
+
+  IDEA-261019-owq:
+    {type: idea, status: backlog, created: 2026-10-19,
+     impact: user-visible, effort: m,
+     title: "Activity split: program-lineup items become visible events of a programme group (extraction-contract criterion, isRoute)",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction, cross:architecture, cross:prd],
+     note: "Decided 2026-10-19 (AD-38 Rule 2, AD-36 Rule 6). Needs an extraction-contract criterion for distinct activities vs one activity on several dates (the PRD uses program-lineup for both) and an isRoute field. 47 production program-lineup posts; about +10% events (estimate)."}
+
+  BUG-261020-ptv:
+    {type: bug, status: backlog, created: 2026-10-20,
+     impact: user-visible, effort: s, blocks: [IDEA-261020-mqx],
+     title: "A moderator receives no email or push notification (PWA installed); failed sends are silent",
+     ref: [backlog/BUG-261020-ptv-moderators-receive-no-email-or-push.md, apps/backend/src/lib/notifications/notify-all-moderators.ts, apps/backend/src/lib/email/adapter.ts, apps/web/src/lib/push-notifications.ts],
+     touches: [app:backend, app:infrastructure, web:moderation, web:settings, cross:notifications],
+     note: "Local investigation 2026-10-20: no email path exists for events or queue items (IDEA-261020-mqx). Push most likely has no fcm_tokens row (saved only from Settings > Notifications, needs a login; see BUG-261020-tqr) or a BUG-059 twin profile. Owner SQL set tells them apart."}
+
+  IDEA-261020-mqx:
+    {type: idea, status: backlog, created: 2026-10-20,
+     impact: user-visible, effort: m,
+     title: "Moderator work-queue notifications: a digest email and a push for pending items, with delivery failures recorded",
+     ref: [backlog/BUG-261020-ptv-moderators-receive-no-email-or-push.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, pkg:domain, web:moderation, web:settings, cross:notifications, cross:prd],
+     note: "Direction 2026-10-20 (AD-36 Rules 4, 7): digest email and push to moderators for pending queue items; group suggestions count in the pending badge (2026-10-21). Needs BUG-261020-ptv and BUG-073 first (SES sandbox, no verified sender)."}
+
+  BUG-261020-tqr:
+    {type: bug, status: backlog, created: 2026-10-20,
+     impact: user-visible, effort: m,
+     title: "One UNAUTHENTICATED response signs the user out: every JWT verification failure maps to it and no refresh middleware is built",
+     ref: [planning-artifacts/event-insight-poc/results/notification-and-session-investigation-2026-10-20.md, apps/web/src/lib/graphql-client.ts, apps/web/src/middleware.ts, apps/backend/src/lib/auth/verify-jwt.ts, apps/backend/src/lib/auth/jwks.ts],
+     touches: [app:backend, web:auth, cross:notifications],
+     note: "Confirmed in code, not reproduced in 3 minutes: a JWKS fetch failure or an expired token reads as UNAUTHENTICATED and signs out; only next-intl middleware is built, so a server getSession() can spend the refresh token. A logged-out page load saves no fcm token (BUG-261020-ptv)."}
+
+  BUG-073:
+    {type: bug, status: backlog, created: 2026-10-21,
+     impact: user-visible, effort: s, blocks: [IDEA-261020-mqx],
+     title: "Push notifications cannot be sent: the Ingestor and AIProcessor hold no Firebase credentials or alert address, SES is in the sandbox with no verified sender, and a failed start loses the event's notification",
+     ref: [backlog/BUG-073-push-pipeline-has-no-credentials-where-it-sends.md, planning-artifacts/event-insight-poc/results/notification-aws-and-owner-sql-findings-2026-10-21.md, apps/backend/src/lib/events/notify-new-event.ts, apps/backend/src/lib/firebase-admin.ts],
+     touches: [app:backend, app:infrastructure, cross:notifications],
+     note: "Code half built on master (784455c0, PR #93): Firebase and mail env on the Ingestor, send grant on the From identity, claim released on init failure. Left: owner's SES steps (verified sender, sandbox ok for moderators) and the AI processor wiring when its notify path ships."}
+
+  BUG-074:
+    {type: bug, status: done, created: 2026-10-22,
+     impact: user-visible, effort: m,
+     title: "Bright Data returned 0 records for the whole fleet since 2026-10-21, every run is stored SUCCEEDED, and the cursor is the run's finish time, so the outage skips posts",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lambdas/webhook.ts, apps/backend/src/lib/scraper/trigger-brightdata-for-target.ts, apps/backend/src/lib/scraper/brightdata-client.ts],
+     touches: [app:backend, app:infrastructure, pkg:domain, cross:architecture],
+     note: "Fixed in the master hotfix (branch claude/master-hotfix-e8eh9h; AD-43). Not built: BUG-261022-3vh..079, IDEA-096..099. Read the file's Before-deploying notes first: Bright Data reads as degraded on the first batch."}
+
+  BUG-075:
+    {type: bug, status: done, created: 2026-10-22, parent: BUG-074,
+     impact: latent, effort: s,
+     title: "The Apify scrape's cursor is the last run's finish time: a failed or empty run moves it, and it is not tied to the newest stored post",
+     ref: [backlog/BUG-075-apify-cursor-is-a-run-timestamp-and-an-empty-run-still-moves-it.md, apps/backend/src/lib/scraper/trigger-apify-for-target.ts],
+     touches: [app:backend, pkg:domain],
+     note: "Fixed with BUG-074's shared cursor. Not verified: whether onlyPostsNewerThan is inclusive (needs a paid Apify call); cursor is the exact newest-post timestamp."}
+
+  IDEA-095:
+    {type: idea, status: done, created: 2026-10-22,
+     impact: user-visible, effort: m,
+     title: "Switch to Apify when Bright Data returns nothing (and back), instead of only when a trigger fails",
+     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/scraper/scraper-provider-health-store.ts],
+     touches: [app:backend, app:infrastructure, pkg:domain, cross:notifications],
+     note: "Built in the master hotfix (AD-43): derived health, skip with probes, failure day. Not built: IDEA-096 (alert without SES), IDEA-261022-iyj (persisted health, DB-lease probe, route resolver, owner override)."}
+
+  BUG-261022-3vh:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "The scrape cursor can run ahead of what a profile's own scrape captured: mappers stamp the scrape time on an undated item, and a post published by another profile counts toward it",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lib/scraper/brightdata-record-mapper.ts, apps/backend/src/lib/scraper/instagram-adapter.ts, apps/backend/src/lib/posts/persist-scraped-post.ts],
+     touches: [app:backend, pkg:domain, cross:architecture],
+     note: "From the AD-43 architecture review (F3). Read-only check first: posts with published_at within ~2 min of created_at and a scraper_actor_run_id; if any exist this is a blocker. Fix: mappers never invent a date; target a per-profile watermark."}
+
+  BUG-261022-7aw:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "Caption-less posts are rejected and never stored, so the post-based cursor never passes them: they are re-fetched and re-saved as an unprocessed payload every run",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lib/posts/persist-unprocessed-payload.ts, apps/backend/src/validation/scraped-post.schema.ts],
+     touches: [app:backend, web:posts],
+     note: "The one place the cursor change costs more than before (F13): no dedupe on unprocessed payloads, and a profile with no stored post re-requests its 7-day window daily. Fix: dedupe by (postUrl, parserVersion), or advance a watermark past rejected posts."}
+
+  BUG-261022-a2z:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "A failed vendor run is handled differently per vendor and not atomically: an Apify failure never re-queues, a redelivered webhook double-enqueues, and a failed SQS scrape still stamps lastScrapedAt",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lambdas/apify-webhook.ts, apps/backend/src/lib/scraper/process-scrape-job.ts],
+     touches: [app:backend, web:accounts],
+     note: "F10 and F12. Share one failed-run handler; make PENDING to terminal an atomic claim (UPDATE ... WHERE status='PENDING' RETURNING, as AD-41); stamp lastScrapedAt only on success (the PRD's inactive-account rule reads it)."}
+
+  BUG-261022-v91:
+    {type: bug, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "The scraper budget gate counts triggers, not delivered items, so it does not bound failover spend (the async gate effectively never closes)",
+     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, apps/backend/src/lib/scraper/usage-store.ts, apps/backend/src/lib/scraper/trigger-apify-for-target.ts, apps/backend/src/lib/scraper/trigger-brightdata-for-target.ts],
+     touches: [app:backend],
+     note: "F11. Async triggers record 1 item each and no webhook records the delivered count; the sync adapter records items. Apify's own $5 cap and the Bright Data invoice are the only brakes. Fix: record delivered counts in both webhooks and the sweep."}
+
+  IDEA-096:
+    {type: idea, status: backlog, created: 2026-10-22,
+     impact: user-visible, effort: m,
+     title: "Tell the owner when a provider degrades or recovers without depending on SES: a CloudWatch alarm on the failover log lines, a vendor-agnostic 'no posts saved in 24 h' alarm, failure days counted by UTC date",
+     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, backlog/BUG-073-push-pipeline-has-no-credentials-where-it-sends.md, apps/infrastructure/lib/festgrid-backend-stack.ts],
+     touches: [app:backend, app:infrastructure, cross:notifications],
+     note: "Alarms merged (PR #95, 95bef1c0, prod only): provider degraded/recovered and no post saved in 24 h, via EMF lines and SNS, optional OPS_ALERT_EMAIL; needs the variable and a confirmed subscription. Left: failure days still count batches, so a retry inflates them (F8)."}
+
+  IDEA-261022-iyj:
+    {type: idea, status: backlog, created: 2026-10-22,
+     impact: user-visible, effort: l,
+     title: "Make provider health a persisted state and failover one route: degraded_since, reason and last_probe_at on scraper_provider_health, a DB-lease probe on a canary profile, hysteresis, one route resolver for batch and on-demand, an owner override",
+     ref: [backlog/IDEA-095-switch-to-the-other-scraper-when-one-returns-nothing.md, planning-artifacts/festgrid-architecture-spine.md, apps/backend/src/lib/scraper/trigger-scrape-for-account.ts],
+     touches: [app:backend, pkg:domain, cross:architecture],
+     note: "F5, F6, F15 and IDEA-095 item 5. The probe claim is an in-process Map (AD-32 Rule 2 names that anti-pattern); the sample ignores triggerMode, so a healthy sync Apify run can clear a broken async actor; the chain order is encoded twice and differs."}
+
+  IDEA-261022-sdx:
+    {type: idea, status: backlog, created: 2026-10-22,
+     impact: internal, effort: m,
+     title: "Store the classification evidence on every zero-record run, add an explicit inconclusive class, and move the vendor lookup and re-queue out of the webhook",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lambdas/webhook.ts],
+     touches: [app:backend, app:infrastructure, pkg:database, cross:architecture],
+     note: "F4 and F14, plus BUG-074 plan item 3's stored class. 'empty because dead_page' and 'empty because the lookup failed' are stored identically, so a drift of the provisional signature cannot be audited; the public webhook Lambda holds a vendor credential and an SQS role."}
+
+  IDEA-261022-b42:
+    {type: idea, status: backlog, created: 2026-10-22,
+     impact: internal, effort: s,
+     title: "Send posts_to_not_include to Bright Data so a run does not re-fetch stored posts (BUG-074 plan item 2)",
+     ref: [backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md, apps/backend/src/lib/scraper/brightdata-client.ts],
+     touches: [app:backend],
+     note: "Not built: the id format is unverified and a wrong value could fail every request. Test one stored id on a working day first; the fallback is de-duplicating by post_id after download. Re-fetch cost is small (about 8 % measured, plus the one-day margin)."}
+
+  FIND-261022-n33:
+    {type: finding, status: backlog, created: 2026-10-22,
+     impact: latent, effort: s,
+     title: "Smaller deferrals from the BUG-074 hotfix code review: the dead_page signature is provisional, the SQS re-queue can duplicate a scrape, the sweep trusts the snapshot body to be an array",
+     ref: [implementation-artifacts/deferred-work.md],
+     touches: [app:backend],
+     note: "Deferred from: code review of the BUG-074/BUG-075/IDEA-095 hotfix (2026-10-22). 3 findings."}
+
+  IDEA-261021-8q8:
+    {type: idea, status: backlog, created: 2026-10-21,
+     impact: user-visible, effort: m, blocks: [IDEA-261018-i9a],
+     title: "Audience, language and taxonomy POC: a labelled set of real events, three runs, pre-set thresholds, then the AD-42 reviews",
+     ref: [planning-artifacts/event-insight-poc/audience-and-taxonomy-poc-plan-2026-10-21.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction, cross:architecture, cross:process],
+     note: "Gate for AD-42. Thresholds adopted 2026-10-21; posts via fetch-poc-posts.ts on the owner's machine (built, tested). Open: a second labeller. Nothing in AD-42 Rules 2-8 ships before it passes."}
+
+  IDEA-261021-80f:
+    {type: idea, status: backlog, created: 2026-10-21,
+     impact: user-visible, effort: l, blocks: [IDEA-261018-i9a],
+     title: "Interest taxonomy, interest profile and the sensitive-interests switch (AD-42 Rules 7-8)",
+     ref: [planning-artifacts/festgrid-architecture-spine.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md],
+     touches: [app:backend, pkg:database, pkg:domain, web:settings, web:events, web:moderation, cross:prd],
+     note: "Owner 2026-10-21: in launch scope. Non-sensitive learned and stored; sensitive never learned unless a Settings switch, default off, is on. Counsel check on PDP Law pending. Waits for IDEA-261021-8q8 and the second PRD pass."}
+
+  FIND-261021-2ku:
+    {type: finding, status: backlog, created: 2026-10-21,
+     impact: internal, effort: xs,
+     title: "The repository is public (MIT) and holds the premium personalization plans, AD-42, the POC code and production findings",
+     ref: [LICENSE, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, planning-artifacts/festgrid-architecture-spine.md],
+     touches: [cross:process, cross:architecture],
+     note: "GitHub shows visibility public since creation (2026-07-20); 0 forks, 1 star. Owner plans personalization as a premium feature. Options: make the repo private (keeps history, secrets, Vercel link), a new private repo, or open-core. Anything already public stays MIT for those who copied it."}
+
+  IDEA-261021-6dy:
+    {type: idea, status: backlog, created: 2026-10-21,
+     impact: internal, effort: l, blocks: [IDEA-261021-80f],
+     title: "Open-core split: public MIT core, private premium package and repository, ports with no-op defaults, entitlements, split BMad documents",
+     ref: [planning-artifacts/open-core-split-plan-2026-10-21.md],
+     touches: [cross:architecture, cross:process, app:backend, pkg:domain, pkg:database, app:infrastructure, web:events],
+     note: "Owner chose open-core 2026-10-21 over making the repo private. No premium code in production yet, so the split is cheap now. Open: the premium boundary, where new premium docs go meanwhile, registry, schema and GraphQL approach."}
+
+  FIND-261021-pgf:
+    {type: finding, status: backlog, created: 2026-10-21,
+     impact: user-visible, effort: s,
+     title: "Moderator pages and badges fall short of the UX floor: hard-coded English toasts, a pending row dimmed by opacity alone, a pending-item badge that saturates at 9+, is 10px and has no accessible name",
+     ref: ["apps/web/src/app/[locale]/moderator/items/moderator-items-content.tsx", "apps/web/src/app/[locale]/moderator/tools/duplicate-events-content.tsx", packages/ui/src/core/count-badge.tsx, design-artifacts/UX-festgrid-run-1/.working/baseline-map-2026-10-21.md],
+     touches: [web:moderation, pkg:ui, cross:i18n],
+     note: "Found 2026-10-21 by the UX baseline map (C21, C26, C29). Fix with the UX update: ModeratorItemsPage strings with en/id parity, no opacity-only pending state, badge cap 99+, 11px, accessible names. DESIGN.md status_badge lists 4 of 18 variants."}
+
+  IDEA-261026-zlm:
+    {type: idea, status: backlog, created: 2026-10-26,
+     impact: user-visible, effort: m,
+     title: "Link a schedule-less post (recap, update, 'registration extended') to the event it is about, by event name, while that event is still open",
+     ref: [planning-artifacts/event-insight-poc/poc-status.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Owner's POC labelling 2026-10-26: schedule-less posts (is_event = no) often concern a known event. Match by name against open events, attach to its detail; pointless once it has ended. Needs the AD-30 dedup matcher."}
+
+  IDEA-261026-l2j:
+    {type: idea, status: backlog, created: 2026-10-26,
+     impact: internal, effort: m,
+     title: "Reposts: read the audience area and country from the original account (extra profile scrape), not the curator that reposted",
+     ref: [planning-artifacts/event-insight-poc/poc-status.md, backlog/IDEA-261018-vld-profile-enrichment-country-reach-retry.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Owner's POC labelling 2026-10-26: for a repost the original account is the real source, but target area is read from the curator's coverage. One extra scrape per distinct original account; fits IDEA-261018-vld's profile enrichment."}
+
+  BUG-261027-smw:
+    {type: bug, status: backlog, created: 2026-10-27,
+     impact: user-visible, effort: m,
+     title: "LocationDetails.city is often a kecamatan (DIY schedules: Depok 352, Mlati 48, Banguntapan 26; Depok is also Kota Depok in West Java) and the province is spelled two ways, so any area read from a pin's city string is wrong",
+     ref: [planning-artifacts/event-insight-poc/target-area-spec-2026-10-27.md, apps/backend/src/lib/geolocation/geoapify-client.ts, backlog/BUG-261027-smw-geocoder-city-is-a-kecamatan.md],
+     touches: [app:backend, pkg:domain, web:locations],
+     note: "Prod 2026-10-27; LocationDetails has no kabupaten field. Evidence and fix direction in backlog/BUG-261027-smw-geocoder-city-is-a-kecamatan.md."}
+
+  IDEA-261027-ugg:
+    {type: idea, status: backlog, created: 2026-10-27,
+     impact: user-visible, effort: l,
+     title: "Target area in production: a mixed-level set with roles and qualifiers, the venue-without-address ladder with account venue memory, an owner-maintained aggregates table, neighbourhood with an anchor",
+     ref: [planning-artifacts/event-insight-poc/target-area-spec-2026-10-27.md, planning-artifacts/event-insight-poc/target-area-edits-draft-2026-10-27.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, backlog/IDEA-261027-ugg-target-area-in-production.md],
+     touches: [app:backend, pkg:domain, cross:ai-extraction, web:locations],
+     note: "Owner decisions 2026-10-27, applied to the POC and PRD 3.21 on the ecstatic-shannon branch; what is open before building is in backlog/IDEA-261027-ugg-target-area-in-production.md."}
+
+  IDEA-261028-3ov:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: user-visible, effort: m,
+     title: "Tell an event report or news post from an announcement in the AI extraction (post_kind: announcement | report | mixed), so results and recap posts stop becoming stub events",
+     ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts, apps/backend/src/validation/extracted-event.schema.ts, planning-artifacts/event-insight-poc/poc-status.md, backlog/IDEA-261028-3ov-event-report-post-kind.md],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Owner 2026-10-28 (Hylo Open case, PR #102 spot-check): results/news posts with a schedule pass isEvent; 78 of 140 stub-cluster events are one results account. Evidence and design: backlog/IDEA-261028-3ov-event-report-post-kind.md."}
+
+  IDEA-261028-v4z:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: latent, effort: m,
+     title: "Use the additive link for the mid-to-high promotion, not overwrite-and-prune (AD-30 Rule 7)",
+     ref: [packages/domain/src/events/match-scoring.ts, apps/backend/src/lib/events/set-event-primary-post.ts, planning-artifacts/architecture/architecture-festgrid-2026-10-25-curator-dedup/ARCHITECTURE-SPINE.md],
+     touches: [app:backend, pkg:domain],
+     note: "PR #102 follow-up: a promoted pair still takes the last-writer-wins link that prunes schedules the new post omits; only the stub-repeat rule links additively. Also what lets insight.tracks survive a merge (personalization Revision 10)."}
+
+  IDEA-261028-ki5:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: latent, effort: m,
+     title: "Write an undo-journal row (event_merges) for ingestion-time auto-links, so a wrong high-tier link can be undone",
+     ref: [apps/backend/src/lib/ingestor/process-ingestion-job.ts, apps/backend/src/lib/events/merge-events.ts],
+     touches: [app:backend],
+     note: "PR #102: the ingestion high path links a post to an existing event without an event_merges row, so unlike a drain or moderator merge it cannot be undone; the only trace is the event_dedup_decision log line."}
+
+  FIND-261028-3js:
+    {type: finding, status: backlog, created: 2026-10-28,
+     impact: internal, effort: s,
+     title: "PRD 3.19 does not describe the 2026-10-25 dedup rules (mid-to-high promotion, stub repeat, backlog drain); it covers exact repeats of one account only",
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, planning-artifacts/festgrid-architecture-spine.md, docs/infrastructure/7-event-dedup.md],
+     touches: [cross:prd],
+     note: "AD-30 Rule 7 and 7-event-dedup.md are current; PRD 3.19 predates PR #102 (cross-account stub repeat, shared-date promotion, drain). Run through bmad-prd; the 2026-10-28 event-report bullet is already in 3.19."}
+
+  IDEA-261028-qa9:
+    {type: idea, status: backlog, created: 2026-10-28,
+     impact: user-visible, effort: m,
+     title: "Insight POC case: the Erafone Run 2026 Yogyakarta family (12 live events): which are series or programme members and which only complement the main event",
+     ref: [backlog/IDEA-261028-qa9-erafone-series-and-complementary-posts.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md],
+     touches: [cross:ai-extraction, app:backend, web:events],
+     note: "Snapshot 2026-10-28 with every event and post id in backlog/IDEA-261028-qa9-*.md and .json, to re-check after the race (2026-10-31). Proposed roles: 1 main, 4 reposts, 2 categories, 2 programme items, 2 pre-event, 1 unclear."}
+
+  IDEA-261029-hjq:
+    {type: idea, status: backlog, created: 2026-10-29,
+     impact: user-visible, effort: m,
+     title: "Keep one account from flooding Discovery: collapse repeats and cap per-account volume in the default list (a risk; no abusive case seen yet)",
+     ref: [backlog/IDEA-261029-hjq-one-account-must-not-flood-discovery.md, backlog/IDEA-261019-0i7-duplicate-events-sweep-stub-scoring-queue.md, planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
+     touches: [app:backend, web:events, pkg:domain],
+     note: "Owner 2026-10-29: no spam example yet, but a travel agent could repost the same or similar tours. 2026-10-30 recount: 16 groups (37 of 663 upcoming events) show twice, not 41/90 (repeated list rows, BUG-090). Series collapse (IDEA-261019-hnl) and a per-account cap are unbuilt."}
+
+  IDEA-261029-hh4:
+    {type: idea, status: backlog, created: 2026-10-29,
+     impact: latent, effort: m,
+     title: "Per-account monthly intake limit: ring an alarm at a soft limit and stop scraping the account at a hard limit",
+     ref: [planning-artifacts/open-core-split-plan-2026-10-21.md, planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, apps/backend/src/lib/scraper/usage-store.ts, packages/domain/src/scraper/account-classification.ts, apps/infrastructure/lib/festgrid-backend-stack.ts, backlog/IDEA-261029-hjq-one-account-must-not-flood-discovery.md, backlog/IDEA-261029-hh4-per-account-monthly-intake-limit.md],
+     touches: [app:backend, pkg:domain, app:infrastructure],
+     note: "Owner 2026-10-29: alarm at a soft limit, stop scraping at a hard limit. Part of personalisation and the BYOK to paid-product move (CC-032, IDEA-261021-6dy): cost control now, a plan entitlement later. Prod 30 days: median 1 post, p99 96, max 318."}
+
+  IDEA-261029-s33:
+    {type: idea, status: backlog, created: 2026-10-29,
+     impact: user-visible, effort: m,
+     title: "Store price lines per track in the original currency and derive price bands per country at read time (cost as a list, not a stored tier)",
+     ref: [planning-artifacts/event-insight-poc/proposal-personalized-discovery.md, apps/backend/scripts/poc-event-insight/audience-insight.ts, backlog/IDEA-261029-s33-price-lines-per-track-original-currency.md],
+     touches: [cross:ai-extraction, app:backend, pkg:domain, web:events],
+     note: "Owner 2026-10-29: price per track keeps the original amount and currency; the price filter bands are tuned per country at read time. Replaces a stored cost tier; also fixes the Rp cut-offs in the POC prompt and the isFree match on free/gratis only."}

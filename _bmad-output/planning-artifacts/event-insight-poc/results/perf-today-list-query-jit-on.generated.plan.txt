@@ -1,0 +1,94 @@
+Limit  (cost=610909.75..611440.84 rows=21 width=414) (actual time=902.504..902.573 rows=21 loops=1)
+  Buffers: shared hit=81839
+  ->  Result  (cost=610909.75..1326009.79 rows=28276 width=414) (actual time=191.789..191.856 rows=21 loops=1)
+        Buffers: shared hit=81839
+        ->  Sort  (cost=610909.75..610980.44 rows=28276 width=406) (actual time=191.692..191.705 rows=21 loops=1)
+              Sort Key: (COALESCE((SubPlan 2), (SubPlan 3), (SubPlan 4)))
+              Sort Method: top-N heapsort  Memory: 45kB
+              Buffers: shared hit=81796
+              ->  Hash Left Join  (cost=13828.05..610147.38 rows=28276 width=406) (actual time=54.197..174.617 rows=24485 loops=1)
+                    Hash Cond: (posts.account_id = social_media_account_profiles.id)
+                    Buffers: shared hit=81796
+                    ->  Hash Left Join  (cost=13813.43..17179.98 rows=28276 width=416) (actual time=54.049..97.841 rows=24485 loops=1)
+                          Hash Cond: (events.post_id = posts.id)
+                          Buffers: shared hit=7495
+                          ->  Hash Semi Join  (cost=11770.65..15062.96 rows=28276 width=167) (actual time=37.906..67.911 rows=24485 loops=1)
+                                Hash Cond: (events.id = schedules_1.event_id)
+                                Buffers: shared hit=6128
+                                ->  Hash Right Join  (cost=1707.27..4606.23 rows=30012 width=167) (actual time=15.489..36.125 rows=32992 loops=1)
+                                      Hash Cond: (schedules.event_id = events.id)
+                                      Buffers: shared hit=3480
+                                      ->  Seq Scan on schedules  (cost=0.00..2867.48 rows=11992 width=16) (actual time=0.025..7.467 rows=11936 loops=1)
+                                            Filter: (NOT is_main_schedule)
+                                            Rows Removed by Filter: 30012
+                                            Buffers: shared hit=2448
+                                      ->  Hash  (cost=1332.12..1332.12 rows=30012 width=167) (actual time=15.425..15.426 rows=30012 loops=1)
+                                            Buckets: 32768  Batches: 1  Memory Usage: 6156kB
+                                            Buffers: shared hit=1032
+                                            ->  Seq Scan on events  (cost=0.00..1332.12 rows=30012 width=167) (actual time=0.028..4.724 rows=30012 loops=1)
+                                                  Filter: (deleted_at IS NULL)
+                                                  Buffers: shared hit=1032
+                                ->  Hash  (cost=9677.50..9677.50 rows=30870 width=16) (actual time=22.259..22.262 rows=30665 loops=1)
+                                      Buckets: 32768  Batches: 1  Memory Usage: 1694kB
+                                      Buffers: shared hit=2648
+                                      ->  Bitmap Heap Scan on schedules schedules_1  (cost=1015.95..9677.50 rows=30870 width=16) (actual time=5.169..17.483 rows=30665 loops=1)
+                                            Recheck Cond: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-18,)'::daterange)
+                                            Filter: ((applicable_days_of_week IS NULL) OR (cardinality(applicable_days_of_week) = 0) OR (SubPlan 5))
+                                            Rows Removed by Filter: 436
+                                            Heap Blocks: exact=2448
+                                            Buffers: shared hit=2648
+                                            ->  Bitmap Index Scan on schedule_date_range_idx  (cost=0.00..1008.24 rows=31461 width=0) (actual time=4.833..4.833 rows=31101 loops=1)
+                                                  Index Cond: (daterange(event_start_date, COALESCE(event_end_date, event_start_date), '[]'::text) && '[2026-10-18,)'::daterange)
+                                                  Buffers: shared hit=200
+                                            SubPlan 5
+                                              ->  Function Scan on unnest aw  (cost=0.00..0.53 rows=3 width=0) (actual time=0.001..0.001 rows=1 loops=1209)
+                                                    Filter: (mod(((CASE code WHEN 'SUN'::text THEN 0 WHEN 'MON'::text THEN 1 WHEN 'TUE'::text THEN 2 WHEN 'WED'::text THEN 3 WHEN 'THU'::text THEN 4 WHEN 'FRI'::text THEN 5 WHEN 'SAT'::text THEN 6 ELSE NULL::integer END - (EXTRACT(dow FROM GREATEST(schedules_1.event_start_date, '2026-10-18'::date)))::integer) + 7), 7) <= (LEAST(COALESCE(schedules_1.event_end_date, schedules_1.event_start_date), COALESCE(COALESCE(schedules_1.event_end_date, schedules_1.event_start_date))) - GREATEST(schedules_1.event_start_date, '2026-10-18'::date)))
+                                                    Rows Removed by Filter: 0
+                          ->  Hash  (cost=1667.35..1667.35 rows=30035 width=265) (actual time=15.987..15.988 rows=30035 loops=1)
+                                Buckets: 32768  Batches: 1  Memory Usage: 6332kB
+                                Buffers: shared hit=1367
+                                ->  Seq Scan on posts  (cost=0.00..1667.35 rows=30035 width=265) (actual time=0.010..5.119 rows=30035 loops=1)
+                                      Buffers: shared hit=1367
+                    ->  Hash  (cost=12.05..12.05 rows=205 width=17) (actual time=0.084..0.084 rows=205 loops=1)
+                          Buckets: 1024  Batches: 1  Memory Usage: 18kB
+                          Buffers: shared hit=10
+                          ->  Seq Scan on social_media_account_profiles  (cost=0.00..12.05 rows=205 width=17) (actual time=0.011..0.051 rows=205 loops=1)
+                                Buffers: shared hit=10
+                    SubPlan 2
+                      ->  Limit  (cost=8.32..8.32 rows=1 width=12) (actual time=0.003..0.003 rows=1 loops=24485)
+                            Buffers: shared hit=74291
+                            ->  Sort  (cost=8.32..8.32 rows=1 width=12) (actual time=0.002..0.002 rows=1 loops=24485)
+                                  Sort Key: s2.event_start_date, s2.event_start_time
+                                  Sort Method: quicksort  Memory: 25kB
+                                  Buffers: shared hit=74291
+                                  ->  Index Scan using schedule_event_date_idx on schedules s2  (cost=0.29..8.31 rows=1 width=12) (actual time=0.001..0.002 rows=2 loops=24485)
+                                        Index Cond: ((event_id = events.id) AND (COALESCE(event_end_date, event_start_date) >= '2026-10-18'::date))
+                                        Buffers: shared hit=74291
+                    SubPlan 3
+                      ->  Limit  (cost=8.31..8.32 rows=1 width=12) (never executed)
+                            ->  Sort  (cost=8.31..8.32 rows=1 width=12) (never executed)
+                                  Sort Key: s3.event_start_date, s3.event_start_time
+                                  ->  Index Scan using idx_schedules_one_main_per_event on schedules s3  (cost=0.29..8.30 rows=1 width=12) (never executed)
+                                        Index Cond: (event_id = events.id)
+                    SubPlan 4
+                      ->  Limit  (cost=4.32..4.32 rows=1 width=12) (never executed)
+                            ->  Sort  (cost=4.32..4.32 rows=1 width=12) (never executed)
+                                  Sort Key: s4.event_start_date, s4.event_start_time
+                                  ->  Index Only Scan using schedule_event_date_idx on schedules s4  (cost=0.29..4.31 rows=1 width=12) (never executed)
+                                        Index Cond: (event_id = events.id)
+                                        Heap Fetches: 0
+        SubPlan 1
+          ->  Aggregate  (cost=4.30..4.31 rows=1 width=8) (actual time=0.002..0.003 rows=1 loops=21)
+                Buffers: shared hit=43
+                ->  Index Only Scan using idx_favorites_event_id on favorites  (cost=0.28..4.30 rows=1 width=0) (actual time=0.002..0.002 rows=0 loops=21)
+                      Index Cond: (event_id = events.id)
+                      Heap Fetches: 0
+                      Buffers: shared hit=43
+Planning:
+  Buffers: shared hit=51
+Planning Time: 1.737 ms
+JIT:
+  Functions: 79
+  Options: Inlining true, Optimization true, Expressions true, Deforming true
+  Timing: Generation 5.812 ms, Inlining 26.633 ms, Optimization 429.119 ms, Emission 255.124 ms, Total 716.688 ms
+Execution Time: 909.221 ms

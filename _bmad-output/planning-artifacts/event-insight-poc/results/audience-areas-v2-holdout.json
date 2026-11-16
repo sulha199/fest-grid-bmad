@@ -1,0 +1,508 @@
+{
+ "prompt": "v2",
+ "set": "holdout",
+ "model": "gemini-3.5-flash-lite",
+ "runs": 3,
+ "records": [
+  {
+   "id": "hd-catur-nasional",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "KEJUARAAN CATUR TINGKAT NASIONAL 2026",
+     "pecatur dari seluruh Indonesia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-catur-nasional",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "KEJUARAAN CATUR TINGKAT NASIONAL 2026",
+     "pecatur dari seluruh Indonesia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-catur-nasional",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "KEJUARAAN CATUR TINGKAT NASIONAL 2026",
+     "seluruh Indonesia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-pameran-umum",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Kota Yogyakarta",
+      "level": "city",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Taman Budaya Yogyakarta."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-pameran-umum",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Kota Yogyakarta",
+      "level": "city",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Taman Budaya Yogyakarta."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-pameran-umum",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Kota Yogyakarta",
+      "level": "city",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "Taman Budaya Yogyakarta"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-prawirotaman",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Kota Yogyakarta",
+      "level": "city",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "FESTIVAL KULINER PRAWIROTAMAN",
+     "Jl. Prawirotaman, Brontokusuman, Mergangsan"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-prawirotaman",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Kota Yogyakarta",
+      "level": "city",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "FESTIVAL KULINER PRAWIROTAMAN",
+     "Jl. Prawirotaman, Brontokusuman, Mergangsan."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-prawirotaman",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "venue_local",
+    "areas": [
+     {
+      "name": "Kota Yogyakarta",
+      "level": "city",
+      "basis": "venue"
+     }
+    ],
+    "evidence": [
+     "FESTIVAL KULINER PRAWIROTAMAN",
+     "Jl. Prawirotaman, Brontokusuman, Mergangsan"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-layang-bantul",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Kabupaten Bantul",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "LOMBA LAYANG-LAYANG SE-BANTUL",
+     "Terbuka untuk seluruh warga Kabupaten Bantul."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-layang-bantul",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Kabupaten Bantul",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "LOMBA LAYANG-LAYANG SE-BANTUL",
+     "Terbuka untuk seluruh warga Kabupaten Bantul."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-layang-bantul",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "region",
+    "areas": [
+     {
+      "name": "Kabupaten Bantul",
+      "level": "regency",
+      "basis": "stated"
+     }
+    ],
+    "evidence": [
+     "LOMBA LAYANG-LAYANG SE-BANTUL",
+     "Terbuka untuk seluruh warga Kabupaten Bantul."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 1,
+    "expectationsTotal": 1,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-no-place-curator",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "unspecified",
+    "areas": [],
+    "evidence": [
+     "INFO LOMBA MENULIS CERPEN",
+     "Deadline 15 Desember 2026",
+     "Daftar lewat link di bio"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-no-place-curator",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "unspecified",
+    "areas": [],
+    "evidence": []
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-no-place-curator",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "unspecified",
+    "areas": [],
+    "evidence": [
+     "INFO LOMBA MENULIS CERPEN",
+     "Deadline 15 Desember 2026",
+     "Daftar lewat link di bio"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-olimpiade-nasional",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "OLIMPIADE SAINS NASIONAL SMA 2026",
+     "Pendaftaran terbuka untuk seluruh siswa SMA di Indonesia."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-olimpiade-nasional",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "OLIMPIADE SAINS NASIONAL SMA 2026",
+     "seluruh siswa SMA di Indonesia"
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  },
+  {
+   "id": "hd-olimpiade-nasional",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "out": {
+    "geoScope": "national",
+    "areas": [],
+    "evidence": [
+     "OLIMPIADE SAINS NASIONAL SMA 2026",
+     "Pendaftaran terbuka untuk seluruh siswa SMA di Indonesia."
+    ]
+   },
+   "score": {
+    "scope": true,
+    "expectationsMet": 0,
+    "expectationsTotal": 0,
+    "forbiddenHit": [],
+    "venueAreaOnNationwide": false,
+    "venueWithStated": false,
+    "ungroundedStated": [],
+    "pass": true,
+    "detail": []
+   }
+  }
+ ]
+}

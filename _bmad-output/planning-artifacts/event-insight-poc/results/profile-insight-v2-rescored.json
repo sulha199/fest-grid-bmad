@@ -1,0 +1,4608 @@
+{
+ "prompt": "v2",
+ "model": "gemini-3.5-flash-lite",
+ "runs": 3,
+ "records": [
+  {
+   "id": "plazaambarrukmo",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WIB",
+     "+62895358487553"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo Mall Jogja",
+     "Official Instagram of Plaza Ambarrukmo."
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "WIB"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WIB",
+     "+62895358487553"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo Mall Jogja",
+     "Official Instagram of Plaza Ambarrukmo."
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "WIB"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "plazaambarrukmo",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WIB",
+     "+62895358487553"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official Instagram of Plaza Ambarrukmo",
+     "Plaza Ambarrukmo Mall Jogja",
+     "USS Downtown Market Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "WIB"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "WIB",
+     "+62895358487553"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official Instagram of Plaza Ambarrukmo",
+     "Plaza Ambarrukmo Mall Jogja",
+     "USS Downtown Market Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "WIB"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "plazaambarrukmo",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "+62895358487553",
+     "#kulinerjogja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo Mall Jogja",
+     "📍 Plaza Ambarrukmo, Hall Lantai 2",
+     "📍 Yoshinoya Plaza Ambarrukmo"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "10.00-22.00 WIB",
+     "Kamis Pon, 3 September 2026\n⏰ Pukul 16.00–19.00 WIB"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "+62895358487553",
+     "#kulinerjogja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Plaza Ambarrukmo Mall Jogja",
+     "📍 Plaza Ambarrukmo, Hall Lantai 2",
+     "📍 Yoshinoya Plaza Ambarrukmo"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "10.00-22.00 WIB",
+     "Kamis Pon, 3 September 2026\n⏰ Pukul 16.00–19.00 WIB"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "infoeventjogja",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Yogyakarta"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     },
+     {
+      "name": "Bantul",
+      "level": "regency"
+     },
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "📍Yogyakarta dan sekitarnya",
+     "📍 Plaza Ambarrukmo",
+     "se-DIY & Jawa Tengah"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "- 14..30-17.30 WIB"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Yogyakarta"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     },
+     {
+      "name": "Bantul",
+      "level": "regency"
+     },
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "📍Yogyakarta dan sekitarnya",
+     "📍 Plaza Ambarrukmo",
+     "se-DIY & Jawa Tengah"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "- 14..30-17.30 WIB"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "infoeventjogja",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Indonesia"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Yogyakarta dan sekitarnya",
+     "se-DIY & Jawa Tengah"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "WIB"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta dan sekitarnya",
+     "Indonesia"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Yogyakarta dan sekitarnya",
+     "se-DIY & Jawa Tengah"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "WIB"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "infoeventjogja",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta",
+     "Indonesia"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "📍Yogyakarta dan sekitarnya",
+     "umum se-DIY & Jawa Tengah"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "14..30-17.30 WIB"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Yogyakarta",
+     "Indonesia"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     },
+     {
+      "name": "Jawa Tengah",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "📍Yogyakarta dan sekitarnya",
+     "umum se-DIY & Jawa Tengah"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "14..30-17.30 WIB"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "wanitatamajogja",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Mandala Bhakti Wanitatama",
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Mandala Bhakti Wanitatama",
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "model"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": true
+  },
+  {
+   "id": "wanitatamajogja",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "📍Mandala Bhakti Wanitatama",
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "📍Mandala Bhakti Wanitatama",
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "model"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": true
+  },
+  {
+   "id": "wanitatamajogja",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "📍Mandala Bhakti Wanitatama",
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "📍Mandala Bhakti Wanitatama",
+     "Laksda Adisucipto No.88 Depok, Sleman, Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "model"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": true
+  },
+  {
+   "id": "pakuwonmall.jogja",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "#pakuwonmalljogja",
+     "Pakuwon Mall Jogja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "MHExpo Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Jogja"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "#pakuwonmalljogja",
+     "Pakuwon Mall Jogja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "MHExpo Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Jogja"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "pakuwonmall.jogja",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "pakuwonmalljogja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "pakuwonmalljogja"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "pakuwonmalljogja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "pakuwonmalljogja"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "pakuwonmall.jogja",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "pakuwonmalljogja",
+     "Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "pakuwonmalljogja",
+     "MHExpo Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta",
+     "pakuwonmalljogja"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp4.500.000",
+     "pakuwonmalljogja",
+     "Yogyakarta"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Yogyakarta",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Pakuwon Mall Jogja",
+     "pakuwonmalljogja",
+     "MHExpo Yogyakarta"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Yogyakarta",
+     "pakuwonmalljogja"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "chaanakyaekadantaolympiad",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Seabank 901408639421"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "*KOMPETISI NASIONAL*"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Seabank 901408639421"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "*KOMPETISI NASIONAL*"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "multi-zone"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "chaanakyaekadantaolympiad",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Biaya Rp. 85.000/mapel",
+     "Seabank"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "BABAK PENYISIHAN CHAANAKYA EKADANTA OLYMPIAD FLORES",
+     "BABAK PENYISIHAN CHAANAKYA EKADANTA OLYMPIAD MAKASSAR"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Biaya Rp. 85.000/mapel",
+     "Seabank"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "BABAK PENYISIHAN CHAANAKYA EKADANTA OLYMPIAD FLORES",
+     "BABAK PENYISIHAN CHAANAKYA EKADANTA OLYMPIAD MAKASSAR"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "multi-zone"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "chaanakyaekadantaolympiad",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Rp. 85.000/mapel",
+     "Seabank 901408639421"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "*KOMPETISI NASIONAL*"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Puspresnas",
+     "Rp. 85.000/mapel",
+     "Seabank 901408639421"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "🏆 Tingkat Nasional 2026-2027",
+     "*KOMPETISI NASIONAL*"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "multi-zone"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-dinas-sleman",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Kabupaten Sleman, DIY",
+     "0274 868 1234",
+     ".go.id"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Akun resmi Dinas Pariwisata Kabupaten Sleman",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "WIB"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Kabupaten Sleman, DIY",
+     "0274 868 1234",
+     ".go.id"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Akun resmi Dinas Pariwisata Kabupaten Sleman",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "WIB"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-dinas-sleman",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "DIY",
+     "Kabupaten Sleman",
+     "0274 868 1234"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kabupaten Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Informasi wisata, event dan layanan. 📍 Jl. Candi Gebang No. 1, Sleman",
+     "Festival Budaya Sleman 2026 digelar 14 November di Lapangan Denggung. Terbuka untuk warga Sleman, gratis!"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Rabu 10.00 WIB"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "DIY",
+     "Kabupaten Sleman",
+     "0274 868 1234"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kabupaten Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Informasi wisata, event dan layanan. 📍 Jl. Candi Gebang No. 1, Sleman",
+     "Festival Budaya Sleman 2026 digelar 14 November di Lapangan Denggung. Terbuka untuk warga Sleman, gratis!"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Rabu 10.00 WIB"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-dinas-sleman",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "DIY",
+     "0274 868 1234",
+     ".go.id"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kabupaten Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Akun resmi Dinas Pariwisata Kabupaten Sleman",
+     "Festival Budaya Sleman 2026 digelar 14 November di Lapangan Denggung",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Rabu 10.00 WIB"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "DIY",
+     "0274 868 1234",
+     ".go.id"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kabupaten Sleman",
+      "level": "regency"
+     }
+    ],
+    "evidence": [
+     "Akun resmi Dinas Pariwisata Kabupaten Sleman",
+     "Festival Budaya Sleman 2026 digelar 14 November di Lapangan Denggung",
+     "pengelola desa wisata se-Kabupaten Sleman"
+    ],
+    "timezone": "Asia/Jakarta",
+    "timezoneEvidence": [
+     "Rabu 10.00 WIB"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jakarta",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-telco-nasional",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "seluruh Indonesia",
+     "co.id",
+     "Jakarta Selatan"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "seluruh Indonesia",
+     "co.id",
+     "Jakarta Selatan"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "multi-zone"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-telco-nasional",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "melayani seluruh Indonesia",
+     "co.id"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota, daftar di gerai Telko terdekat"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "melayani seluruh Indonesia",
+     "co.id"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota, daftar di gerai Telko terdekat"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "multi-zone"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-telco-nasional",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "seluruh Indonesia",
+     "co.id"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "seluruh Indonesia",
+     "co.id"
+    ],
+    "reach": "national",
+    "reachAreas": [],
+    "evidence": [
+     "melayani seluruh Indonesia",
+     "berangkat dari 25 kota"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "multi-zone"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-kl-hall",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "MYT",
+     "+60 12-345 6789",
+     "example.com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official page of KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "MYT"
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "MYT",
+     "+60 12-345 6789",
+     "example.com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official page of KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "MYT"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Kuala_Lumpur",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-kl-hall",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "MYT",
+     "+60 12-345 6789",
+     "example.com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official page of KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "MYT"
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "MYT",
+     "+60 12-345 6789",
+     "example.com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Official page of KL Convention Hall, Jalan Tun Razak, Kuala Lumpur."
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "MYT"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Kuala_Lumpur",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-kl-hall",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "+60 12-345 6789",
+     ".example.com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "KL Convention Hall, Jalan Tun Razak, Kuala Lumpur"
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "MYT"
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "Kuala Lumpur",
+     "+60 12-345 6789",
+     ".example.com.my"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Kuala Lumpur",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "KL Convention Hall, Jalan Tun Razak, Kuala Lumpur"
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "MYT"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Kuala_Lumpur",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-sg-makers",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore.",
+     "+65 6123 4567",
+     "ubimakers.example.sg"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore.",
+     "Ubi Avenue 1"
+    ],
+    "timezone": "Asia/Singapore",
+    "timezoneEvidence": [
+     "SGT"
+    ]
+   },
+   "guarded": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore.",
+     "+65 6123 4567",
+     "ubimakers.example.sg"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore.",
+     "Ubi Avenue 1"
+    ],
+    "timezone": "Asia/Singapore",
+    "timezoneEvidence": [
+     "SGT"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "SG",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Singapore",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-sg-makers",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore.",
+     "+65 6123 4567",
+     ".sg"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore.",
+     "Ubi Avenue 1"
+    ],
+    "timezone": "Asia/Singapore",
+    "timezoneEvidence": [
+     "SGT"
+    ]
+   },
+   "guarded": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "Singapore.",
+     "+65 6123 4567"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore.",
+     "Ubi Avenue 1"
+    ],
+    "timezone": "Asia/Singapore",
+    "timezoneEvidence": [
+     "SGT"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "SG",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Singapore",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-sg-makers",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "+65 6123 4567",
+     "ubimakers.example.sg"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore",
+     "Ubi Avenue 1"
+    ],
+    "timezone": "Asia/Singapore",
+    "timezoneEvidence": [
+     "SGT"
+    ]
+   },
+   "guarded": {
+    "countryCode": "SG",
+    "countryEvidence": [
+     "+65 6123 4567",
+     "ubimakers.example.sg"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Ubi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Community makerspace in Singapore",
+     "Ubi Avenue 1"
+    ],
+    "timezone": "Asia/Singapore",
+    "timezoneEvidence": [
+     "SGT"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "SG",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Singapore",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-melb-indo",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "AEST",
+     "A$5"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria",
+     "Piknik bareng Minggu 10am AEST di Fitzroy Gardens, Melbourne",
+     "Bazar Indonesia di Footscray"
+    ],
+    "timezone": "Australia/Melbourne",
+    "timezoneEvidence": [
+     "AEST",
+     "Melbourne"
+    ]
+   },
+   "guarded": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "AEST"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria",
+     "Piknik bareng Minggu 10am AEST di Fitzroy Gardens, Melbourne",
+     "Bazar Indonesia di Footscray"
+    ],
+    "timezone": "Australia/Melbourne",
+    "timezoneEvidence": [
+     "AEST",
+     "Melbourne"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "AU",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Australia/Melbourne",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-melb-indo",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "AEST",
+     "A$5"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria",
+     "Piknik bareng Minggu 10am AEST di Fitzroy Gardens, Melbourne",
+     "Bazar Indonesia di Footscray"
+    ],
+    "timezone": "Australia/Melbourne",
+    "timezoneEvidence": [
+     "AEST",
+     "Melbourne"
+    ]
+   },
+   "guarded": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "AEST"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria",
+     "Piknik bareng Minggu 10am AEST di Fitzroy Gardens, Melbourne",
+     "Bazar Indonesia di Footscray"
+    ],
+    "timezone": "Australia/Melbourne",
+    "timezoneEvidence": [
+     "AEST",
+     "Melbourne"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "AU",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Australia/Melbourne",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-melb-indo",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "Fitzroy Gardens, Melbourne",
+     "A$5"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria",
+     "Piknik bareng Minggu 10am AEST di Fitzroy Gardens, Melbourne"
+    ],
+    "timezone": "Australia/Melbourne",
+    "timezoneEvidence": [
+     "AEST",
+     "Melbourne"
+    ]
+   },
+   "guarded": {
+    "countryCode": "AU",
+    "countryEvidence": [
+     "Victoria 🇦🇺",
+     "Fitzroy Gardens, Melbourne"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Victoria",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Indonesia di Victoria",
+     "Piknik bareng Minggu 10am AEST di Fitzroy Gardens, Melbourne"
+    ],
+    "timezone": "Australia/Melbourne",
+    "timezoneEvidence": [
+     "AEST",
+     "Melbourne"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "AU",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Australia/Melbourne",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-delhi-academy",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "https://sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     },
+     {
+      "name": "New Delhi",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi.",
+     "New Delhi, India"
+    ],
+    "timezone": "Asia/Kolkata",
+    "timezoneEvidence": [
+     "IST"
+    ]
+   },
+   "guarded": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "https://sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     },
+     {
+      "name": "New Delhi",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi.",
+     "New Delhi, India"
+    ],
+    "timezone": "Asia/Kolkata",
+    "timezoneEvidence": [
+     "IST"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "IN",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Kolkata",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-delhi-academy",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     },
+     {
+      "name": "New Delhi",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi",
+     "New Delhi, India"
+    ],
+    "timezone": "Asia/Kolkata",
+    "timezoneEvidence": [
+     "IST"
+    ]
+   },
+   "guarded": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     },
+     {
+      "name": "New Delhi",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi",
+     "New Delhi, India"
+    ],
+    "timezone": "Asia/Kolkata",
+    "timezoneEvidence": [
+     "IST"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "IN",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Kolkata",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-delhi-academy",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "https://sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi."
+    ],
+    "timezone": "Asia/Kolkata",
+    "timezoneEvidence": [
+     "IST"
+    ]
+   },
+   "guarded": {
+    "countryCode": "IN",
+    "countryEvidence": [
+     "+91 98100 12345",
+     "https://sharma-academy.example.in",
+     "New Delhi, India"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "South Delhi",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Batches in South Delhi."
+    ],
+    "timezone": "Asia/Kolkata",
+    "timezoneEvidence": [
+     "IST"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "IN",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Kolkata",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-global-coffee",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Coffee shop",
+     "Latte art throwdown this Friday. Come hang out!"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Coffee shop",
+     "Latte art throwdown this Friday. Come hang out!"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": false,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": false,
+    "detail": [
+     "reach local, expected unspecified"
+    ]
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": false,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": false,
+    "detail": [
+     "reach local, expected unspecified"
+    ]
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-global-coffee",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-global-coffee",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Good Beans Coffee",
+     "Coffee shop"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Good Beans Coffee",
+     "Coffee shop"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": false,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": false,
+    "detail": [
+     "reach local, expected unspecified"
+    ]
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": false,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": false,
+    "detail": [
+     "reach local, expected unspecified"
+    ]
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-empty",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-empty",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-empty",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-canggu-yoga",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "IDR",
+     "Rp 250.000",
+     "Bali"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali",
+     "Beach yoga every Thursday 6am WITA"
+    ],
+    "timezone": "Asia/Makassar",
+    "timezoneEvidence": [
+     "WITA"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "IDR",
+     "Rp 250.000",
+     "Bali"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali",
+     "Beach yoga every Thursday 6am WITA"
+    ],
+    "timezone": "Asia/Makassar",
+    "timezoneEvidence": [
+     "WITA"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Makassar",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-canggu-yoga",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Canggu, Bali",
+     "250k IDR"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali"
+    ],
+    "timezone": "Asia/Makassar",
+    "timezoneEvidence": [
+     "WITA"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Canggu, Bali",
+     "250k IDR"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali"
+    ],
+    "timezone": "Asia/Makassar",
+    "timezoneEvidence": [
+     "WITA"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Makassar",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-canggu-yoga",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Canggu, Bali",
+     "250k IDR"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali"
+    ],
+    "timezone": "Asia/Makassar",
+    "timezoneEvidence": [
+     "WITA"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Canggu, Bali",
+     "250k IDR"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Canggu",
+      "level": "neighborhood"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Yoga & community dinners in Canggu, Bali"
+    ],
+    "timezone": "Asia/Makassar",
+    "timezoneEvidence": [
+     "WITA"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Makassar",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-johor-sukan",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30 sahaja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "Johor Bahru"
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30 sahaja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "Johor Bahru"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Kuala_Lumpur",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-johor-sukan",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "Johor Bahru"
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "Johor Bahru"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Kuala_Lumpur",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-johor-sukan",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30 sahaja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "Johor Bahru"
+    ]
+   },
+   "guarded": {
+    "countryCode": "MY",
+    "countryEvidence": [
+     "WhatsApp +60 7-123 4567",
+     "RM30 sahaja"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Johor Bahru",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kompleks sukan rasmi Johor Bahru",
+     "Johor Bahru"
+    ],
+    "timezone": "Asia/Kuala_Lumpur",
+    "timezoneEvidence": [
+     "Johor Bahru"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "MY",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Kuala_Lumpur",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-java-bali-curator",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Jawa dan Bali",
+     "Surabaya",
+     "Canggu"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Jawa",
+      "level": "province"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Agenda konser, festival & pameran di Jawa dan Bali"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Jawa dan Bali",
+     "Surabaya",
+     "Canggu"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Jawa",
+      "level": "province"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Agenda konser, festival & pameran di Jawa dan Bali"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "multi-zone"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-java-bali-curator",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Jawa dan Bali",
+     "Surabaya",
+     "Bandung"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Jawa",
+      "level": "province"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Agenda konser, festival & pameran di Jawa dan Bali"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Jawa dan Bali",
+     "Surabaya",
+     "Bandung"
+    ],
+    "reach": "regional",
+    "reachAreas": [
+     {
+      "name": "Jawa",
+      "level": "province"
+     },
+     {
+      "name": "Bali",
+      "level": "province"
+     }
+    ],
+    "evidence": [
+     "Agenda konser, festival & pameran di Jawa dan Bali"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "multi-zone"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-java-bali-curator",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp 150.000",
+     "Jawa dan Bali"
+    ],
+    "reach": "international",
+    "reachAreas": [],
+    "evidence": [
+     "Jawa dan Bali",
+     "Surabaya",
+     "Canggu",
+     "Bandung",
+     "Ubud"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp 150.000",
+     "Jawa dan Bali"
+    ],
+    "reach": "international",
+    "reachAreas": [],
+    "evidence": [
+     "Jawa dan Bali",
+     "Surabaya",
+     "Canggu",
+     "Bandung",
+     "Ubud"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": false,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": false,
+    "detail": [
+     "reach international, expected regional|national"
+    ]
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": false,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": false,
+    "detail": [
+     "reach international, expected regional|national"
+    ]
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "multi-zone"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-jayapura-komunitas",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Jayapura",
+     "Pantai Base-G, Jayapura",
+     "Rp 100.000"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jayapura",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Jayapura",
+     "Pantai Base-G, Jayapura"
+    ],
+    "timezone": "Asia/Jayapura",
+    "timezoneEvidence": [
+     "14.00 WIT",
+     "08.00 WIT"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Jayapura",
+     "Pantai Base-G, Jayapura",
+     "Rp 100.000"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jayapura",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Jayapura",
+     "Pantai Base-G, Jayapura"
+    ],
+    "timezone": "Asia/Jayapura",
+    "timezoneEvidence": [
+     "14.00 WIT",
+     "08.00 WIT"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jayapura",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-jayapura-komunitas",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Jayapura"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jayapura",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Jayapura",
+     "Turnamen voli pantai Sabtu 14.00 WIT di Pantai Base-G, Jayapura"
+    ],
+    "timezone": "Asia/Jayapura",
+    "timezoneEvidence": [
+     "14.00 WIT",
+     "08.00 WIT"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Jayapura"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jayapura",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Jayapura",
+     "Turnamen voli pantai Sabtu 14.00 WIT di Pantai Base-G, Jayapura"
+    ],
+    "timezone": "Asia/Jayapura",
+    "timezoneEvidence": [
+     "14.00 WIT",
+     "08.00 WIT"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jayapura",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-jayapura-komunitas",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp 100.000/tim"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jayapura",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Jayapura",
+     "Pantai Base-G, Jayapura"
+    ],
+    "timezone": "Asia/Jayapura",
+    "timezoneEvidence": [
+     "WIT"
+    ]
+   },
+   "guarded": {
+    "countryCode": "ID",
+    "countryEvidence": [
+     "Rp 100.000/tim"
+    ],
+    "reach": "local",
+    "reachAreas": [
+     {
+      "name": "Jayapura",
+      "level": "city"
+     }
+    ],
+    "evidence": [
+     "Kumpul warga Jayapura",
+     "Pantai Base-G, Jayapura"
+    ],
+    "timezone": "Asia/Jayapura",
+    "timezoneEvidence": [
+     "WIT"
+    ]
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "resolved",
+    "country": "ID",
+    "source": "signals+model"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "resolved",
+    "zone": "Asia/Jayapura",
+    "source": "text"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-warung-tanpa-kota",
+   "run": 1,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "unspecified",
+    "reachAreas": [],
+    "evidence": [],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-warung-tanpa-kota",
+   "run": 2,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Warung kopi enak",
+     "Buka tiap hari, jangan lupa mampir!"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Warung kopi enak",
+     "Buka tiap hari, jangan lupa mampir!"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  },
+  {
+   "id": "syn-warung-tanpa-kota",
+   "run": 3,
+   "ok": true,
+   "errors": [],
+   "raw": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Warung Kopi Enak"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "guarded": {
+    "countryCode": "UNKNOWN",
+    "countryEvidence": [],
+    "reach": "local",
+    "reachAreas": [],
+    "evidence": [
+     "Warung Kopi Enak"
+    ],
+    "timezone": "UNKNOWN",
+    "timezoneEvidence": []
+   },
+   "actions": [],
+   "rawScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "guardedScore": {
+    "countryWrong": false,
+    "countryMissed": false,
+    "reachOk": true,
+    "areasOk": true,
+    "nationalWithArea": false,
+    "tzWrong": false,
+    "tzMissed": false,
+    "pass": true,
+    "detail": []
+   },
+   "combined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "combinedWrong": false,
+   "combinedMissed": false,
+   "unsupportedClaim": false,
+   "tzCombined": {
+    "status": "unresolved",
+    "reason": "no-evidence"
+   },
+   "tzCombinedWrong": false,
+   "tzCombinedMissed": false,
+   "tzUnsupported": false
+  }
+ ]
+}

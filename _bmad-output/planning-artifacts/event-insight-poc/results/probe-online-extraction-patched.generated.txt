@@ -1,0 +1,68 @@
+
+### ven-hybrid-seminar — run 1 [patched] — one physical venue AND a Zoom option
+  event 1: SEMINAR NASIONAL KEWIRAUSAHAAN 2026 | event.location="Auditorium Fakultas Ekonomi UGM"
+    schedule 1: 2026-11-28 location="Auditorium Fakultas Ekonomi UGM"
+
+### ven-hybrid-seminar — run 2 [patched] — one physical venue AND a Zoom option
+  event 1: SEMINAR NASIONAL KEWIRAUSAHAAN 2026 | event.location="Auditorium Fakultas Ekonomi UGM"
+    schedule 1: 2026-11-28 location="Auditorium Fakultas Ekonomi UGM" title="SEMINAR NASIONAL KEWIRAUSAHAAN 2026"
+
+### ven-hybrid-seminar — run 3 [patched] — one physical venue AND a Zoom option
+  event 1: Seminar Nasional Kewirausahaan 2026 | event.location="Auditorium Fakultas Ekonomi UGM"
+    schedule 1: 2026-11-28 location="Auditorium Fakultas Ekonomi UGM"
+
+### ven-multi-venue-festival — run 1 [patched] — three days, three venues, mixed settings
+  event 1: Festival Kota Tua Jogja | event.location="Yogyakarta"
+    schedule 1: 2026-12-04 location="Yogyakarta" title="Festival Kota Tua Jogja"
+    schedule 2: 2026-12-04 location="Alun-alun Kidul" title="Malam Rakyat"
+    schedule 3: 2026-12-05 location="Gedung Societet Militair, Taman Budaya Yogyakarta" title="Pameran & pentas"
+    schedule 4: 2026-12-06 location="Pantai Parangtritis" title="Sunrise & lomba layang-layang"
+
+### ven-multi-venue-festival — run 2 [patched] — three days, three venues, mixed settings
+  event 1: Festival Kota Tua Jogja | event.location=null
+    schedule 1: 2026-12-04 location=null title="Festival Kota Tua Jogja - 3 Hari"
+    schedule 2: 2026-12-04 location="Alun-alun Kidul" title="Malam Rakyat"
+    schedule 3: 2026-12-05 location="Gedung Societet Militair, Taman Budaya Yogyakarta" title="Pameran & pentas"
+    schedule 4: 2026-12-06 location="Pantai Parangtritis" title="Sunrise & lomba layang-layang"
+
+### ven-multi-venue-festival — run 3 [patched] — three days, three venues, mixed settings
+  event 1: Festival Kota Tua Jogja | event.location=null
+    schedule 1: 2026-12-04 location=null title="Festival Kota Tua Jogja - 3 Hari"
+
+### ven-zoom-class — run 1 [patched] — online only; a Zoom link is not a venue
+  event 1: Kelas Memasak Online | event.location=null
+    schedule 1: 2026-11-14 location=null
+
+### ven-zoom-class — run 2 [patched] — online only; a Zoom link is not a venue
+  event 1: Kelas Memasak Online | event.location=null
+    schedule 1: 2026-11-14 location=null
+
+### ven-zoom-class — run 3 [patched] — online only; a Zoom link is not a venue
+  event 1: Kelas Memasak Online | event.location=null
+    schedule 1: 2026-11-14 location=null
+
+### ven-meet-discussion — run 1 [patched] — online only on Google Meet
+  event 1: Diskusi Buku Bulanan: Laut Bercerita | event.location=null
+    schedule 1: 2026-11-19 location=null title="Diskusi Buku Bulanan"
+
+### ven-meet-discussion — run 2 [patched] — online only on Google Meet
+  event 1: Diskusi Buku Bulanan: Laut Bercerita | event.location=null
+    schedule 1: 2026-11-19 location=null
+
+### ven-meet-discussion — run 3 [patched] — online only on Google Meet
+  event 1: Diskusi Buku Bulanan: Laut Bercerita | event.location=null
+    schedule 1: 2026-11-19 location=null title="Diskusi Buku Bulanan Laut Bercerita"
+
+### ven-two-sites-one-day — run 1 [patched] — two venues on one day, indoor and outdoor
+  event 1: Pameran & Workshop Batik | event.location=null
+    schedule 1: 2026-11-21 location=null title="Pameran Batik"
+    schedule 2: 2026-11-21 location=null title="Workshop membatik"
+
+### ven-two-sites-one-day — run 2 [patched] — two venues on one day, indoor and outdoor
+  event 1: Pameran & Workshop Batik | event.location=null
+    schedule 1: 2026-11-21 location=null title="Pameran Batik & Workshop Membatik"
+
+### ven-two-sites-one-day — run 3 [patched] — two venues on one day, indoor and outdoor
+  event 1: PAMERAN & WORKSHOP BATIK | event.location=null
+    schedule 1: 2026-11-21 location="Galeri Taman Budaya Yogyakarta" title="Pameran"
+    schedule 2: 2026-11-21 location="halaman Museum Sonobudoyo" title="Workshop membatik"

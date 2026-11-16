@@ -1,0 +1,10 @@
+BEGIN
+SET
+                    pair_kind                    |      link      | pairs | in_candidate_list 
+-------------------------------------------------+----------------+-------+-------------------
+ at least one stub (organizer weight discounted) | no shared link |   122 |                 0
+ at least one stub (organizer weight discounted) | shares a link  |    10 |                 6
+ both full (organizer weight applies)            | no shared link |    46 |                17
+(3 rows)
+
+ROLLBACK

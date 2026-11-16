@@ -11,7 +11,13 @@ import type { ManualExtractionRequestPayload } from '@festgrid/domain/posts';
 
 const generateSlug = () => randomBytes(6).toString('hex');
 
-// Reusable custom jsonb type to avoid double-encoding issues with postgres.js prepare: false
+// EVERY jsonb column in this file is declared with customJsonb, never with drizzle's own jsonb() (BUG-261019-ud2; enforced by jsonb-columns.test.ts).
+// Why: drizzle-orm 0.30's jsonb() already turns the value into a JSON string, and postgres.js then serializes that string again, so the column
+// holds a jsonb *string* whose text is the JSON; SQL-side ->>, @> and jsonb_array_elements then see nothing. This is independent of
+// `prepare: false` (reproduced with prepared statements on and off: probe-jsonb-encoding.ts). customJsonb hands the raw object to postgres.js,
+// which serializes it once. Reads accept both shapes (a legacy string is parsed), so rows written the old way still read correctly.
+// Do NOT combine it with pass-through serializers for OIDs 114/3802 on the client, nor with a drizzle-orm >= 0.33 upgrade, without revisiting
+// toDriver: both make a raw object an invalid parameter.
 export const customJsonb = <TData>(name: string) =>
   drizzleCustomType<{ data: TData; driverData: unknown }>({
     dataType() {
@@ -159,7 +165,7 @@ export const userLocations = pgTable('user_locations', {
   longitude: doublePrecision('longitude').notNull(),
   // Radius in meters
   radius: integer('radius').notNull(),
-  locationDetails: jsonb('location_details').$type<LocationDetails>().notNull(),
+  locationDetails: customJsonb<LocationDetails>('location_details').notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }), // Soft delete support
   ...timestamps,
 }, (t) => ({
@@ -182,7 +188,7 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   // Migration 0088 backfills it from last_scraped_at for profiles already being scraped.
   historySeededAt: timestamp('history_seeded_at', { withTimezone: true }),
   scrapeTriggeredAt: timestamp('scrape_triggered_at', { withTimezone: true }),
-  defaultLocation: jsonb('default_location').$type<LocationDetails>(),
+  defaultLocation: customJsonb<LocationDetails>('default_location'),
   accountType: accountTypeEnum('account_type'),
   accountTypeStatus: accountTypeStatusEnum('account_type_status'),
   accountTypeConfidenceScore: doublePrecision('account_type_confidence_score'),
@@ -190,7 +196,7 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   imageStorageOptInSource: imageStorageOptInSourceEnum('image_storage_opt_in_source'),
   firstSeen: timestamp('first_seen', { withTimezone: true }),
   lastSeen: timestamp('last_seen', { withTimezone: true }),
-  discoverySource: jsonb('discovery_source').$type<{ vendor: string; runId?: string }>(),
+  discoverySource: customJsonb<{ vendor: string; runId?: string }>('discovery_source'),
   isVerifiedForDiscovery: boolean('is_verified_for_discovery').default(true).notNull(),
   // Story 3.16 -- atomic, TTL-bounded claim marking "a classify-then-maybe-trigger-scrape
   // attempt is currently in flight for this account." Null means unclaimed. Mirrors
@@ -271,7 +277,7 @@ export const geolocationCache = pgTable('geolocation_cache', {
   id: uuid('id').defaultRandom().primaryKey(),
   cacheKey: text('cache_key').unique().notNull(),
   queryType: geolocationQueryTypeEnum('query_type').notNull(),
-  result: jsonb('result').notNull(),
+  result: customJsonb<unknown>('result').notNull(),
   ...timestamps,
 });
 
@@ -340,7 +346,7 @@ export const posts = pgTable('posts', {
   // Nullable jsonb array, populated at persistence time (insert only, no backfill). Extraction-time
   // input for Story 3.6l's multi-image AI request -- never displayed in any UI. No index: nothing
   // queries by this column.
-  additionalImageUrls: jsonb('additional_image_urls').$type<string[]>(),
+  additionalImageUrls: customJsonb<string[]>('additional_image_urls'),
   // Story 3.6r / AD-30 Rule 1 — post-level facts product UI reads, populated by Story 3.6s's
   // multi-event extraction payload (groupingReason/extractedEventCount). groupingRationale is
   // deliberately never persisted (AD-30 Rule 5).
@@ -413,8 +419,8 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id, { onDelete: 'cascade' }).notNull(),
   runId: text('run_id').notNull(),
   status: scraperRunStatusEnum('status').default('PENDING').notNull(),
-  rawInput: jsonb('raw_input').notNull(),
-  rawOutput: jsonb('raw_output'),
+  rawInput: customJsonb<unknown>('raw_input').notNull(),
+  rawOutput: customJsonb<unknown>('raw_output'),
   itemCount: integer('item_count'),
   // What the vendor itself reported for a finished Bright Data snapshot (its free progress report), kept apart
   // from item_count (what reached us): records delivered, error records, and the error-code counts
@@ -509,7 +515,7 @@ export const events = pgTable('events', {
   // Story 0.37 — additional links mentioned in the source post (ticketing/RSVP/merch/
   // linktree/etc.), array of objects so it mirrors the locationDetails/proposedData typed-
   // jsonb-array precedent below, not contactInfo's plain text() column.
-  links: jsonb('links').$type<EventLink[]>(),
+  links: customJsonb<EventLink[]>('links'),
   sourceSocialMediaAccountId: text('source_social_media_account_id'),
   // Story 3.6r / AD-30 — events.postId is kept as the PRIMARY-post pointer; it is no longer
   // 1:1 with posts (its unique() below is dropped in favor of postIdExtractionOrdinalUnq).
@@ -644,14 +650,13 @@ export const eventMerges = pgTable('event_merges', {
   winnerNotifiedAtChanged: boolean('winner_notified_at_changed').default(false).notNull(),
   winnerPriorNotifiedAt: timestamp('winner_prior_notified_at', { withTimezone: true }),
   loserPriorNotifiedAt: timestamp('loser_prior_notified_at', { withTimezone: true }),
-  repointedFavoriteIds: jsonb('repointed_favorite_ids').$type<string[]>().default([]).notNull(),
-  dedupedFavoriteIds: jsonb('deduped_favorite_ids').$type<string[]>().default([]).notNull(),
-  repointedCalendarAdditionIds: jsonb('repointed_calendar_addition_ids')
-    .$type<Array<{ id: string; previousScheduleId: string }>>().default([]).notNull(),
-  dedupedCalendarAdditionIds: jsonb('deduped_calendar_addition_ids').$type<string[]>().default([]).notNull(),
-  repointedReportIds: jsonb('repointed_report_ids').$type<string[]>().default([]).notNull(),
-  repointedEventPostIds: jsonb('repointed_event_post_ids').$type<string[]>().default([]).notNull(),
-  repointedAliasIds: jsonb('repointed_alias_ids').$type<string[]>().default([]).notNull(),
+  repointedFavoriteIds: customJsonb<string[]>('repointed_favorite_ids').default([]).notNull(),
+  dedupedFavoriteIds: customJsonb<string[]>('deduped_favorite_ids').default([]).notNull(),
+  repointedCalendarAdditionIds: customJsonb<Array<{ id: string; previousScheduleId: string }>>('repointed_calendar_addition_ids').default([]).notNull(),
+  dedupedCalendarAdditionIds: customJsonb<string[]>('deduped_calendar_addition_ids').default([]).notNull(),
+  repointedReportIds: customJsonb<string[]>('repointed_report_ids').default([]).notNull(),
+  repointedEventPostIds: customJsonb<string[]>('repointed_event_post_ids').default([]).notNull(),
+  repointedAliasIds: customJsonb<string[]>('repointed_alias_ids').default([]).notNull(),
   ...timestamps,
   undoneAt: timestamp('undone_at', { withTimezone: true }),
 });
@@ -665,10 +670,10 @@ export const accountProfileMerges = pgTable('account_profile_merges', {
   id: uuid('id').defaultRandom().primaryKey(),
   survivorId: uuid('survivor_id').references(() => socialMediaAccountProfiles.id).notNull(),
   twinAccountId: text('twin_account_id').notNull(),
-  twinSnapshot: jsonb('twin_snapshot').$type<Record<string, unknown>>().notNull(),
+  twinSnapshot: customJsonb<Record<string, unknown>>('twin_snapshot').notNull(),
   performedBy: text('performed_by').notNull(),
-  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull(),
-  repointed: jsonb('repointed').$type<Record<string, unknown>>().notNull(),
+  evidence: customJsonb<Record<string, unknown>>('evidence').notNull(),
+  repointed: customJsonb<Record<string, unknown>>('repointed').notNull(),
   ...timestamps,
   undoneAt: timestamp('undone_at', { withTimezone: true }),
 }, (t) => ({
@@ -683,9 +688,9 @@ export const accountProfileRepairs = pgTable('account_profile_repairs', {
   id: uuid('id').defaultRandom().primaryKey(),
   profileId: uuid('profile_id').references(() => socialMediaAccountProfiles.id).notNull(),
   repairKind: text('repair_kind').notNull(),
-  before: jsonb('before').$type<Record<string, unknown>>().notNull(),
-  after: jsonb('after').$type<Record<string, unknown>>().notNull(),
-  evidence: jsonb('evidence').$type<Record<string, unknown>>().notNull(),
+  before: customJsonb<Record<string, unknown>>('before').notNull(),
+  after: customJsonb<Record<string, unknown>>('after').notNull(),
+  evidence: customJsonb<Record<string, unknown>>('evidence').notNull(),
   performedBy: text('performed_by').notNull(),
   ...timestamps,
 }, (t) => ({
@@ -746,7 +751,7 @@ export const extractionAuditLogs = pgTable('extraction_audit_logs', {
   // 3.6s). AD-29 Rule 6 explicitly leaves this shape to this story; chosen shape is one jsonb
   // array entry per extracted event (AskUserQuestion, this story's creation), empty for a
   // non-event or zero-event attempt.
-  eventsCompleteness: jsonb('events_completeness').$type<ExtractionAuditEventCompleteness[]>().notNull(),
+  eventsCompleteness: customJsonb<ExtractionAuditEventCompleteness[]>('events_completeness').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   postIdIdx: index('idx_extraction_audit_logs_post_id').on(t.postId),
@@ -769,7 +774,7 @@ export const schedules = pgTable('schedules', {
   locationKeywords: text('location_keywords').array(),
   // Kept as text to support free-form extracted data from posters (e.g., "$10-$20" or "Free before 9 PM")
   ticketPrice: text('ticket_price'),
-  locationDetails: jsonb('location_details').$type<LocationDetails>(),
+  locationDetails: customJsonb<LocationDetails>('location_details'),
   // How `locationDetails` was found: kw1/kw2 (keywords ladder step), fb1/fb2 (text ladder), none, skipped; null = never attempted.
   locationResolution: text('location_resolution').$type<LocationResolution>(),
   latitude: doublePrecision('latitude'),
@@ -958,8 +963,8 @@ export const defaultLocationChangeRequests = pgTable('default_location_change_re
   id: uuid('id').defaultRandom().primaryKey(),
   accountId: uuid('account_id').references(() => socialMediaAccountProfiles.id).notNull(),
   changedByUserId: uuid('changed_by_user_id').references(() => users.id),
-  previousLocation: jsonb('previous_location').$type<LocationDetails>(),
-  newLocation: jsonb('new_location').$type<LocationDetails>().notNull(),
+  previousLocation: customJsonb<LocationDetails>('previous_location'),
+  newLocation: customJsonb<LocationDetails>('new_location').notNull(),
   status: defaultLocationChangeStatusEnum('status').default('PENDING_REVIEW').notNull(),
   changeSource: defaultLocationChangeSourceEnum('change_source').default('USER').notNull(),
   // Populated only when changeSource is AI_INFERENCE; gates AWAITING_APPROVAL vs immediate apply (added 2026-08-28)
@@ -1015,7 +1020,7 @@ export const corrections = pgTable('corrections', {
   id: uuid('id').defaultRandom().primaryKey(),
   eventId: uuid('event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
   submittedByUserId: uuid('submitted_by_user_id').references(() => users.id).notNull(),
-  proposedData: jsonb('proposed_data').$type<ProposedEventCorrection>().notNull(),
+  proposedData: customJsonb<ProposedEventCorrection>('proposed_data').notNull(),
   source: correctionSourceEnum('source').notNull(),
   status: correctionStatusEnum('status').default('pending').notNull(),
   // Added 2026-09-07 (Story 3.6k): audit-trail-only record of the submitter's
@@ -1101,7 +1106,7 @@ export const widgetThemeEnum = pgEnum('widget_theme', ['DARK', 'LIGHT']);
 export const widgets = pgTable('widgets', {
   id: uuid('id').defaultRandom().primaryKey(),
   ownerUserId: uuid('owner_user_id').references(() => users.id).notNull(),
-  filters: jsonb('filters').notNull(),
+  filters: customJsonb<unknown>('filters').notNull(),
   displayMode: widgetDisplayModeEnum('display_mode').default('CARD').notNull(),
   theme: widgetThemeEnum('theme').default('LIGHT').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -1178,7 +1183,7 @@ export const aiEventFilters = pgTable('ai_event_filters', {
   id: uuid('id').defaultRandom().primaryKey(),
   ownerUserId: uuid('owner_user_id').references(() => users.id).notNull(),
   prompt: text('prompt').notNull(),
-  resolvedFilter: jsonb('resolved_filter').notNull(),
+  resolvedFilter: customJsonb<unknown>('resolved_filter').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -1200,9 +1205,9 @@ export const manualExtractionJobs = pgTable('manual_extraction_jobs', {
   id: uuid('id').defaultRandom().primaryKey(),
   requestedByUserId: uuid('requested_by_user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   sourceUrl: text('source_url').notNull(),
-  requestPayload: jsonb('request_payload').$type<ManualExtractionRequestPayload>().notNull(),
+  requestPayload: customJsonb<ManualExtractionRequestPayload>('request_payload').notNull(),
   status: manualExtractionJobStatusEnum('status').default('PENDING').notNull(),
-  resultData: jsonb('result_data'),
+  resultData: customJsonb<unknown>('result_data'),
   // Stored as text (not a PG enum) so a new GraphQL ExtractionErrorCode never needs a migration.
   errorCode: text('error_code'),
   errorMessage: text('error_message'),

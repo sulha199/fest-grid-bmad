@@ -1,0 +1,30 @@
+BEGIN
+SET
+    day     |     gemini_model      | extraction_calls 
+------------+-----------------------+------------------
+ 2026-10-20 | gemini-3.5-flash-lite |               42
+ 2026-10-19 | gemini-3.5-flash-lite |              106
+ 2026-10-18 | gemini-3.5-flash-lite |               68
+ 2026-10-17 | gemini-3.5-flash-lite |              123
+ 2026-10-16 | gemini-3.5-flash-lite |              409
+ 2026-10-15 | gemini-3.5-flash-lite |               40
+ 2026-10-14 | gemini-3.5-flash-lite |               33
+ 2026-10-13 | gemini-3.5-flash-lite |               36
+ 2026-10-12 | gemini-3.5-flash-lite |               27
+ 2026-10-11 | gemini-3.5-flash-lite |               34
+ 2026-10-10 | gemini-3.5-flash-lite |               45
+ 2026-10-09 | gemini-3.5-flash-lite |               43
+ 2026-10-08 | gemini-3.5-flash-lite |               48
+ 2026-10-07 | gemini-3.5-flash-lite |               32
+ 2026-10-06 | gemini-3.5-flash-lite |               38
+(15 rows)
+
+ day | ai_filter_rows 
+-----+----------------
+(0 rows)
+
+ day | status | manual_extraction_jobs 
+-----+--------+------------------------
+(0 rows)
+
+ROLLBACK
