@@ -1,10 +1,10 @@
 ---
-backlog_id: BUG-067
+backlog_id: BUG-261018-q2a
 title: "Query.events orders by the next date alone, so offset paging repeats and skips events that share a date"
 captured: 2026-10-18
 ---
 
-# BUG-067 — the Discovery order has no unique tie-break
+# BUG-261018-q2a — the Discovery order has no unique tie-break
 
 **Captured:** 2026-10-18 · **Status:** reproduced on a scratch PostgreSQL 16.15 with the repository's migrations and `seed:volume` data (30,012 events, roughly 130 events per day over the next 60 days — more ties than production probably has). **Not reproduced on production data.**
 
@@ -21,10 +21,10 @@ The web client merges pages by id, so the visible effect is missing events (and,
 
 ## Fix direction
 
-`ORDER BY <key>, events.id`. Then, once the list is served from a maintained key (IDEA-076), an opaque cursor with a keyset seek removes the OFFSET cost as well: 0.3 ms at any depth against 18.7 ms at offset 2,000 and 130 ms at 10,000.
+`ORDER BY <key>, events.id`. Then, once the list is served from a maintained key (IDEA-261018-5lm), an opaque cursor with a keyset seek removes the OFFSET cost as well: 0.3 ms at any depth against 18.7 ms at offset 2,000 and 130 ms at 10,000.
 
 ## To verify first
 
 Page through Discovery with an account that has several events on the same day and compare the ids seen with `ORDER BY key, id` on the same data; or run `perf-pagination.ts` against a copy of production.
 
-Related: FIND-261018-9y3, IDEA-076.
+Related: FIND-261018-9y3, IDEA-261018-5lm.

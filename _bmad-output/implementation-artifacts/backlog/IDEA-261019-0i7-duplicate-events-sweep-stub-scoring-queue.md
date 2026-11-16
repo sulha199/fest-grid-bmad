@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-085
+backlog_id: IDEA-261019-0i7
 title: "Duplicate events: sweep the legacy pairs, let stub pairs reach the candidate threshold, work the moderator queue"
 captured: 2026-10-19
 ---
 
-# IDEA-085 — what the production numbers say the work is
+# IDEA-261019-0i7 — what the production numbers say the work is
 
 **Status:** triaged 2026-10-19 (scope agreed on my recommendation; no story yet). Evidence: `planning-artifacts/event-insight-poc/prod-check-results-review-2026-10-19.md` §2 and `results/recall-classes-prod-2026-10-19.txt`.
 
@@ -41,7 +41,7 @@ Adopted by the owner, both paths: one predicate `isExactRepeat` (same poster, sa
 
 ## Evidence 2026-10-29 (after PR #102 and the 2026-10-28 drain)
 
-The exact-repeat merge adopted on 2026-10-20 (PRD 3.19, FR131) is still not built, and its absence is visible: of 671 upcoming events, 41 groups (90 events, 13%) are the same account, the identical name and a shared start date, still shown more than once. Causes seen in one group: a stub paired with a full event (the stub rule never does), a roundup-sourced stub with no organizer match, a venue spelled two ways (IDEA-110). These 41 groups are a ready test set for the live check and the sweep. Detail and the flooding risk this feeds: IDEA-112.
+The exact-repeat merge adopted on 2026-10-20 (PRD 3.19, FR131) is still not built, and its absence is visible: of 671 upcoming events, 41 groups (90 events, 13%) are the same account, the identical name and a shared start date, still shown more than once. Causes seen in one group: a stub paired with a full event (the stub rule never does), a roundup-sourced stub with no organizer match, a venue spelled two ways (IDEA-110). These 41 groups are a ready test set for the live check and the sweep. Detail and the flooding risk this feeds: IDEA-261029-hjq.
 
 ## Correction 2026-10-30: the 41 groups were repeated list rows
 

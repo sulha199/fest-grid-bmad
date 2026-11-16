@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-074
+backlog_id: IDEA-261018-i9a
 title: "Personalized Discovery: extract each event's target audience (area first), order by it not the venue"
 captured: 2026-10-18
 ---
 
-# IDEA-074 — order by who the event is FOR
+# IDEA-261018-i9a — order by who the event is FOR
 
 **Captured:** 2026-10-18 · **Status:** POC done, no product code. Full design and numbers:
 `planning-artifacts/event-insight-poc/proposal-personalized-discovery.md` (rev 4) and `poc-report.md` (addenda 1–3).
@@ -17,7 +17,7 @@ Sort by the **target audience's area**, never the event's/venue's area. A nation
 
 stated in the post → (national / international scope stops the fallbacks) → for an **online** event, only the organizer's own area and only when its reach is known to be local/regional → the venue's locality, for a plain local event → the account's location, confirmed organizers whose reach is not national only → none ("for anyone").
 
-**Online is not a tier (decision 2026-10-18).** An online event is weighed by its audience exactly like an onsite one: a local government's Zoom briefing for Sleman residents is local for a Sleman user and *other-local* for a Jakarta user; a national company's webinar has no audience area and is "anywhere" for everyone. How an event is attended does not enter the order (a type-level test pins it). The reach of the organizer comes from IDEA-075.
+**Online is not a tier (decision 2026-10-18).** An online event is weighed by its audience exactly like an onsite one: a local government's Zoom briefing for Sleman residents is local for a Sleman user and *other-local* for a Jakarta user; a national company's webinar has no audience area and is "anywhere" for everyone. How an event is attended does not enter the order (a type-level test pins it). The reach of the organizer comes from IDEA-261018-vld.
 
 ## Measured (Gemini `gemini-3.5-flash-lite`, 3 runs per post, live; model confidence not used)
 
@@ -33,9 +33,9 @@ Residual: a continent-level audience ("delegates from across Asia") is scoped `i
 ## Story outline
 
 1. IDEA-261018-iv7 — canonical area ladder (prerequisite).
-2. BUG-261018-jwf / BUG-261018-abg / IDEA-075 — location policy, geocoder correctness, and the profile read that supplies country and reach (prerequisites for the account fallback).
+2. BUG-261018-jwf / BUG-261018-abg / IDEA-261018-vld — location policy, geocoder correctness, and the profile read that supplies country and reach (prerequisites for the account fallback).
 3. Extraction: audience areas + scope (+ `attendance`, BUG-261018-nyt) on the extraction response, AJV-validated, guards on write, nothing from model confidence.
 4. Ordering: one `ORDER BY` expression `(areaTier, soonestMatchingDate, id)` (AD-17/AD-18: no per-row resolver), user area from the saved location.
 5. Optional second stage: bounded relevance discount (interests/age tracks) — only after 1–4 are measured.
 
-Related: IDEA-261018-iv7, BUG-261018-ij7, BUG-261018-nyt, BUG-261018-jwf, BUG-261018-abg, IDEA-071, IDEA-075, FIND-261018-p1z.
+Related: IDEA-261018-iv7, BUG-261018-ij7, BUG-261018-nyt, BUG-261018-jwf, BUG-261018-abg, IDEA-071, IDEA-261018-vld, FIND-261018-p1z.

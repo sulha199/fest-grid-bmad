@@ -1,4 +1,4 @@
--- IDEA-085 / AD-30 Rule 7, Round 4 ask 1: the same replay as recall-replay.sql, run at three values of the same-poster stub signal (0.00 = today,
+-- IDEA-261019-0i7 / AD-30 Rule 7, Round 4 ask 1: the same replay as recall-replay.sql, run at three values of the same-poster stub signal (0.00 = today,
 -- 0.10, 0.20) so the weight is read off the rows and not off arithmetic. Added to the replay: for a pair whose newer event is a stub and whose places match
 -- (the replay's venue test: same text, or coordinates within 150 m), the signal is added to the score; the pairs are same-poster and same-normalized-name by
 -- construction. Also reports how many pairs are EXACT REPEATS in the adopted sense (identical date range and start time on the main schedule, same place):

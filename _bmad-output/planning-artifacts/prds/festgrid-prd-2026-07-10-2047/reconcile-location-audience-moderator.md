@@ -82,7 +82,7 @@ Counts. ADOPTED: 15 captured, 4 weak, 0 missing (19). Conflicts K1-K9: 7 resolve
 | PRD:371 | "336 of 432 pins ... would be withheld" | Spine: 336 name no country; 88 name one only in event text, which may be a geocoder address that the rule excludes, so more than 336 can be withheld (reliable lower bound of stated-country pins is 8, upper 96). The cost, a lost map link for any genuine foreign event whose text names no country, is implied, not said. |
 | PRD:375 | "When they disagree the posts win" | From the PROPOSED P/Q table. |
 | PRD:475-480 | `audienceCountry` and the five-value `audienceCountrySource` | Spine defers storage and extraction contract to AD-42, not yet drafted. The PRD invents the source set (it does match the four-step order plus moderator). |
-| PRD:200 | A push notification to moderators | Extract: today a moderator is never sent a push by design (push needs a device token, push on, a subscription). The direction comes from IDEA-090 ("Decided direction", untagged). |
+| PRD:200 | A push notification to moderators | Extract: today a moderator is never sent a push by design (push needs a device token, push on, a subscription). The direction comes from IDEA-261020-mqx ("Decided direction", untagged). |
 | PRD:199 | Moderator Items lists the system's automatic merges | See dedup file, section 4. |
 
 ## 6. Open questions Q1-Q13
@@ -99,7 +99,7 @@ Counts. ADOPTED: 15 captured, 4 weak, 0 missing (19). Conflicts K1-K9: 7 resolve
 | Q8 wrong-country test | RESOLVED | PRD:371 |
 | Q9 penalty size and per-page cap | FLAGGED | PRD:376 `[ASSUMPTION]` |
 | Q10 clear the 11 curators' stored defaults | FLAGGED | PRD:375 `[ASSUMPTION]`. Round 4: only 3 open curator events carry the account default as their pin, so the visible effect is small. |
-| Q11 IDEA-090 scope and badge | PARTIAL | Badge resolved, PRD:201. Cadence, recipients, opt-out, failure display flagged, PRD:200. BUG-069's cause is superseded by BUG-073 (SES sandbox; no Firebase credentials in the sending Lambdas). |
+| Q11 IDEA-261020-mqx scope and badge | PARTIAL | Badge resolved, PRD:201. Cadence, recipients, opt-out, failure display flagged, PRD:200. BUG-261020-ptv's cause is superseded by BUG-073 (SES sandbox; no Firebase credentials in the sending Lambdas). |
 | Q12 audience-area inheritance by group members | OPEN in spine | PRD silent, correctly. |
 | Q13 gazetteer source and coverage | FLAGGED | PRD:369 `[ASSUMPTION]` Indonesia first; "for other countries only the country is known" is the PRD's own assumption (the spine says a non-Indonesian country key needs another source). |
 

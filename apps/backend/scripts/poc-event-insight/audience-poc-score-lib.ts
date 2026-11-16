@@ -226,7 +226,7 @@ export function score(labelsAll: Row[], records: RunRecord[]): Report {
       { field: 'target area name, compared through the gazetteer (events where an area is stated; prompt v3)', accuracy: accuracy(stated, runs, (l) => areaCanon([l.target_area_name ?? '']), (r) => areaCanon((r.model!.targetAreas ?? []).map((a) => a.name))).pooled },
     );
 
-    // IDEA-106 (2026-10-28): what the post does about its event. An announcement, or the upcoming part of a mixed post, read as a report would be attached
+    // IDEA-261028-3ov (2026-10-28): what the post does about its event. An announcement, or the upcoming part of a mixed post, read as a report would be attached
     // to another event or lost; a report read as an announcement would still create an event.
     const kinded = labels.filter((l) => lc(l.post_kind) !== '');
     fields.push({ field: 'post kind (all posts; prompt v3)', accuracy: accuracy(kinded, runs, (l) => lc(l.post_kind), (r) => r.model!.postKind).pooled });
@@ -238,7 +238,7 @@ export function score(labelsAll: Row[], records: RunRecord[]): Report {
         if ((truth === 'report' || truth === 'mixed') && r.model!.postKind === 'announcement') junk++;
       }
     }
-    verdicts.push({ measure: 'Announcements or mixed posts read as a report (an upcoming event would be attached to another event or lost); proposed bar, IDEA-106', bar: '0', value: String(lost), status: kinded.length === 0 ? 'N/A' : lost === 0 ? 'PASS' : 'FAIL' });
+    verdicts.push({ measure: 'Announcements or mixed posts read as a report (an upcoming event would be attached to another event or lost); proposed bar, IDEA-261028-3ov', bar: '0', value: String(lost), status: kinded.length === 0 ? 'N/A' : lost === 0 ? 'PASS' : 'FAIL' });
     verdicts.push({ measure: 'Reports or mixed posts read as an announcement (they would still create an event)', bar: 'reported', value: String(junk), status: 'INFO' });
   }
 

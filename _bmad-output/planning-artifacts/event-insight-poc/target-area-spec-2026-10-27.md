@@ -174,7 +174,7 @@ Effect on the target area: the venue signal exists only when step 2 or 4 produce
 
 Data note on account-level context (prod, 2026-10-27): the missing-city rule is needed even after profile extraction. Today no bio is stored
 for any account (`description` is empty for all 367 accounts with posts) and the bio is read only transiently for account-type
-classification; profile enrichment (IDEA-075) is not built. Of 336 never-classified accounts with posts, only 4 have a default location, so under
+classification; profile enrichment (IDEA-261018-vld) is not built. Of 336 never-classified accounts with posts, only 4 have a default location, so under
 "unclassified = curator" nearly all of them have no account context until profile extraction runs for them. After extraction a city is still
 absent for: national or international accounts, multi-region accounts (the POC read "Jawa; Bali"), profiles with no place in the bio or
 latest captions, and accounts whose area is only a province. The POC measured 18 profiles (5 real, 13 synthetic), too few to estimate a rate; measure

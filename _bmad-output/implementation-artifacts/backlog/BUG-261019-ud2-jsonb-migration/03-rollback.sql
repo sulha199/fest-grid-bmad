@@ -1,4 +1,4 @@
--- BUG-068 jsonb migration, step 3 of 3: ROLLBACK (only if needed).
+-- BUG-261019-ud2 jsonb migration, step 3 of 3: ROLLBACK (only if needed).
 --   psql "$DATABASE_URL" -f 03-rollback.sql
 -- Puts back the JSON-string form, and only for values still exactly as 02-apply.sql left them (a value the application has rewritten since is left alone).
 -- Reads through Drizzle work in both shapes, so a rollback is only needed if something SQL-side misbehaves.

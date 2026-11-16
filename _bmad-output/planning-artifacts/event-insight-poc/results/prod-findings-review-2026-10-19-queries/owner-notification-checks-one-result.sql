@@ -1,4 +1,4 @@
--- BUG-069 / BUG-073, replaces result sets 1 to 3 of owner-notification-checks.sql in ONE statement, because the Supabase SQL editor shows only the last
+-- BUG-261020-ptv / BUG-073, replaces result sets 1 to 3 of owner-notification-checks.sql in ONE statement, because the Supabase SQL editor shows only the last
 -- result of a script and cannot read the :'owner_email' variable. Production has 2 registered users (2026-10-21), so no e-mail is needed: one row per
 -- user ("user 1" is the older account), no e-mail address, token value or id. OWNER-RUN (it reads users, user_settings, fcm_tokens and subscriptions,
 -- which the read-only role cannot see). Paste it into the editor and run; paste the rows back.

@@ -20,9 +20,9 @@ Full text and evidence: `planning-artifacts/event-insight-poc/target-area-spec-2
 
 1. Measure the profile read on a sample of real accounts: the bio is not stored for any account today (`description` is empty for all 367 accounts with posts); about 25% of the last 30 days' posts come from never-classified accounts.
 2. The owner verifies the 12 seeded aggregates (Kartamantul, Joglosemar, Solo Raya, Malang Raya, Bandung Raya, Semarang Raya, Gerbangkertosusila, Jawa-Bali, Bali Nusra, Sumatera, Kalimantan, Sulawesi).
-3. The real gazetteer (Kemendagri / BPS) with a revision date, and the geocoder's kecamatan problem (BUG-087).
+3. The real gazetteer (Kemendagri / BPS) with a revision date, and the geocoder's kecamatan problem (BUG-261027-smw).
 4. Where the account-scoped venue memory lives (a table keyed by account and normalised venue name), and how a moderator correction overrides it.
 5. Production extraction with poster images for `stated_poster`, and a golden set that includes poster-only posts.
 6. The probe set of 14 cases (spec section 7 and the edits draft section H), labelled blind and kept apart from the scored set.
 
-Related: IDEA-081 (target-area resolver), IDEA-075 (profile enrichment), IDEA-261026-l2j (reposts), BUG-087, AD-42.
+Related: IDEA-261019-3bp (target-area resolver), IDEA-261018-vld (profile enrichment), IDEA-261026-l2j (reposts), BUG-261027-smw, AD-42.

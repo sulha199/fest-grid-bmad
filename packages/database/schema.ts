@@ -11,7 +11,7 @@ import type { ManualExtractionRequestPayload } from '@festgrid/domain/posts';
 
 const generateSlug = () => randomBytes(6).toString('hex');
 
-// EVERY jsonb column in this file is declared with customJsonb, never with drizzle's own jsonb() (BUG-068; enforced by jsonb-columns.test.ts).
+// EVERY jsonb column in this file is declared with customJsonb, never with drizzle's own jsonb() (BUG-261019-ud2; enforced by jsonb-columns.test.ts).
 // Why: drizzle-orm 0.30's jsonb() already turns the value into a JSON string, and postgres.js then serializes that string again, so the column
 // holds a jsonb *string* whose text is the JSON; SQL-side ->>, @> and jsonb_array_elements then see nothing. This is independent of
 // `prepare: false` (reproduced with prepared statements on and off: probe-jsonb-encoding.ts). customJsonb hands the raw object to postgres.js,

@@ -4,7 +4,7 @@
 --   account_default     the schedule's location text is empty AND the pin equals the account's default location (same place id, or coordinates within 150 m)
 --   geocoded_from_text  the schedule has a location text
 --   legacy_unknown      the rest (a pin and no text that is not the account default, or no place at all)
--- Account default and location_details are read through the normalising expression because of BUG-068 (a jsonb string holding an object).
+-- Account default and location_details are read through the normalising expression because of BUG-261019-ud2 (a jsonb string holding an object).
 -- Read-only; counts only; no names, ids or text.
 with prof as (
   select p.account_id,

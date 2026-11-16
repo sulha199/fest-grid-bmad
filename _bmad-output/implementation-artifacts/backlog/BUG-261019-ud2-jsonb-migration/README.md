@@ -1,12 +1,12 @@
 ---
-backlog_id: BUG-068
+backlog_id: BUG-261019-ud2
 title: "jsonb migration runbook (look, apply, rollback) and its self-check"
 captured: 2026-10-19
 ---
 
-# BUG-068 — converting the stored jsonb strings into objects
+# BUG-261019-ud2 — converting the stored jsonb strings into objects
 
-Runbook for the **data** half of BUG-068 (the code half is `customJsonb` on the 27 plain `jsonb()` columns; see `../BUG-068-jsonb-columns-double-encoded-by-drizzle.md`). Same shape as `../IDEA-075-legacy-bulk-update/`: look, apply (one transaction), rollback, look again. **Tested on a scratch PostgreSQL 16 built from the repository's migrations (`test-on-scratch-db.sh`); not run on production data.**
+Runbook for the **data** half of BUG-261019-ud2 (the code half is `customJsonb` on the 27 plain `jsonb()` columns; see `../BUG-261019-ud2-jsonb-columns-double-encoded-by-drizzle.md`). Same shape as `../IDEA-261018-vld-legacy-bulk-update/`: look, apply (one transaction), rollback, look again. **Tested on a scratch PostgreSQL 16 built from the repository's migrations (`test-on-scratch-db.sh`); not run on production data.**
 
 **Order matters.** (1) deploy the writer fix, (2) `01-look.sql`, (3) `02-apply.sql`, (4) `01-look.sql` again, (5) run the production pack and read its "JSON encoding" item. Running 02 before the writer fix converts today's rows and leaves tomorrow's new rows as strings.
 

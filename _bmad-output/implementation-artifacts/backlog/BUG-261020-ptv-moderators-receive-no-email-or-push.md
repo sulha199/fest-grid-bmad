@@ -1,10 +1,10 @@
 ---
-backlog_id: BUG-069
+backlog_id: BUG-261020-ptv
 title: "A moderator receives no email or push notification (reported 2026-10-20, PWA installed)"
 captured: 2026-10-20
 ---
 
-# BUG-069 — what the code does, what it cannot do, and what the owner has to check
+# BUG-261020-ptv — what the code does, what it cannot do, and what the owner has to check
 
 **Status:** reported by the product owner (moderator account, PWA installed, "never received any email or push"). **Read from code only; nothing was run, and production cannot be inspected from the planning session** (the read-only role has no access to `users`, `fcm_tokens`, `user_settings` or `subscriptions` by design). Two causes are certain from the code; the third is a configuration question.
 
@@ -27,16 +27,16 @@ The queries are in `_bmad-output/planning-artifacts/event-insight-poc/results/pr
 
 ## Why it matters for the architecture
 
-AD-36 Rules 4 and 7 and AD-30 Rule 7 rely on "moderators review after the fact" and on a sweep that "must not enqueue candidates faster than moderators resolve them". If a moderator cannot be reached, review never happens. The follow-up that makes it work is IDEA-090 (a moderator work-queue digest and push). The two fixes are independent: this bug is "the existing five emails do not arrive", IDEA-090 is "the queue produces notifications".
+AD-36 Rules 4 and 7 and AD-30 Rule 7 rely on "moderators review after the fact" and on a sweep that "must not enqueue candidates faster than moderators resolve them". If a moderator cannot be reached, review never happens. The follow-up that makes it work is IDEA-261020-mqx (a moderator work-queue digest and push). The two fixes are independent: this bug is "the existing five emails do not arrive", IDEA-261020-mqx is "the queue produces notifications".
 
 ## Local investigation, 2026-10-20 (code and one browser; report: `event-insight-poc/results/notification-and-session-investigation-2026-10-20.md`)
 
 Nothing was fixed or deployed. The owner-run SQL (`owner-notification-checks.sql`), SES, Lambda environment and Supabase auth checks were **not** run, so none of the push causes below is confirmed on production.
 
-- **Email to a subscriber or a moderator about an event or a queue item does not exist.** `EMAIL_TEMPLATES` holds eight templates, none for a new event, a subscription or a queue item. This is not a defect to fix in BUG-069; it is the missing capability of IDEA-090.
+- **Email to a subscriber or a moderator about an event or a queue item does not exist.** `EMAIL_TEMPLATES` holds eight templates, none for a new event, a subscription or a queue item. This is not a defect to fix in BUG-261020-ptv; it is the missing capability of IDEA-261020-mqx.
 - **Push, ranked by the investigator (code inference):** (1) no `fcm_tokens` row for the browser or installed app: the token is saved only when the Notifications settings page loads with push on, per browser, and needs a login; (2) a subscription to a BUG-059 twin profile (the join needs `account_id` to equal the event's account); (3) no qualifying event: stubs, curator-typed and roundup events never notify, and the claim is taken before sending; (4) a missing `user_settings` row or push off (the page shows ON when the database value is null); (5) Firebase or FCM failure, reported through SES, so silent if SES is unset.
 - **Device side is not the cause in the observed browser:** permission granted, the Firebase worker active at scope `/` with all five parameters set, a push subscription present.
-- **Link to the logout defects (BUG-072):** a moderator who is logged out when the Notifications page loads saves no token. An inference from code; the logout was not reproduced in about three minutes of browsing.
+- **Link to the logout defects (BUG-261020-tqr):** a moderator who is logged out when the Notifications page loads saves no token. An inference from code; the logout was not reproduced in about three minutes of browsing.
 - **Still true:** a failed send is silent (`Promise.allSettled` ignored, or `console.error` only).
 
 Owner checklist: section 6 of the report (SQL, SES sandbox and sender, Firebase variables, moderator role, Supabase auth settings, CloudWatch counts per day, browser steps).

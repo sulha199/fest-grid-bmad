@@ -20,7 +20,7 @@ export const COST_TIERS = ['free', 'low', 'medium', 'high', 'unspecified'] as co
 export const SENSITIVE = ['none', 'religion', 'politics_civic', 'health_condition', 'sexuality', 'ethnicity'] as const;
 export const YES_NO = ['yes', 'no'] as const;
 /**
- * What a post does about its event (IDEA-106, 2026-10-28): `announcement` advertises something upcoming or running; `report` reports on an event that
+ * What a post does about its event (IDEA-261028-3ov, 2026-10-28): `announcement` advertises something upcoming or running; `report` reports on an event that
  * is under way or over (results, winners, a recap, news, a thank-you) and announces nothing upcoming; `mixed` is a report that also announces
  * something upcoming (the next round, the next edition); `none` is a post that is not about a specific event (`is_event` = no).
  */

@@ -9,7 +9,7 @@ Source: the five read-only queries of `prod-readonly/local-session-brief-2026-10
 | 1 | **Production has 2 registered users, both the owner's: the app is not released yet** (owner, 2026-10-21). Neither has push on, both following 10 or more accounts; one has 18 favorites and 1 calendar addition; no new user in 30 days | The offline replay and any A/B on signed-in users are not possible; the implicit interest profile cannot be learned or tested; per-user notification suppression has no audience today. Expected, so the work waits for launch cohorts, not for a fix (section 1) |
 | 2 | **Stub weight: 0.10, not 0.20.** 114 of the 134 stub pairs are exact repeats the exact-repeat rule handles; the weight only decides the other 20. At 0.20, six pairs with a shared link reach `high` and merge through the matcher, bypassing the exact-repeat preconditions | AD-30 Rule 7: stub signal 0.10 `[PROPOSED]`; the "ceiling 0.60, never high" sentence was wrong when a shared link is present (0.80) and is corrected |
 | 3 | **The exact-repeat sizing query over-counted "same place"**; fixed and re-run: **38 groups, 107 events, 69 soft deletes** (28 groups without a start time) | AD-30 Rule 7 figures replaced (section 3) |
-| 4 | **The push pipeline cannot send today**: the Lambdas that send pushes (Ingestor, AIProcessor) hold no Firebase credentials and no alert address; SES is in the sandbox with no verified identity | New BUG-073; BUG-069 and IDEA-090 gain a prerequisite; the grouped-notification work sits behind it |
+| 4 | **The push pipeline cannot send today**: the Lambdas that send pushes (Ingestor, AIProcessor) hold no Firebase credentials and no alert address; SES is in the sandbox with no verified identity | New BUG-073; BUG-261020-ptv and IDEA-261020-mqx gain a prerequisite; the grouped-notification work sits behind it |
 | 5 | **Only 3 open curator events lose a pin** to the place model (AD-39 Rule 3), not dozens | BUG-261018-jwf's open-event effect is small; the derive job still has to classify 61 curator events with an unknown pin source |
 
 ## 1. Usage counts (`usage-counts-prod-2026-10-21.txt`)
@@ -22,7 +22,7 @@ Source: the five read-only queries of `prod-readonly/local-session-brief-2026-10
 | Active favorites (one user) | 18 (13 in the last 28 days, none in the last 7) |
 | Users following 10 or more accounts | 2 (push on: 0) |
 
-**Owner, 2026-10-21: the app is not released yet; both users are the owner's.** So the count is a fact about the stage, not a finding about demand. Reading, and what it does not say. The table holds only people who signed in; Discovery and account pages are public, so anonymous traffic is not in these numbers (PostHog would hold it, IDEA-079). What the numbers do say is that nothing about signed-in behaviour can be measured or learned today: the replay needs many users with a history, an A/B on signed-in users cannot reach any significance, and a favorites-based interest profile would be built from one person. Consequences for the plan (recommendations; the pre-release answer stands behind them):
+**Owner, 2026-10-21: the app is not released yet; both users are the owner's.** So the count is a fact about the stage, not a finding about demand. Reading, and what it does not say. The table holds only people who signed in; Discovery and account pages are public, so anonymous traffic is not in these numbers (PostHog would hold it, IDEA-261019-4nt). What the numbers do say is that nothing about signed-in behaviour can be measured or learned today: the replay needs many users with a history, an A/B on signed-in users cannot reach any significance, and a favorites-based interest profile would be built from one person. Consequences for the plan (recommendations; the pre-release answer stands behind them):
 
 * Ranking that needs only the **viewer's location** (the area-first order, the audience country) works for anonymous visitors and needs no history: it stays.
 * The **implicit interest profile** (`user_interest_profile`, interests learned from favorites), the **offline replay** and the **A/B on signed-in users** have no population before release: they wait for launch cohorts. The **taxonomy POC** splits: tag extraction stability, vocabulary size and governance need only real events and can run before release; whether tags *predict* a favorite needs users and waits. Tags as FilterHub facets and the explicit onboarding chips need no history.
@@ -75,7 +75,7 @@ Two facts that stand regardless. (1) 32 of the 40 groups have no start time, so 
 * **Only 3 open curator events carry the account default as their pin.** That is the whole open-event effect of removing the curator fallback (BUG-261018-jwf); the 2026-10-18 reading ("11 of 17 curators hold a default") described accounts, not open events.
 * 61 curator and 30 unclassified events are `legacy_unknown`: a pin with no schedule text, or nothing. Their pin source cannot be told apart; the derive job must classify them, and `legacy_unknown` readers never give them `EXACT` on a non-venue account (AD-39 Rule 7).
 * 23 organizer events are `account_default`: they keep a trusted pin only when AD-39 Rule 3's venue conditions hold (confirmed `ORGANIZER_VENUE_EVENT`, local or regional reach, organizer-authored).
-* 103 open events (22%) come from unclassified accounts; the legacy bulk update (IDEA-075) decides how many of them become curators.
+* 103 open events (22%) come from unclassified accounts; the legacy bulk update (IDEA-261018-vld) decides how many of them become curators.
 
 ## 5. Foreign pins and the stated country (`foreign-pins-country-text-prod-2026-10-21.txt`)
 
@@ -100,7 +100,7 @@ Two facts that stand regardless. (1) 32 of the 40 groups have no start time, so 
 * The claim comes before the send and is never retried, so events claimed during the credential outage can never notify (721 of 1,181 recent events are claimed).
 * Result sets 1 to 3 of the owner's SQL are still missing (the editor could not take the variable).
 
-Consequences: grouped-event notifications (AD-36 Rules 14 and 17.5) and moderator queue notifications (IDEA-090) both need, first, working credentials in the sending Lambdas, SES production access with a verified sender, and a decision on releasing the claim when initialisation fails. Recommendation for the third: release the claim only when the failure happens **before** any FCM request was made (initialisation), which cannot double-send; keep claim-before-send for every other failure.
+Consequences: grouped-event notifications (AD-36 Rules 14 and 17.5) and moderator queue notifications (IDEA-261020-mqx) both need, first, working credentials in the sending Lambdas, SES production access with a verified sender, and a decision on releasing the claim when initialisation fails. Recommendation for the third: release the claim only when the failure happens **before** any FCM request was made (initialisation), which cannot double-send; keep claim-before-send for every other failure.
 
 ## 7. Open questions for the owner
 

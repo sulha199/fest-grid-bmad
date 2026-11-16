@@ -631,7 +631,7 @@ This document defines the core architectural invariants for the FestDaily applic
         (reverse-geocoded by the derive job for a country code only; 3 of the 4 sampled are right, too
         few to trust them without it), and the re-geocode of the 213 open events with an untrusted
         pin. The gazetteer-first routing of area phrases
-        ("DIY & Jawa Tengah" answered with a PLN office at 0.66) belongs to AD-39 and IDEA-081.
+        ("DIY & Jawa Tengah" answered with a PLN office at 0.66) belongs to AD-39 and IDEA-261019-3bp.
 
 ---
 ### AD-15: Event Card Media Primitive
@@ -2047,7 +2047,7 @@ This document defines the core architectural invariants for the FestDaily applic
         Weights and thresholds are unchanged. A pair already in the database is merged by a
         moderator accepting the queued suggestion, or by `merge-events-by-slug.ts` (a dry run by
         default) when no suggestion exists; both run `mergeEvents()` (Rule 9) and are undoable.
-        **Amended 2026-10-19 (production check 2026-10-19; IDEA-085; evidence:
+        **Amended 2026-10-19 (production check 2026-10-19; IDEA-261019-0i7; evidence:
         `event-insight-poc/prod-check-results-review-2026-10-19.md` §2 and §10).** Of the 446
         same-account, same-normalized-name pairs, the matcher is *able* to act on only the
         reachable ones; recall on them is 23 of 178 (12.9%).
@@ -2056,11 +2056,11 @@ This document defines the core architectural invariants for the FestDaily applic
             pair scores at most 0.25 + 0.15 (same venue) = 0.40 < 0.45 unless the two share a link
             (+0.20). Production: stub pairs without a shared link are candidates **0 of 122**.
             **A scoring rule for stub-vs-stub pairs is required.** The exact rule and weights are
-            **Deferred** to IDEA-085 after the offline `computeMatchScore` replay
+            **Deferred** to IDEA-261019-0i7 after the offline `computeMatchScore` replay
             (`recall-replay.sql`, Round 3 item 8), as a further amendment of this Rule (weights are
             spine-fixed). It must keep BUG-058's intent for pairs that span different accounts.
         *   **The matcher gets a second entry point.** Matching was write-path only, so pairs that
-            existed before the matcher ran (160 of 446) can never be touched. IDEA-085 adds a
+            existed before the matcher ran (160 of 446) can never be touched. IDEA-261019-0i7 adds a
             one-time sweep over existing rows that scores pairs with the same pure
             `computeMatchScore`: `high` pairs are merged through `mergeEvents()` (journaled,
             undoable, Rule 9), `mid` pairs become `event_match_candidates`, `low` are ignored.
@@ -2167,7 +2167,7 @@ This document defines the core architectural invariants for the FestDaily applic
             and every repointed favorite cascade with it).
         *   **The insert bound would insert nothing today.** `max(0, 50 - pending)` is 0 while 147
             candidates are pending (75 older than 7 days, 0 resolved), so the sweep's `mid` pairs
-            would never reach a moderator who, in addition, is not notified (BUG-069, IDEA-090).
+            would never reach a moderator who, in addition, is not notified (BUG-261020-ptv, IDEA-261020-mqx).
             `[PROPOSED; corrected by review R4]` only pending candidates **younger than 7 days**
             count against the bound, and **expiry is derived, not a status**: a pending candidate is
             actionable only while both events are alive, unmerged and have an open schedule, which
@@ -2817,8 +2817,8 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Binds:** `packages/database/schema.ts` (new `event_groups` table, new `events.group_id`
     nullable FK); the group-suggestion pipeline (new); `mergeEvents()`/`undoEventMerge` (AD-30 Rule
     9, Stories 3.6v/3.6w); Moderator Tools (PRD §3.9.3); AD-30 Rule 5 / FR113's `program-lineup`
-    branch (reopened as a **plan**, Rule 6 below); IDEA-084 (event groups), IDEA-085 (matcher
-    recall), BUG-068 (`location_details` JSON-string encoding) and the PRD §3.7 "Default Location:
+    branch (reopened as a **plan**, Rule 6 below); IDEA-261019-hnl (event groups), IDEA-261019-0i7 (matcher
+    recall), BUG-261019-ud2 (`location_details` JSON-string encoding) and the PRD §3.7 "Default Location:
     Immediate Apply with Moderator Oversight" convention this AD reuses; since 2026-10-19 also
     AD-37 (jsonb write path), AD-38 (event identity, which creates `series` groups) and AD-39
     (place model). Evidence:
@@ -2832,7 +2832,7 @@ This document defines the core architectural invariants for the FestDaily applic
     duplicates and producing groups of copies; a group-based location inherited from an anchor whose
     own `location_details` is unverified-shape data; a pre-approval gate for group suggestions that
     contradicts the spine's existing non-blocking-review convention; two independent rewrites of the
-    `program-lineup` extraction shape (this AD's plan vs whatever IDEA-074's branch does on its own).
+    `program-lineup` extraction shape (this AD's plan vs whatever IDEA-261018-i9a's branch does on its own).
 *   **Rule:**
     1.  **Schema — a group entity, not a second merge and not a schedule.** A group is "these
         distinct events belong to one named programme"; a merge is "these rows are one event"
@@ -2903,7 +2903,7 @@ This document defines the core architectural invariants for the FestDaily applic
         anchor and SCH has no Tier 1 umbrella, **SCH becomes a programme only when a moderator
         creates the group with its `(keyword, organizer)` seed** (the `moderator` detector). The
         decision that SCH is a programme stands; its delivery depends on a reachable moderator
-        (IDEA-090) and is a manual step until Tier 3 exists.
+        (IDEA-261020-mqx) and is a manual step until Tier 3 exists.
     4.  **Confirmation policy — immediate-apply, notify-don't-block.** `[ADOPTED, user-directed,
         modified from the tier-gated recommendation]`: every tier writes the group/membership
         immediately; **nothing in ingestion, matching or display waits on a moderator.** This
@@ -2946,7 +2946,7 @@ This document defines the core architectural invariants for the FestDaily applic
         extraction contract, ingestion shape and migration are **not changed in this pass**.
         Current production behavior (hidden schedules) stays in force until delivered. Per the
         user: "we only make the plan now, but the implementation will be done together along with
-        the personalization works that is in this branch" (IDEA-074 and its dependents) — so this
+        the personalization works that is in this branch" (IDEA-261018-i9a and its dependents) — so this
         reshape is sequenced with that branch's work, not scheduled independently.
         **Amended 2026-10-19.** The reshape is now the group half of one rule, **AD-38**: an event
         is one activity at one place-set. Items of a `program-lineup` post that are distinct
@@ -2983,23 +2983,23 @@ This document defines the core architectural invariants for the FestDaily applic
         caption mention without being programme children, and a group member need not share a post
         with any other member. No shared implementation; both may surface as separate affordances
         on the event-detail page.
-    9.  **Location inheritance is gated behind BUG-068 — a hard sequencing rule, not a preference.**
+    9.  **Location inheritance is gated behind BUG-261019-ud2 — a hard sequencing rule, not a preference.**
         A child event missing a location MAY eventually inherit its anchor's venue, but this
-        **must not ship** before `schedules.location_details`'s JSON-string storage (BUG-068) is
+        **must not ship** before `schedules.location_details`'s JSON-string storage (BUG-261019-ud2) is
         fixed and reverified on production. Shipping earlier risks propagating a double-encoded or
         (BUG-261018-abg) wrong-country value to every ungrounded child. This AD reserves the behavior; it
         does not build it.
-        **Amended 2026-10-19.** The BUG-068 writer fix is implemented (AD-37) and **not deployed**;
+        **Amended 2026-10-19.** The BUG-261019-ud2 writer fix is implemented (AD-37) and **not deployed**;
         the gate is now "writer deployed, row migration run and verified on production, and
         BUG-261018-abg's wrong-country pins no longer reach a child". **Audience-area inheritance** (a
         child with no stated area taking its group's) does not depend on coordinates and is
         therefore not gated by this Rule; it is an open decision (AD-39, Deferred).
     10. **Deduplication-first is a hard sequencing rule, not a preference.** Grouping must not run —
         not even Tier 1 — over the **existing backlog** of unmerged duplicate events: the write-up's
-        §6/§7 conclusion is that doing so "builds groups of copies." **IDEA-085 (raise the
+        §6/§7 conclusion is that doing so "builds groups of copies." **IDEA-261019-0i7 (raise the
         matcher's recall, clear the 147-candidate/75-stale-day moderator queue) must ship and be
         verified** (`event_merges` > 0 rows, the reachable-pair gate stated below) **before
-        IDEA-084 processes the existing event backlog.** `[ASSUMPTION]` going-forward grouping of
+        IDEA-261019-hnl processes the existing event backlog.** `[ASSUMPTION]` going-forward grouping of
         newly-ingested events is not held to the same gate, since AD-30's write-path matching
         (Rule 7) already reduces, though does not eliminate, new duplicates — confirm this
         backfill-vs-going-forward split at story time if a stricter "pause everything" reading is
@@ -3010,11 +3010,11 @@ This document defines the core architectural invariants for the FestDaily applic
         **after** the AD-38 Rule 6 exclusions (otherwise series siblings at different places are
         counted and 80% is unreachable): at least 80% merged, dismissed, or holding a candidate no
         older than 7 days, and the legacy class swept (AD-30 Rule 7, amended). `[ASSUMPTION]` the 80%
-        threshold (review gap G3), to be confirmed in IDEA-085.
+        threshold (review gap G3), to be confirmed in IDEA-261019-0i7.
         **Measured 2026-10-20 (Round 3 item 8):** 25 of the 181 reachable pairs (14%) hold a candidate,
         and 123 pairs (68%) cannot reach `mid` until AD-30 Rule 7's stub rule exists, so **the gate
         cannot be met by the sweep alone**: the stub rule and a working queue (or the exact-repeat
-        merge) are prerequisites of IDEA-084's backlog run.
+        merge) are prerequisites of IDEA-261019-hnl's backlog run.
     11. **What's measured and what isn't (write-up §9 — carried forward, not re-claimed as
         settled).** Measured: Tier-1 precision (§5, spot-checked genuine); Tier-2 as an
         anchor/road-to-event finder but not as a children finder (§4); matcher recall (5%, 23/446,
@@ -3256,7 +3256,7 @@ This document defines the core architectural invariants for the FestDaily applic
         `[ADOPTED, user-accepted; delivery gate and request switch PROPOSED]`
         - **Delivery gate.** Today's `Query.events` orders by the next schedule date with
           `LIMIT/OFFSET`: it has no score, no candidate cap K and no ids-then-hydrate. This Rule
-          ships **after** the ranked list of IDEA-074 / IDEA-076 / IDEA-080 and is not delivered
+          ships **after** the ranked list of IDEA-261018-i9a / IDEA-261018-5lm / IDEA-261019-2cy and is not delivered
           earlier. (On today's order the same cap would be
           `row_number() OVER (PARTITION BY coalesce(g.id, e.id) ORDER BY <current order key>)`.)
         - **Request switch.** `Query.events` takes `groupCollapse: Boolean = false`; only the
@@ -3301,7 +3301,7 @@ This document defines the core architectural invariants for the FestDaily applic
           score, its `bool_or` window runs before the rescore and the `row_number` after it.
         - **One query, no double fetch**: candidate set (cap K), score, window passes, outer-query
           cap, order, `LIMIT/OFFSET`. Name, kind and `member_count` are denormalized on
-          `event_groups` and joined for the displayed rows. With the ranked-ids mode (IDEA-080) the
+          `event_groups` and joined for the displayed rows. With the ranked-ids mode (IDEA-261019-2cy) the
           id list also carries `group_id`, name, kind and `matching_count`. The group surface is a
           **separate on-demand query** on the partial index of Rule 1.
         - **Gate and measured cost.** An EXPLAIN gate (AD-30 Rules 4 and 6) on the 120k-event seed
@@ -3413,7 +3413,7 @@ This document defines the core architectural invariants for the FestDaily applic
           row-count ratchet and the seed; the story that adds the tables runs both on the new
           schema.
         - **Enforced by:** the ratchet and consistency query above; tests that every detector is a
-          no-op when its flag is off; the Rule 12 fixture; a guard that refuses the IDEA-084 backlog
+          no-op when its flag is off; the Rule 12 fixture; a guard that refuses the IDEA-261019-hnl backlog
           job unless the Rule 10 gate query (`event-insight-poc/results/
           prod-findings-review-2026-10-19-queries/recall-classes.sql`, class 4) passes; the
           `getTablesInDeleteOrder` fixture test.
@@ -3549,14 +3549,14 @@ This document defines the core architectural invariants for the FestDaily applic
            organizer-authored test says so); the group stores its organizer at creation, and a member
            whose organizer changes by promotion is re-evaluated. Cross-account same-place duplicates
            (one event posted by several accounts: 7 of the 24 clusters on the export) belong to the
-           matcher: IDEA-085 gains a **cross-poster duplicate rule** (normalized name equal,
+           matcher: IDEA-261019-0i7 gains a **cross-poster duplicate rule** (normalized name equal,
            `isSamePlace` = `same`, date ranges sharing a date, any posters) that yields `mid`; the
            organizer weight is absent for different posters, so the best score without it is 0.40,
            below `mid`.
         8. **Safety net, made real.** The per-detector switch stops creation only;
            `dissolveBySource(source, createdSince)` is the bulk undo that restores every member,
            journaled. The "nightly list of newly created cross-account groups" needs a carrier now
-           (a table the owner opens, or an artifact); until IDEA-090 ships it is unobserved, and this
+           (a table the owner opens, or an artifact); until IDEA-261020-mqx ships it is unobserved, and this
            rule says so.
 *   **Considered and rejected:** Option B, reusing Story 3.6u's related events (shared-post-only,
     cannot express a cross-post or cross-account group); Option C, `parent_event_id` on `events`
@@ -3575,7 +3575,7 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Deferred:** the group-review journal's exact shape (Rule 5); whether Tier 1 also notifies
     moderators (Rule 4's `[ASSUMPTION]`); the Tier-3 `extraction_field` anchor itself (reserved, not
     built — no story yet); the `program-lineup` reshape's migration and extraction-contract rewrite
-    (Rule 6) — its own architecture/story pass, timed with the IDEA-074 branch; whether
+    (Rule 6) — its own architecture/story pass, timed with the IDEA-261018-i9a branch; whether
     `event_groups` needs a dedicated undo-toast UI beyond the moderator "review group" action; the
     backfill-vs-going-forward dedup-gate split (Rule 10's `[ASSUMPTION]`). Added 2026-10-19: the
     values of `GAP` and the due delay (Rules 12 and 14), and the optional programme soft cap (Rule 13,
@@ -3584,34 +3584,34 @@ This document defines the core architectural invariants for the FestDaily applic
     surface UX (Rule 15); the carrier of the
     moderator notifications of Rules 4 and 7: today a moderator is emailed for only five event types
     (dangerous report, default-location change, two scraper alerts) and nothing reaches them about
-    queue items (BUG-069, IDEA-090), so "review after the fact" depends on IDEA-090;
+    queue items (BUG-261020-ptv, IDEA-261020-mqx), so "review after the fact" depends on IDEA-261020-mqx;
     `posts.extracted_event_count` stays the pre-split count, and "See all N events" reads
     `relatedEventIds` (AD-30 Rule 11).
 *   **Follow-ups this AD creates (for `bmad-form-epics` to cluster):**
-    1.  **IDEA-084 core** — `event_groups` schema, the Tier-1/Tier-2 suggestion pipeline, the
+    1.  **IDEA-261019-hnl core** — `event_groups` schema, the Tier-1/Tier-2 suggestion pipeline, the
         non-blocking moderator notification + "review group" action (Rules 1–5).
     2.  **Merge/group reconciliation** — the small addition to `mergeEvents()`/`undoEventMerge`
         (Rule 7); naturally rides with Stories 3.6v/3.6w's existing surface.
     3.  **`program-lineup` reshape** — the AD-30 Rule 5 amendment itself plus its migration and
-        extraction-contract change (Rule 6); sequence with the IDEA-074 personalization branch per
+        extraction-contract change (Rule 6); sequence with the IDEA-261018-i9a personalization branch per
         the user's explicit instruction, not as a standalone epic.
-    4.  **Group-based location inheritance** — a distinct, later idea gated behind BUG-068's fix and
-        reverification (Rule 9); do not bundle into the IDEA-084 core epic.
-    5.  **IDEA-085 (prerequisite)** — matcher recall + moderator-queue clearing; must land and be
-        verified before IDEA-084 runs against the existing event backlog (Rule 10).
-    6.  **BUG-068 (prerequisite)** — fix the `location_details` JSON-string encoding and verify the
+    4.  **Group-based location inheritance** — a distinct, later idea gated behind BUG-261019-ud2's fix and
+        reverification (Rule 9); do not bundle into the IDEA-261019-hnl core epic.
+    5.  **IDEA-261019-0i7 (prerequisite)** — matcher recall + moderator-queue clearing; must land and be
+        verified before IDEA-261019-hnl runs against the existing event backlog (Rule 10).
+    6.  **BUG-261019-ud2 (prerequisite)** — fix the `location_details` JSON-string encoding and verify the
         mechanism; gates follow-up 4.
     7.  **Tier-3 extraction-field anchor** — a new idea, not yet in the backlog; an AI-extraction
         contract change, candidate for its own `IDEA-0xx` row when the team is ready to schedule it.
     8.  **Group kinds, series identity and Discovery handling** (Rules 12–13) — the derivation
         function, the window-function cap in `Query.events` and the group-level seen input; the
-        cap ships after the ranked list (IDEA-074/076/080) and with the AD-38 splitter.
+        cap ships after the ranked list (IDEA-261018-i9a/076/080) and with the AD-38 splitter.
     9.  **Per-group notifications** (Rule 14) — `events.notify_due_at`, `notifyDueGroups()` in
         the ingestor's drain, and the PRD change.
     10. **Group surface** (Rule 15) — the on-demand members query and the event-page section
         (UX step first).
     11. **Group integrity** (Rule 16) — `group-membership.ts`, the advisory lock, the detector
-        switches, the `getTablesInDeleteOrder` fix; part of IDEA-084 core.
+        switches, the `getTablesInDeleteOrder` fix; part of IDEA-261019-hnl core.
 
 ---
 
@@ -3621,9 +3621,9 @@ This document defines the core architectural invariants for the FestDaily applic
     the ratchet `packages/database/jsonb-columns.test.ts` and the regression test
     `apps/backend/src/schema/jsonb-encoding.test.ts`; every `postgres()` client (`db/client.ts`,
     scripts, seeds); any SQL that reads a jsonb column (`->>`, `jsonb_array_elements`, `@>`,
-    expression indexes: IDEA-261018-iv7, IDEA-081, AD-39, AD-36 Rule 9) including the two that exist today,
+    expression indexes: IDEA-261018-iv7, IDEA-261019-3bp, AD-39, AD-36 Rule 9) including the two that exist today,
     the `adminArea`/`venueType` filters at `resolvers.ts:3401–3402`; the migration runbook
-    `_bmad-output/implementation-artifacts/backlog/BUG-068-jsonb-migration/`; BUG-068 (implemented
+    `_bmad-output/implementation-artifacts/backlog/BUG-261019-ud2-jsonb-migration/`; BUG-261019-ud2 (implemented
     2026-10-19, commit `decbd76`, **not deployed**).
 *   **Prevents:** A jsonb *string* stored where an object was meant: with drizzle-orm 0.30.10 and
     postgres.js 3.4.9 a plain `jsonb()` column is stringified twice, so production holds a string
@@ -3638,7 +3638,7 @@ This document defines the core architectural invariants for the FestDaily applic
         `toDriver` hands the **raw object** to postgres.js, which serializes it once; `fromDriver`
         parses a legacy string, so a row is readable in either shape. `.notNull()` and
         `.default([])` are kept. The type had been applied to the three
-        `unprocessed_scraper_payloads` columns since 2026-08-29 (`deferred-work.md`); BUG-068
+        `unprocessed_scraper_payloads` columns since 2026-08-29 (`deferred-work.md`); BUG-261019-ud2
         completes it for the other 27. It is migration-neutral (`drizzle-kit generate` reports
         nothing to migrate; re-checked on 0.21.4). **No jsonb column holds a top-level JSON string**
         (`fromDriver` would parse it back to a number or object); a column that must is `text`.
@@ -3711,7 +3711,7 @@ This document defines the core architectural invariants for the FestDaily applic
     (grouping rules), Rule 7 (matcher candidate exclusions, the sweep) and Rule 9 (`mergeEvents`,
     enrichment); `notify-new-event.ts` (via AD-36 Rule 14); the split journal and the Moderator
     Tools "split event" action; AD-36 (groups); `Query.events` location filters (BUG-261018-nyt, via
-    AD-39); `diagrams/event-dedup-flow.html`; IDEA-086, IDEA-084, IDEA-085; the Gemini quota (AD-10,
+    AD-39); `diagrams/event-dedup-flow.html`; IDEA-261019-1pm, IDEA-261019-hnl, IDEA-261019-0i7; the Gemini quota (AD-10,
     AD-32). Evidence: `event-insight-poc/prod-check-results-review-2026-10-19.md`; the Riot Jogja
     "Wednesday Night Run" case, reported by the product owner (prevalence unmeasured until Round 3
     items 11 and 13).
@@ -3763,7 +3763,7 @@ This document defines the core architectural invariants for the FestDaily applic
         - **Activity split:** each distinct `program-lineup` item becomes an event of a `programme`
           group. It does not run until the extraction contract carries a criterion for "distinct
           activity" versus "one activity on several dates" (the PRD uses `program-lineup` for both),
-          so it is its own follow-up and not part of IDEA-086 core. Never for `dependent-stages`.
+          so it is its own follow-up and not part of IDEA-261019-1pm core. Never for `dependent-stages`.
         - **Both apply:** `group_id` is the programme; the place siblings are tied by the shared
           source post and an identical normalized activity name (AD-36 Rule 12).
         - The place split is a pure function; the activity split inherits the extractor's
@@ -3854,7 +3854,7 @@ This document defines the core architectural invariants for the FestDaily applic
           not gated.
         - **Step 1, split without creating groups.** Events whose schedules already carry distinct
           places are split by the Rule 2 function (no model call); the residual (the place exists
-          only in a schedule title) is re-extracted on Flash Lite. **Step 2, re-run the IDEA-085
+          only in a schedule title) is re-extracted on Flash Lite. **Step 2, re-run the IDEA-261019-0i7
           sweep over the split output**: every backfill-created event also passes
           `findMatchingEvent`, otherwise a split child and a live single-place event of the same
           series are duplicates that nothing re-checks. **Step 3, group attach** (deterministic ids,
@@ -3929,7 +3929,7 @@ This document defines the core architectural invariants for the FestDaily applic
         places is `different` by `isSamePlace` (an `unresolved` pair keeps the candidate).
         `[ASSUMPTION]` for (b); the consequence of being wrong is over-exclusion, which leaves a real
         duplicate to a moderator merge. This is a candidate-generation exclusion in the matcher and in
-        the IDEA-085 sweep, not a change to the spine-fixed weights and thresholds (AD-30 Rule 7);
+        the IDEA-261019-0i7 sweep, not a change to the spine-fixed weights and thresholds (AD-30 Rule 7);
         the venue test and the Tier 2 venue test call `isSamePlace`, and the Rule 10 gate metric
         counts the pairs left after these exclusions. A moderator merge of siblings is guarded by
         AD-30 Rule 9.
@@ -3966,16 +3966,16 @@ This document defines the core architectural invariants for the FestDaily applic
     `events-multi-place.sql`, `gemini-usage.sql`) are run; the extraction-contract criterion and the `isRoute` field; the exact shape of the split journal and
     `event_split_proposals`.
 *   **Follow-ups this AD creates (for `bmad-form-epics`), in dependency order:**
-    1.  **IDEA-086 core** — `isSamePlace`, `normalizeName`, the gazetteer file (Indonesia-only), the
+    1.  **IDEA-261019-1pm core** — `isSamePlace`, `normalizeName`, the gazetteer file (Indonesia-only), the
         normalizer, `siblingOrdinal`, the cap and the write-path order (Rules 1–3), behind the
         `place-normalizer` flag.
-    2.  **IDEA-085** — stub-vs-stub scoring, the Rule 6 exclusions, the sweep and its system user
+    2.  **IDEA-261019-0i7** — stub-vs-stub scoring, the Rule 6 exclusions, the sweep and its system user
         (AD-30 Rule 7); needs follow-up 1 for `isSamePlace`.
     3.  **Split and backfill** — the journal, `undoEventSplit`, the moderator action, the dry-run
         queue and the per-run caps (Rules 4–5); gated by follow-up 2 (AD-36 Rule 10).
     4.  **Activity split** — the extraction-contract criterion, the `isRoute` field and the
         `program-lineup` reshape (AD-36 Rule 6); its own story, after follow-up 1.
-    5.  **IDEA-084 backlog run** — grouping the existing events, after follow-ups 2 and 3.
+    5.  **IDEA-261019-hnl backlog run** — grouping the existing events, after follow-ups 2 and 3.
     6.  **PRD change** — per-group notifications, favorites at split.
 
 ---
@@ -3988,7 +3988,7 @@ This document defines the core architectural invariants for the FestDaily applic
     timezone tier 2); the `Query.events` location filters, tier ordering (the POC's `tierFor`) and
     partial-match lane; the paid score's distance term; AD-14 (pin trust), AD-22 (Nearby), AD-24
     (badge primitives), AD-34 (account types); the GraphQL `Event` and `Schedule` types; IDEA-261018-iv7
-    (area ladder), IDEA-075 (audience-area enrichment), IDEA-081 (target-area resolver), IDEA-087
+    (area ladder), IDEA-261018-vld (audience-area enrichment), IDEA-261019-3bp (target-area resolver), IDEA-261019-lfd
     (new: place model), BUG-261018-ij7, BUG-261018-nyt, BUG-261018-jwf, BUG-261018-abg. Reference implementations (POC, not
     production): `apps/backend/scripts/poc-event-insight/area-resolver.ts`, `location-policy.ts`,
     `audience-areas.ts`, `partial-match.ts`.
@@ -4009,7 +4009,7 @@ This document defines the core architectural invariants for the FestDaily applic
         `{id, id-yo, id-yo-sleman}`; `inside X` is `area_keys @> {X}`), `events.area_leaf_key` (the
         finest key, for `covers`) and `events.area_source` (`stated | pin | heading | account`).
         `[ADOPTED, user-accepted 2026-10-20]` the storage shape is fixed now so the writer and the
-        filters cannot diverge; IDEA-087 may still revise it before the first migration. (c) The **provenance**:
+        filters cannot diverge; IDEA-261019-lfd may still revise it before the first migration. (c) The **provenance**:
         `schedules.location_source`, written at ingestion: `stated` (the poster named the place or
         a user picked it), `geocoded_from_text` (Geoapify resolved free text), `account_default`,
         `account_audience_area`, `none`, and `legacy_unknown` (existing rows, Rule 7).
@@ -4092,7 +4092,7 @@ This document defines the core architectural invariants for the FestDaily applic
           **published** with `area_status = unknown` (default tier, ranking penalty, per-page cap;
           Rule 4), and the account is listed for a moderator to set an area (the backstop, not the
           mechanism). `[ADOPTED, user-directed 2026-10-21: publish rather than hold. Moderators resolved
-          0 of 147 queued candidates and receive no notification about queue items today (BUG-069),
+          0 of 147 queued candidates and receive no notification about queue items today (BUG-261020-ptv),
           so a hold would be indefinite and silent.]` An event that states its own area or venue keeps it
           (`area_source = stated` or `pin`); only an event with no clue at all is `unknown`.
           Moderator review of a model- or posts-derived area happens after the fact.
@@ -4107,7 +4107,7 @@ This document defines the core architectural invariants for the FestDaily applic
           Central Java), and the sample is far too small for a rate. Hence the area is a proposal a
           moderator can correct, and a real-curator evaluation is the gate for trusting it without
           that pass (Deferred). For the 463 of the 466 legacy accounts that have no default location
-          (IDEA-075 bulk update) the same enrichment runs; where it resolves nothing the area stays
+          (IDEA-261018-vld bulk update) the same enrichment runs; where it resolves nothing the area stays
           unset. Setting an area re-queues that account's `unknown` events once.
         - **Venue accounts:** the account's default location may serve as the event's place (and its
           pin may be `trusted`) only when `location_source = account_default`, the account is a
@@ -4120,7 +4120,7 @@ This document defines the core architectural invariants for the FestDaily applic
           `untrusted` and precision at most `AREA`; such an event appears in "In your area" and the
           partial lane and never in Nearby. This narrows the POC's `mayUseAccountLocation`, which
           let never-classified accounts lend their location, an owner decision of 2026-10-18 that
-          this reverses for the (few, after IDEA-075) accounts it still affects.
+          this reverses for the (few, after IDEA-261018-vld) accounts it still affects.
     4.  **Unknown area is shown, penalised and capped, and retried by a budgeted job.**
         `[ADOPTED, user-accepted]` An event with no stated area, no usable place text ("usable" =
         resolves to a key or a trusted pin) and no usable account fallback appears in the default
@@ -4215,7 +4215,7 @@ This document defines the core architectural invariants for the FestDaily applic
           stated audience is `international`; (2) the country of the event's known place: a trusted
           pin's country or the single country named in the stated text (AD-14 Rule 7 (e)), or the
           root key of its known area (area keys are ancestor-closed, Rule 1); (3) the account's own
-          country when it has one (IDEA-075); (4) the platform default country `id`, recorded with
+          country when it has one (IDEA-261018-vld); (4) the platform default country `id`, recorded with
           source `default`.
           **`[ADOPTED, user-directed 2026-10-21 ("all recommended"); cues and thresholds are
           PROPOSED until the audience POC]`** a step is inserted between (1) and (2), **who the post addresses**: the language
@@ -4273,18 +4273,18 @@ This document defines the core architectural invariants for the FestDaily applic
     judgement) before the model-derived area is trusted without a moderator pass; the gazetteer's data
     source, licence and coverage beyond the POC's sample list (versioned data file, Indonesia-only
     first); **audience-area inheritance by group members** (a child with no stated area taking its
-    group's, AD-36 Rule 9; no coordinates involved, so not gated by BUG-068); deriving a schedule's
+    group's, AD-36 Rule 9; no coordinates involved, so not gated by BUG-261019-ud2); deriving a schedule's
     time zone from its area key when there is no pin `[ASSUMPTION]`; the penalty, per-page cap and
     job-size values (Rule 4); removing the `'Location not specified'` placeholder.
 *   **Follow-ups this AD creates (for `bmad-form-epics`):**
-    1.  **IDEA-087 core** — the provenance fields, `area_*`, the area-key resolver, the gazetteer
+    1.  **IDEA-261019-lfd core** — the provenance fields, `area_*`, the area-key resolver, the gazetteer
         file, `resolveEventPlace()` and the single writers (Rules 1–3, 7).
     2.  **Curator audience area** — `audience_area_keys`, `setAudienceArea()`, the
         P/Q validation, the legacy derivation and the removal of the account-
-        default fallback for curators (Rule 3; BUG-261018-jwf, IDEA-075), and the real-curator evaluation
+        default fallback for curators (Rule 3; BUG-261018-jwf, IDEA-261018-vld), and the real-curator evaluation
         that gates confirming without review.
     3.  **Derive and switch** — the Rule 7 job and the reader flip, after AD-37's row migration.
-    4.  **Filter, lane and score semantics** (Rule 5; BUG-261018-nyt, IDEA-081).
+    4.  **Filter, lane and score semantics** (Rule 5; BUG-261018-nyt, IDEA-261019-3bp).
     5.  **Exposure and badge** (Rule 6) — with the UX step.
 
 ---
@@ -4659,7 +4659,7 @@ This document defines the core architectural invariants for the FestDaily applic
     audience-country ladder), AD-30 (primary post, merge), AD-31 (organizer-authored), AD-32 (the
     vendor wrapper), AD-37 (jsonb writes), AD-38 Rule 5 (backfill key), AD-36 (groups), AD-14 and
     AD-39 (place). Source proposal: `event-insight-poc/proposal-personalized-discovery.md`
-    (Revisions 2 to 9). IDEA-074 (audience extraction and ordering), IDEA-075 (account country),
+    (Revisions 2 to 9). IDEA-261018-i9a (audience extraction and ordering), IDEA-261018-vld (account country),
     IDEA-072 (the evaluation machinery).
 *   **Prevents:** A model answer driving a filter, a label or an order without a deterministic check
     (the POC saw invented ages, a venue read as the audience, "national" from a national-sounding
@@ -4761,7 +4761,7 @@ This document defines the core architectural invariants for the FestDaily applic
         (open-core plan, 2026-10-21); the server returns coarse match reasons per event (for example
         the matched interest keys), never weights, so no scoring rule reaches the web bundle.** Sort RECOMMENDED versus SOONEST is a flag with a visible toggle, and the default for
         signed-in users is decided with the replay (proposal §6.2 #2). Ranking ships behind the
-        flags of the AD-36 Rule 13 gate and after IDEA-076 (the scale-safe list).
+        flags of the AD-36 Rule 13 gate and after IDEA-261018-5lm (the scale-safe list).
     10. **The gates and the sequence.** `[ADOPTED: the sequence, user-directed 2026-10-20 and
         2026-10-21; the first three thresholds below were adopted by the owner on 2026-10-21, the others are start values]` Nothing in Rules 2 to 8
         ships before: (i) a labelled set of 150 to 200 **real** events (strata: local, national,
@@ -4809,7 +4809,7 @@ This document defines the core architectural invariants for the FestDaily applic
         reset and deletion (Rule 8).
     5.  **Evaluation and backfill** — the nightly golden-set run, the platform-key backfill (Rules 5,
         10, 11).
-    6.  **Ranking** — the Epic 10 Phase B stories, rebuilt on this contract (Rule 9; IDEA-076 first).
+    6.  **Ranking** — the Epic 10 Phase B stories, rebuilt on this contract (Rule 9; IDEA-261018-5lm first).
     7.  **PRD second pass** — ranking, tracks, interests, the taxonomy and the Settings switch, after
         follow-up 1.
 
@@ -4898,8 +4898,8 @@ This document defines the core architectural invariants for the FestDaily applic
         failover log lines and a vendor-agnostic "no posts saved in 24 h" alarm need no SES.
     5.  **Webhooks acknowledge; the scraper Lambda classifies and re-queues** (IDEA-261022-sdx), with every
         PENDING-to-terminal transition an atomic claim (BUG-261022-a2z).
-    6.  **The budget gate counts delivered items** (BUG-079), so failover spend is bounded by it.
-    7.  **`posts_to_not_include`** (IDEA-099), once its id format is verified.
+    6.  **The budget gate counts delivered items** (BUG-261022-v91), so failover spend is bounded by it.
+    7.  **`posts_to_not_include`** (IDEA-261022-b42), once its id format is verified.
 
 ---
 

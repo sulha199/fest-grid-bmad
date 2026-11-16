@@ -26,7 +26,7 @@ what remains is listed under "Needs the owner" and in the `[PROPOSED]` / `[ASSUM
 | Filter semantics: two "area" filters, lane as a second query, `tierFor` on an empty key set | ADV-18 | **Applied** (AD-39 Rule 5) |
 | Matcher/sweep: system actor, queue bound, unordered pair index, sibling merges, backfill creates duplicates after the only sweep | RW-15, ADV-12, ADV-16, DI-17 | **Applied** (AD-30 Rules 7 and 9 amendments; AD-38 Rules 5 and 6) |
 | One group per event vs programme item at two places | DI-6, ADV-20 | **Applied** (precedence: the programme wins; siblings tied by shared post and name) |
-| Place split has no exemption for dependent stages or routes; activity split has no criterion; AD-30 says "superseded" | RW-4 | **Applied** (`isRoute`, own follow-up IDEA-089, AD-30 wording corrected) |
+| Place split has no exemption for dependent stages or routes; activity split has no criterion; AD-30 says "superseded" | RW-4 | **Applied** (`isRoute`, own follow-up IDEA-261019-owq, AD-30 wording corrected) |
 | Operational envelope silent (flags, metrics, rollback, migration order) | RW-16, DI-18 | **Applied** (AD-38 Rule 8, AD-39 Rule 7 table) |
 | Adoption tags not supported by the decision log | RW-17 | **Applied** (AD-14 Rule 4, AD-38 Rule 4 re-tagged; Rule 6(b) tagged `[ASSUMPTION]`) |
 | Wording and provenance of production claims | VC-8 | **Applied** (AD-14 Rules 3a and 5, AD-30 Rule 5) |

@@ -67,10 +67,10 @@ test('jsonb double-encoding fix', async (t) => {
   });
 });
 
-// BUG-068 -- the 27 columns that used to be declared with drizzle's own jsonb() are now customJsonb. Written through Drizzle they must be stored as a
+// BUG-261019-ud2 -- the 27 columns that used to be declared with drizzle's own jsonb() are now customJsonb. Written through Drizzle they must be stored as a
 // jsonb OBJECT or ARRAY, not as a jsonb string holding JSON text: only then do SQL-side ->>, @> and jsonb_array_elements see them. One column of each
 // shape that matters (object, array of objects, array of strings), plus a legacy double-encoded row, which Drizzle must keep reading parsed.
-test('BUG-068: plain jsonb columns are single-encoded and a legacy string row still reads parsed', async () => {
+test('BUG-261019-ud2: plain jsonb columns are single-encoded and a legacy string row still reads parsed', async () => {
   const suffix = crypto.randomUUID().slice(0, 8);
   const locationDetails = { coordinates: { latitude: -7.78, longitude: 110.4 }, city: 'Yogyakarta', adminArea: 'Special Region of Yogyakarta' };
   const links = [{ url: 'https://example.com/tickets', label: 'Tickets' }];
@@ -78,14 +78,14 @@ test('BUG-068: plain jsonb columns are single-encoded and a legacy string row st
   const ids: { profile?: string; post?: string; event?: string; schedule?: string; cache?: string } = {};
   try {
     const [profile] = await db.insert(socialMediaAccountProfiles).values({
-      accountId: `bug068-${suffix}`, platform: 'instagram', username: `bug068_${suffix}`, displayName: 'BUG-068', defaultLocation: locationDetails,
+      accountId: `bug068-${suffix}`, platform: 'instagram', username: `bug068_${suffix}`, displayName: 'BUG-261019-ud2', defaultLocation: locationDetails,
     }).returning({ id: socialMediaAccountProfiles.id });
     ids.profile = profile.id;
     const [post] = await db.insert(posts).values({
       accountId: profile.id, platform: 'instagram', postUrl: `https://example.com/p/bug068-${suffix}`, publishedAt: new Date(), additionalImageUrls: images,
     }).returning({ id: posts.id });
     ids.post = post.id;
-    const [event] = await db.insert(events).values({ slug: `bug068-${suffix}`, eventName: 'BUG-068', location: 'Hall', links }).returning({ id: events.id });
+    const [event] = await db.insert(events).values({ slug: `bug068-${suffix}`, eventName: 'BUG-261019-ud2', location: 'Hall', links }).returning({ id: events.id });
     ids.event = event.id;
     const [schedule] = await db.insert(schedules).values({ slug: `bug068-s-${suffix}`, eventId: event.id, eventStartDate: '2026-12-01', locationDetails }).returning({ id: schedules.id });
     ids.schedule = schedule.id;

@@ -8,11 +8,11 @@ captured: 2026-10-29
 
 ## What the owner asked (2026-10-29)
 
-A per-account cap in the default Discovery list is acceptable (IDEA-112). Limits should also apply at scraping: ring an alarm when an account has too many posts in a month, and stop scraping that account for the rest of that month if a hard limit is met.
+A per-account cap in the default Discovery list is acceptable (IDEA-261029-hjq). Limits should also apply at scraping: ring an alarm when an account has too many posts in a month, and stop scraping that account for the rest of that month if a hard limit is met.
 
 ## Why it is a separate mechanism from the display cap
 
-| Protects | Display cap (IDEA-112) | Intake limit (this item) |
+| Protects | Display cap (IDEA-261029-hjq) | Intake limit (this item) |
 |---|---|---|
 | users from a flooded list | yes | indirectly |
 | money: scraping is paid per result (the default provider monthly budgets are $5 and $7.50, `usage-store.ts`) | no | yes |
@@ -50,8 +50,8 @@ Consequence: a flat limit at the 99th percentile (96) would stop the busiest leg
 | Case | Example | Harmful? | Handling |
 |---|---|---|---|
 | Reminder or update | "last call", "registration extended", one post per category | No: 9% of events have two or more posts; the Erafone organizer posts 2.1 per event | dedup links them to one card; never flagged |
-| Duplicate card | the repeat created a second visible card | Yes, to users | a platform defect, not an account behaviour: measured as the share of upcoming events in a same-account identical-name same-date group (13% on 2026-10-29), fixed by IDEA-085 |
-| Same offer on many dates | a tour with ten departures | Only if shown as ten cards | series collapse (PRD 3.20, IDEA-084) |
+| Duplicate card | the repeat created a second visible card | Yes, to users | a platform defect, not an account behaviour: measured as the share of upcoming events in a same-account identical-name same-date group (13% on 2026-10-29), fixed by IDEA-261019-0i7 |
+| Same offer on many dates | a tour with ten departures | Only if shown as ten cards | series collapse (PRD 3.20, IDEA-261019-hnl) |
 | Bump or flood | the same event posted 20 times in a week, or hundreds of different posts | Costs money and quota; harmless to users once collapsed | the intake limit above; the alarm message shows posts per event so a moderator can tell a flood from a busy mall |
 
 Proposal: no separate "repeat" flag. A repeat is already collapsed by dedup, and flagging reminders would flag good organizers. Report the repeat rate inside the intake alarm instead.
@@ -63,7 +63,7 @@ Proposal: no separate "repeat" flag. A repeat is already collapsed by dedup, and
 3. When the hard limit stops an account, should its subscribers be told?
 4. Count posts, or events produced? Posts measure the cost; events measure the user-facing flood. Proposal: posts for the stop, events for the display cap.
 
-Related: IDEA-112 (display cap and repeats), IDEA-085 (exact-repeat merge), IDEA-084 (event groups), PRD 3.19, 3.20 and 3.8, AD-34, AD-43.
+Related: IDEA-261029-hjq (display cap and repeats), IDEA-261019-0i7 (exact-repeat merge), IDEA-261019-hnl (event groups), PRD 3.19, 3.20 and 3.8, AD-34, AD-43.
 
 ## Where this belongs: personalisation and the move from BYOK to a paid product (owner, 2026-10-29)
 
@@ -72,11 +72,11 @@ The owner asked to document the limit as part of the personalisation track and o
 | Phase | Who pays for a scraped post | What the limit does |
 |---|---|---|
 | Today (BYOK) | scraping: the platform's provider budget; extraction: the subscribers' own Gemini keys | protects subscribers' key quota (rate and daily limits) from one noisy account, and the provider budget |
-| Paid product (CC-032, the cost-model decision: platform-paid, user-paid or hybrid) | the platform pays scraping, extraction and the insight backfill | the cost control per account: a hard limit bounds what one account can cost in a month; the limit values become plan entitlements (IDEA-094) |
-| Personalisation (plan Phase B) | n/a | the display cap (IDEA-112) is a bounded term in the default ordering, next to freshness and "already seen"; a flooding account would also distort the interest profile learned from favorites |
+| Paid product (CC-032, the cost-model decision: platform-paid, user-paid or hybrid) | the platform pays scraping, extraction and the insight backfill | the cost control per account: a hard limit bounds what one account can cost in a month; the limit values become plan entitlements (IDEA-261021-6dy) |
+| Personalisation (plan Phase B) | n/a | the display cap (IDEA-261029-hjq) is a bounded term in the default ordering, next to freshness and "already seen"; a flooding account would also distort the interest profile learned from favorites |
 
 Design consequence: the limits are DATA, not constants: a default, a value per plan, and a per-account override with who set it and when, so the paid product can sell and adjust them without a deploy.
 
 Open (for the cost-model decision, CC-032): what a subscriber on the free plan may follow, and how many posts a month that buys. The 30-day data above is the starting point for that sizing.
 
-Related: CC-032 (cost model), IDEA-094 (open-core split, entitlements), personalization plan (Revision 12).
+Related: CC-032 (cost model), IDEA-261021-6dy (open-core split, entitlements), personalization plan (Revision 12).

@@ -1,4 +1,4 @@
--- IDEA-075 legacy bulk update, step 4 of 4: AFTER. READ-ONLY.
+-- IDEA-261018-vld legacy bulk update, step 4 of 4: AFTER. READ-ONLY.
 --   psql "$DATABASE_URL" -f 04-after.sql
 \set ON_ERROR_STOP on
 

@@ -1,6 +1,6 @@
 # Audience, language and taxonomy POC: status and hand-off (single source of truth)
 
-Last updated 2026-10-28. **Update this file at the end of every work session**, so any session (any account) can continue from it. The plan is `audience-and-taxonomy-poc-plan-2026-10-21.md`; this file is where things stand. Branch: `claude/ecstatic-shannon-e8eh9h` (no PR, no merge into `master`; see `open-core-split-plan-2026-10-21.md`, "Interim rules"). Backlog: IDEA-092 (this POC), IDEA-093 (taxonomy), IDEA-074/075/081/087 (the work it unblocks). Gate for AD-42 Rules 2 to 8 (`festgrid-architecture-spine.md`).
+Last updated 2026-10-28. **Update this file at the end of every work session**, so any session (any account) can continue from it. The plan is `audience-and-taxonomy-poc-plan-2026-10-21.md`; this file is where things stand. Branch: `claude/ecstatic-shannon-e8eh9h` (no PR, no merge into `master`; see `open-core-split-plan-2026-10-21.md`, "Interim rules"). Backlog: IDEA-261021-8q8 (this POC), IDEA-261021-80f (taxonomy), IDEA-261018-i9a/075/081/087 (the work it unblocks). Gate for AD-42 Rules 2 to 8 (`festgrid-architecture-spine.md`).
 
 ## Start here (new session)
 
@@ -44,25 +44,25 @@ Spec: `target-area-spec-2026-10-27.md` (decisions, edge cases, evidence). Draft 
 - **Seed table:** 12 informal aggregates in `area-resolver.ts` whose member lists the owner must verify.
 - **PRD:** Section 3.21 amended (target area as a mixed-level set, order, venue without an address, unclassified = curator, bio-stated audience area).
 - **Owner to do:** re-label the 36 tuning posts for the three target-area columns (the 3% agreement on 2026-10-26 was a different reading of the old rule); add the 14 probe cases (spec section 7) as a separate sheet; fill the aggregates table check.
-- **Not done:** the real gazetteer (Kemendagri/BPS), the geocoder wiring of `decideVenue`, account venue memory storage, profile enrichment (IDEA-075). Backlog: BUG-087, IDEA-261027-ugg.
+- **Not done:** the real gazetteer (Kemendagri/BPS), the geocoder wiring of `decideVenue`, account venue memory storage, profile enrichment (IDEA-261018-vld). Backlog: BUG-261027-smw, IDEA-261027-ugg.
 
 ## Event report vs announcement (2026-10-28) — applied on this branch
 
-Backlog IDEA-106 (detail in `implementation-artifacts/backlog/IDEA-106-event-report-post-kind.md`); PRD Section 3.19, bullet "Event Reports and News". Evidence: 78 of the 140 events in the 2026-10-28 prod stub-repeat clusters come from one results account.
+Backlog IDEA-261028-3ov (detail in `implementation-artifacts/backlog/IDEA-261028-3ov-event-report-post-kind.md`); PRD Section 3.19, bullet "Event Reports and News". Evidence: 78 of the 140 events in the 2026-10-28 prod stub-repeat clusters come from one results account.
 
 - **Decision (owner):** a three-way value `announcement | report | mixed`; a report is attached to its event when one exists and promoted to an event when there is none. `isEvent` stays the outer gate.
 - **Model:** prompt `audience-v3` (no model run exists yet, so it was extended in place) widens `isEvent` to reports and asks for `postKind` (`none` exactly when `isEvent` is false). Prompt v2 is untouched. Guard: `postKind` is kept consistent with `isEvent`; a `report` or `mixed` answer without results or recap wording is flagged log-only.
 - **Label sheet:** new column `post_kind` after `is_event` (`announcement | report | mixed | none | unclear`); it must be `none` exactly when `is_event` is `no` (checked by `label-sheets.ts check`). Both guides and `sheet_xlsx.py` updated. A `report` row is labelled like a `no` row: only country, language, sensitive and unsure; `unclear` elsewhere. For a `mixed` post, label the event columns for the upcoming part.
 - **Scorer (v3 runs):** `post_kind` accuracy; **announcements or mixed posts read as a report** (proposed bar 0: the upcoming event would be attached elsewhere or lost); reports or mixed read as announcements (reported); `report` rows leave the event-field denominators.
 - **Owner to do:** fill `post_kind` on every sheet (an older sheet is flagged "blank" until it is filled), including your 36 tuning posts. Consider adding about 40 posts from a results account (for example `badminton.ina`) as a separate stratum, labelled blind: the current POC set may hold few reports.
-- **Not done:** the production prompt, schema and ingestion path (report attach, report promote), the report-to-event matcher ("Day 2" must find the tournament), the one-off clean-up of the 119 existing stubs, and the production date cross-check. See IDEA-106 "Still open".
+- **Not done:** the production prompt, schema and ingestion path (report attach, report promote), the report-to-event matcher ("Day 2" must find the tournament), the one-off clean-up of the 119 existing stubs, and the production date cross-check. See IDEA-261028-3ov "Still open".
 
 ## Events described by several posts (2026-10-29) — prototype on this branch, rules proposed
 
-Personalization plan Revision 11; backlog IDEA-111 (the Erafone Run 2026 Yogyakarta family, every event and post id recorded for a re-check after the race on 2026-10-31).
+Personalization plan Revision 11; backlog IDEA-261028-qa9 (the Erafone Run 2026 Yogyakarta family, every event and post id recorded for a re-check after the race on 2026-10-31).
 
 - **Prototype:** `merge-event-insight.ts` (+ test, 9 cases): the insight of one event from the insights of its posts. Organizer posts count, curator reposts only when there is no organizer post (sensitive topic excepted), a `report` post adds nothing; tracks are a union by label, cost is the cheapest tier, interests and stated areas are unions, and a clash keeps the primary post's value and is reported. The rules are a PROPOSAL until the owner answers the four questions at the end of Revision 11.
-- **Provisional:** the prototype merges a cost TIER (cheapest). Owner decision 2026-10-29 (plan Revision 12, IDEA-114): prices are stored as lines per track in the original currency and the bands are applied per country at read time, so the prototype's cost rule and the POC's `costTier` / `cost_tier` are to be replaced by price lines; the label sheet change (`price_min`, `price_max`, `price_currency`) is proposed, not made.
+- **Provisional:** the prototype merges a cost TIER (cheapest). Owner decision 2026-10-29 (plan Revision 12, IDEA-261029-s33): prices are stored as lines per track in the original currency and the bands are applied per country at read time, so the prototype's cost rule and the POC's `costTier` / `cost_tier` are to be replaced by price lines; the label sheet change (`price_min`, `price_max`, `price_currency`) is proposed, not made.
 - **Not done:** the production version in `packages/domain`, storing each post's insight (Revision 11 #34), and a POC measurement of how often the posts of one event disagree (needs the owner's labels and the Erafone organizer posts as a labelled stratum).
 
 ## What the owner does next
@@ -122,5 +122,5 @@ Local only, git-ignored, contain third-party captions (`apps/backend/scripts/poc
 - Adopted 2026-10-21: thresholds for audience country (95% exact; 90% on foreign and shared-language strata; no critical error). Start values to confirm before the run: geoScope 90%, run-to-run 95%, abstention 15%, Malay language 90%, sensitive recall 95%.
 - **Open:** one set of cost-tier cut-offs for AD-42. `insight-schema.ts` v2 uses Rp 100,000 / 500,000; the labelling guide and `audience-insight.ts` use Rp 50,000 / 250,000.
 - **Open:** the second labeller's agreement (the owner's wife).
-- **Open:** FIND-093, the repository is public while it holds the premium plans (see the open-core plan).
+- **Open:** FIND-261021-2ku, the repository is public while it holds the premium plans (see the open-core plan).
 - Known limits for the report: text only (no face-blurred image), one standalone call per post rather than the production combined call, every post scored as an event, one model, one main labeller.

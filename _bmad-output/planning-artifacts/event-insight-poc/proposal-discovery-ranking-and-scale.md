@@ -4,7 +4,7 @@ type: planning-proposal
 date: 2026-10-18
 related: [prd §3.1 Event Discovery, §3.2 Personalization, §3.16 Data Minimization; Architecture Spine AD-17, AD-18; Story 2.7 (next-upcoming sort); Story 9.7 (golden prompts); proposal-personalized-discovery.md §4, §4.2]
 evidence: ./results/perf-*.generated.* (measurements) · ./poc-report.md Addendum 7 · code in apps/backend/scripts/poc-event-insight/ (perf-*.ts, discovery-sort.ts, partial-match.ts)
-backlog: [FIND-261018-9y3, BUG-067, IDEA-076, IDEA-077, IDEA-078]
+backlog: [FIND-261018-9y3, BUG-261018-q2a, IDEA-261018-5lm, IDEA-261018-25r, IDEA-261018-i93]
 ---
 
 # Discovery ranking at scale: close matches for the AI filter, freshness, "already seen" — and a list endpoint that can carry them
@@ -35,7 +35,7 @@ backlog: [FIND-261018-9y3, BUG-067, IDEA-076, IDEA-077, IDEA-078]
 
 **Cost follows the catalogue, not what users can see.** At 120k events with 85% ended (13,394 still open) the query still takes 239 ms (JIT off): the plan hash-joins **all 120,012 events, all 120,035 posts and all main schedules** and only then discards the ended ones (`results/perf-variants-120k-mature.generated.md`).
 
-**BUG-067 — no tie-break, so paging repeats and skips events.** The ORDER BY is the next date alone; many events share a date; each page is a separate sort of the tied rows. Fetching 20 consecutive pages of 10 (the web client's page size): **48 events came back on more than one page, 98 of the true first 200 never came back** (`results/perf-pagination-30k.generated.md`). The web client merges by id, so the user-visible effect is *missing* events, not duplicates. The seed puts roughly 130 events on each day of the next 60 days (7,685 events), probably more ties than production will have — but the defect exists wherever two events share a date across a page boundary. Deep pages also cost more with OFFSET: 0.3 ms at offset 0, 2.6 at 200, 18.7 at 2,000, 130 at 10,000 (a keyset seek stays at 0.3–0.4 ms).
+**BUG-261018-q2a — no tie-break, so paging repeats and skips events.** The ORDER BY is the next date alone; many events share a date; each page is a separate sort of the tied rows. Fetching 20 consecutive pages of 10 (the web client's page size): **48 events came back on more than one page, 98 of the true first 200 never came back** (`results/perf-pagination-30k.generated.md`). The web client merges by id, so the user-visible effect is *missing* events, not duplicates. The seed puts roughly 130 events on each day of the next 60 days (7,685 events), probably more ties than production will have — but the defect exists wherever two events share a date across a page boundary. Deep pages also cost more with OFFSET: 0.3 ms at offset 0, 2.6 at 200, 18.7 at 2,000, 130 at 10,000 (a keyset seek stays at 0.3–0.4 ms).
 
 ### 2.2 What removes them (all 5 runs' median of `EXPLAIN (ANALYZE, BUFFERS)`, offset 0 / 200 / 2000)
 
@@ -125,9 +125,9 @@ Scoring cost is linear in the visible catalogue, so it must **not** ride on `Que
 * **What counts as seen:** at least ~60% of the card on screen for at least ~1 s (IntersectionObserver). Favorited, calendar-added or opened events are *not* demoted — the user wanted them.
 * **Where it lives:** on the device (PRD §3.16 — nothing new is stored server-side). The client sends its most recent ≤200 ids with each page request (≈ 7 KB of variables). **Taken as a snapshot when the Discovery session starts and held fixed for the session**: demoting while the user scrolls would reorder cards already on screen and break paging. The effect appears the next time they open Discovery, which is what "I come back and see something different" asks for.
 * **Bounded and exempt:** +14 days, and never for an event starting within 3 days (a glance at "tomorrow" must not lose it).
-* **Paging stays consistent** only if each session also pins an `asOf` timestamp (freshness decays with time) and the `id` tie-break exists (BUG-067). Both belong to the foundation, not to this feature.
+* **Paging stays consistent** only if each session also pins an `asOf` timestamp (freshness decays with time) and the `id` tie-break exists (BUG-261018-q2a). Both belong to the foundation, not to this feature.
 * **Cost** (30k): 43.4 ms with the penalty against 45.2 ms without; at 120k open 191 vs 173 ms. Effectively free.
-* **Risk is product, not performance:** a user who returns for an event they remember finds it 14 days lower. That is why IDEA-078 is an A/B behind a flag with "Soonest" one tap away, not a default.
+* **Risk is product, not performance:** a user who returns for an event they remember finds it 14 days lower. That is why IDEA-261018-i93 is an A/B behind a flag with "Soonest" one tap away, not a default.
 
 ## 6. All together — what the ranking costs on top of a sound list
 
@@ -153,16 +153,16 @@ Tier = area ladder from `proposal-personalized-discovery.md` §4.0 (a `CASE` on 
 * **Under load**, 8 clients, 4 cores (30k): personalised over all open events **34.7 requests/s** (230 ms mean); personalised over the next 60 days **76.5 requests/s** (105 ms); date-only foundation **2,084 requests/s**. Personalisation costs capacity: the 60-day version is about 27× below the plain order (2,084 vs 76.5 requests/s), the all-open version about 60× — yet the 60-day version is still 17× today's throughput with JIT on and 3× with it off. Illustration only: if 100 signed-in users each loaded a page every 10 s that would be 10 requests/s; I do not know the real rate. The number to watch is the *share of requests that are personalised*: **anonymous visitors and users with no profile are all tier 1, which is exactly the date-only path** (unit-tested earlier), so they ride the 0.4 ms query.
 * Not measured, possible later: cache the first personalised page per (area ladder, hour) — the number of distinct ladders is bounded by the number of areas, not users — and apply the seen-penalty on the client for the cached part.
 
-## 7. The scale-safe foundation (IDEA-076) — build this before any of the above
+## 7. The scale-safe foundation (IDEA-261018-5lm) — build this before any of the above
 
-1. **Deterministic order:** `ORDER BY key, id`. Fixes BUG-067 on its own (V2 shows it costs nothing).
+1. **Deterministic order:** `ORDER BY key, id`. Fixes BUG-261018-q2a on its own (V2 shows it costs nothing).
 2. **A maintained sort key** on `events` (the next schedule date with something still open, falling back to the main, then the earliest — today's exact semantics). Kept current in the same transaction as every write to `schedules` (a trigger is the way to cover all writers without enumerating them; I have **not** enumerated them) and rolled forward nightly for multi-schedule events whose first date has passed.
 3. **An open-events index** `(key, id) WHERE deleted_at IS NULL AND key IS NOT NULL`, with events that have nothing left open dropped from it nightly. **This is measured for `hidePastEventsAfterDays = 0`, the default.** Users with a larger grace (up to 365) need events that ended recently; either a second index over "ended within 365 days", or the old query for those users. Decision for you (§9).
 4. **JIT off for this query** (or for the application role) — independent of everything else; check production's setting first.
 5. **Pinned sessions:** an opaque cursor carrying `asOf`, the seen-snapshot hash and the phase; OFFSET inside the personalised horizon (bounded, 30 ms at offset 200), keyset beyond it and for the date-only path (flat 0.3 ms at any depth).
 6. **Keep the endpoint's contract:** one `ORDER BY` expression, no per-row resolver, `Query.events` still the only list; the close-matches lane is a separate query (§3.4).
 
-Order of work, smallest first: **(4)** a configuration check → **(1)** tie-break → **(2)+(3)** maintained key and open-events index, with `pgbench` and `EXPLAIN` repeated on the real schema (Story 2.7 / CC-024 method) → area tier with horizon (IDEA-074) → freshness → seen-demotion (A/B) → close-matches lane (IDEA-077). The ranking features are all optional on top of (1)–(4), and (1)–(4) are worth doing even if none of them ships.
+Order of work, smallest first: **(4)** a configuration check → **(1)** tie-break → **(2)+(3)** maintained key and open-events index, with `pgbench` and `EXPLAIN` repeated on the real schema (Story 2.7 / CC-024 method) → area tier with horizon (IDEA-261018-i9a) → freshness → seen-demotion (A/B) → close-matches lane (IDEA-261018-25r). The ranking features are all optional on top of (1)–(4), and (1)–(4) are worth doing even if none of them ships.
 
 ## 8. What this changes in the earlier proposal
 

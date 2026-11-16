@@ -2,9 +2,9 @@
 status: draft-for-review
 type: planning-proposal
 date: 2026-10-19
-related: [proposal-posthog-and-list-scale.md, proposal-discovery-ranking-and-scale.md, proposal-personalized-discovery.md §9–§10; prd §3.1, §4.3; Architecture Spine AD-17, AD-18, AD-30; backlog IDEA-261018-iv7, IDEA-074, IDEA-076]
+related: [proposal-posthog-and-list-scale.md, proposal-discovery-ranking-and-scale.md, proposal-personalized-discovery.md §9–§10; prd §3.1, §4.3; Architecture Spine AD-17, AD-18, AD-30; backlog IDEA-261018-iv7, IDEA-261018-i9a, IDEA-261018-5lm]
 evidence: ./results/area-resolver-eval.generated.md · area-kinds-probe.generated.md · perf-candidates-*.generated.md · perf-pgbench-candidates.generated.md · plan-guard-month12.generated.txt · perf-count-and-ranking-*.generated.md
-backlog: [IDEA-081, IDEA-082, FIND-261019-whr (re-analysed); decisions recorded on IDEA-075, IDEA-079, FIND-261018-p1z]
+backlog: [IDEA-261019-3bp, IDEA-261019-kv3, FIND-261019-whr (re-analysed); decisions recorded on IDEA-261018-vld, IDEA-261019-4nt, FIND-261018-p1z]
 ---
 
 # Target area, proactive scan prevention, and the total count — second pass
@@ -15,13 +15,13 @@ backlog: [IDEA-081, IDEA-082, FIND-261019-whr (re-analysed); decisions recorded 
 
 | item | decision | recorded in |
 |---|---|---|
-| Stub events | The **audience's target area** is what matters, not the curator's location. Find the best way to define it and map it to the right area level; decide filtering/scoring for "target area but no recorded location" later. | §2 (design), IDEA-081 |
-| Retry sweep | **N-minute backoff and retry is enough** — the schedule in `profile-retry.ts` (15 min, 1 h, 6 h, 1 d, 3 d) on the existing 5-minute scraper rule. | IDEA-075 note |
+| Stub events | The **audience's target area** is what matters, not the curator's location. Find the best way to define it and map it to the right area level; decide filtering/scoring for "target area but no recorded location" later. | §2 (design), IDEA-261019-3bp |
+| Retry sweep | **N-minute backoff and retry is enough** — the schedule in `profile-retry.ts` (15 min, 1 h, 6 h, 1 d, 3 d) on the existing 5-minute scraper rule. | IDEA-261018-vld note |
 | Geoapify key | See §1: this is a cloud session; I cannot read your local `.env`. | §1 |
-| Stored captions | **Accept "cleared at next re-extraction".** No purge. | IDEA-075 / FIND-261018-p1z notes |
-| PostHog | **Approved** (plan, order and privacy posture of `proposal-posthog-and-list-scale.md` §7). | IDEA-079 → `triaged` |
-| Roundup heading as a stated area | **Yes** (reply 2): a place in a roundup's heading counts as a stated area for items that state none — with the guardrails of §2.6. | §2.6, IDEA-081 |
-| Slow table scans | **Prevent proactively.** | §3, IDEA-082 |
+| Stored captions | **Accept "cleared at next re-extraction".** No purge. | IDEA-261018-vld / FIND-261018-p1z notes |
+| PostHog | **Approved** (plan, order and privacy posture of `proposal-posthog-and-list-scale.md` §7). | IDEA-261019-4nt → `triaged` |
+| Roundup heading as a stated area | **Yes** (reply 2): a place in a roundup's heading counts as a stated area for items that state none — with the guardrails of §2.6. | §2.6, IDEA-261019-3bp |
+| Slow table scans | **Prevent proactively.** | §3, IDEA-261019-kv3 |
 | Total count | Make sure a `hasNextPage`-style flag exists; **analyse again whether skipping the count matters.** | §4 |
 
 ## 1. The Geoapify key
@@ -158,7 +158,7 @@ Serve candidates from a **junction table of audience-area keys** — one row per
 | K = 3,000: 1 client / 8 clients | 29.5 ms / 50.1 ms (160 req/s) | **2.3 ms / 4.7 ms (1,708 req/s)** | 13× / 11× |
 | rows scanned, K = 3,000 | 16,845 | 6,749 | |
 
-At 30k, 300k ("month 12") and 120k mature the two forms were both fast (0.3–7 ms; pools of 2.5k–4.3k events) — **the flip is a large-pool phenomenon, and a purpose-built index is what removes it.** The write side is not measured: `open_key` is copied into the junction so the merge can stay in index order, which a roll-forward (and any schedule edit) must keep current, in the same trigger as the sort key (IDEA-076). Real events can have several audience areas, so the merged branches need a `DISTINCT` on id (small, bounded by (rungs + 1) × K).
+At 30k, 300k ("month 12") and 120k mature the two forms were both fast (0.3–7 ms; pools of 2.5k–4.3k events) — **the flip is a large-pool phenomenon, and a purpose-built index is what removes it.** The write side is not measured: `open_key` is copied into the junction so the merge can stay in index order, which a roll-forward (and any schedule edit) must keep current, in the same trigger as the sort key (IDEA-261018-5lm). Real events can have several audience areas, so the merged branches need a `DISTINCT` on id (small, bounded by (rungs + 1) × K).
 
 ### 3.3 Layer 2 — a plan guard in CI
 `plan-guard.ts` (pure over `EXPLAIN (ANALYZE, FORMAT JSON)`, 9 tests) and `plan-guard-run.ts` (live; exit code 1 on violation). Rules, starting values to tune: no sequential scan of a hot table (`events`, `schedules`, `posts`, `favorites`, `reports`, `calendar_additions`) touching ≥ 1,000 rows; estimated cost ≤ 400,000 (the JIT cliff is at 500,000); no JIT-compiled function; rows scanned ÷ rows returned ≤ 2,000; and an optional **absolute scanned-rows budget per query** (4 × K for a candidate query).
@@ -186,7 +186,7 @@ Supabase's query-performance reports / `pg_stat_statements` for the list stateme
 ## 4. Skipping the total count — analysed again
 
 ### 4.1 The flag exists
-`EventConnection { items, hasMore, totalCount }`: `hasMore` is computed from the extra row the query fetches (`limit + 1`), not from the count (`resolvers.ts`, "`hasMore` above is computed from the fetched page length"). It is the `hasNextPage` flag; Discovery's `getNextPageParam` reads `lastPage.events.hasMore`. In the ranked, frozen-list mode (IDEA-080) it is `offset + page < ids.length`. If cursors arrive, expose it as `pageInfo { hasNextPage endCursor }` and keep `hasMore` for existing clients.
+`EventConnection { items, hasMore, totalCount }`: `hasMore` is computed from the extra row the query fetches (`limit + 1`), not from the count (`resolvers.ts`, "`hasMore` above is computed from the fetched page length"). It is the `hasNextPage` flag; Discovery's `getNextPageParam` reads `lastPage.events.hasMore`. In the ranked, frozen-list mode (IDEA-261019-2cy) it is `offset + page < ids.length`. If cursors arrive, expose it as `pageInfo { hasNextPage endCursor }` and keep `hasMore` for existing clients.
 
 ### 4.2 Who reads the count
 Searched `apps/web/src`: **nobody reads `totalCount` from the shared `getEvents` document.** The remaining readers use their own documents — Archive (`GetArchivedEventsDocument`, which uses it for page arithmetic that `hasMore` could do) and the favorited-ids snapshot (`GetFavoritedEventIds`, for a count of favorites). The synthetic page objects built in Favorites and the navigation hook set their own `totalCount` only to satisfy the type.
@@ -208,13 +208,13 @@ Searched `apps/web/src`: **nobody reads `totalCount` from the shared `getEvents`
 Remove `totalCount` from the shared `GetEvents` document (nothing reads it); keep the schema field, computed only when selected (already true). Add a ratchet so it does not creep back: a test that scans the web's `.graphql` documents and fails if a list document selects `totalCount` outside an allowlist (Archive, favorited ids). Optionally trim the count statement's unneeded `LEFT JOIN`s to `schedules` and `posts` for the remaining readers.
 
 ## 5. Backlog and next steps
-* **IDEA-081** — target-area resolver: gazetteer + aggregates + level from the gazetteer (supplies BUG-261018-ij7's writer; half of IDEA-261018-iv7). Needs the official data source and the Geoapify key.
-* **IDEA-082** — plan-regression guard + statement timeout + JIT off + junction candidate generation (the "prevent slow scans" epic seed; depends on IDEA-076).
+* **IDEA-261019-3bp** — target-area resolver: gazetteer + aggregates + level from the gazetteer (supplies BUG-261018-ij7's writer; half of IDEA-261018-iv7). Needs the official data source and the Geoapify key.
+* **IDEA-261019-kv3** — plan-regression guard + statement timeout + JIT off + junction candidate generation (the "prevent slow scans" epic seed; depends on IDEA-261018-5lm).
 * **FIND-261019-whr** — re-analysed (§4): remove `totalCount` from the Discovery document; the case is stronger after the foundation.
-* **IDEA-079** — PostHog: approved, `triaged`.
-* **Decisions recorded** on IDEA-075 (retry schedule accepted; captions "cleared at next re-extraction") and FIND-261018-p1z.
+* **IDEA-261019-4nt** — PostHog: approved, `triaged`.
+* **Decisions recorded** on IDEA-261018-vld (retry schedule accepted; captions "cleared at next re-extraction") and FIND-261018-p1z.
 
-Order: FIND-261019-whr → PostHog basics → JIT off + statement timeout + tie-break → IDEA-076 foundation **with the plan guard in CI from its first story** → area resolver (IDEA-081) feeding the junction table → area tier with horizon → IDEA-080 → freshness/seen → close matches. When you want these as stories, `bmad-create-epics-and-stories` is the next step; I have not started it.
+Order: FIND-261019-whr → PostHog basics → JIT off + statement timeout + tie-break → IDEA-261018-5lm foundation **with the plan guard in CI from its first story** → area resolver (IDEA-261019-3bp) feeding the junction table → area tier with horizon → IDEA-261019-2cy → freshness/seen → close matches. When you want these as stories, `bmad-create-epics-and-stories` is the next step; I have not started it.
 
 ## 6. Limits
 * **Synthetic data, database only, one sandbox**, medians of 5; build-to-build variation is real (the same junction-vs-overlap comparison flipped plan type between builds). Do not read differences below ~30% as findings.

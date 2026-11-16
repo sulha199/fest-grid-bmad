@@ -1,6 +1,6 @@
 {
   "captured": "2026-10-28",
-  "backlogId": "IDEA-111",
+  "backlogId": "IDEA-261028-qa9",
   "source": "https://fest-grid.vercel.app/en?q=erafone ; public GraphQL events(filter:{keyword:\"erafone\"}) and eventBySlug(slug)",
   "note": "Names, dates, accounts and ids only; no captions. Roles are a proposal from names, dates, accounts and categories.",
   "liveEvents": [

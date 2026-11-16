@@ -40,7 +40,7 @@ export interface StatedTargetArea {
 
 export interface AudienceInsight {
   isEvent: boolean;
-  /** Prompt v3 only: what the post does about its event (IDEA-106). Absent in a v2 answer. */
+  /** Prompt v3 only: what the post does about its event (IDEA-261028-3ov). Absent in a v2 answer. */
   postKind?: string;
   postLanguage: string;
   statedAudience?: { country: string; quote: string } | null;
@@ -103,7 +103,7 @@ export const AUDIENCE_INSIGHT_INSTRUCTION_V2 = `You are an analyst for an event-
 - evidence: up to 5 short VERBATIM snippets copied exactly from the post (each at most 100 characters) that support stated audience, ages, restriction and cost. If you cannot quote support for a claim, drop the claim.
 Strictly follow the JSON schema.`;
 
-// ---- prompt v3, event report vs announcement (IDEA-106, owner decision 2026-10-28) -----------------------------------------------------------
+// ---- prompt v3, event report vs announcement (IDEA-261028-3ov, owner decision 2026-10-28) -----------------------------------------------------------
 // Production's `isEvent` only asks for "an event poster or advertisement", so a results or news post that also lists the next matches became a stub
 // event: 78 of the 140 events in the 2026-10-28 stub-repeat clusters came from one results account. The model now says what the post DOES about its
 // event; production then attaches a report to its event, or promotes it to an event when there is none (a 3-way value, with `isEvent` as the outer gate).

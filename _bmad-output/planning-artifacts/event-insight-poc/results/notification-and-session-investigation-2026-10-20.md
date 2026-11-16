@@ -114,7 +114,7 @@ Caveats: the country is the account's current default, which may have been set a
 Moderator e-mail: `EMAIL_TEMPLATES` holds 8 templates (quota warning, invalid API key, dangerous-event moderator alert, system error, two default-location alerts, scraper audit failure, scraper provider down). None concerns a new event or a subscription, so a subscribed moderator can never be e-mailed about an event. Moderator alerts go to every `users.role = 'moderator'` row; `Failed to notify moderator` is logged per failed recipient. All e-mail is skipped, with only an `[Email Stub]` log line, when SES_FROM_EMAIL_ADDRESS is empty.
 
 ### Ranked explanations for B
-1. **E-mail does not exist for this** (certain, code). Evidence: template list above. Check: none needed; this is a product gap (BUG-069 / IDEA-090 territory).
+1. **E-mail does not exist for this** (certain, code). Evidence: template list above. Check: none needed; this is a product gap (BUG-261020-ptv / IDEA-261020-mqx territory).
 2. **No `fcm_tokens` row for the moderator's actual browser or installed app.** For: the token is only written from one page, per browser, and needs a login (C below makes a logged-out registration likely). Against: unknown. Cheapest check: owner SQL set 1 (token count for the moderator).
 3. **Subscribed to a twin profile.** For: BUG-059 twins exist and the join needs the numeric `account_id`. Against: unknown. Check: owner SQL set 3 (`other_profiles_same_username`).
 4. **No qualifying event.** For: claim-before-send never retries; stubs, curator-typed and roundup events never notify. Check: owner SQL set 3-4 (events in 30 days, stubs, notified).

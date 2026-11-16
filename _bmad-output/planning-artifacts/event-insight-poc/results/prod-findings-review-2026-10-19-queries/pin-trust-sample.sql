@@ -4,7 +4,7 @@
 -- stratum, chosen by a hash of the schedule id (the same rows on every run). Every row carries its stratum's population and sample size, so the scorer
 -- (scripts/poc-event-insight/score-pin-trust-labels.ts) can weight the labels back to the whole table.
 -- Run with --csv (see the brief, item 14). Read-only. Venue and place names only, as shown in the app; the row reference is a hash, not an id.
--- location_details is read through the normalising expression because of BUG-068.
+-- location_details is read through the normalising expression because of BUG-261019-ud2.
 -- The `label` column is empty: the owner fills it with  Y  (the pin is the place the text means),  C  (right city or area, wrong place),
 -- N  (wrong place or country)  or  ?  (cannot tell).
 with s as (

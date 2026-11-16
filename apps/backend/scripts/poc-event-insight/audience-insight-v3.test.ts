@@ -113,7 +113,7 @@ test('the saved record keeps the guarded areas WITHOUT their quotes', () => {
   assert.equal(JSON.stringify(rec).includes('warga Jogja'), false, 'no third-party text in the saved record');
 });
 
-test('prompt v3 widens isEvent to reports and asks for postKind; prompt v2 is untouched (IDEA-106)', () => {
+test('prompt v3 widens isEvent to reports and asks for postKind; prompt v2 is untouched (IDEA-261028-3ov)', () => {
   assert.match(AUDIENCE_INSIGHT_INSTRUCTION_V3, /- postKind: what the post does about its event/);
   assert.match(AUDIENCE_INSIGHT_INSTRUCTION_V3, /reports on it \(results, winners, a recap, news, a thank-you\)/);
   assert.match(AUDIENCE_INSIGHT_INSTRUCTION_V3, /lists tomorrow's matches is "mixed"/);

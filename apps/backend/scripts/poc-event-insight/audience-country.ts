@@ -91,7 +91,7 @@ export function cueCountry(caption: string): string | undefined {
 }
 
 /**
- * The posting account's country, from what its own posts show (the same signals IDEA-075 would use at profile enrichment). Undefined when
+ * The posting account's country, from what its own posts show (the same signals IDEA-261018-vld would use at profile enrichment). Undefined when
  * the evidence is absent, weak or conflicting: an unresolved account never forces an answer.
  */
 export function accountCountryOf(username: string, captions: string[], locationNames: string[] = []): string | undefined {

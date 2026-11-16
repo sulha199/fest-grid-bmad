@@ -1,4 +1,4 @@
--- IDEA-075 legacy bulk update, step 2 of 4: APPLY. One transaction, all or nothing.
+-- IDEA-261018-vld legacy bulk update, step 2 of 4: APPLY. One transaction, all or nothing.
 --   psql "$DATABASE_URL" -f 02-apply.sql
 -- Sets every never-classified account WITHOUT a default location to CURATOR_GUIDE / CONFIRMED.
 -- It aborts (and changes nothing) if: the set is empty, larger than max_rows, or a row changed between the

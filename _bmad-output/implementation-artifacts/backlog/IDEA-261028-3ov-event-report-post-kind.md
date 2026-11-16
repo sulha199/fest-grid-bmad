@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-106
+backlog_id: IDEA-261028-3ov
 title: "Tell an event report or news post from an announcement in the AI extraction (post_kind: announcement | report | mixed)"
 captured: 2026-10-28
 ---
 
-# IDEA-106 — Event report or news vs announcement, in the extraction
+# IDEA-261028-3ov — Event report or news vs announcement, in the extraction
 
 ## What the owner asked (2026-10-28)
 

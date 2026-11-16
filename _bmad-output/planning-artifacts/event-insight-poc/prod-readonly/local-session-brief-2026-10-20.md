@@ -10,7 +10,7 @@ All of §1 of `local-session-brief-2026-10-19.md` still applies unchanged (never
 2. **Do not send anything to anybody.** No e-mail, no push, no "test message", no SES or Firebase send, no GraphQL mutation. If a test needs one, tell the owner exactly what to click and let the owner do it.
 3. **AWS or Firebase consoles and CLIs: only if the shell already holds credentials and `aws sts get-caller-identity` shows an identity the owner confirms is read-only.** Use only `describe`/`get`/`list`/`filter-log-events`/`start-query`. Anything else, or any doubt: do not touch AWS; add the item to the owner's checklist (§6) instead.
 4. **A browser tool (Claude in Chrome, the built-in browser) may be used on the owner's production site only to observe**: open pages, read the console, read request status codes and timings, read the items in rule 1. Do not toggle Settings, subscribe, unsubscribe, log in, log out or install the app unless the owner tells you to do that specific step. Ask before the first step that uses the browser.
-5. **Do not start the web app or the backend against the production Supabase project or any production database.** If you need to run code, use a throwaway local PostgreSQL built from `packages/database/migrations/*.sql` (see `BUG-068-jsonb-migration/test-on-scratch-db.sh` for how) and no real keys.
+5. **Do not start the web app or the backend against the production Supabase project or any production database.** If you need to run code, use a throwaway local PostgreSQL built from `packages/database/migrations/*.sql` (see `BUG-261019-ud2-jsonb-migration/test-on-scratch-db.sh` for how) and no real keys.
 
 ## 2. Variables you may use (test with `[ -n "$VAR" ] && echo set`, never print)
 
@@ -72,4 +72,4 @@ What to do: read the code for H1 to H5 and H7 (cite file and line); with the own
 
 ## 7. Out of scope
 
-Fixing BUG-069, the logout, the SW or SES; editing the spine, the PRD or any code; sending test notifications; changing Supabase, AWS or Firebase settings; running the role create/drop scripts; deciding the pin-trust floor (the cloud session does that from your Round 3 output and the owner's labels).
+Fixing BUG-261020-ptv, the logout, the SW or SES; editing the spine, the PRD or any code; sending test notifications; changing Supabase, AWS or Firebase settings; running the role create/drop scripts; deciding the pin-trust floor (the cloud session does that from your Round 3 output and the owner's labels).

@@ -32,7 +32,7 @@ SHOW jit;  SHOW jit_above_cost;
 ## Fix direction
 
 1. If `jit` is on: turn it off for the application role (`ALTER ROLE … SET jit = off`) — independent of everything else.
-2. A maintained next-open-date column on `events` with an index holding only events that still have something open, and `ORDER BY key, id` — IDEA-076. Measured end state: 0.4 ms at offset 0, flat; the write side (trigger on `schedules`, nightly roll-forward) is **not** measured.
+2. A maintained next-open-date column on `events` with an index holding only events that still have something open, and `ORDER BY key, id` — IDEA-261018-5lm. Measured end state: 0.4 ms at offset 0, flat; the write side (trigger on `schedules`, nightly roll-forward) is **not** measured.
 3. Repeat the Story 2.7 / CC-024 EXPLAIN and a `pgbench` run on a copy of production data before and after.
 
-Related: BUG-067, IDEA-076, IDEA-074.
+Related: BUG-261018-q2a, IDEA-261018-5lm, IDEA-261018-i9a.

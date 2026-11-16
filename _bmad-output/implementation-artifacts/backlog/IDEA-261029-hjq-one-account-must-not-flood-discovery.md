@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-112
+backlog_id: IDEA-261029-hjq
 title: "Keep one account from flooding Discovery: collapse repeats and cap per-account volume in the default list (a risk; no abusive case seen yet)"
 captured: 2026-10-29
 ---
 
-# IDEA-112 — One account must not be able to flood Discovery
+# IDEA-261029-hjq — One account must not be able to flood Discovery
 
 ## What the owner said (2026-10-29)
 
@@ -25,16 +25,16 @@ So the owner's worry is already visible without any abuse: the repeat-handling t
 
 | Layer | Case | Specified | Built |
 |---|---|---|---|
-| 1. Exact repeat | the same account posts the same event twice (same name, place, dates, time) | PRD 3.19 "An Exact Repeat Is Shown Once" (FR131), adopted 2026-10-20 | **No.** IDEA-085 (sweep and live check) is `triaged`. PR #102 added the stub-repeat rule, the shared-date promotion and the drain, which cover part of it |
-| 2. Series | the same tour or activity on different dates or places | PRD 3.20 "Discovery Shows a Series Once" (FR133) | **No.** Event groups are not built (no table, no code); blocked by IDEA-084 |
+| 1. Exact repeat | the same account posts the same event twice (same name, place, dates, time) | PRD 3.19 "An Exact Repeat Is Shown Once" (FR131), adopted 2026-10-20 | **No.** IDEA-261019-0i7 (sweep and live check) is `triaged`. PR #102 added the stub-repeat rule, the shared-date promotion and the drain, which cover part of it |
+| 2. Series | the same tour or activity on different dates or places | PRD 3.20 "Discovery Shows a Series Once" (FR133) | **No.** Event groups are not built (no table, no code); blocked by IDEA-261019-hnl |
 | 3. Volume | one account posts very many different events | nothing | **No.** The only cap is `perDayLimit` (events per day), not per account |
 
 A travel agent that reposts one tour hits layer 1; one that posts the same trip for ten departure dates hits layer 2; one that posts thirty different trips hits layer 3, and no dedup rule can help, only a presentation rule.
 
 ## Proposal (to decide)
 
-1. **Finish layer 1 first** (IDEA-085): the exact-repeat rule must also pair a stub with a full event and a roundup-sourced stub with its own account's post; add the venue-spelling fix (IDEA-110). The 41 groups above are the test set.
-2. **Layer 2** comes with event groups (IDEA-084, FR133): a series is one card with a count.
+1. **Finish layer 1 first** (IDEA-261019-0i7): the exact-repeat rule must also pair a stub with a full event and a roundup-sourced stub with its own account's post; add the venue-spelling fix (IDEA-110). The 41 groups above are the test set.
+2. **Layer 2** comes with event groups (IDEA-261019-hnl, FR133): a series is one card with a count.
 3. **Layer 3, new:** in the default Discovery list, no single account holds more than N cards in a page or window (the rest collapse behind "more from this account"); a repeat-rate signal for moderators: an account whose new posts are mostly repeats of its own events in a week.
 4. A measure to keep: the share of upcoming events that sit in a same-account identical-name same-date group (13% today, target near 0).
 
@@ -44,7 +44,7 @@ A travel agent that reposts one tour hits layer 1; one that posts the same trip 
 2. Should an account that repeats itself be flagged to moderators or silently collapsed?
 3. Should posting-rate abuse also be limited at scraping or subscription time, or only at display?
 
-Related: IDEA-085 (duplicate sweep, exact-repeat merge), IDEA-084 (event groups), IDEA-110 (venue spelling variants), IDEA-107 (expire past suggestions), IDEA-261026-l2j (reposts), PRD 3.19 and 3.20.
+Related: IDEA-261019-0i7 (duplicate sweep, exact-repeat merge), IDEA-261019-hnl (event groups), IDEA-110 (venue spelling variants), IDEA-107 (expire past suggestions), IDEA-261026-l2j (reposts), PRD 3.19 and 3.20.
 
 ## Owner answers 2026-10-29
 
@@ -55,4 +55,4 @@ Related: IDEA-085 (duplicate sweep, exact-repeat merge), IDEA-084 (event groups)
 
 ## Correction 2026-10-30
 
-The figures in "Evidence" (46 groups, 100 events; 41 groups, 90 events with a shared start date) were counted on the public events list, which repeats and skips rows between pages (BUG-090). On the production database the same-account, same-strict-name, same-start-date groups number **16, holding 37 of 663 upcoming events**. The exposure argument stands (no per-account cap, series not collapsed); the size of today's problem is about 6%, not 13 to 15%. Detail: IDEA-085.
+The figures in "Evidence" (46 groups, 100 events; 41 groups, 90 events with a shared start date) were counted on the public events list, which repeats and skips rows between pages (BUG-090). On the production database the same-account, same-strict-name, same-start-date groups number **16, holding 37 of 663 upcoming events**. The exposure argument stands (no per-account cap, series not collapsed); the size of today's problem is about 6%, not 13 to 15%. Detail: IDEA-261019-0i7.

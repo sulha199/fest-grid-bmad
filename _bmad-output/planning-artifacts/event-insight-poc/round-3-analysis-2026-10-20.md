@@ -12,7 +12,7 @@ What follows answers the four open decisions first (Section 0), then gives the e
 
 | # | Decision | Recommendation | What it rests on | What the data cannot show |
 |---|---|---|---|---|
-| 1 | Publish curator events with no resolved area as `unknown` (penalty, per-page cap) instead of holding them | **Yes, publish** | Today at most 26 of 452 open events (6%) have no place at all; a hold would be indefinite and silent because moderators resolved 0 of 147 and receive no queue notification (BUG-069) | AD-39 Rule 3 removes the account-default pin from curator events, so more events become area-less than the 26. The size of that is the fingerprint count of AD-39 Rule 7, not yet run (Section 6) |
+| 1 | Publish curator events with no resolved area as `unknown` (penalty, per-page cap) instead of holding them | **Yes, publish** | Today at most 26 of 452 open events (6%) have no place at all; a hold would be indefinite and silent because moderators resolved 0 of 147 and receive no queue notification (BUG-261020-ptv) | AD-39 Rule 3 removes the account-default pin from curator events, so more events become area-less than the 26. The size of that is the fingerprint count of AD-39 Rule 7, not yet run (Section 6) |
 | 2 | Wacoal-type promos are a `series`, cover = member nearest the user, label "also at N other places" | **Yes**, and the stem becomes a phrase-and-order score instead of suffix patterns | Wacoal is 3 events, 3 malls, date ranges that overlap, so it fits "same activity, same audience, several places". One of the three names reads "... at Pakuwon Mall Jogja"; a pattern per suffix form ("- X", "at X", "@ X") is brittle, so Section 4.1 replaces it with a score (prototype and 12 tests in `poc-event-insight/series-phrase.ts`) | Whether the 3 events share one account (the landed file has no account column); how many true same-account multi-place series exist after spelling variants of one place are removed |
 | 3 | Promos posted separately by each place's own account | **They are candidates, yes (Sports Station and J.CO are series by definition). Keep them ungrouped in v1 behind an option; decide after the names cut** | 34 of 178 concurrent pairs cross accounts. Of the 5 multi-account names in the listing, 3 are one place posted by several accounts (duplicates, the matcher's job) and 2 are branch promos (Sports Station, J.CO); both score 1.00 on the phrase score, so only the organizer key keeps them out. A wrong series hides events behind a cap of one, so the option needs a higher bar, overlapping dates, a rare-word anchor and moderator confirmation (AD-36 Rule 12) | The listing shows only the 25 largest names, so how many such pairs exist is unknown. Two cheap unknowns: whether the posting accounts are brand or mall accounts, and whether the captions tag the brand (a better key than the posting account). Both come from the Round 4 names cut (Section 6, ask 3) |
 | 4 | Pin-trust floor and the `full_match` clause | **Keep 0.5 and keep `full_match`; add a country leg; do not raise the floor** | The floor is the least important lever (Section 1): 0.5 to 0.6 moves one labelled row, 0.7 and above discard good pins. The country leg removes all 42 wrong-country rows | 15 correct (Y) pins is a direction, not a rate; legitimate foreign events (Denmark Open, BWF) exist and must not be hidden by the country leg |
@@ -108,7 +108,7 @@ held-out set is run. Seven texts stay wrong even at venue-segment level ("Court 
   58 with place text only, minus non-places (about 270 calls at most), and reverse-geocodes the 158 pins
   with no stored signal.
 
-## 2. Matcher recall and the stub-pair rule (item 8, IDEA-085)
+## 2. Matcher recall and the stub-pair rule (item 8, IDEA-261019-0i7)
 
 181 reachable pairs (the brief said 178). By the matcher's own scoring:
 
@@ -128,7 +128,7 @@ held-out set is run. Seven texts stay wrong even at venue-segment level ("Court 
    be met** while 68% of the pairs cannot reach `mid`, whatever the sweep does.
 3. **The sweep as written would insert nothing.** AD-30 Rule 7 caps inserts at `max(0, 50 - pending)` per
    run, and 147 are pending, so the 29 `mid` pairs would wait behind a queue that moderators have not
-   touched (0 resolved) and that nothing notifies them about (BUG-069). The queue has to be cleared or
+   touched (0 resolved) and that nothing notifies them about (BUG-261020-ptv). The queue has to be cleared or
    expired first, or the cap has to be on age rather than count.
 
 **Stub-pair rule `[PROPOSED]`.** A same-poster signal for a stub pair: both items were posted by the **same
@@ -176,7 +176,7 @@ like, not SCH. Two consequences:
 - Tier 2 needs a **seeded anchor** (Rule 3), and SCH is not a Tier 1 umbrella, so **SCH becomes a programme
   only if a moderator seeds `(8th Anniversary, Sleman City Hall)`**. Your decision that SCH is a programme
   stands; the way it gets built is a manual seed, and the seed depends on a moderator being reachable
-  (IDEA-090).
+  (IDEA-261020-mqx).
 - Most "programme-like" Tier 1 groups are the categories or rounds of one competition (Victoria Tournament
   categories at one hall, BWF rounds in Denmark and Egypt, UGM RunFest 3K and 5K). The programme policy
   (not capped, "part of" chip) suits categories with their own audience, so the adopted policy holds; the
@@ -407,7 +407,7 @@ Ranked causes of "a subscribed moderator never gets a push or an email" (from th
 reading; none observed in production):
 
 0. **Email: absent by design.** Eight templates exist, none about a new event, a subscription or a queue
-   item. A moderator cannot be emailed about an event. This is IDEA-090, a product gap, not a bug.
+   item. A moderator cannot be emailed about an event. This is IDEA-261020-mqx, a product gap, not a bug.
 1. **No `fcm_tokens` row for the browser or installed app.** The token is written only from the
    Notifications settings page, per browser, and needs a valid login.
 2. A subscription to a **twin profile** (BUG-059): the join needs `profiles.account_id` = the event's account.
@@ -426,7 +426,7 @@ reading; none observed in production):
   `UNAUTHENTICATED`, which triggers H1.
 - H5 (service workers) is refuted as a cause.
 These two threads join: a moderator who is logged out when the Notifications page loads saves no token.
-That is an inference from code. New row **BUG-072** records the logout defects separately from BUG-069
+That is an inference from code. New row **BUG-261020-tqr** records the logout defects separately from BUG-261020-ptv
 because they are independent of the moderator's role and affect every user. The project-context rule
 "Force Logout on Auth Failure" (2026-08-28) is the design that H1 and H7 weaken; it needs a decision, not a
 silent change.
@@ -462,9 +462,9 @@ wrong. Ranked by that.
 
 | # | Unverified | What it decides | Cost to verify | Verdict |
 |---|---|---|---|---|
-| 1 | Why the moderator gets no push (`owner-notification-checks.sql`, SES, Lambda Firebase variables) | the owner's actual problem; whether BUG-072 matters for it | one read-only query run by you, a few settings looks | **Do first.** It is the only item that is a live defect for a person today. If the moderator has no `fcm_tokens` row, BUG-072 becomes the lead and a 10-minute idle-tab reproduction is worth it; if a row exists, skip the reproduction |
+| 1 | Why the moderator gets no push (`owner-notification-checks.sql`, SES, Lambda Firebase variables) | the owner's actual problem; whether BUG-261020-tqr matters for it | one read-only query run by you, a few settings looks | **Do first.** It is the only item that is a live defect for a person today. If the moderator has no `fcm_tokens` row, BUG-261020-tqr becomes the lead and a 10-minute idle-tab reproduction is worth it; if a row exists, skip the reproduction |
 | 2 | Phrase-score names cut (Round 4 ask 3): all event names with account, tagged organizer, own place and dates, no captions | the bar (0.85 is a guess); how many cross-account pairs exist; the account of Wacoal; whether the brand is a better key than the posting account | one read-only query, then offline scoring here | **Do.** It settles decisions 2 and 3 with data instead of 12 hand-picked pairs |
-| 3 | Same-poster stub weight (Round 4 ask 1): replay at 0.10 and 0.20 | the stub rule's value and the size of the exact-repeat merge | the same replay SQL with one parameter | **Do, after 1 and 2.** Low urgency: even a right weight only feeds a queue nobody works until the exact-repeat merge or IDEA-090 exists |
+| 3 | Same-poster stub weight (Round 4 ask 1): replay at 0.10 and 0.20 | the stub rule's value and the size of the exact-repeat merge | the same replay SQL with one parameter | **Do, after 1 and 2.** Low urgency: even a right weight only feeds a queue nobody works until the exact-repeat merge or IDEA-261020-mqx exists |
 | 4 | Fingerprint counts for unknown area (Round 4 ask 2) | the size of the penalty and per-page cap, and the UX copy; not the publish-or-hold decision (a hold has no worker whatever the count) | one read-only query | **Do before UX and epics sizing, not before your yes** |
 | 5 | Foreign events under the country leg: whether the 27 Denmark and 10 Egypt schedules (empty schedule text) have an event text that names the country | whether legitimate foreign events lose their map link | a text-only count; fold it into ask 5 | **Cheap, do it with the others.** The harm if wrong is small: a Denmark badminton event loses a map link, and Nearby never applied to it for an Indonesian user |
 | 6 | Held-out geocode set (Round 4 ask 4): 20 more texts through the venue-segment query | whether the venue-word list really gets 16 of 21 | 20 expected countries from you, about 40 Geoapify calls | **Do inside the build story as its test set, not before.** It needs to exist as a test anyway |

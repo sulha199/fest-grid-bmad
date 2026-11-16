@@ -6,7 +6,7 @@ captured: 2026-10-21
 
 # BUG-073: the push pipeline has no credentials where it sends (found 2026-10-21)
 
-Found by the local session's read-only AWS checks and the owner's SQL (`planning-artifacts/event-insight-poc/results/notification-aws-and-owner-sql-findings-2026-10-21.md`), read in `round-4-analysis-2026-10-21.md` section 6. Companion to BUG-069 (a moderator receives nothing). Not fixed; nothing was changed in AWS.
+Found by the local session's read-only AWS checks and the owner's SQL (`planning-artifacts/event-insight-poc/results/notification-aws-and-owner-sql-findings-2026-10-21.md`), read in `round-4-analysis-2026-10-21.md` section 6. Companion to BUG-261020-ptv (a moderator receives nothing). Not fixed; nothing was changed in AWS.
 
 ## What is wrong
 
@@ -29,7 +29,7 @@ Owner SQL (one row per user, 2 users, both `moderator`): `push_enabled` is **fal
 
 ## Blocks
 
-IDEA-090 (moderator queue notifications), the grouped-event notifications of AD-36 Rules 14 and 17.5, and the first-organizer-post notification itself.
+IDEA-261020-mqx (moderator queue notifications), the grouped-event notifications of AD-36 Rules 14 and 17.5, and the first-organizer-post notification itself.
 
 ## Resolution 2026-10-22: code and CDK (sandbox-capable); the SES account steps stay with the owner
 

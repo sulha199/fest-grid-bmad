@@ -1,4 +1,4 @@
--- BUG-069 / the 2026-10-20 notification investigation. OWNER-RUN, not for the read-only role: it reads users, user_settings, fcm_tokens and subscriptions,
+-- BUG-261020-ptv / the 2026-10-20 notification investigation. OWNER-RUN, not for the read-only role: it reads users, user_settings, fcm_tokens and subscriptions,
 -- which the production pack's role cannot see by design. Run it yourself, as the database owner, in psql or the Supabase SQL editor, in a read-only
 -- transaction. It prints counts, flags and ages only: no e-mail address, no token value, no user id.
 --   psql "$YOUR_OWNER_URL" -X -v owner_email='you@example.com' -f owner-notification-checks.sql        (in the SQL editor: replace :'owner_email' by hand)

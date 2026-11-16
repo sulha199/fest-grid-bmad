@@ -9,7 +9,7 @@ You are taking over a long-running BMad Method session for FestGrid / FestDaily 
 
 SETUP
 1. Repo sulha199/fest-grid-bmad, branch claude/ecstatic-shannon-e8eh9h (PR #87). On the owner's machine the folder is c:\projects\portfolio\festgrid\bmad. Run git status and git log. Confirm commit 17520a7d is on origin; if it is not, the owner has not pushed yet: say so and ask. The branch already contains master (nothing on master is missing from it as of 2026-10-30).
-2. Read in this order: CLAUDE.md; _bmad-output/project-context.md; the PRD (sections 3.19 duplicates, 3.20 event groups, 3.21 place and area) at _bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md; _bmad-output/planning-artifacts/event-insight-poc/poc-status.md (the single source of truth for the POC; read its sections dated 2026-10-27 to 2026-10-29); _bmad-output/planning-artifacts/event-insight-poc/proposal-personalized-discovery.md (Revisions 10, 11, 12 and section 6.2); the backlog rows and detail files (_bmad-output/implementation-artifacts/backlog.yaml and backlog/) for IDEA-085, IDEA-261027-ugg to IDEA-114, FIND-261028-3js, CC-032, IDEA-094.
+2. Read in this order: CLAUDE.md; _bmad-output/project-context.md; the PRD (sections 3.19 duplicates, 3.20 event groups, 3.21 place and area) at _bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md; _bmad-output/planning-artifacts/event-insight-poc/poc-status.md (the single source of truth for the POC; read its sections dated 2026-10-27 to 2026-10-29); _bmad-output/planning-artifacts/event-insight-poc/proposal-personalized-discovery.md (Revisions 10, 11, 12 and section 6.2); the backlog rows and detail files (_bmad-output/implementation-artifacts/backlog.yaml and backlog/) for IDEA-261019-0i7, IDEA-261027-ugg to IDEA-261029-s33, FIND-261028-3js, CC-032, IDEA-261021-6dy.
 3. Then tell me in five lines what you understood, and propose which "next candidate" below to take. Wait for my choice.
 
 WHERE THINGS STAND (2026-10-30)
@@ -19,25 +19,25 @@ Branch (POC and documents only, no production code): audience prompt v3 (stated 
 
 SETTLED BY THE OWNER
 - Target area is a set at mixed levels; the model reports only what the post states, code derives venue, hashtag and account areas; a never-classified account is treated as a curator (spec: target-area-spec-2026-10-27.md).
-- post_kind is a three-way value; a report is attached to its event if one exists, else promoted to an event (IDEA-106). isEvent stays the outer gate.
+- post_kind is a three-way value; a report is attached to its event if one exists, else promoted to an event (IDEA-261028-3ov). isEvent stays the outer gate.
 - Category siblings (5K and 10K) are one event, tracks are a union (plan Revision 10).
-- Price is stored per track in the ORIGINAL currency; the price bands are applied at read time per country (plan Revision 12, IDEA-114).
-- A per-account cap in the default list is accepted (IDEA-112). Limits also at scraping: an alarm at a soft limit, a stop at a hard limit for the month (IDEA-261029-hh4), filed under personalisation and the move from BYOK to a paid product (CC-032 cost-model decision, IDEA-094 open-core and entitlements). Limits are data (default, per plan, per-account override).
+- Price is stored per track in the ORIGINAL currency; the price bands are applied at read time per country (plan Revision 12, IDEA-261029-s33).
+- A per-account cap in the default list is accepted (IDEA-261029-hjq). Limits also at scraping: an alarm at a soft limit, a stop at a hard limit for the month (IDEA-261029-hh4), filed under personalisation and the move from BYOK to a paid product (CC-032 cost-model decision, IDEA-261021-6dy open-core and entitlements). Limits are data (default, per plan, per-account override).
 
 WAITING FOR THE OWNER'S ANSWERS
 - Plan Revision 11 (an event described by several posts; prototype merge-event-insight.ts): do curator reposts count only when no organizer post exists; a report post adds nothing; store each post's insight on event_posts.
-- IDEA-114: an event priced in another currency than the viewer's; which country's bands apply; the "free" filter for an event with a free and a paid category.
+- IDEA-261029-s33: an event priced in another currency than the viewer's; which country's bands apply; the "free" filter for an event with a free and a paid category.
 - IDEA-261029-hh4: soft limit 200 and hard limit 600 posts (my assumption); calendar month or rolling 30 days; tell subscribers when an account is stopped; count posts for the stop and events for the display cap; confirm there is NO separate "repeat" flag (reminder posts are normal; a duplicate card is a dedup defect).
-- IDEA-106: the matcher that lets "Hylo Open 2026 - Day 2" find "Hylo Open 2026"; how an attached report is shown; clean-up of the 52 remaining stub events of one results account.
-- IDEA-111 (Erafone Run 2026 Yogyakarta, 12 live events with a proposed role each): open the unclear 2026-10-30 event; is "Erafone Run 2026" a series. The race is 2026-10-31: re-check afterwards with the ids in backlog/IDEA-111-erafone-snapshot-2026-10-28.json (the public API returns past events by id).
+- IDEA-261028-3ov: the matcher that lets "Hylo Open 2026 - Day 2" find "Hylo Open 2026"; how an attached report is shown; clean-up of the 52 remaining stub events of one results account.
+- IDEA-261028-qa9 (Erafone Run 2026 Yogyakarta, 12 live events with a proposed role each): open the unclear 2026-10-30 event; is "Erafone Run 2026" a series. The race is 2026-10-31: re-check afterwards with the ids in backlog/IDEA-261028-qa9-erafone-snapshot-2026-10-28.json (the public API returns past events by id).
 - Owner labelling not done: post_kind and the target-area columns on the label sheets; the 14-case probe sheet is not built.
 
 NEXT CANDIDATES (take one only after the owner picks)
 1. Read the first live ingestion decisions: event_dedup_decision log lines with promotedByRule = true, from the batches of 2026-10-29 and 2026-10-30 (03:13 UTC). Logs Insights queries are in docs/infrastructure/7-event-dedup.md. Needs the AWS CLI profile festdaily-dev, region us-east-1.
-2. IDEA-085, the exact-repeat rule: also pair a stub with a full event and a roundup stub with its own account's post. Test set: 41 groups (90 events) of one account, identical name, shared start date, still shown more than once. This is production code: a master-based branch, never this one.
+2. IDEA-261019-0i7, the exact-repeat rule: also pair a stub with a full event and a roundup stub with its own account's post. Test set: 41 groups (90 events) of one account, identical name, shared start date, still shown more than once. This is production code: a master-based branch, never this one.
 3. IDEA-107, a small script that closes pending suggestions whose events are over or dead.
-4. IDEA-114 in the POC once the owner approves: price lines in the prompt and the label sheet (price_min, price_max, price_currency).
-5. IDEA-106 production build (a story on a master-based branch).
+4. IDEA-261029-s33 in the POC once the owner approves: price lines in the prompt and the label sheet (price_min, price_max, price_currency).
+5. IDEA-261028-3ov production build (a story on a master-based branch).
 
 RULES (the previous session's memory does not carry over)
 - Decisions are the owner's. Put questions as short numbered items. Do not push, merge or deploy unless asked. Never call EnterWorktree on yourself. Never print or write credentials.

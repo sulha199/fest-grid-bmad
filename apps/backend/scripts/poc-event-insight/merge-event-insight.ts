@@ -5,7 +5,7 @@
  * event whose tracks carry the difference, so the tracks of every linked post must survive the link instead of the last post overwriting them.
  *
  * The rules, per field:
- *   - A post classified `report` (IDEA-106: results, a recap, news) announces nothing upcoming, so it adds no audience fields to the event.
+ *   - A post classified `report` (IDEA-261028-3ov: results, a recap, news) announces nothing upcoming, so it adds no audience fields to the event.
  *   - Whose word counts: posts by the event's organizer outrank curator reposts. Curator posts only count when no organizer post exists, except for the
  *     sensitive topic (the safe side: any post that flags one wins).
  *   - Set-like fields (tracks, interests, stated areas) are the UNION over the counted posts. Tracks are matched by label ("5K" = "5 km").

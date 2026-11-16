@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-075
+backlog_id: IDEA-261018-vld
 title: "Profile enrichment: country, reach and default time zone from the initial profile scrape, with retry"
 captured: 2026-10-18
 ---
 
-# IDEA-075 — one profile read, four answers, and a retry
+# IDEA-261018-vld — one profile read, four answers, and a retry
 
 **Captured:** 2026-10-18 (revised twice the same day) · **Status:** POC done — 18 profiles, partly synthetic — no product code. Code: `apps/backend/scripts/poc-event-insight/` — `country-signals.ts`, `timezone-signals.ts`, `profile-insight.ts`, `run-profile-insight.ts`, `profile-retry.ts`. Results: `planning-artifacts/event-insight-poc/results/profile-insight-v1.generated.md` (country + reach, 16 profiles), `profile-insight-v2-rescored.generated.md` (+ time zone, 18 profiles; `profile-insight-v2.generated.md` is the same run before one guard fix, kept on purpose).
 
@@ -32,7 +32,7 @@ captured: 2026-10-18
 
 The product owner states that the never-classified accounts **that have no location are all Indonesian curators**, so no profile re-read is spent on them: one transaction sets them to `CURATOR_GUIDE`/`CONFIRMED`. **Never-classified accounts that already have a location are not changed.**
 
-The runbook is in `IDEA-075-legacy-bulk-update/` — `01-look.sql` (read-only; read the list first), `02-apply.sql` (one all-or-nothing transaction with a snapshot table, a row ceiling and a changed-in-between check), `03-rollback.sql`, `04-after.sql` — with a README. It was **tested on a scratch PostgreSQL 16 built from the repository's 80 migrations** with seeded accounts: happy path, refused second run, rollback, and the three abort paths. **It has not been run on production data**, and that the set is all curators is the product owner's statement, not something I could check.
+The runbook is in `IDEA-261018-vld-legacy-bulk-update/` — `01-look.sql` (read-only; read the list first), `02-apply.sql` (one all-or-nothing transaction with a snapshot table, a row ceiling and a changed-in-between check), `03-rollback.sql`, `04-after.sql` — with a README. It was **tested on a scratch PostgreSQL 16 built from the repository's 80 migrations** with seeded accounts: happy path, refused second run, rollback, and the three abort paths. **It has not been run on production data**, and that the set is all curators is the product owner's statement, not something I could check.
 
 What it changes for those accounts (from the code, not observed): scraping no; future captions cleared after extraction and images not re-hosted (3.4o); future events ingested as `stub` and no longer organizer-authored for the primary-post choice and the first-organizer notification — until now a null-typed curator counted as an organizer. I did not check how the UI renders a stub event. Captions already stored **stay**: deleting them is a separate decision (it would also remove the ability to re-extract those posts) and nobody asked for it. FIND-261018-p1z is resolved for this group.
 
@@ -148,4 +148,4 @@ SELECT failure_reason, count(*) FROM account_type_classification_reviews WHERE f
 
 The second query measures how much the missing retry costs today.
 
-Related: BUG-261018-jwf, BUG-261018-abg, IDEA-074, FIND-261018-p1z.
+Related: BUG-261018-jwf, BUG-261018-abg, IDEA-261018-i9a, FIND-261018-p1z.

@@ -1,10 +1,10 @@
 ---
-backlog_id: BUG-068
+backlog_id: BUG-261019-ud2
 title: "Every plain jsonb() column written through Drizzle 0.30.10 + postgres.js is stored as a JSON string, not an object"
 captured: 2026-10-19
 ---
 
-# BUG-068 — the double encoding is in Drizzle's `jsonb()` type, not in the pooler, and the repository already has the fix for three columns
+# BUG-261019-ud2 — the double encoding is in Drizzle's `jsonb()` type, not in the pooler, and the repository already has the fix for three columns
 
 **Status:** mechanism **reproduced** (scratch PostgreSQL 16.15, `apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts`, output `planning-artifacts/event-insight-poc/results/jsonb-encoding-probe.generated.md`) and **confirmed on production 2026-10-19** for every column the read-only role can see: `schedules.location_details` 1,460 of 1,460, `social_media_account_profiles.default_location` 28 of 28, `events.links` 247 of 247, `posts.additional_image_urls` 496 of 496 non-null values are JSON strings; **none** is an object or array, so the production writer is still double-encoding. The other 23 columns are inferred from the mechanism, not read.
 
@@ -12,7 +12,7 @@ captured: 2026-10-19
 
 ## History the first analysis missed
 
-`deferred-work.md` (2026-08-29, "unprocessed_scraper_payloads.context is double-JSON-encoded") records the same bug on three columns. It was fixed at the source with `customJsonb` (`packages/database/schema.ts`: `toDriver` hands the **raw object** to postgres.js, which serializes it once; `fromDriver` parses a legacy string), "applied only to this table's three jsonb columns, not schema-wide", with defensive reads in two resolver filters (`resolvers.ts:4318–4336`), a regression test (`apps/backend/src/schema/jsonb-encoding.test.ts`), and **no data migration**. That entry attributed the cause to `prepare: false`; the probe shows it is independent of it. BUG-068 is the schema-wide completion of that fix, plus the data migration it deferred.
+`deferred-work.md` (2026-08-29, "unprocessed_scraper_payloads.context is double-JSON-encoded") records the same bug on three columns. It was fixed at the source with `customJsonb` (`packages/database/schema.ts`: `toDriver` hands the **raw object** to postgres.js, which serializes it once; `fromDriver` parses a legacy string), "applied only to this table's three jsonb columns, not schema-wide", with defensive reads in two resolver filters (`resolvers.ts:4318–4336`), a regression test (`apps/backend/src/schema/jsonb-encoding.test.ts`), and **no data migration**. That entry attributed the cause to `prepare: false`; the probe shows it is independent of it. BUG-261019-ud2 is the schema-wide completion of that fix, plus the data migration it deferred.
 
 ## Mechanism
 
@@ -31,7 +31,7 @@ captured: 2026-10-19
 
 `packages/database/schema.ts` declares **30** jsonb columns: 3 already `customJsonb` (`unprocessed_scraper_payloads.raw_payload`, `.validation_error`, `.context`) and **27 plain `jsonb()`** that this bug is about: `user_locations.location_details`, `social_media_account_profiles.default_location` and `.discovery_source`, `geolocation_cache.result`, `posts.additional_image_urls`, `scraper_actor_runs.raw_input` and `.raw_output`, `events.links`, seven `event_merges` journal columns, three `account_profile_merges` columns, `extraction_audit_logs.events_completeness`, `schedules.location_details`, `default_location_change_requests.previous_location` and `.new_location`, `corrections.proposed_data`, `widgets.filters`, `ai_event_filters.resolved_filter`, `manual_extraction_jobs.request_payload` and `.result_data`.
 
-**Why nothing visibly broke:** reads through Drizzle work in every state. What does **not** work is anything evaluated inside PostgreSQL: `resolvers.ts:3401–3402` `location_details->>'adminArea'` / `->>'venueType'` (`->>` on a jsonb string returns null; checked) cannot be true; `jsonb_array_elements` on a string raises "cannot extract elements from a scalar" (checked); every planned SQL-side use (area ladder IDEA-261018-iv7, target-area resolver IDEA-081, `@>` containment, expression indexes) would see nothing.
+**Why nothing visibly broke:** reads through Drizzle work in every state. What does **not** work is anything evaluated inside PostgreSQL: `resolvers.ts:3401–3402` `location_details->>'adminArea'` / `->>'venueType'` (`->>` on a jsonb string returns null; checked) cannot be true; `jsonb_array_elements` on a string raises "cannot extract elements from a scalar" (checked); every planned SQL-side use (area ladder IDEA-261018-iv7, target-area resolver IDEA-261019-3bp, `@>` containment, expression indexes) would see nothing.
 
 ## The three ways to fix the write path
 
@@ -49,7 +49,7 @@ captured: 2026-10-19
 1. **DONE** `packages/database/schema.ts`: replace each plain `jsonb('x').$type<T>()` by `customJsonb<T>('x')`, keeping `.notNull()` and `.default([])`; remove the unused `jsonb` import. Verified on a temp copy of the package: all 27 replaced mechanically, `drizzle-kit generate` → no migration, and a Drizzle insert through the swapped `geolocation_cache.result` stores an `object` while a legacy string row still reads back parsed.
 2. **DONE** (`packages/database/jsonb-columns.test.ts`, vitest, fails on the old schema) **Ratchet test (stops the next plain `jsonb()`):** enumerate the exported tables with `is(v, PgTable)`, `getTableColumns(v)`, keep columns whose `getSQLType() === 'jsonb'`, and assert none has `columnType === 'PgJsonb'` (today: 30 jsonb columns, 27 `PgJsonb`, 3 `PgCustomColumn`; after the change: 0 `PgJsonb`). A comment in `schema.ts` and a rule in `project-context.md` ("jsonb columns use `customJsonb`") point at it.
 3. **DONE** (`apps/backend/src/schema/jsonb-encoding.test.ts`, run on a migrated scratch PostgreSQL; fails on the old schema) **Regression test:** extend `jsonb-encoding.test.ts`: insert through Drizzle into `schedules.location_details`, `events.links`, `social_media_account_profiles.default_location` and `posts.additional_image_urls`, then assert `jsonb_typeof` is `object` / `array` (and that a legacy string row still reads parsed).
-4. **Deploy**, then run the migration runbook `BUG-068-jsonb-migration/` (look → apply → look again; tested on a scratch database, **not run on production**). Core columns first; `-v include_rest=1` only after reading the byte sizes in the look output.
+4. **Deploy**, then run the migration runbook `BUG-261019-ud2-jsonb-migration/` (look → apply → look again; tested on a scratch database, **not run on production**). Core columns first; `-v include_rest=1` only after reading the byte sizes in the look output.
 5. **Verify on production** with the pack's "JSON encoding of jsonb columns" item (all rows `object` / `array`), and that `schedules` reports the same `pinned` count before and after.
 6. **Not part of this fix:** BUG-261018-abg (wrong pins), BUG-261018-ij7 (`adminArea` is never written: 0 of 1,460), and the defensive `->>` reads of 2026-08-29 (keep until step 5 is done).
 

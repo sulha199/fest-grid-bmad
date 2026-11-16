@@ -1,7 +1,7 @@
--- BUG-068 jsonb migration, step 1 of 3 (and the check afterwards): LOOK. READ-ONLY - it changes nothing and can run as a read-only role. Run it again after 02-apply.sql.
+-- BUG-261019-ud2 jsonb migration, step 1 of 3 (and the check afterwards): LOOK. READ-ONLY - it changes nothing and can run as a read-only role. Run it again after 02-apply.sql.
 --   psql "$DATABASE_URL" -f 01-look.sql
 -- For each of the 27 columns that Drizzle's plain jsonb() writes (and customJsonb will write correctly from now on): how many values are
--- JSON text stored inside a jsonb string (the BUG-068 shape, what 02-apply.sql converts), how many strings are something else (left alone),
+-- JSON text stored inside a jsonb string (the BUG-261019-ud2 shape, what 02-apply.sql converts), how many strings are something else (left alone),
 -- how many are already objects/arrays, and how many bytes the string rows hold. 'core' = columns SQL reads or is about to read; 'rest' = journal,
 -- job and cache columns that only Drizzle reads (converted only with -v include_rest=1).
 \set ON_ERROR_STOP on

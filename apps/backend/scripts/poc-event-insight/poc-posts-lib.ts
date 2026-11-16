@@ -65,7 +65,7 @@ export function reduceRecord(rec: unknown): PocPost | null {
 }
 
 /**
- * `scraper_actor_runs.raw_output` is jsonb, and some rows hold a JSON string that itself contains the JSON (BUG-068), so a string is parsed once.
+ * `scraper_actor_runs.raw_output` is jsonb, and some rows hold a JSON string that itself contains the JSON (BUG-261019-ud2), so a string is parsed once.
  * An array is the records; an object may wrap them under items / records / data / results.
  */
 export function recordsFromRawOutput(raw: unknown): unknown[] {

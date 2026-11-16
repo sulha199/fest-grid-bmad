@@ -76,7 +76,7 @@ ADD-only items from the extract: favorites per event in 3.2.1 (PRD:45) not edite
 |---|---|---|
 | Q1 weekly series vs once per group | RESOLVED | Owner 2026-10-21 (memlog 150, item 1) -> PRD:361. Residual: "within 7 days" should read "of the user's last push for that group". |
 | Q2 suppression for programmes | RESOLVED | PRD:361 "series only, never programmes". |
-| Q3 how a moderator is told; badge | PARTIAL | Badge resolved, PRD:201. Carrier depends on BUG-073 / IDEA-090, PRD:200. |
+| Q3 how a moderator is told; badge | PARTIAL | Badge resolved, PRD:201. Carrier depends on BUG-073 / IDEA-261020-mqx, PRD:200. |
 | Q4 can the PRD promise "shows it once" now | RESOLVED | PRD:341 states it, PRD:345 holds the live check off. |
 | Q5 who can create, move, dissolve | PARTIAL | Kind correction added, PRD:365. Hand-created groups, "move member", user or poster actions not stated. |
 | Q6 "same poster" vs "organizer" | STANDING | PRD:341, 343-345 "poster"; PRD:356 account-level; no definition. |

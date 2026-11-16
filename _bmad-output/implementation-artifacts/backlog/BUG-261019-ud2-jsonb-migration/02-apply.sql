@@ -1,4 +1,4 @@
--- BUG-068 jsonb migration, step 2 of 3: APPLY. One transaction, all or nothing.
+-- BUG-261019-ud2 jsonb migration, step 2 of 3: APPLY. One transaction, all or nothing.
 --   psql "$DATABASE_URL" -f 02-apply.sql                      # the 'core' columns (schedules.location_details, default_location, links, ...)
 --   psql "$DATABASE_URL" -v include_rest=1 -f 02-apply.sql    # also the 'rest' columns (journals, jobs, cache, raw scraper payloads)
 --   -v max_rows=N   per-column ceiling (default 200000); the whole run aborts and writes nothing if any column exceeds it

@@ -41,4 +41,4 @@ Built as part of the BUG-074 hotfix (see that file's "Fixed" section and AD-43).
 
 "Open" items, answered: thresholds are provisional constants (20 / 10 / 0.8 / 72 h / 3 probes / 6 h); the provider order is still
 encoded in two places (a route resolver is IDEA-261022-iyj); the Apify budget is unchanged, and the async gate counts triggers, not items,
-so it does not bound failover spend (**BUG-079**).
+so it does not bound failover spend (**BUG-261022-v91**).

@@ -1,10 +1,10 @@
 ---
-backlog_id: BUG-087
+backlog_id: BUG-261027-smw
 title: "LocationDetails.city is often a kecamatan and the province is spelled two ways, so any area read from a pin's city string is wrong"
 captured: 2026-10-27
 ---
 
-# BUG-087 — The geocoder's `city` is often a kecamatan, not a city
+# BUG-261027-smw — The geocoder's `city` is often a kecamatan, not a city
 
 ## Capture
 
@@ -36,4 +36,4 @@ The province appears as "Special Region of Yogyakarta" and as "Yogyakarta". `Loc
 
 Resolve the geocoder's `city` INSIDE its province through the gazetteer hierarchy (kecamatan, kabupaten, province), with the narrowest match, and normalise the province aliases. The POC has both pieces: `area-resolver.ts` (`resolveArea(..., within)`) and `venue-resolution.ts` (`resolveGeocoderArea`), tested with these cases. Blocker: the POC gazetteer is a hand-typed sample; the real one must come from the official administrative-code list (Kemendagri / BPS) after checking its licence and revision.
 
-Related: BUG-261018-ij7 (admin area never written), IDEA-261018-iv7 (canonical area ladder), IDEA-081 (target-area resolver), IDEA-261027-ugg (target area in production).
+Related: BUG-261018-ij7 (admin area never written), IDEA-261018-iv7 (canonical area ladder), IDEA-261019-3bp (target-area resolver), IDEA-261027-ugg (target area in production).

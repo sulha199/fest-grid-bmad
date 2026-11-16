@@ -183,7 +183,7 @@ test('prompt v3: the scorer adds the area source and the area name, compared thr
   assert.equal(v2.fields.some((f) => f.field.startsWith('target area source') || f.field.startsWith('target area name')), false);
 });
 
-test('post kind (prompt v3, IDEA-106): scored on every labelled post; a report leaves the event-field denominators; an announcement read as a report is counted as lost', () => {
+test('post kind (prompt v3, IDEA-261028-3ov): scored on every labelled post; a report leaves the event-field denominators; an announcement read as a report is counted as lost', () => {
   const kinded = (id: string, said: string): RunRecord => {
     const r = run(id, 1);
     r.model!.targetAreas = []; // marks a prompt v3 run

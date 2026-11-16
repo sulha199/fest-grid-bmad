@@ -4,7 +4,7 @@ type: planning-proposal
 date: 2026-10-19
 related: [prd Analytics, §3.2 Personalization, §3.16 Data Minimization; Architecture Spine AD-5 (analytics), AD-17, AD-18, AD-30; proposal-discovery-ranking-and-scale.md; fest-grid-monetization: cost-forecast-model-2026-09-26.md, insight-layer-premium-plan-2026-10-13.md]
 evidence: ./results/perf-request-*.generated.md · perf-features-*.generated.md · perf-scoring-*.generated.md · perf-pgbench-scoring.generated.md · perf-variants-300k-month12.generated.md
-backlog: [FIND-261019-whr, FIND-261019-s82, IDEA-079, IDEA-080; corrects FIND-261018-9y3]
+backlog: [FIND-261019-whr, FIND-261019-s82, IDEA-261019-4nt, IDEA-261019-2cy; corrects FIND-261018-9y3]
 ---
 
 # From the pre-subscription forecast to `getEvents`: what scale asks of the list endpoint, and how to use PostHog to know
@@ -18,7 +18,7 @@ backlog: [FIND-261019-whr, FIND-261019-s82, IDEA-079, IDEA-080; corrects FIND-26
 * The **location** effect is BUG-261018-jwf: a curator's events stop falling back to the curator's account location, so a curator event that names no venue has **no location**.
 * They stack: the legacy accounts' future events will often be stubs *and* placeless. **(Corrected 2026-10-19, `proposal-target-area-and-scan-safety.md` §2.1: the current prompt extracts a roundup item only when it has both a readable date and a readable location, so roundup stubs normally have both; and your reply puts the weight on the audience's target area, not the location.)** **The web app has no stub concept today** — `detailLevel` is not in the GraphQL schema or the client (searched `apps/web/src` and `apps/backend/src/schema`) — so Discovery would render them as ordinary cards, possibly sparse ones. The open design question is therefore: show, badge, rank lower, or hide stubs until enriched? PostHog can answer it with data (`event_card_opened` carries `detail_level`, §7).
 
-**2. The retry sweep — only for profile scraping?** *Yes, only for the one-time profile read at subscribe time* (account-type classification plus the country, reach and time-zone enrichment of IDEA-075). Today any failure of that call parks the account in `AWAITING_APPROVAL` and nothing retries it. The policy (`profile-retry.ts`, tested): retry transient failures at 15 min, 1 h, 6 h, 1 d, 3 d; never retry "profile not found / private"; when the scrape worked but showed no country, re-evaluate on the first scraped posts instead of re-scraping; then hand to a person. **Post scraping already has its own recovery** (the scraper poll-and-drain rule every 5 minutes). Because the first backoff is 15 minutes, the natural host is the existing **5-minute scraper poll-and-drain rule**; the daily batch would stretch it to a day.
+**2. The retry sweep — only for profile scraping?** *Yes, only for the one-time profile read at subscribe time* (account-type classification plus the country, reach and time-zone enrichment of IDEA-261018-vld). Today any failure of that call parks the account in `AWAITING_APPROVAL` and nothing retries it. The policy (`profile-retry.ts`, tested): retry transient failures at 15 min, 1 h, 6 h, 1 d, 3 d; never retry "profile not found / private"; when the scrape worked but showed no country, re-evaluate on the first scraped posts instead of re-scraping; then hand to a person. **Post scraping already has its own recovery** (the scraper poll-and-drain rule every 5 minutes). Because the first backoff is 15 minutes, the natural host is the existing **5-minute scraper poll-and-drain rule**; the daily batch would stretch it to a day.
 
 **3. The geocode confidence floor — what is the case?** Geoapify returns candidates for a place text, each with a confidence between 0 and 1. Today the highest-confidence candidate always wins and is stored as a map pin, **even at 0.2** — so a vague text like "DIY & Jawa Tengah" or "omah noto plankton" can become a confident-looking pin in the wrong city or country (BUG-261018-abg's "fatal" case). The **floor** is a minimum confidence below which we keep the text and store *no coordinates*. Calibration means choosing that number: **too low** and wrong pins get through; **too high** and legitimate but vague places lose their pin. I used 0.5 only because the repo already treats below 0.5 as untrustworthy for showing a map link; it has not been tested against Geoapify's real scores for Indonesian place names. To calibrate: run `probe-geocode-country.ts` (needs a Geoapify key) over 100–200 real stored place texts, label each result right or wrong by hand, and pick the floor where wrong pins are about zero at the smallest loss of right ones.
 
@@ -125,17 +125,17 @@ The pattern **already exists in this codebase**: Favorites fetches a frozen id l
 
 **What the split buys**
 * **Amortisation**: a five-page session pays one ranking (21–52 ms) plus five hydrations (≈ 2 ms) instead of five rankings (110–355 ms); the larger the score cost, the larger the gain.
-* **Stable paging**: a frozen id list cannot repeat or skip events (BUG-067 for the ranked mode), exactly as Favorites already behaves.
+* **Stable paging**: a frozen id list cannot repeat or skip events (BUG-261018-q2a for the ranked mode), exactly as Favorites already behaves.
 * **`totalCount` for free** (= list length), and **prefetch**: the next pages' ids are known, so cards can be fetched ahead.
 * **Shared content, per-user order**: the expensive per-user part (ranking) is separated from the shared part (event content), which can be cached by `id` in TanStack Query and reused by the detail view, Favorites and the calendar.
 
 **What it costs**
-* **It saves nothing by itself today**: ids-only on the current query is as slow as the full list. Without the foundation (IDEA-076) it only adds a round trip.
+* **It saves nothing by itself today**: ids-only on the current query is as slow as the full list. Without the foundation (IDEA-261018-5lm) it only adds a round trip.
 * **Ranking without joins is only 10–35% cheaper** than ranking with the full select list (I3 vs P3: 53 vs 63 ms at 300k, 111 vs 166 ms at 91k open, 34 vs 38 ms at 30k); the sort over candidates dominates, not the joins. Do not sell the split on database time.
 * **A waterfall**: rank, then hydrate. Mitigation: the ranking response also carries page 1's full cards plus the remaining ids.
 * **Fixed per-call cost is paid again** (API Gateway, Lambda, JWT verification, the `user_settings` lookup) — not in my numbers. Free-tier headroom is large (1M API Gateway calls/month per `2-backend.md`), but latency is what users feel.
 * **Staleness**: the list is frozen for the session; new, cancelled or merged events appear only on refresh. Hydration must tolerate a vanished or merged id (`mergedIntoEventId` exists). Set a maximum list age.
-* **Cache invalidation needs a trustworthy version.** `events.updated_at` does not change when a schedule is edited (schedules have their own `updated_at`), and `favoriteCount` / `isFavorited` / `isAddedToCalendar` change constantly. Cache *content* by `(id, content_version)` and keep the volatile flags out of the version; one trigger on `schedules` can maintain both the sort key (IDEA-076) and a `content_version`.
+* **Cache invalidation needs a trustworthy version.** `events.updated_at` does not change when a schedule is edited (schedules have their own `updated_at`), and `favoriteCount` / `isFavorited` / `isAddedToCalendar` change constantly. Cache *content* by `(id, content_version)` and keep the volatile flags out of the version; one trigger on `schedules` can maintain both the sort key (IDEA-261018-5lm) and a `content_version`.
 * **Entitlement**: hydration must enforce visibility per id and must never put premium insight fields into a shared cache entry.
 * **A cap**: the list holds K ids (200 is 9 KB); beyond it, continue by date with a keyset cursor.
 
@@ -173,7 +173,7 @@ The pattern **already exists in this codebase**: Favorites fetches a frozen id l
 | 1 | **Discovery health** | `discovery_page_loaded` (page, sort_mode, item_count, **client-measured ms**, filter kind); `discovery_page_viewed` (**one event per page** with ids and positions — batched, not per card); `event_card_opened` (id, position, page, tier, **detail_level**); extend `event_favorited` and calendar-add with position/page/tier; `discovery_empty`; `filter_applied` with node count and result-count bucket | real pages per session, real peak concurrency, zero-result rate (the case for close matches), p50/p95 latency users feel, stub vs full engagement — **replaces my traffic assumptions** |
 | 2 | **Cost-model calibration** | `subscription_added` (account, source = curated list / wildcard — exists, add `source`); trial funnel: signup → accounts subscribed → first favorite → D1/D7/D14 return → paywall viewed → upgrade clicked → paid (payment method) | the **empirical Zipf exponent and pool size** the cost model flags as unmeasured (s = 1.0, M = 300), and real conversion and retention in place of the 10–25% / 85–96% judgments |
 | 3 | **Fake-door and price test** | `ai_filter_trigger_tapped`, `upgrade_prompt_viewed` (variant), `price_point_selected` behind a feature flag | the insight-layer plan §6 test, with its thresholds set beforehand |
-| 4 | **Ranking experiments** | flag `discovery_sort` (soonest / area-first / area + freshness + seen); primary: favorites + calendar adds per user-week; secondary: open rate by position, return rate; guardrails: "Soonest" toggle use, client p95 | IDEA-074 / IDEA-078 — see sample sizes below |
+| 4 | **Ranking experiments** | flag `discovery_sort` (soonest / area-first / area + freshness + seen); primary: favorites + calendar adds per user-week; secondary: open rate by position, return rate; guardrails: "Soonest" toggle use, client p95 | IDEA-261018-i9a / IDEA-261018-i93 — see sample sizes below |
 | 5 | **Operations (client side)** | PostHog error capture; Web Vitals; sampled `graphql_request_timed` (operation, ms, status) | what users feel. **Not** a replacement for database monitoring: use Supabase query performance / `pg_stat_statements` / `auto_explain` and CloudWatch for the server; AD-5 is frontend-only, so I do not suggest `posthog-node` yet |
 
 **Experiment power, honestly.** Detecting a +10% relative lift on a 20% weekly favorite rate needs about **6,300 users per arm**; +25% needs about 1,000; on a 10% base rate, +10% needs about 14,100 and +25% about 2,300 (two-sided 5%, 80% power). At 2,000 daily actives only large effects are testable in weeks, so run the **offline replay** first (`favorites` history, proposal §5) and A/B only what survives it.
@@ -186,11 +186,11 @@ The pattern **already exists in this codebase**: Favorites fetches a frozen id l
 
 * **FIND-261019-whr** — Discovery selects `totalCount` it never reads (first, one-line, free: 31–348 ms per page).
 * **FIND-261019-s82** — every signed-in `events` request upserts `user_settings` just to read one setting.
-* **IDEA-079** — PostHog: basics, Discovery measurement, cost-model calibration, experiments.
-* **IDEA-080** — ranked ids per session + hydrate by id (+ `content_version`), after IDEA-076.
+* **IDEA-261019-4nt** — PostHog: basics, Discovery measurement, cost-model calibration, experiments.
+* **IDEA-261019-2cy** — ranked ids per session + hydrate by id (+ `content_version`), after IDEA-261018-5lm.
 * **FIND-261018-9y3 corrected**: the JIT penalty is a cliff set by estimated plan cost against 500k, not a constant 80%.
 
-Order: **FIND-261019-whr → PostHog basics + Discovery measurement (so real numbers arrive while the rest is built) → JIT setting and tie-break (BUG-067) → IDEA-076 foundation → area tier with horizon (IDEA-074) → IDEA-080 → freshness / seen (IDEA-078) → close matches (IDEA-077).**
+Order: **FIND-261019-whr → PostHog basics + Discovery measurement (so real numbers arrive while the rest is built) → JIT setting and tie-break (BUG-261018-q2a) → IDEA-261018-5lm foundation → area tier with horizon (IDEA-261018-i9a) → IDEA-261019-2cy → freshness / seen (IDEA-261018-i93) → close matches (IDEA-261018-25r).**
 
 ## 9. Decisions needed from you
 

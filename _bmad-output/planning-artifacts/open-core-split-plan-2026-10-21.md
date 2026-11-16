@@ -1,6 +1,6 @@
 # Open-core split: public core, private premium (plan, 2026-10-21)
 
-Decision (owner, 2026-10-21): FestDaily becomes **open-core**. The core stays public under MIT. Premium code (personalization is the first premium feature) lives in a private package and private repository. This plan says what that needs; nothing in it has been executed. See FIND-093 (the repository is public today and already contains premium planning and production findings).
+Decision (owner, 2026-10-21): FestDaily becomes **open-core**. The core stays public under MIT. Premium code (personalization is the first premium feature) lives in a private package and private repository. This plan says what that needs; nothing in it has been executed. See FIND-261021-2ku (the repository is public today and already contains premium planning and production findings).
 
 ## 0. Revision, later on 2026-10-21: a paid app, a secret recipe, a portfolio
 
@@ -138,7 +138,7 @@ The planning artifacts under `_bmad-output/` and the memlogs are one tree in one
 | `planning-artifacts/festgrid-architecture-spine.md` | public, minus AD-42 and the premium parts of AD-39 Rule 8 | A private `festgrid-architecture-spine-premium.md` holds AD-42; the public spine lists "AD-42: defined in the private architecture; the core exposes the ports of Rule 3 of AD-43". |
 | `planning-artifacts/event-insight-poc/` (proposal, plan, labelling guides, analyses, `results/`) | **private** | Premium design and production findings (counts, AWS facts, the user count). |
 | `planning-artifacts/event-insight-poc/prod-readonly/` (briefs, role scripts) | private | Operational and security detail. |
-| `implementation-artifacts/backlog.yaml` and `backlog/*.md` | split: premium and production-security rows move | IDEA-074, 092, 093, BUG-073 and FIND-093 are the first candidates. |
+| `implementation-artifacts/backlog.yaml` and `backlog/*.md` | split: premium and production-security rows move | IDEA-261018-i9a, 092, 093, BUG-073 and FIND-261021-2ku are the first candidates. |
 | `.memlog.md` files | private copy from now on; public copy keeps core entries | Decisions about premium and production belong with the private tree. |
 | `epics.md`, stories, sprint status | core public; premium epics private | Epic 10 (personalized Discovery) is premium. |
 | `apps/backend/scripts/poc-event-insight/*.ts` | move to the private repository when the split happens | Already public and MIT; copies already taken stay MIT. |

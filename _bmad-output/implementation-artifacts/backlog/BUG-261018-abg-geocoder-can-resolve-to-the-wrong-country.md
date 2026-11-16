@@ -11,7 +11,7 @@ captured: 2026-10-18
 ## Measured 2026-10-19 (`prod-check-results-review-2026-10-19.md`)
 
 * Production: 379 of 1,460 pins lie outside Indonesia's bounding box; **627 (43%) have a stored confidence under 0.5**; 265 more schedules have no pin. The box test is a floor: pins in the wrong province of the right country are inside the box.
-* Probe (`results/geocode-probe-2026-10-19.md`, 14 descriptions × no bias / bias `id` / filter `id`, my reading of the addresses): 7 right (confidence 0.67–1.00), 5 venue texts answered with another place (confidence 0.00–0.20), 2 **area phrases** answered with a business (0.66 and 0.50). Only 2 of 42 picks were outside Indonesia (the same description, Canada at 0.20); the `filter` mode stays wrong inside Indonesia. So: a floor works on venue texts and fails on area phrases, which should go to the gazetteer instead (IDEA-081); do not calibrate the floor on 14 texts.
+* Probe (`results/geocode-probe-2026-10-19.md`, 14 descriptions × no bias / bias `id` / filter `id`, my reading of the addresses): 7 right (confidence 0.67–1.00), 5 venue texts answered with another place (confidence 0.00–0.20), 2 **area phrases** answered with a business (0.66 and 0.50). Only 2 of 42 picks were outside Indonesia (the same description, Canada at 0.20); the `filter` mode stays wrong inside Indonesia. So: a floor works on venue texts and fails on area phrases, which should go to the gazetteer instead (IDEA-261019-3bp); do not calibrate the floor on 14 texts.
 * Open: the probe geocodes "Sleman City Hall" correctly (id, 1.00) while production stores 26 of its schedules in the US. `confidence-by-country-box.sql` and a probe with `--country us` test the explanations (account default as bias, cache entry, pin from another path).
 
 ## Mechanisms found in the code (each is a hypothesis until the probe or the SQL says otherwise)
@@ -30,7 +30,7 @@ Ruled out by reading: the geocode **cache key** includes the bias (`build-cache-
 
 ## Fix direction
 
-1. Country as a **filter**, from a known set. The account's country comes from **its initial profile scrape** (IDEA-075: deterministic markers such as +62 / WIB / Rp / .co.id, backed by a quoted model answer; 16 profiles tested, 0 wrong countries — a small, partly synthetic test). Only when that is still unresolved after the retries does the platform's home-country setting (Indonesia today) apply — **decided 2026-10-18** — as a *preference* (`bias=countrycode:`) with the confidence floor: any country may win, but the winner must clear the floor, otherwise the address is kept as text and no pin is stored. Never as a silent filter. Draft + tests: `geocodePlan` / `decideGeocode` in `location-policy.ts`; the floor (0.5, the threshold `isLocationTrustworthy` already uses) is not calibrated.
+1. Country as a **filter**, from a known set. The account's country comes from **its initial profile scrape** (IDEA-261018-vld: deterministic markers such as +62 / WIB / Rp / .co.id, backed by a quoted model answer; 16 profiles tested, 0 wrong countries — a small, partly synthetic test). Only when that is still unresolved after the retries does the platform's home-country setting (Indonesia today) apply — **decided 2026-10-18** — as a *preference* (`bias=countrycode:`) with the confidence floor: any country may win, but the winner must clear the floor, otherwise the address is kept as text and no pin is stored. Never as a silent filter. Draft + tests: `geocodePlan` / `decideGeocode` in `location-policy.ts`; the floor (0.5, the threshold `isLocationTrustworthy` already uses) is not calibrated.
 2. Country-aware candidate choice with a confidence floor and an **"unresolved"** outcome: keep the text, store no coordinates, never a wrong pin (draft + tests: `poc-event-insight/location-policy.ts` `acceptGeocode`).
 3. Gate inference on the **geocoder's** confidence/country, not Gemini's.
 4. Do not infer for curators (BUG-261018-jwf); infer for organizers only on consensus.
@@ -55,4 +55,4 @@ FROM schedules s WHERE s.location_details IS NOT NULL AND (s.location_details->>
 
 If the first query shows only `id`, mechanism 1–4 are not producing foreign pins in practice and the fault is narrower (probably a handful of curator defaults). The queries were run (rolled back) against a scratch PostgreSQL 16 built from the repository's 80 migrations: they parse and every table and column resolves. They were not run against production data, so no result is known.
 
-Related: BUG-261018-jwf, IDEA-261018-iv7, IDEA-075, BUG-261018-nyt.
+Related: BUG-261018-jwf, IDEA-261018-iv7, IDEA-261018-vld, BUG-261018-nyt.

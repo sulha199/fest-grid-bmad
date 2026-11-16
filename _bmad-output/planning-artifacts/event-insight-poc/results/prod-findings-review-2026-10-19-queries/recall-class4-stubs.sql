@@ -1,4 +1,4 @@
--- IDEA-085, second cut. recall-classes.sql found 166 pairs the matcher can reach, 21 of them in the candidate list.
+-- IDEA-261019-0i7, second cut. recall-classes.sql found 166 pairs the matcher can reach, 21 of them in the candidate list.
 -- Hypothesis from the code (process-ingestion-job.ts + packages/domain/src/events/match-scoring.ts): for a roundup- or curator-sourced item the organizer
 -- weight (0.40) is discounted on purpose (BUG-058), so a same-name, same-day pair scores at most 0.25 (+0.15 same venue) = 0.40, under the 0.45 'mid'
 -- threshold: it is never a candidate unless the two events share a link (+0.20). A pair of two organizer-authored events scores at least 0.65 ('mid').

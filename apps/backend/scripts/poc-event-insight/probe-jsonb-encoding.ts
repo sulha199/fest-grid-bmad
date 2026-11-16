@@ -1,5 +1,5 @@
 /**
- * Probe (scratch database only, local-only guard): why is `schedules.location_details` a JSON *string* in production (BUG-068)?
+ * Probe (scratch database only, local-only guard): why is `schedules.location_details` a JSON *string* in production (BUG-261019-ud2)?
  * Inserts the same object through Drizzle's `jsonb()` column with postgres.js in the configurations that matter, then reads back
  * `jsonb_typeof()`. A temporary table is used and dropped; nothing of the application's is touched.
  *

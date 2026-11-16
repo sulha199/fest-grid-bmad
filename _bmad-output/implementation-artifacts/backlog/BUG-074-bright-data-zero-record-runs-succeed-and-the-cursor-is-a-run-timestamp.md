@@ -79,7 +79,7 @@ Which time zone Bright Data uses for a day; whether `posts_to_not_include` takes
 
 ## Evidence
 
-The queries and calls are reproducible with `PROD_RO2_DATABASE_URL` and the Bright Data token: runs by day (`scraper_actor_runs` grouped by `completed_at::date`), `raw_output`/`raw_input` of the last 10 days for the inclusivity and repeat figures (both are double-encoded JSON strings, BUG-068), and the three calls in section 4.
+The queries and calls are reproducible with `PROD_RO2_DATABASE_URL` and the Bright Data token: runs by day (`scraper_actor_runs` grouped by `completed_at::date`), `raw_output`/`raw_input` of the last 10 days for the inclusivity and repeat figures (both are double-encoded JSON strings, BUG-261019-ud2), and the three calls in section 4.
 
 ## Fixed, 2026-10-22 (hotfix cut from `master`; commits `8f8e0455`, `dba05bcc`, `5f72e7da`, `5d3a8634`)
 
@@ -94,7 +94,7 @@ ratchet; the infrastructure stack tests.
 | Item | Result |
 |---|---|
 | 1. Cursor from the newest stored post | **Done.** `getScrapeCursor` (backend) over `resolveScrapeCursor` (domain): Bright Data = newest `posts.published_at` minus one day, Apify = exact, a future-dated post clamped to now, no stored post = the caller's window. Both triggers use it; no run-based cursor lookup remains. |
-| 2. `posts_to_not_include` | **Not built, on purpose.** The id format is unverified and a wrong value could fail every request. De-duplication by post URL already protects `posts`. Carried by **IDEA-099**. |
+| 2. `posts_to_not_include` | **Not built, on purpose.** The id format is unverified and a wrong value could fail every request. De-duplication by post URL already protects `posts`. Carried by **IDEA-261022-b42**. |
 | 3. Classify every Bright Data result | **Done, with one deviation.** `classifyBrightDataResult` (domain) reads `progress`: records > 0 is `ok`; `dead_page` is `empty`; otherwise `vendor_failure`, stored **FAILED**, pending job expired, profile re-queued through the AD-34 gate. Inconclusive input (lookup failed or timed out, a status that is not `ready`/`failed`, records the vendor reports that never arrived) is `empty`, never an outage. The webhook and the stale-job sweep share it. **Deviation:** the class is *derived* (`FAILED`, or `SUCCEEDED` with 0 items), not stored on `scraper_actor_runs`; that needs a migration and is carried by **IDEA-261022-sdx**. |
 | 4. Fleet alert | **Partly done.** A provider whose newest finished runs mostly failed (>= 80 %) or all returned no posts is degraded; the daily batch records it as a failure day in `scraper_provider_health`, so the existing provider-down e-mail fires after `SCRAPER_PROVIDER_ALERT_THRESHOLD_DAYS` (default 2) days. The measure is a sliding sample, not "a day". The switch and the recovery are logged. **No notification reaches a human in production** until SES works (BUG-073): carried by **IDEA-096**. |
 | 5. Recover the gap | **Automatic, with a limit.** The cursor never moved past 2026-10-20, so the first healthy run per profile requests from there. A profile whose gap exceeds the per-run limit (`SCRAPE_RESULTS_LIMIT`, default 30) is truncated: re-run a manual scrape for it. |
@@ -127,7 +127,7 @@ ratchet; the infrastructure stack tests.
 ### Known limits, carried as rows
 
 BUG-261022-3vh (the cursor can run ahead of what a profile's own scrape captured), BUG-261022-7aw (caption-less posts pin the cursor),
-BUG-261022-a2z (failed-run handling differs per vendor and is not atomic), BUG-079 (the budget gate counts triggers, not items),
+BUG-261022-a2z (failed-run handling differs per vendor and is not atomic), BUG-261022-v91 (the budget gate counts triggers, not items),
 IDEA-096 (alerting without SES), IDEA-261022-iyj (persisted health, DB-lease probe, one route resolver, owner override),
-IDEA-261022-sdx (store the classification evidence, an `inconclusive` class, webhook acknowledges only), IDEA-099
-(`posts_to_not_include`), FIND-095 (smaller review deferrals).
+IDEA-261022-sdx (store the classification evidence, an `inconclusive` class, webhook acknowledges only), IDEA-261022-b42
+(`posts_to_not_include`), FIND-261022-n33 (smaller review deferrals).

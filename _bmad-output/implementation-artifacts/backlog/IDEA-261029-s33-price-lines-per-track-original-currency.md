@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-114
+backlog_id: IDEA-261029-s33
 title: "Store price lines per track in the original currency and derive price bands per country at read time (cost as a list, not a stored tier)"
 captured: 2026-10-29
 ---
 
-# IDEA-114 — Price lines per track, original currency; bands per country at read time
+# IDEA-261029-s33 — Price lines per track, original currency; bands per country at read time
 
 ## Decision (owner, 2026-10-29)
 
@@ -58,4 +58,4 @@ Merging posts (personalization Revision 11) becomes a union of price lines, so t
 4. A price only on the poster: production sees the image, the POC call does not (`cost_source`).
 5. Mapping price lines to tracks: production stores the price per schedule, tracks are an insight; a line the post does not tie to a track is event-wide.
 
-Related: IDEA-111 (Erafone: 5K and 10K prices), personalization plan Revisions 10 to 12, PRD 3.20, AD-42, IDEA-261027-ugg (target area: same idea of keeping the source value and deriving per country).
+Related: IDEA-261028-qa9 (Erafone: 5K and 10K prices), personalization plan Revisions 10 to 12, PRD 3.20, AD-42, IDEA-261027-ugg (target area: same idea of keeping the source value and deriving per country).

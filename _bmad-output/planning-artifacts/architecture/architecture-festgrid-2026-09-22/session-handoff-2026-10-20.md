@@ -53,7 +53,7 @@ master merged (AD-40/41 from master; backlog ids renumbered) done
 
 ### 4a. Adopted (details are in the spine; memlog entries 90-101 carry the dates)
 
-- **AD-37 jsonb (BUG-068):** `customJsonb` on all 30 jsonb columns; row migration by runbook after the writer
+- **AD-37 jsonb (BUG-261019-ud2):** `customJsonb` on all 30 jsonb columns; row migration by runbook after the writer
   ships; the unwrap fragment guards on the first character.
 - **AD-38 event identity:** an event is one activity at one place-set; schedules are the dates. A
   deterministic place normalizer runs before the per-event loop. `isSamePlace()` and `normalizeName()` are
@@ -69,8 +69,8 @@ master merged (AD-40/41 from master; backlog ids renumbered) done
   reader. `events.area_status` has an explicit `unknown`. Curators never use Geoapify for an account
   location; their area is the profile guess P validated by the first posts Q (N=5, M=3 are assumptions).
   Type confirmation and scraping never wait for the area.
-- **Moderators:** they receive no email or push for queue items today (BUG-069). The owner decided the
-  direction: a digest email and a push for pending items (IDEA-090).
+- **Moderators:** they receive no email or push for queue items today (BUG-261020-ptv). The owner decided the
+  direction: a digest email and a push for pending items (IDEA-261020-mqx).
 
 ### 4b. Proposed, waiting for the owner's yes or no
 
@@ -93,7 +93,7 @@ Commit `30154e2`, folder `_bmad-output/planning-artifacts/event-insight-poc/resu
 |---|---|
 | `pin-trust-labelled-prod-2026-10-19.csv` (87 rows, owner-labelled Y/C/N) | the pin-trust floor. Score with `apps/backend/scripts/poc-event-insight/score-pin-trust-labels.ts` |
 | `geocode-compound-probe-2026-10-19.md` | whether a better query shape fixes wrong-country pins |
-| `recall-replay-prod-2026-10-19.txt` | IDEA-085 stub-pair rule: how many reachable pairs the matcher misses |
+| `recall-replay-prod-2026-10-19.txt` | IDEA-261019-0i7 stub-pair rule: how many reachable pairs the matcher misses |
 | `events-place-quality-prod-2026-10-19.txt` | share of open events with a trusted pin, untrusted pin, text only, none |
 | `events-multi-place-prod-2026-10-19.txt`, `concurrent-multi-place-prod-2026-10-20.txt`, `series-candidates-prod-2026-10-19.txt`, `tier1-group-members-prod-2026-10-20.txt` | how many events the place split touches, the GAP, the series/programme split on real names |
 | `gemini-usage-prod-2026-10-19.txt` | quota headroom for the backfill |
@@ -105,14 +105,14 @@ country-or-box leg is the likely fix); 38 of those 42 were stored after the Indo
 (2026-09-13); only 25 of 58 mid or high stub/full pairs are in the candidate list; SCH is not among the 19
 tier-1 umbrellas; the notification probe ranks the likely causes (no `fcm_tokens` row, twin profile BUG-059,
 stub/curator events never notify, `user_settings` row missing) and found e-mail to a subscriber is by design
-absent. Amend AD-14 Rule 4, AD-30 Rule 7 (the stub-pair rule, IDEA-085), AD-36 (the GAP) and BUG-069 from
+absent. Amend AD-14 Rule 4, AD-30 Rule 7 (the stub-pair rule, IDEA-261019-0i7), AD-36 (the GAP) and BUG-261020-ptv from
 this, then log it in the memlog.
 
 ## 6. Numbering state (after the 2026-10-20 merge)
 
 - Next free **AD-42**. The spine runs AD-1 to AD-41. AD-40 (re-extract preview) and AD-41 (async subscribe)
   belong to master's session.
-- Backlog maxima: **BUG-064, IDEA-073, FIND-086, CC-032**. The next ids are BUG-072, IDEA-092, FIND-093.
+- Backlog maxima: **BUG-064, IDEA-073, FIND-086, CC-032**. The next ids are BUG-261020-tqr, IDEA-261021-8q8, FIND-261021-2ku.
   Master's rows were renumbered on merge (BUG-261018-ij7 to BUG-063, BUG-261018-nyt to BUG-064, IDEA-261018-iv7 to IDEA-073,
   FIND-261018-p1z to FIND-086); master's code comments still say BUG-261018-ij7. Master's session must allocate above
   these maxima or the ids collide again.
@@ -138,16 +138,16 @@ on `readonly_2`, never from here (see `event-insight-poc/prod-readonly/README.md
 
 ## 8. Owner-run or external, not blocking the planning
 
-- Deploy the BUG-068 writer, then run the row migration runbook (owner).
+- Deploy the BUG-261019-ud2 writer, then run the row migration runbook (owner).
 - Run `results/prod-findings-review-2026-10-19-queries/owner-notification-checks.sql` and check SES
-  (sandbox, `SES_FROM_EMAIL_ADDRESS`), the Lambda env and Supabase auth settings: BUG-069 / IDEA-090.
-- `diagrams/event-dedup-flow.html` changes when the sweep ships (IDEA-085), not now.
+  (sandbox, `SES_FROM_EMAIL_ADDRESS`), the Lambda env and Supabase auth settings: BUG-261020-ptv / IDEA-261020-mqx.
+- `diagrams/event-dedup-flow.html` changes when the sweep ships (IDEA-261019-0i7), not now.
 
 ## 9. Pending downstream edits (do after section 5)
 
 - **PRD:** a grouped event notifies once per (group, source post), replacing "per event, not per post";
-  favorites copy to split children; curator audience area; moderator queue notifications (IDEA-090).
+  favorites copy to split children; curator audience area; moderator queue notifications (IDEA-261020-mqx).
 - **UX:** group surface, programme chip, series cover with Nearby badge and "also at N other places", the
   precision badge, the partial lane for events whose area only covers the user's.
-- **Epics:** `bmad-form-epics` clusters IDEA-084 to IDEA-090, BUG-261018-nyt to BUG-069 and their follow-ups; the
+- **Epics:** `bmad-form-epics` clusters IDEA-261019-hnl to IDEA-261020-mqx, BUG-261018-nyt to BUG-261020-ptv and their follow-ups; the
   AD-41 and AD-40 follow-ups are master's session's.

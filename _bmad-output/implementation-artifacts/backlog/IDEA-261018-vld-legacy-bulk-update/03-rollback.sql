@@ -1,4 +1,4 @@
--- IDEA-075 legacy bulk update, step 3 of 4: ROLLBACK (only if needed).
+-- IDEA-261018-vld legacy bulk update, step 3 of 4: ROLLBACK (only if needed).
 --   psql "$DATABASE_URL" -f 03-rollback.sql
 -- Restores the before-state, and only for rows still exactly as 02-apply.sql left them
 -- (CURATOR_GUIDE / CONFIRMED with a NULL confidence score) - an account the classifier or a moderator has

@@ -27,7 +27,7 @@ Pipeline consequences: **inferred from reading code**, not reproduced (no databa
 
 Decisions, in the order they were taken:
 
-1. **The never-classified accounts that have no location are all Indonesian curators** (product owner) → one bulk update sets them to `CURATOR_GUIDE`/`CONFIRMED` instead of a profile re-read. Tested runbook: `IDEA-075-legacy-bulk-update/` (look → apply → rollback → after).
+1. **The never-classified accounts that have no location are all Indonesian curators** (product owner) → one bulk update sets them to `CURATOR_GUIDE`/`CONFIRMED` instead of a profile re-read. Tested runbook: `IDEA-261018-vld-legacy-bulk-update/` (look → apply → rollback → after).
 2. **Never-classified accounts that already have a location are not changed.** They stay null and keep behaving as today, including lending their location (`mayUseAccountLocation(null, null)` is true again). An intermediate draft had made them lend nothing; that was reversed by this decision.
 3. **What remains exposed:** a curator among those with a location would still carry an arbitrary stored location and still escape the curator minimization (FIND-261018-p1z). `04-after.sql` lists the ones whose events are scattered over five or more cities, the shape a curator has. It is a pointer, not proof.
 
@@ -35,7 +35,7 @@ Decisions, in the order they were taken:
 
 `resolveScheduleTimezones` resolves a schedule's zone in four tiers: its own geocoded venue → **the source account's timezone, which is the timezone of its default location** (`process-ai-job.ts` passes `defaultLocation?.timezone`) → the one subscriber's `users.timezone` (only when there is exactly one) → `NEEDS_CLARIFICATION`, resolvable by a moderator only. Two things follow from this bug's policy:
 
-1. Removing a curator's account location removes its tier 2, so a curator's location-less events drop to "exactly one subscriber" or to the moderator queue. Mitigation: an account-level default zone (IDEA-075), set only where a zone is evidenced.
+1. Removing a curator's account location removes its tier 2, so a curator's location-less events drop to "exactly one subscriber" or to the moderator queue. Mitigation: an account-level default zone (IDEA-261018-vld), set only where a zone is evidenced.
 2. It also exposes a latent flaw *today*: a curator with a stored default location (Yogyakarta, WIB) gives every location-less event WIB — including a Bali event that is WITA, a silent one-hour shift in the displayed time. Not reproduced; the curator's stored location is an arbitrary venue of one post (measured above).
 
 ## What the code does today (no account-type check at any of these sites)
@@ -67,7 +67,7 @@ The production prompt asks where *this post's* events take place. For a venue th
 ## Fix direction
 
 1. One predicate, `mayUseAccountLocation(accountType, accountTypeStatus)` (the shape of `isScrapableAccountType`, AD-34), used by the three sites above, plus a ratchet that no other code reads `defaultLocation` as an event-location fallback. Draft + tests: `poc-event-insight/location-policy.ts`.
-2. Curators and `AWAITING_APPROVAL` accounts: no fallback, no inference. An event with no stated location gets no pin (it stays attendable by its text and, with IDEA-074, by its extracted audience area).
+2. Curators and `AWAITING_APPROVAL` accounts: no fallback, no inference. An event with no stated location gets no pin (it stays attendable by its text and, with IDEA-261018-i9a, by its extracted audience area).
 3. Organizers: infer only on **consensus** — a place that at least two posts (and a majority of the sampled ones) describe (`consensusPlace`, same file). Gate on the geocoder's own confidence and country (BUG-261018-abg), not on Gemini's self-reported confidence.
 4. Existing data: clear `AI_INFERENCE` default locations on curator accounts after a moderator-visible report, not silently.
 
@@ -98,8 +98,8 @@ SELECT count(DISTINCT p.id) FROM social_media_account_profiles p JOIN subscripti
 WHERE p.account_type_status IS NULL AND s.deleted_at IS NULL;
 ```
 
-Related: BUG-261018-abg, BUG-261018-nyt, IDEA-074, IDEA-075, FIND-261018-p1z. Design: `planning-artifacts/event-insight-poc/proposal-personalized-discovery.md` §9.
+Related: BUG-261018-abg, BUG-261018-nyt, IDEA-261018-i9a, IDEA-261018-vld, FIND-261018-p1z. Design: `planning-artifacts/event-insight-poc/proposal-personalized-discovery.md` §9.
 
 ## Decision 2026-10-19 — the stored curator defaults
 
-Production (`results/prod-readonly-report-2026-10-19.md`): 17 accounts are `CURATOR_GUIDE`; **11 of them hold a default location**, which by this note's measurement is the venue of whichever post ran first. Decided on my recommendation: **clear them, but after the code gate ships** (curators' events no longer fall back to the account location), not before: clearing first would make 11 curators' location-less events unlocated today, with the side effects listed under the risks above. The clearing is a data step for the IDEA-075 runbook family (look, apply with a before-state table, rollback), not a one-off statement. The 6 curators without a location need nothing.
+Production (`results/prod-readonly-report-2026-10-19.md`): 17 accounts are `CURATOR_GUIDE`; **11 of them hold a default location**, which by this note's measurement is the venue of whichever post ran first. Decided on my recommendation: **clear them, but after the code gate ships** (curators' events no longer fall back to the account location), not before: clearing first would make 11 curators' location-less events unlocated today, with the side effects listed under the risks above. The clearing is a data step for the IDEA-261018-vld runbook family (look, apply with a before-state table, rollback), not a one-off statement. The 6 curators without a location need nothing.

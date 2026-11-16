@@ -1,10 +1,10 @@
 ---
-backlog_id: IDEA-111
+backlog_id: IDEA-261028-qa9
 title: "Insight POC case: the Erafone Run 2026 Yogyakarta family (12 live events): which are series or programme members and which only complement the main event"
 captured: 2026-10-28
 ---
 
-# IDEA-111 — Erafone Run 2026 Yogyakarta: series, programme, or a post that complements the main event
+# IDEA-261028-qa9 — Erafone Run 2026 Yogyakarta: series, programme, or a post that complements the main event
 
 ## Why this case
 
@@ -147,7 +147,7 @@ The curator reposts in the list (4 events) were NOT merged into the main event: 
 The race is on 2026-10-31, after which the events leave the list. The ids still resolve:
 - Public API, no login: `event(id: "<event id>")` or `eventBySlug(slug: "<slug>")` at the GraphQL endpoint (stack output `apiGatewayUrl`, path `/graphql`); both return past events, with `sourcePosts { postId platformPostId }`.
 - After a merge an event id can become a merged-away row; the **post id** is the stable key, because merged posts move to the winner. Find the current event of a post with `event_posts` (`post_id` → `event_id`) or by the post's platform id in `sourcePosts`.
-- The machine-readable copy of this snapshot is `IDEA-111-erafone-snapshot-2026-10-28.json` in this folder.
+- The machine-readable copy of this snapshot is `IDEA-261028-qa9-erafone-snapshot-2026-10-28.json` in this folder.
 - Prod SQL needs a role that bypasses row-level security (since migration 0084 the read-only role sees nothing).
 
 ## Open questions
@@ -157,4 +157,4 @@ The race is on 2026-10-31, after which the events leave the list. The ids still 
 3. Do pre-event items (race pack collection) belong to the race's programme group or stay unrelated events?
 4. The unclear 2026-10-30 event: open the post and fix its role.
 
-Related: IDEA-106 (event report vs announcement), IDEA-261026-l2j (reposts), IDEA-261027-ugg (target area), the personalization plan Revisions 10 and 11 (tracks survive a merge; the per-field merge of an event's several posts, prototype `merge-event-insight.ts`), PRD 3.19 and 3.20.
+Related: IDEA-261028-3ov (event report vs announcement), IDEA-261026-l2j (reposts), IDEA-261027-ugg (target area), the personalization plan Revisions 10 and 11 (tracks survive a merge; the per-field merge of an event's several posts, prototype `merge-event-insight.ts`), PRD 3.19 and 3.20.

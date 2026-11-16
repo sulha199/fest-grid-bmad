@@ -39,7 +39,7 @@ RULES
 - Do not redo the Reviewer Gate or re-open ADOPTED decisions. PROPOSED items wait for my yes or no.
 - Label every decision [ADOPTED, user-directed], [PROPOSED] or [ASSUMPTION]. Log decisions in the memlog with
   _bmad/scripts/memlog.py (append only; another session shares that file).
-- Numbering: next AD is AD-42; next backlog ids are BUG-072, IDEA-092, FIND-093.
+- Numbering: next AD is AD-42; next backlog ids are BUG-261020-tqr, IDEA-261021-8q8, FIND-261021-2ku.
 - Never print a token, cookie, JWT or env value. Production SQL is run by me or by my local session, not you.
 - Coaching mode: logic first, UI and UX after. Answer direct questions directly before anything else.
 - Before each commit run the spine lint and the backlog checker (commands are in handoff section 7).

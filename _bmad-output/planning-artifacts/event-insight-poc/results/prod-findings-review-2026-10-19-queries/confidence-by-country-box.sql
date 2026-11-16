@@ -1,7 +1,7 @@
--- BUG-261018-abg / IDEA-081: the stored geocode confidence of every pin, split by whether the pin is inside Indonesia's bounding box (the box the pack uses).
+-- BUG-261018-abg / IDEA-261019-3bp: the stored geocode confidence of every pin, split by whether the pin is inside Indonesia's bounding box (the box the pack uses).
 -- Calibrates the confidence floor from data we already hold: if the outside-the-box pins sit at low confidence and the inside ones at high, a floor
 -- separates them; if the two overlap, a floor alone cannot fix BUG-261018-abg. 627 of 1,460 pins had a stored confidence under 0.5 on 2026-10-19.
--- Read-only; counts only. location_details is read through the normalising expression because of BUG-068.
+-- Read-only; counts only. location_details is read through the normalising expression because of BUG-261019-ud2.
 with s as (select latitude, longitude,
   (case when jsonb_typeof(location_details) = 'object' then location_details
         when jsonb_typeof(location_details) = 'string' and left(location_details #>> '{}', 1) = '{' then (location_details #>> '{}')::jsonb end) d

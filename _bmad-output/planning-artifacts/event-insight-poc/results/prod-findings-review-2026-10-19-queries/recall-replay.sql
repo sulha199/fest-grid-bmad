@@ -1,4 +1,4 @@
--- IDEA-085, third cut: REPLAY the matcher's own scoring (packages/domain/src/events/match-scoring.ts, computeMatchScore) over the reachable pairs.
+-- IDEA-261019-0i7, third cut: REPLAY the matcher's own scoring (packages/domain/src/events/match-scoring.ts, computeMatchScore) over the reachable pairs.
 -- Round 2: 178 reachable pairs, 23 in the candidate list; stub pairs without a shared link are 0 of 122; 29 pairs of two full events are unexplained.
 -- For each reachable pair (older event = the candidate, newer event = the new item) this recomputes the five inputs and the score:
 --   organizer 0.40   only if the NEW event is a full event AND its source post's account is associated (post_account_associations) with a post linked to the

@@ -1,4 +1,4 @@
--- IDEA-075 legacy bulk update, step 1 of 4: LOOK. READ-ONLY - it changes nothing.
+-- IDEA-261018-vld legacy bulk update, step 1 of 4: LOOK. READ-ONLY - it changes nothing.
 --   psql "$DATABASE_URL" -f 01-look.sql
 -- Decision 2026-10-18: the never-classified accounts that have NO default location are all Indonesian curators;
 -- they are set to CURATOR_GUIDE / CONFIRMED. Never-classified accounts that already have a location are NOT changed.

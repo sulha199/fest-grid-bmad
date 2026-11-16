@@ -4,7 +4,7 @@
 --   'pin, but untrusted'       a pin exists but its confidence is below 0.5, or missing, or it lies outside the box
 --   'place text only'          no pin on any schedule, but at least one schedule has a location text
 --   'no place at all'          no pin and no location text on any schedule
--- Read-only; counts only. location_details is read through the normalising expression because of BUG-068.
+-- Read-only; counts only. location_details is read through the normalising expression because of BUG-261019-ud2.
 with s as (select event_id, latitude, longitude, nullif(btrim(location), '') as loc_text,
   ((case when jsonb_typeof(location_details) = 'object' then location_details
          when jsonb_typeof(location_details) = 'string' and left(location_details #>> '{}', 1) = '{' then (location_details #>> '{}')::jsonb end)->>'confidence') as conf,

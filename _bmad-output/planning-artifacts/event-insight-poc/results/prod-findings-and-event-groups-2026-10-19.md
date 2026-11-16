@@ -20,7 +20,7 @@ Source: read-only queries against production (PostgreSQL 17.6, Supabase) on 2026
 | Events per post | 1.08 events per event-post. 1,326 posts have 1 event, 38 have 2 or more (max 10). |
 | `grouping_reason` on posts | null 1,457, single-event 738, dependent-stages 61, program-lineup 47, separate-events 29, roundup 5 |
 | Schedules | 1,725 (1.24 per event). 265 (15%) have no location; 1,460 have a pin. |
-| Legacy accounts for the bulk update (IDEA-075 Profile enrichment) | 466 accounts with no type and no status, **463 of them without a default location** |
+| Legacy accounts for the bulk update (IDEA-261018-vld Profile enrichment) | 466 accounts with no type and no status, **463 of them without a default location** |
 | Unused indexes | `event_types_idx`, `event_name_idx`, `event_location_idx`, `schedule_location_idx`, `schedule_performers_idx`, `schedules_slug_unique` (0 scans) |
 | Plan of today's list query | **Not measured.** The resolver builds its SQL dynamically, and capturing it needs the local Postgres, which accepted the TCP connection and then dropped every session. At this size the plan will not matter yet. |
 
@@ -86,12 +86,12 @@ Two consequences to decide explicitly: (a) the `program-lineup` rule currently k
 
 | Proposed | Type | Title |
 |---|---|---|
-| BUG-068 | bug | `schedules.location_details` is stored as a JSON string, not an object, in every production row |
+| BUG-261019-ud2 | bug | `schedules.location_details` is stored as a JSON string, not an object, in every production row |
 | FIND-261019-wfg | finding | Production measurements: wrong-country pins, matcher recall 5%, caption duplicates, and the pack's artifacts (links this write-up) |
-| IDEA-084 | idea | Event groups: a named programme with children, detected by title, anchor and suggestion, confirmed by a person |
-| IDEA-085 | idea | Raise the duplicate matcher's recall and clear the moderator queue before grouping |
+| IDEA-261019-hnl | idea | Event groups: a named programme with children, detected by title, anchor and suggestion, confirmed by a person |
+| IDEA-261019-0i7 | idea | Raise the duplicate matcher's recall and clear the moderator queue before grouping |
 
-Existing rows involved: BUG-261018-abg (wrong country), BUG-261018-ij7 (adminArea never written), BUG-261018-nyt (online and multi-venue events), IDEA-261018-iv7 (area ladder), IDEA-081 (target-area resolver), IDEA-074 (personalized Discovery).
+Existing rows involved: BUG-261018-abg (wrong country), BUG-261018-ij7 (adminArea never written), BUG-261018-nyt (online and multi-venue events), IDEA-261018-iv7 (area ladder), IDEA-261019-3bp (target-area resolver), IDEA-261018-i9a (personalized Discovery).
 
 ## 9. Not verified
 

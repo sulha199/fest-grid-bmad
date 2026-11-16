@@ -9,7 +9,7 @@ const ins = (over: Partial<AudienceInsight> = {}): AudienceInsight => ({
 });
 const part = (postId: string, rank: InsightPart['rank'], insight: Partial<AudienceInsight>, primary = false): InsightPart => ({ postId, rank, primary, insight: ins(insight) });
 
-// A fictional shape of the real Erafone Run family (backlog IDEA-111): a race post and one post per category by the organizer, plus a curator repost.
+// A fictional shape of the real Erafone Run family (backlog IDEA-261028-qa9): a race post and one post per category by the organizer, plus a curator repost.
 const erafone = (): InsightPart[] => [
   part('main', 'organizer', { tracks: [{}], costTier: 'medium', interests: ['running', 'music'] }, true),
   part('post5k', 'organizer', { tracks: [{ label: '5K', ageMin: 12 }], costTier: 'medium', interests: ['running'] }),
@@ -94,7 +94,7 @@ test('no posts gives a neutral result and never throws', () => {
   assert.deepEqual(m, { countedPosts: [], tracks: [], costTier: 'unspecified', eligibility: 'unspecified', sensitiveTopic: 'none', interests: [], targetAreas: [], conflicts: [] });
 });
 
-test('a report post (IDEA-106) adds nothing to the event; an announcement or a mixed post does', () => {
+test('a report post (IDEA-261028-3ov) adds nothing to the event; an announcement or a mixed post does', () => {
   const m = mergeEventInsight([
     part('main', 'organizer', { postKind: 'announcement', tracks: [{ label: '5K' }], costTier: 'medium' }, true),
     part('results', 'organizer', { postKind: 'report', tracks: [{ label: 'Elite' }], costTier: 'free', sensitiveTopic: 'health_condition' }),

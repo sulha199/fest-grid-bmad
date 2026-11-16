@@ -32,7 +32,7 @@ context:
 |----------|--------------|---------------------------|----------------|
 | New ID ok | `FIND-261108-k3x`, `created: 2026-11-08` | passes | N/A |
 | Legacy frozen | `FIND-127`, present at merge-base | passes | N/A |
-| Legacy reopened | `FIND-128`, or a gap such as `IDEA-074` | check 17 fails | names the helper; with no git, the per-type ceiling is the fallback |
+| Legacy reopened | `FIND-128`, or a gap such as `IDEA-261018-i9a` | check 17 fails | names the helper; with no git, the per-type ceiling is the fallback |
 | Malformed | `FIND-26118-k3x`, lowercase type, month `13` | check 17 fails | names row and rule |
 | Date drift | ID date `261108`, `created: 2026-11-07` | check 17 fails; `str()` compare covers quoted and unquoted dates | N/A |
 | Duplicate key | same key twice in any mapping | check 17 fails, names key and lines | one-line rename recipe in the message |
