@@ -1,3 +1,5 @@
+**SUPERSEDED on 2026-11-16 by `session-handoff-prompt-2026-11-16.md`: PRD sections, backlog IDs and counts below are out of date.**
+
 # Prompt for the new session (paste as the first message), 2026-10-30
 
 The new session cannot see the previous session's transcript. The prompt below carries the state itself, so it works even if this file is not reachable; the repo has the details.

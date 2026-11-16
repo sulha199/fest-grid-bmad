@@ -1,12 +1,12 @@
 # Audience, language and taxonomy POC: status and hand-off (single source of truth)
 
-Last updated 2026-10-28. **Update this file at the end of every work session**, so any session (any account) can continue from it. The plan is `audience-and-taxonomy-poc-plan-2026-10-21.md`; this file is where things stand. Branch: `claude/ecstatic-shannon-e8eh9h` (no PR, no merge into `master`; see `open-core-split-plan-2026-10-21.md`, "Interim rules"). Backlog: IDEA-261021-8q8 (this POC), IDEA-261021-80f (taxonomy), IDEA-261018-i9a/075/081/087 (the work it unblocks). Gate for AD-42 Rules 2 to 8 (`festgrid-architecture-spine.md`).
+Last updated 2026-10-28 (start-here note refreshed 2026-11-16, after master was merged in). **Update this file at the end of every work session**, so any session (any account) can continue from it. The plan is `audience-and-taxonomy-poc-plan-2026-10-21.md`; this file is where things stand. Branch: `claude/ecstatic-shannon-e8eh9h` (no PR, no merge into `master`; see `open-core-split-plan-2026-10-21.md`, "Interim rules"). Backlog: IDEA-261021-8q8 (this POC), IDEA-261021-80f (taxonomy), IDEA-261018-i9a/075/081/087 (the work it unblocks). Gate for AD-42 Rules 2 to 8 (`festgrid-architecture-spine.md`).
 
 ## Start here (new session)
 
 1. Read this file, then the plan, then AD-42 in the spine (search "AD-42").
 2. Follow the hard rules below. Do not open or print `.env`.
-3. `git fetch`, merge `origin/master` and `origin/claude/ecstatic-shannon-e8eh9h` into the local branch if behind. Backlog IDs collide between master and this branch; renumber master's rows and note it in the row (see the 2026-10-23 merge commits).
+3. `git fetch`, merge `origin/master` and `origin/claude/ecstatic-shannon-e8eh9h` into the local branch if behind. Master froze the numeric backlog counters and its PRD/spine numbers win on a collision: mint new IDs with `scripts/backlog-new-id.py`, renumber the branch's side, and record old to new in `backlog-id-renumbering-2026-11-16.md` (see the 2026-11-16 merge). Newest hand-off: `session-handoff-prompt-2026-11-16.md`.
 
 ## Status
 
