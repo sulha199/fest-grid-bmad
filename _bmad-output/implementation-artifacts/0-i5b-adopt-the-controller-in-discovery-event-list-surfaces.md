@@ -193,6 +193,10 @@ and a `bmad-create-story` dispatch was about to be run against it; caught before
 this story is already `review` in sprint-status.yaml. No new dispatch run. Plan doc checkbox
 corrected.
 
+### Board note moved from BUG-018 (backlog.yaml, 2026-11-02)
+
+CAUTION (superseded, see below): Story 0.i5b's fix targeted a hypothesis not present in the code; symptom not independently re-verified. Real fix was via sibling BUG-031 (sentinel height collapse), not re-confirmed against this row's repro. Full trail in Story 0.i5b's Dev Notes. VERIFIED RESOLVED 2026-09-30: this row's exact repro (a naive repeated scroll-to-bottom must keep triggering the next page WITHOUT the user needing to scroll up then down again to re-trigger the observer) is precisely what BUG-043's live-prod Playwright re-test just demonstrated -- 8 consecutive `scrollTo(bottom)` calls in a tight loop, zero manual up/down correction between them, loaded pages continuously (20->30->...->100, one request per scroll). If this row's symptom still existed, that simple loop would have stalled after one page exactly like BUG-043 originally did. Between BUG-031 (sentinel min-h-16), BUG-038, and BUG-046 (both overflow-anchor fixes), this failure class has been fixed three times over since this row was filed. Closing on this evidence rather than leaving the caution open indefinitely.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Patterns & UX Invariants (AD-18 / `useListPaginationController` adoption, this story's core requirement), State Management Architecture (AD-4 cross-check, see Dev Notes categorization)

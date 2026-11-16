@@ -9,7 +9,7 @@ You are taking over a long-running BMad Method session for FestGrid / FestDaily 
 
 SETUP
 1. Repo sulha199/fest-grid-bmad, branch claude/ecstatic-shannon-e8eh9h (PR #87). On the owner's machine the folder is c:\projects\portfolio\festgrid\bmad. Run git status and git log. Confirm commit 17520a7d is on origin; if it is not, the owner has not pushed yet: say so and ask. The branch already contains master (nothing on master is missing from it as of 2026-10-30).
-2. Read in this order: CLAUDE.md; _bmad-output/project-context.md; the PRD (sections 3.19 duplicates, 3.20 event groups, 3.21 place and area) at _bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md; _bmad-output/planning-artifacts/event-insight-poc/poc-status.md (the single source of truth for the POC; read its sections dated 2026-10-27 to 2026-10-29); _bmad-output/planning-artifacts/event-insight-poc/proposal-personalized-discovery.md (Revisions 10, 11, 12 and section 6.2); the backlog rows and detail files (_bmad-output/implementation-artifacts/backlog.yaml and backlog/) for IDEA-085, IDEA-105 to IDEA-114, FIND-109, CC-032, IDEA-094.
+2. Read in this order: CLAUDE.md; _bmad-output/project-context.md; the PRD (sections 3.19 duplicates, 3.20 event groups, 3.21 place and area) at _bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md; _bmad-output/planning-artifacts/event-insight-poc/poc-status.md (the single source of truth for the POC; read its sections dated 2026-10-27 to 2026-10-29); _bmad-output/planning-artifacts/event-insight-poc/proposal-personalized-discovery.md (Revisions 10, 11, 12 and section 6.2); the backlog rows and detail files (_bmad-output/implementation-artifacts/backlog.yaml and backlog/) for IDEA-085, IDEA-261027-ugg to IDEA-114, FIND-261028-3js, CC-032, IDEA-094.
 3. Then tell me in five lines what you understood, and propose which "next candidate" below to take. Wait for my choice.
 
 WHERE THINGS STAND (2026-10-30)
@@ -22,12 +22,12 @@ SETTLED BY THE OWNER
 - post_kind is a three-way value; a report is attached to its event if one exists, else promoted to an event (IDEA-106). isEvent stays the outer gate.
 - Category siblings (5K and 10K) are one event, tracks are a union (plan Revision 10).
 - Price is stored per track in the ORIGINAL currency; the price bands are applied at read time per country (plan Revision 12, IDEA-114).
-- A per-account cap in the default list is accepted (IDEA-112). Limits also at scraping: an alarm at a soft limit, a stop at a hard limit for the month (IDEA-113), filed under personalisation and the move from BYOK to a paid product (CC-032 cost-model decision, IDEA-094 open-core and entitlements). Limits are data (default, per plan, per-account override).
+- A per-account cap in the default list is accepted (IDEA-112). Limits also at scraping: an alarm at a soft limit, a stop at a hard limit for the month (IDEA-261029-hh4), filed under personalisation and the move from BYOK to a paid product (CC-032 cost-model decision, IDEA-094 open-core and entitlements). Limits are data (default, per plan, per-account override).
 
 WAITING FOR THE OWNER'S ANSWERS
 - Plan Revision 11 (an event described by several posts; prototype merge-event-insight.ts): do curator reposts count only when no organizer post exists; a report post adds nothing; store each post's insight on event_posts.
 - IDEA-114: an event priced in another currency than the viewer's; which country's bands apply; the "free" filter for an event with a free and a paid category.
-- IDEA-113: soft limit 200 and hard limit 600 posts (my assumption); calendar month or rolling 30 days; tell subscribers when an account is stopped; count posts for the stop and events for the display cap; confirm there is NO separate "repeat" flag (reminder posts are normal; a duplicate card is a dedup defect).
+- IDEA-261029-hh4: soft limit 200 and hard limit 600 posts (my assumption); calendar month or rolling 30 days; tell subscribers when an account is stopped; count posts for the stop and events for the display cap; confirm there is NO separate "repeat" flag (reminder posts are normal; a duplicate card is a dedup defect).
 - IDEA-106: the matcher that lets "Hylo Open 2026 - Day 2" find "Hylo Open 2026"; how an attached report is shown; clean-up of the 52 remaining stub events of one results account.
 - IDEA-111 (Erafone Run 2026 Yogyakarta, 12 live events with a proposed role each): open the unclear 2026-10-30 event; is "Erafone Run 2026" a series. The race is 2026-10-31: re-check afterwards with the ids in backlog/IDEA-111-erafone-snapshot-2026-10-28.json (the public API returns past events by id).
 - Owner labelling not done: post_kind and the target-area columns on the label sheets; the 14-case probe sheet is not built.

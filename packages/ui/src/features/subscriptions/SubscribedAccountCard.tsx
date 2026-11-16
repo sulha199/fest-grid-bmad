@@ -3,7 +3,7 @@ import { UserPlus, UserCheck } from 'lucide-react';
 import { AccountAvatar } from '../../core/account-avatar';
 import { getAccountIdentityLabel } from '../../core/account-identity';
 import { LocationLink } from '../../core/LocationLink';
-import { isLocationTrustworthy } from '@festgrid/domain/geolocation';
+import { buildLocationSearchQuery, isLocationTrustworthy } from '@festgrid/domain/geolocation';
 import { getPlatformDisplayName } from '@festgrid/domain/scraper';
 import type { SubscribedAccountCardProps } from './SubscribedAccountCard.types';
 
@@ -66,9 +66,7 @@ export function SubscribedAccountCard({
           <span className={`truncate text-gray-500 ${usernameTextClass}`}>
             <LocationLink
               name={location.name}
-              coordinates={location.coordinates}
-              confidence={location.confidence}
-              matchType={location.matchType}
+              searchQuery={buildLocationSearchQuery({ name: location.name, city: location.city })}
             />
           </span>
         ) : (

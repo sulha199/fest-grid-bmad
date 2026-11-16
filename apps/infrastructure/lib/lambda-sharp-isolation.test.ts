@@ -170,3 +170,42 @@ test('apiLambda entry still reaches process-ai-job.ts/detect-and-blur-faces.ts a
       'would mean the dynamic-import edge itself broke rather than just deferring execution'
   );
 });
+
+// Story 10.6 (AD-53 Rules 2 and 17) -- a job type's handlers are registered only in their own host Lambda. The API Lambda reads the
+// type's pure definition (packages/domain) and must never bundle a handler; the Scraper holds phase 1 (the refresh) and the AI-processor
+// phase 2 (the preview), and neither holds the other's half.
+const HANDLERS = {
+  refresh: 'lib/extraction/reextract-refresh-handler.ts',
+  lateResult: 'lib/extraction/reextract-late-result-handler.ts',
+  preview: 'lib/ai-processor/reextract-preview-handler.ts',
+};
+const bundles = new Map<string, Promise<string[]>>();
+const inputsOf = (entry: string, external: string[]) => {
+  const key = `${entry}|${external.length}`;
+  if (!bundles.has(key)) bundles.set(key, bundleInputs(path.resolve(backendSrc, entry), external));
+  return bundles.get(key)!;
+};
+const has = (inputs: string[], file: string) => inputs.some((p) => p.replace(/\\/g, '/').endsWith(file));
+
+test('the API Lambda bundles no job handler: it reads the re-extract type\'s pure definition only', async () => {
+  const inputs = await inputsOf('lambdas/api.ts', LAMBDA_IMAGE_PROCESSING_EXTERNAL_MODULES);
+  for (const file of Object.values(HANDLERS)) {
+    assert.equal(has(inputs, file), false, `the API Lambda must not bundle ${file}`);
+  }
+  assert.ok(has(inputs, 'packages/domain/src/jobs/reextract-post.ts') || inputs.some((p) => /domain[\\/](src|dist)[\\/]jobs[\\/]reextract-post/.test(p)), 'the API Lambda carries the type\'s definition');
+});
+
+test('the Scraper Lambda holds phase 1 and the late-result handler, and not the AI-processor\'s phase 2', async () => {
+  const inputs = await inputsOf('lambdas/scraper.ts', LAMBDA_IMAGE_PROCESSING_EXTERNAL_MODULES);
+  assert.ok(has(inputs, HANDLERS.refresh), 'the Scraper bundles the refresh handler');
+  assert.ok(has(inputs, HANDLERS.lateResult), 'the Scraper bundles the late-result handler');
+  assert.equal(has(inputs, HANDLERS.preview), false, 'the Scraper must not bundle the preview handler');
+  assert.equal(has(inputs, 'lib/ai-processor/generate-reextraction-preview.ts'), false, 'nor the preview code');
+});
+
+test('the AI-processor Lambda holds phase 2 and not the Scraper\'s phase 1', async () => {
+  const inputs = await inputsOf('lambdas/ai-processor.ts', []);
+  assert.ok(has(inputs, HANDLERS.preview), 'the AI-processor bundles the preview handler');
+  assert.equal(has(inputs, HANDLERS.refresh), false, 'the AI-processor must not bundle the refresh handler');
+  assert.equal(has(inputs, HANDLERS.lateResult), false, 'nor the late-result handler');
+});

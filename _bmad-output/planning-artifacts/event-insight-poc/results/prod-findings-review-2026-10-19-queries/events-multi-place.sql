@@ -1,7 +1,7 @@
 -- Unit-of-event decision (the Riot Jogja "Wednesday Night Run" case: one event, three schedules, three venues): how many events in production hold schedules at
 -- more than one place, by the post's grouping reason (the extractor's own judgement: single-event, program-lineup, dependent-stages, separate-events, roundup)?
 -- A place is the schedule's location text (case-insensitive) or its pin rounded to about 100 m; two venues in one mall may count as one pin and two texts.
--- Shape 2 is the residual a deterministic splitter cannot resolve (BUG-064: a 3-venue festival had location null on every schedule, the venue only in the schedule title).
+-- Shape 2 is the residual a deterministic splitter cannot resolve (BUG-261018-nyt: a 3-venue festival had location null on every schedule, the venue only in the schedule title).
 -- Read-only; counts only, no event names.
 with s as (select event_id, nullif(lower(btrim(location)), '') as loc, round(latitude::numeric, 3) as lat, round(longitude::numeric, 3) as lng, event_start_date from schedules),
 per_event as (select e.id, e.detail_level, coalesce(p.grouping_reason::text, '(no post)') as grouping_reason,

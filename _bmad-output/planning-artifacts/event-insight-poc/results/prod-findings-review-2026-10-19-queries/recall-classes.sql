@@ -1,4 +1,4 @@
--- IDEA-085 / FIND-091: split the "446 same-account, same-name pairs" into the classes the matcher can and cannot act on.
+-- IDEA-085 / FIND-261019-wfg: split the "446 same-account, same-name pairs" into the classes the matcher can and cannot act on.
 -- Read-only; counts only. Needs the same grants as cand.sql (events incl. source_social_media_account_id, schedules, event_posts, event_match_candidates).
 -- Why: the matcher (apps/backend/src/lib/events/match-event-to-existing.ts) only runs when a NEW item is ingested (so pairs that already existed when it
 -- first ran are out of reach), skips events that share the new item's post (sibling guard), and only looks at schedules within +/-2 days. A same-name pair

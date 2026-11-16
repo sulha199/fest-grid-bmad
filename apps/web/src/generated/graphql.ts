@@ -127,6 +127,42 @@ export type ApiKey = {
   updatedAt: Scalars['String']['output'];
 };
 
+export type ApplyPostReextractionResult = {
+  __typename?: 'ApplyPostReextractionResult';
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  summary?: Maybe<ApplyReextractionSummary>;
+};
+
+export type ApplyReextractionEventRef = {
+  __typename?: 'ApplyReextractionEventRef';
+  eventName: Scalars['String']['output'];
+  slug: Scalars['String']['output'];
+};
+
+export type ApplyReextractionPlacedEvent = {
+  __typename?: 'ApplyReextractionPlacedEvent';
+  eventName: Scalars['String']['output'];
+  ordinal: Scalars['Int']['output'];
+  slug: Scalars['String']['output'];
+};
+
+export type ApplyReextractionSummary = {
+  __typename?: 'ApplyReextractionSummary';
+  created: Array<ApplyReextractionPlacedEvent>;
+  groupingReason?: Maybe<PostGroupingReason>;
+  linkedToExisting: Array<ApplyReextractionEventRef>;
+  orphans: Array<ApplyReextractionEventRef>;
+  queuedForReview: Scalars['Int']['output'];
+  reused: Array<ApplyReextractionPlacedEvent>;
+  skippedDeleted: Scalars['Int']['output'];
+};
+
+export type CalendarAdditionChangeInput = {
+  isAddedToCalendar: Scalars['Boolean']['input'];
+  scheduleId: Scalars['ID']['input'];
+};
+
 export type CastVoteInput = {
   accountId?: InputMaybe<Scalars['ID']['input']>;
   handleOrUrl?: InputMaybe<Scalars['String']['input']>;
@@ -300,6 +336,8 @@ export type Event = {
   isHiddenForCurrentUser: Scalars['Boolean']['output'];
   links?: Maybe<Array<EventLink>>;
   location?: Maybe<Scalars['String']['output']>;
+  /** Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected. */
+  locationKeywords?: Maybe<Array<Scalars['String']['output']>>;
   organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
@@ -427,12 +465,19 @@ export type ExtractEventDataFromUrlResult = {
 };
 
 export enum ExtractionErrorCode {
+  AccountNotScrapable = 'ACCOUNT_NOT_SCRAPABLE',
+  ApplyFailed = 'APPLY_FAILED',
+  ChainInFlight = 'CHAIN_IN_FLIGHT',
+  Expired = 'EXPIRED',
   ExtractionFailed = 'EXTRACTION_FAILED',
+  NothingToApply = 'NOTHING_TO_APPLY',
   NotFound = 'NOT_FOUND',
+  NotStored = 'NOT_STORED',
   NoApiKey = 'NO_API_KEY',
   QuotaExhausted = 'QUOTA_EXHAUSTED',
   RateLimited = 'RATE_LIMITED',
   ScrapeFailed = 'SCRAPE_FAILED',
+  ScrapeInProgress = 'SCRAPE_IN_PROGRESS',
   UnsupportedPlatform = 'UNSUPPORTED_PLATFORM'
 }
 
@@ -502,6 +547,270 @@ export enum InstagramEmbedStatus {
   Unavailable = 'UNAVAILABLE'
 }
 
+export type Job = {
+  __typename?: 'Job';
+  canRetry: Scalars['Boolean']['output'];
+  completedAfterDeadline: Scalars['Boolean']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  deadlineAt: Scalars['DateTime']['output'];
+  finishedAt?: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  isCancelled: Scalars['Boolean']['output'];
+  moderatorDetails?: Maybe<JobModeratorDetails>;
+  outcome?: Maybe<JobOutcome>;
+  owner?: Maybe<JobOwner>;
+  queue?: Maybe<JobQueueInfo>;
+  reasonCode?: Maybe<JobReasonCode>;
+  reasonQueueMaxWaitMinutes?: Maybe<Scalars['Int']['output']>;
+  reasonRetryAfter?: Maybe<Scalars['DateTime']['output']>;
+  refresh?: Maybe<JobRefreshReport>;
+  retryNotBefore?: Maybe<Scalars['DateTime']['output']>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
+  status: JobStatus;
+  steps: Array<JobStep>;
+  subject: JobSubject;
+  trigger: JobTrigger;
+  type: JobType;
+  waiting?: Maybe<JobWaitingInfo>;
+};
+
+export type JobAttempt = {
+  __typename?: 'JobAttempt';
+  budgetMs: Scalars['Int']['output'];
+  elapsedMs: Scalars['Int']['output'];
+  outcome: JobAttemptOutcome;
+  provider: JobProvider;
+  reasonCode?: Maybe<JobReasonCode>;
+};
+
+export enum JobAttemptOutcome {
+  Empty = 'EMPTY',
+  Failed = 'FAILED',
+  OverQuota = 'OVER_QUOTA',
+  Skipped = 'SKIPPED',
+  Succeeded = 'SUCCEEDED',
+  TimedOut = 'TIMED_OUT'
+}
+
+export type JobConnection = {
+  __typename?: 'JobConnection';
+  edges: Array<JobEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type JobEdge = {
+  __typename?: 'JobEdge';
+  cursor: Scalars['String']['output'];
+  node: Job;
+};
+
+export type JobImage = {
+  __typename?: 'JobImage';
+  position: Scalars['Int']['output'];
+  role: JobImageRole;
+  state: JobImageState;
+};
+
+export enum JobImageRole {
+  Cover = 'COVER',
+  Slide = 'SLIDE'
+}
+
+export enum JobImageState {
+  NotReadExpired = 'NOT_READ_EXPIRED',
+  NotReadUnavailable = 'NOT_READ_UNAVAILABLE',
+  NotSentOverCap = 'NOT_SENT_OVER_CAP',
+  Read = 'READ'
+}
+
+export type JobModeratorDetails = {
+  __typename?: 'JobModeratorDetails';
+  attempts: Array<JobAttempt>;
+  engineMessage?: Maybe<Scalars['String']['output']>;
+  engineReasonCode?: Maybe<Scalars['String']['output']>;
+};
+
+export type JobOutcome = {
+  __typename?: 'JobOutcome';
+  eventCount?: Maybe<Scalars['Int']['output']>;
+  kind: JobOutcomeKind;
+  postCount?: Maybe<Scalars['Int']['output']>;
+  previewApplied?: Maybe<Scalars['Boolean']['output']>;
+  previewApplyUntil?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export enum JobOutcomeKind {
+  Account = 'ACCOUNT',
+  Events = 'EVENTS',
+  None = 'NONE',
+  Preview = 'PREVIEW'
+}
+
+export type JobOwner = {
+  __typename?: 'JobOwner';
+  displayName?: Maybe<Scalars['String']['output']>;
+};
+
+export enum JobProvider {
+  Apify = 'APIFY',
+  BrightData = 'BRIGHT_DATA'
+}
+
+export type JobQueueInfo = {
+  __typename?: 'JobQueueInfo';
+  expiresAt: Scalars['DateTime']['output'];
+  maxConcurrent: Scalars['Int']['output'];
+  position: Scalars['Int']['output'];
+};
+
+export enum JobReasonCode {
+  AccountNotFound = 'ACCOUNT_NOT_FOUND',
+  AccountPrivate = 'ACCOUNT_PRIVATE',
+  AccountTypeNotScraped = 'ACCOUNT_TYPE_NOT_SCRAPED',
+  Cancelled = 'CANCELLED',
+  ChainInFlight = 'CHAIN_IN_FLIGHT',
+  Cooldown = 'COOLDOWN',
+  ExtractionFailed = 'EXTRACTION_FAILED',
+  Generic = 'GENERIC',
+  NoProviderReachable = 'NO_PROVIDER_REACHABLE',
+  PostNotFound = 'POST_NOT_FOUND',
+  PostUnavailable = 'POST_UNAVAILABLE',
+  ProviderOverQuota = 'PROVIDER_OVER_QUOTA',
+  QuotaExhausted = 'QUOTA_EXHAUSTED',
+  RefreshDidNotHealImages = 'REFRESH_DID_NOT_HEAL_IMAGES',
+  RefreshInProgress = 'REFRESH_IN_PROGRESS',
+  SomePostsNotExtracted = 'SOME_POSTS_NOT_EXTRACTED',
+  TimedOut = 'TIMED_OUT',
+  VendorRunFailed = 'VENDOR_RUN_FAILED',
+  WaitedTooLong = 'WAITED_TOO_LONG'
+}
+
+export enum JobRefreshOutcome {
+  Cooldown = 'COOLDOWN',
+  InFlight = 'IN_FLIGHT',
+  NotNeeded = 'NOT_NEEDED',
+  NotScraped = 'NOT_SCRAPED',
+  NoProviderReachable = 'NO_PROVIDER_REACHABLE',
+  PostUnavailable = 'POST_UNAVAILABLE',
+  ProviderOverQuota = 'PROVIDER_OVER_QUOTA',
+  Refreshed = 'REFRESHED',
+  TimedOut = 'TIMED_OUT'
+}
+
+export type JobRefreshReport = {
+  __typename?: 'JobRefreshReport';
+  expiredLinks: Scalars['Int']['output'];
+  images: Array<JobImage>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesRead: Scalars['Int']['output'];
+  lateResultPending: Scalars['Boolean']['output'];
+  outcome: JobRefreshOutcome;
+  previewImageCap: Scalars['Int']['output'];
+  retryAfter?: Maybe<Scalars['DateTime']['output']>;
+  saved: Scalars['Boolean']['output'];
+};
+
+export enum JobStartErrorCode {
+  Cooldown = 'COOLDOWN',
+  JobQueueFull = 'JOB_QUEUE_FULL',
+  JobStartFailed = 'JOB_START_FAILED',
+  SubscriptionCapReached = 'SUBSCRIPTION_CAP_REACHED'
+}
+
+export enum JobStatus {
+  Expired = 'EXPIRED',
+  Failed = 'FAILED',
+  Queued = 'QUEUED',
+  Running = 'RUNNING',
+  Succeeded = 'SUCCEEDED',
+  SucceededWithLimits = 'SUCCEEDED_WITH_LIMITS',
+  Waiting = 'WAITING'
+}
+
+export type JobStep = {
+  __typename?: 'JobStep';
+  done?: Maybe<Scalars['Int']['output']>;
+  key: Scalars['String']['output'];
+  state: JobStepState;
+  total?: Maybe<Scalars['Int']['output']>;
+};
+
+export enum JobStepState {
+  Current = 'CURRENT',
+  Done = 'DONE',
+  Pending = 'PENDING',
+  Skipped = 'SKIPPED'
+}
+
+export type JobSubject = {
+  __typename?: 'JobSubject';
+  accountId?: Maybe<Scalars['ID']['output']>;
+  displayName?: Maybe<Scalars['String']['output']>;
+  kind: JobSubjectKind;
+  platform?: Maybe<Scalars['String']['output']>;
+  postCode?: Maybe<Scalars['String']['output']>;
+  postCount?: Maybe<Scalars['Int']['output']>;
+  postId?: Maybe<Scalars['ID']['output']>;
+  profileImageUrl?: Maybe<Scalars['String']['output']>;
+  username?: Maybe<Scalars['String']['output']>;
+};
+
+export type JobSubjectInput = {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  postId?: InputMaybe<Scalars['ID']['input']>;
+  postUrlKey?: InputMaybe<Scalars['String']['input']>;
+  type: JobType;
+};
+
+export enum JobSubjectKind {
+  Account = 'ACCOUNT',
+  None = 'NONE',
+  Post = 'POST',
+  Posts = 'POSTS'
+}
+
+export enum JobTrigger {
+  System = 'SYSTEM',
+  User = 'USER'
+}
+
+export enum JobType {
+  AccountRefresh = 'ACCOUNT_REFRESH',
+  AdminOperation = 'ADMIN_OPERATION',
+  Correction = 'CORRECTION',
+  ExtractFromUrl = 'EXTRACT_FROM_URL',
+  ExtractSelectedPosts = 'EXTRACT_SELECTED_POSTS',
+  Other = 'OTHER',
+  ProfileLookup = 'PROFILE_LOOKUP',
+  ReextractRefresh = 'REEXTRACT_REFRESH',
+  Subscribe = 'SUBSCRIBE'
+}
+
+export enum JobWaitingFor {
+  ExtractionQueue = 'EXTRACTION_QUEUE',
+  ResultFromProvider = 'RESULT_FROM_PROVIDER',
+  RetryAt = 'RETRY_AT'
+}
+
+export type JobWaitingInfo = {
+  __typename?: 'JobWaitingInfo';
+  done?: Maybe<Scalars['Int']['output']>;
+  resumeAt?: Maybe<Scalars['DateTime']['output']>;
+  total?: Maybe<Scalars['Int']['output']>;
+  waitingFor: JobWaitingFor;
+};
+
+export type JobsFilter = {
+  includeSystem?: InputMaybe<Scalars['Boolean']['input']>;
+  scope?: InputMaybe<JobsScope>;
+};
+
+export enum JobsScope {
+  AllUsers = 'ALL_USERS',
+  Mine = 'MINE'
+}
+
 export type LocationDetails = {
   __typename?: 'LocationDetails';
   adminArea?: Maybe<Scalars['String']['output']>;
@@ -545,6 +854,8 @@ export type ModeratorAccountProfileFilters = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  acknowledgeJobEnded: Scalars['Boolean']['output'];
+  applyPostReextraction: ApplyPostReextractionResult;
   castVote: AccountVote;
   clearAccountDefaultLocation: SocialMediaAccountProfile;
   createApiKey: ApiKey;
@@ -560,6 +871,7 @@ export type Mutation = {
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
+  markJobsOpened: Scalars['Boolean']['output'];
   markSubscriptionViewed: Subscription;
   previewPostReextraction: StartPostReextractionPreviewResult;
   registerEmbedDomain: EmbedDomain;
@@ -579,12 +891,25 @@ export type Mutation = {
    * `eventId` (the newly-ingested event) into its `candidateEventId` (the existing event), via
    * `mergeEvents`, and returns the resulting merge id. REJECT performs no merge -- a recorded
    * dismissal only.
+   *
+   * `clues` are the codes of the closed list in `packages/domain` (`DEDUP_DECISION_CLUES`) that explain the
+   * decision, at most one per exclusive group; `note` is the moderator's own words, at most 200 characters,
+   * stored and never printed anywhere. Both are optional; an invalid value is BAD_REQUEST and nothing is resolved.
    */
   resolveSuggestedEventMatch: SuggestedEventMatchResolution;
   restoreEvent: Event;
+  retryJob: RetryJobResult;
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
+  /**
+   * Idempotently sets the calendar state of several schedules of ONE event in a single
+   * transaction (one auth check, one round of queries) -- replaces N parallel
+   * toggleCalendarAddition calls. All-or-nothing: any unknown schedule, a schedule of another
+   * event, or more than 100 changes rejects the whole call. A schedule listed twice takes its
+   * last entry. Returns one result per distinct scheduleId, in first-seen order.
+   */
+  setCalendarAdditions: Array<ToggleCalendarAdditionResult>;
   setImageStorageOptIn: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
@@ -604,6 +929,16 @@ export type Mutation = {
   updateUserTimezone: Scalars['Boolean']['output'];
   updateWidget: Widget;
   withdrawVote: AccountVote;
+};
+
+
+export type MutationAcknowledgeJobEndedArgs = {
+  jobId: Scalars['ID']['input'];
+};
+
+
+export type MutationApplyPostReextractionArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -769,13 +1104,20 @@ export type MutationResolveScheduleTimezoneArgs = {
 
 export type MutationResolveSuggestedEventMatchArgs = {
   action: SuggestedEventMatchAction;
+  clues?: InputMaybe<Array<Scalars['String']['input']>>;
   id: Scalars['ID']['input'];
+  note?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type MutationRestoreEventArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationRetryJobArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -795,6 +1137,12 @@ export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
+};
+
+
+export type MutationSetCalendarAdditionsArgs = {
+  changes: Array<CalendarAdditionChangeInput>;
+  eventId: Scalars['ID']['input'];
 };
 
 
@@ -909,6 +1257,10 @@ export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
   content?: Maybe<Scalars['String']['output']>;
+  /** The reason code of the last failed attempt (for example unavailable, blocked); null when none is on record. */
+  extractionFailureReason?: Maybe<Scalars['String']['output']>;
+  /** When the automatic retry of a failed attempt is due (ISO 8601); null when none is scheduled. */
+  extractionNextAttemptAt?: Maybe<Scalars['String']['output']>;
   extractionStatus: PostExtractionStatus;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
@@ -926,10 +1278,23 @@ export type PostConnection = {
 };
 
 /**
- * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
- * can be selected for extraction.
+ * Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
+ * events), or PARTIAL (it ended without reading every slide and will not be finished).
+ */
+export enum PostEventsCompleteness {
+  Complete = 'COMPLETE',
+  InProgress = 'IN_PROGRESS',
+  Partial = 'PARTIAL'
+}
+
+/**
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
+ * ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
+ * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
+ * or cannot help.
  */
 export enum PostExtractionStatus {
+  AttemptFailed = 'ATTEMPT_FAILED',
   Extracting = 'EXTRACTING',
   NotEvent = 'NOT_EVENT',
   Pending = 'PENDING',
@@ -947,8 +1312,12 @@ export enum PostGroupingReason {
 
 export type PostReextractionPreview = {
   __typename?: 'PostReextractionPreview';
+  applicable: Scalars['Boolean']['output'];
+  applied?: Maybe<ApplyReextractionSummary>;
   events: Array<ReextractionPreviewEvent>;
   groupingReason?: Maybe<PostGroupingReason>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesSent: Scalars['Int']['output'];
   postStored: Scalars['Boolean']['output'];
   rescraped: Scalars['Boolean']['output'];
 };
@@ -1013,8 +1382,19 @@ export type ProposedScheduleCorrectionInput = {
   title?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type PublicWidget = {
+  __typename?: 'PublicWidget';
+  createdAt: Scalars['String']['output'];
+  displayMode: WidgetDisplayMode;
+  expression: FilterNode;
+  filters?: Maybe<EventFilter>;
+  id: Scalars['ID']['output'];
+  theme: WidgetTheme;
+};
+
 export type Query = {
   __typename?: 'Query';
+  activeJobs: Array<Job>;
   addressAutocomplete: Array<AddressSuggestion>;
   embedDomainsForWidget: Array<EmbedDomain>;
   event?: Maybe<Event>;
@@ -1024,6 +1404,8 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
+  job?: Maybe<Job>;
+  jobsFinishedSinceLastOpened: Scalars['Int']['output'];
   me: Me;
   /**
    * Combined count of items awaiting moderator action across Moderator Items
@@ -1042,6 +1424,7 @@ export type Query = {
   myAIEventFilters: Array<AiEventFilter>;
   myApiKeys: Array<ApiKey>;
   myExtractionQuota: ExtractionQuota;
+  myJobs: JobConnection;
   myLocations: Array<UserLocation>;
   myReports: Array<Report>;
   mySettings: UserSettings;
@@ -1073,7 +1456,14 @@ export type Query = {
   suggestedEventMatches: SuggestedEventMatchConnection;
   voteRegionBreakdown: Array<RegionVoteBucket>;
   votedAccountSuggestions: Array<RankedAccountVote>;
-  widgetById?: Maybe<Widget>;
+  widgetById?: Maybe<PublicWidget>;
+};
+
+
+export type QueryActiveJobsArgs = {
+  endedWithinMinutes?: InputMaybe<Scalars['Int']['input']>;
+  filter?: InputMaybe<JobsFilter>;
+  subject?: InputMaybe<JobSubjectInput>;
 };
 
 
@@ -1124,6 +1514,19 @@ export type QueryInstagramEmbedBySlugArgs = {
 export type QueryIsOriginAllowedForWidgetArgs = {
   origin: Scalars['String']['input'];
   widgetId: Scalars['ID']['input'];
+};
+
+
+export type QueryJobArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryMyJobsArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  filter?: InputMaybe<JobsFilter>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  onlyEnded?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 
@@ -1282,6 +1685,7 @@ export type RegionVoteBucket = {
 export type RelatedEventGroup = {
   __typename?: 'RelatedEventGroup';
   eventIds: Array<Scalars['ID']['output']>;
+  extractionProgress: PostEventsCompleteness;
   postId: Scalars['ID']['output'];
 };
 
@@ -1351,6 +1755,24 @@ export type ResolvedAiEventFilterResult = {
   resolvedFilter: EventFilter;
 };
 
+export enum RetryJobOutcome {
+  Refused = 'REFUSED',
+  Reused = 'REUSED',
+  Started = 'STARTED'
+}
+
+export type RetryJobResult = {
+  __typename?: 'RetryJobResult';
+  activeCount?: Maybe<Scalars['Int']['output']>;
+  cap?: Maybe<Scalars['Int']['output']>;
+  errorCode?: Maybe<JobStartErrorCode>;
+  job?: Maybe<Job>;
+  maxQueued?: Maybe<Scalars['Int']['output']>;
+  outcome: RetryJobOutcome;
+  reservedCount?: Maybe<Scalars['Int']['output']>;
+  retryNotBefore?: Maybe<Scalars['DateTime']['output']>;
+};
+
 export type Schedule = {
   __typename?: 'Schedule';
   applicableDaysOfWeek?: Maybe<Array<DayOfWeek>>;
@@ -1365,6 +1787,8 @@ export type Schedule = {
   isMainSchedule: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   locationDetails?: Maybe<LocationDetails>;
+  /** Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected. */
+  locationKeywords?: Maybe<Array<Scalars['String']['output']>>;
   performers?: Maybe<Array<Scalars['String']['output']>>;
   registrationUrl?: Maybe<Scalars['String']['output']>;
   ticketPrice?: Maybe<Scalars['String']['output']>;
@@ -1524,6 +1948,7 @@ export type SuggestedEventMatchResolution = {
 
 export enum SuggestedEventMatchStatus {
   Accepted = 'accepted',
+  Expired = 'expired',
   Pending = 'pending',
   Rejected = 'rejected'
 }
@@ -1695,10 +2120,36 @@ export enum WidgetTheme {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
- * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
- * can be selected for extraction.
+ * Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
+ * events), or PARTIAL (it ended without reading every slide and will not be finished).
  */
+
+/**
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
+ * ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
+ * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
+ * or cannot help.
+ */
+
 
 
 
@@ -1743,11 +2194,13 @@ export type QuerySuggestedEventMatchesQueryVariables = Exact<{
 }>;
 
 
-export type QuerySuggestedEventMatchesQuery = { suggestedEventMatches: { edges: Array<{ cursor: string, node: { id: string, score: number, status: SuggestedEventMatchStatus, event: { id: string, slug: string, eventName: string, location: string | null, imageUrl: string | null, durableImageUrl: string | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null }> }, candidateEvent: { id: string, slug: string, eventName: string, location: string | null, imageUrl: string | null, durableImageUrl: string | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null }> } } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
+export type QuerySuggestedEventMatchesQuery = { suggestedEventMatches: { edges: Array<{ cursor: string, node: { id: string, score: number, status: SuggestedEventMatchStatus, event: { id: string, slug: string, eventName: string, location: string | null, locationKeywords: Array<string> | null, imageUrl: string | null, durableImageUrl: string | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null }> }, candidateEvent: { id: string, slug: string, eventName: string, location: string | null, locationKeywords: Array<string> | null, imageUrl: string | null, durableImageUrl: string | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null }> } } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
 
 export type ResolveSuggestedEventMatchMutationVariables = Exact<{
   id: string | number;
   action: SuggestedEventMatchAction;
+  clues?: Array<string> | string | null | undefined;
+  note?: string | null | undefined;
 }>;
 
 
@@ -1848,6 +2301,14 @@ export type ToggleCalendarAdditionMutationVariables = Exact<{
 
 export type ToggleCalendarAdditionMutation = { toggleCalendarAddition: { eventId: string, scheduleId: string, isAddedToCalendar: boolean } };
 
+export type SetCalendarAdditionsMutationVariables = Exact<{
+  eventId: string | number;
+  changes: Array<CalendarAdditionChangeInput> | CalendarAdditionChangeInput;
+}>;
+
+
+export type SetCalendarAdditionsMutation = { setCalendarAdditions: Array<{ eventId: string, scheduleId: string, isAddedToCalendar: boolean }> };
+
 export type ResolveScheduleTimezoneMutationVariables = Exact<{
   scheduleId: string | number;
   timezone: string;
@@ -1887,7 +2348,7 @@ export type GetEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, eventEndDate: string | null, eventEndTime: string | null, ticketPrice: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, isFavorited: boolean, favoriteCount: number, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, locationKeywords: Array<string> | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventStartTime: string | null, eventEndDate: string | null, eventEndTime: string | null, ticketPrice: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetFavoritedEventIdsQueryVariables = Exact<{
   query?: EventQueryConditionInput | null | undefined;
@@ -1901,21 +2362,21 @@ export type GetEventBySlugQueryVariables = Exact<{
 }>;
 
 
-export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, hashtags: Array<string> | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }>, sourcePosts: Array<{ postId: string, isPrimary: boolean, groupingReason: PostGroupingReason | null, extractedEventCount: number | null, title: string | null, postedAt: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, platformPostId: string | null, postType: string | null, account: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }> }>, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
+export type GetEventBySlugQuery = { eventBySlug: { id: string, eventName: string, slug: string, description: string | null, location: string | null, locationKeywords: Array<string> | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, videoUrl: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, publishedAt: string | null, hashtags: Array<string> | null, organizerName: string | null, contactInfo: string | null, hasPrivateContact: boolean, isFavorited: boolean, favoriteCount: number, isHiddenForCurrentUser: boolean, links: Array<{ url: string, label: string | null }> | null, sourceSocialMediaAccountProfile: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null, accountType: string | null, defaultLocation: { placeName: string | null, formattedAddress: string | null, city: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }>, sourcePosts: Array<{ postId: string, isPrimary: boolean, groupingReason: PostGroupingReason | null, extractedEventCount: number | null, title: string | null, postedAt: string | null, sourcePostUrl: string | null, originalPostUrl: string | null, platformPostId: string | null, postType: string | null, account: { accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null } | null, coauthors: Array<{ accountId: string, platform: string, username: string, displayName: string, profileImageUrl: string | null }> }>, schedules: Array<{ id: string, isMainSchedule: boolean, title: string | null, eventStartDate: string, isAddedToCalendar: boolean, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, performers: Array<string> | null, location: string | null, locationKeywords: Array<string> | null, ticketPrice: string | null, ticketUrl: string | null, registrationUrl: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { placeName: string | null, placeId: string | null, formattedAddress: string | null, timezone: string | null, confidence: number | null, matchType: string | null, coordinates: { lat: number, lng: number } } | null }> } | null };
 
 export type GetRelatedEventIdsQueryVariables = Exact<{
   eventId: string | number;
 }>;
 
 
-export type GetRelatedEventIdsQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string> }> };
+export type GetRelatedEventIdsQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string>, extractionProgress: PostEventsCompleteness }> };
 
 export type GetRelatedEventIdsByPostQueryVariables = Exact<{
   postId: string | number;
 }>;
 
 
-export type GetRelatedEventIdsByPostQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string> }> };
+export type GetRelatedEventIdsByPostQuery = { relatedEventIds: Array<{ postId: string, eventIds: Array<string>, extractionProgress: PostEventsCompleteness }> };
 
 export type GetPostByPlatformIdentifiersQueryVariables = Exact<{
   platform: string;
@@ -1945,7 +2406,7 @@ export type GetEventForIcsExportQueryVariables = Exact<{
 }>;
 
 
-export type GetEventForIcsExportQuery = { event: { id: string, eventName: string, slug: string, description: string | null, location: string | null, schedules: Array<{ id: string, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, location: string | null, locationDetails: { formattedAddress: string | null } | null }> } | null };
+export type GetEventForIcsExportQuery = { event: { id: string, eventName: string, slug: string, description: string | null, location: string | null, locationKeywords: Array<string> | null, schedules: Array<{ id: string, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, timezone: string | null, location: string | null, locationKeywords: Array<string> | null, locationDetails: { formattedAddress: string | null } | null }> } | null };
 
 export type GetEventsForCalendarQueryVariables = Exact<{
   limit?: number | null | undefined;
@@ -1955,7 +2416,7 @@ export type GetEventsForCalendarQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsForCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsForCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, locationKeywords: Array<string> | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetEventsForMyCalendarQueryVariables = Exact<{
   limit?: number | null | undefined;
@@ -1964,7 +2425,7 @@ export type GetEventsForMyCalendarQueryVariables = Exact<{
 }>;
 
 
-export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
+export type GetEventsForMyCalendarQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, eventName: string, slug: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, locationKeywords: Array<string> | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, isFavorited: boolean, favoriteCount: number, schedules: Array<{ id: string, isMainSchedule: boolean, eventStartDate: string, eventEndDate: string | null, eventStartTime: string | null, eventEndTime: string | null, ticketPrice: string | null, isAddedToCalendar: boolean, timezone: string | null, timezoneStatus: ScheduleTimezoneStatus | null, applicableDaysOfWeek: Array<DayOfWeek> | null, locationDetails: { coordinates: { lat: number, lng: number } } | null }> }> } };
 
 export type GetArchivedEventsQueryVariables = Exact<{
   limit?: number | null | undefined;
@@ -1972,7 +2433,7 @@ export type GetArchivedEventsQueryVariables = Exact<{
 }>;
 
 
-export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, slug: string, eventName: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, categories: Array<EventCategory> | null, types: Array<EventType> | null, deletedAt: string | null, isHiddenForCurrentUser: boolean, isExpiredForCurrentUser: boolean, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null }> }> } };
+export type GetArchivedEventsQuery = { events: { hasMore: boolean, totalCount: number, items: Array<{ id: string, slug: string, eventName: string, imageUrl: string | null, durableImageUrl: string | null, durableThumbnailUrl: string | null, location: string | null, locationKeywords: Array<string> | null, categories: Array<EventCategory> | null, types: Array<EventType> | null, deletedAt: string | null, isHiddenForCurrentUser: boolean, isExpiredForCurrentUser: boolean, schedules: Array<{ isMainSchedule: boolean, eventStartDate: string, ticketPrice: string | null, applicableDaysOfWeek: Array<DayOfWeek> | null }> }> } };
 
 export type GetMyAiEventFiltersQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1987,6 +2448,67 @@ export type SubmitReportMutationVariables = Exact<{
 
 
 export type SubmitReportMutation = { submitReport: { id: string, reason: ReportReason, status: ReportStatus, createdAt: string } };
+
+export type JobsFinishedSinceLastOpenedQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type JobsFinishedSinceLastOpenedQuery = { jobsFinishedSinceLastOpened: number };
+
+export type MarkJobsOpenedMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MarkJobsOpenedMutation = { markJobsOpened: boolean };
+
+export type AcknowledgeJobEndedMutationVariables = Exact<{
+  jobId: string | number;
+}>;
+
+
+export type AcknowledgeJobEndedMutation = { acknowledgeJobEnded: boolean };
+
+export type JobProgressFieldsFragment = { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null };
+
+export type JobListFieldsFragment = { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, owner: { displayName: string | null } | null, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null };
+
+export type JobByIdQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type JobByIdQuery = { job: { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null } | null };
+
+export type JobDetailQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type JobDetailQuery = { job: { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, owner: { displayName: string | null } | null, moderatorDetails: { engineReasonCode: string | null, engineMessage: string | null, attempts: Array<{ provider: JobProvider, outcome: JobAttemptOutcome, budgetMs: number, elapsedMs: number, reasonCode: JobReasonCode | null }> } | null, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null } | null };
+
+export type ActiveJobsQueryVariables = Exact<{
+  filter?: JobsFilter | null | undefined;
+  subject?: JobSubjectInput | null | undefined;
+  endedWithinMinutes?: number | null | undefined;
+}>;
+
+
+export type ActiveJobsQuery = { activeJobs: Array<{ id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, owner: { displayName: string | null } | null, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null }> };
+
+export type MyJobsQueryVariables = Exact<{
+  filter?: JobsFilter | null | undefined;
+  onlyEnded?: boolean | null | undefined;
+  first?: number | null | undefined;
+  after?: string | null | undefined;
+}>;
+
+
+export type MyJobsQuery = { myJobs: { edges: Array<{ cursor: string, node: { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, owner: { displayName: string | null } | null, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null } }>, pageInfo: { hasNextPage: boolean, endCursor: string | null } } };
+
+export type RetryJobMutationVariables = Exact<{
+  jobId: string | number;
+}>;
+
+
+export type RetryJobMutation = { retryJob: { outcome: RetryJobOutcome, errorCode: JobStartErrorCode | null, activeCount: number | null, reservedCount: number | null, cap: number | null, maxQueued: number | null, retryNotBefore: unknown, job: { id: string, type: JobType, trigger: JobTrigger, status: JobStatus, isCancelled: boolean, reasonCode: JobReasonCode | null, reasonRetryAfter: unknown, reasonQueueMaxWaitMinutes: number | null, createdAt: unknown, startedAt: unknown, finishedAt: unknown, deadlineAt: unknown, completedAfterDeadline: boolean, canRetry: boolean, retryNotBefore: unknown, subject: { kind: JobSubjectKind, accountId: string | null, platform: string | null, username: string | null, displayName: string | null, profileImageUrl: string | null, postCount: number | null, postCode: string | null, postId: string | null }, steps: Array<{ key: string, state: JobStepState, done: number | null, total: number | null }>, queue: { position: number, maxConcurrent: number, expiresAt: unknown } | null, waiting: { waitingFor: JobWaitingFor, resumeAt: unknown, done: number | null, total: number | null } | null, outcome: { kind: JobOutcomeKind, eventCount: number | null, postCount: number | null, previewApplyUntil: unknown, previewApplied: boolean | null } | null } | null } };
 
 export type CreateUserLocationMutationVariables = Exact<{
   input: CreateUserLocationInput;
@@ -2119,12 +2641,28 @@ export type PreviewPostReextractionMutationVariables = Exact<{
 
 export type PreviewPostReextractionMutation = { previewPostReextraction: { jobId: string | null, errorCode: ExtractionErrorCode | null, errorMessage: string | null } };
 
+export type ReextractJobReportQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type ReextractJobReportQuery = { job: { id: string, outcome: { previewApplyUntil: unknown, previewApplied: boolean | null } | null, refresh: { outcome: JobRefreshOutcome, saved: boolean, lateResultPending: boolean, retryAfter: unknown, expiredLinks: number, imagesAvailable: number, imagesRead: number, previewImageCap: number, images: Array<{ position: number, role: JobImageRole, state: JobImageState }> } | null } | null };
+
 export type PostReextractionPreviewQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type PostReextractionPreviewQuery = { postReextractionPreview: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, preview: { groupingReason: PostGroupingReason | null, postStored: boolean, rescraped: boolean, events: Array<{ extractionOrdinal: number, eventName: string, alreadyRepresentedBySlug: string | null, isStub: boolean, links: Array<{ url: string, label: string | null }>, schedules: Array<{ title: string | null, startDate: string | null, endDate: string | null, isMain: boolean }>, dedup: { tier: ReextractionDedupTier, score: number | null, candidateSlug: string | null, candidateName: string | null } }> } | null } };
+export type PostReextractionPreviewQuery = { postReextractionPreview: { status: ExtractionJobState, errorCode: ExtractionErrorCode | null, errorMessage: string | null, preview: { applicable: boolean, groupingReason: PostGroupingReason | null, postStored: boolean, rescraped: boolean, imagesAvailable: number, imagesSent: number, applied: { groupingReason: PostGroupingReason | null, queuedForReview: number, skippedDeleted: number, reused: Array<{ slug: string, eventName: string, ordinal: number }>, created: Array<{ slug: string, eventName: string, ordinal: number }>, linkedToExisting: Array<{ slug: string, eventName: string }>, orphans: Array<{ slug: string, eventName: string }> } | null, events: Array<{ extractionOrdinal: number, eventName: string, alreadyRepresentedBySlug: string | null, isStub: boolean, links: Array<{ url: string, label: string | null }>, schedules: Array<{ title: string | null, startDate: string | null, endDate: string | null, isMain: boolean }>, dedup: { tier: ReextractionDedupTier, score: number | null, candidateSlug: string | null, candidateName: string | null } }> } | null } };
+
+export type ApplyReextractionSummaryFieldsFragment = { groupingReason: PostGroupingReason | null, queuedForReview: number, skippedDeleted: number, reused: Array<{ slug: string, eventName: string, ordinal: number }>, created: Array<{ slug: string, eventName: string, ordinal: number }>, linkedToExisting: Array<{ slug: string, eventName: string }>, orphans: Array<{ slug: string, eventName: string }> };
+
+export type ApplyPostReextractionMutationVariables = Exact<{
+  jobId: string | number;
+}>;
+
+
+export type ApplyPostReextractionMutation = { applyPostReextraction: { errorCode: ExtractionErrorCode | null, errorMessage: string | null, summary: { groupingReason: PostGroupingReason | null, queuedForReview: number, skippedDeleted: number, reused: Array<{ slug: string, eventName: string, ordinal: number }>, created: Array<{ slug: string, eventName: string, ordinal: number }>, linkedToExisting: Array<{ slug: string, eventName: string }>, orphans: Array<{ slug: string, eventName: string }> } | null } };
 
 export type CreateApiKeyMutationVariables = Exact<{
   input: CreateApiKeyInput;
@@ -2168,7 +2706,7 @@ export type GetPostsByAccountQueryVariables = Exact<{
 }>;
 
 
-export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string | null, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, extractionStatus: PostExtractionStatus, publishedAt: string }> } };
+export type GetPostsByAccountQuery = { postsByAccount: { nextCursor: string | null, hasMore: boolean, items: Array<{ id: string, accountId: string, content: string | null, imageUrl: string | null, postUrl: string, originalPostUrl: string | null, isExtracted: boolean, extractionStatus: PostExtractionStatus, extractionFailureReason: string | null, extractionNextAttemptAt: string | null, publishedAt: string }> } };
 
 export type GetMyExtractionQuotaQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2345,7 +2883,7 @@ export type WidgetByIdQueryVariables = Exact<{
 }>;
 
 
-export type WidgetByIdQuery = { widgetById: { id: string, ownerUserId: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } | null };
+export type WidgetByIdQuery = { widgetById: { id: string, displayMode: WidgetDisplayMode, theme: WidgetTheme, createdAt: string, filters: { accountId: string | null, types: Array<EventType> | null, categories: Array<EventCategory> | null, keyword: string | null, dayOfWeek: Array<DayOfWeek> | null, venueType: string | null, isFree: boolean | null, temporalFilter: TemporalFilter | null, dateRange: { anchor: DateAnchor, offsetAmount: number, offsetUnit: DateOffsetUnit, spanAmount: number | null, spanUnit: DateOffsetUnit | null } | null, location: { radiusMeters: number | null, adminArea: string | null, coordinates: { lat: number, lng: number } | null } | null } | null } | null };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -2366,7 +2904,144 @@ export class TypedDocumentString<TResult, TVariables>
     return this.value;
   }
 }
-
+export const JobProgressFieldsFragmentDoc = new TypedDocumentString(`
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}
+    `, {"fragmentName":"JobProgressFields"});
+export const JobListFieldsFragmentDoc = new TypedDocumentString(`
+    fragment JobListFields on Job {
+  ...JobProgressFields
+  owner {
+    displayName
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}`, {"fragmentName":"JobListFields"});
+export const ApplyReextractionSummaryFieldsFragmentDoc = new TypedDocumentString(`
+    fragment ApplyReextractionSummaryFields on ApplyReextractionSummary {
+  groupingReason
+  reused {
+    slug
+    eventName
+    ordinal
+  }
+  created {
+    slug
+    eventName
+    ordinal
+  }
+  linkedToExisting {
+    slug
+    eventName
+  }
+  queuedForReview
+  skippedDeleted
+  orphans {
+    slug
+    eventName
+  }
+}
+    `, {"fragmentName":"ApplyReextractionSummaryFields"});
 export const QueryActorRunsDocument = new TypedDocumentString(`
     query queryActorRuns($filters: ActorRunFilters, $first: Int, $after: String) {
   queryActorRuns(filters: $filters, first: $first, after: $after) {
@@ -2454,6 +3129,7 @@ export const QuerySuggestedEventMatchesDocument = new TypedDocumentString(`
           slug
           eventName
           location
+          locationKeywords
           imageUrl
           durableImageUrl
           schedules {
@@ -2471,6 +3147,7 @@ export const QuerySuggestedEventMatchesDocument = new TypedDocumentString(`
           slug
           eventName
           location
+          locationKeywords
           imageUrl
           durableImageUrl
           schedules {
@@ -2513,8 +3190,8 @@ export const useQuerySuggestedEventMatchesQuery = <
     )};
 
 export const ResolveSuggestedEventMatchDocument = new TypedDocumentString(`
-    mutation ResolveSuggestedEventMatch($id: ID!, $action: SuggestedEventMatchAction!) {
-  resolveSuggestedEventMatch(id: $id, action: $action) {
+    mutation ResolveSuggestedEventMatch($id: ID!, $action: SuggestedEventMatchAction!, $clues: [String!], $note: String) {
+  resolveSuggestedEventMatch(id: $id, action: $action, clues: $clues, note: $note) {
     mergeId
     suggestion {
       id
@@ -2970,6 +3647,33 @@ export const useToggleCalendarAdditionMutation = <
   }
     )};
 
+export const SetCalendarAdditionsDocument = new TypedDocumentString(`
+    mutation setCalendarAdditions($eventId: ID!, $changes: [CalendarAdditionChangeInput!]!) {
+  setCalendarAdditions(eventId: $eventId, changes: $changes) {
+    eventId
+    scheduleId
+    isAddedToCalendar
+  }
+}
+    `);
+
+export const useSetCalendarAdditionsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetCalendarAdditionsMutation, TError, SetCalendarAdditionsMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetCalendarAdditionsMutation, TError, SetCalendarAdditionsMutationVariables, TContext>(
+      {
+    mutationKey: ['setCalendarAdditions'],
+    mutationFn: (variables?: SetCalendarAdditionsMutationVariables) => fetcher<SetCalendarAdditionsMutation, SetCalendarAdditionsMutationVariables>(client, SetCalendarAdditionsDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
 export const ResolveScheduleTimezoneDocument = new TypedDocumentString(`
     mutation resolveScheduleTimezone($scheduleId: ID!, $timezone: String!) {
   resolveScheduleTimezone(scheduleId: $scheduleId, timezone: $timezone) {
@@ -3180,6 +3884,7 @@ export const GetEventsDocument = new TypedDocumentString(`
       durableImageUrl
       durableThumbnailUrl
       location
+      locationKeywords
       types
       categories
       schedules {
@@ -3262,6 +3967,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
     slug
     description
     location
+    locationKeywords
     types
     categories
     imageUrl
@@ -3296,6 +4002,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
         }
         placeName
         formattedAddress
+        city
         confidence
         matchType
       }
@@ -3346,6 +4053,7 @@ export const GetEventBySlugDocument = new TypedDocumentString(`
       timezoneStatus
       performers
       location
+      locationKeywords
       locationDetails {
         coordinates {
           lat
@@ -3390,6 +4098,7 @@ export const GetRelatedEventIdsDocument = new TypedDocumentString(`
   relatedEventIds(eventId: $eventId) {
     postId
     eventIds
+    extractionProgress
   }
 }
     `);
@@ -3417,6 +4126,7 @@ export const GetRelatedEventIdsByPostDocument = new TypedDocumentString(`
   relatedEventIds(postId: $postId) {
     postId
     eventIds
+    extractionProgress
   }
 }
     `);
@@ -3544,6 +4254,7 @@ export const GetEventForIcsExportDocument = new TypedDocumentString(`
     slug
     description
     location
+    locationKeywords
     schedules {
       id
       eventStartDate
@@ -3552,6 +4263,7 @@ export const GetEventForIcsExportDocument = new TypedDocumentString(`
       eventEndTime
       timezone
       location
+      locationKeywords
       locationDetails {
         formattedAddress
       }
@@ -3589,6 +4301,7 @@ export const GetEventsForCalendarDocument = new TypedDocumentString(`
       durableImageUrl
       durableThumbnailUrl
       location
+      locationKeywords
       types
       categories
       isFavorited
@@ -3647,6 +4360,7 @@ export const GetEventsForMyCalendarDocument = new TypedDocumentString(`
       durableImageUrl
       durableThumbnailUrl
       location
+      locationKeywords
       types
       categories
       isFavorited
@@ -3706,6 +4420,7 @@ export const GetArchivedEventsDocument = new TypedDocumentString(`
       durableImageUrl
       durableThumbnailUrl
       location
+      locationKeywords
       categories
       types
       schedules {
@@ -3857,6 +4572,508 @@ export const useSubmitReportMutation = <
       {
     mutationKey: ['submitReport'],
     mutationFn: (variables?: SubmitReportMutationVariables) => fetcher<SubmitReportMutation, SubmitReportMutationVariables>(client, SubmitReportDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const JobsFinishedSinceLastOpenedDocument = new TypedDocumentString(`
+    query jobsFinishedSinceLastOpened {
+  jobsFinishedSinceLastOpened
+}
+    `);
+
+export const useJobsFinishedSinceLastOpenedQuery = <
+      TData = JobsFinishedSinceLastOpenedQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: JobsFinishedSinceLastOpenedQueryVariables,
+      options?: Omit<UseQueryOptions<JobsFinishedSinceLastOpenedQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<JobsFinishedSinceLastOpenedQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<JobsFinishedSinceLastOpenedQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['jobsFinishedSinceLastOpened'] : ['jobsFinishedSinceLastOpened', variables],
+    queryFn: fetcher<JobsFinishedSinceLastOpenedQuery, JobsFinishedSinceLastOpenedQueryVariables>(client, JobsFinishedSinceLastOpenedDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const MarkJobsOpenedDocument = new TypedDocumentString(`
+    mutation markJobsOpened {
+  markJobsOpened
+}
+    `);
+
+export const useMarkJobsOpenedMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<MarkJobsOpenedMutation, TError, MarkJobsOpenedMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<MarkJobsOpenedMutation, TError, MarkJobsOpenedMutationVariables, TContext>(
+      {
+    mutationKey: ['markJobsOpened'],
+    mutationFn: (variables?: MarkJobsOpenedMutationVariables) => fetcher<MarkJobsOpenedMutation, MarkJobsOpenedMutationVariables>(client, MarkJobsOpenedDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const AcknowledgeJobEndedDocument = new TypedDocumentString(`
+    mutation acknowledgeJobEnded($jobId: ID!) {
+  acknowledgeJobEnded(jobId: $jobId)
+}
+    `);
+
+export const useAcknowledgeJobEndedMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<AcknowledgeJobEndedMutation, TError, AcknowledgeJobEndedMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<AcknowledgeJobEndedMutation, TError, AcknowledgeJobEndedMutationVariables, TContext>(
+      {
+    mutationKey: ['acknowledgeJobEnded'],
+    mutationFn: (variables?: AcknowledgeJobEndedMutationVariables) => fetcher<AcknowledgeJobEndedMutation, AcknowledgeJobEndedMutationVariables>(client, AcknowledgeJobEndedDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+export const JobByIdDocument = new TypedDocumentString(`
+    query JobById($id: ID!) {
+  job(id: $id) {
+    ...JobProgressFields
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}`);
+
+export const useJobByIdQuery = <
+      TData = JobByIdQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: JobByIdQueryVariables,
+      options?: Omit<UseQueryOptions<JobByIdQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<JobByIdQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<JobByIdQuery, TError, TData>(
+      {
+    queryKey: ['JobById', variables],
+    queryFn: fetcher<JobByIdQuery, JobByIdQueryVariables>(client, JobByIdDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const JobDetailDocument = new TypedDocumentString(`
+    query JobDetail($id: ID!) {
+  job(id: $id) {
+    ...JobProgressFields
+    owner {
+      displayName
+    }
+    moderatorDetails {
+      attempts {
+        provider
+        outcome
+        budgetMs
+        elapsedMs
+        reasonCode
+      }
+      engineReasonCode
+      engineMessage
+    }
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}`);
+
+export const useJobDetailQuery = <
+      TData = JobDetailQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: JobDetailQueryVariables,
+      options?: Omit<UseQueryOptions<JobDetailQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<JobDetailQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<JobDetailQuery, TError, TData>(
+      {
+    queryKey: ['JobDetail', variables],
+    queryFn: fetcher<JobDetailQuery, JobDetailQueryVariables>(client, JobDetailDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ActiveJobsDocument = new TypedDocumentString(`
+    query ActiveJobs($filter: JobsFilter, $subject: JobSubjectInput, $endedWithinMinutes: Int) {
+  activeJobs(
+    filter: $filter
+    subject: $subject
+    endedWithinMinutes: $endedWithinMinutes
+  ) {
+    ...JobListFields
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}
+fragment JobListFields on Job {
+  ...JobProgressFields
+  owner {
+    displayName
+  }
+}`);
+
+export const useActiveJobsQuery = <
+      TData = ActiveJobsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: ActiveJobsQueryVariables,
+      options?: Omit<UseQueryOptions<ActiveJobsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ActiveJobsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ActiveJobsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ActiveJobs'] : ['ActiveJobs', variables],
+    queryFn: fetcher<ActiveJobsQuery, ActiveJobsQueryVariables>(client, ActiveJobsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const MyJobsDocument = new TypedDocumentString(`
+    query MyJobs($filter: JobsFilter, $onlyEnded: Boolean, $first: Int, $after: String) {
+  myJobs(filter: $filter, onlyEnded: $onlyEnded, first: $first, after: $after) {
+    edges {
+      cursor
+      node {
+        ...JobListFields
+      }
+    }
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}
+fragment JobListFields on Job {
+  ...JobProgressFields
+  owner {
+    displayName
+  }
+}`);
+
+export const useMyJobsQuery = <
+      TData = MyJobsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: MyJobsQueryVariables,
+      options?: Omit<UseQueryOptions<MyJobsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyJobsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<MyJobsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['MyJobs'] : ['MyJobs', variables],
+    queryFn: fetcher<MyJobsQuery, MyJobsQueryVariables>(client, MyJobsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const RetryJobDocument = new TypedDocumentString(`
+    mutation RetryJob($jobId: ID!) {
+  retryJob(jobId: $jobId) {
+    outcome
+    errorCode
+    activeCount
+    reservedCount
+    cap
+    maxQueued
+    retryNotBefore
+    job {
+      ...JobProgressFields
+    }
+  }
+}
+    fragment JobProgressFields on Job {
+  id
+  type
+  trigger
+  status
+  isCancelled
+  reasonCode
+  reasonRetryAfter
+  reasonQueueMaxWaitMinutes
+  createdAt
+  startedAt
+  finishedAt
+  deadlineAt
+  completedAfterDeadline
+  subject {
+    kind
+    accountId
+    platform
+    username
+    displayName
+    profileImageUrl
+    postCount
+    postCode
+    postId
+  }
+  steps {
+    key
+    state
+    done
+    total
+  }
+  queue {
+    position
+    maxConcurrent
+    expiresAt
+  }
+  waiting {
+    waitingFor
+    resumeAt
+    done
+    total
+  }
+  outcome {
+    kind
+    eventCount
+    postCount
+    previewApplyUntil
+    previewApplied
+  }
+  canRetry
+  retryNotBefore
+}`);
+
+export const useRetryJobMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RetryJobMutation, TError, RetryJobMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RetryJobMutation, TError, RetryJobMutationVariables, TContext>(
+      {
+    mutationKey: ['RetryJob'],
+    mutationFn: (variables?: RetryJobMutationVariables) => fetcher<RetryJobMutation, RetryJobMutationVariables>(client, RetryJobDocument, variables, headers)(),
     ...options
   }
     )};
@@ -4450,6 +5667,51 @@ export const usePreviewPostReextractionMutation = <
   }
     )};
 
+export const ReextractJobReportDocument = new TypedDocumentString(`
+    query ReextractJobReport($id: ID!) {
+  job(id: $id) {
+    id
+    outcome {
+      previewApplyUntil
+      previewApplied
+    }
+    refresh {
+      outcome
+      saved
+      lateResultPending
+      retryAfter
+      expiredLinks
+      images {
+        position
+        role
+        state
+      }
+      imagesAvailable
+      imagesRead
+      previewImageCap
+    }
+  }
+}
+    `);
+
+export const useReextractJobReportQuery = <
+      TData = ReextractJobReportQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ReextractJobReportQueryVariables,
+      options?: Omit<UseQueryOptions<ReextractJobReportQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ReextractJobReportQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ReextractJobReportQuery, TError, TData>(
+      {
+    queryKey: ['ReextractJobReport', variables],
+    queryFn: fetcher<ReextractJobReportQuery, ReextractJobReportQueryVariables>(client, ReextractJobReportDocument, variables, headers),
+    ...options
+  }
+    )};
+
 export const PostReextractionPreviewDocument = new TypedDocumentString(`
     query PostReextractionPreview($id: ID!) {
   postReextractionPreview(id: $id) {
@@ -4457,9 +5719,15 @@ export const PostReextractionPreviewDocument = new TypedDocumentString(`
     errorCode
     errorMessage
     preview {
+      applicable
+      applied {
+        ...ApplyReextractionSummaryFields
+      }
       groupingReason
       postStored
       rescraped
+      imagesAvailable
+      imagesSent
       events {
         extractionOrdinal
         eventName
@@ -4485,7 +5753,29 @@ export const PostReextractionPreviewDocument = new TypedDocumentString(`
     }
   }
 }
-    `);
+    fragment ApplyReextractionSummaryFields on ApplyReextractionSummary {
+  groupingReason
+  reused {
+    slug
+    eventName
+    ordinal
+  }
+  created {
+    slug
+    eventName
+    ordinal
+  }
+  linkedToExisting {
+    slug
+    eventName
+  }
+  queuedForReview
+  skippedDeleted
+  orphans {
+    slug
+    eventName
+  }
+}`);
 
 export const usePostReextractionPreviewQuery = <
       TData = PostReextractionPreviewQuery,
@@ -4501,6 +5791,57 @@ export const usePostReextractionPreviewQuery = <
       {
     queryKey: ['PostReextractionPreview', variables],
     queryFn: fetcher<PostReextractionPreviewQuery, PostReextractionPreviewQueryVariables>(client, PostReextractionPreviewDocument, variables, headers),
+    ...options
+  }
+    )};
+
+export const ApplyPostReextractionDocument = new TypedDocumentString(`
+    mutation ApplyPostReextraction($jobId: ID!) {
+  applyPostReextraction(jobId: $jobId) {
+    errorCode
+    errorMessage
+    summary {
+      ...ApplyReextractionSummaryFields
+    }
+  }
+}
+    fragment ApplyReextractionSummaryFields on ApplyReextractionSummary {
+  groupingReason
+  reused {
+    slug
+    eventName
+    ordinal
+  }
+  created {
+    slug
+    eventName
+    ordinal
+  }
+  linkedToExisting {
+    slug
+    eventName
+  }
+  queuedForReview
+  skippedDeleted
+  orphans {
+    slug
+    eventName
+  }
+}`);
+
+export const useApplyPostReextractionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ApplyPostReextractionMutation, TError, ApplyPostReextractionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ApplyPostReextractionMutation, TError, ApplyPostReextractionMutationVariables, TContext>(
+      {
+    mutationKey: ['ApplyPostReextraction'],
+    mutationFn: (variables?: ApplyPostReextractionMutationVariables) => fetcher<ApplyPostReextractionMutation, ApplyPostReextractionMutationVariables>(client, ApplyPostReextractionDocument, variables, headers)(),
     ...options
   }
     )};
@@ -4667,6 +6008,8 @@ export const GetPostsByAccountDocument = new TypedDocumentString(`
       originalPostUrl
       isExtracted
       extractionStatus
+      extractionFailureReason
+      extractionNextAttemptAt
       publishedAt
     }
     nextCursor
@@ -5504,7 +6847,6 @@ export const WidgetByIdDocument = new TypedDocumentString(`
     query widgetById($id: ID!) {
   widgetById(id: $id) {
     id
-    ownerUserId
     filters {
       accountId
       types

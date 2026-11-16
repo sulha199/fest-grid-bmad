@@ -8,7 +8,7 @@ import { inArray } from 'drizzle-orm';
 import { loadBackendEnv } from '../../env.js';
 import { sendTemplatedEmail } from '../email/adapter.js';
 
-async function reportErrorSilently(source: string, message: string, context: string): Promise<void> {
+export async function reportErrorSilently(source: string, message: string, context: string): Promise<void> {
   const env = loadBackendEnv();
   if (env.systemErrorAlertEmail) {
     try {

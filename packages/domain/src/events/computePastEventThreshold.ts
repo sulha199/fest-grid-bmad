@@ -12,6 +12,11 @@ export interface ComputePastEventThresholdInput {
  * `Query.events`' local `threshold` computation (feeding the `isPastEvent` SQL expression),
  * and `Event.isExpiredForCurrentUser`'s computation. See Story 0.36 AC6.
  *
+ * BUG-096: this is the UTC-date cutoff only. The list's visibility filter, `isPastEvent` and
+ * `Event.isExpiredForCurrentUser` now judge each schedule in its own timezone (the
+ * `schedule_past_cutoff_date` SQL function); this value stays as the `from` fallback for a
+ * schedule with no RESOLVED timezone, which is the behaviour before that change.
+ *
  * `now` is required (not defaulted) — every caller must explicitly capture and pass its own
  * "current instant" so multiple computations within the same request are guaranteed to agree
  * on the same instant (see Story 0.36 AC7).

@@ -1,0 +1,357 @@
+import test from 'node:test';
+import * as assert from 'node:assert';
+import { eq, inArray, TransactionRollbackError } from 'drizzle-orm';
+import postgres from 'postgres';
+import { db, setSqlCaptureSink } from '../../db/client.js';
+import { loadBackendEnv } from '../../env.js';
+import { users, events, eventMatchCandidates, eventMerges, posts, socialMediaAccountProfiles } from '@festgrid/database';
+import { DedupDecisionClueError } from '@festgrid/domain/events';
+import { EventMergeInvalidStateError, InvalidResolutionSourceError, undoEventMerge } from './merge-events.js';
+import {
+  resolveSuggestedMatch,
+  SuggestedMatchInvalidActionError,
+  SuggestedMatchNotFoundError,
+  SuggestedMatchNotPendingError,
+  type SuggestedMatchAction,
+} from './resolve-suggested-match.js';
+
+test('resolveSuggestedMatch (AD-30 Rule 9)', async (t) => {
+  const suffix = Date.now() + '-rsm';
+  const createdEventIds: string[] = [];
+
+  const [profile] = await db
+    .insert(socialMediaAccountProfiles)
+    .values({ accountId: 'acc-rsm-' + suffix, platform: 'instagram', displayName: 'RSM Account', username: 'rsm_' + suffix })
+    .returning();
+  const [post] = await db
+    .insert(posts)
+    .values({ accountId: profile.id, platform: 'instagram', postUrl: 'https://instagram.com/p/rsm-' + suffix, publishedAt: new Date('2026-01-01T00:00:00Z') })
+    .returning();
+  const [moderator] = await db.insert(users).values({ email: `rsm-mod-${suffix}@test.com`, name: 'RSM Moderator', role: 'moderator' }).returning();
+
+  t.after(async () => {
+    setSqlCaptureSink(null);
+    await db.delete(eventMerges).where(inArray(eventMerges.winnerEventId, createdEventIds));
+    await db.delete(eventMatchCandidates).where(inArray(eventMatchCandidates.eventId, createdEventIds));
+    await db.delete(events).where(inArray(events.id, createdEventIds));
+    await db.delete(posts).where(eq(posts.id, post.id));
+    await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    await db.delete(users).where(eq(users.id, moderator.id));
+  });
+
+  async function makeEvent(name: string) {
+    const [row] = await db.insert(events).values({ eventName: name, location: 'Nowhere' }).returning();
+    createdEventIds.push(row.id);
+    return row;
+  }
+
+  async function makePair(label: string) {
+    const candidate = await makeEvent(`${label} Candidate ${suffix}`);
+    const newEvent = await makeEvent(`${label} New ${suffix}`);
+    const [suggestion] = await db.insert(eventMatchCandidates).values({ eventId: newEvent.id, candidateEventId: candidate.id, score: 0.6, postId: post.id }).returning();
+    return { candidate, newEvent, suggestion };
+  }
+
+  const resolve = (id: string, action: SuggestedMatchAction) =>
+    db.transaction((tx) => resolveSuggestedMatch(tx, { id, action, moderatorId: moderator.id }));
+
+  const statusOf = async (id: string) => (await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id)))[0];
+
+  await t.test('ACCEPT merges the new event into the candidate, journals it and flips the suggestion', async () => {
+    const { candidate, newEvent, suggestion } = await makePair('Accept');
+
+    const { mergeId } = await resolve(suggestion.id, 'ACCEPT');
+
+    assert.ok(mergeId);
+    const [journal] = await db.select().from(eventMerges).where(eq(eventMerges.id, mergeId));
+    assert.strictEqual(journal.winnerEventId, candidate.id);
+    assert.strictEqual(journal.loserEventId, newEvent.id);
+    assert.strictEqual(journal.suggestionId, suggestion.id);
+    assert.strictEqual(journal.performedByModeratorId, moderator.id);
+    assert.strictEqual(journal.performedVia, 'moderator', 'no via argument means a person decided');
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'accepted');
+    assert.strictEqual(row.resolvedByModeratorId, moderator.id);
+    assert.strictEqual(row.resolvedVia, 'moderator');
+    const [loser] = await db.select().from(events).where(eq(events.id, newEvent.id));
+    assert.strictEqual(loser.mergedIntoEventId, candidate.id);
+  });
+
+  await t.test('REJECT records the dismissal, returns a null mergeId and merges nothing', async () => {
+    const { newEvent, suggestion } = await makePair('Reject');
+
+    const { mergeId } = await resolve(suggestion.id, 'REJECT');
+
+    assert.strictEqual(mergeId, null);
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'rejected');
+    assert.strictEqual(row.resolvedByModeratorId, moderator.id);
+    assert.strictEqual(row.resolvedVia, 'moderator');
+    assert.ok(row.resolvedAt instanceof Date);
+    const [loser] = await db.select().from(events).where(eq(events.id, newEvent.id));
+    assert.strictEqual(loser.deletedAt, null);
+    assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, suggestion.id))).length, 0);
+  });
+
+  await t.test('via: ai_skill is recorded on the suggestion and the journal for ACCEPT, and on the suggestion for REJECT', async () => {
+    const accepted = await makePair('Via Accept');
+    const { mergeId } = await db.transaction((tx) => resolveSuggestedMatch(tx, { id: accepted.suggestion.id, action: 'ACCEPT', moderatorId: moderator.id, via: 'ai_skill' }));
+    assert.ok(mergeId);
+    assert.strictEqual((await statusOf(accepted.suggestion.id)).resolvedVia, 'ai_skill');
+    assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.id, mergeId)))[0].performedVia, 'ai_skill');
+
+    const rejected = await makePair('Via Reject');
+    await db.transaction((tx) => resolveSuggestedMatch(tx, { id: rejected.suggestion.id, action: 'REJECT', moderatorId: moderator.id, via: 'ai_skill' }));
+    const row = await statusOf(rejected.suggestion.id);
+    assert.strictEqual(row.status, 'rejected');
+    assert.strictEqual(row.resolvedVia, 'ai_skill');
+
+    // Undoing the AI's merge makes the suggestion reviewable again, with no one recorded as its resolver.
+    await undoEventMerge(db, mergeId, moderator.id);
+    const reopened = await statusOf(accepted.suggestion.id);
+    assert.strictEqual(reopened.status, 'pending');
+    assert.strictEqual(reopened.resolvedVia, null);
+    assert.strictEqual(reopened.resolvedByModeratorId, null);
+    // The journal row keeps who made the merge, marked undone: a later per-day cap must decide whether an undone merge still counts.
+    const [journal] = await db.select().from(eventMerges).where(eq(eventMerges.id, mergeId));
+    assert.strictEqual(journal.performedVia, 'ai_skill');
+    assert.ok(journal.undoneAt instanceof Date);
+  });
+
+  await t.test('a via that is not a resolution source is refused before anything is read or written', async () => {
+    const { suggestion } = await makePair('Bad Via');
+    for (const bad of [null, 'robot', '']) {
+      for (const action of ['ACCEPT', 'REJECT'] as const) {
+        await assert.rejects(
+          db.transaction((tx) => resolveSuggestedMatch(tx, { id: suggestion.id, action, moderatorId: moderator.id, via: bad as never })),
+          InvalidResolutionSourceError
+        );
+      }
+    }
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'pending');
+    assert.strictEqual(row.resolvedVia, null);
+  });
+
+  await t.test('a pending suggestion has no resolved_via', async () => {
+    const { suggestion } = await makePair('Pending Via');
+    assert.strictEqual((await statusOf(suggestion.id)).resolvedVia, null);
+  });
+
+  await t.test('an unknown id throws SuggestedMatchNotFoundError', async () => {
+    await assert.rejects(resolve('00000000-0000-4000-8000-000000000000', 'ACCEPT'), SuggestedMatchNotFoundError);
+  });
+
+  await t.test('an already-resolved suggestion throws SuggestedMatchNotPendingError for either action and changes nothing', async () => {
+    const { suggestion } = await makePair('Resolved');
+    await resolve(suggestion.id, 'REJECT');
+    const before = await statusOf(suggestion.id);
+
+    await assert.rejects(resolve(suggestion.id, 'ACCEPT'), SuggestedMatchNotPendingError);
+    await assert.rejects(resolve(suggestion.id, 'REJECT'), SuggestedMatchNotPendingError);
+
+    const after = await statusOf(suggestion.id);
+    assert.strictEqual(after.status, 'rejected');
+    assert.strictEqual(after.resolvedAt?.getTime(), before.resolvedAt?.getTime());
+  });
+
+  await t.test('an expired suggestion (IDEA-107) is not pending: either action throws SuggestedMatchNotPendingError', async () => {
+    const { suggestion } = await makePair('Expired');
+    await db.update(eventMatchCandidates).set({ status: 'expired', resolvedAt: new Date() }).where(eq(eventMatchCandidates.id, suggestion.id));
+
+    await assert.rejects(resolve(suggestion.id, 'ACCEPT'), SuggestedMatchNotPendingError);
+    await assert.rejects(resolve(suggestion.id, 'REJECT'), SuggestedMatchNotPendingError);
+
+    assert.strictEqual((await statusOf(suggestion.id)).status, 'expired');
+  });
+
+  await t.test('an invalid action throws SuggestedMatchInvalidActionError, but only after the pending check', async () => {
+    const { suggestion } = await makePair('BadAction');
+    const badAction = 'DISMISS' as SuggestedMatchAction;
+
+    await assert.rejects(resolve(suggestion.id, badAction), SuggestedMatchInvalidActionError);
+    assert.strictEqual((await statusOf(suggestion.id)).status, 'pending');
+
+    await resolve(suggestion.id, 'REJECT');
+    await assert.rejects(resolve(suggestion.id, badAction), SuggestedMatchNotPendingError);
+  });
+
+  await t.test('a pair that can no longer merge passes EventMergeInvalidStateError through and leaves the suggestion pending', async () => {
+    const winnerOfFirst = await makeEvent('Stale Winner ' + suffix);
+    const mergedAway = await makeEvent('Stale Merged Away ' + suffix);
+    const later = await makeEvent('Stale Later ' + suffix);
+    const [first] = await db.insert(eventMatchCandidates).values({ eventId: mergedAway.id, candidateEventId: winnerOfFirst.id, score: 0.6, postId: post.id }).returning();
+    const [stale] = await db.insert(eventMatchCandidates).values({ eventId: later.id, candidateEventId: mergedAway.id, score: 0.6, postId: post.id }).returning();
+    await resolve(first.id, 'ACCEPT');
+
+    await assert.rejects(resolve(stale.id, 'ACCEPT'), EventMergeInvalidStateError);
+
+    assert.strictEqual((await statusOf(stale.id)).status, 'pending');
+    assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, stale.id))).length, 0);
+  });
+
+  await t.test('the suggestion row is read with FOR UPDATE, as the first statement that touches it (SQL shape)', async () => {
+    const { suggestion } = await makePair('Lock');
+    const statements: string[] = [];
+    setSqlCaptureSink((query) => statements.push(query));
+    try {
+      await resolve(suggestion.id, 'REJECT');
+    } finally {
+      setSqlCaptureSink(null);
+    }
+
+    const lockingSelects = statements.filter((q) => /from "event_match_candidates"/i.test(q) && /for update/i.test(q));
+    assert.strictEqual(lockingSelects.length, 1, 'exactly one locking select of the suggestion row');
+    const firstSuggestionStatement = statements.findIndex((q) => /event_match_candidates/i.test(q));
+    assert.ok(/for update/i.test(statements[firstSuggestionStatement]), 'the lock is the first statement that touches the suggestion');
+  });
+
+  // The shared `db` client has one connection, so the race needs a second, separate one: it holds the
+  // suggestion row locked while `resolveSuggestedMatch` (on `db`) tries to accept it.
+  for (const action of ['ACCEPT', 'REJECT'] as const) {
+    await t.test(`a concurrent ${action} waits for the row lock, then sees the row is no longer pending (two connections)`, async () => {
+      const { candidate, newEvent, suggestion } = await makePair('Race-' + action);
+      const databaseUrl = loadBackendEnv().databaseUrl;
+      assert.ok(databaseUrl, 'DATABASE_URL must be set for the race test');
+      const holder = postgres(databaseUrl, { max: 1, prepare: false });
+      let racing: Promise<unknown> = Promise.resolve();
+      try {
+        await holder.begin(async (sql) => {
+          await sql`select id from event_match_candidates where id = ${suggestion.id} for update`;
+          racing = resolve(suggestion.id, action).then(
+            () => 'resolved' as const,
+            (err: unknown) => err
+          );
+          const early = await Promise.race([racing, new Promise((done) => setTimeout(() => done('still waiting'), 400))]);
+          assert.strictEqual(early, 'still waiting', 'the resolve must block while another transaction holds the row');
+          await sql`update event_match_candidates set status = 'rejected', resolved_at = now(), resolved_by_moderator_id = ${moderator.id} where id = ${suggestion.id}`;
+        });
+        const outcome = await racing;
+        assert.ok(outcome instanceof SuggestedMatchNotPendingError, `expected SuggestedMatchNotPendingError, got ${String(outcome)}`);
+      } finally {
+        await holder.end();
+      }
+
+      const row = await statusOf(suggestion.id);
+      assert.strictEqual(row.status, 'rejected', "the other transaction's rejection must stand");
+      const [loser] = await db.select().from(events).where(eq(events.id, newEvent.id));
+      assert.strictEqual(loser.deletedAt, null, 'nothing was merged');
+      const [winner] = await db.select().from(events).where(eq(events.id, candidate.id));
+      assert.strictEqual(winner.deletedAt, null);
+      assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, suggestion.id))).length, 0);
+    });
+  }
+
+  await t.test('the caller owns the transaction: rolling it back undoes an ACCEPT completely (dry run)', async () => {
+    const { candidate, newEvent, suggestion } = await makePair('DryRun');
+
+    await assert.rejects(
+      db.transaction(async (tx) => {
+        const { mergeId } = await resolveSuggestedMatch(tx, { id: suggestion.id, action: 'ACCEPT', moderatorId: moderator.id });
+        assert.ok(mergeId);
+        await tx.rollback();
+      }),
+      TransactionRollbackError
+    );
+
+    assert.strictEqual((await statusOf(suggestion.id)).status, 'pending');
+    const [loser] = await db.select().from(events).where(eq(events.id, newEvent.id));
+    assert.strictEqual(loser.deletedAt, null);
+    assert.strictEqual(loser.mergedIntoEventId, null);
+    const [winner] = await db.select().from(events).where(eq(events.id, candidate.id));
+    assert.strictEqual(winner.deletedAt, null);
+    assert.strictEqual((await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, suggestion.id))).length, 0);
+  });
+
+  const resolveWith = (id: string, action: SuggestedMatchAction, extra: { clues?: readonly string[] | null; note?: string | null; via?: 'moderator' | 'ai_skill' }) =>
+    db.transaction((tx) => resolveSuggestedMatch(tx, { id, action, moderatorId: moderator.id, ...extra }));
+
+  await t.test('clues and a note are stored with a REJECT, clues in list order, the note trimmed', async () => {
+    const { suggestion } = await makePair('RejectClues');
+    await resolveWith(suggestion.id, 'REJECT', { clues: ['different-category-or-tier', 'different-organizer'], note: '  kids run, not the 10K  ' });
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'rejected');
+    assert.deepStrictEqual(row.resolutionClues, ['different-organizer', 'different-category-or-tier']);
+    assert.strictEqual(row.resolutionNote, 'kids run, not the 10K');
+  });
+
+  await t.test('clues and a note are stored with an ACCEPT, written after the merge flipped the suggestion', async () => {
+    const { suggestion } = await makePair('AcceptClues');
+    const { mergeId } = await resolveWith(suggestion.id, 'ACCEPT', { clues: ['same-venue', 'shared-link'], note: 'same festival' });
+    assert.ok(mergeId);
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'accepted');
+    assert.deepStrictEqual(row.resolutionClues, ['same-venue', 'shared-link']);
+    assert.strictEqual(row.resolutionNote, 'same festival');
+  });
+
+  await t.test('the AI bridge records codes only: clues without a note, under via ai_skill', async () => {
+    const { suggestion } = await makePair('AiClues');
+    await resolveWith(suggestion.id, 'ACCEPT', { clues: ['same-organizer'], via: 'ai_skill' });
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.resolvedVia, 'ai_skill');
+    assert.deepStrictEqual(row.resolutionClues, ['same-organizer']);
+    assert.strictEqual(row.resolutionNote, null);
+  });
+
+  await t.test('no clue and no note: both columns stay NULL, for either action, with null, empty and blank values too', async () => {
+    const a = await makePair('NoClueA');
+    await resolve(a.suggestion.id, 'ACCEPT');
+    const b = await makePair('NoClueB');
+    await resolveWith(b.suggestion.id, 'REJECT', { clues: [], note: '   ' });
+    const c = await makePair('NoClueC');
+    await resolveWith(c.suggestion.id, 'REJECT', { clues: null, note: null });
+    for (const id of [a.suggestion.id, b.suggestion.id, c.suggestion.id]) {
+      const row = await statusOf(id);
+      assert.strictEqual(row.resolutionClues, null);
+      assert.strictEqual(row.resolutionNote, null);
+    }
+  });
+
+  await t.test('invalid clues or note are refused before anything is read or written', async () => {
+    const { suggestion } = await makePair('BadClues');
+    for (const extra of [
+      { clues: ['not-a-clue'] },
+      { clues: ['same-venue', 'different-venue'] },
+      { clues: ['same-venue', 'same-venue'] },
+      { note: 'x'.repeat(201) },
+    ]) {
+      await assert.rejects(resolveWith(suggestion.id, 'REJECT', extra), DedupDecisionClueError);
+    }
+    // An id that does not exist still reports the clue error first: validation precedes every statement.
+    await assert.rejects(resolveWith('00000000-0000-4000-8000-000000000000', 'ACCEPT', { clues: ['nope'] }), DedupDecisionClueError);
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'pending');
+    assert.strictEqual(row.resolutionClues, null);
+  });
+
+  await t.test('an already-resolved suggestion keeps its first clues and note', async () => {
+    const { suggestion } = await makePair('KeepFirst');
+    await resolveWith(suggestion.id, 'REJECT', { clues: ['not-an-event'], note: 'first' });
+    await assert.rejects(resolveWith(suggestion.id, 'REJECT', { clues: ['other'], note: 'second' }), SuggestedMatchNotPendingError);
+    const row = await statusOf(suggestion.id);
+    assert.deepStrictEqual(row.resolutionClues, ['not-an-event']);
+    assert.strictEqual(row.resolutionNote, 'first');
+  });
+
+  await t.test('an ACCEPT with no clue overwrites a reason a reopened row still held', async () => {
+    const { suggestion } = await makePair('StaleReason');
+    await db.update(eventMatchCandidates).set({ resolutionClues: ['not-an-event'], resolutionNote: 'left over from an earlier reject' }).where(eq(eventMatchCandidates.id, suggestion.id));
+    await resolve(suggestion.id, 'ACCEPT');
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'accepted');
+    assert.strictEqual(row.resolutionClues, null);
+    assert.strictEqual(row.resolutionNote, null);
+  });
+
+  await t.test('undoing an accepted merge returns the pair to pending and clears the clues and the note', async () => {
+    const { suggestion } = await makePair('UndoClues');
+    const { mergeId } = await resolveWith(suggestion.id, 'ACCEPT', { clues: ['same-date'], note: 'withdrawn' });
+    await db.transaction((tx) => undoEventMerge(tx, mergeId!, moderator.id));
+    const row = await statusOf(suggestion.id);
+    assert.strictEqual(row.status, 'pending');
+    assert.strictEqual(row.resolvedVia, null);
+    assert.strictEqual(row.resolutionClues, null);
+    assert.strictEqual(row.resolutionNote, null);
+  });
+});

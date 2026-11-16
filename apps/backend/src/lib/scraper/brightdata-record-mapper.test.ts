@@ -341,7 +341,7 @@ test('brightdata-record-mapper tests', async (t) => {
     assert.strictEqual(candidate.additionalImageUrls!.length, 17);
   });
 
-  await t.test('does not dedupe a repeated URL across photos -- imageUrl and additionalImageUrls[0] may be identical (documented, not a bug)', async () => {
+  await t.test('de-duplicates a repeated URL across photos: the cover is never repeated as a slide (Story 10.2, BUG-261102-4rm; this used to be documented as expected)', async () => {
     const record = {
       url: 'https://www.instagram.com/p/duplicate-photo/',
       description: 'A carousel post where Bright Data repeats a slide URL',
@@ -353,7 +353,7 @@ test('brightdata-record-mapper tests', async (t) => {
 
     assert.ok(candidate);
     assert.strictEqual(candidate.imageUrl, 'https://example.com/a.jpg');
-    assert.deepStrictEqual(candidate.additionalImageUrls, ['https://example.com/a.jpg', 'https://example.com/b.jpg']);
+    assert.deepStrictEqual(candidate.additionalImageUrls, ['https://example.com/b.jpg']);
   });
 
   await t.test('includes hashtags, locationName, ownerUsername, and additionalImageUrls together on one record (all four conditional-spread fields at once)', async () => {
@@ -408,5 +408,27 @@ test('brightdata-record-mapper tests', async (t) => {
     assert.strictEqual(candidate.locationName, 'Sleman City Hall');
     assert.strictEqual(candidate.ownerUsername, 'slemancityhall');
     assert.deepStrictEqual(candidate.hashtags, ['slemancityhall', 'pavilionofjogja']);
+  });
+
+  // Story 10.2 AC5 (BUG-261102-4rm): the slide list never contains the cover.
+  await t.test('a carousel record that repeats the cover later in photos (a different signed query) does not list it as a slide', async () => {
+    const record = {
+      url: 'https://www.instagram.com/p/carousel-dup/',
+      description: 'Carousel',
+      date_posted: '2026-08-08T00:00:00Z',
+      photos: [
+        'https://cdn.example.com/v/t51/111_n.jpg?sig=aaa',
+        'https://cdn.example.com/v/t51/222_n.jpg?sig=bbb',
+        'https://cdn.example.com/v/t51/111_n.jpg?sig=zzz',
+        'https://cdn.example.com/v/t51/222_n.jpg?sig=ccc',
+        'https://cdn.example.com/v/t51/333_n.jpg?sig=ddd',
+      ],
+    };
+    const mapped = await mapBrightDataRecordToScrapedPost(record);
+    assert.strictEqual(mapped?.imageUrl, 'https://cdn.example.com/v/t51/111_n.jpg?sig=aaa');
+    assert.deepStrictEqual(mapped?.additionalImageUrls, [
+      'https://cdn.example.com/v/t51/222_n.jpg?sig=bbb',
+      'https://cdn.example.com/v/t51/333_n.jpg?sig=ddd',
+    ]);
   });
 });

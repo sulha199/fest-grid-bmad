@@ -9,11 +9,18 @@ import {
   BlockingLoader,
   Button,
   ConfirmActionDialog,
+  PaginationControls,
+  useListPaginationController,
   useSoftDeleteWithUndo,
   formatEventCardDateBoxLine,
   combineDateTime,
 } from '@festgrid/ui';
+import type { DedupDecisionClue } from '@festgrid/domain/events';
 import { useRequireModerator } from '@/features/auth/use-require-moderator';
+import { usePaginationLabels } from '@/features/pagination/use-pagination-labels';
+import { useReportConnectionPageMeta } from '@/features/pagination/use-report-connection-page-meta';
+import { EmptyPageNotice } from '@/features/pagination/empty-page-notice';
+import { ResolutionClueChecklist, type ClueEventFacts } from './resolution-clue-checklist';
 import {
   useQuerySuggestedEventMatches,
   useResolveSuggestedEventMatchMutation,
@@ -22,6 +29,9 @@ import {
 } from './duplicate-events-hooks';
 
 const PAGE_SIZE = 10;
+
+// This queue has no filters, so the controller's filter key never changes and it never resets itself.
+const NO_FILTERS = {};
 
 type SuggestedEvent = {
   id: string;
@@ -47,6 +57,13 @@ export interface SuggestedMatch {
   status: string;
   event: SuggestedEvent;
   candidateEvent: SuggestedEvent;
+}
+
+/** What the checklist shows beside each aspect: the event's own name, venue and main start date. */
+function clueFacts(event: SuggestedEvent | undefined): ClueEventFacts {
+  if (!event) return { name: '' };
+  const schedule = event.schedules.find((s) => s.isMainSchedule) ?? event.schedules[0];
+  return { name: event.eventName, location: event.location, startDate: schedule?.eventStartDate };
 }
 
 function EventSummary({ event, label, locale, viewEventLabel }: { event: SuggestedEvent; label: string; locale: string; viewEventLabel: string }) {
@@ -132,12 +149,21 @@ export function DuplicateEventsContent() {
   const posthog = usePostHog();
   const { status: authStatus } = useRequireModerator();
 
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [actionInFlight, setActionInFlight] = useState<Record<string, boolean>>({});
   const [confirmSuggestion, setConfirmSuggestion] = useState<SuggestedMatch | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Both resolutions open the same dialog; the checklist is the "why" (optional) and is cleared each time it opens.
+  const [resolveAction, setResolveAction] = useState<'accept' | 'reject'>('accept');
+  const [clues, setClues] = useState<DedupDecisionClue[]>([]);
+  const [note, setNote] = useState('');
 
-  const { data, isLoading, error, refetch } = useQuerySuggestedEventMatches(PAGE_SIZE, cursor, authStatus === 'authorized');
+  const pagination = useListPaginationController<typeof NO_FILTERS, string | undefined>({ filterKey: NO_FILTERS, initialCursor: undefined });
+  const { data, isLoading, isPlaceholderData, error, refetch } = useQuerySuggestedEventMatches(PAGE_SIZE, pagination.cursor, authStatus === 'authorized');
+  const queryResult = data?.suggestedEventMatches;
+  // The connection has no totalCount, so the readout is "Page N" without a total.
+  // While the previous page is still on screen as placeholder data its numbers must not be reported for the new one.
+  useReportConnectionPageMeta(pagination, isPlaceholderData ? undefined : queryResult);
+  const paginationLabels = usePaginationLabels(pagination.pageIndex, pagination.totalCount, PAGE_SIZE);
   const { mutateAsync: resolveSuggestedEventMatch } = useResolveSuggestedEventMatchMutation();
   const { mutateAsync: undoEventMerge } = useUndoEventMergeMutation();
 
@@ -151,24 +177,32 @@ export function DuplicateEventsContent() {
   if (authStatus === 'loading' || authStatus === 'unauthenticated' || authStatus === 'unauthorized') return <RouteLoader />;
   if (isLoading) return <RouteLoader />;
 
-  const queryResult = data?.suggestedEventMatches;
   const edges = queryResult?.edges || [];
-  const hasNextPage = queryResult?.pageInfo?.hasNextPage || false;
-  const isEmpty = edges.length === 0 && !cursor;
+  const isEmpty = edges.length === 0 && !pagination.hasPrevPage;
+  const endCursor = queryResult?.pageInfo?.endCursor;
   const isAnyActionInFlight = Object.values(actionInFlight).some(Boolean);
 
-  const handleAcceptClick = (suggestion: SuggestedMatch) => {
+  const openResolve = (suggestion: SuggestedMatch, action: 'accept' | 'reject') => {
     setConfirmSuggestion(suggestion);
+    setResolveAction(action);
+    setClues([]);
+    setNote('');
     setConfirmOpen(true);
   };
+  const handleAcceptClick = (suggestion: SuggestedMatch) => openResolve(suggestion, 'accept');
+  const handleRejectClick = (suggestion: SuggestedMatch) => openResolve(suggestion, 'reject');
+
+  // The note goes to the mutation only: never to analytics, a toast or the console.
+  const resolutionReason = () => ({ clues: clues.length > 0 ? clues : null, note: note.trim() === '' ? null : note.trim() });
 
   const handleConfirmAccept = async () => {
     if (!confirmSuggestion) return;
     const suggestion = confirmSuggestion;
+    const reason = resolutionReason();
     setActionInFlight((prev) => ({ ...prev, [suggestion.id]: true }));
     try {
-      const result = await resolveSuggestedEventMatch({ id: suggestion.id, action: SuggestedEventMatchAction.Accept });
-      posthog.capture('moderator_event_merge_committed', { suggestionId: suggestion.id, mergeId: result.mergeId });
+      const result = await resolveSuggestedEventMatch({ id: suggestion.id, action: SuggestedEventMatchAction.Accept, ...reason });
+      posthog.capture('moderator_event_merge_committed', { suggestionId: suggestion.id, mergeId: result.mergeId, clues: reason.clues });
       const mergeId = result.mergeId;
       // AC6 -- commit, then close the dialog (returning focus to the row's Accept button via
       // ConfirmActionDialog's own onCloseAutoFocus), and only then does the undo toast appear.
@@ -193,15 +227,15 @@ export function DuplicateEventsContent() {
     }
   };
 
-  const handleCancelConfirm = () => {
-    setConfirmOpen(false);
-  };
-
-  const handleReject = async (suggestion: SuggestedMatch) => {
+  const handleConfirmReject = async () => {
+    if (!confirmSuggestion) return;
+    const suggestion = confirmSuggestion;
+    const reason = resolutionReason();
     setActionInFlight((prev) => ({ ...prev, [suggestion.id]: true }));
     try {
-      await resolveSuggestedEventMatch({ id: suggestion.id, action: SuggestedEventMatchAction.Reject });
-      posthog.capture('moderator_suggested_event_match_rejected', { suggestionId: suggestion.id });
+      await resolveSuggestedEventMatch({ id: suggestion.id, action: SuggestedEventMatchAction.Reject, ...reason });
+      posthog.capture('moderator_suggested_event_match_rejected', { suggestionId: suggestion.id, clues: reason.clues });
+      setConfirmOpen(false);
       toast.success(t('rejectSuccessToast'));
       refetch();
     } catch (err) {
@@ -210,6 +244,10 @@ export function DuplicateEventsContent() {
     } finally {
       setActionInFlight((prev) => ({ ...prev, [suggestion.id]: false }));
     }
+  };
+
+  const handleCancelConfirm = () => {
+    setConfirmOpen(false);
   };
 
   return (
@@ -238,7 +276,8 @@ export function DuplicateEventsContent() {
       )}
 
       {!isEmpty && (
-        <div className="space-y-4">
+        <div className={`space-y-4${isPlaceholderData ? ' opacity-60 transition-opacity' : ''}`}>
+          {edges.length === 0 && !error && <EmptyPageNotice />}
           <div className="space-y-4">
             {edges.map((edge) => {
               const suggestion = edge.node as SuggestedMatch;
@@ -251,29 +290,35 @@ export function DuplicateEventsContent() {
                   isMutating={!!actionInFlight[suggestion.id]}
                   t={t}
                   onAccept={handleAcceptClick}
-                  onReject={handleReject}
+                  onReject={handleRejectClick}
                 />
               );
             })}
           </div>
-          {hasNextPage && (
-            <Button onClick={() => setCursor(queryResult?.pageInfo?.endCursor || undefined)} variant="outline" className="w-full">
-              {t('loadMoreButton')}
-            </Button>
-          )}
+          <PaginationControls
+            hasPrevPage={pagination.hasPrevPage}
+            hasNextPage={pagination.hasNextPage && Boolean(endCursor)}
+            onPrev={pagination.goToPrevPage}
+            onNext={() => { if (endCursor) pagination.goToNextPage(endCursor); }}
+            disabled={isPlaceholderData}
+            labels={paginationLabels}
+          />
         </div>
       )}
 
       <ConfirmActionDialog
         open={confirmOpen}
-        title={t('mergeConfirmTitle')}
-        description={t('mergeConfirmDescription')}
-        confirmLabel={t('mergeConfirmConfirmLabel')}
+        title={resolveAction === 'accept' ? t('mergeConfirmTitle') : t('rejectConfirmTitle')}
+        description={resolveAction === 'accept' ? t('mergeConfirmDescription') : t('rejectConfirmDescription')}
+        confirmLabel={resolveAction === 'accept' ? t('mergeConfirmConfirmLabel') : t('rejectConfirmConfirmLabel')}
         cancelLabel={t('mergeConfirmCancelLabel')}
         confirmVariant="destructive"
-        onConfirm={handleConfirmAccept}
+        className="max-h-[90vh] overflow-y-auto"
+        onConfirm={resolveAction === 'accept' ? handleConfirmAccept : handleConfirmReject}
         onCancel={handleCancelConfirm}
-      />
+      >
+        <ResolutionClueChecklist decision={resolveAction} existing={clueFacts(confirmSuggestion?.candidateEvent)} incoming={clueFacts(confirmSuggestion?.event)} clues={clues} note={note} onCluesChange={setClues} onNoteChange={setNote} disabled={isAnyActionInFlight} />
+      </ConfirmActionDialog>
 
       <BlockingLoader active={isAnyActionInFlight} />
     </div>

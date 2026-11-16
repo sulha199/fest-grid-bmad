@@ -6,8 +6,8 @@ import { db } from '../db/client.js';
 import { brightdataPendingJobs, scraperActorRuns, socialMediaAccountProfiles, subscriptions, users } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { handler } from './webhook.js';
-import { createPendingJob } from '../lib/scraper/brightdata-pending-jobs-store.js';
-import { recordActorRunStart } from '../lib/scraper/record-actor-run.js';
+import { createPendingJob, markPendingJobExpired } from '../lib/scraper/brightdata-pending-jobs-store.js';
+import { recordActorRunResult, recordActorRunStart } from '../lib/scraper/record-actor-run.js';
 import { setGetBrightDataProgress, type BrightDataProgressResponse } from '../lib/scraper/brightdata-client.js';
 import { setSendSqsMessage, sendSqsMessage } from '../lib/scraper/enqueue-scrape-job.js';
 
@@ -90,7 +90,7 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
   });
 
-  async function deliver(body: string | null) {
+  async function deliver(body: string | null, options: { sweptAsExpired?: boolean } = {}) {
     const snapshotId = `sd_webhook_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
     const webhookToken = randomBytes(24).toString('hex');
     const auditRunId = await recordActorRunStart({
@@ -108,6 +108,17 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
       scraperActorRunId: auditRunId ?? undefined,
     });
 
+    if (options.sweptAsExpired) {
+      // What the stale-job sweep did before the delivery arrived (2026-10-29).
+      await recordActorRunResult({
+        vendor: 'BRIGHTDATA',
+        runId: snapshotId,
+        status: 'TIMED_OUT',
+        errorMessage: 'Run status from stale-job-sweep: PENDING',
+      });
+      await markPendingJobExpired(pendingJobId);
+    }
+
     const response = await handler(
       { queryStringParameters: { jobToken: webhookToken }, body } as unknown as APIGatewayProxyEvent,
       {} as Context
@@ -122,16 +133,66 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     return { response, run, job, snapshotId, lastScrapedAt: profile.lastScrapedAt };
   }
 
-  await t.test('records delivered: SUCCEEDED, no progress lookup', async () => {
+  // 2026-10-29: Bright Data delivered 21 snapshots 5-6 hours after the 180-minute expiry; the sweep had
+  // marked them TIMED_OUT/EXPIRED and the handler dropped their records.
+  await t.test('records delivered after the sweep expired the job are still processed', async () => {
+    const { run, job, response, lastScrapedAt } = await deliver(JSON.stringify([{ not_a_post: true }]), { sweptAsExpired: true });
+
+    assert.strictEqual(response.statusCode, 200);
+    assert.strictEqual(run.status, 'SUCCEEDED', 'the TIMED_OUT audit row becomes the success it was');
+    assert.strictEqual(run.itemCount, 1);
+    assert.strictEqual(job.status, 'COMPLETED');
+    assert.ok(lastScrapedAt, 'the late scrape stamps lastScrapedAt like an on-time one');
+  });
+
+  await t.test('an expired job delivered with no records is left as the sweep recorded it', async () => {
+    const { run, job, response } = await deliver(JSON.stringify([]), { sweptAsExpired: true });
+
+    assert.strictEqual(response.statusCode, 200);
+    assert.strictEqual(run.status, 'TIMED_OUT');
+    assert.strictEqual(job.status, 'EXPIRED');
+    assert.deepStrictEqual(progressCalls, []);
+  });
+
+  await t.test('records delivered: SUCCEEDED; the progress report is read once, after storing, only to record the yield', async () => {
     // Unmappable records still count as delivered; the point here is the classification path.
-    const { run, job, response } = await deliver(JSON.stringify([{ not_a_post: true }]));
+    const { run, job, response, snapshotId } = await deliver(JSON.stringify([{ not_a_post: true }]));
 
     assert.strictEqual(response.statusCode, 200);
     assert.strictEqual(run.status, 'SUCCEEDED');
     assert.strictEqual(run.itemCount, 1);
     assert.strictEqual(job.status, 'COMPLETED');
-    assert.deepStrictEqual(progressCalls, []);
+    assert.deepStrictEqual(progressCalls, [snapshotId]);
+    assert.strictEqual(run.recordsReported, 3);
+    assert.strictEqual(run.errorsReported, 0);
+    assert.strictEqual(run.errorCodes, null);
+    assert.strictEqual(run.newPosts, 0, 'an unmappable record stores no post');
     assert.deepStrictEqual(sqsMessages, []);
+  });
+
+  await t.test('a partial delivery keeps what the vendor reported: records, errors and their codes', async () => {
+    progressResult = { status: 'ready', records: 11, errors: 1, errorCodes: { dead_page: 1 } };
+
+    const { run, job } = await deliver(JSON.stringify([{ not_a_post: true }]));
+
+    assert.strictEqual(run.status, 'SUCCEEDED');
+    assert.strictEqual(job.status, 'COMPLETED');
+    assert.strictEqual(run.recordsReported, 11);
+    assert.strictEqual(run.errorsReported, 1);
+    assert.deepStrictEqual(run.errorCodes, { dead_page: 1 });
+  });
+
+  await t.test('a progress report that cannot be read leaves the yield columns empty and the scrape untouched', async () => {
+    progressResult = new Error('progress lookup failed');
+
+    const { run, job, response } = await deliver(JSON.stringify([{ not_a_post: true }]));
+
+    assert.strictEqual(response.statusCode, 200);
+    assert.strictEqual(run.status, 'SUCCEEDED');
+    assert.strictEqual(job.status, 'COMPLETED');
+    assert.strictEqual(run.recordsReported, null);
+    assert.strictEqual(run.errorsReported, null);
+    assert.strictEqual(run.newPosts, 0, 'the new-post count does not depend on the progress report');
   });
 
   await t.test('zero records with a dead_page error: an empty account, still SUCCEEDED and completed', async () => {
@@ -143,7 +204,11 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     assert.strictEqual(run.itemCount, 0);
     assert.strictEqual(job.status, 'COMPLETED');
     assert.ok(lastScrapedAt, 'an empty account was scraped, so lastScrapedAt is stamped');
-    assert.deepStrictEqual(progressCalls, [snapshotId]);
+    assert.deepStrictEqual(progressCalls, [snapshotId], 'the report read to classify is reused for the yield');
+    assert.strictEqual(run.recordsReported, 0);
+    assert.strictEqual(run.errorsReported, 1);
+    assert.deepStrictEqual(run.errorCodes, { dead_page: 1 });
+    assert.strictEqual(run.newPosts, 0);
     assert.deepStrictEqual(sqsMessages, []);
   });
 

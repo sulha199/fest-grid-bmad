@@ -10,7 +10,7 @@ import {
 } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { attemptBrightDataTrigger } from './trigger-brightdata-for-target.js';
-import { setTriggerBrightDataJob, type BrightDataTriggerInput } from './brightdata-client.js';
+import { setTriggerBrightDataJob, mapBrightDataDateToStartDate, type BrightDataTriggerInput } from './brightdata-client.js';
 import { PROVIDER_PROBES_PER_INTERVAL, resetProviderProbeClaimsForTests } from './provider-run-health-store.js';
 
 // BUG-074: the Bright Data start date is derived from the newest stored post, never from the
@@ -35,6 +35,8 @@ test('attemptBrightDataTrigger start date', async (t) => {
         platform: 'instagram',
         username: 'bd_trigger_test_user',
         displayName: 'BD Trigger Test User',
+        // The start-date rules below are those of a seeded profile; the unseeded one has its own test.
+        historySeededAt: new Date(),
       })
       .returning({ id: socialMediaAccountProfiles.id });
     profileId = profile.id;
@@ -78,6 +80,27 @@ test('attemptBrightDataTrigger start date', async (t) => {
     assert.deepStrictEqual(result, { success: true });
     assert.strictEqual(triggerInputs.length, 1);
     assert.strictEqual(triggerInputs[0].startDate, '10-19-2026');
+  });
+
+  // A profile known only as a co-author holds posts that say nothing about its own timeline: its first
+  // scrape must reach 30 days back, not start after them.
+  await t.test('a profile whose history is not seeded starts 30 days back, whatever posts it holds', async () => {
+    await db.update(socialMediaAccountProfiles).set({ historySeededAt: null }).where(eq(socialMediaAccountProfiles.id, profileId));
+    try {
+      await db.insert(posts).values({
+        accountId: profileId,
+        platform: 'instagram',
+        postUrl: 'https://www.instagram.com/p/bd-coauthored/',
+        publishedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      });
+
+      await attemptBrightDataTrigger(target(), new Date().toISOString());
+
+      const expected = mapBrightDataDateToStartDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+      assert.strictEqual(triggerInputs[0].startDate, expected);
+    } finally {
+      await db.update(socialMediaAccountProfiles).set({ historySeededAt: new Date() }).where(eq(socialMediaAccountProfiles.id, profileId));
+    }
   });
 
   await t.test('a later zero-item "SUCCEEDED" run does not move the start date (the 2026-10-21 outage)', async () => {

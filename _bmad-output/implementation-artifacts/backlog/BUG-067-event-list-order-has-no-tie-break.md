@@ -27,4 +27,4 @@ The web client merges pages by id, so the visible effect is missing events (and,
 
 Page through Discovery with an account that has several events on the same day and compare the ids seen with `ORDER BY key, id` on the same data; or run `perf-pagination.ts` against a copy of production.
 
-Related: FIND-087, IDEA-076.
+Related: FIND-261018-9y3, IDEA-076.

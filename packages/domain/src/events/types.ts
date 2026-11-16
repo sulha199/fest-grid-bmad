@@ -1,4 +1,4 @@
-import { EventType, EventCategory, LocationDetails, EventLink } from '@festgrid/shared-types';
+import { EventType, EventCategory, LocationDetails, LocationResolution, EventLink } from '@festgrid/shared-types';
 import { type PostGroupingReason } from '../posts/types.js';
 
 // Closed set for events.detail_level (Architecture Spine AD-30 Rule 1, Story 3.6r). A 'stub'
@@ -16,6 +16,10 @@ export interface GeminiSchedulePayload {
   title?: string;
   performers?: string[];
   location?: string;
+  /** Place names to search for, most specific first (venue, area, city). Optional; see `normalizeLocationKeywords`. */
+  locationKeywords?: string[];
+  /** ISO-2 country of `location`, set by the keywords generator for the geocoder. Carried in the re-extract preview's raw events to Apply; never stored on events or schedules and not on the message. */
+  locationCountryCode?: string;
   ticketPrice?: string;
   // Story 3.6s (BUG-026) — populated only when the source text states the schedule recurs on
   // specific weekdays within a date span. Reuses the existing DayOfWeek enum values
@@ -31,6 +35,10 @@ export interface GeminiEventPayload {
   categories: string[];
   schedules: GeminiSchedulePayload[];
   location?: string;
+  /** Place names to search for, most specific first (venue, area, city). Optional; see `normalizeLocationKeywords`. */
+  locationKeywords?: string[];
+  /** ISO-2 country of `location`, set by the keywords generator for the geocoder. Carried in the re-extract preview's raw events to Apply; never stored on events or schedules and not on the message. */
+  locationCountryCode?: string;
   organizerName?: string;
   contactInfo?: string;
   hasPrivateContact?: boolean;
@@ -76,6 +84,18 @@ export interface GeminiExtractionPayload {
   // Story 3.6m — advisory/best-effort count of distinct people visible across the provided
   // image(s), never trusted as an exact count. Same logging-only scope as hasFaceImage above.
   faceImageCount?: number;
+  // AD-46 Rule 2 (cursor extraction): the advisory post plan of a multi-slide post, all optional and never persisted.
+  // It informs the continue decision (density, the "known partial" note) and is never the decision itself.
+  /** The item count the post claims to list ("203 events in 2027" gives 203). */
+  claimedItemCount?: number;
+  /** One role per provided image, in order (`POST_PLAN_SLIDE_ROLES`). */
+  slideRoles?: string[];
+  /** The typical number of items on a list slide. */
+  itemsPerListSlide?: number;
+  /** The date span the items cover, "YYYY-MM-DD..YYYY-MM-DD". */
+  dateRangeCovered?: string;
+  /** More items likely continue on slides that were not provided. */
+  moreItemsLikely?: boolean;
 }
 
 // Story 3.6p — one entry per extracted event inside an extraction_audit_logs row's
@@ -114,8 +134,12 @@ export interface ExtractedScheduleMessage {
   title?: string;
   performers?: string[];
   location?: string;
+  /** Place names to search for, most specific first (venue, area, city). Optional; see `normalizeLocationKeywords`. */
+  locationKeywords?: string[];
   ticketPrice?: string;
   locationDetails?: LocationDetails;
+  /** How `locationDetails` was found (ladder step, none, skipped); absent when the schedule was never looked up. */
+  locationResolution?: LocationResolution;
   timezone?: string;
   timezoneStatus?: ScheduleTimezoneStatus;
   // Story 3.6s (BUG-026) — threaded through from GeminiSchedulePayload. Mapping into
@@ -131,6 +155,8 @@ export interface ExtractedEventMessage {
   categories: EventCategory[];
   schedules: ExtractedScheduleMessage[];
   location?: string;
+  /** Place names to search for, most specific first (venue, area, city). Optional; see `normalizeLocationKeywords`. */
+  locationKeywords?: string[];
   organizerName?: string;
   contactInfo?: string;
   hasPrivateContact?: boolean;
@@ -166,6 +192,8 @@ export interface EventInsertValues {
   types: string[];
   categories: string[];
   location: string;
+  /** Search keywords for `location` (most specific first); null when the extraction gave none. */
+  locationKeywords?: string[] | null;
   organizerName?: string | null;
   contactInfo?: string | null;
   hasPrivateContact: boolean;
@@ -198,8 +226,12 @@ export interface ScheduleInsertValues {
   title?: string | null;
   performers?: string[] | null;
   location?: string | null;
+  /** Search keywords for `location` (most specific first); null when the extraction gave none. */
+  locationKeywords?: string[] | null;
   ticketPrice?: string | null;
   locationDetails?: LocationDetails | null;
+  /** How `locationDetails` was found; null when no lookup was attempted. */
+  locationResolution?: LocationResolution | null;
   latitude?: number | null;
   longitude?: number | null;
   timezone?: string | null;

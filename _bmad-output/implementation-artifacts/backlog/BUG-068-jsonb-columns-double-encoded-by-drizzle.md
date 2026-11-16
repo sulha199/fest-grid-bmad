@@ -31,7 +31,7 @@ captured: 2026-10-19
 
 `packages/database/schema.ts` declares **30** jsonb columns: 3 already `customJsonb` (`unprocessed_scraper_payloads.raw_payload`, `.validation_error`, `.context`) and **27 plain `jsonb()`** that this bug is about: `user_locations.location_details`, `social_media_account_profiles.default_location` and `.discovery_source`, `geolocation_cache.result`, `posts.additional_image_urls`, `scraper_actor_runs.raw_input` and `.raw_output`, `events.links`, seven `event_merges` journal columns, three `account_profile_merges` columns, `extraction_audit_logs.events_completeness`, `schedules.location_details`, `default_location_change_requests.previous_location` and `.new_location`, `corrections.proposed_data`, `widgets.filters`, `ai_event_filters.resolved_filter`, `manual_extraction_jobs.request_payload` and `.result_data`.
 
-**Why nothing visibly broke:** reads through Drizzle work in every state. What does **not** work is anything evaluated inside PostgreSQL: `resolvers.ts:3401–3402` `location_details->>'adminArea'` / `->>'venueType'` (`->>` on a jsonb string returns null; checked) cannot be true; `jsonb_array_elements` on a string raises "cannot extract elements from a scalar" (checked); every planned SQL-side use (area ladder IDEA-073, target-area resolver IDEA-081, `@>` containment, expression indexes) would see nothing.
+**Why nothing visibly broke:** reads through Drizzle work in every state. What does **not** work is anything evaluated inside PostgreSQL: `resolvers.ts:3401–3402` `location_details->>'adminArea'` / `->>'venueType'` (`->>` on a jsonb string returns null; checked) cannot be true; `jsonb_array_elements` on a string raises "cannot extract elements from a scalar" (checked); every planned SQL-side use (area ladder IDEA-261018-iv7, target-area resolver IDEA-081, `@>` containment, expression indexes) would see nothing.
 
 ## The three ways to fix the write path
 
@@ -51,10 +51,10 @@ captured: 2026-10-19
 3. **DONE** (`apps/backend/src/schema/jsonb-encoding.test.ts`, run on a migrated scratch PostgreSQL; fails on the old schema) **Regression test:** extend `jsonb-encoding.test.ts`: insert through Drizzle into `schedules.location_details`, `events.links`, `social_media_account_profiles.default_location` and `posts.additional_image_urls`, then assert `jsonb_typeof` is `object` / `array` (and that a legacy string row still reads parsed).
 4. **Deploy**, then run the migration runbook `BUG-068-jsonb-migration/` (look → apply → look again; tested on a scratch database, **not run on production**). Core columns first; `-v include_rest=1` only after reading the byte sizes in the look output.
 5. **Verify on production** with the pack's "JSON encoding of jsonb columns" item (all rows `object` / `array`), and that `schedules` reports the same `pinned` count before and after.
-6. **Not part of this fix:** BUG-066 (wrong pins), BUG-063 (`adminArea` is never written: 0 of 1,460), and the defensive `->>` reads of 2026-08-29 (keep until step 5 is done).
+6. **Not part of this fix:** BUG-261018-abg (wrong pins), BUG-261018-ij7 (`adminArea` is never written: 0 of 1,460), and the defensive `->>` reads of 2026-08-29 (keep until step 5 is done).
 
 ## Notes for the dependent work
 
 - `customJsonb` is written for Drizzle 0.30's behavior; any Drizzle upgrade to ≥ 0.33 must revisit it (it would error, see the table above).
-- AD-36 Rule 9 (location inheritance for group children) stays gated behind this and BUG-066.
+- AD-36 Rule 9 (location inheritance for group children) stays gated behind this and BUG-261018-abg.
 - Until step 4 is done, new rows are objects and old rows are strings: SQL-side `->>` sees only the new ones.

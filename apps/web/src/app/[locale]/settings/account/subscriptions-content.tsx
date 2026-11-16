@@ -10,6 +10,8 @@ import { useGetMySubscriptionsQuery, useRemoveSubscriptionMutation, SoftDeleteAc
 import { buildAccountHref } from "@festgrid/domain/scraper"
 import { useApiKeyStatus } from "@/features/onboarding/use-has-api-key"
 import { SubscribeAccountDialog } from "./subscribe-account-dialog"
+import { useRestoreCapRefusal } from "@/features/subscriptions/use-restore-cap-refusal"
+import { SubscriptionCapDialog } from "@/features/subscriptions/SubscriptionCapDialog"
 import { SetDefaultLocationDialog } from "./set-default-location-dialog"
 import { Plus, Trash2, Pencil } from "lucide-react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -45,6 +47,7 @@ export function SubscriptionsContent() {
   )
 
   const { mutateAsync: removeSubscription } = useRemoveSubscriptionMutation(graphqlClient)
+  const { state: capState, clear: clearCapRefusal, handleRestoreError } = useRestoreCapRefusal()
   const { isPending, markPending } = useSoftDeleteWithUndo<string>({
     onExpire: (id) => {
       queryClient.setQueryData(["getMySubscriptions"], (old: any) => {
@@ -140,6 +143,8 @@ export function SubscriptionsContent() {
             })
           } catch (err) {
             console.error("Failed to restore subscription", err)
+            // Story 10.3a: a restore refused with the cap opens the cap dialog and a short toast; the row stays removed.
+            handleRestoreError(err, { accountId: subscription.account?.accountId, username: subscription.account?.username })
             throw err
           }
         },
@@ -309,6 +314,8 @@ export function SubscriptionsContent() {
           onClose={() => setIsDialogOpen(false)}
         />
       )}
+
+      <SubscriptionCapDialog state={capState} onClose={clearCapRefusal} />
 
       <SetDefaultLocationDialog
         accountId={selectedAccountId}

@@ -11,7 +11,7 @@ captured: 2026-10-18
 
 ## The decision (product owner, 2026-10-18)
 
-Sort by the **target audience's area**, never the event's/venue's area. A national competition held on a Yogyakarta campus is not a Yogyakarta event; a Jakarta concert with a bus for Surabaya residents is a Surabaya event. Everything else in the order (merged local ladder, then anywhere, then other-local; sooner within a group) follows from that. So audience extraction is the foundation, and the account/venue location only enters as a **fallback** (BUG-065 for who may use it).
+Sort by the **target audience's area**, never the event's/venue's area. A national competition held on a Yogyakarta campus is not a Yogyakarta event; a Jakarta concert with a bus for Surabaya residents is a Surabaya event. Everything else in the order (merged local ladder, then anywhere, then other-local; sooner within a group) follows from that. So audience extraction is the foundation, and the account/venue location only enters as a **fallback** (BUG-261018-jwf for who may use it).
 
 ## Effective audience area (first match wins)
 
@@ -32,10 +32,10 @@ Residual: a continent-level audience ("delegates from across Asia") is scoped `i
 
 ## Story outline
 
-1. IDEA-073 — canonical area ladder (prerequisite).
-2. BUG-065 / BUG-066 / IDEA-075 — location policy, geocoder correctness, and the profile read that supplies country and reach (prerequisites for the account fallback).
-3. Extraction: audience areas + scope (+ `attendance`, BUG-064) on the extraction response, AJV-validated, guards on write, nothing from model confidence.
+1. IDEA-261018-iv7 — canonical area ladder (prerequisite).
+2. BUG-261018-jwf / BUG-261018-abg / IDEA-075 — location policy, geocoder correctness, and the profile read that supplies country and reach (prerequisites for the account fallback).
+3. Extraction: audience areas + scope (+ `attendance`, BUG-261018-nyt) on the extraction response, AJV-validated, guards on write, nothing from model confidence.
 4. Ordering: one `ORDER BY` expression `(areaTier, soonestMatchingDate, id)` (AD-17/AD-18: no per-row resolver), user area from the saved location.
 5. Optional second stage: bounded relevance discount (interests/age tracks) — only after 1–4 are measured.
 
-Related: IDEA-073, BUG-063, BUG-064, BUG-065, BUG-066, IDEA-071, IDEA-075, FIND-086.
+Related: IDEA-261018-iv7, BUG-261018-ij7, BUG-261018-nyt, BUG-261018-jwf, BUG-261018-abg, IDEA-071, IDEA-075, FIND-261018-p1z.

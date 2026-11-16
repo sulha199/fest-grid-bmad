@@ -141,6 +141,8 @@ export function CorrectionDialog({ isOpen, onClose, event }: CorrectionDialogPro
     errorScrapeFailed: tAi("errorScrapeFailed") || "Scrape failed",
     errorExtractionFailed: tAi("errorExtractionFailed") || "Extraction failed",
     errorQuotaExhausted: tAi("errorQuotaExhausted") || "Quota exhausted",
+    errorAccountNotScrapable: tAi("errorAccountNotScrapable") || "This post cannot be fetched",
+    errorScrapeInProgress: tAi("errorScrapeInProgress") || "This post is being fetched right now. Try again in a moment.",
   };
 
   const labels: CorrectionFormLabels = {

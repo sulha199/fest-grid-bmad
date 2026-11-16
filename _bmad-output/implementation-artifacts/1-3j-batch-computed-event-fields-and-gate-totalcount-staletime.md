@@ -122,6 +122,14 @@ Most recent commits (`0e51230`, `84d4fd2`, `667ee53`, `a1dbeab`, `60bdee8`) are 
 
 **Registration note:** Story 1.3j and its epics.md section were added 2026-09-15 via `bmad-correct-course` (CC-020, `sprint-change-proposal-2026-09-15-getevents-eventbyslug-perf-hardening.md`), which explicitly deferred `sprint-status.yaml` registration to "a separate later session" (this one). An earlier, *unrelated* "Story 1.3j" (a narrow EventCard date-display bug fix) existed briefly on 2026-09-07 and was fully merged into Story 1.3b as AC19 the same day (`git log` commits `604675c`/`b6dc200`) â€” its `epics.md`/`sprint-status.yaml` entries were removed at that time, freeing the "1.3j" label for reuse by this unrelated, later story. No conflict exists in the current `epics.md`/`sprint-status.yaml` state.
 
+### Board note moved from FIND-027 (backlog.yaml, 2026-11-02)
+
+Found via bmad-agent-architect review (2026-09-15). apps/backend/src/schema/resolvers.ts's `events` resolver (~3163-3170) runs a second query (count() with two left joins) unconditionally, even when the client doesn't select `totalCount` — the code already has a `// Note:` comment acknowledging this. Not currently wasted (Discovery/Feed/Favorites all request totalCount today), but unlike the item-list select it isn't gated by `info` field selection, so it silently becomes dead work the moment any consumer drops the field. Fix: check `info` for `totalCount` selection the same way buildOptimizedDrizzleSelect already does for `items`.
+
+### Board note moved from FIND-028 (backlog.yaml, 2026-11-02)
+
+Found via bmad-agent-architect review (2026-09-15). The useInfiniteQuery/useQuery hooks in apps/web/src/app/[locale]/home-content.tsx, feed/feed-content.tsx, and favorites/favorites-content.tsx all omit `staleTime`, so React Query's default of 0 applies — every remount or window refocus on Discovery, Feed, or Favorites refires a request against getEvents, the highest-traffic endpoint in the app. A short staleTime (e.g. 30s) would cut request volume for normal tab-switching/navigation without materially staling the data.
+
 ## Global Rules References
 
 - `_bmad-output/project-context.md` (Critical Implementation Rules â†’ API & Data, Database & Performance [`Query.events` highest-traffic-endpoint rule, existing N+1/`virtualFields` fix pointer]; Code Quality & Style Rules â†’ Code Organization; Testing Rules; State Management Architecture)

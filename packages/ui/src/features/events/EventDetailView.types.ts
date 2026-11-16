@@ -17,6 +17,8 @@ export interface ScheduleDetail {
   title?: string | null;
   performers?: string | null;
   location?: string | null;
+  /** Place-name keywords for the map search, specific to general (slice 1 `locationKeywords`). */
+  locationKeywords?: string[] | null;
   ticketPrice?: string | null;
   locationDetails?: {
     coordinates?: { lat: number; lng: number } | null;
@@ -176,6 +178,8 @@ export interface EventDetailViewRelatedEventGroup {
   totalCount: number;
   seeAllHref?: string | null;
   isLoading?: boolean;
+  /** AD-50: a short note under the heading when the post's list may be incomplete (still being added, or partial). */
+  note?: string | null;
 }
 
 /**
@@ -189,6 +193,8 @@ export interface EventDetailViewProps {
   description?: string | null;
   schedules: ScheduleDetail[];
   location: string;
+  /** Event-level place-name keywords; used when a schedule has none. */
+  locationKeywords?: string[] | null;
   
   // Optional meta
   types?: EventDetailViewTagOption[];
@@ -227,6 +233,8 @@ export interface EventDetailViewProps {
   accountHref?: string | null;
   accountLocation?: {
     name: string;
+    /** Geocoded city; appended to the name for the map search link. */
+    city?: string | null;
     coordinates?: { lat: number; lng: number } | null;
     confidence?: number | null;
     matchType?: string | null;

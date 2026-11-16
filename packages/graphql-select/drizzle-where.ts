@@ -1,6 +1,7 @@
 import { SQL, and, or, ilike, inArray, notInArray, eq, sql, isNotNull, isNull } from "drizzle-orm";
 import { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { QueryCondition, isGroupCondition } from "@festgrid/domain/query";
+import { buildPastCutoffDateSql, readPastCutoff } from "./past-cutoff-sql.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type FieldColumnMap = Record<string, PgColumn | any>;
@@ -117,16 +118,28 @@ export function buildDrizzleWhere(
       // also satisfies "not in [...]" (NULL != any of the listed values).
       return or(isNull(column), notInArray(column, value));
     case "overlaps": {
-      const { from, to } = value as { from: string; to: string | null };
-      const { table, eventIdCol, correlateCol, startCol, endCol, applicableDaysOfWeekCol } = column as {
+      const { from, to, pastCutoff } = value as { from: string; to: string | null; pastCutoff?: unknown };
+      const { table, eventIdCol, correlateCol, startCol, endCol, applicableDaysOfWeekCol, timezoneCol, timezoneStatusCol } = column as {
         table: PgTable;
         eventIdCol: PgColumn;
         correlateCol: PgColumn;
         startCol: PgColumn;
         endCol: PgColumn;
         applicableDaysOfWeekCol?: PgColumn;
+        timezoneCol?: PgColumn;
+        timezoneStatusCol?: PgColumn;
       };
       const toSql = to === null ? sql`NULL` : sql`${to}::date`;
+      // BUG-096 -- the window's lower bound. A plain `from` date is one fixed day for every
+      // schedule; with a (well-formed) `pastCutoff` AND a descriptor that carries the timezone
+      // columns it is instead, per schedule row, the date of `pastCutoff.instant` in that row's
+      // own timezone minus N days -- the same day the card's "Ended" label turns over on. The
+      // weekday guard below reads the same bound, so a narrowed-weekday schedule stays judged by
+      // its last real occurrence in the same zone. Without both, `from` applies unchanged.
+      const cutoff = readPastCutoff(pastCutoff);
+      const fromSql = cutoff && timezoneCol && timezoneStatusCol
+        ? buildPastCutoffDateSql(cutoff, timezoneCol, timezoneStatusCol)
+        : sql`${from}::date`;
       // Story 3.6y (AD-19 "single domain mechanism") -- when the fieldMap descriptor carries
       // applicableDaysOfWeekCol, append a closed-form weekday-containment guard so a schedule
       // narrowed to specific weekdays (e.g. `['MON']`) does not match a day-of-week/dateRange/
@@ -145,10 +158,10 @@ export function buildDrizzleWhere(
                 (CASE aw.code
                   WHEN 'SUN' THEN 0 WHEN 'MON' THEN 1 WHEN 'TUE' THEN 2 WHEN 'WED' THEN 3
                   WHEN 'THU' THEN 4 WHEN 'FRI' THEN 5 WHEN 'SAT' THEN 6 END)
-                - EXTRACT(DOW FROM GREATEST(${startCol}, ${from}::date))::int + 7, 7
+                - EXTRACT(DOW FROM GREATEST(${startCol}, ${fromSql}))::int + 7, 7
               ) <= (
                 LEAST(COALESCE(${endCol}, ${startCol}), COALESCE(${toSql}, COALESCE(${endCol}, ${startCol})))
-                - GREATEST(${startCol}, ${from}::date)
+                - GREATEST(${startCol}, ${fromSql})
               )
             )
           )
@@ -158,7 +171,7 @@ export function buildDrizzleWhere(
         SELECT 1 FROM ${table}
         WHERE ${eventIdCol} = ${correlateCol}
           AND daterange(${startCol}, COALESCE(${endCol}, ${startCol}), '[]')
-              && daterange(${from}::date, ${toSql}, '[]')
+              && daterange(${fromSql}, ${toSql}, '[]')
           ${weekdayGuard}
       )`;
     }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert';
 import { db } from '../../db/client.js';
-import { posts, scraperActorRuns, socialMediaAccountProfiles } from '@festgrid/database';
+import { postAccountAssociations, posts, scraperActorRuns, socialMediaAccountProfiles } from '@festgrid/database';
 import { eq } from 'drizzle-orm';
 import { getScrapeCursor } from './get-scrape-cursor.js';
 
@@ -19,6 +19,8 @@ test('getScrapeCursor', async (t) => {
         platform: 'instagram',
         username: 'cursor_test_user',
         displayName: 'Cursor Test User',
+        // The cursor rules below are those of a seeded profile; the unseeded rule has its own tests.
+        historySeededAt: new Date(),
       })
       .returning({ id: socialMediaAccountProfiles.id });
     profileId = profile.id;
@@ -60,11 +62,11 @@ test('getScrapeCursor', async (t) => {
     assert.strictEqual(await getScrapeCursor('BRIGHTDATA', profileId, fallback), fallback);
   });
 
-  await t.test('Apify starts exactly at the newest stored post', async () => {
+  await t.test('Apify starts one second after the newest stored post (its filter includes the boundary)', async () => {
     await insertPost('https://www.instagram.com/p/older/', new Date('2026-10-10T08:00:00.000Z'));
     await insertPost('https://www.instagram.com/p/newest/', newestPostAt);
 
-    assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), '2026-10-20T15:30:00.000Z');
+    assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), '2026-10-20T15:30:01.000Z');
   });
 
   await t.test('Bright Data starts one day before the newest stored post (time-zone margin)', async () => {
@@ -89,7 +91,7 @@ test('getScrapeCursor', async (t) => {
 
     assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), before.apify);
     assert.strictEqual(await getScrapeCursor('BRIGHTDATA', profileId, fallback), before.brightData);
-    assert.strictEqual(before.apify, '2026-10-20T15:30:00.000Z');
+    assert.strictEqual(before.apify, '2026-10-20T15:30:01.000Z');
   });
 
   await t.test('a run alone never produces a cursor for a profile with no stored post', async () => {
@@ -115,6 +117,82 @@ test('getScrapeCursor', async (t) => {
     } finally {
       await db.delete(posts).where(eq(posts.accountId, other.id));
       await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, other.id));
+    }
+  });
+
+  // 2026-10-23..29: a post stored under its owner (or another co-author) never moved the cursor of the
+  // profile it was scraped from, so that profile re-fetched (and was billed for) the same posts daily.
+  await t.test('a post stored under another account but associated with this profile moves the cursor', async () => {
+    const [owner] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: 'cursor-test-owner-' + Date.now(), platform: 'instagram', username: 'cursor_owner', displayName: 'Owner' })
+      .returning({ id: socialMediaAccountProfiles.id });
+    try {
+      await insertPost('https://www.instagram.com/p/own-older/', new Date('2026-10-10T08:00:00.000Z'));
+      const [collab] = await db
+        .insert(posts)
+        .values({
+          accountId: owner.id,
+          platform: 'instagram',
+          postUrl: 'https://www.instagram.com/p/collab/',
+          publishedAt: new Date('2026-10-22T09:00:00.000Z'),
+        })
+        .returning({ id: posts.id });
+      await db.insert(postAccountAssociations).values({ postId: collab.id, accountId: profileId, role: 'COAUTHOR' });
+
+      assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), '2026-10-22T09:00:01.000Z');
+      assert.strictEqual(await getScrapeCursor('BRIGHTDATA', profileId, fallback), '2026-10-21T09:00:00.000Z');
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, owner.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, owner.id));
+    }
+  });
+
+  await t.test('the newest post wins whether it is owned or associated', async () => {
+    const [owner] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: 'cursor-test-owner2-' + Date.now(), platform: 'instagram', username: 'cursor_owner2', displayName: 'Owner 2' })
+      .returning({ id: socialMediaAccountProfiles.id });
+    try {
+      await insertPost('https://www.instagram.com/p/own-newest/', newestPostAt);
+      const [older] = await db
+        .insert(posts)
+        .values({ accountId: owner.id, platform: 'instagram', postUrl: 'https://www.instagram.com/p/assoc-older/', publishedAt: new Date('2026-10-12T00:00:00.000Z') })
+        .returning({ id: posts.id });
+      await db.insert(postAccountAssociations).values({ postId: older.id, accountId: profileId, role: 'SCRAPING_SOURCE' });
+
+      assert.strictEqual(await getScrapeCursor('APIFY', profileId, fallback), '2026-10-20T15:30:01.000Z');
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, owner.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, owner.id));
+    }
+  });
+
+  // A profile known only from other accounts' scrapes (co-author links) holds posts that say nothing about its
+  // own timeline; starting after the newest of them skipped the rest of it when someone later subscribed.
+  await t.test('an unseeded profile starts 30 days back whatever posts it holds, until its history is seeded', async () => {
+    const [unseeded] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: 'cursor-test-unseeded-' + Date.now(), platform: 'instagram', username: 'cursor_unseeded', displayName: 'Unseeded' })
+      .returning({ id: socialMediaAccountProfiles.id });
+    try {
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await db.insert(posts).values({ accountId: unseeded.id, platform: 'instagram', postUrl: 'https://www.instagram.com/p/coauthored/', publishedAt: yesterday });
+
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      for (const vendor of ['APIFY', 'BRIGHTDATA'] as const) {
+        const cursor = new Date(await getScrapeCursor(vendor, unseeded.id, fallback)).getTime();
+        assert.ok(Math.abs(cursor - thirtyDaysAgo) < 60_000, `${vendor} cursor ${new Date(cursor).toISOString()} is not 30 days back`);
+      }
+
+      await db.update(socialMediaAccountProfiles).set({ historySeededAt: new Date() }).where(eq(socialMediaAccountProfiles.id, unseeded.id));
+      assert.strictEqual(
+        await getScrapeCursor('APIFY', unseeded.id, fallback),
+        new Date(yesterday.getTime() + 1000).toISOString()
+      );
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, unseeded.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, unseeded.id));
     }
   });
 });

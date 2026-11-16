@@ -3,25 +3,35 @@ import { alias } from 'drizzle-orm/pg-core';
 import { Resolvers, type EventFilter, type FilterNode, type UnprocessedPayloadSource } from '../generated/resolvers-types.js';
 import { db } from '../db/client.js';
 import { events, schedules, posts, users, favorites, calendarAdditions, userLocations, userSettings, fcmTokens, socialMediaAccountProfiles, apiKeys, subscriptions, defaultLocationChangeRequests, corrections, reports, accountVotes, widgets, embedDomains, unprocessedScraperPayloads, parserVersionRegistry, scraperActorRuns, aiEventFilters, accountTypeClassificationReviews, postAccountAssociations, eventPosts, eventSlugAliases, eventMatchCandidates, eventMerges } from '@festgrid/database';
-import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames } from '@festgrid/graphql-select';
+import { buildOptimizedDrizzleSelect, buildDrizzleWhere, activeOnly, getRequestedFieldNames, buildPastCutoffDateSql } from '@festgrid/graphql-select';
 import { requireAuth, requireModerator, type GraphQLContext } from '../lib/auth/context.js';
 import { buildEventAccountMatchCondition } from '../lib/events/event-account-match.js';
 import { eq, ne, count, sql, asc, and, exists, desc, inArray, notInArray, or, lt, gte, lte, isNull, isNotNull, ilike, type SQL } from 'drizzle-orm';
 import { parse as parseTld } from 'tldts';
 import { QueryCondition, resolveWithinRadiusConditions, UnknownLocationPreferenceError } from '@festgrid/domain/query';
 import { getScraperAdapter, detectPlatformFromUrl, lookupAccountProfile, buildInstagramPermalink, isScrapableAccountType, computeIsScrapeInProgress } from '@festgrid/domain/scraper';
+import { applyPostReextraction, toGraphQLApplySummary } from '../lib/extraction/apply-post-reextraction.js';
+import { ACCOUNT_NOT_SCRAPABLE_MESSAGE, SCRAPE_IN_PROGRESS_MESSAGE, isOwnerAccountScrapable } from '../lib/scraper/post-scrape-gate.js';
+import { claimPostUrlScrape } from '../lib/scraper/post-url-scrape-lease.js';
 import { postsAssociatedWithAccount, getPostAccessAccountIds } from '../lib/posts/posts-associated-with-account.js';
 import { findProfileByUsername } from '../lib/accounts/find-profile-by-username.js';
 import { resolveProfileByUsername } from '../lib/accounts/resolve-profile-by-username.js';
 import { postExtractionStatusCondition, withExtractionStatus } from '../lib/posts/post-extraction-status.js';
+import { postExtractionProgressByPostId } from '../lib/posts/post-extraction-progress.js';
 import { loadAccountActivity, type AccountActivity } from '../lib/accounts/load-account-activity.js';
 import type { EventParent, SocialMediaAccountProfileParent, SubscriptionParent } from '../lib/graphql-mappers.js';
 import { selectApiKey } from '@festgrid/domain/ai-gateway';
 import { callGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../lib/ai-gateway/adapter.js';
 import { fetchCandidateKeys } from '../lib/ai-gateway/usage-store.js';
 import { checkAndRecordPromptFilterRateLimit } from '../lib/ai-event-filters/prompt-filter-rate-limit-store.js';
+import { REPORT_SYSTEM_ERROR_ALERT_KEY, takeAlertEmailBudget } from '../lib/alerts/alert-email-budget-store.js';
 import { startManualExtractionJob, getManualExtractionJobStatus } from '../lib/extraction/manual-extraction-job.js';
 import { startPostReextractionPreview } from '../lib/extraction/start-post-reextraction-preview.js';
+import { assertJobsFilterAllowed, readActiveJobs, readJobById, readMyJobsPage, type JobViewer } from '../lib/job-engine/read-jobs.js';
+import { retryJob } from '../lib/job-engine/retry-job.js';
+import { acknowledgeJobEnded, countJobsFinishedSinceLastOpened, markJobsOpened } from '../lib/job-engine/job-notice-state.js';
+import '../lib/job-engine/register-job-retry-starters.js'; // Story 10.4: the retry starters of the job types the API Lambda can start
+import { getReextractPreviewJobStatus } from '../lib/extraction/reextract-preview-job.js';
 import { resolveLocationInputMode, validateRadiusMeters, InvalidUserLocationInputError } from '@festgrid/domain/user-locations';
 import { validateHidePastEventsAfterDays, InvalidUserSettingsInputError } from '@festgrid/domain/user-settings';
 import { isValidIanaTimezone } from '@festgrid/domain/users';
@@ -30,14 +40,15 @@ import { resolveLocation, getAddressPredictions, resolveAdminRegion } from '../l
 import { resolveInstagramOEmbed } from '../lib/instagram-oembed/adapter.js';
 import { GraphQLJSON } from 'graphql-scalars';
 import { GraphQLError, type GraphQLResolveInfo } from 'graphql';
-import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, computePastEventThreshold, parsePlatformPrefixedEventSlug, sanitizeEventLinks } from '@festgrid/domain/events';
+import { buildEventsQueryCondition, buildDefaultEventVisibilityConditions, DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS, validateCorrectionConsistency, ProposedEventCorrection, getCancelledReportWindowCutoff, shouldSoftDeleteFromCancelledReports, DEFAULT_CANCELLED_REPORT_THRESHOLD, DEFAULT_CANCELLED_REPORT_WINDOW_DAYS, resolveServedImageUrl, resolveInstagramEmbedResult, parsePlatformPrefixedEventSlug, sanitizeEventLinks, DedupDecisionClueError } from '@festgrid/domain/events';
 import { transformGeminiResponseToFilterExpression, dropUnsupportedVenueTypes, validateFilterNode, compileFilterNodeToQueryCondition, resolveStoredFilter, flatFilterFromExpression, expressionFromFlatFilter, isFilterGroupNode } from '@festgrid/domain/ai-event-filters';
 import type { FilterValidationIssue } from '@festgrid/domain/ai-event-filters';
 import type { EventFilterInput } from '@festgrid/domain/events';
-import { SUPPORTED_PLATFORMS, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
+import { SUPPORTED_PLATFORMS, SubscriptionCapReachedError, type ScrapablePlatform, type SupportedPlatform } from '@festgrid/domain/subscriptions';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError, isCycleElapsed, matchesChildrensDataKeywordFilter, buildCorrectionClassificationText, resolveScrapeHandle } from '@festgrid/domain';
-import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, type ReextractionPreviewResult } from '@festgrid/domain/posts';
+import { PostAlreadyExtractedError, PostNotFoundError, PostAlreadyQueuedError, postGroupingReasonToGraphQL, isPostGroupingReason, REEXTRACT_APPLY_WINDOW_MS, type ReextractionPreviewResult } from '@festgrid/domain/posts';
 import { subscribeToAccount as subscribeToAccountFn } from '../lib/subscriptions/subscribe-to-account.js';
+import { restoreSubscription } from '../lib/subscriptions/restore-subscription.js';
 import { verifyAccountProfileForDiscovery } from '../lib/accounts/verify-account-profile-for-discovery.js';
 import { triggerScrapeForAccount } from '../lib/scraper/trigger-scrape-for-account.js';
 import { decideInitialOrIncrementalNewerThan } from '../lib/scraper/decide-initial-or-incremental-scrape.js';
@@ -55,7 +66,13 @@ import { replayActorRun } from '../lib/scraper/replay-actor-run.js';
 import { applyDefaultLocationChange } from '../lib/accounts/apply-default-location-change.js';
 import { resolveFilterExpressionAccountIds } from '../lib/ai-event-filters/resolve-filter-expression-account-ids.js';
 import { buildFilterExtractionSystemInstruction, buildFilterExtractionResponseSchema } from '../lib/ai-event-filters/build-filter-extraction-request.js';
-import { mergeEvents, undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
+import { undoEventMerge as undoEventMergeWrite, EventMergeInvalidStateError, EventMergeNotFoundError, EventMergeAlreadyUndoneError } from '../lib/events/merge-events.js';
+import {
+  resolveSuggestedMatch,
+  SuggestedMatchNotFoundError,
+  SuggestedMatchNotPendingError,
+  SuggestedMatchInvalidActionError,
+} from '../lib/events/resolve-suggested-match.js';
 
 // `post_account_associations.account_id` is a uuid column: comparing it against a non-UUID string
 // (e.g. an AI-filter `accountId` the model returned as a handle/name) makes Postgres throw
@@ -104,6 +121,14 @@ function assertValidFlatFilter(filter: unknown): void {
  * error and assert it propagates. Follows the repo's setter-based seam
  * convention (e.g. `setSendSqsMessage`). Defaults to the real `requireAuth`.
  */
+// The request's "now". Tests pin it through `context.now` (honored only when NODE_ENV === 'test',
+// never exposed as GraphQL input, so a real client cannot influence it) so a time-of-day boundary --
+// the TODAY `!ended` rule, the BUG-096 past-event cutoff -- can be asserted deterministically.
+function resolveRequestNow(context: GraphQLContext): Date {
+  const pinned = (context as GraphQLContext & { now?: Date })?.now;
+  return process.env.NODE_ENV === 'test' && pinned instanceof Date ? pinned : new Date();
+}
+
 export let eventsAuthProbe = requireAuth;
 export function setEventsAuthProbe(fn: typeof requireAuth): void {
   eventsAuthProbe = fn;
@@ -149,6 +174,24 @@ function formatApiKey(row: any): any {
   };
 }
 
+/**
+ * Story 10.3 (AC7): the typed cap refusal becomes the GraphQL error `SUBSCRIPTION_CAP_REACHED` with the three numbers in
+ * `extensions` (the refusal screen and the upgrade call to action are Story 10.3a). Any other error is returned as is.
+ */
+function toSubscriptionCapGraphQLError(err: unknown): unknown {
+  if (err instanceof SubscriptionCapReachedError) {
+    return new GraphQLError(err.message, {
+      extensions: {
+        code: 'SUBSCRIPTION_CAP_REACHED',
+        activeCount: err.activeCount,
+        reservedCount: err.reservedCount,
+        cap: err.cap,
+      },
+    });
+  }
+  return err;
+}
+
 function formatSubscription(row: any): any {
   if (!row) return null;
   return {
@@ -166,6 +209,17 @@ export function decodeActorRunCursor(cursor: string | null | undefined): number 
     throw new GraphQLError('Invalid cursor', { extensions: { code: 'BAD_REQUEST' } });
   }
   return decoded;
+}
+
+// A cursor names the position AFTER the edge it sits on: `after: <cursor of row i>` resumes at row i + 1,
+// because the next page is read with `.offset(<decoded cursor>)`. Encoding the row's own index here (as
+// these resolvers used to) made the last row of every page the first row of the next one.
+// Every list paged with these cursors must end its ORDER BY in a unique key (the row's `id`): the sort keys
+// (`createdAt`, `displayName`) are shared by many rows, and under LIMIT/OFFSET Postgres may break those ties
+// differently for each page, so a row can show on two pages or on none. Rows written in one transaction share
+// `defaultNow()`. Same rule, and same reason, as `Query.events` (project-context.md, BUG-090).
+export function encodeActorRunCursor(positionAfterRow: number): string {
+  return Buffer.from(positionAfterRow.toString()).toString('base64');
 }
 
 export function endOfUtcDay(date: Date): Date {
@@ -264,6 +318,9 @@ function subscriptionActivity(parent: SubscriptionParent): Promise<AccountActivi
   return parent.__activity;
 }
 
+// setCalendarAdditions: bounds one call's work (the event-detail dialog lists a few schedules).
+const MAX_CALENDAR_ADDITION_CHANGES = 100;
+
 export const resolvers: Resolvers = {
   JSON: GraphQLJSON,
   Coordinates: {
@@ -299,14 +356,14 @@ export const resolvers: Resolvers = {
       return profile;
     },
     // Posts the user can still select on the manual extract screen: every post the account owns or is
-    // associated with that is Pending (PRD 3.10).
+    // associated with that is Pending or Attempt failed (PRD 3.10; a failed post used to read as Pending).
     pendingExtractionCount: async (parent: SubscriptionParent) => {
       const rows = await db.select({ count: count() })
         .from(posts)
         .where(
           and(
             postsAssociatedWithAccount(parent.accountId),
-            postExtractionStatusCondition(['PENDING'], loadBackendEnv().postExtractionClaimTtlMinutes)
+            postExtractionStatusCondition(['PENDING', 'ATTEMPT_FAILED'], loadBackendEnv().postExtractionClaimTtlMinutes)
           )
         );
       return rows[0]?.count ?? 0;
@@ -354,6 +411,19 @@ export const resolvers: Resolvers = {
     },
   },
   Mutation: {
+    retryJob: async (_, { jobId }, context, info): Promise<any> => {
+      const authUser = requireAuth(context);
+      const viewer: JobViewer = { userId: authUser.userId, role: authUser.role };
+      return retryJob(viewer, jobId, info);
+    },
+    markJobsOpened: async (_, __, context): Promise<boolean> => {
+      const authUser = requireAuth(context);
+      return markJobsOpened(authUser.userId);
+    },
+    acknowledgeJobEnded: async (_, { jobId }, context): Promise<boolean> => {
+      const authUser = requireAuth(context);
+      return acknowledgeJobEnded(authUser.userId, jobId);
+    },
     resolvePromptToEventFilter: async (_, { prompt }, context) => {
       const authUser = requireAuth(context);
 
@@ -659,7 +729,7 @@ export const resolvers: Resolvers = {
             extensions: { code: 'SCRAPER_CAPACITY_EXCEEDED' },
           });
         }
-        throw err;
+        throw toSubscriptionCapGraphQLError(err);
       }
     },
     removeSubscription: async (_, { id, action }, context) => {
@@ -685,11 +755,17 @@ export const resolvers: Resolvers = {
         if (existing.deletedAt === null) {
           throw new GraphQLError('Subscription is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
         }
-        const [updated] = await db.update(subscriptions)
-          .set({ deletedAt: null, updatedAt: new Date() })
-          .where(eq(subscriptions.id, id))
-          .returning();
-        return formatSubscription(updated);
+        // Story 10.3: restoring makes a subscription active again, so the cap applies (FR122).
+        let restored;
+        try {
+          restored = await restoreSubscription(authUser.userId, id);
+        } catch (err) {
+          throw toSubscriptionCapGraphQLError(err);
+        }
+        if (!restored) {
+          throw new GraphQLError('Subscription is already active', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        return formatSubscription(restored);
       }
       throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
     },
@@ -1335,6 +1411,68 @@ export const resolvers: Resolvers = {
         }
       });
     },
+    setCalendarAdditions: async (_, { eventId, changes }, context) => {
+      const authUser = requireAuth(context);
+
+      if (changes.length > MAX_CALENDAR_ADDITION_CHANGES) {
+        throw new GraphQLError(`At most ${MAX_CALENDAR_ADDITION_CHANGES} calendar changes per call.`, { extensions: { code: 'BAD_REQUEST' } });
+      }
+
+      // A schedule listed twice takes its last entry; Map keeps first-seen insertion order.
+      const desired = new Map<string, boolean>();
+      for (const change of changes) {
+        desired.set(change.scheduleId, change.isAddedToCalendar);
+      }
+      const scheduleIds = [...desired.keys()];
+      if (scheduleIds.length === 0) return [];
+
+      return await db.transaction(async (tx) => {
+        const scheduleRows = await tx.select({ id: schedules.id, eventId: schedules.eventId })
+          .from(schedules)
+          .where(inArray(schedules.id, scheduleIds));
+        if (scheduleRows.length !== scheduleIds.length) {
+          throw new GraphQLError('Schedule not found', { extensions: { code: 'NOT_FOUND' } });
+        }
+        if (scheduleRows.some((row) => row.eventId !== eventId)) {
+          throw new GraphQLError('Event ID mismatch', { extensions: { code: 'BAD_REQUEST' } });
+        }
+
+        const existingRows = await tx.select().from(calendarAdditions)
+          .where(and(eq(calendarAdditions.userId, authUser.userId), inArray(calendarAdditions.scheduleId, scheduleIds)));
+        const existingByScheduleId = new Map(existingRows.map((row) => [row.scheduleId, row]));
+
+        const toInsert: { userId: string; eventId: string; scheduleId: string }[] = [];
+        const toSoftDeleteIds: string[] = [];
+        const toRestoreIds: string[] = [];
+        for (const [scheduleId, isAdded] of desired) {
+          const existing = existingByScheduleId.get(scheduleId);
+          if (!existing) {
+            // Removing something never added is a no-op, not a new (deleted) row.
+            if (isAdded) toInsert.push({ userId: authUser.userId, eventId, scheduleId });
+          } else if (isAdded && existing.deletedAt !== null) {
+            toRestoreIds.push(existing.id);
+          } else if (!isAdded && existing.deletedAt === null) {
+            toSoftDeleteIds.push(existing.id);
+          }
+        }
+
+        if (toInsert.length > 0) {
+          await tx.insert(calendarAdditions).values(toInsert);
+        }
+        if (toRestoreIds.length > 0) {
+          await tx.update(calendarAdditions).set({ deletedAt: null }).where(inArray(calendarAdditions.id, toRestoreIds));
+        }
+        if (toSoftDeleteIds.length > 0) {
+          await tx.update(calendarAdditions).set({ deletedAt: new Date() }).where(inArray(calendarAdditions.id, toSoftDeleteIds));
+        }
+
+        return scheduleIds.map((scheduleId) => ({
+          eventId,
+          scheduleId,
+          isAddedToCalendar: desired.get(scheduleId) as boolean,
+        }));
+      });
+    },
     resolveScheduleTimezone: async (_, { scheduleId, timezone }, context) => {
       const authUser = requireAuth(context);
 
@@ -1424,14 +1562,23 @@ export const resolvers: Resolvers = {
       const env = loadBackendEnv();
       if (env.systemErrorAlertEmail) {
         try {
-          await sendTemplatedEmail('SYSTEM_ERROR_ALERT', env.systemErrorAlertEmail, {
-            source: input.source,
-            message: input.message,
-            context: input.context ?? 'None provided',
-            timestamp: new Date().toISOString()
-          });
+          // Public mutation: anyone can call it, so the alert address gets at most a fixed number of emails
+          // per window. Over the budget, the report goes to the log only (CloudWatch) and the caller still gets
+          // `true`: it must not learn the limit, and a failed sign-in still reports without error. A database
+          // error here lands in the catch below, which also sends nothing: failing closed keeps a flood that
+          // overloads the database from turning into a flood of emails.
+          if (await takeAlertEmailBudget(REPORT_SYSTEM_ERROR_ALERT_KEY)) {
+            await sendTemplatedEmail('SYSTEM_ERROR_ALERT', env.systemErrorAlertEmail, {
+              source: input.source,
+              message: input.message,
+              context: input.context ?? 'None provided',
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            console.error('[reportSystemError] alert email suppressed: budget for this window is spent', input);
+          }
         } catch (err) {
-          console.error('[reportSystemError] failed to send alert email', err);
+          console.error('[reportSystemError] failed to send alert email', err, input);
         }
       } else {
         console.error('[reportSystemError] SYSTEM_ERROR_ALERT_EMAIL not configured; error not alerted', input);
@@ -1529,6 +1676,10 @@ export const resolvers: Resolvers = {
             types: proposedData.types,
             categories: proposedData.categories,
             location: proposedData.location,
+            // Keywords describe the location text: when the text changes they are cleared (a stale list must never drive a
+            // search for the new place); when it is unchanged (ignoring case and surrounding spaces) they stay. Evaluated against
+            // the row's old value.
+            locationKeywords: sql`CASE WHEN lower(btrim(${events.location})) IS DISTINCT FROM lower(btrim(${proposedData.location})) THEN NULL ELSE ${events.locationKeywords} END`,
             organizerName: proposedData.organizerName || null,
             contactInfo: proposedData.contactInfo || null,
             description: proposedData.description || null,
@@ -1557,7 +1708,11 @@ export const resolvers: Resolvers = {
 
           if (s.id) {
             await tx.update(schedules)
-              .set(fields)
+              .set({
+                ...fields,
+                // Same rule as the event-level keywords above: cleared when this schedule's location text changes.
+                locationKeywords: sql`CASE WHEN lower(btrim(${schedules.location})) IS DISTINCT FROM lower(btrim(${s.location || null})) THEN NULL ELSE ${schedules.locationKeywords} END`,
+              })
               .where(and(eq(schedules.id, s.id), eq(schedules.eventId, eventId)));
           } else {
             await tx.insert(schedules)
@@ -1646,34 +1801,61 @@ export const resolvers: Resolvers = {
         };
       }
 
-      const adapter = getScraperAdapter(platform);
-      let scrapedPost;
+      // FIND-110 -- one scrape of this URL at a time (shared with the moderator re-extract). A busy
+      // lease means another request is fetching it right now; this one does not scrape again.
+      const lease = await claimPostUrlScrape(url);
+      if (!lease) {
+        return {
+          errorCode: 'SCRAPE_IN_PROGRESS',
+          errorMessage: SCRAPE_IN_PROGRESS_MESSAGE,
+        };
+      }
+
       try {
-        scrapedPost = await adapter.getPostByUrl(url);
-        if (!scrapedPost) {
+        const adapter = getScraperAdapter(platform);
+        let scrapedPost;
+        try {
+          scrapedPost = await adapter.getPostByUrl(url);
+          if (!scrapedPost) {
+            return {
+              errorCode: 'SCRAPE_FAILED',
+              errorMessage: 'Could not retrieve content from the provided URL.',
+            };
+          }
+        } catch (err) {
+          console.error(`Failed to scrape post from URL ${url}:`, err);
           return {
             errorCode: 'SCRAPE_FAILED',
             errorMessage: 'Could not retrieve content from the provided URL.',
           };
         }
-      } catch (err) {
-        console.error(`Failed to scrape post from URL ${url}:`, err);
-        return {
-          errorCode: 'SCRAPE_FAILED',
-          errorMessage: 'Could not retrieve content from the provided URL.',
-        };
-      }
 
-      return startManualExtractionJob(authUser.userId, url, {
-        message: {
-          postId: randomUUID(),
-          accountId: '',
-          content: scrapedPost.content,
-          imageUrl: scrapedPost.imageUrl ?? undefined,
-          postUrl: scrapedPost.postUrl,
-          publishedAt: scrapedPost.publishedAt,
-        },
-      });
+        // AD-34 -- an unknown URL cannot be gated before the scrape, so the account it returned is
+        // looked up now. A known personal / awaiting-classification account refuses the post: no
+        // job is started and nothing the scrape returned is kept.
+        if (!(await isOwnerAccountScrapable(platform, { username: scrapedPost.ownerUsername, ownerId: scrapedPost.ownerId }))) {
+          return {
+            errorCode: 'ACCOUNT_NOT_SCRAPABLE',
+            errorMessage: ACCOUNT_NOT_SCRAPABLE_MESSAGE,
+          };
+        }
+
+        return await startManualExtractionJob(authUser.userId, url, {
+          message: {
+            postId: randomUUID(),
+            accountId: '',
+            content: scrapedPost.content,
+            imageUrl: scrapedPost.imageUrl ?? undefined,
+            postUrl: scrapedPost.postUrl,
+            publishedAt: scrapedPost.publishedAt,
+            // BUG-099 -- the carousel slides after the cover; they were dropped here, so a correction
+            // of a multi-slide post read the first image only.
+            additionalImageUrls: scrapedPost.additionalImageUrls,
+          },
+        });
+      } finally {
+        await lease.release();
+      }
     },
     previewPostReextraction: async (_, { postId, url }, context): Promise<any> => {
       const moderator = requireModerator(context);
@@ -1681,6 +1863,12 @@ export const resolvers: Resolvers = {
         throw new GraphQLError('Provide exactly one of postId or url', { extensions: { code: 'BAD_REQUEST' } });
       }
       return startPostReextractionPreview(moderator.userId, { postId, url });
+    },
+    applyPostReextraction: async (_, { jobId }, context): Promise<any> => {
+      const moderator = requireModerator(context);
+      const applied = await applyPostReextraction(moderator.userId, jobId);
+      if ('errorCode' in applied) return applied;
+      return { summary: toGraphQLApplySummary(applied.summary) };
     },
     submitReport: async (_, { eventId, reason, details }, context): Promise<any> => {
       const authUser = requireAuth(context);
@@ -1738,7 +1926,7 @@ export const resolvers: Resolvers = {
       }
 
       if (reason === 'dangerous') {
-        await sendDangerousReportModeratorAlerts(existingEvent.eventName);
+        await sendDangerousReportModeratorAlerts(existingEvent.eventName, existingEvent.id);
       }
 
       return {
@@ -1882,42 +2070,30 @@ export const resolvers: Resolvers = {
 
       return (rows[0]) || null;
     },
-    // Story 3.6w (AC1, AC3) -- the suggested-match list's Accept/Reject action. ACCEPT merges
-    // the suggestion's eventId (the newly-ingested event, the loser) into its candidateEventId
-    // (the existing event, the winner) via mergeEvents, inside one transaction so the merge and
-    // the suggestion's own status flip commit together. REJECT needs no transaction -- it is a
-    // recorded dismissal with no merge side effects (AC3).
-    resolveSuggestedEventMatch: async (_, { id, action }, context, info) => {
+    // Story 3.6w (AC1, AC3) -- the suggested-match list's Accept/Reject action. The accept/reject
+    // logic lives in `resolveSuggestedMatch` (AD-30 Rule 9), the one entry point every caller
+    // shares; this resolver only opens the transaction, maps its typed errors to GraphQL codes and
+    // shapes the response. ACCEPT merges the suggestion's eventId (the newly-ingested event, the
+    // loser) into its candidateEventId (the existing event, the winner); REJECT is a recorded
+    // dismissal with no merge side effects (AC3). Both run in one transaction with the suggestion
+    // row locked, so a concurrent resolve cannot overwrite this one.
+    resolveSuggestedEventMatch: async (_, { id, action, clues, note }, context, info) => {
       const moderator = requireModerator(context);
 
-      const [suggestion] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id));
-      if (!suggestion) {
-        throw new GraphQLError('Suggested event match not found', { extensions: { code: 'NOT_FOUND' } });
-      }
-      if (suggestion.status !== 'pending') {
-        throw new GraphQLError('This suggestion has already been resolved', { extensions: { code: 'INVALID_STATE_TRANSITION' } });
-      }
-
-      let mergeId: string | null = null;
-      if (action === 'ACCEPT') {
-        try {
-          const { merge } = await db.transaction((tx) =>
-            mergeEvents(tx, suggestion.candidateEventId, suggestion.eventId, moderator.userId, suggestion.id)
-          );
-          mergeId = merge.id;
-        } catch (err) {
-          if (err instanceof EventMergeInvalidStateError) {
-            throw new GraphQLError(err.message, { extensions: { code: 'INVALID_STATE_TRANSITION' } });
-          }
-          throw err;
+      let mergeId: string | null;
+      try {
+        ({ mergeId } = await db.transaction((tx) => resolveSuggestedMatch(tx, { id, action, moderatorId: moderator.userId, clues, note })));
+      } catch (err) {
+        if (err instanceof SuggestedMatchNotFoundError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'NOT_FOUND' } });
         }
-      } else if (action === 'REJECT') {
-        await db
-          .update(eventMatchCandidates)
-          .set({ status: 'rejected', resolvedAt: new Date(), resolvedByModeratorId: moderator.userId })
-          .where(eq(eventMatchCandidates.id, id));
-      } else {
-        throw new GraphQLError('Invalid action', { extensions: { code: 'BAD_REQUEST' } });
+        if (err instanceof SuggestedMatchNotPendingError || err instanceof EventMergeInvalidStateError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'INVALID_STATE_TRANSITION' } });
+        }
+        if (err instanceof SuggestedMatchInvalidActionError || err instanceof DedupDecisionClueError) {
+          throw new GraphQLError(err.message, { extensions: { code: 'BAD_REQUEST' } });
+        }
+        throw err;
       }
 
       const [updatedSuggestion] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id));
@@ -2277,7 +2453,8 @@ export const resolvers: Resolvers = {
       }
 
       const enqueueResults = await Promise.allSettled(
-        postIds.map((id: string) => enqueuePostForProcessing(id).then(() => id))
+        // AD-52 Rule 6: a moderator's selection starts a failed post's attempts over.
+        postIds.map((id: string) => enqueuePostForProcessing(id, { resetLedger: true }).then(() => id))
       );
 
       const succeededIds: string[] = [];
@@ -2314,7 +2491,8 @@ export const resolvers: Resolvers = {
       );
       return updatedPosts.map(p => ({
         ...p,
-        publishedAt: p.publishedAt.toISOString()
+        publishedAt: p.publishedAt.toISOString(),
+        extractionNextAttemptAt: p.extractionNextAttemptAt?.toISOString() ?? null
       }));
     },
     castVote: async (_, { input }, context) => {
@@ -2561,7 +2739,7 @@ export const resolvers: Resolvers = {
     registerEmbedDomain: async (_, { widgetId, pattern }, context) => {
       const authUser = requireAuth(context);
       
-      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       if (!widget) {
         throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
       }
@@ -2744,7 +2922,7 @@ export const resolvers: Resolvers = {
         .where(
           and(
             eq(unprocessedScraperPayloads.id, payloadId),
-            isNull(unprocessedScraperPayloads.deletedAt)
+            activeOnly(unprocessedScraperPayloads)
           )
         )
         .returning({ id: unprocessedScraperPayloads.id });
@@ -2758,6 +2936,38 @@ export const resolvers: Resolvers = {
   },
   Query: {
     health: () => true,
+    job: async (_, { id }, context, info): Promise<any> => {
+      const authUser = requireAuth(context);
+      return readJobById({ userId: authUser.userId, role: authUser.role }, id, { info });
+    },
+    myJobs: async (_, { filter, onlyEnded, first, after }, context, info): Promise<any> => {
+      const authUser = requireAuth(context);
+      const viewer: JobViewer = { userId: authUser.userId, role: authUser.role };
+      assertJobsFilterAllowed(viewer, filter);
+      const offset = decodeActorRunCursor(after);
+      const page = await readMyJobsPage(
+        viewer,
+        { filter, onlyEnded, first, offset },
+        { info, path: 'edges.node' },
+        { wantsTotal: getRequestedFieldNames(info).has('totalCount') }
+      );
+      const edges = page.jobs.map((node, idx) => ({ node, cursor: encodeActorRunCursor(offset + idx + 1) }));
+      return {
+        edges,
+        pageInfo: { hasNextPage: page.hasNextPage, endCursor: edges.length > 0 ? edges[edges.length - 1].cursor : null },
+        totalCount: page.totalCount,
+      };
+    },
+    activeJobs: async (_, { filter, subject, endedWithinMinutes }, context, info): Promise<any> => {
+      const authUser = requireAuth(context);
+      const viewer: JobViewer = { userId: authUser.userId, role: authUser.role };
+      assertJobsFilterAllowed(viewer, filter);
+      return readActiveJobs(viewer, { filter, subject, endedWithinMinutes }, { info });
+    },
+    jobsFinishedSinceLastOpened: async (_, __, context): Promise<number> => {
+      const authUser = requireAuth(context);
+      return countJobsFinishedSinceLastOpened(authUser.userId);
+    },
     myAIEventFilters: async (_, __, context) => {
       const authUser = requireAuth(context);
       const rows = await db.select().from(aiEventFilters)
@@ -2927,7 +3137,8 @@ export const resolvers: Resolvers = {
       return {
         items: itemsWithStatus.map(p => ({
           ...p,
-          publishedAt: p.publishedAt.toISOString()
+          publishedAt: p.publishedAt.toISOString(),
+          extractionNextAttemptAt: p.extractionNextAttemptAt?.toISOString() ?? null
         })),
         nextCursor,
         hasMore
@@ -2944,7 +3155,8 @@ export const resolvers: Resolvers = {
     },
     postReextractionPreview: async (_, { id }, context): Promise<any> => {
       const moderator = requireModerator(context);
-      const job = await getManualExtractionJobStatus(id, moderator.userId);
+      // Story 10.6: a preview lives on the engine job (`reextract-post`) or on a manual job; one read serves both.
+      const job = await getReextractPreviewJobStatus(id, moderator.userId);
       if (!job) {
         throw new GraphQLError('Extraction job not found', { extensions: { code: 'NOT_FOUND' } });
       }
@@ -2958,6 +3170,18 @@ export const resolvers: Resolvers = {
         preview: result
           ? {
               ...result,
+              // A job finished before BUG-099 shipped has no image counts: 0 of 0 shows no warning.
+              imagesAvailable: result.imagesAvailable ?? 0,
+              imagesSent: result.imagesSent ?? 0,
+              // AD-40 Apply: offered while the extraction is still kept, unapplied, and young enough.
+              applicable:
+                job.status === 'SUCCEEDED' &&
+                result.postStored &&
+                Boolean(result.extracted) &&
+                result.extracted!.events.length > 0 &&
+                !result.applied &&
+                Date.now() - (job.completedAt?.getTime() ?? 0) <= REEXTRACT_APPLY_WINDOW_MS,
+              applied: result.applied ? toGraphQLApplySummary(result.applied) : null,
               groupingReason:
                 result.groupingReason && isPostGroupingReason(result.groupingReason)
                   ? postGroupingReasonToGraphQL(result.groupingReason)
@@ -3076,7 +3300,7 @@ export const resolvers: Resolvers = {
     rankedVoteAccounts: async (_, { nearMe, locationPreferenceId }, context, info) => {
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
-        .where(isNull(subscriptions.deletedAt));
+        .where(activeOnly(subscriptions));
       const excludedAccountIds = activeSubs.map(s => s.accountId);
 
       let userId: string | null = null;
@@ -3090,13 +3314,13 @@ export const resolvers: Resolvers = {
       let locationPref: typeof userLocations.$inferSelect | null = null;
       if (nearMe && locationPreferenceId && userId) {
         const [loc] = await db.select().from(userLocations)
-          .where(and(eq(userLocations.id, locationPreferenceId), eq(userLocations.userId, userId), isNull(userLocations.deletedAt)));
+          .where(and(eq(userLocations.id, locationPreferenceId), eq(userLocations.userId, userId), activeOnly(userLocations)));
         if (loc) {
           locationPref = loc;
         }
       }
 
-      const conditions = [isNull(accountVotes.deletedAt)];
+      const conditions = [activeOnly(accountVotes)];
       if (excludedAccountIds.length > 0) {
         conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
       }
@@ -3118,7 +3342,7 @@ export const resolvers: Resolvers = {
           weight: sql<number>`MAX(CASE WHEN ${distanceSql} <= ${callerRadiusKm} THEN 10 ELSE 1 END)`.as('weight')
         })
         .from(userLocations)
-        .where(isNull(userLocations.deletedAt))
+        .where(activeOnly(userLocations))
         .groupBy(userLocations.userId)
         .as('voter_weights');
 
@@ -3171,8 +3395,8 @@ export const resolvers: Resolvers = {
         locationDetails: userLocations.locationDetails,
       })
       .from(accountVotes)
-      .leftJoin(userLocations, and(eq(accountVotes.userId, userLocations.userId), isNull(userLocations.deletedAt)))
-      .where(and(eq(accountVotes.accountId, accountId), isNull(accountVotes.deletedAt)));
+      .leftJoin(userLocations, and(eq(accountVotes.userId, userLocations.userId), activeOnly(userLocations)))
+      .where(and(eq(accountVotes.accountId, accountId), activeOnly(accountVotes)));
 
       const voterLocationsMap = new Map<string, { latitude: number; longitude: number; city?: string; province?: string }>();
       for (const row of votes) {
@@ -3217,10 +3441,10 @@ export const resolvers: Resolvers = {
 
       const activeSubs = await db.select({ accountId: subscriptions.accountId })
         .from(subscriptions)
-        .where(isNull(subscriptions.deletedAt));
+        .where(activeOnly(subscriptions));
       const excludedAccountIds = activeSubs.map(s => s.accountId);
 
-      const conditions = [isNull(accountVotes.deletedAt), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)];
+      const conditions = [activeOnly(accountVotes), eq(socialMediaAccountProfiles.isVerifiedForDiscovery, true)];
       if (excludedAccountIds.length > 0) {
         conditions.push(notInArray(accountVotes.accountId, excludedAccountIds));
       }
@@ -3270,25 +3494,29 @@ export const resolvers: Resolvers = {
     },
     myWidgets: async (_, __, context) => {
       const authUser = requireAuth(context);
-      const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const rows = await db.select().from(widgets).where(and(eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
-    widgetById: async (_, { id }, context) => {
-      const [row] = await db.select().from(widgets).where(and(eq(widgets.id, id), isNull(widgets.deletedAt)));
-      return (row ? { ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null } : null);
+    // Public (Story 6.5a AC6): reads only the columns `PublicWidget` exposes, so the owner never leaves the database.
+    widgetById: async (_, { id }) => {
+      const [row] = await db
+        .select({ id: widgets.id, filters: widgets.filters, displayMode: widgets.displayMode, theme: widgets.theme, createdAt: widgets.createdAt })
+        .from(widgets)
+        .where(and(eq(widgets.id, id), activeOnly(widgets)));
+      return row ? { ...row, createdAt: row.createdAt.toISOString() } : null;
     },
     embedDomainsForWidget: async (_, { widgetId }, context) => {
       const authUser = requireAuth(context);
-      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), isNull(widgets.deletedAt)));
+      const [widget] = await db.select().from(widgets).where(and(eq(widgets.id, widgetId), eq(widgets.ownerUserId, authUser.userId), activeOnly(widgets)));
       if (!widget) {
         throw new GraphQLError('Widget not found or unauthorized', { extensions: { code: 'NOT_FOUND' } });
       }
-      const rows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+      const rows = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), activeOnly(embedDomains)));
       return rows.map(row => ({ ...row, createdAt: row.createdAt.toISOString(), deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null }));
     },
     isOriginAllowedForWidget: async (_, { widgetId, origin }) => {
       const cleanOrigin = origin.toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
-      const activePatterns = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), isNull(embedDomains.deletedAt)));
+      const activePatterns = await db.select().from(embedDomains).where(and(eq(embedDomains.widgetId, widgetId), activeOnly(embedDomains)));
       
       for (const row of activePatterns) {
         const pattern = row.pattern.toLowerCase();
@@ -3380,17 +3608,15 @@ export const resolvers: Resolvers = {
         hidePastEventsAfterDays = settings.hidePastEventsAfterDays;
       }
 
-      // Compute threshold precisely matching buildDefaultEventVisibilityConditions --
-      // both now use the shared computePastEventThreshold helper (Story 0.36 AC6).
+      // The one captured `now` for this request. `buildDefaultEventVisibilityConditions` and the
+      // `isPastEvent` expression below both take their cutoff from this instant, in each
+      // schedule's own timezone (BUG-096, `buildPastCutoffDateSql`), so they stay complements.
       // Story 0.i5d Task 3: allow tests to pin `now` via `context.now` so the TODAY
       // temporal-filter's `!ended` boundary can be asserted deterministically against the
       // shared `ended-cases` fixture. Only honored in test builds -- never exposed as GraphQL
       // input, so this cannot be influenced by a real client request.
-      const now =
-        process.env.NODE_ENV === 'test' && (context as GraphQLContext & { now?: Date })?.now instanceof Date
-          ? (context as GraphQLContext & { now: Date }).now
-          : new Date();
-      const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
+      const now = resolveRequestNow(context);
+      const pastCutoff = { instant: now.toISOString(), hidePastEventsAfterDays };
 
       // Story 2.7 — the display/sort key uses the next-upcoming schedule,
       // defined as one whose (end ?? start) date is today or later (UTC),
@@ -3506,6 +3732,9 @@ export const resolvers: Resolvers = {
           startCol: schedules.eventStartDate,
           endCol: schedules.eventEndDate,
           applicableDaysOfWeekCol: schedules.applicableDaysOfWeek,
+          // BUG-096: lets the default-visibility `overlaps` cutoff read each schedule's own zone.
+          timezoneCol: schedules.timezone,
+          timezoneStatusCol: schedules.timezoneStatus,
         },
         // Story 0.i5d (AD-20 Rule 2/4) -- the TODAY temporal-filter bucket's `!ended` boundary.
         // Extends the same fieldMap-descriptor-to-EXISTS-subquery pattern `scheduleDateRange`
@@ -3565,7 +3794,7 @@ export const resolvers: Resolvers = {
               eq(reports.eventId, events.id)
             ))
         ) : sql`false`,
-        isPastEvent: sql`NOT EXISTS (SELECT 1 FROM ${schedules} WHERE ${schedules.eventId} = ${events.id} AND daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${threshold}::date, NULL, '[]'))`,
+        isPastEvent: sql`NOT EXISTS (SELECT 1 FROM ${schedules} WHERE ${schedules.eventId} = ${events.id} AND daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${buildPastCutoffDateSql(pastCutoff, schedules.timezone, schedules.timezoneStatus)}, NULL, '[]'))`,
         isHiddenByModeration: sql`(${events.deletedAt} IS NOT NULL)`
       };
 
@@ -3937,6 +4166,10 @@ export const resolvers: Resolvers = {
               LIMIT 1) ASC
           `);
         } else {
+          // The key is a date, and hundreds of events share one, so it alone is not a total order:
+          // under LIMIT/OFFSET Postgres may break the ties differently per page, which repeated one
+          // card and skipped another while Discovery scrolled (2026-10-30: one pass over 664 rows held
+          // 614 distinct events). `events.id` as the last key makes the order total.
           itemsQuery.orderBy(sql`
             COALESCE(
               (SELECT s2.event_start_date FROM schedules s2
@@ -3952,7 +4185,8 @@ export const resolvers: Resolvers = {
                 WHERE s4.event_id = ${events.id}
                 ORDER BY s4.event_start_date ASC, s4.event_start_time ASC NULLS LAST
                 LIMIT 1)
-            ) ASC
+            ) ASC,
+            ${events.id} ASC
           `);
         }
       }
@@ -4300,7 +4534,7 @@ export const resolvers: Resolvers = {
           .innerJoin(events, eq(events.id, eventPosts.eventId))
           .where(and(
             eq(eventPosts.postId, postId),
-            isNull(events.deletedAt),
+            activeOnly(events),
             isNull(events.mergedIntoEventId)
           ));
 
@@ -4308,7 +4542,8 @@ export const resolvers: Resolvers = {
           return [];
         }
 
-        return [{ postId, eventIds: rows.map((row) => row.eventId) }];
+        const progress = await postExtractionProgressByPostId([postId]);
+        return [{ postId, eventIds: rows.map((row) => row.eventId), extractionProgress: progress.get(postId) ?? 'COMPLETE' }];
       }
 
       const ep1 = alias(eventPosts, 'ep1');
@@ -4321,7 +4556,7 @@ export const resolvers: Resolvers = {
         .where(and(
           eq(ep1.eventId, eventId!),
           ne(eventPosts.eventId, eventId!),
-          isNull(events.deletedAt),
+          activeOnly(events),
           isNull(events.mergedIntoEventId)
         ));
 
@@ -4332,7 +4567,12 @@ export const resolvers: Resolvers = {
         groups.set(row.postId, list);
       }
 
-      return [...groups.entries()].map(([postId, eventIds]) => ({ postId, eventIds }));
+      const progress = await postExtractionProgressByPostId([...groups.keys()]);
+      return [...groups.entries()].map(([postId, eventIds]) => ({
+        postId,
+        eventIds,
+        extractionProgress: progress.get(postId) ?? 'COMPLETE',
+      }));
     },
     // Story 3.6x (AC1) — backend-only lookup powering the Post Collection Page route's
     // generateMetadata/content fetch. Reuses the existing EventSourcePost type (Story 3.6u);
@@ -4431,7 +4671,7 @@ export const resolvers: Resolvers = {
       const limit = (first || 10) + 1; // +1 to detect hasNextPage
       const offset = decodeActorRunCursor(after);
 
-      const conditions = [isNull(unprocessedScraperPayloads.deletedAt)];
+      const conditions = [activeOnly(unprocessedScraperPayloads)];
 
       if (filters?.source) {
         conditions.push(
@@ -4460,14 +4700,14 @@ export const resolvers: Resolvers = {
         .select()
         .from(unprocessedScraperPayloads)
         .where(and(...conditions))
-        .orderBy(desc(unprocessedScraperPayloads.createdAt))
+        .orderBy(desc(unprocessedScraperPayloads.createdAt), desc(unprocessedScraperPayloads.id))
         .limit(limit)
         .offset(offset);
 
       const hasNextPage = rows.length > (first || 10);
       const edges = rows.slice(0, first || 10).map((row, idx) => ({
         node: row,
-        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        cursor: encodeActorRunCursor(offset + idx + 1),
       }));
 
       const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
@@ -4530,14 +4770,14 @@ export const resolvers: Resolvers = {
         .select()
         .from(scraperActorRuns)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(scraperActorRuns.createdAt))
+        .orderBy(desc(scraperActorRuns.createdAt), desc(scraperActorRuns.id))
         .limit(limit)
         .offset(offset);
 
       const hasNextPage = rows.length > (first || 10);
       const edges = rows.slice(0, first || 10).map((row, idx) => ({
         node: row,
-        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        cursor: encodeActorRunCursor(offset + idx + 1),
       }));
 
       const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
@@ -4579,7 +4819,7 @@ export const resolvers: Resolvers = {
         .select()
         .from(socialMediaAccountProfiles)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(asc(socialMediaAccountProfiles.displayName))
+        .orderBy(asc(socialMediaAccountProfiles.displayName), asc(socialMediaAccountProfiles.id))
         .limit(limit)
         .offset(offset);
 
@@ -4591,7 +4831,7 @@ export const resolvers: Resolvers = {
         }
         return {
           node,
-          cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+          cursor: encodeActorRunCursor(offset + idx + 1),
         };
       });
 
@@ -4621,7 +4861,7 @@ export const resolvers: Resolvers = {
         .select()
         .from(eventMatchCandidates)
         .where(eq(eventMatchCandidates.status, 'pending'))
-        .orderBy(asc(eventMatchCandidates.createdAt))
+        .orderBy(asc(eventMatchCandidates.createdAt), asc(eventMatchCandidates.id))
         .limit(limit)
         .offset(offset);
 
@@ -4645,7 +4885,7 @@ export const resolvers: Resolvers = {
           status: row.status,
           createdAt: row.createdAt.toISOString(),
         },
-        cursor: Buffer.from((offset + idx).toString()).toString('base64'),
+        cursor: encodeActorRunCursor(offset + idx + 1),
       }));
 
       const endCursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
@@ -4702,6 +4942,11 @@ export const resolvers: Resolvers = {
     expression: (parent) => resolveStoredFilter(parent.filters).expression as FilterNode,
     createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
     deletedAt: (parent) => parent.deletedAt instanceof Date ? parent.deletedAt.toISOString() : (parent.deletedAt || null),
+  },
+  PublicWidget: {
+    filters: (parent) => resolveStoredFilter(parent.filters).flatFilter as EventFilter | null,
+    expression: (parent) => resolveStoredFilter(parent.filters).expression as FilterNode,
+    createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
   },
   EmbedDomain: {
     createdAt: (parent) => parent.createdAt instanceof Date ? parent.createdAt.toISOString() : parent.createdAt,
@@ -5017,15 +5262,15 @@ export const resolvers: Resolvers = {
 
         // Own independent `now()` capture — this is a separate resolver invocation/request,
         // not sharing Query.events' request lifecycle (Story 0.36 AC7 Dev Notes).
-        const now = new Date();
-        const threshold = computePastEventThreshold({ now, hidePastEventsAfterDays });
+        const now = resolveRequestNow(context);
+        const pastCutoff = { instant: now.toISOString(), hidePastEventsAfterDays };
 
         // Negated past-event overlaps check
         const rows = await db.select({ id: schedules.id })
           .from(schedules)
           .where(and(
             eq(schedules.eventId, parent.id),
-            sql`daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${threshold}::date, NULL, '[]')`
+            sql`daterange(${schedules.eventStartDate}, COALESCE(${schedules.eventEndDate}, ${schedules.eventStartDate}), '[]') && daterange(${buildPastCutoffDateSql(pastCutoff, schedules.timezone, schedules.timezoneStatus)}, NULL, '[]')`
           ));
         return rows.length === 0;
       } catch {

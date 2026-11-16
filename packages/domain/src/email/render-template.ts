@@ -1,3 +1,4 @@
+import { capSubject, escapeHtml, sanitizeSubjectValue } from './escape-html.js';
 import { EMAIL_TEMPLATES } from './templates.js';
 import { EmailTemplateKey, EmailTemplateVariables, RenderedEmail } from './types.js';
 
@@ -12,7 +13,9 @@ export function renderEmailTemplate<K extends EmailTemplateKey>(
 
   const vars = variables as Record<string, unknown>;
 
-  const render = (content: string): string => {
+  // Each part gets its own value transform (Story 0.i1a, FIND-021): html escapes, subject loses line breaks,
+  // text (text/plain, never interpreted by a mail client) is left as is.
+  const render = (content: string, transform: (value: string) => string): string => {
     const placeholderRegex = /\{\{([a-zA-Z0-9_]+)\}\}/g;
     const missingKeys: string[] = [];
     
@@ -32,13 +35,13 @@ export function renderEmailTemplate<K extends EmailTemplateKey>(
     }
 
     return content.replace(placeholderRegex, (_, key) => {
-      return String(vars[key]);
+      return transform(String(vars[key]));
     });
   };
 
-  const subject = render(template.subject);
-  const html = render(template.html);
-  const text = render(template.text);
+  const subject = capSubject(render(template.subject, sanitizeSubjectValue));
+  const html = render(template.html, escapeHtml);
+  const text = render(template.text, (value) => value);
 
   return {
     subject,

@@ -15,6 +15,10 @@ export interface UserMenuProps {
   role?: string;
   /** Combined pending-item count (PRD Section 3.9.3), shown next to "Moderator Items" only. */
   moderatorPendingItemCount?: number;
+  /** Jobs that ended since the Jobs page was last opened (Story 10.13), shown next to "Jobs" only. 0 or undefined: no badge. */
+  jobsBadgeCount?: number;
+  /** The full sentence for the count ("3 jobs finished since you last looked"), read by assistive technology as part of the entry's name. */
+  jobsBadgeLabel?: string;
   onSignOut: () => void;
   renderLink: React.ComponentType<{
     href: string;
@@ -35,6 +39,8 @@ export function UserMenu({
   displayName,
   role,
   moderatorPendingItemCount = 0,
+  jobsBadgeCount = 0,
+  jobsBadgeLabel,
   onSignOut,
   renderLink: Link,
   labels,
@@ -107,6 +113,7 @@ export function UserMenu({
       {/* Main Menu Container */}
       <div
         ref={menuRef}
+        data-testid="user-menu"
         className={`fixed inset-x-0 bottom-0 max-h-[80vh] bg-popover text-popover-foreground rounded-t-xl shadow-2xl border-t border-border ${OVERLAY_MODAL_Z} flex flex-col md:absolute md:inset-auto md:bottom-14 md:start-16 xl:start-4 xl:bottom-16 md:w-64 md:rounded-lg md:border md:py-2 md:shadow-lg transition-transform duration-200`}
       >
         {/* Mobile Header (with Close Button) */}
@@ -144,7 +151,7 @@ export function UserMenu({
         </div>
 
         {/* Links List */}
-        <ul className="flex-1 overflow-y-auto px-2 md:px-1 space-y-0.5">
+        <ul className="flex-1 min-h-0 overflow-y-auto px-2 md:px-1 space-y-0.5">
           {visibleEntries.map((entry, index) => {
             const Icon = entry.icon;
             const isFirst = index === 0;
@@ -170,6 +177,15 @@ export function UserMenu({
                     <span className="flex-1">{labels[entry.labelKey] || entry.labelKey}</span>
                     {entry.id === 'moderator-items' && (
                       <CountBadge count={moderatorPendingItemCount} />
+                    )}
+                    {entry.id === 'jobs' && jobsBadgeCount > 0 && (
+                      <>
+                        {/* The number is text, never colour alone; the sentence is the accessible name's second half. */}
+                        <span aria-hidden="true">
+                          <CountBadge count={jobsBadgeCount} />
+                        </span>
+                        {jobsBadgeLabel && <span className="sr-only">{jobsBadgeLabel}</span>}
+                      </>
                     )}
                   </Link>
                 </li>

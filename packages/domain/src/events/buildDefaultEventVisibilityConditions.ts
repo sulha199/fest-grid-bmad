@@ -20,7 +20,9 @@ export function buildDefaultEventVisibilityConditions({
     {
       field: 'scheduleDateRange',
       operator: 'overlaps',
-      value: { from: threshold, to: null },
+      // BUG-096: `from` is the UTC-date cutoff; `pastCutoff` makes the filter judge each
+      // schedule's last day in the schedule's own timezone, like the card's "Ended" label.
+      value: { from: threshold, to: null, pastCutoff: { instant: now.toISOString(), hidePastEventsAfterDays } },
     },
   ];
 

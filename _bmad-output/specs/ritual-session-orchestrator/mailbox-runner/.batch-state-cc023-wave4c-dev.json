@@ -1,0 +1,57 @@
+{
+  "createdAt": "2026-10-03T10:46:40.128626Z",
+  "mode": "stories",
+  "modeValue": [
+    "3.6m",
+    "3.6p",
+    "0.46",
+    "3.6n",
+    "3.6o"
+  ],
+  "epicsFile": "C:/projects/portfolio/festgrid/bmad/_bmad-output/planning-artifacts/epics.md",
+  "implementationArtifacts": "C:/projects/portfolio/festgrid/bmad/_bmad-output/implementation-artifacts",
+  "order": [
+    "3.6m",
+    "3.6p",
+    "0.46",
+    "3.6n",
+    "3.6o"
+  ],
+  "context": {
+    "3.6m": {
+      "bmad-dev-story": "Wave 4C of _bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md (CC-023 tail). Implement DIRECTLY in the main repo; do NOT delegate to cline-cli or scripts/cline-worktree.ps1. Run tests FOREGROUND ONLY and TARGETED (the story's own test files plus the files it touches), never the whole repo; never end your turn while anything is still running (a headless turn that ends on a background task leaves the story half-recorded). Finish ALL bookkeeping before stopping: tick tasks, fill the Dev Agent Record and File List, set the story Status to review, set sprint-status.yaml to review, commit. Known environment failures that are NOT yours: the 4 backend system-key-adapter tests (.env defines SYSTEM_GEMINI_API_KEY, FIND-063); run tests with TZ=UTC. Lint and the whole-repo build/test run once at batch end, not per story. Migrations: packages/database/migrations is at 0067, so the next is 0068, but generate it with drizzle-kit instead of hand-writing it. Use the local DB via .env DATABASE_URL (native Windows Postgres service postgresql-x64-18). If the story's Pre-Coding Approval Gate asks for approval, relay it to the user via AskUserQuestion with your proposed scope; do not self-approve. This story is log-only backend/pipeline: no apps/web or UI change, no DB write (persistence is Story 3.6p). Its story file was refreshed against the 3.6s events[] shape on 2026-10-03; trust it over any older assumption."
+    },
+    "3.6p": {
+      "bmad-dev-story": "Wave 4C of _bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md (CC-023 tail). Implement DIRECTLY in the main repo; do NOT delegate to cline-cli or scripts/cline-worktree.ps1. Run tests FOREGROUND ONLY and TARGETED (the story's own test files plus the files it touches), never the whole repo; never end your turn while anything is still running (a headless turn that ends on a background task leaves the story half-recorded). Finish ALL bookkeeping before stopping: tick tasks, fill the Dev Agent Record and File List, set the story Status to review, set sprint-status.yaml to review, commit. Known environment failures that are NOT yours: the 4 backend system-key-adapter tests (.env defines SYSTEM_GEMINI_API_KEY, FIND-063); run tests with TZ=UTC. Lint and the whole-repo build/test run once at batch end, not per story. Migrations: packages/database/migrations is at 0067, so the next is 0068, but generate it with drizzle-kit instead of hand-writing it. Use the local DB via .env DATABASE_URL (native Windows Postgres service postgresql-x64-18). If the story's Pre-Coding Approval Gate asks for approval, relay it to the user via AskUserQuestion with your proposed scope; do not self-approve. Story 3.6m is built just before this. writeExtractionAuditLog must RETURN the inserted row id (3.6n and 3.6o target the exact row through it). No resolver or GraphQL field may ever read extraction_audit_logs (AD-29 Rule 5)."
+    },
+    "0.46": {
+      "bmad-dev-story": "Wave 4C of _bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md (CC-023 tail). Implement DIRECTLY in the main repo; do NOT delegate to cline-cli or scripts/cline-worktree.ps1. Run tests FOREGROUND ONLY and TARGETED (the story's own test files plus the files it touches), never the whole repo; never end your turn while anything is still running (a headless turn that ends on a background task leaves the story half-recorded). Finish ALL bookkeeping before stopping: tick tasks, fill the Dev Agent Record and File List, set the story Status to review, set sprint-status.yaml to review, commit. Known environment failures that are NOT yours: the 4 backend system-key-adapter tests (.env defines SYSTEM_GEMINI_API_KEY, FIND-063); run tests with TZ=UTC. Lint and the whole-repo build/test run once at batch end, not per story. Migrations: packages/database/migrations is at 0067, so the next is 0068, but generate it with drizzle-kit instead of hand-writing it. Use the local DB via .env DATABASE_URL (native Windows Postgres service postgresql-x64-18). If the story's Pre-Coding Approval Gate asks for approval, relay it to the user via AskUserQuestion with your proposed scope; do not self-approve. Infrastructure story: AWS CDK in apps/infrastructure/lib/festgrid-backend-stack.ts, tests in festgrid-backend-stack.test.ts. Do the measurements the ACs require as far as you can locally (a local script for peak memory and WASM latency on real fixtures, cdk synth for asset contents and bundle size). NEVER deploy and never touch AWS resources. AC2(b) (sharp loading in the real Lambda runtime) needs a deployed non-prod stage or the Lambda container image: if you cannot satisfy it locally, STOP and ask the user via AskUserQuestion; do not tick it as done. The WASM backend (tfjs-backend-wasm) is already decided."
+    },
+    "3.6n": {
+      "bmad-dev-story": "Wave 4C of _bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md (CC-023 tail). Implement DIRECTLY in the main repo; do NOT delegate to cline-cli or scripts/cline-worktree.ps1. Run tests FOREGROUND ONLY and TARGETED (the story's own test files plus the files it touches), never the whole repo; never end your turn while anything is still running (a headless turn that ends on a background task leaves the story half-recorded). Finish ALL bookkeeping before stopping: tick tasks, fill the Dev Agent Record and File List, set the story Status to review, set sprint-status.yaml to review, commit. Known environment failures that are NOT yours: the 4 backend system-key-adapter tests (.env defines SYSTEM_GEMINI_API_KEY, FIND-063); run tests with TZ=UTC. Lint and the whole-repo build/test run once at batch end, not per story. Migrations: packages/database/migrations is at 0067, so the next is 0068, but generate it with drizzle-kit instead of hand-writing it. Use the local DB via .env DATABASE_URL (native Windows Postgres service postgresql-x64-18). If the story's Pre-Coding Approval Gate asks for approval, relay it to the user via AskUserQuestion with your proposed scope; do not self-approve. Prerequisites 0.46 (Lambda runtime) and 3.6p (extraction_audit_logs writer returning the row id) are built before this. Pipeline only: the read path, GraphQL field, resolveServedImageUrl and prominentPoster are Story 3.6n2, not this story. This story also owns the 'no_face_reported' and real-count audit backfills (AD-29, decided with the user 2026-10-03)."
+    },
+    "3.6o": {
+      "bmad-dev-story": "Wave 4C of _bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md (CC-023 tail). Implement DIRECTLY in the main repo; do NOT delegate to cline-cli or scripts/cline-worktree.ps1. Run tests FOREGROUND ONLY and TARGETED (the story's own test files plus the files it touches), never the whole repo; never end your turn while anything is still running (a headless turn that ends on a background task leaves the story half-recorded). Finish ALL bookkeeping before stopping: tick tasks, fill the Dev Agent Record and File List, set the story Status to review, set sprint-status.yaml to review, commit. Known environment failures that are NOT yours: the 4 backend system-key-adapter tests (.env defines SYSTEM_GEMINI_API_KEY, FIND-063); run tests with TZ=UTC. Lint and the whole-repo build/test run once at batch end, not per story. Migrations: packages/database/migrations is at 0067, so the next is 0068, but generate it with drizzle-kit instead of hand-writing it. Use the local DB via .env DATABASE_URL (native Windows Postgres service postgresql-x64-18). If the story's Pre-Coding Approval Gate asks for approval, relay it to the user via AskUserQuestion with your proposed scope; do not self-approve. Layers on Story 3.6n (built just before). Owns ONLY the 'event_relevance_gate' audit outcome. Confirm 3.6n actually shipped its own backfill scope before starting, as the story's prerequisite-check task says."
+    }
+  },
+  "progress": {
+    "3.6m": {
+      "bmad-dev-story": "done (b7d6fb3a, review; targeted tests 18/18, 9/9, 30/30; empty final-result text but commit + story record + sprint status verified)"
+    },
+    "3.6p": {
+      "bmad-dev-story": "done (af8bafe6, review; migration 0068; targeted tests 56/56 over 7 files; gate approved by orchestrator under standing pre-approval)"
+    },
+    "0.46": {
+      "bmad-dev-story": "done (c19ff31b, review). Needed 3 resumes: monitor 30-min caps killed only the wrapper and left THREE duplicate agents (stopped by orchestrator). AC6 fixed by esbuild-bundling the real tfjs/face-api: 33 MB unzipped / 13.45 MB zipped (was 328/83). AC2(b) proven in the local Lambda container image. Infra tests 6/6."
+    },
+    "3.6n": {
+      "bmad-dev-story": "done (6672de14, review). One resume (child ended a turn on a background task). Scope addition approved by user. Asset 34.5 MB unzipped / 13.53 MB zipped. Orchestrator re-verified: scope (read path untouched); the 6 resolvers.test.ts failures were a stale gitignored dist of @festgrid/graphql-select (rebuilt: 91/91)."
+    },
+    "3.6o": {
+      "bmad-dev-story": "done (b9d19259, review; domain 415/415, backend 963/969 incl. 4 known FIND-063; scope verified: no schema/migration/read-path/UI). Gate approved by orchestrator under standing pre-approval."
+    }
+  },
+  "config": "all-claude-medium",
+  "note": "Hand-written order (resolve-targets false-cycles 3.6m<->3.6p, see the create-story state file). Fully sequential. Plain dispatch-ritual (no per-item auto check gate), following the CC-024 Wave 2A precedent: known environment failures would make an auto quick-dev fix chase env problems; whole-repo lint/build/test run once at batch end (TZ=UTC, seed:volume cleaned), tolerating the 4 key-test failures. USER PRE-APPROVED the dev-story Pre-Coding Approval Gate for 3.6m, 3.6p, 0.46, 3.6n, 3.6o (2026-10-03) provided each proposed scope matches its story file; stop and ask if a child proposes more. 0.46 still stops for AC2(b).",
+  "gate": "BATCH COMPLETE 2026-10-03. Step 4.5: lint 8/8, build 8/8, tests 11/12 tasks (808s): backend 969/963 pass/4 fail = only the known FIND-063 system-key-adapter tests; domain 415, ui 824, web 550, database 10, infrastructure 6, graphql-select 41, visual-audit 41, analytics 2 all pass."
+}

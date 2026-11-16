@@ -753,22 +753,22 @@ Not implemented here per this investigation's explicit scope (investigation only
 
 - source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
   summary: `resolveStoredFilter` repairs a stored filter that no longer validates and sets `degraded: true`, but no resolver, page or widget reads the flag, so the saved filter is silently replaced by a wider one and a re-save makes it permanent.
-  evidence: Surfaced by Acceptance Auditor (domain), Blind Hunter and Edge Case Hunter; confirmed by `grep degraded`. Exposing it needs a GraphQL field on `AIEventFilter` / `Widget` and a notice on the settings row; the repaired tree is at least what the page both shows and applies. (FIND-097)
+  evidence: Surfaced by Acceptance Auditor (domain), Blind Hunter and Edge Case Hunter; confirmed by `grep degraded`. Exposing it needs a GraphQL field on `AIEventFilter` / `Widget` and a notice on the settings row; the repaired tree is at least what the page both shows and applies. (FIND-089)
 - source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
   summary: Five low items: the drift signature compares syntax, not meaning (`AND(type, OR(cat, cat))` vs `OR(AND(type, cat), AND(type, cat))` read as drift); `MAX_RADIUS_METERS` is declared in two domain files; `TODAY + 2 MONTH` renders "the next 2 months" though the window ends at the end of next month; FilterHub's "Show more" uses a character threshold, not a measured clip; the overlay hides Save for an empty extraction without saying why.
-  evidence: Surfaced by Blind Hunter, Edge Case Hunter and Acceptance Auditor. None changes a result. (FIND-098)
+  evidence: Surfaced by Blind Hunter, Edge Case Hunter and Acceptance Auditor. None changes a result. (FIND-090)
 - source_spec: `_bmad-output/implementation-artifacts/epic-9-code-review-2026-10-23.md`
   summary: RESOLVED (product owner chose to apply the qualifier to the whole group; fixed in the transform, Story 9.4 amended). Leaf fields written on an OR node beside its `children` are joined to that OR as additional alternatives, so `{op:'OR', children:[jazz, blues], isFree:true}` becomes `OR(jazz, blues, isFree)`.
-  evidence: Reproduced by Edge Case Hunter. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess about the model's intent. (FIND-099)
+  evidence: Reproduced by Edge Case Hunter. It is Story 9.4's deliberate literal reading with a covering test, so it was not changed on a guess about the model's intent. (FIND-091)
 
 ## Deferred from: code review of the BUG-074/BUG-075/IDEA-095 hotfix (2026-10-22)
 
 - source_spec: `_bmad-output/implementation-artifacts/backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md`
   summary: Any zero-record Bright Data snapshot without `error_codes.dead_page` is classed a vendor failure (FAILED, job expired, profile re-queued), a rule measured on a handful of snapshots on one day and undocumented by Bright Data; a profile that reports a different code, or a private or restricted one, would fail and re-queue daily.
-  evidence: Surfaced by Blind Hunter. The fail-closed whitelist is the spec's own rule (BUG-074 section 5.3, "treat as provisional"); the cost of a wrong verdict is one Apify sync run per affected profile, behind the budget guard. Needs Bright Data's confirmation of the signature, and the stored class and evidence of IDEA-098 to audit drift.
+  evidence: Surfaced by Blind Hunter. The fail-closed whitelist is the spec's own rule (BUG-074 section 5.3, "treat as provisional"); the cost of a wrong verdict is one Apify sync run per affected profile, behind the budget guard. Needs Bright Data's confirmation of the signature, and the stored class and evidence of IDEA-261022-sdx to audit drift.
 - source_spec: `_bmad-output/implementation-artifacts/backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md`
   summary: Each vendor failure re-queues its profile to SQS at once and also leaves its job EXPIRED for the next batch, so a profile can be scraped twice (on Apify and again on the next batch), and nothing de-duplicates the queue message.
-  evidence: Surfaced by Blind Hunter and the architecture review. By design for the hotfix (IDEA-095: re-scrape the failed profile on the other provider) and bounded by the new-posts cursor and the Apify budget guard; the atomic-claim and shared-handler work of BUG-078 removes the double enqueue.
+  evidence: Surfaced by Blind Hunter and the architecture review. By design for the hotfix (IDEA-095: re-scrape the failed profile on the other provider) and bounded by the new-posts cursor and the Apify budget guard; the atomic-claim and shared-handler work of BUG-261022-a2z removes the double enqueue.
 - source_spec: `_bmad-output/implementation-artifacts/backlog/BUG-074-bright-data-zero-record-runs-succeed-and-the-cursor-is-a-run-timestamp.md`
   summary: The stale-job sweep trusts `getBrightDataSnapshot` to return an array: a JSON object (for example a 202 "not ready" body) makes `output.items.length` undefined, classification is skipped, the run is stored SUCCEEDED with a null count, and `processBrightDataResult` throws on a non-iterable so the job stays PENDING and is retried hourly.
   evidence: Surfaced by Edge Case Hunter. Pre-existing (the sweep never validated the body); the webhook path now guards with `Array.isArray`. Fix by validating in `getBrightDataSnapshot` and treating a non-array as "not ready".
@@ -799,4 +799,216 @@ Not implemented here per this investigation's explicit scope (investigation only
 - source_spec: `_bmad-output/implementation-artifacts/spec-e2e-fake-auth-fixture.md`
   summary: The fake-auth stub serves only the JWKS: it does not emulate `/auth/v1/user` or `/auth/v1/token`, so a future `auth.getUser()` or token refresh in the app would treat the fake session as signed out; the stub port (54321) is fixed and not configurable.
   evidence: Surfaced by Blind Hunter and Edge Case Hunter. The app today only calls `getSession()` (verified by grep) and the minted tokens last 30 days, so nothing breaks now; the port clash now fails with an explanatory message.
+
+
+## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-pipeline (2026-10-30)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: Piece B of the AI-assisted dedup review: the dark bridge -- domain contract (decision validator, cap, evidence hash), export and apply scripts, the two GitHub Actions workflows, a dedicated environment and moderator user, a deterministic floor and per-day cap, the new AD, the PRD amendment and docs.
+  evidence: Split from Piece A (shared `resolveSuggestedMatch`) after an architecture review and an adversarial code review both advised a split: A changes the live moderator mutation, B is the only DB-write bridge. All review requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 5. Depends on A.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: Piece C of the AI-assisted dedup review: the `moderator-dedup-review` skill, escalation issues and labels, the rolling `dedup-insight` issue and shadow-mode acceptance; `review-insights` (C2) follows once labelled issues exist.
+  evidence: Split from the same spec: C cannot be accepted until B's workflows are on `master`, and it is prose rather than code. Requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 6. Depends on B.
+
+## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-pipeline (2026-10-30)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: The backlog drain (`drain-match-backlog.ts`) calls `mergeEvents(..., suggestionId)` directly, so it takes no suggestion row lock, and `mergeEvents` step 11 flips the suggestion to `accepted` with no `status = 'pending'` guard; a drain can overwrite a moderator's concurrent REJECT or double-merge against a concurrent accept.
+  evidence: Surfaced by Edge Case Hunter and Blind Hunter. Pre-existing (the drain and step 11 predate this change); the spec forbids new callers of `resolveSuggestedMatch` and changes to `mergeEvents`. Fix: route the drain through `resolveSuggestedMatch(executor, ...)` and add the pending guard to step 11.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: The suggestion row lock does not cover the two events: `assertMergeable` reads them unlocked, so two different pending suggestions that share an event (X into W1 and X into W2), resolved concurrently, can both pass the check and merge X twice or hit a unique violation.
+  evidence: Surfaced by Edge Case Hunter and Blind Hunter. Pre-existing inside `mergeEvents` (Ask First in the spec); the new function does not make it worse. Fix: lock both event rows in id order before the mergeable check.
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: `trigger-brightdata-for-target.test.ts` "returns CAPACITY_EXHAUSTED when capacity unavailable" fails in the cloud sandbox (it gets `TRIGGER_ERROR`, so `isProviderCapacityAvailable('brightdata')` throws), and fails the same way on the pre-change source.
+  evidence: Found by the lint/build/test gate, not by review; reproduced at baseline commit 640aeed with this change's source reverted. Cause not investigated. Update 2026-10-30: CI passes this test on the PR head, so it is specific to the cloud sandbox (state or environment), not a defect on master. The rest of the backend suite passed (1,721 of 1,727, 4 skipped).
+
+## Deferred from: bmad-quick-dev gate after merging master into the shared accept/reject change (2026-10-30)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-pipeline.md`
+  summary: Two `scraper.test.ts` tests fail on origin/master as merged (e0a0b10): "the batch row records why a cycle found no targets, and only then" and its parent "scraper lambda daily-batch branch: scheduled cycle vs manual invoke (2026-10-24)"; the logged cutoff is `1999-12-31T23:00:00.000Z` where the test expects `2000-01-01T00:00:00.000Z`, one hour earlier.
+  evidence: Found by the backend test gate; reproduced by running the file against master's own `apps/backend/src` (24 pass, 2 fail) with `TZ=UTC`. Not in the earlier run before master's scraper commit a5cfa20, so it first looked like a code-versus-test mismatch from that commit; update 2026-10-30: CI passes both tests on the PR head, so this is specific to the cloud sandbox and not a master defect. Cause not found.
+
+## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-export (2026-10-31)
+
+- source_spec: none
+  summary: Piece B2 of the AI-assisted dedup review: the apply side -- the decision validator, per-run and per-day caps and deterministic floor (in `packages/domain`), the apply script and its `validate`/`apply` workflow, the dedicated `dedup-review` environment and moderator account wiring, the new AD, the PRD amendment, `3-database.md` and the runbook.
+  evidence: Split from Piece B1 (the read-only export side) at the multi-goal check: B1 is shippable and verifiable alone by running it once on prod, which also settles the read-only role and `similarity()` question, while B2 is the only write path. Requirements are in `_bmad-output/specs/ai-dedup-review/DESIGN.md` section 5 (items 1, 3 and 5 to 11). Depends on B1's evidence hash and contract.
+
+## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-export (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-export.md`
+  summary: Every workflow that holds a database or cloud secret runs `pnpm install --frozen-lockfile` (dependency lifecycle scripts) and third-party actions pinned by tag before the step that uses the secret, so install-time code could read or misuse it.
+  evidence: Surfaced by Blind Hunter on the new export workflow, which follows the same pattern as `merge-twin-profiles.yml` and the backfill workflows (the older ones hold the full-privilege `DATABASE_URL`). Fix across all workflows: `pnpm install --ignore-scripts` where the build allows it, pin actions by commit SHA, and keep secrets out of any step that runs before the install.
+
+## Deferred from: bmad-quick-dev split of spec-reextract-read-all-slide-images (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
+  summary: Moderator Apply for re-extract: apply the previewed extraction in one transaction so a post first stored as one event becomes a roundup linked to several events, reusing the post's existing events (id, slug, favorites, calendar entries survive) as stubs and ingesting the rest as new stub events.
+  evidence: Split from the slide-image fix at the multi-goal check: the fix is shippable alone, and Apply is only reliable once every slide is read, while Apply is the only write path (AD-40 amendment, shared ingestion write function, `(post, ordinal)` unique handling, an undo question). The design draft is `_bmad-output/specs/reextract-apply-roundup/DESIGN.md`.
+
+## Deferred from: bmad-quick-dev review of spec-reextract-read-all-slide-images (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
+  summary: Two moderators, or a double click, on the same stale post inside a few seconds both pass the rescrape cooldown (the check runs before the scrape, and the job row is inserted after it) and both call `getPostByUrl`, doubling the scraper credit.
+  evidence: Surfaced by Edge Case Hunter. Pre-existing for posts with no stored caption; more reachable now that a stored-caption post with expired image links also rescrapes. Fix: record the cooldown row before the scrape, or take a short per-URL lease.
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-read-all-slide-images.md`
+  summary: The moderator re-extract rescrape and `extractEventDataFromUrl` call `getScraperAdapter(platform).getPostByUrl` without `isScrapableAccountType()`, which `project-context.md` says every code path that starts a scrape must call; neither is on the AD-34 entry-point list.
+  evidence: Surfaced by Blind Hunter. Pre-existing (a single post URL fetch, not an account scrape), widened a little by BUG-099. Needs a decision: either record these two paths as exempt in AD-34, or gate stored posts on the owning account's type.
+
+## Deferred from: bmad-quick-dev review of spec-reextract-apply-roundup (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-apply-roundup.md`
+  summary: A re-extract preview keeps its validated extraction (`result_data.extracted`: event text, links, schedules) on its `manual_extraction_jobs` row until it is applied; a preview that is never applied, or has expired, keeps it indefinitely, and nothing sweeps the table.
+  evidence: Surfaced by two reviewers. The privacy discards (private contact, child performer names) are applied before it is stored, and the caption is never kept, so what remains is event text that is public once an event exists; it is still more retention than needed. Fix: null `extracted` in the stale-job sweep FIND-086 already asks for (any job older than the 30-minute apply window).
+- source_spec: `_bmad-output/implementation-artifacts/spec-reextract-apply-roundup.md`
+  summary: Apply never turns an existing stub back into a full event, and never reconciles a post whose events changed between the preview and the apply (only the post row and the job row are locked).
+  evidence: Surfaced by two reviewers. Stub-to-full happens through an organizer post being linked (PRD 3.7), and a drift within 30 minutes costs at worst a mis-pairing the moderator can edit; a drift check (hash of the post's event links in the job) is the fix if it is ever seen.
+
+## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-via-flag (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-via-flag.md`
+  summary: Piece B2b of the AI-assisted dedup review (still `FIND-108`): the apply workflow and script -- hashed Claude-account-email invoker check against an active moderator, `evidenceHash` re-verification (stale = skip), deterministic floor, per-run cap 10 and per-day cap counted from `ai_skill` rows, kill-switch variable, `validate` mode on the read-only secret, the new AD, the PRD amendment, `3-database.md` and the runbook.
+  evidence: Split from B2a (the `resolved_via`/`performed_via` flag, which changes no behavior and ships alone) at the multi-goal check, so the schema migration is not bundled with the only write path. Decisions: invoker identity is the SHA-256 of the lowercased Claude account email (a public log must not show it), no dedicated moderator user and no email repository variable; the skill is named `moderator-dedup-review`. Needs B2a first.
+
+## Deferred from: bmad-quick-dev split of spec-ai-dedup-review-apply-engine (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-apply-engine.md`
+  summary: Piece B2b-2 of the AI-assisted dedup review: the `dedup-review-apply` workflow with `validate` and `apply` modes, the write secret in the `dedup-review` environment (its name is the owner's to confirm), the kill-switch repository variable and the decisions input, plus the new AD, the PRD amendment (PRD 3.7 and 3.9.3 say a moderator approves mid pairs), `3-database.md`, `7-event-dedup.md`, the runbook, both architecture diagrams and `project-context.md`. The review of B2b-1 also made these B2b-2's: a workflow `concurrency:` group so two apply runs cannot overlap, an environment approval gate in addition to `--live`, passing the invoker hash through the environment, a way for moderators to list the `ai_skill` merges (the `mergeId` list in the log is otherwise the only handle), and which credential each mode uses. From the review of the B2b-1 code: the workflow must fail when the `DEDUP_REVIEW_APPLY_BEGIN`/`END` markers are missing from the log (the script exits 0 if it is run under a wrong file name), and must treat a non-zero exit after a live run as possibly committed.
+  evidence: Split from B2b-1 (the decision validator, floor, caps and apply script, which ship dark and can be reviewed and tested alone) at the multi-goal check, so the engine's review is not mixed with a workflow, a credential decision and an AD/PRD edit. Needs B2b-1 on `master` first (the workflow calls the script); the skill (`FIND-104`) needs this.
+
+## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-engine (2026-10-31)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-apply-engine.md`
+  summary: `undoEventMerge` does not refuse when the winner or the loser has a later live merge, so undoing an earlier merge after the winner was itself merged away leaves an inconsistent state (an alias chain pointing at a merged event).
+  evidence: Found by the architecture review of the apply engine; it is pre-existing and reachable by a moderator today, but the apply path makes it likelier (an automated run can merge a winner shortly before a human undoes an older merge). Not caused by B2b-1.
+
+## Deferred from: bmad-quick-dev review of spec-ai-dedup-review-apply-workflow (2026-11-01)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-apply-workflow.md`
+  summary: Replace the owner (migration) role in the `DEDUP_REVIEW_APPLY_DATABASE_URL` secret with a narrow write role by 2026-12-31 (write on the tables a merge changes, `BYPASSRLS`, no DDL, no `auth` schema, a `statement_timeout`), and record the workflow run id in `event_merges` so a merge can be traced to its run and approver once the Actions logs have expired.
+  evidence: AD-45 Rule 8 makes the owner role a time-boxed exception, and the architecture review of the workflow found that the floor, caps and kill switch bound a wrong decision but not a leaked credential. The Actions log keeps the `mergeId` list only 90 days and does not record the approver, so the run id in the journal is the durable link (it needs a change to the apply script and a column, so it is not part of the workflow piece).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-ai-dedup-review-apply-workflow.md`
+  summary: A moderator-facing view of AI-assisted merges: a list or badge built on `resolved_via` and `performed_via`, with the undo action beside each, so rolling back no longer depends on the runbook's database query.
+  evidence: The PRD amendment says an AI merge is recorded as AI-assisted and can be undone like any merge, but no screen shows the flag; moderators can only learn of an AI merge from the runbook. Deferred as a user-visible item of its own (exposing the flag in GraphQL is under Ask First in the flag spec).
+
+## Deferred from: bmad-quick-dev split of spec-find-104-moderator-dedup-review-skill (2026-11-03)
+
+- source_spec: none
+  summary: The export's `recentlyResolved` hides human decisions: it is capped at 200 (`DEDUP_REVIEW_RECENT_LIMIT`) and its first and latest runs held only `expired`/`system` rows, so the AI reviewer cannot see which escalated pairs a moderator accepted or rejected, or close their issues. Leave `expired` rows out of the 200 (or report them as a separate count such as `expiredCount`) in `buildDedupReviewExport` and the contract in `packages/domain/src/events/dedup-review-evidence.ts`, with 100% domain tests and the runbook line in `7-event-dedup.md` updated. While there, add `oldestPendingAt` (the `createdAt` of the oldest pending suggestion, queue-wide): the export never outputs a suggestion's age, so the skill's insight issue can only show an approximate oldest age until it exists.
+  evidence: Split from the `moderator-dedup-review` skill (`FIND-104`) at the multi-goal check: a code change to owned paths (`apps/backend/src/lib/events/dedup-review-export.ts`, `packages/domain/src/events/dedup-review-*`) with its own tests and review, shippable without the skill. Seen again on 2026-11-03 (export run `dryrun-pick`: 160 pending, `recentlyResolved` 200 of 200 `expired`/`system`, `recentlyResolvedTruncated: true`). The skill is written to cope until this lands: it closes an escalation issue only when the suggestion id appears in `recentlyResolved` with a human status, and lists every other open issue as "unknown, left open". **Resolved 2026-11-05 (`FIND-115`, `spec-find-115-export-resolution-report.md`):** the export now reports `skipResolved` for the sent ids, keeps `recentlyResolved` to decisions, counts expiries in `recentlyExpiredCount`, and adds `oldestPendingAt` and `oldestUnskippedPendingAt`.
+
+## Deferred from: bmad-quick-dev review of spec-find-104-moderator-dedup-review-skill (2026-11-03)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-104-moderator-dedup-review-skill.md`
+  summary: Narrow what a cloud session that holds the owner's GitHub token can reach. Put `/.claude/settings.json` (its `SessionStart` hook runs `scripts/cloud-db-setup.sh` inside the session), `/CLAUDE.md`, the other `.claude/skills/` and the rubric docs (`project-context.md`, `7-event-dedup.md`) under CODEOWNERS, and decide between three ways to make the AD-45 Rule 6 gate real: a fine-grained token or a separate non-reviewer account for the session (Actions write, Issues write, Contents read) with "Prevent self-review" on; the owner dispatching `apply` by hand in the Actions UI from inputs the skill prints; or a scoped tool allowlist for the session. A project-wide deny of the merge and push tools in `.claude/settings.json` would also stop the pull-request and merge work the owner asks sessions for, so it needs a scoped mechanism.
+  evidence: Blocker in the architecture review of the skill spec: the owner-token limit was prose only, and the session's tool set includes merge, push, file writes and workflow cancel, rerun and log deletion. CODEOWNERS does not bind the owner's token (its own header says so), so owning the skill folder protects it only from everyone else. The skill carries an allowlist, a validate-only rule for unattended sessions and a preflight that its folder equals `origin/master` meanwhile; none of these is enforced by the platform.
+
+## Deferred from: bmad-quick-dev code review of spec-find-104-moderator-dedup-review-skill (2026-11-03)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-104-moderator-dedup-review-skill.md`
+  summary: Three follow-ups to the skill. (1) A pair whose escalation issue a person closed while the suggestion is still pending keeps leading every export, because only open issue ids go in `skip_ids`; sending closed ids as well would break the exact count of open issues whose suggestion is no longer pending, so a structural fix needs the export to say which of the sent ids are resolved. (2) The export prints U+2028, U+2029 and U+0085 raw inside its one JSON line (`JSON.stringify` does not escape them); if the Actions log service splits lines there, a hostile event name makes every report unreadable and its pair stays at the head of the queue, so `formatDedupReviewExport` should escape them (owned code in `packages/domain`, unverified whether Actions splits there). (3) `test_dedup_report.py` is not run by CI. (4) The skill reopens a closed issue whenever `undoneMergeCount` is above 0 and has no memory of an earlier reopening, so an issue a person closes again is reopened on every run; remembering the count (it is printed in the issue body) would fix it.
+  evidence: Raised by the blind and edge-case reviews of the skill. (1) was confirmed by reading the skill's step order; the skill reports the pair and stamps the insight issue `blocked` meanwhile. (2) was reasoned, not confirmed. (3) needs a workflow edit, which is an owned path and a separate change.
+
+## Deferred from: bmad-quick-dev review of spec-find-115-export-resolution-report (2026-11-06)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-115-export-resolution-report.md`
+  summary: Three small gaps left on purpose. (1) A suggestion that no longer exists (`missing` in `skipResolved`, deleted with its event) keeps its escalation issue open, so it holds a `skip_ids` slot and raises `sent-ids-missing` on every run; enough of them freeze the skill at the cap. The frozen spec says the reader reports `missing` and never closes it, so this needs the owner's decision: close the issue with a fixed comment once the owner confirms the database is the right one, or let `settle` close it after N consecutive runs. (2) `export-header --sent-file` checks the count of ids and that every resolved id was sent, but the export does not echo the pending ids it counted, so a swapped pending id goes unseen. (3) A decided or expired row whose `resolved_at` is null is in neither `recentlyResolved` nor `recentlyExpiredCount`, so `settle` cannot see it for an id that was not sent (the expiry tool always sets the time, so only legacy rows are affected).
+  evidence: Raised by the blind review (1) and the edge-case review (2, 3) of FIND-115. (1) follows from the spec text and the skill's step 2; (2) was confirmed by running the reader; (3) was reasoned from the query, not confirmed against data. The wording of SKILL.md now says what `--sent-file` really checks.
+
+## Deferred from: bmad-quick-dev split of spec-find-119-attended-decision-loop (2026-11-06)
+
+- source_spec: none
+  summary: Let a moderator REJECT an escalated pair from the attended session's popup, by adding an apply-side reject path: a new decision kind or mode of `dedup-review-apply` that records `rejected` through `resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')` under the invoker moderator, with the same hash and stale checks, the caps (AD-45 Rule 4 already counts AI rejections in the 24-hour cap) and the guard script's report check. It changes AD-45 Rule 3 ("The reviewer never rejects"), the apply workflow and `scripts/dedup-review-apply-guard.sh` (owned paths, Ask First), and needs an architecture decision on three points: a reject is not undoable through `undoEventMerge` and silently removes a pair from every moderator's queue; the apply workflow cannot tell a human's popup answer from a prompt-injected session's decision (the gate releases a credential, it does not review decisions, Rule 6); and whether a reject needs a stricter cap than a merge.
+  evidence: Split from the attended decision loop (`FIND-119`) at the multi-goal check on the owner's choice: the loop with accept and skip ships and is reviewed without it, and the reject option stays in the app until this lands. The owner asked for accept, reject or skip in the popup on 2026-11-06; the floor stays (a floor-refused pair can only be rejected or skipped, so until this lands it can only be skipped).
+
+## Deferred from: bmad-quick-dev split of spec-find-120-apply-side-reject (2026-11-06)
+
+- source_spec: none
+  summary: Add the Reject option to the attended decision loop (`SKILL.md` step 8): the popup offers Accept, Reject or Skip and shows a reject for any open escalated pair including a floor-refused one; `decisions` gains the action (`decisions LOG ID... --reject ID,...`); a rejected pair's issue is closed at once with a fixed comment and `outcome:rejected` (`close-decided` handles a `rejected` result); `SKILL.md` rule 7 ("never reject a suggestion") and step 8 are rewritten so a reject needs a moderator's popup answer in an attended session and the daily AI review alone still never rejects; and the loop skips its validate round when nothing in the export can be offered (a pre-check, only if it needs no apply behaviour). It cannot ship before the apply-side reject path (`FIND-120`).
+  evidence: Split from the apply-side reject path at the multi-goal check: the apply side (domain, backend, workflow text, guard script, the reader's report check, AD-45, runbook) ships and is reviewed alone, and a person can already dispatch a reject through the workflow with it. The 2026-11-06 loop run found all 10 escalated pairs floor-refused, so only Reject would have produced popups.
+\n
+## Deferred from: bmad-quick-dev review of spec-find-120-apply-side-reject (2026-11-07)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-120-apply-side-reject.md`
+  summary: Loose ends of the apply-side reject path. (1) A reject's `resolved_at` is written by `resolveSuggestedMatch` from the runner's clock (`new Date()`), while `countAiActionsLast24h` and `countAiRejectsLast24h` count with the database's `now()`, so a runner clock that is behind lets a reject leave the 24-hour window early (the merge path takes its journal time from the database default). (2) The reject cap and the shared day cap both report `per-day-cap`, and a failed reject reports `merge-failed`, so a report cannot say which cap bound or what failed; a separate reason code would need the reader's `ALL_REASONS` and the `SKILL.md` table. (3) `close-decided` lists a rejected result under `notMerged` with a null reason, which reads like a failure; the attended loop's Reject option (`FIND-121`) is where it is handled. **Resolved 2026-11-07 (FIND-121):** `close-decided` now lists a pair that was not applied under `notApplied` with its action and reason, and closes rejected ones with `outcome:rejected`.
+  evidence: Raised by the blind and edge-case reviews of FIND-120, found by reading the code; (1) was not run against a skewed clock. All three are low: the clock error is small on a GitHub runner and errs toward a slightly wider window, the reasons are documented as reused, and (3) changes nothing for an accept-only run.
+
+## Deferred from: bmad-quick-dev review of spec-find-121-loop-reject-option (2026-11-07)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-121-loop-reject-option.md`
+  summary: Loose ends of the loop's Reject. (1) The loop validates every candidate as an accept in one run, so a pair that shares an event with an earlier eligible pair gets `event-already-in-run` and is offered Reject only; if the moderator skips the earlier pair, the later pair's Accept is never offered, and the accept day cap is likewise counted over all candidates, so skipped pairs do not free room until the next export. (2) The tests `test_the_options_are_constants_whatever_the_event_text_says` and `test_the_cost_of_a_reject_is_in_the_option_so_a_cut_of_the_text_cannot_remove_it` would pass for an implementation that ignores the pair, since `options_for` never sees it. (3) `comment --rejected` is silently ignored for kinds other than `decided`; `decisions` (not `confirm`) still takes an accept of a non-`mid` pair, which the apply floor refuses; the `brief` fallback cut can drop the Signals and Clue lines of a reject-only popup.
+  evidence: Raised by the blind review (2 and 3 by reading the tests; the nits) and the edge-case review (1, and the `decisions` accept by running the reader) of FIND-121. All are low: the apply floor and the exact-set `validate` still refuse what the reader lets through, and a skipped pair returns in the next export.
+
+## Deferred from: bmad-quick-dev split of spec-find-124-apply-side-floor-override (2026-11-07)
+
+- source_spec: none
+  summary: Add the second merge option to the attended decision loop (`SKILL.md` step 8 and `dedup_report.py`): the popup offers Merge (today's accept, judged by the floor) and Merge regardless of the floor (the new `accept-override` decision of FIND-124), plus Reject and Skip, for any pending pair that is not gone; the reader builds the options, the confirmation and the `decisions` string (`--override IDS`); `close-decided` and `insight-comment` handle a merge made with the override; `SKILL.md` rule 7 is extended so the override needs the same three attended conditions as a reject, and the daily and unattended review never use it; the loop's own "Accept (merge)" label becomes "Merge". The reader's and the skill's own batch sizes (the loop's 10 pairs, the confirmation's limit) follow the owner-tunable caps of `FIND-126`.
+  evidence: Split from the apply-side floor override (`FIND-124`) at the multi-goal check on the owner's choice (2026-11-07): the apply side, with its switch, caps and amendments of AD-45, ships and is reviewed alone, and a person can already dispatch an override through the workflow with it. Raised by the owner after the loop offered pair #146 (refused as `name-mismatch`) only Reject and Skip.
+
+- source_spec: none
+  summary: Make the three apply caps owner-tunable: the variables `DEDUP_REVIEW_PER_RUN_CAP`, `DEDUP_REVIEW_PER_DAY_CAP` and `DEDUP_REVIEW_PER_DAY_REJECT_CAP` of `dedup-review-live` (unset means 10, 25, 10), a pure `resolveDedupReviewCaps(env)` with an exact digit pattern (`^[1-9][0-9]*$`) and ceilings the code owns (per run `DEDUP_REVIEW_MAX_DECISIONS`, per day 200, rejects 25), a `capsForRun(mode, env)` so `apply` reads them and `validate` keeps the defaults, a library assert of the ceilings, an early workflow step that refuses a bad value before Checkout, a fixed per-run sub-cap of 10 for `accept-override` merges so raising the per-run cap does not widen the floor-less path, the restated AD-45 worst cases (rejects above 10 a day), setup step 5 naming the three variables, and the runbook note that the approver cannot see caps in the run name.
+  evidence: Split from the apply-side floor override (`FIND-124`) on the owner's choice after the architecture review (2026-11-07): caps share no code path, switch or acceptance criterion with the override, and tunable caps do not make the daily review scale by themselves while the skill's own batch sizes stay fixed (`FIND-125`). Raised by the owner: a fixed cap would stop the daily review catching up as the app scales.
+
+## Deferred from: bmad-quick-dev review of spec-find-124-apply-side-floor-override (2026-11-07)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-find-124-apply-side-floor-override.md`
+  summary: Loose ends of the apply-side floor override. (1) No database-level test builds a `high`-tier pair or an `undone-before` pair through `lookupFreshPair` for an override; the pure judge test covers both and the library test covers `low-tier`, `outside-window` and `name-mismatch`. (2) With `allow_rejects` off, a mistyped action such as `Accept-Override` fails in the `inputs` job with "needs allow_rejects" even when `allow_floor_override` is on; only the script's own message names the field. (3) The kill switch returns its `disabled` report before any flag check, so a run with the override input and the kill switch on never reports a missing override variable. (4) `FloorOverrideReportTests` has three cases that fail at the same reader check, so it pins only that the reader refuses an override report, not each outcome separately.
+  evidence: Raised by the blind review (4) and the edge-case review (1, 2) of FIND-124, and by reading the CLI order (3). All are low: the judge test, the script and the guard still refuse or cover each case, and the order of refusals is safe.
+
+## Deferred from: bmad-quick-dev review of spec-backlog-collision-safe-ids (2026-11-08)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-backlog-collision-safe-ids.md`
+  summary: Three known limits of check 17, none caused by the ID scheme. (1) If `backlog.yaml` is moved or renamed between the merge-base and `origin/master`, `_ids_at` reads the base board as empty, so every legacy key fails "not at the merge-base" and the board floods red (loud, and capped at exit 255); track the board by its path at each ref, or fail with a clear "board moved" message. (2) A stacked branch that carries a parent PR's rows after the parent was squash-merged gets those rows reported as "also added on origin/master"; same key with the same row value should not count as a collision. (3) A branch that deletes a row and adds an unrelated row under the same key looks like no change, because the gone-ID rule compares key sets only; the spec's Design Notes rejected comparing titles (a title edit would false-positive), so a stable per-row fingerprint such as `created` plus `type` at birth would be the starting point.
+  evidence: Raised by the edge-case review (1 and 2 by tracing `_ids_at` and the collision set) and the blind review (1 and 3) of the collision-safe ID change. All are low: (1) fails loudly and never passes silently, (2) only affects a local pre-push run, and (3) needs a deliberate delete-and-reuse that the spec forbids and review would see in the diff.
+
+## Deferred from: bmad-quick-dev gate run of spec-backlog-collision-safe-ids: Bright Data trigger test depends on a local .env (2026-11-09)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-backlog-collision-safe-ids.md`
+  summary: A test passes or fails depending on a developer's local `.env`: `returns CAPACITY_EXHAUSTED when capacity unavailable` in `apps/backend/src/lib/scraper/__tests__/trigger-brightdata-for-target.test.ts` inserts 10,000 used items and assumes the code defaults (USD 1.50 per 1,000 items, budget 7.50, threshold ratio 0.9). `loadBackendEnv` reads the root `.env` through dotenv, so a `.env` with `BRIGHTDATA_PRICE_PER_1000_ITEMS_USD=0.005` and `BRIGHTDATA_MONTHLY_BUDGET_USD=5.00` makes those items cost USD 0.05 against a 4.50 limit; capacity stays available, the trigger goes on to `getScrapeCursor` with the non-UUID profile id `test-brightdata-profile`, Postgres rejects it, and the result is `TRIGGER_ERROR` instead of `CAPACITY_EXHAUSTED`. Fix direction: have the test set its own price and budget (or insert enough used items to exceed any sane budget) and use a real UUID for the profile id. Exporting the variables in the shell does not help under turbo, whose strict env mode drops them before the test runs.
+  evidence: Reproduced on 2026-11-09 in a sandbox whose git-ignored root `.env` sets those two variables: the test failed in two full runs and in a single-file run, and passed once the code defaults were exported to that single-file run. Master's CI run at `c78aff8` passed, because CI has no `.env`. Low: a local-only failure, but it blocks a clean local `pnpm test` for anyone whose `.env` carries real pricing.
+
+
+## Deferred from: bmad-quick-dev gate run of spec-backlog-collision-safe-ids: daily-batch no-targets test has a stale cutoff and shared-DB state (2026-11-09)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-backlog-collision-safe-ids.md`
+  summary: The `the batch row records why a cycle found no targets, and only then` test in `apps/backend/src/lambdas/scraper.test.ts` is stale and depends on database state. When the cycle finds no targets it asserts the reason matches `since 2000-01-01T00:00:00.000Z`, but a scheduled cycle subtracts `SCHEDULED_SCRAPE_DUE_MARGIN_MS` (1 hour, `packages/domain/src/scraper/resolve-scrape-due-cutoff.ts`), so the real text says `since 1999-12-31T23:00:00.000Z`. The assertion only runs when no profile is due. A fresh seed holds a never-scraped profile, so the test takes its other branch and passes; once earlier runs stamp `lastScrapedAt` on the seeded profiles, nothing is due and the stale regex fails. Fix direction: expect the event time minus the margin (import the constant) and make the test own its data (seed or clear a never-scraped profile) so it always takes the same branch.
+  evidence: Reproduced on 2026-11-09: the test passed on a fresh seed and failed after repeated full runs on the same database (`2 subscribed profile(s) eligible: 2 skipped as scraped since 1999-12-31T23:00:00.000Z`), then passed again after re-seeding. Master's CI passes because each run starts from a fresh seed. Low: a latent test defect that surfaces only on a reused database, but it makes a local re-run of the backend suite fail for a reason unrelated to the change under test.
+
+## Deferred from: bmad-quick-dev review of spec-location-keywords-extraction: corrections drop keywords, placeholder overwrites a real location (2026-11-10)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: An AI-assisted correction (`extractEventDataFromUrl` then `submitCorrection`) that changes `location` clears the row's `location_keywords` and never receives the fresh ones, because `ProposedEventCorrection` and its GraphQL input carry no keywords (`map-extraction-payload-to-proposed-correction.ts` copies only `location`), so a corrected event has null keywords for good and the slice 2 link and geocoder fall back to the display text.
+  evidence: Both reviewers traced `resolvers.ts` `submitCorrection` (keywords cleared when the text differs) and the mapper; slice 1 deliberately keeps keywords out of the correction types (spec Never), and `location` becomes a protected field after a correction so enrichment never refills them.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: Non-additive enrichment in `set-event-primary-post.ts` overwrites a real event `location` with the "Location not specified" placeholder when a thin re-extraction has no location (the placeholder is non-null), and the keywords now go with it.
+  evidence: Edge-case review of `enrichAndPromoteEvent`: `buildEventInsertValues` maps an absent location to `LOCATION_NOT_SPECIFIED`, which passes the `value === null` guard in the field loop; the overwrite predates the keywords work (additive mode already guards placeholders through `UNFILLED_PLACEHOLDERS`).
+
+
+## Deferred from: bmad-quick-dev review of spec-location-keywords-extraction (separate keywords call) (2026-11-11)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: The keywords call's 10 s timeout abandons the gateway request instead of cancelling it, and its tokens are not in the extraction audit log.
+  evidence: `withTimeout` in `generate-location-keywords.ts` races the promise; `callGemini` takes no `AbortSignal`, so the request (and any gateway retries or busy waits) keeps running and spending key quota; `writeExtractionAuditLog` only records the extraction call's tokens.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: A keywords answer cut off at the output cap fails to parse, so the whole batch is dropped though most items were complete.
+  evidence: `JSON.parse` of the full text in `generateLocationKeywords`; the cap is `2048 + 200 * strings` (max 8192) and there is no salvage of complete objects.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: A replayed cursor step repeats its keywords call (a paid call, up to 10 s) because the step's keywords are not recorded before the cursor commit.
+  evidence: `process-extraction-step.ts` calls `generateLocationKeywords(fresh, ...)` before the compare-and-set commit; SQS redelivery re-runs it.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: `submitCorrection` clears keywords with `lower(btrim(...))` while enrichment and the generator compare with `normalizeLocationText` (NFC, collapsed whitespace), so a whitespace-only correction clears keywords the other paths would keep.
+  evidence: `schema/resolvers.ts` CASE expressions vs `set-event-primary-post.ts` `resolveKeywordsPatch`; the cost is only that slice 2 falls back to the text ladder for that row.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: The prompt rule against "various locations" as an event `location` is the only guard; a stored `events.location` of "Berbagai lokasi ..." is not checked in code (only keywords are).
+  evidence: `SUMMARY_OF_PLACES` in `normalize-location-keywords.ts` is applied to keywords only; the Samsat failure came from exactly this string in `location`.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-location-keywords-extraction.md`
+  summary: Prompt rule 5 says the event-level `location` is left absent when the schedules share no common area; the transform then falls back to the account's default location, so a multi-city single event from a Jakarta account stores "Jakarta" as its location.
+  evidence: `build-gemini-request.ts` rule 5; `transform-gemini-response-to-event-info.ts:52-54` (`payload.location || defaultLocation`). Rare after rule a2 (parallel venues are separate events); changing the wording needs a live A/B on a multi-city single-event post first.
 

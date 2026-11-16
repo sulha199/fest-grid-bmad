@@ -32,6 +32,7 @@ export function ConfirmActionDialog({
   confirmVariant = 'default',
   onConfirm,
   onCancel,
+  children,
   className,
 }: ConfirmActionDialogProps) {
   const [isConfirming, setIsConfirming] = React.useState(false);
@@ -117,6 +118,7 @@ export function ConfirmActionDialog({
               {description}
             </Dialog.Description>
           )}
+          {children}
           <div className="mt-6 flex justify-end gap-2">
             <Button variant="outline" disabled={isConfirming} onClick={onCancel}>
               {cancelLabel}

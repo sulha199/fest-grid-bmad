@@ -112,9 +112,9 @@ this, then log it in the memlog.
 
 - Next free **AD-42**. The spine runs AD-1 to AD-41. AD-40 (re-extract preview) and AD-41 (async subscribe)
   belong to master's session.
-- Backlog maxima: **BUG-071, IDEA-091, FIND-092, CC-032**. The next ids are BUG-072, IDEA-092, FIND-093.
-  Master's rows were renumbered on merge (BUG-063 to BUG-070, BUG-064 to BUG-071, IDEA-073 to IDEA-091,
-  FIND-086 to FIND-092); master's code comments still say BUG-063. Master's session must allocate above
+- Backlog maxima: **BUG-064, IDEA-073, FIND-086, CC-032**. The next ids are BUG-072, IDEA-092, FIND-093.
+  Master's rows were renumbered on merge (BUG-261018-ij7 to BUG-063, BUG-261018-nyt to BUG-064, IDEA-261018-iv7 to IDEA-073,
+  FIND-261018-p1z to FIND-086); master's code comments still say BUG-261018-ij7. Master's session must allocate above
   these maxima or the ids collide again.
 - The memlog is shared with master's session: append only, never rewrite.
 
@@ -149,5 +149,5 @@ on `readonly_2`, never from here (see `event-insight-poc/prod-readonly/README.md
   favorites copy to split children; curator audience area; moderator queue notifications (IDEA-090).
 - **UX:** group surface, programme chip, series cover with Nearby badge and "also at N other places", the
   precision badge, the partial lane for events whose area only covers the user's.
-- **Epics:** `bmad-form-epics` clusters IDEA-084 to IDEA-090, BUG-064 to BUG-069 and their follow-ups; the
+- **Epics:** `bmad-form-epics` clusters IDEA-084 to IDEA-090, BUG-261018-nyt to BUG-069 and their follow-ups; the
   AD-41 and AD-40 follow-ups are master's session's.

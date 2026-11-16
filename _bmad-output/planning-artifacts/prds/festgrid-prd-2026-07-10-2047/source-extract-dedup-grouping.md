@@ -32,7 +32,7 @@ How to read the tags. Every item carries the spine's own tag text in quotes and 
 
 ### 1.3 UNTAGGED
 
-- **U1 Shared-link candidates (BUG-070, amended 2026-10-18, s.1905-1926).** A candidate is also admitted when it shares a normalized event link and has a schedule within +/-90 days; a candidate with no schedule within +/-2 days is capped at `mid` and never auto-linked ("a moderator decides"). Not marked built or adopted.
+- **U1 Shared-link candidates (BUG-063, amended 2026-10-18, s.1905-1926).** A candidate is also admitted when it shares a normalized event link and has a schedule within +/-90 days; a candidate with no schedule within +/-2 days is capped at `mid` and never auto-linked ("a moderator decides"). Not marked built or adopted.
 - **U2 Pair classes (s.1949-1967).** Same-name pairs more than two days apart are series members, not duplicates. A rejected pair is not re-queued. The sweep also applies the +/-2-day cap: a same-link, same-name pair weeks apart "is queued for a moderator, not folded" (s.1963-1966).
 - **U3 Duplicate key (AD-38 Rule 6, s.3611-3616):** same organizer, normalized name, a date within 2 days, and the place. Never a candidate when both are linked to the same post under different ordinals ("already shipped", s.3614-3615); exclusion (b) is P7.
 

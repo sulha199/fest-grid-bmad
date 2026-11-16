@@ -26,6 +26,7 @@ content = content.replace(/export type SoftDeleteAction =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type SuggestedEventMatchAction =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type SuggestedEventMatchStatus =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type PostExtractionStatus =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type PostEventsCompleteness =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ReextractionDedupTier =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type SubscriptionActivityState =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type EventQueryConditionInput = \{[\s\S]*?\};\r?\n/g, '');
@@ -62,11 +63,42 @@ content = content.replace(/export type ReportSystemErrorInput = \{\r?\n\s+contex
 // Replace duplicate EventLinkInput (Story 4.10: operations-plugin re-declaration of the schema input above)
 content = content.replace(/export type EventLinkInput = \{\r?\n\s+label\?\: string \| null \| undefined[\s\S]*?\};\r?\n/g, '');
 
+// Replace duplicate CalendarAdditionChangeInput (setCalendarAdditions: operations-plugin re-declaration of the schema input above)
+content = content.replace(/export type CalendarAdditionChangeInput = \{\r?\n\s+isAddedToCalendar\: boolean[\s\S]*?\};\r?\n/g, '');
+
 // Replace duplicate CorrectionSource and CorrectionStatus
 content = content.replace(/export type CorrectionSource =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type CorrectionStatus =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ExtractionErrorCode =[\s\S]*?;\r?\n/g, '');
 content = content.replace(/export type ExtractionJobState =[\s\S]*?;\r?\n/g, '');
+
+// Replace duplicate union-type re-declarations of the Job enums (Story 10.4 Part B: the operations plugin re-declares each enum a document uses)
+content = content.replace(/export type JobAttemptOutcome =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobProvider =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobOutcomeKind =[\s\S]*?;\r?\n/g, '');
+// Story 10.6a: the refresh report's enums, re-declared once the Re-extract report document selects them.
+content = content.replace(/export type JobImageRole =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobImageState =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobRefreshOutcome =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobReasonCode =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobStartErrorCode =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobStatus =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobStepState =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobSubjectKind =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobTrigger =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobType =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobWaitingFor =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type JobsScope =[\s\S]*?;\r?\n/g, '');
+content = content.replace(/export type RetryJobOutcome =[\s\S]*?;\r?\n/g, '');
+// Same for the two Job input object types: keep the schema's first declaration, drop the operations plugin's copy.
+for (const name of ['JobSubjectInput', 'JobsFilter']) {
+  const re = new RegExp(`export type ${name} = \\{[\\s\\S]*?\\r?\\n\\};\\r?\\n`, 'g');
+  const found = content.match(re) ?? [];
+  if (found.length > 1) {
+    let seen = false;
+    content = content.replace(re, (m) => (seen ? '' : ((seen = true), m)));
+  }
+}
 
 // Replace duplicate ImageStorageOptInSource and ModeratorAccountProfileFilters
 content = content.replace(/export type ImageStorageOptInSource =[\s\S]*?;\r?\n/g, '');

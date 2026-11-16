@@ -19,6 +19,17 @@ type Widget {
   deletedAt: String
 }
 
+# What the public, unauthenticated embed page may read (Story 6.5a AC6). It carries no owner and no
+# deletion state: `Query.widgetById` needs no session, so its return type must not name a user (AD-7).
+type PublicWidget {
+  id: ID!
+  filters: EventFilter
+  expression: FilterNode!
+  displayMode: WidgetDisplayMode!
+  theme: WidgetTheme!
+  createdAt: String!
+}
+
 input CreateWidgetInput {
   filters: EventFilterInput
   expression: FilterNodeInput
@@ -35,7 +46,7 @@ input UpdateWidgetInput {
 
 extend type Query {
   myWidgets: [Widget!]!
-  widgetById(id: ID!): Widget
+  widgetById(id: ID!): PublicWidget
 }
 
 extend type Mutation {

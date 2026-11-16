@@ -1,8 +1,23 @@
-import { type ProcessingJobMessage } from '@festgrid/domain/posts';
+import {
+  type ProcessingJobMessage,
+  PER_CALL_EVENT_CAP,
+  decideNextStep,
+  isAtRisk,
+  newEventsByKey,
+  type PostGroupingReason,
+} from '@festgrid/domain/posts';
 import { EventCategory } from '@festgrid/shared-types';
 import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
 import { buildGeminiExtractionRequest } from './build-gemini-request.js';
 import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
+import { classifyGeminiOutput } from '../ai-gateway/gemini-output-signals.js';
+import { classifyGeminiUnusableResponse } from '../ai-gateway/gemini-situation.js';
+import { classifyAiJobError } from './classify-ai-job-error.js';
+import { processExtractionStep } from './process-extraction-step.js';
+import { buildFirstCursor, buildStepMessage, enqueueStepMessage } from './extraction-chain.js';
+import { readExtractionCursor, startExtractionCursor } from '../posts/extraction-cursor-store.js';
+import { recordExtractionFailure } from '../posts/extraction-ledger.js';
+import { decideRetry, formatRetryDecisionLog } from '@festgrid/domain/retry';
 import { compileValidator } from '../../validation/validate.js';
 import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
 import {
@@ -13,7 +28,8 @@ import {
   isThumbnailStillRelevant,
 } from '@festgrid/domain';
 import { resolveAccountAndLocations } from './resolve-account-and-locations.js';
-import { resolveScheduleTimezones } from './resolve-schedule-timezones.js';
+import { buildExtractedEventMessage } from './build-extracted-event-message.js';
+import { createGeocodeSession } from '../geolocation/geocode-session.js';
 import { markPostExtracted as defaultMarkPostExtracted } from '../posts/mark-post-extracted.js';
 import { sendSqsMessageWithRetry } from '../aws/send-sqs-message-with-retry.js';
 import { processIngestionJob } from '../ingestor/process-ingestion-job.js';
@@ -24,8 +40,11 @@ import { db } from '../../db/client.js';
 import { eq } from 'drizzle-orm';
 import { socialMediaAccountProfiles, posts } from '@festgrid/database';
 import { assignExtractionOrdinals } from '@festgrid/domain';
+import { stripMalformedLocationKeywords } from '@festgrid/domain/events';
+import { generateLocationKeywords } from './generate-location-keywords.js';
 import { writeExtractionAuditLog } from './write-extraction-audit-log.js';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
+import { logExtractionScheduleCounts, logEnqueueScheduleCounts, logEnqueueTotals } from '../events/schedule-count-log.js';
 // 2026-10-04 prod incident -- these stay a STATIC import, deliberately, unlike the edges cut in
 // enqueue-post-for-processing.ts/build-gemini-request.ts. This file is only ever reachable from
 // apiLambda/scraperLambda via enqueue-post-for-processing.ts's own `await import('./process-ai-job.js')`
@@ -92,8 +111,92 @@ function logFaceBlurThumbnailOutcome(postId: string, outcome: FaceBlurThumbnailO
   console.info(`[processAiJob] face-blur-thumbnail outcome=${outcome} post=${postId}`);
 }
 
+interface FirstRequestChainInput {
+  message: ProcessingJobMessage;
+  /** The first request's label, or null when it has none worth keeping (a post with nothing found: the label is neutral). */
+  groupingReason: PostGroupingReason | null;
+  claimedItemCount: number | null;
+  atRisk: Parameters<typeof isAtRisk>[0];
+  unreadImageUrls: string[];
+  firstWindowImageCount: number;
+  /** Dedupe keys and number of the events the first request produced (after the per-call cap), and the next free ordinal. */
+  eventKeys: string[];
+  eventsFound: number;
+  nextOrdinal: number;
+}
+
+type FirstRequestChainResult = { started: true } | { started: false; partial: boolean };
+
+/**
+ * AD-46: after the first request of a post that left slides unread, decide in code (never from the model's plan) whether to
+ * continue in steps, and start the chain if so: a persisted cursor and a step message. A post with nothing found is not
+ * finished either (a text-free cover is not a stop signal): its first window counts as one empty step.
+ */
+async function decideAndStartChain(input: FirstRequestChainInput): Promise<FirstRequestChainResult> {
+  const { message, unreadImageUrls, firstWindowImageCount } = input;
+  const itemsPerSlide = input.eventsFound > 0 && firstWindowImageCount > 0 ? input.eventsFound / firstWindowImageCount : null;
+  const decision = decideNextStep({
+    killSwitchOn: true,
+    groupingReason: input.groupingReason,
+    unreadSlides: unreadImageUrls.length,
+    imagesRead: firstWindowImageCount,
+    eventsFound: input.eventsFound,
+    lastStepNewEvents: input.eventsFound,
+    emptySteps: input.eventsFound === 0 ? 1 : 0,
+    followUpMade: false,
+    requestsMade: 0,
+    unreadAtStart: unreadImageUrls.length,
+    itemsPerSlide,
+    leafTruncated: isAtRisk(input.atRisk),
+  });
+  console.info(
+    `[extraction-step] post=${message.postId} first-request unread=${unreadImageUrls.length} eventsFound=${input.eventsFound} ` +
+      `decision=${decision.action}:${decision.reason}${decision.action === 'stop' ? ` partial=${decision.partial}` : ''}`
+  );
+  if (decision.action === 'stop') {
+    return { started: false, partial: decision.partial };
+  }
+  const cursor = buildFirstCursor({
+    postId: message.postId,
+    totalImages: firstWindowImageCount + unreadImageUrls.length,
+    firstWindowImageCount,
+    unreadImageUrls,
+    eventKeys: input.eventKeys,
+    nextOrdinal: input.nextOrdinal,
+    groupingReason: input.groupingReason,
+    windowSize: decision.windowSize,
+    itemsPerSlide,
+    claimedItemCount: input.claimedItemCount,
+  });
+  const chainCursor = decision.action === 'follow_up' ? { ...cursor, followUpMade: true } : cursor;
+  if (await startExtractionCursor(message.postId, chainCursor)) {
+    await enqueueStepMessage(buildStepMessage(message, chainCursor));
+    return { started: true };
+  }
+  // The chain could not start: either a redelivery of this very job (the cursor is already there, only the step message may be
+  // missing) or the post is already extracted. Re-enqueue the stored cursor, never finish the post as a single request with
+  // slides unread.
+  const existing = await readExtractionCursor(message.postId);
+  if (existing !== null) {
+    console.warn(`[extraction-step] post=${message.postId} already has a chain; re-enqueueing its step instead of starting another`);
+    await enqueueStepMessage(buildStepMessage(message, existing));
+    return { started: true };
+  }
+  console.warn(`[extraction-step] post=${message.postId} could not start a chain (the post is already extracted); finishing as a single request`);
+  return { started: false, partial: false };
+}
+
 export async function processAiJob(message: ProcessingJobMessage, deps?: ProcessAiJobDeps): Promise<void> {
   const env = loadBackendEnv();
+
+  // AD-47: a step message of a stepped extraction carries the cursor; it reads its slides from there and runs on its own.
+  if (message.cursor) {
+    await processExtractionStep(message, {
+      callGemini: callGeminiSeam,
+      getRemainingTimeInMillis: deps?.getRemainingTimeInMillis,
+    });
+    return;
+  }
 
   // PRD 3.10 (2026-10-16): mark the post EXTRACTING. Purely observational (the manual extract
   // screen reads it), so a failure here must never fail the extraction itself.
@@ -127,7 +230,16 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   const isPublisherOptedIn = env.blurFacesBeforeAi ? await resolvePostPublisherOptIn(message.postId) : false;
 
   // 2. Build Gemini extraction request
-  const { request, imageBytes, imageContentType, blurredCoverImageBytes, aiImageInput, totalFaceDetectionCount } = await buildGeminiExtractionRequest(
+  const {
+    request,
+    imageBytes,
+    imageContentType,
+    blurredCoverImageBytes,
+    aiImageInput,
+    totalFaceDetectionCount,
+    unreadImageUrls,
+    firstWindowImageCount,
+  } = await buildGeminiExtractionRequest(
     message,
     env.blurFacesBeforeAi
       ? {
@@ -140,32 +252,129 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   );
 
   // 3. Call Gemini via AI Gateway
-  const result = await callGeminiSeam({
-    ...request,
-    provider: 'gemini',
-    subscriberUserIds
+  let result: Awaited<ReturnType<typeof callGeminiSeam>>;
+  try {
+    result = await callGeminiSeam({
+      ...request,
+      provider: 'gemini',
+      subscriberUserIds
+    });
+  } catch (error) {
+    // AD-52 Rule 4: a failure of the Gemini stage is recorded on the post (attempts, reason, next attempt, claim
+    // released) and the retry is owned by the resume pass, not by the queue. When there is nothing to record
+    // (the post is unknown or already extracted) the error propagates as before.
+    const classified = classifyAiJobError(error);
+    const plan = await recordExtractionFailure({
+      postId: message.postId,
+      situation: classified.situation,
+      ...(classified.retryAfterSeconds !== undefined ? { hint: { retryAfterSeconds: classified.retryAfterSeconds } } : {}),
+    });
+    if (!plan) {
+      throw error;
+    }
+    console.warn(
+      `[processAiJob] Gemini stage failed for post ${message.postId} (${classified.situation}); failure recorded:`,
+      error instanceof Error ? error.message : error
+    );
+    return;
+  }
+
+  // AD-49 (cursor extraction, slice 1): one greppable line per request, and a flag when the output may have
+  // been cut off. Log-only: nothing splits or retries on it yet.
+  const maxOutputTokens = request.maxOutputTokens ?? env.geminiMaxOutputTokens;
+  const atRisk = classifyGeminiOutput({
+    finishReason: result.finishReason,
+    outputTokens: result.usage?.outputTokens,
+    thinkingTokens: result.usage?.thinkingTokens,
+    maxOutputTokens,
   });
+  const signals =
+    `finishReason=${result.finishReason ?? 'unknown'} blockReason=${result.blockReason ?? 'none'} ` +
+    `promptTokens=${result.usage?.promptTokens ?? 'unknown'} outputTokens=${result.usage?.outputTokens ?? 'unknown'} ` +
+    `thinkingTokens=${result.usage?.thinkingTokens ?? 'unknown'} maxOutputTokens=${maxOutputTokens} ` +
+    `atRisk=${atRisk.length > 0 ? atRisk.join(',') : 'none'}`;
+  console.info(`[gemini-extraction] post=${message.postId} ${signals}`);
+  // The model text is a string; a seam or adapter that returns anything else is treated as empty.
+  const responseText = typeof result.text === 'string' ? result.text : '';
 
   // 4. Parse & validate response with AJV
   let payload: GeminiExtractionPayload;
   try {
-    payload = JSON.parse(result.text);
+    payload = JSON.parse(responseText);
   } catch (err) {
-    console.error(`Failed to parse Gemini response for post ${message.postId}. Raw response:`, result.text, err);
-    // Return successfully without throwing/enqueueing/marking to skip/retry later (AC4/AC8)
+    // The raw text can be thousands of tokens: log its length, a short head and tail, and the cause signals.
+    // V8's parse error can embed model text and newlines, so it is flattened and bounded to keep one line.
+    const errorText = (err instanceof Error ? err.message : String(err)).replace(/\s+/g, ' ').slice(0, 200);
+    console.warn(
+      `[gemini-response-unparseable] post=${message.postId} ${signals} length=${responseText.length} ` +
+        `head=${JSON.stringify(responseText.slice(0, 200))} tail=${JSON.stringify(responseText.slice(-100))} error=${errorText}`
+    );
+    // AD-52: the shared policy decides, the failure is recorded on the post (attempts, reason, next attempt, claim
+    // released) and the resume pass retries it. `recorded=no` means nothing could be recorded (unknown post).
+    const unusableSituation = classifyGeminiUnusableResponse({
+      finishReason: result.finishReason,
+      blockReason: result.blockReason,
+      outputNearLimit: atRisk.includes('output_near_limit'),
+    });
+    const plan = await recordExtractionFailure({ postId: message.postId, situation: unusableSituation });
+    console.info(
+      `${formatRetryDecisionLog(`post:${message.postId}`, unusableSituation, 1, decideRetry(unusableSituation, 1))} ` +
+        `recorded=${plan ? 'yes' : 'no'}`
+    );
+    // Return successfully without throwing/enqueueing/marking: the post stays unextracted.
     return;
   }
 
+  // An optional, advisory field must not fail the whole extraction: drop malformed location keywords first.
+  stripMalformedLocationKeywords(payload);
   const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
   const isValid = validate(payload);
   if (!isValid) {
-    console.error(`Gemini response failed AJV validation for post ${message.postId}:`, validate.errors);
-    // Return successfully without throwing/enqueueing/marking to skip/retry later (AC4/AC8)
+    console.error(`Gemini response failed AJV validation for post ${message.postId} (${signals}):`, validate.errors);
+    // AD-52: recorded like an unparseable response, so the resume pass retries it and the status shows it.
+    await recordExtractionFailure({ postId: message.postId, situation: 'unparseable' });
+    // Return successfully without throwing/enqueueing/marking (AC4/AC8)
     return;
   }
 
-  // 5. If not an event, mark extracted and return
+  // AD-46 Rule 2: one greppable line with the advisory post plan, when the model gave one. Log-only here: the
+  // continue decision that reads it is a later slice.
+  const planParts = [
+    payload.claimedItemCount !== undefined && payload.claimedItemCount !== null ? `claimedItemCount=${payload.claimedItemCount}` : null,
+    payload.slideRoles && payload.slideRoles.length > 0 ? `slideRoles=${payload.slideRoles.join(',')}` : null,
+    payload.itemsPerListSlide !== undefined && payload.itemsPerListSlide !== null ? `itemsPerListSlide=${payload.itemsPerListSlide}` : null,
+    payload.dateRangeCovered ? `dateRangeCovered=${payload.dateRangeCovered}` : null,
+    payload.moreItemsLikely !== undefined && payload.moreItemsLikely !== null ? `moreItemsLikely=${payload.moreItemsLikely}` : null,
+  ].filter((part): part is string => part !== null);
+  if (planParts.length > 0) {
+    console.info(`[post-plan] post=${message.postId} groupingReason=${payload.groupingReason ?? 'none'} ${planParts.join(' ')}`);
+  }
+
+  // 5. If not an event, mark extracted and return -- unless slides were left unread and stepped extraction is on: a text-free
+  // first window is not a stop signal (continue-rules.md rows 5-6), so the chain may go on and look at the later slides.
+  let partialWhenNothingFound = false;
+  const nothingFoundInput = () => ({
+    message,
+    groupingReason: null,
+    claimedItemCount: payload.claimedItemCount ?? null,
+    atRisk: {
+      outputSignals: atRisk,
+      eventCount: 0,
+      minEventCount: payload.minEventCount ?? null,
+      skippedItemCount: payload.skippedItems?.length ?? 0,
+    },
+    unreadImageUrls,
+    firstWindowImageCount,
+    eventKeys: [] as string[],
+    eventsFound: 0,
+    nextOrdinal: 0,
+  });
   if (payload.isEvent === false) {
+    if (env.cursorExtractionEnabled && unreadImageUrls.length > 0) {
+      const chain = await decideAndStartChain(nothingFoundInput());
+      if (chain.started) return;
+      partialWhenNothingFound = chain.partial;
+    }
     // Story 3.6p (AD-29) -- write the audit-log row for this attempt before this path's own
     // terminal action (markPostExtractedSeam below). Defensive try/catch: a failure to write
     // this purely-observational row must never fail the extraction attempt itself.
@@ -191,14 +400,22 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     if (isCuratorGuide) {
       await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
     }
+    if (partialWhenNothingFound) {
+      await db.update(posts).set({ extractionPartial: true }).where(eq(posts.id, message.postId));
+    }
     await markPostExtractedSeam(message.postId);
     return;
   }
 
   // 5.5. Defensive edge case (Task 7.1): the model reported isEvent: true but returned zero
   // events. Not expected in practice, but treated identically to isEvent === false since there
-  // is nothing to extract.
+  // is nothing to extract (and, like it, it continues in steps when slides were left unread).
   if (payload.events.length === 0) {
+    if (env.cursorExtractionEnabled && unreadImageUrls.length > 0) {
+      const chain = await decideAndStartChain(nothingFoundInput());
+      if (chain.started) return;
+      partialWhenNothingFound = chain.partial;
+    }
     console.warn(
       `[processAiJob] Gemini reported isEvent: true with zero events for post ${message.postId}; treating as a no-event post.`
     );
@@ -223,6 +440,9 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     if (isCuratorGuide) {
       await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
     }
+    if (partialWhenNothingFound) {
+      await db.update(posts).set({ extractionPartial: true }).where(eq(posts.id, message.postId));
+    }
     await markPostExtractedSeam(message.postId);
     return;
   }
@@ -230,14 +450,26 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // 5.6. Defensive truncation (Task 7.2/3.2/4.2): the AJV schema deliberately has no `maxItems`
   // on `events` (see extracted-event.schema.ts) -- the actual cap enforcement point is here,
   // keeping the first N entries and logging rather than discarding the whole payload.
+  // AD-46 Rule 5: with stepped extraction on, the per-call cap (about 25) replaces the per-post cap of 10 on every request,
+  // the first included; a first request that reaches it is at risk (its items may have been cut off).
+  const eventCap = env.cursorExtractionEnabled ? PER_CALL_EVENT_CAP : env.maxExtractedEventsPerPost;
   let events = payload.events;
-  if (events.length > env.maxExtractedEventsPerPost) {
+  if (events.length > eventCap) {
     console.warn(
       `[processAiJob] Post ${message.postId} returned ${events.length} events, ` +
-        `truncating to the configured cap of ${env.maxExtractedEventsPerPost}.`
+        `truncating to the configured cap of ${eventCap}.`
     );
-    events = events.slice(0, env.maxExtractedEventsPerPost);
+    events = events.slice(0, eventCap);
   }
+
+  // Search keywords for each distinct location text, from one batched text-only call (best-effort, never throws). Done here,
+  // not in the API Lambda's Apply, which has no time for a model call.
+  await generateLocationKeywords(events, {
+    callGemini: callGeminiSeam,
+    subscriberUserIds,
+    sourceText: message.content,
+    postId: message.postId,
+  });
 
   // 6-7. Per-event loop (Task 7.3/7.4, AC4): resolveAccountAndLocations/resolveScheduleTimezones
   // and transformGeminiResponseToEventInfo are unchanged functions -- calling them once per
@@ -248,25 +480,14 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // the deferred multi-event case.
   const eventMessages: Awaited<ReturnType<typeof transformGeminiResponseToEventInfo>>[] = [];
   let defaultLocationForBackfill: Awaited<ReturnType<typeof resolveAccountAndLocations>>['defaultLocation'];
+  // One geocode session for the post: a place used by several of its events is looked up once (no budget on the AI Lambda).
+  const geocodeSession = createGeocodeSession();
   // Story 3.6p (AD-29 Rule 6) -- per-event completeness signals collected during this loop,
   // written into the success-path extraction_audit_logs row's eventsCompleteness jsonb array.
   const eventsCompleteness: ExtractionAuditEventCompleteness[] = [];
 
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
-
-    const {
-      sourceSocialMediaAccountId,
-      defaultLocation,
-      resolvedScheduleLocations
-    } = await resolveAccountAndLocations(message.accountId, event.schedules, event.location);
-
-    const scheduleTimezoneResolutions = await resolveScheduleTimezones(
-      event.schedules,
-      resolvedScheduleLocations,
-      subscriberUserIds,
-      defaultLocation?.timezone
-    );
 
     // Story 0.52 (AD-44 Rule 10), extended by Story 0.54 (AD-44 Rule 2/10): inspect the RAW
     // (pre-transform) category list -- already AJV-enum-validated by this point (see this file's
@@ -292,16 +513,25 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
       }
     }
 
-    const eventMessage = transformGeminiResponseToEventInfo(event, {
+    // Location + timezone resolution and the transform live in buildExtractedEventMessage, shared
+    // with the moderator re-extract Apply (AD-40).
+    const { eventMessage, defaultLocation } = await buildExtractedEventMessage(event, {
       postId: message.postId,
-      sourceSocialMediaAccountId,
-      defaultLocation,
-      resolvedScheduleLocations,
-      scheduleTimezoneResolutions,
-      sourcePostText: message.content
+      accountId: message.accountId,
+      subscriberUserIds,
+      sourcePostText: message.content,
+      geocodeSession,
     });
     eventMessages.push(eventMessage);
     defaultLocationForBackfill = defaultLocation;
+    // Diagnostic only: the model's schedule count vs the built message's (see schedule-count-log.ts).
+    logExtractionScheduleCounts({
+      postId: message.postId,
+      eventIndex: i,
+      eventName: event.eventName,
+      modelSchedules: event.schedules.length,
+      messageSchedules: eventMessage.schedules.length,
+    });
 
     // Per-event completeness logging signal (Story 3.6l, replaces the old single post-level
     // check). Logging-only -- no additional Gemini call, no automatic re-trigger.
@@ -538,6 +768,13 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
   // start date, then normalized event name, then original index, never raw model-response
   // order, so a re-extraction that yields the same set of events produces the same ordinals.
   const orderedEventMessages = assignExtractionOrdinals(eventMessages);
+  // Diagnostic only: post-level totals, to compare with the ingestor's per-event insert counts.
+  logEnqueueTotals({
+    postId: message.postId,
+    events: orderedEventMessages.length,
+    modelSchedules: events.reduce((total, e) => total + e.schedules.length, 0),
+    enqueuedSchedules: orderedEventMessages.reduce((total, m) => total + m.schedules.length, 0),
+  });
 
   // 8.1. Enqueue to DataIngestionQueue (or process inline in local dev) -- one message per
   // event (AC1). Best-effort (AC7): attempts every event's send even after one fails, retrying
@@ -550,7 +787,16 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     const enqueueErrors: unknown[] = [];
     for (const eventMessage of orderedEventMessages) {
       try {
-        await sendSqsMessageWithRetry(env.dataIngestionQueueUrl, JSON.stringify(eventMessage), {
+        // Built once: the exact string sent is also what the diagnostic body size is measured on.
+        const body = JSON.stringify(eventMessage);
+        logEnqueueScheduleCounts({
+          postId: message.postId,
+          ordinal: eventMessage.extractionOrdinal,
+          eventName: eventMessage.eventName,
+          schedules: eventMessage.schedules.length,
+          bodyBytes: Buffer.byteLength(body, 'utf8'),
+        });
+        await sendSqsMessageWithRetry(env.dataIngestionQueueUrl, body, {
           onAttemptFailed: (attempt, maxAttempts, err) =>
             console.warn(
               `[processAiJob] Enqueue attempt ${attempt}/${maxAttempts} failed for post ${message.postId}, ` +
@@ -611,11 +857,41 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     }
   }
 
+  // 8.9. AD-46: with stepped extraction on, a post whose first window left slides unread may continue in steps. The
+  // decision is made in code from what this request found (the model's plan never decides). A chain starts with a cursor
+  // and a step message; the post stays unextracted (and a curator's caption stays readable) until the chain ends.
+  let partialAfterFirstRequest = false;
+  if (env.cursorExtractionEnabled && unreadImageUrls.length > 0) {
+    const chain = await decideAndStartChain({
+      message,
+      groupingReason: payload.groupingReason ?? null,
+      claimedItemCount: payload.claimedItemCount ?? null,
+      atRisk: {
+        outputSignals: atRisk,
+        eventCount: payload.events.length,
+        minEventCount: payload.minEventCount ?? null,
+        skippedItemCount: payload.skippedItems?.length ?? 0,
+      },
+      unreadImageUrls,
+      firstWindowImageCount,
+      eventKeys: newEventsByKey([], events).keys,
+      eventsFound: orderedEventMessages.length,
+      nextOrdinal: orderedEventMessages.length,
+    });
+    if (chain.started) return;
+    partialAfterFirstRequest = chain.partial;
+  }
+
   // 9. Mark post extracted only after every event's message was successfully enqueued (AC7) --
   // a thrown enqueue failure above skips this entirely (and skips nulling a CURATOR_GUIDE
   // caption: Story 3.4o's nulling is meant to run only once extraction has actually completed).
   if (isCuratorGuide) {
     await db.update(posts).set({ content: null }).where(eq(posts.id, message.postId));
+  }
+  if (partialAfterFirstRequest) {
+    // AD-50: slides were left unread (the chain was not allowed to go on); the post says so. Written before the post
+    // is marked extracted, so a crash between the two writes cannot leave a finished post that hides the loss.
+    await db.update(posts).set({ extractionPartial: true }).where(eq(posts.id, message.postId));
   }
   await markPostExtractedSeam(message.postId);
 }

@@ -105,4 +105,36 @@ describe('UserMenu component', () => {
     fireEvent.click(closeButton);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  describe('Jobs badge (Story 10.13, notify when a job finishes)', () => {
+    const labels = { ...defaultProps.labels, jobs: 'Jobs' };
+    const jobsLink = () => screen.getByTestId('menu-link-/jobs');
+
+    it('shows the count and puts the full sentence in the entry name', () => {
+      render(<UserMenu {...defaultProps} labels={labels} jobsBadgeCount={3} jobsBadgeLabel="3 jobs finished since you last looked" />);
+      expect(jobsLink()).toHaveTextContent('3');
+      expect(jobsLink()).toHaveTextContent('Jobs');
+      expect(jobsLink()).toHaveTextContent('3 jobs finished since you last looked');
+      expect(jobsLink().querySelector('[aria-hidden="true"]')).toHaveTextContent('3');
+    });
+
+    it('caps the visible number at 9+ while the sentence keeps the real count', () => {
+      render(<UserMenu {...defaultProps} labels={labels} jobsBadgeCount={42} jobsBadgeLabel="42 jobs finished since you last looked" />);
+      expect(jobsLink().querySelector('[aria-hidden="true"]')).toHaveTextContent('9+');
+      expect(jobsLink()).toHaveTextContent('42 jobs finished since you last looked');
+    });
+
+    it('renders no badge and no sentence at 0 or undefined, and the entry still works', () => {
+      const { rerender } = render(<UserMenu {...defaultProps} labels={labels} jobsBadgeCount={0} jobsBadgeLabel="0 jobs" />);
+      expect(jobsLink().textContent).toBe('Jobs');
+      rerender(<UserMenu {...defaultProps} labels={labels} />);
+      expect(jobsLink().textContent).toBe('Jobs');
+      expect(jobsLink()).toHaveAttribute('href', '/jobs');
+    });
+
+    it('never badges another entry', () => {
+      render(<UserMenu {...defaultProps} labels={labels} jobsBadgeCount={3} jobsBadgeLabel="x" />);
+      expect(screen.getByTestId('menu-link-/settings')).not.toHaveTextContent('3');
+    });
+  });
 });

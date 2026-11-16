@@ -2,10 +2,10 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { LocationLink } from './LocationLink';
 
-// Story 0.i7z ratchet — AD-14 Rule 2 / Story 0.i7z AC 3 consumer: this component is the
-// event-detail and account-card map-link gate. Proves `LocationLink` calls
-// `isLocationTrustworthy` and branches its `href`/trailing icon on the result (coordinate
-// link + ExternalLink icon when trustworthy, text-query fallback + Search icon otherwise).
+// Story 0.i7z (superseded by location keywords slice 2b) -- AD-14 Rule 2: `LocationLink` is
+// the event-detail and account-card map link. It no longer gates on `isLocationTrustworthy`:
+// it is always a Google Maps text search (searchQuery, else name), never coordinates, with a
+// single trailing ExternalLink icon, so a low-confidence match looks like a confirmed one.
 describe('LocationLink', () => {
   afterEach(() => {
     cleanup();
@@ -22,121 +22,32 @@ describe('LocationLink', () => {
     expect(screen.getByText('Central Park')).toBeInTheDocument();
   });
 
-  it('links the raw coordinate and renders ExternalLink icon for a trustworthy (confidence>=0.5, full_match) location', () => {
-    render(
-      <LocationLink
-        name="Central Park"
-        coordinates={{ lat: 40.785091, lng: -73.968285 }}
-        confidence={0.9}
-        matchType="full_match"
-      />
-    );
+  it('links a text search on the keywords query, with no coordinates', () => {
+    render(<LocationLink name="Pasar Porosjayan" searchQuery="Pasar Porosjayan Gamping Sleman" />);
 
-    const link = screen.getByRole('link', { name: 'Central Park' });
+    const link = screen.getByRole('link', { name: 'Pasar Porosjayan' });
     expect(link).toHaveAttribute(
       'href',
-      'https://www.google.com/maps/search/?api=1&query=40.785091,-73.968285'
+      'https://www.google.com/maps/search/?api=1&query=Pasar%20Porosjayan%20Gamping%20Sleman'
     );
-    // ExternalLink icon rendered, not Search
+  });
+
+  it('falls back to the name when searchQuery is absent, null or blank', () => {
+    const expected = 'https://www.google.com/maps/search/?api=1&query=Central%20Park';
+    for (const searchQuery of [undefined, null, '   ']) {
+      const { unmount } = render(<LocationLink name="Central Park" searchQuery={searchQuery} />);
+      expect(screen.getByRole('link', { name: 'Central Park' })).toHaveAttribute('href', expected);
+      unmount();
+    }
+  });
+
+  it('renders the same single ExternalLink icon (plus pin) whatever the query', () => {
+    render(<LocationLink name="Central Park" searchQuery="Central Park New York" />);
+
+    const link = screen.getByRole('link', { name: 'Central Park' });
     expect(link.querySelectorAll('svg')).toHaveLength(2);
-  });
-
-  it('treats the exact boundary confidence 0.5 as trustworthy (>=, not >)', () => {
-    render(
-      <LocationLink
-        name="Central Park"
-        coordinates={{ lat: 40.785091, lng: -73.968285 }}
-        confidence={0.5}
-        matchType="full_match"
-      />
-    );
-
-    const link = screen.getByRole('link', { name: 'Central Park' });
-    expect(link).toHaveAttribute(
-      'href',
-      'https://www.google.com/maps/search/?api=1&query=40.785091,-73.968285'
-    );
-  });
-
-  it('falls back to a text-query search for confidence just below the boundary (0.49)', () => {
-    render(
-      <LocationLink
-        name="Central Park"
-        coordinates={{ lat: 40.785091, lng: -73.968285 }}
-        confidence={0.49}
-        matchType="full_match"
-      />
-    );
-
-    const link = screen.getByRole('link', { name: 'Central Park' });
-    expect(link).toHaveAttribute(
-      'href',
-      'https://www.google.com/maps/search/?api=1&query=Central%20Park'
-    );
-  });
-
-  it('falls back to a text-query search when matchType is not full_match', () => {
-    render(
-      <LocationLink
-        name="Central Park"
-        coordinates={{ lat: 40.785091, lng: -73.968285 }}
-        confidence={0.9}
-        matchType="partial_match"
-      />
-    );
-
-    const link = screen.getByRole('link', { name: 'Central Park' });
-    expect(link).toHaveAttribute(
-      'href',
-      'https://www.google.com/maps/search/?api=1&query=Central%20Park'
-    );
-  });
-
-  it('falls back to a text-query search when coordinates are entirely absent', () => {
-    render(<LocationLink name="Central Park" confidence={0.9} matchType="full_match" />);
-
-    const link = screen.getByRole('link', { name: 'Central Park' });
-    expect(link).toHaveAttribute(
-      'href',
-      'https://www.google.com/maps/search/?api=1&query=Central%20Park'
-    );
-  });
-
-  it('falls back to a text-query search when confidence and matchType are explicitly null', () => {
-    render(
-      <LocationLink
-        name="Central Park"
-        coordinates={{ lat: 40.785091, lng: -73.968285 }}
-        confidence={null}
-        matchType={null}
-      />
-    );
-
-    const link = screen.getByRole('link', { name: 'Central Park' });
-    expect(link).toHaveAttribute(
-      'href',
-      'https://www.google.com/maps/search/?api=1&query=Central%20Park'
-    );
-  });
-
-  it('falls back to a text-query search when confidence and matchType are undefined', () => {
-    render(
-      <LocationLink name="Central Park" coordinates={{ lat: 40.785091, lng: -73.968285 }} />
-    );
-
-    const link = screen.getByRole('link', { name: 'Central Park' });
-    expect(link).toHaveAttribute(
-      'href',
-      'https://www.google.com/maps/search/?api=1&query=Central%20Park'
-    );
-  });
-
-  it('never renders the ExternalLink icon in the untrustworthy fallback case', () => {
-    render(<LocationLink name="Central Park" />);
-
-    const link = screen.getByRole('link', { name: 'Central Park' });
-    // Pin icon + Search icon only (2 total)
-    expect(link.querySelectorAll('svg')).toHaveLength(2);
+    expect(link.querySelector('svg.lucide-external-link')).toBeInTheDocument();
+    expect(link.querySelector('svg.lucide-search')).not.toBeInTheDocument();
   });
 
   it('correctly encodeURIComponent-escapes a name containing spaces and special characters in the fallback href', () => {

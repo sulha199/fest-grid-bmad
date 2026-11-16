@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, timestamp, boolean, date, time, doublePrecision, integer, smallint, pgEnum, index, unique, uniqueIndex, primaryKey, customType as drizzleCustomType, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
-import { LocationDetails, EventLink } from '@festgrid/shared-types';
+import { LocationDetails, LocationResolution, EventLink } from '@festgrid/shared-types';
 import type { ProposedEventCorrection } from '@festgrid/domain/events';
 import type { ExtractionAuditEventCompleteness } from '@festgrid/domain/events';
 import { POST_ACCOUNT_ROLES } from '@festgrid/domain/posts';
@@ -79,6 +79,8 @@ export const scraperRunVendorEnum = pgEnum('scraper_run_vendor', ['APIFY', 'BRIG
 export const scraperRunTriggerModeEnum = pgEnum('scraper_run_trigger_mode', ['SYNC', 'ASYNC']);
 
 export const parserVersionSourceEnum = pgEnum('parser_version_source', ['APIFY', 'BRIGHTDATA', 'GEMINI']);
+export const profileLookupPurposeEnum = pgEnum('profile_lookup_purpose', ['LOOKUP', 'CLASSIFICATION']);
+export const profileLookupOutcomeEnum = pgEnum('profile_lookup_outcome', ['FOUND', 'NOT_FOUND', 'FAILED', 'TIMED_OUT', 'SKIPPED']);
 export const scraperRunStatusEnum = pgEnum('scraper_run_status', ['PENDING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED']);
 
 // Story 4.2b -- values come from the closed domain vocabulary (same pattern as ai_image_input).
@@ -144,9 +146,14 @@ export const userSettings = pgTable('user_settings', {
   // Default changed 7 -> 0 (2026-09-14): hide a past event as soon as it ends, no grace
   // window, matching DEFAULT_HIDE_PAST_EVENTS_AFTER_DAYS in
   // packages/domain/src/events/buildDefaultEventVisibilityConditions.ts — keep the two in
-  // sync. See migration 0056 for the matching backfill of existing untouched-default rows.
+  // sync. See migration 0056 for the matching backfill of existing untouched-default rows
+  // (0056 was skipped on prod by journal ordering; 0086 re-applies it, BUG-095).
   hidePastEventsAfterDays: integer('hide_past_events_after_days').default(0).notNull(),
   pushNotificationsEnabled: boolean('push_notifications_enabled').default(true).notNull(),
+  // Story 10.13 (notify when a job finishes): the Jobs badge watermark. DEFAULT now() fills every existing row with the migration time.
+  jobsLastOpenedAt: timestamp('jobs_last_opened_at', { withTimezone: true }).defaultNow().notNull(),
+  // When this user was last sent a job notice group (a push or, for a moderator, the mail of the same group): the merge-window state.
+  lastJobPushAt: timestamp('last_job_push_at', { withTimezone: true }),
   ...timestamps,
 });
 
@@ -175,6 +182,11 @@ export const socialMediaAccountProfiles = pgTable('social_media_account_profiles
   description: text('description'),
   lastPostDate: timestamp('last_post_date', { withTimezone: true }),
   lastScrapedAt: timestamp('last_scraped_at', { withTimezone: true }),
+  // Set once a scrape of this profile's own timeline has delivered a post (the "seeding" scrape: newest 30
+  // posts, none older than 30 days). Null means the profile is only known from other accounts' scrapes
+  // (co-author links), so its scrape cursor must not start after those posts -- see resolveScrapeCursor.
+  // Migration 0088 backfills it from last_scraped_at for profiles already being scraped.
+  historySeededAt: timestamp('history_seeded_at', { withTimezone: true }),
   scrapeTriggeredAt: timestamp('scrape_triggered_at', { withTimezone: true }),
   defaultLocation: customJsonb<LocationDetails>('default_location'),
   accountType: accountTypeEnum('account_type'),
@@ -204,6 +216,10 @@ export const scraperProviderUsage = pgTable('scraper_provider_usage', {
   provider: text('provider').notNull().unique(),
   itemsUsedThisCycle: integer('items_used_this_cycle').default(0).notNull(),
   usageCycleResetAt: timestamp('usage_cycle_reset_at', { withTimezone: true }).defaultNow().notNull(),
+  // Story 10.2 (IDEA-101): set when a provider reports its monthly cap used up (Apify's 403 "Monthly usage hard limit
+  // exceeded"), to the END of the current usage cycle, so every caller skips the provider without a refused call until the
+  // cycle rolls over. Null means "not known to be exhausted"; it clears itself because it is a time, not a flag.
+  capacityExhaustedUntil: timestamp('capacity_exhausted_until', { withTimezone: true }),
   ...timestamps,
 });
 
@@ -351,12 +367,34 @@ export const posts = pgTable('posts', {
   // at or after the latest claim). Observational only: nothing gates on it, and a re-enqueue makes the
   // new queued_for_extraction_at newer than it, which reads as QUEUED again. No index, no backfill.
   extractionStartedAt: timestamp('extraction_started_at', { withTimezone: true }),
+  // AD-52 Rule 4 -- the post-level attempt ledger. A failed extraction job writes all four in one update that
+  // also releases the claim (queued_for_extraction_at = null); a successful extraction clears them. `attempts`
+  // counts failed jobs, not in-call retries. `failure_reason` is the retry situation of the last failure and
+  // drives the derived ATTEMPT_FAILED status. `next_attempt_at` set = a retry is due then; null with a reason =
+  // given up. `first_failure_at` anchors the 24 hour retry window. No backfill: every existing row is clean.
+  extractionAttempts: integer('extraction_attempts').default(0).notNull(),
+  extractionFailureReason: text('extraction_failure_reason'),
+  extractionNextAttemptAt: timestamp('extraction_next_attempt_at', { withTimezone: true }),
+  extractionFirstFailureAt: timestamp('extraction_first_failure_at', { withTimezone: true }),
+  // AD-47 Rule 1 -- the persisted cursor of a stepped extraction (an `ExtractionCursor` from @festgrid/domain/posts,
+  // validated on read, never trusted); null when no chain is in flight. It holds image links, so it is never exposed
+  // through GraphQL, and never a caption (AD-40). A non-null cursor is a claim of any age (AD-47 Rule 5a). Written
+  // only through lib/posts/extraction-cursor-store.ts, with a raw `::text::jsonb` cast: the driver would otherwise
+  // store a JSON string (the double-encoding seen on older jsonb columns).
+  extractionCursor: jsonb('extraction_cursor'),
+  // AD-50 Rule 1 -- true means "will not be finished": a chain ended with slides unread (the bound, the kill switch,
+  // spent attempts, a changed slide count, a truncated leaf). A pending cursor means "still being finished".
+  extractionPartial: boolean('extraction_partial').default(false).notNull(),
   ...timestamps,
 }, (t) => ({
   accountIdIdx: index('account_id_idx').on(t.accountId),
   publishedAtIdx: index('published_at_idx').on(t.publishedAt),
   postUrlUnq: unique().on(t.postUrl),
   scraperActorRunIdIdx: index('idx_posts_scraper_actor_run_id').on(t.scraperActorRunId),
+  // AD-52 Rule 5 -- the resume pass reads only posts with a retry due; the partial index keeps that read tiny.
+  extractionNextAttemptIdx: index('idx_posts_extraction_next_attempt_at')
+    .on(t.extractionNextAttemptAt)
+    .where(sql`extraction_next_attempt_at IS NOT NULL`),
   // GIN, not the default btree: hashtag search is array-containment (&&) on an exact value, not
   // equality. The installed drizzle-kit (0.21.4) doesn't serialize `.using()` into its
   // snapshot/generated SQL (same class of gap as AD-8 rule 3's WHERE-clause drop) -- the actual
@@ -384,6 +422,16 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   rawInput: customJsonb<unknown>('raw_input').notNull(),
   rawOutput: customJsonb<unknown>('raw_output'),
   itemCount: integer('item_count'),
+  // What the vendor itself reported for a finished Bright Data snapshot (its free progress report), kept apart
+  // from item_count (what reached us): records delivered, error records, and the error-code counts
+  // (`{"dead_page":1}`). Null when the report was not read. The success rate is records / (records + errors).
+  recordsReported: integer('records_reported'),
+  errorsReported: integer('errors_reported'),
+  errorCodes: jsonb('error_codes').$type<Record<string, number>>(),
+  // Posts this run delivered that did not exist before (item_count minus re-deliveries of known posts).
+  // Null when the run was not processed by an async result handler. A run that delivered posts but no new
+  // one is an "empty" run for the scrape backoff.
+  newPosts: integer('new_posts'),
   errorMessage: text('error_message'),
   pendingJobId: uuid('pending_job_id'),
   startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
@@ -394,6 +442,27 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   profileIdIdx: index('idx_scraper_actor_runs_profile_id').on(t.profileId),
   vendorStatusIdx: index('idx_scraper_actor_runs_vendor_status').on(t.vendor, t.status),
   createdAtIdx: index('idx_scraper_actor_runs_created_at').on(t.createdAt),
+}));
+
+// One row per adapter the profile scraper chain considered for one profile fetch (2026-10-31). A profile lookup
+// happens before any profile row exists and leaves no scraper_actor_runs row, so a failed or slow lookup used to
+// leave no trace: nothing could say how often Apify's profile lookup times out (the claim "30%" could only be
+// estimated from classification review rows). `handle` is the public platform handle asked for, never a user id.
+export const profileLookupAttempts = pgTable('profile_lookup_attempts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  purpose: profileLookupPurposeEnum('purpose').notNull(),
+  handle: text('handle').notNull(),
+  vendor: scraperRunVendorEnum('vendor').notNull(),
+  outcome: profileLookupOutcomeEnum('outcome').notNull(),
+  // The time this adapter was allowed (what was left of the caller's budget when it started).
+  budgetMs: integer('budget_ms').notNull(),
+  // Null for SKIPPED: the adapter was never started.
+  durationMs: integer('duration_ms'),
+  errorMessage: text('error_message'),
+  ...timestamps,
+}, (t) => ({
+  createdAtIdx: index('idx_profile_lookup_attempts_created_at').on(t.createdAt),
+  vendorOutcomeIdx: index('idx_profile_lookup_attempts_vendor_outcome').on(t.vendor, t.outcome),
 }));
 
 export const postAccountAssociations = pgTable('post_account_associations', {
@@ -434,6 +503,9 @@ export const events = pgTable('events', {
   categories: text('categories').array(),
   // High-level summary of location (e.g. "Chicago, IL"). Specific coordinates are in schedules[n].locationDetails
   location: text('location').notNull(),
+  // Place names for searching `location` (most specific first), from the extraction; null when it gave none. Slice 1 of the
+  // location-keywords feature only stores them; the geocoder and the map link read them in slice 2.
+  locationKeywords: text('location_keywords').array(),
   // Organizer name, NOT a reference to users.id
   organizerName: text('organizer_name'),
   contactInfo: text('contact_info'),
@@ -514,7 +586,13 @@ export const eventSlugAliases = pgTable('event_slug_aliases', {
 
 // Story 3.6w -- the suggestion's own review lifecycle. Closed vocabulary, declared once per the
 // correctionStatusEnum/reportStatusEnum convention.
-export const suggestedEventMatchStatusEnum = pgEnum('suggested_event_match_status', ['pending', 'accepted', 'rejected']);
+// `expired` (IDEA-107): closed by the system because an event of the pair is deleted or merged, or
+// both are over. It records no judgement -- unlike `rejected` it does not say "not a duplicate".
+export const suggestedEventMatchStatusEnum = pgEnum('suggested_event_match_status', ['pending', 'accepted', 'rejected', 'expired']);
+// Who made a dedup decision: a human (the moderator UI, or a script an operator runs) or the AI reviewer
+// skill (AD-30 Rule 9's AI path, `_bmad-output/specs/ai-dedup-review/DESIGN.md`). Only the shared
+// resolve/merge functions write it, and a GraphQL client can never set it.
+export const resolutionSourceEnum = pgEnum('resolution_source', ['moderator', 'ai_skill']);
 
 // Story 3.6v / AD-30 Rule 7 -- mid-confidence match suggestions queued for moderator review
 // (Story 3.6w's own scope to read/approve/reject). One row per (eventId, candidateEventId) pair,
@@ -535,6 +613,15 @@ export const eventMatchCandidates = pgTable('event_match_candidates', {
   status: suggestedEventMatchStatusEnum('status').default('pending').notNull(),
   resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   resolvedByModeratorId: uuid('resolved_by_moderator_id').references(() => users.id),
+  // NULL while pending or expired (no one resolved it); set whenever a person or the AI reviewer accepts or rejects.
+  resolvedVia: resolutionSourceEnum('resolved_via'),
+  // Why it was resolved (spec-dedup-decision-clues). `resolution_clues` holds codes of the closed list in
+  // `packages/domain/src/events/dedup-decision-clues.ts`, as plain text so a new clue needs no migration; NULL when none
+  // were recorded (older rows, or the resolver chose none). `resolution_note` is the moderator's free text (at most
+  // 200 characters), written only by the in-app resolution and NEVER printed to a log, issue, report or Actions output.
+  // Both are cleared with `resolved_via` when an undone merge returns the pair to pending.
+  resolutionClues: text('resolution_clues').array(),
+  resolutionNote: text('resolution_note'),
   ...timestamps,
 }, (t) => ({
   // AC8 -- idempotent re-run (SQS redelivery) never duplicates a suggestion row.
@@ -558,6 +645,7 @@ export const eventMerges = pgTable('event_merges', {
   loserEventId: uuid('loser_event_id').references(() => events.id, { onDelete: 'cascade' }).notNull(),
   suggestionId: uuid('suggestion_id').references(() => eventMatchCandidates.id, { onDelete: 'set null' }),
   performedByModeratorId: uuid('performed_by_moderator_id').references(() => users.id).notNull(),
+  performedVia: resolutionSourceEnum('performed_via').default('moderator').notNull(),
   loserPriorSlug: text('loser_prior_slug').notNull(),
   winnerNotifiedAtChanged: boolean('winner_notified_at_changed').default(false).notNull(),
   winnerPriorNotifiedAt: timestamp('winner_prior_notified_at', { withTimezone: true }),
@@ -682,9 +770,13 @@ export const schedules = pgTable('schedules', {
   title: text('title'),
   performers: text('performers').array(),
   location: text('location'),
+  // Place names for searching `location` (most specific first); null when the extraction gave none.
+  locationKeywords: text('location_keywords').array(),
   // Kept as text to support free-form extracted data from posters (e.g., "$10-$20" or "Free before 9 PM")
   ticketPrice: text('ticket_price'),
   locationDetails: customJsonb<LocationDetails>('location_details'),
+  // How `locationDetails` was found: kw1/kw2 (keywords ladder step), fb1/fb2 (text ladder), none, skipped; null = never attempted.
+  locationResolution: text('location_resolution').$type<LocationResolution>(),
   latitude: doublePrecision('latitude'),
   longitude: doublePrecision('longitude'),
   timezone: text('timezone'),
@@ -1148,3 +1240,127 @@ export const promptFilterRateLimits = pgTable('prompt_filter_rate_limits', {
   windowStartAt: timestamp('window_start_at', { withTimezone: true }).defaultNow().notNull(),
   ...timestamps,
 });
+
+// One fixed window of alert-email sends per named channel (2026-11-07). `Mutation.reportSystemError` is public (no
+// session, so no per-user key) and every call used to email the alert address: this table is what lets it send at
+// most N emails per window and log the rest. `key` names the channel, so one channel's flood cannot use up another's
+// budget. Server-only, like prompt_filter_rate_limits: RLS on, no policy (migration 0084).
+export const alertEmailRateLimits = pgTable('alert_email_rate_limits', {
+  key: text('key').primaryKey(),
+  sendCount: integer('send_count').default(0).notNull(),
+  windowStartAt: timestamp('window_start_at', { withTimezone: true }).defaultNow().notNull(),
+  ...timestamps,
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// Background vendor jobs (Epic 10, Story 10.1a; PRD 3.18 and 4.21; Architecture Spine AD-53).
+//
+// ONE job record for every long-running, vendor-backed action. It REFERENCES the four vendor-run tables
+// (apify_pending_jobs, brightdata_pending_jobs, scraper_actor_runs, vendor_call_locks) and replaces none of them;
+// `manual_extraction_jobs` is untouched (moving it onto this table is Story 10.9's decision, OI-4).
+// No `deletedAt`: these are append-only lifecycle records, like scraper_actor_runs and profile_lookup_attempts.
+// ---------------------------------------------------------------------------------------------------------------
+
+// PRD 4.21 JobStatus. QUEUED holds no place (waiting for one), RUNNING is the only status that holds a place,
+// WAITING holds none (waiting for a later time or for a result from elsewhere), FR117 and FR121.
+export const jobStatusEnum = pgEnum('job_status', [
+  'QUEUED', 'RUNNING', 'WAITING', 'SUCCEEDED', 'SUCCEEDED_WITH_LIMITS', 'FAILED', 'EXPIRED',
+]);
+
+// FR130: a user job is started by a person and has an owner; a system job is started by the platform and has none.
+export const jobTriggerEnum = pgEnum('job_trigger', ['USER', 'SYSTEM']);
+
+// PRD 4.21 JobAttempt.outcome.
+export const jobAttemptOutcomeEnum = pgEnum('job_attempt_outcome', [
+  'SUCCEEDED', 'FAILED', 'EMPTY', 'TIMED_OUT', 'OVER_QUOTA', 'SKIPPED',
+]);
+
+export const jobs = pgTable('jobs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  // `type`, `reason_code` and `phase` are deliberately text, not enums: every adoption story adds a job type and
+  // PRD 4.21 says the reason codes are "extended by the story that adds a job type", so a new value never needs a
+  // migration (the same reasoning as manual_extraction_jobs.error_code).
+  type: text('type').notNull(),
+  // Required for a USER job, absent for a SYSTEM job: CHECK jobs_user_job_has_owner (FR130), added in migration
+  // 0097 as hand-written SQL because drizzle-kit 0.21 does not emit CHECK constraints (so it is not declared here).
+  ownerUserId: uuid('owner_user_id').references(() => users.id, { onDelete: 'cascade' }),
+  trigger: jobTriggerEnum('trigger').notNull(),
+  // Normalized identity of the work (a post URL, a handle, the sorted post ids). The key for reuse (Story 10.3).
+  inputKey: text('input_key').notNull(),
+  // The type-specific input a handler needs (for example the selected post ids). Never a vendor token or a caption.
+  input: jsonb('input'),
+  status: jobStatusEnum('status').default('QUEUED').notNull(),
+  phase: text('phase'),
+  reasonCode: text('reason_code'),
+  errorMessage: text('error_message'),
+  resultData: jsonb('result_data'),
+  // The bound on the WHOLE job (FR117), from its type's `maxDurationMs`; one run of a handler is capped separately.
+  deadlineAt: timestamp('deadline_at', { withTimezone: true }).notNull(),
+  completedAfterDeadline: boolean('completed_after_deadline').default(false).notNull(),
+  // The worker's claim (AD-41 Rule 3 shape): a dedicated timestamp, so a stale claim from a crashed Lambda is
+  // distinguishable from a fresh one by TTL, and the sweep has something concrete to clear.
+  workerClaimedAt: timestamp('worker_claimed_at', { withTimezone: true }),
+  // "This job may run now" (FR121: it holds one of its owner's places from here). Null while a QUEUED job waits for a
+  // place; set at admission, by `promoteQueuedJobs`, and at insert for a SYSTEM job and a follower (Story 10.3).
+  admittedAt: timestamp('admitted_at', { withTimezone: true }),
+  // When a job began waiting for a place; the queue is ordered by it, oldest first, and the sweep expires a job that
+  // waited too long (JOB_QUEUE_MAX_WAIT_MINUTES). Set on a QUEUED start and on re-admission of a WAITING job.
+  queuedSince: timestamp('queued_since', { withTimezone: true }),
+  // FR120 sharing: a follower points at the first user's job (the leader) and takes its outcome when it ends. Set null if
+  // the leader row is deleted; the 5-minute sweep then settles the orphaned follower.
+  leaderJobId: uuid('leader_job_id').references((): AnyPgColumn => jobs.id, { onDelete: 'set null' }),
+  // When a WAITING job's next step is due (a scheduled retry); null when it waits for an event.
+  resumeAt: timestamp('resume_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  // Story 10.13: "the owner has been told, or no longer needs telling" (pushed, skipped on purpose, or seen in the app).
+  ownerNotifiedAt: timestamp('owner_notified_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => ({
+  ownerCreatedAtIdx: index('idx_jobs_owner_created_at').on(t.ownerUserId, t.createdAt),
+  statusDeadlineIdx: index('idx_jobs_status_deadline').on(t.status, t.deadlineAt),
+  leaderIdx: index('idx_jobs_leader').on(t.leaderJobId),
+  // Two partial indexes cannot be declared here (drizzle-kit 0.21 drops the WHERE clause), so they live in migration
+  // 0100 as hand-written SQL: `uq_jobs_open_input` (one open job per owner, type and input key: the reuse backstop,
+  // FR120) and `idx_jobs_queue` (a user's waiting jobs in queue order).
+}));
+
+// Story 10.5 (FR119) -- a vendor snapshot that outlived its job's budget, linked to the job so a result that arrives later is still
+// collected by the 5-minute job sweep and the job finished "completed after deadline". The claim (PENDING to COLLECTING, one
+// conditional UPDATE) makes a duplicate delivery a no-op; COLLECTED is written only after the handler ran and the job was settled,
+// and a link stuck COLLECTING (a Lambda killed mid-way) is put back to PENDING by the sweep. Plain words only: no caption, URL or vendor error. RLS on, no policy
+// (migration enables it, like jobs and job_attempts).
+export const jobVendorSnapshotStatusEnum = pgEnum('job_vendor_snapshot_status', ['PENDING', 'COLLECTING', 'COLLECTED', 'GAVE_UP']);
+
+export const jobVendorSnapshots = pgTable('job_vendor_snapshots', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  jobId: uuid('job_id').references(() => jobs.id, { onDelete: 'cascade' }).notNull(),
+  provider: scraperRunVendorEnum('provider').notNull(),
+  snapshotId: text('snapshot_id').notNull().unique(),
+  status: jobVendorSnapshotStatusEnum('status').default('PENDING').notNull(),
+  // The latest the sweep waits for the snapshot (BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES after it started); past it the link is given up.
+  waitUntil: timestamp('wait_until', { withTimezone: true }).notNull(),
+  collectedAt: timestamp('collected_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => ({
+  statusWaitUntilIdx: index('idx_job_vendor_snapshots_status_wait_until').on(t.status, t.waitUntil),
+  jobIdIdx: index('idx_job_vendor_snapshots_job_id').on(t.jobId),
+}));
+
+// One row per provider a job considered (PRD 4.21 JobAttempt), written by the provider chain (Story 10.2). `provider`
+// reuses scraper_run_vendor ('APIFY' | 'BRIGHTDATA'): PRD 4.21 spells the second one 'BRIGHT_DATA', mapped at the
+// GraphQL boundary (Story 10.4), never in the database.
+export const jobAttempts = pgTable('job_attempts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  jobId: uuid('job_id').references(() => jobs.id, { onDelete: 'cascade' }).notNull(),
+  provider: scraperRunVendorEnum('provider').notNull(),
+  outcome: jobAttemptOutcomeEnum('outcome').notNull(),
+  budgetMs: integer('budget_ms').notNull(),
+  elapsedMs: integer('elapsed_ms').notNull(),
+  reasonCode: text('reason_code'),
+  // Set only once the attempt actually dispatched a vendor call that produced a scraper_actor_runs row.
+  scraperActorRunId: uuid('scraper_actor_run_id').references(() => scraperActorRuns.id),
+  ...timestamps,
+}, (t) => ({
+  jobIdIdx: index('idx_job_attempts_job_id').on(t.jobId),
+}));
+

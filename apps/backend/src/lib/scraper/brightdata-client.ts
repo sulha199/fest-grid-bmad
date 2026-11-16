@@ -1,3 +1,4 @@
+import { isTransientVendorFailure } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
 import { callVendor } from '../vendor-gateway/guarded-call.js';
 
@@ -14,19 +15,13 @@ export class BrightDataApiError extends Error {
   }
 }
 
-const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EAI_AGAIN']);
-
+// Story 10.2 (FIND-082): the rule is the shared `isTransientVendorFailure`; this function only says where to read the
+// status and the code from.
 export function isBrightDataErrorTransient(error: unknown): boolean {
   if (error instanceof BrightDataApiError) {
-    return error.statusCode >= 500 && error.statusCode <= 599;
+    return isTransientVendorFailure({ statusCode: error.statusCode });
   }
-
-  const code = (error as any)?.code ?? (error as any)?.cause?.code;
-  if (typeof code === 'string' && TRANSIENT_CONNECTION_CODES.has(code)) {
-    return true;
-  }
-
-  return false;
+  return isTransientVendorFailure({ code: (error as any)?.code ?? (error as any)?.cause?.code });
 }
 
 export interface BrightDataTriggerInput {
@@ -40,7 +35,7 @@ export interface BrightDataTriggerResponse {
 }
 
 export interface BrightDataProgressResponse {
-  status: 'scheduled' | 'building' | 'running' | 'ready' | 'failed';
+  status: 'scheduled' | 'starting' | 'building' | 'running' | 'ready' | 'failed';
   // Reported once a snapshot has finished. A zero-record snapshot is told apart as an empty account
   // (`error_codes.dead_page`) or a vendor failure (neither) from these (BUG-074,
   // classifyBrightDataResult in @festgrid/domain). Only present when Bright Data sent them.
@@ -54,6 +49,8 @@ export interface BrightDataProgressResponse {
 let triggerBrightDataJobFn = _triggerBrightDataJob;
 let getBrightDataProgressFn = _getBrightDataProgress;
 let getBrightDataSnapshotFn = _getBrightDataSnapshot;
+let scrapeBrightDataProfileFn = _scrapeBrightDataProfile;
+let scrapeBrightDataPostFn = _scrapeBrightDataPost;
 
 export function setTriggerBrightDataJob(fn: typeof _triggerBrightDataJob) {
   triggerBrightDataJobFn = fn;
@@ -65,6 +62,14 @@ export function setGetBrightDataProgress(fn: typeof _getBrightDataProgress) {
 
 export function setGetBrightDataSnapshot(fn: typeof _getBrightDataSnapshot) {
   getBrightDataSnapshotFn = fn;
+}
+
+export function setScrapeBrightDataProfile(fn: typeof _scrapeBrightDataProfile) {
+  scrapeBrightDataProfileFn = fn;
+}
+
+export function setScrapeBrightDataPost(fn: typeof _scrapeBrightDataPost) {
+  scrapeBrightDataPostFn = fn;
 }
 
 async function _triggerBrightDataJob(
@@ -226,6 +231,159 @@ async function _getBrightDataSnapshot(snapshotId: string): Promise<unknown[]> {
       return response.json();
     },
   });
+}
+
+/**
+ * The synchronous scrape's snapshot was still running when the budget ran out (Story 10.5). It keeps running at the vendor and is
+ * billed, so the id travels with the error: a job links it and the sweep collects the records later. The wording keeps
+ * "was still <status>" so the timeout classifier (`isProfileLookupTimeout`) still reads it as a timeout. Plain words: no URL.
+ */
+export class BrightDataSnapshotPendingError extends Error {
+  constructor(
+    public readonly snapshotId: string,
+    status: string,
+    elapsedMs: number,
+    budgetMs: number
+  ) {
+    super(`Bright Data snapshot ${snapshotId} was still ${status} after ${elapsedMs}ms (budget ${budgetMs}ms)`);
+    this.name = 'BrightDataSnapshotPendingError';
+  }
+}
+
+// How often a profile snapshot that outlived the synchronous call is polled.
+export const BRIGHTDATA_PROFILE_POLL_INTERVAL_MS = 5_000;
+// Bright Data's synchronous scrape answers 202 after ~60 s when the collection is still running.
+const BRIGHTDATA_SYNC_SCRAPE_WAIT_MS = 65_000;
+
+export type BrightDataProfileScrape =
+  | { kind: 'records'; records: unknown[] }
+  // The collection ended without a profile record for the input (an error record such as `dead_page`, or none at
+  // all). `errorCode` is Bright Data's own code when it sent one.
+  | { kind: 'no-records'; errorCode?: string; errorMessage?: string };
+
+let sleepForBrightDataProfile: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export function setSleepForBrightDataProfile(fn: typeof sleepForBrightDataProfile) {
+  sleepForBrightDataProfile = fn;
+}
+
+function isErrorRecord(record: unknown): record is { error_code?: unknown; error?: unknown } {
+  return !!record && typeof record === 'object' && 'error_code' in record;
+}
+
+function splitProfileRecords(records: unknown[]): BrightDataProfileScrape {
+  const good = records.filter((record) => !isErrorRecord(record));
+  if (good.length > 0) {
+    return { kind: 'records', records: good };
+  }
+  const failed = records.find(isErrorRecord);
+  return {
+    kind: 'no-records',
+    ...(typeof failed?.error_code === 'string' && { errorCode: failed.error_code }),
+    ...(typeof failed?.error === 'string' && { errorMessage: failed.error }),
+  };
+}
+
+/**
+ * One Instagram profile through Bright Data's Instagram Profiles dataset (`brightdataProfileDatasetId`).
+ *
+ * Starts with the synchronous `/datasets/v3/scrape`, which answers in the same call when the collection finishes
+ * within ~60 s. Observed 2026-10-31 it did not (HTTP 202 + `snapshot_id` at 61 s, ready at ~80 s), so the common
+ * path is then to poll `/progress` and download the `/snapshot` until `budgetMs` runs out. The scrape is billed
+ * and not idempotent, so it is never retried. Throws when the budget runs out first (the snapshot keeps running
+ * at the vendor).
+ */
+async function _scrapeBrightDataProfile(profileUrl: string, budgetMs: number): Promise<BrightDataProfileScrape> {
+  return scrapeBrightDataDataset({ datasetEnv: 'brightdataProfileDatasetId', datasetEnvName: 'BRIGHTDATA_PROFILE_DATASET_ID' }, profileUrl, budgetMs);
+}
+
+/**
+ * One post through Bright Data's Instagram Posts dataset (`brightdataDatasetId`, Story 10.2): the same synchronous
+ * `/datasets/v3/scrape` then snapshot polling as the profile scrape, with `[{ url }]` as the input. Billed and not idempotent,
+ * so never retried.
+ */
+async function _scrapeBrightDataPost(postUrl: string, budgetMs: number): Promise<BrightDataProfileScrape> {
+  return scrapeBrightDataDataset({ datasetEnv: 'brightdataDatasetId', datasetEnvName: 'BRIGHTDATA_DATASET_ID' }, postUrl, budgetMs);
+}
+
+async function scrapeBrightDataDataset(
+  dataset: { datasetEnv: 'brightdataProfileDatasetId' | 'brightdataDatasetId'; datasetEnvName: string },
+  inputUrl: string,
+  budgetMs: number
+): Promise<BrightDataProfileScrape> {
+  const startedAt = Date.now();
+  const elapsed = () => Date.now() - startedAt;
+
+  type SyncOutcome = { kind: 'done'; records: unknown[] } | { kind: 'pending'; snapshotId: string };
+  const sync = await callVendor<SyncOutcome>('brightdata', {
+    timeoutMs: Math.min(budgetMs, BRIGHTDATA_SYNC_SCRAPE_WAIT_MS),
+    maxAttempts: 1,
+    isTransient: isBrightDataErrorTransient,
+    call: async (signal) => {
+      const env = loadBackendEnv();
+      if (!env.brightdataApiToken) {
+        throw new Error('BRIGHTDATA_API_TOKEN is not set');
+      }
+      const datasetId = env[dataset.datasetEnv];
+      if (!datasetId) {
+        throw new Error(`${dataset.datasetEnvName} is not set`);
+      }
+      const url = new URL('https://api.brightdata.com/datasets/v3/scrape');
+      url.searchParams.set('dataset_id', datasetId);
+      url.searchParams.set('format', 'json');
+      url.searchParams.set('include_errors', 'true');
+
+      const response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${env.brightdataApiToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify([{ url: inputUrl }]),
+        signal,
+      });
+
+      if (response.status === 202) {
+        const data = (await response.json()) as { snapshot_id?: string };
+        if (!data.snapshot_id) {
+          throw new Error('Bright Data profile scrape returned 202 without a snapshot_id');
+        }
+        return { kind: 'pending', snapshotId: data.snapshot_id };
+      }
+      if (!response.ok) {
+        throw new BrightDataApiError(
+          `Failed to scrape Bright Data profile: ${response.status} ${response.statusText}`,
+          response.status
+        );
+      }
+      const data = await response.json();
+      return { kind: 'done', records: Array.isArray(data) ? data : [] };
+    },
+  });
+
+  if (sync.kind === 'done') {
+    return splitProfileRecords(sync.records);
+  }
+
+  // Past the synchronous wait: poll the snapshot while there is budget left for another poll.
+  for (;;) {
+    const progress = await getBrightDataProgressFn(sync.snapshotId);
+    if (progress.status === 'ready') {
+      return splitProfileRecords(await getBrightDataSnapshotFn(sync.snapshotId));
+    }
+    if (progress.status === 'failed') {
+      return { kind: 'no-records', errorMessage: progress.errorMessage ?? 'Bright Data reported the snapshot as failed' };
+    }
+    if (elapsed() + BRIGHTDATA_PROFILE_POLL_INTERVAL_MS >= budgetMs) {
+      throw new BrightDataSnapshotPendingError(sync.snapshotId, progress.status, elapsed(), budgetMs);
+    }
+    await sleepForBrightDataProfile(BRIGHTDATA_PROFILE_POLL_INTERVAL_MS);
+  }
+}
+
+export async function scrapeBrightDataProfile(profileUrl: string, budgetMs: number): Promise<BrightDataProfileScrape> {
+  return scrapeBrightDataProfileFn(profileUrl, budgetMs);
+}
+
+export async function scrapeBrightDataPost(postUrl: string, budgetMs: number): Promise<BrightDataProfileScrape> {
+  return scrapeBrightDataPostFn(postUrl, budgetMs);
 }
 
 export async function triggerBrightDataJob(

@@ -254,10 +254,10 @@ describe('SubscribedAccountCard', () => {
     expect(screen.getByText('@testuser')).not.toHaveClass('text-base');
   });
 
-  // Story 0.i7z ratchet — AD-14 Rule 2 consumer: SubscribedAccountCard newly
-  // consumes a LocationDetails confidence signal (isLocationTrustworthy) to
-  // decide between rendering a LocationLink and the existing @username
-  // fallback. These cases prove the gate is actually read, not assumed.
+  // Story 0.i7z ratchet (gate kept in slice 2b) — AD-14 Rule 2 consumer: SubscribedAccountCard
+  // consumes a LocationDetails confidence signal (isLocationTrustworthy) to decide whether the
+  // location label is shown at all or the @username fallback. The gate does NOT choose the URL:
+  // the link is always a text search on place name + city.
   describe('location prop (Story 0.i6e)', () => {
     it('renders LocationLink with location.name instead of @username when location is trustworthy, even with displayName/username present', () => {
       const props = {
@@ -273,6 +273,28 @@ describe('SubscribedAccountCard', () => {
 
       expect(screen.getByText('The Grand Hall')).toBeInTheDocument();
       expect(screen.queryByText('@testuser')).not.toBeInTheDocument();
+    });
+
+    it('links a text search on place name + city, never coordinates', () => {
+      render(
+        <SubscribedAccountCard
+          {...defaultProps}
+          location={{
+            name: 'Pakuwon Mall',
+            city: 'Yogyakarta',
+            coordinates: { lat: 1, lng: 2 },
+            confidence: 0.9,
+            matchType: 'full_match',
+          }}
+        />
+      );
+      const mapLink = screen
+        .getAllByRole('link')
+        .find((a) => a.getAttribute('href')?.startsWith('https://www.google.com/maps/search/'));
+      expect(mapLink).toHaveAttribute(
+        'href',
+        'https://www.google.com/maps/search/?api=1&query=Pakuwon%20Mall%20Yogyakarta'
+      );
     });
 
     it('falls back to unchanged @username rendering when location is untrustworthy (confidence: 0.2)', () => {

@@ -1,0 +1,30 @@
+{
+  "_note": "Hand-authored plan for the event-groups planning sequence (architecture, epic formation, PRD update). Sequential; prompts are carried inline at dispatch time. To resume: check which steps are done below, verify their outputs on disk, and dispatch the first one still pending.",
+  "config": ".config-event-groups.json (default ritual-config.json plus bmad-form-epics, all claude-sonnet-5 medium)",
+  "cwd": "c:/projects/portfolio/festgrid/bmad",
+  "mailbox": "../mailbox",
+  "createdAt": "2026-10-19T00:00:00Z",
+  "input": "_bmad-output/planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md",
+  "steps": [
+    {
+      "skill": "bmad-architecture",
+      "label": "event-groups/bmad-architecture",
+      "status": "done",
+      "expect": "AD-36 added to festgrid-architecture-spine.md",
+      "note": "Verified on disk 2026-10-19: AD-36 (spine lines 2199-2358), project-context.md cross-reference, memlog; lint_spine clean except 7 pre-existing. Rule 4 reading CONFIRMED by the user (all tiers apply immediately, moderators review after)."
+    },
+    {
+      "skill": "bmad-form-epics",
+      "label": "event-groups/bmad-form-epics",
+      "status": "stopped-by-user",
+      "expect": "formation document under planning-artifacts/epic-formation/, rows epic-tagged",
+      "note": "Stopped by the user 2026-10-19 shortly after launch (process tree killed: root pid 4736 chain incl. claude.exe; log shows only the session start). No output had been produced. Session id saved for --resume-label if wanted. Step 3 (bmad-prd) NOT started."
+    },
+    {
+      "skill": "bmad-prd",
+      "label": "event-groups/bmad-prd",
+      "status": "not-started (held)",
+      "expect": "PRD section 3.7 gains the event-group requirement"
+    }
+  ]
+}

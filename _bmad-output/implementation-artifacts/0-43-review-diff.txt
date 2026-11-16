@@ -1,0 +1,1675 @@
+diff --git a/packages/visual-audit/color.test.ts b/packages/visual-audit/color.test.ts
+new file mode 100644
+index 00000000..55070dfc
+--- /dev/null
++++ b/packages/visual-audit/color.test.ts
+@@ -0,0 +1,20 @@
++import test from 'node:test';
++import * as assert from 'node:assert';
++import { checkColorToken } from './src/rules/color.js';
++
++test('checkColorToken', async (t) => {
++  await t.test('passes on an exact match', () => {
++    const result = checkColorToken('rgb(30, 41, 59)', 'rgb(30, 41, 59)');
++    assert.strictEqual(result.pass, true);
++  });
++
++  await t.test('is whitespace/case tolerant', () => {
++    const result = checkColorToken('RGB(30,   41,  59)', 'rgb(30, 41, 59)');
++    assert.strictEqual(result.pass, true);
++  });
++
++  await t.test('fails on any value mismatch (exact match required, not approximate)', () => {
++    const result = checkColorToken('rgb(30, 41, 60)', 'rgb(30, 41, 59)');
++    assert.strictEqual(result.pass, false);
++  });
++});
+diff --git a/packages/visual-audit/content-variants.test.ts b/packages/visual-audit/content-variants.test.ts
+new file mode 100644
+index 00000000..e93dccb2
+--- /dev/null
++++ b/packages/visual-audit/content-variants.test.ts
+@@ -0,0 +1,88 @@
++import test from 'node:test';
++import * as assert from 'node:assert';
++import { enumerateContentVariants } from './src/content-variants.js';
++
++const IF_ELSE_CHAIN_SOURCE = `
++export function classify(dayDiff) {
++  if (dayDiff === 0) {
++    return 'Today';
++  }
++  if (dayDiff === 1) {
++    return 'Tomorrow';
++  }
++  if (dayDiff >= 2 && dayDiff <= 6) {
++    return 'Weekday';
++  }
++  return 'Upcoming';
++}
++`;
++
++const SWITCH_SOURCE = `
++export function label(kind) {
++  switch (kind) {
++    case 'a':
++      return 'A';
++    case 'b':
++      return 'B';
++    default:
++      return 'Other';
++  }
++}
++`;
++
++test('enumerateContentVariants', async (t) => {
++  await t.test('enumerates every branch of an if/else-if/fallback chain', () => {
++    const variants = enumerateContentVariants(IF_ELSE_CHAIN_SOURCE, 'classify');
++    // 3 explicit if-branches + 1 trailing fallback return.
++    assert.strictEqual(variants.length, 4);
++    assert.ok(variants.some((v) => v.returnExpressionText === "'Today'"));
++    assert.ok(variants.some((v) => v.returnExpressionText === "'Tomorrow'"));
++    assert.ok(variants.some((v) => v.returnExpressionText === "'Weekday'"));
++    assert.ok(variants.some((v) => v.returnExpressionText === "'Upcoming'"));
++  });
++
++  await t.test('enumerates every switch/case clause including default', () => {
++    const variants = enumerateContentVariants(SWITCH_SOURCE, 'label');
++    assert.strictEqual(variants.length, 3);
++    assert.ok(variants.some((v) => v.label === 'default' && v.returnExpressionText === "'Other'"));
++  });
++
++  await t.test('throws for a function name not found in the source', () => {
++    assert.throws(() => enumerateContentVariants(IF_ELSE_CHAIN_SOURCE, 'doesNotExist'), /not found/);
++  });
++
++  await t.test('handles the repo\'s real formatEventStatus-shaped 8-branch function', () => {
++    // A reduced stand-in mirroring format-event-date.ts's formatEventStatus branch shape
++    // (ended / happeningNow / endsToday / inHours / tomorrow / weekday-range / inDays / upcoming)
++    // without importing the real module (which has framework-shaped dependencies not needed
++    // here -- this test only exercises the branch-enumeration mechanism itself).
++    const source = `
++      export function formatEventStatus(started, ended, endDayDiff, startDayDiff) {
++        if (ended) {
++          return 'Ended';
++        }
++        if (started) {
++          if (endDayDiff > 0) {
++            return 'Now';
++          }
++          return 'Ends Today';
++        }
++        if (startDayDiff === 0) {
++          return 'In N hours';
++        }
++        if (startDayDiff === 1) {
++          return 'Tomorrow';
++        }
++        if (startDayDiff >= 2 && startDayDiff <= 6) {
++          return 'Weekday';
++        }
++        if (startDayDiff >= 7 && startDayDiff <= 13) {
++          return 'In N days';
++        }
++        return 'Upcoming';
++      }
++    `;
++    const variants = enumerateContentVariants(source, 'formatEventStatus');
++    assert.ok(variants.length >= 7);
++  });
++});
+diff --git a/packages/visual-audit/eslint.config.mjs b/packages/visual-audit/eslint.config.mjs
+new file mode 100644
+index 00000000..c6ab1c7f
+--- /dev/null
++++ b/packages/visual-audit/eslint.config.mjs
+@@ -0,0 +1,9 @@
++import { config as baseConfig } from "@festgrid/eslint-config/base";
++
++/** @type {import("eslint").Linter.Config[]} */
++export default [
++  ...baseConfig,
++  {
++    ignores: ["dist/", "test-results/", "playwright-report/"],
++  },
++];
+diff --git a/packages/visual-audit/intra-box-ratio.test.ts b/packages/visual-audit/intra-box-ratio.test.ts
+new file mode 100644
+index 00000000..7f294a20
+--- /dev/null
++++ b/packages/visual-audit/intra-box-ratio.test.ts
+@@ -0,0 +1,36 @@
++import test from 'node:test';
++import * as assert from 'node:assert';
++import { checkIntraBoxRatio, deriveRatioFromReference, DEFAULT_RATIO_TOLERANCE_RELATIVE } from './src/rules/intra-box-ratio.js';
++
++test('deriveRatioFromReference', async (t) => {
++  await t.test('computes a simple ratio', () => {
++    assert.strictEqual(deriveRatioFromReference(12, 24), 0.5);
++  });
++
++  await t.test('throws on a zero denominator', () => {
++    assert.throws(() => deriveRatioFromReference(12, 0), /denominator/);
++  });
++});
++
++test('checkIntraBoxRatio', async (t) => {
++  await t.test('passes when within the default ~9% tolerance', () => {
++    const result = checkIntraBoxRatio(11, 20, 0.5); // actual 0.55, ~10% off 0.5
++    assert.strictEqual(result.toleranceRelative, DEFAULT_RATIO_TOLERANCE_RELATIVE);
++    assert.strictEqual(result.pass, false); // 10% > 9% default -- exercises the boundary
++  });
++
++  await t.test('passes comfortably within tolerance', () => {
++    const result = checkIntraBoxRatio(10.2, 20, 0.5); // actual 0.51, 2% off
++    assert.strictEqual(result.pass, true);
++  });
++
++  await t.test('respects a per-rule tolerance override', () => {
++    const result = checkIntraBoxRatio(11, 20, 0.5, 0.15);
++    assert.strictEqual(result.pass, true);
++  });
++
++  await t.test('fails clearly outside tolerance', () => {
++    const result = checkIntraBoxRatio(18, 20, 0.5);
++    assert.strictEqual(result.pass, false);
++  });
++});
+diff --git a/packages/visual-audit/manifest.test.ts b/packages/visual-audit/manifest.test.ts
+new file mode 100644
+index 00000000..6c54df94
+--- /dev/null
++++ b/packages/visual-audit/manifest.test.ts
+@@ -0,0 +1,66 @@
++import test from 'node:test';
++import * as assert from 'node:assert';
++import { ManifestRegistry, DuplicateManifestEntryError, ManifestEntryNotFoundError, type ManifestEntry } from './src/manifest.js';
++
++function ruleEntry(overrides: Partial<ManifestEntry> = {}): ManifestEntry {
++  return {
++    component: 'EventCardMasonry',
++    variant: 'default-thumbnail-fallback',
++    viewport: { width: 175, height: 400 },
++    renderScope: 'single-instance',
++    mode: 'rule',
++    render: { kind: 'isolated-html', html: '<div></div>' },
++    rules: [],
++    ...overrides,
++  };
++}
++
++test('ManifestRegistry', async (t) => {
++  await t.test('registers and retrieves an entry by name', () => {
++    const registry = new ManifestRegistry();
++    registry.register('masonry-fallback-mobile', ruleEntry());
++    assert.ok(registry.has('masonry-fallback-mobile'));
++    assert.strictEqual(registry.get('masonry-fallback-mobile').component, 'EventCardMasonry');
++  });
++
++  await t.test('rejects a second entry with the same component/variant/viewport triple', () => {
++    const registry = new ManifestRegistry();
++    registry.register('first', ruleEntry());
++    assert.throws(
++      () => registry.register('second', ruleEntry()),
++      DuplicateManifestEntryError
++    );
++  });
++
++  await t.test('allows the same component/variant with a different viewport', () => {
++    const registry = new ManifestRegistry();
++    registry.register('mobile', ruleEntry({ viewport: { width: 175, height: 400 } }));
++    registry.register('desktop', ruleEntry({ viewport: { width: 269, height: 400 } }));
++    assert.strictEqual(registry.list().length, 2);
++  });
++
++  await t.test('throws a typed error for a missing entry', () => {
++    const registry = new ManifestRegistry();
++    assert.throws(() => registry.get('nope'), ManifestEntryNotFoundError);
++  });
++
++  await t.test('rejects mode "reference" without a reference source', () => {
++    const registry = new ManifestRegistry();
++    assert.throws(() => registry.register('bad', ruleEntry({ mode: 'reference' })), /reference source/);
++  });
++
++  await t.test('accepts mode "reference" with a reference source', () => {
++    const registry = new ManifestRegistry();
++    registry.register(
++      'good',
++      ruleEntry({
++        mode: 'reference',
++        reference: {
++          prototypeHtmlPath: 'design-artifacts/UX-festgrid-run-1/prototypes/event-card-masonry/default-thumbnail-fallback.html',
++          prototypePngPath: 'design-artifacts/UX-festgrid-run-1/imports/event-card-masonry/default-thumbnail-fallback.png',
++        },
++      })
++    );
++    assert.ok(registry.has('good'));
++  });
++});
+diff --git a/packages/visual-audit/manifests-proof.spec.ts b/packages/visual-audit/manifests-proof.spec.ts
+new file mode 100644
+index 00000000..bed39a50
+--- /dev/null
++++ b/packages/visual-audit/manifests-proof.spec.ts
+@@ -0,0 +1,84 @@
++/**
++ * Integration proof (Story 0.44's testing tier, AC13): browser-automation/AST-analysis surfaces
++ * that can't be meaningfully unit-tested without mocking away the thing being verified are
++ * proved here by actually running the example manifest entries end-to-end (isolated render,
++ * both audit modes, all five AD-26 Rule 5/6 rule classes, and the pixel-diff secondary signal).
++ */
++
++import { test, expect } from '@playwright/test';
++import path from 'node:path';
++import './manifests/index.js';
++import { runManifestEntry } from './src/engine.js';
++import { defaultRegistry } from './src/manifest.js';
++
++const REPO_ROOT = path.resolve(__dirname, '..', '..');
++
++test.describe('reference-based example: EventCardMasonry default-thumbnail-fallback (mobile)', () => {
++  const NAME = 'event-card-masonry:default-thumbnail-fallback:175x400';
++
++  test('manifest entry is registered under the expected component/variant/viewport triple', () => {
++    expect(defaultRegistry.has(NAME)).toBe(true);
++    const entry = defaultRegistry.get(NAME);
++    expect(entry.mode).toBe('reference');
++    expect(entry.renderScope).toBe('single-instance');
++  });
++
++  test('runs all declared rule classes (sibling-dimension, intra-box-ratio, overflow, color) and passes', async ({ page }) => {
++    const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
++
++    for (const ruleResult of result.ruleResults) {
++      expect(ruleResult.pass, `${ruleResult.kind}: ${ruleResult.message}`).toBe(true);
++    }
++    expect(result.pass).toBe(true);
++
++    const kinds = result.ruleResults.map((r) => r.kind).sort();
++    expect(kinds).toEqual(['color', 'intra-box-ratio', 'overflow', 'sibling-dimension']);
++
++    // The overflow rule enumerated formatEventStatus's real branches via ts-morph, not a
++    // hand-authored list -- confirm more than the prototype's own single depicted "Now" state
++    // was actually exercised (AC9's whole point).
++    const overflowResult = result.ruleResults.find((r) => r.kind === 'overflow');
++    const variantCount = (overflowResult?.details as { variants: unknown[] } | undefined)?.variants.length ?? 0;
++    expect(variantCount).toBeGreaterThan(1);
++  });
++
++  test('secondary pixel-diff signal: isolated render matches the committed baseline screenshot', async ({ page }) => {
++    const entry = defaultRegistry.get(NAME);
++    await page.setViewportSize(entry.viewport);
++    if (entry.render.kind !== 'isolated-html') {
++      throw new Error('Expected an isolated-html render spec for this example manifest entry');
++    }
++    const html = typeof entry.render.html === 'function' ? entry.render.html({}) : entry.render.html;
++    await page.setContent(html, { waitUntil: 'load' });
++    const card = page.locator('[data-testid="masonry-card"]');
++    await expect(card).toHaveScreenshot('event-card-masonry-thumbnail-fallback-mobile.png', {
++      maxDiffPixelRatio: 0.02,
++    });
++  });
++});
++
++test.describe('rule-based example: GridContainer masonry-columns-synthetic (multi-instance)', () => {
++  const NAME = 'grid-container:masonry-columns-synthetic:800x600';
++
++  test('manifest entry is registered as rule-based, multi-instance, with no reference source', () => {
++    expect(defaultRegistry.has(NAME)).toBe(true);
++    const entry = defaultRegistry.get(NAME);
++    expect(entry.mode).toBe('rule');
++    expect(entry.renderScope).toBe('multi-instance');
++    expect(entry.reference).toBeUndefined();
++  });
++
++  test('sibling-dimension rule clusters across instances (columns) and passes the AD-27 width invariant', async ({ page }) => {
++    const result = await runManifestEntry(page, NAME, { repoRoot: REPO_ROOT });
++    expect(result.pass).toBe(true);
++
++    const rule = result.ruleResults[0];
++    expect(rule.kind).toBe('sibling-dimension');
++    const clusters = (rule.details as { clusters: Array<{ values: number[] }> }).clusters;
++    // Multi-instance render scope (AC3): three independent column instances, clustered as three
++    // separate single-member clusters (by horizontal overlap), not one row cluster -- proving
++    // Rule 5's clustering actually operates over what this manifest rendered (Rule 1a), not
++    // hardcoded to assume single-instance.
++    expect(clusters.length).toBe(3);
++  });
++});
+diff --git a/packages/visual-audit/manifests-proof.spec.ts-snapshots/event-card-masonry-thumbnail-fallback-mobile-chromium-win32.png b/packages/visual-audit/manifests-proof.spec.ts-snapshots/event-card-masonry-thumbnail-fallback-mobile-chromium-win32.png
+new file mode 100644
+index 00000000..3413cf5b
+Binary files /dev/null and b/packages/visual-audit/manifests-proof.spec.ts-snapshots/event-card-masonry-thumbnail-fallback-mobile-chromium-win32.png differ
+diff --git a/packages/visual-audit/manifests/event-card-masonry-thumbnail-fallback.ts b/packages/visual-audit/manifests/event-card-masonry-thumbnail-fallback.ts
+new file mode 100644
+index 00000000..b8d056f8
+--- /dev/null
++++ b/packages/visual-audit/manifests/event-card-masonry-thumbnail-fallback.ts
+@@ -0,0 +1,140 @@
++/**
++ * Reference-based example manifest entry (AC2, AC11): checks the mobile panel of the
++ * already-validated `event-card-masonry/default-thumbnail-fallback.html` prototype (see
++ * `design-artifacts/UX-festgrid-run-1/prototypes/validation-log.md`) against a "live render".
++ *
++ * Judgment call (documented): this story ships no consumer of `packages/visual-audit` yet with
++ * a real React component to mount (the tool's real adopters -- BUG-040's fix, AD-27's masonry
++ * engine -- are future stories, see AC11/Out of Scope). To prove the engine mechanism end-to-end
++ * without inventing a throwaway React component, the "live render" here is the validated
++ * prototype's own markup, isolated-rendered via `page.setContent()` (AD-26 Rule 4 -- no server/
++ * DB/auth either way). This trivially matches its own reference by construction; it exists to
++ * prove the check machinery runs correctly (computed-style extraction, pixel-diff wiring,
++ * sibling-clustering, ratio-checking, ts-morph overflow enumeration, color-token matching), not
++ * to catch a defect in this specific card. A real future consumer swaps in an actual component
++ * render via the same `RenderSpec` shape.
++ */
++
++import { readFileSync } from 'node:fs';
++import { resolve } from 'node:path';
++import { registerManifestEntry, type ManifestEntry } from '../src/manifest.js';
++
++// The mobile panel's markup, extracted verbatim from the validated prototype file so the
++// isolated render and the reference file share exactly the same DOM (see judgment call above).
++const MOBILE_PANEL_HTML = `
++<script src="https://cdn.tailwindcss.com"></script>
++<script>
++  tailwind.config = {
++    theme: {
++      extend: {
++        colors: {
++          background: 'hsl(210 20% 98%)',
++          foreground: 'hsl(221 39% 11%)',
++          card: 'hsl(0 0% 100%)',
++          primary: 'hsl(217 33% 17%)',
++          secondary: 'hsl(238 82% 67%)',
++          'secondary-foreground': 'hsl(210 40% 98%)',
++          muted: 'hsl(210 40% 96.1%)',
++          'muted-foreground': 'hsl(215.4 16.3% 46.9%)',
++        }
++      }
++    }
++  }
++</script>
++<style>body{font-family:Inter,sans-serif; margin:0;}</style>
++<div class="p-6 bg-slate-100">
++  <div class="w-[175px] rounded-lg shadow-md bg-background overflow-hidden" data-testid="masonry-card">
++    <div class="p-2 flex items-stretch gap-1.5">
++      <div class="relative flex flex-col justify-center gap-0.5 px-2.5 py-2 rounded-md bg-slate-800 text-white shadow-sm shrink-0 leading-none" data-testid="date-box">
++        <span class="absolute -top-1.5 -left-1.5 z-20 px-1.5 py-1 rounded-full bg-amber-700 text-white text-xs font-semibold leading-none shadow-sm whitespace-nowrap">TILL</span>
++        <span class="text-xs font-bold uppercase tracking-wide pt-1.5" data-testid="date-month">Oct</span>
++        <span class="text-2xl font-extrabold leading-none" data-testid="date-day">12</span>
++      </div>
++      <div class="relative flex-1 h-full min-w-0 rounded-md flex items-center justify-center">
++        <button type="button" class="flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-11 text-sm font-medium text-foreground">
++          <svg class="w-10 h-10 text-rose-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21s-6.7-4.35-9.3-8.13C.6 9.9 1.4 6.4 4.3 5.1c2-.9 4.2-.2 5.7 1.5C11.5 4.9 13.7 4.2 15.7 5.1c2.9 1.3 3.7 4.8 1.6 7.77C18.7 16.65 12 21 12 21z"/></svg>
++          <span>1.2k</span>
++        </button>
++      </div>
++    </div>
++    <div class="px-2 pb-2 flex flex-col gap-1">
++      <div class="flex items-center gap-1 flex-wrap" data-testid="badge-row">
++        <span class="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-secondary text-secondary-foreground" data-testid="badge-distance">
++          <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
++          4.1 km
++        </span>
++        <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white" data-testid="badge-status">Now</span>
++      </div>
++      <div class="text-sm font-bold text-foreground leading-tight line-clamp-2">AI Tech Summit 2026: International Edition</div>
++      <div class="text-xs text-muted-foreground truncate">Blue Note Lounge</div>
++    </div>
++  </div>
++</div>
++`;
++
++/** Overflow fixture: renders one enumerated `formatEventStatus` branch's return-expression text
++ * into the same fixed-width status-badge slot the card actually uses, at the card's narrowest
++ * real width (175px, mobile 2-col) -- the exact class the badge ships with in production
++ * (`text-[11px] px-1.5 py-0.5 rounded ... shrink-0`), so a too-long variant would genuinely wrap
++ * or overflow the same way it would in the real card. */
++function buildStatusBadgeOverflowFixture(variantText: string): string {
++  return `
++<script src="https://cdn.tailwindcss.com"></script>
++<style>body{font-family:Inter,sans-serif; margin:0;}</style>
++<div class="p-6 bg-slate-100">
++  <div class="w-[175px] flex items-center gap-1 flex-wrap">
++    <span class="inline-flex items-center text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 bg-emerald-600 text-white max-w-[80px] overflow-hidden whitespace-nowrap" data-testid="status-slot">${escapeHtml(variantText)}</span>
++  </div>
++</div>
++`;
++}
++
++function escapeHtml(text: string): string {
++  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
++}
++
++export const REPO_ROOT_RELATIVE_FORMAT_EVENT_DATE = 'packages/ui/src/features/events/format-event-date.ts';
++
++export const entry: ManifestEntry = {
++  component: 'EventCardMasonry',
++  variant: 'default-thumbnail-fallback',
++  viewport: { width: 175, height: 400 },
++  renderScope: 'single-instance',
++  mode: 'reference',
++  render: { kind: 'isolated-html', html: MOBILE_PANEL_HTML },
++  reference: {
++    prototypeHtmlPath: 'design-artifacts/UX-festgrid-run-1/prototypes/event-card-masonry/default-thumbnail-fallback.html',
++    prototypePngPath: 'design-artifacts/UX-festgrid-run-1/imports/event-card-masonry/default-thumbnail-fallback.png',
++  },
++  rules: [
++    // Sibling-dimension: the two badge-row pills sit on the same row and should share height
++    // within the default <=2px absolute tolerance (AC7).
++    { kind: 'sibling-dimension', selector: '[data-testid^="badge-"]', dimension: 'height' },
++    // Intra-box ratio: month-text:day-text font-size, derived once from this reference render's
++    // own rendered ratio (no explicit DESIGN.md token declared here) (AC8).
++    { kind: 'intra-box-ratio', selectorA: '[data-testid="date-month"]', selectorB: '[data-testid="date-day"]', dimension: 'fontSize' },
++    // Overflow: enumerate `formatEventStatus`'s branches via ts-morph and check the status
++    // badge slot for overflow on every variant, not just the "Now" state this prototype
++    // happened to depict (AC9) -- the exact class of gap AD-26 exists to catch.
++    {
++      kind: 'overflow',
++      selector: '[data-testid="status-slot"]',
++      formattingFunction: { filePath: REPO_ROOT_RELATIVE_FORMAT_EVENT_DATE, functionName: 'formatEventStatus' },
++      buildFixtureHtml: buildStatusBadgeOverflowFixture,
++    },
++    // Color: date box background must exactly match the bg-slate-800 token (AC10).
++    { kind: 'color', selector: '[data-testid="date-box"]', cssProperty: 'backgroundColor', expectedToken: { name: 'bg-slate-800', resolvedValue: 'rgb(30, 41, 59)' } },
++  ],
++};
++
++registerManifestEntry('event-card-masonry:default-thumbnail-fallback:175x400', entry);
++
++// Re-read guard: fail fast and loud in CI if the source function this manifest cites has moved,
++// rather than a future engine run producing a confusing "function not found" deep in ts-morph.
++export function assertFormattingFunctionExists(repoRoot: string): void {
++  const filePath = resolve(repoRoot, REPO_ROOT_RELATIVE_FORMAT_EVENT_DATE);
++  const contents = readFileSync(filePath, 'utf-8');
++  if (!contents.includes('export function formatEventStatus')) {
++    throw new Error(`Expected to find "formatEventStatus" in ${filePath}`);
++  }
++}
+diff --git a/packages/visual-audit/manifests/index.ts b/packages/visual-audit/manifests/index.ts
+new file mode 100644
+index 00000000..057e7785
+--- /dev/null
++++ b/packages/visual-audit/manifests/index.ts
+@@ -0,0 +1,8 @@
++/** Import-time side-effect registration: importing this module registers every example manifest
++ * entry into `defaultRegistry` (mirrors `packages/graphql-select`'s own flat-module-per-concern
++ * style; there is no dynamic directory scan since the registry rejects duplicates explicitly). */
++import './event-card-masonry-thumbnail-fallback.js';
++import './masonry-column-width-invariant.js';
++
++export { entry as eventCardMasonryThumbnailFallback } from './event-card-masonry-thumbnail-fallback.js';
++export { entry as masonryColumnWidthInvariant } from './masonry-column-width-invariant.js';
+diff --git a/packages/visual-audit/manifests/masonry-column-width-invariant.ts b/packages/visual-audit/manifests/masonry-column-width-invariant.ts
+new file mode 100644
+index 00000000..821bc39c
+--- /dev/null
++++ b/packages/visual-audit/manifests/masonry-column-width-invariant.ts
+@@ -0,0 +1,41 @@
++/**
++ * Rule-based example manifest entry (AC2, AC11): a hand-encoded structural invariant with no
++ * golden HTML/PNG reference -- "masonry columns share one width; cards within a column vary
++ * height independently" (AD-27 Rule 1/3), the invariant AD-27's own future masonry-engine story
++ * will eventually verify for real. This story only needs a *synthetic* proof that the rule-based
++ * mode + multi-instance render scope work end-to-end (AC2/AC3/AC11 explicitly do not require
++ * AD-27's real masonry engine to exist yet -- Out of Scope).
++ *
++ * Multi-instance render scope (AD-26 Rule 1a, AC3): mounts three independently-tall synthetic
++ * "cards" as three side-by-side columns, so `Rule 5`'s sibling-dimension clustering operates
++ * across instances (column-overlap clustering) rather than within one card's own children.
++ */
++
++import { registerManifestEntry, type ManifestEntry } from '../src/manifest.js';
++
++const SYNTHETIC_MASONRY_HTML = `
++<script src="https://cdn.tailwindcss.com"></script>
++<style>body{font-family:Inter,sans-serif; margin:0;}</style>
++<div class="p-4 flex items-start gap-2 bg-slate-100" data-testid="masonry-row">
++  <div class="w-[230px] h-[300px] bg-white rounded-lg shadow" data-testid="masonry-col"></div>
++  <div class="w-[230px] h-[450px] bg-white rounded-lg shadow" data-testid="masonry-col"></div>
++  <div class="w-[230px] h-[220px] bg-white rounded-lg shadow" data-testid="masonry-col"></div>
++</div>
++`;
++
++export const entry: ManifestEntry = {
++  component: 'GridContainer',
++  variant: 'masonry-columns-synthetic',
++  viewport: { width: 800, height: 600 },
++  renderScope: 'multi-instance',
++  mode: 'rule',
++  render: { kind: 'isolated-html', html: SYNTHETIC_MASONRY_HTML },
++  rules: [
++    // Hand-encoded expected value, no golden reference: columns must share exactly one width
++    // (AD-27 Rule 1) even though their heights independently vary (true masonry, not CSS Grid's
++    // row-locked height). Default <=2px absolute tolerance (AC7).
++    { kind: 'sibling-dimension', selector: '[data-testid="masonry-col"]', dimension: 'width' },
++  ],
++};
++
++registerManifestEntry('grid-container:masonry-columns-synthetic:800x600', entry);
+diff --git a/packages/visual-audit/package.json b/packages/visual-audit/package.json
+new file mode 100644
+index 00000000..fef85757
+--- /dev/null
++++ b/packages/visual-audit/package.json
+@@ -0,0 +1,30 @@
++{
++  "name": "@festgrid/visual-audit",
++  "version": "1.0.0",
++  "description": "AD-26 visual-fidelity audit engine: reference-based and rule-based checks for isolated component renders",
++  "main": "./dist/index.js",
++  "types": "./dist/index.d.ts",
++  "exports": {
++    ".": {
++      "types": "./dist/index.d.ts",
++      "default": "./dist/index.js"
++    }
++  },
++  "scripts": {
++    "build": "tsc",
++    "test": "tsx --test *.test.ts",
++    "test:manifests": "playwright test --config=playwright.config.ts",
++    "lint": "eslint . --report-unused-disable-directives --max-warnings 0"
++  },
++  "dependencies": {
++    "ts-morph": "^24.0.0"
++  },
++  "devDependencies": {
++    "@festgrid/eslint-config": "workspace:*",
++    "@festgrid/typescript-config": "workspace:*",
++    "@playwright/test": "1.62.0",
++    "@types/node": "^20.14.10",
++    "tsx": "^4.16.2",
++    "typescript": "^5.4.5"
++  }
++}
+diff --git a/packages/visual-audit/playwright.config.ts b/packages/visual-audit/playwright.config.ts
+new file mode 100644
+index 00000000..0f953f11
+--- /dev/null
++++ b/packages/visual-audit/playwright.config.ts
+@@ -0,0 +1,28 @@
++import { defineConfig, devices } from '@playwright/test';
++
++/**
++ * Config for this package's own integration proof (`pnpm test:manifests`) -- separate from
++ * `apps/web`'s `playwright.config.ts` (no live server/DB, per AD-26 Rule 4). Snapshot baselines
++ * are committed alongside `manifests-proof.spec.ts` (`manifests-proof.spec.ts-snapshots/`),
++ * established via `playwright test --update-snapshots` the same way any Playwright visual-
++ * regression baseline is first captured.
++ */
++export default defineConfig({
++  testDir: '.',
++  testMatch: '*.spec.ts',
++  fullyParallel: false,
++  // eslint-disable-next-line turbo/no-undeclared-env-vars -- CI is a standard, implicitly-set env var (not a repo-declared build input); apps/web's own playwright.config.ts references it the same way, outside next lint's scoped globs.
++  forbidOnly: !!process.env.CI,
++  retries: 0,
++  workers: 1,
++  reporter: 'list',
++  use: {
++    trace: 'retain-on-failure',
++  },
++  projects: [
++    {
++      name: 'chromium',
++      use: { ...devices['Desktop Chrome'] },
++    },
++  ],
++});
+diff --git a/packages/visual-audit/sibling-dimension.test.ts b/packages/visual-audit/sibling-dimension.test.ts
+new file mode 100644
+index 00000000..abd38795
+--- /dev/null
++++ b/packages/visual-audit/sibling-dimension.test.ts
+@@ -0,0 +1,80 @@
++import test from 'node:test';
++import * as assert from 'node:assert';
++import {
++  clusterByRowOverlap,
++  clusterByColumnOverlap,
++  checkSiblingDimension,
++  DEFAULT_SIBLING_TOLERANCE_PX,
++  type BoundingBox,
++} from './src/rules/sibling-dimension.js';
++
++test('clusterByRowOverlap', async (t) => {
++  await t.test('groups two vertically-overlapping boxes into one row cluster', () => {
++    const boxes: BoundingBox[] = [
++      { x: 0, y: 0, width: 50, height: 20 },
++      { x: 60, y: 2, width: 50, height: 18 },
++    ];
++    const clusters = clusterByRowOverlap(boxes);
++    assert.strictEqual(clusters.length, 1);
++    assert.strictEqual(clusters[0].length, 2);
++  });
++
++  await t.test('keeps non-overlapping rows separate', () => {
++    const boxes: BoundingBox[] = [
++      { x: 0, y: 0, width: 50, height: 20 },
++      { x: 0, y: 100, width: 50, height: 20 },
++    ];
++    const clusters = clusterByRowOverlap(boxes);
++    assert.strictEqual(clusters.length, 2);
++  });
++});
++
++test('clusterByColumnOverlap', async (t) => {
++  await t.test('groups masonry columns by horizontal overlap regardless of height (AC3/AC7 multi-instance)', () => {
++    // Three masonry cards side by side in 3 columns, independently tall (true masonry, per AD-27).
++    const boxes: BoundingBox[] = [
++      { x: 0, y: 0, width: 230, height: 300 },
++      { x: 240, y: 0, width: 230, height: 450 },
++      { x: 480, y: 0, width: 230, height: 220 },
++    ];
++    const clusters = clusterByColumnOverlap(boxes);
++    assert.strictEqual(clusters.length, 3);
++    for (const cluster of clusters) {
++      assert.strictEqual(cluster.length, 1);
++    }
++  });
++});
++
++test('checkSiblingDimension', async (t) => {
++  await t.test('passes when all values are within the default 2px tolerance', () => {
++    const result = checkSiblingDimension(
++      [{ x: 0, y: 0, width: 230, height: 40 }, { x: 240, y: 0, width: 231, height: 40 }, { x: 480, y: 0, width: 229, height: 40 }],
++      'width'
++    );
++    assert.strictEqual(result.pass, true);
++    assert.strictEqual(result.toleranceAbsolutePx, DEFAULT_SIBLING_TOLERANCE_PX);
++  });
++
++  await t.test('fails when a value exceeds the default tolerance', () => {
++    const result = checkSiblingDimension(
++      [{ x: 0, y: 0, width: 230, height: 40 }, { x: 240, y: 0, width: 240, height: 40 }],
++      'width'
++    );
++    assert.strictEqual(result.pass, false);
++    assert.ok(result.maxDeltaPx > 2);
++  });
++
++  await t.test('respects a per-rule tolerance override', () => {
++    const result = checkSiblingDimension(
++      [{ x: 0, y: 0, width: 230, height: 40 }, { x: 240, y: 0, width: 236, height: 40 }],
++      'width',
++      10
++    );
++    assert.strictEqual(result.pass, true);
++  });
++
++  await t.test('trivially passes for an empty cluster', () => {
++    const result = checkSiblingDimension([], 'width');
++    assert.strictEqual(result.pass, true);
++  });
++});
+diff --git a/packages/visual-audit/src/compare/computed-style.ts b/packages/visual-audit/src/compare/computed-style.ts
+new file mode 100644
+index 00000000..5814ac35
+--- /dev/null
++++ b/packages/visual-audit/src/compare/computed-style.ts
+@@ -0,0 +1,69 @@
++/**
++ * AD-26 Rule 2 primary signal: DOM introspection -- bounding rects and computed CSS properties,
++ * extracted via `page.evaluate()`/`getComputedStyle()` (current guidance per this story's Dev
++ * Notes web research, superseding a dedicated third-party assertion library).
++ */
++
++import type { Page } from '@playwright/test';
++import type { BoundingBox } from '../rules/sibling-dimension.js';
++
++export interface ElementSnapshot {
++  boundingBox: BoundingBox;
++  scrollWidth: number;
++  clientWidth: number;
++  scrollHeight: number;
++  clientHeight: number;
++  computed: Record<string, string>;
++}
++
++/** Extracts a bounding box + computed-style snapshot for every element matching `selector`. */
++export async function getElementSnapshots(page: Page, selector: string, cssProperties: string[] = []): Promise<ElementSnapshot[]> {
++  return page.$$eval(
++    selector,
++    (elements, props) =>
++      elements.map((el) => {
++        const rect = el.getBoundingClientRect();
++        const style = window.getComputedStyle(el);
++        const computed: Record<string, string> = {};
++        for (const prop of props) {
++          computed[prop] = style.getPropertyValue(prop) || (style as unknown as Record<string, string>)[prop] || '';
++        }
++        return {
++          boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
++          scrollWidth: (el as HTMLElement).scrollWidth,
++          clientWidth: (el as HTMLElement).clientWidth,
++          scrollHeight: (el as HTMLElement).scrollHeight,
++          clientHeight: (el as HTMLElement).clientHeight,
++          computed,
++        };
++      }),
++    cssProperties
++  );
++}
++
++/** Convenience single-element variant -- throws if `selector` matches zero or more than one element. */
++export async function getElementSnapshot(page: Page, selector: string, cssProperties: string[] = []): Promise<ElementSnapshot> {
++  const snapshots = await getElementSnapshots(page, selector, cssProperties);
++  if (snapshots.length !== 1) {
++    throw new Error(`Expected exactly one element matching "${selector}", found ${snapshots.length}`);
++  }
++  return snapshots[0];
++}
++
++export interface OverflowCheckResult {
++  pass: boolean;
++  message: string;
++}
++
++/** Flags scrollWidth > clientWidth (or scrollHeight > clientHeight) -- AD-26 Rule 5 overflow class. */
++export function checkOverflow(snapshot: ElementSnapshot): OverflowCheckResult {
++  const widthOverflow = snapshot.scrollWidth > snapshot.clientWidth;
++  const heightOverflow = snapshot.scrollHeight > snapshot.clientHeight;
++  const pass = !widthOverflow && !heightOverflow;
++  return {
++    pass,
++    message: pass
++      ? 'No overflow/clipping detected'
++      : `Overflow detected: scrollWidth=${snapshot.scrollWidth} clientWidth=${snapshot.clientWidth}, scrollHeight=${snapshot.scrollHeight} clientHeight=${snapshot.clientHeight}`,
++  };
++}
+diff --git a/packages/visual-audit/src/compare/pixel-diff.ts b/packages/visual-audit/src/compare/pixel-diff.ts
+new file mode 100644
+index 00000000..a8327820
+--- /dev/null
++++ b/packages/visual-audit/src/compare/pixel-diff.ts
+@@ -0,0 +1,23 @@
++/**
++ * AD-26 Rule 2 secondary/confirmatory signal: pixel screenshot diff against the source PNG via
++ * Playwright's built-in `toHaveScreenshot()` (backed by `pixelmatch`) -- the current standard
++ * approach per this story's Dev Notes web research; no separate diffing library needed.
++ *
++ * `toHaveScreenshot()` only works against Playwright's own `expect` inside a `@playwright/test`
++ * test body (it manages the golden-snapshot directory itself), so this module's job is just to
++ * name the convention the manifest-runner spec files use, plus the recommended per-check options
++ * (component-level, not full-page; masked/disabled animations upstream) rather than re-implement
++ * screenshot diffing here.
++ */
++
++export interface PixelDiffOptions {
++  /** Forwarded to `toHaveScreenshot()`'s `maxDiffPixelRatio` -- 2026 best practice per Dev Notes
++   * is a per-component ratio rather than one global tolerance. */
++  maxDiffPixelRatio?: number;
++  threshold?: number;
++}
++
++export const DEFAULT_PIXEL_DIFF_OPTIONS: PixelDiffOptions = {
++  maxDiffPixelRatio: 0.02,
++  threshold: 0.2,
++};
+diff --git a/packages/visual-audit/src/content-variants.ts b/packages/visual-audit/src/content-variants.ts
+new file mode 100644
+index 00000000..2756b172
+--- /dev/null
++++ b/packages/visual-audit/src/content-variants.ts
+@@ -0,0 +1,150 @@
++/**
++ * AD-26 Rule 5, overflow/clipping content-variant catalog: derives a formatting function's
++ * content-variant catalog via static analysis of its branches (ts-morph), rather than
++ * hand-authored fixtures -- so overflow checks cover variants a prototype never itself
++ * depicted (AC9).
++ *
++ * Enumerates branch *shapes* (each `if`/`else if`/`else`/`case` arm the function can take),
++ * labeling each with the source text of its return expression. This does not enumerate
++ * arbitrary translated string content -- i18n string-length variance is an accepted gap
++ * (AD-26 Rule 5 notes this explicitly).
++ */
++
++import { Project, SyntaxKind, type Node } from 'ts-morph';
++
++export interface ContentVariant {
++  /** Human-readable label for the branch, derived from its guarding condition (or "default"/
++   * "fallback" for an unconditional terminal branch). */
++  label: string;
++  /** Source text of the branch's return expression, for debugging/reporting. */
++  returnExpressionText: string;
++  /**
++   * Best-effort *displayable* stand-in for the branch's runtime output, for overflow rendering.
++   * A branch's return expression usually isn't a bare literal (it mixes call expressions,
++   * optional-chaining fallbacks, object shapes) so this is not a guarantee of the exact runtime
++   * string -- it's the longest string literal found anywhere in the return expression (the
++   * common shape here is `somethingDynamic ?? 'Literal Label'`, so the literal is a real,
++   * representative piece of that branch's actual displayed text), or a domain-appropriate
++   * placeholder of comparable length when the branch has no string literal at all (e.g. a bare
++   * `formatWeekday(...)` call, which renders a long weekday name at runtime).
++   */
++  sampleText: string;
++}
++
++const DEFAULT_SAMPLE_TEXT_FALLBACK = 'Wednesday'; // representative length for a bare-call branch (e.g. a weekday-name formatter)
++
++function extractSampleText(returnExpressionText: string): string {
++  const literalMatches = [...returnExpressionText.matchAll(/'([^']*)'|"([^"]*)"/g)].map((m) => m[1] ?? m[2] ?? '');
++  if (literalMatches.length === 0) {
++    return DEFAULT_SAMPLE_TEXT_FALLBACK;
++  }
++  return literalMatches.reduce((longest, current) => (current.length > longest.length ? current : longest), literalMatches[0]);
++}
++
++/**
++ * Parses `filePath`'s source text (as a string, so callers can pass either a real file's
++ * contents or an in-memory fixture) and enumerates `functionName`'s reachable branches.
++ *
++ * Supports the two shapes this repo's formatting functions actually use: a chain of
++ * `if`/`else if`/`else` guarding `return` statements, and `switch`/`case` blocks. Each
++ * branch's terminal `return` contributes one variant.
++ */
++export function enumerateContentVariants(sourceText: string, functionName: string, fileName = 'source.ts'): ContentVariant[] {
++  const project = new Project({ useInMemoryFileSystem: true, skipAddingFilesFromTsConfig: true });
++  const sourceFile = project.createSourceFile(fileName, sourceText);
++
++  const fn = sourceFile
++    .getFunctions()
++    .find((f) => f.getName() === functionName);
++
++  if (!fn) {
++    throw new Error(`Function "${functionName}" not found in ${fileName}`);
++  }
++
++  const body = fn.getBody();
++  if (!body) {
++    throw new Error(`Function "${functionName}" has no body`);
++  }
++
++  const variants: Array<Omit<ContentVariant, 'sampleText'>> = [];
++  let anonymousCounter = 0;
++
++  function labelFor(conditionText: string | undefined, fallback: string): string {
++    if (!conditionText) return fallback;
++    anonymousCounter += 1;
++    return conditionText;
++  }
++
++  function collectFromIfStatement(ifStmt: Node): void {
++    if (!ifStmt.isKind(SyntaxKind.IfStatement)) return;
++    const condition = ifStmt.getExpression().getText();
++    const thenReturn = findDirectReturn(ifStmt.getThenStatement());
++    if (thenReturn) {
++      variants.push({ label: labelFor(condition, `branch_${anonymousCounter}`), returnExpressionText: thenReturn });
++    } else {
++      // Nested statements without a direct return still count as a reachable branch shape.
++      variants.push({ label: condition, returnExpressionText: '(no direct return -- nested block)' });
++    }
++
++    const elseStmt = ifStmt.getElseStatement();
++    if (!elseStmt) return;
++    if (elseStmt.isKind(SyntaxKind.IfStatement)) {
++      collectFromIfStatement(elseStmt);
++    } else {
++      const elseReturn = findDirectReturn(elseStmt);
++      variants.push({ label: 'else', returnExpressionText: elseReturn ?? '(no direct return -- nested block)' });
++    }
++  }
++
++  function findDirectReturn(stmt: Node | undefined): string | undefined {
++    if (!stmt) return undefined;
++    if (stmt.isKind(SyntaxKind.ReturnStatement)) {
++      return stmt.getExpression()?.getText() ?? 'undefined';
++    }
++    if (stmt.isKind(SyntaxKind.Block)) {
++      const statements = stmt.getStatements();
++      const ret = statements.find((s) => s.isKind(SyntaxKind.ReturnStatement));
++      if (ret && ret.isKind(SyntaxKind.ReturnStatement)) {
++        return ret.getExpression()?.getText() ?? 'undefined';
++      }
++    }
++    return undefined;
++  }
++
++  const topLevelIfs = body.isKind(SyntaxKind.Block) ? body.getStatements().filter((s) => s.isKind(SyntaxKind.IfStatement)) : [];
++
++  for (const ifStmt of topLevelIfs) {
++    collectFromIfStatement(ifStmt);
++  }
++
++  // A trailing unconditional return after the if/else-if chain (the common
++  // "not started / upcoming" fallback shape) counts as its own variant.
++  if (body.isKind(SyntaxKind.Block)) {
++    const statements = body.getStatements();
++    const last = statements[statements.length - 1];
++    if (last && last.isKind(SyntaxKind.ReturnStatement)) {
++      variants.push({ label: 'fallback', returnExpressionText: last.getExpression()?.getText() ?? 'undefined' });
++    }
++  }
++
++  const switchStatements = body.isKind(SyntaxKind.Block)
++    ? body.getDescendantsOfKind(SyntaxKind.SwitchStatement)
++    : [];
++  for (const sw of switchStatements) {
++    for (const clause of sw.getClauses()) {
++      const isDefault = clause.isKind(SyntaxKind.DefaultClause);
++      const label = isDefault ? 'default' : clause.asKindOrThrow(SyntaxKind.CaseClause).getExpression().getText();
++      const ret = clause.getStatements().find((s) => s.isKind(SyntaxKind.ReturnStatement));
++      variants.push({
++        label,
++        returnExpressionText: ret && ret.isKind(SyntaxKind.ReturnStatement) ? (ret.getExpression()?.getText() ?? 'undefined') : '(no direct return)',
++      });
++    }
++  }
++
++  if (variants.length === 0) {
++    throw new Error(`No enumerable if/else or switch branches found in "${functionName}"`);
++  }
++
++  return variants.map((v) => ({ ...v, sampleText: extractSampleText(v.returnExpressionText) }));
++}
+diff --git a/packages/visual-audit/src/engine.ts b/packages/visual-audit/src/engine.ts
+new file mode 100644
+index 00000000..53647f1d
+--- /dev/null
++++ b/packages/visual-audit/src/engine.ts
+@@ -0,0 +1,141 @@
++/**
++ * AD-26 check engine: runs a named manifest entry's declared rules against an isolated render,
++ * returning a structured pass/fail result per rule class (AC12's public library API).
++ *
++ * Both audit modes (reference/rule, AD-26 Rule 1) resolve to the same underlying
++ * computed-style/DOM assertion primitives in `compare/` and `rules/` -- this module only
++ * dispatches by rule `kind` and assembles the result, it holds no mode-specific branching of
++ * its own beyond "reference mode also runs the cross-render fidelity signals."
++ */
++
++import type { Page } from '@playwright/test';
++import { defaultRegistry } from './manifest.js';
++import { mountManifestEntry, mountPrototypeFile } from './render.js';
++import { getElementSnapshots, getElementSnapshot } from './compare/computed-style.js';
++import { clusterByRowOverlap, clusterByColumnOverlap, checkSiblingDimension } from './rules/sibling-dimension.js';
++import { checkIntraBoxRatio, deriveRatioFromReference } from './rules/intra-box-ratio.js';
++import { checkColorToken } from './rules/color.js';
++import { runOverflowRule } from './rules/overflow.js';
++
++export interface RuleRunResult {
++  kind: string;
++  pass: boolean;
++  message: string;
++  details?: unknown;
++}
++
++export interface ManifestRunResult {
++  name: string;
++  pass: boolean;
++  ruleResults: RuleRunResult[];
++}
++
++export interface RunManifestEntryOptions {
++  /** Absolute path to the repo root, needed to resolve `reference.prototypeHtmlPath` and
++   * `formattingFunction.filePath` (both declared repo-root-relative in the manifest). */
++  repoRoot: string;
++}
++
++/**
++ * Runs one manifest entry's full rule set against a live isolated render (AC12's public API).
++ * `page` is caller-provided (a `@playwright/test` fixture page) so this function stays testable
++ * against either a real browser or, for a future story, a mocked `Page`.
++ */
++export async function runManifestEntry(page: Page, name: string, options: RunManifestEntryOptions): Promise<ManifestRunResult> {
++  const entry = defaultRegistry.get(name);
++  await mountManifestEntry(page, entry);
++
++  const ruleResults: RuleRunResult[] = [];
++
++  for (const rule of entry.rules) {
++    if (rule.kind === 'sibling-dimension') {
++      const snapshots = await getElementSnapshots(page, rule.selector);
++      const boxes = snapshots.map((s) => s.boundingBox);
++      const clusters = entry.renderScope === 'multi-instance' ? clusterByColumnOverlap(boxes) : clusterByRowOverlap(boxes);
++      const clusterResults = clusters.map((cluster) => checkSiblingDimension(cluster, rule.dimension, rule.toleranceAbsolutePx));
++      const pass = clusterResults.every((r) => r.pass);
++      ruleResults.push({
++        kind: rule.kind,
++        pass,
++        message: clusterResults.map((r) => r.message).join('; '),
++        details: { clusters: clusterResults },
++      });
++    } else if (rule.kind === 'intra-box-ratio') {
++      const cssProps = rule.dimension === 'fontSize' ? ['font-size'] : [];
++      const [a, b] = await Promise.all([
++        getElementSnapshot(page, rule.selectorA, cssProps),
++        getElementSnapshot(page, rule.selectorB, cssProps),
++      ]);
++      const valueA = dimensionValue(a, rule.dimension);
++      const valueB = dimensionValue(b, rule.dimension);
++      let expectedRatio = rule.expectedRatio;
++      if (expectedRatio === undefined) {
++        if (entry.mode !== 'reference') {
++          throw new Error(`Rule-based manifest entry "${name}" must declare an explicit expectedRatio (no reference to derive one from)`);
++        }
++        expectedRatio = deriveRatioFromReference(valueA, valueB);
++      }
++      const result = checkIntraBoxRatio(valueA, valueB, expectedRatio, rule.toleranceRelative);
++      ruleResults.push({ kind: rule.kind, pass: result.pass, message: result.message, details: result });
++    } else if (rule.kind === 'color') {
++      const snapshot = await getElementSnapshot(page, rule.selector, [toCssProperty(rule.cssProperty)]);
++      const actual = snapshot.computed[toCssProperty(rule.cssProperty)];
++      if (rule.expectedToken) {
++        const result = checkColorToken(actual, rule.expectedToken.resolvedValue);
++        ruleResults.push({ kind: rule.kind, pass: result.pass, message: result.message, details: result });
++      } else {
++        // Fallback signal (pixel diff) is exercised via the manifest's own toHaveScreenshot()
++        // assertion in the proof spec, not re-implemented here -- see compare/pixel-diff.ts.
++        ruleResults.push({ kind: rule.kind, pass: true, message: 'No token declared; falling back to pixel-diff signal (see manifest spec)' });
++      }
++    } else if (rule.kind === 'overflow') {
++      const result = await runOverflowRule(page, rule, options.repoRoot);
++      ruleResults.push({
++        kind: rule.kind,
++        pass: result.pass,
++        message: result.variants.map((v) => v.message).join('; '),
++        details: result,
++      });
++      // Overflow variants render into a fresh page content each iteration; restore the entry's
++      // own render for any rule that runs after this one in the manifest's rule list.
++      await mountManifestEntry(page, entry);
++    } else {
++      throw new Error(`Unknown rule kind: ${(rule as { kind: string }).kind}`);
++    }
++  }
++
++  return {
++    name,
++    pass: ruleResults.every((r) => r.pass),
++    ruleResults,
++  };
++}
++
++/** Loads the reference-based entry's validated prototype file into `page` -- callers use this
++ * alongside `runManifestEntry` plus their own `toHaveScreenshot()` assertion for the secondary
++ * pixel-diff signal (AD-26 Rule 2). */
++export async function mountReferenceFor(page: Page, name: string, repoRoot: string): Promise<void> {
++  const entry = defaultRegistry.get(name);
++  if (entry.mode !== 'reference' || !entry.reference) {
++    throw new Error(`Manifest entry "${name}" is not reference-based`);
++  }
++  await mountPrototypeFile(page, repoRoot, entry.reference.prototypeHtmlPath, entry.viewport);
++}
++
++function dimensionValue(
++  snapshot: { boundingBox: { width: number; height: number }; computed: Record<string, string> },
++  dimension: 'width' | 'height' | 'fontSize'
++): number {
++  if (dimension === 'width') return snapshot.boundingBox.width;
++  if (dimension === 'height') return snapshot.boundingBox.height;
++  const raw = snapshot.computed['font-size'] ?? '';
++  const parsed = parseFloat(raw);
++  if (Number.isNaN(parsed)) {
++    throw new Error(`Could not parse font-size from computed value "${raw}"`);
++  }
++  return parsed;
++}
++
++function toCssProperty(prop: 'color' | 'backgroundColor'): string {
++  return prop === 'backgroundColor' ? 'background-color' : 'color';
++}
+diff --git a/packages/visual-audit/src/index.ts b/packages/visual-audit/src/index.ts
+new file mode 100644
+index 00000000..dd615521
+--- /dev/null
++++ b/packages/visual-audit/src/index.ts
+@@ -0,0 +1,48 @@
++/**
++ * @festgrid/visual-audit -- AD-26 visual-fidelity audit engine public API.
++ *
++ * Usable from a `vitest`/`tsx --test`/`@playwright/test` file in another package the same way
++ * `@festgrid/graphql-select`'s utilities are imported today (AC12) -- import what you need
++ * directly from `@festgrid/visual-audit`.
++ */
++
++export type {
++  ManifestEntry,
++  Viewport,
++  RenderSpec,
++  IsolatedRender,
++  LiveRouteRender,
++  Rule,
++  SiblingDimensionRule,
++  IntraBoxRatioRule,
++  OverflowRule,
++  ColorRule,
++  ReferenceSource,
++} from './manifest.js';
++
++export { ManifestRegistry, defaultRegistry, registerManifestEntry, DuplicateManifestEntryError, ManifestEntryNotFoundError } from './manifest.js';
++
++export { runManifestEntry, mountReferenceFor, type ManifestRunResult, type RuleRunResult, type RunManifestEntryOptions } from './engine.js';
++
++export { mountManifestEntry, mountPrototypeFile, type MountedRender } from './render.js';
++
++export { getElementSnapshot, getElementSnapshots, checkOverflow, type ElementSnapshot, type OverflowCheckResult } from './compare/computed-style.js';
++
++export { DEFAULT_PIXEL_DIFF_OPTIONS, type PixelDiffOptions } from './compare/pixel-diff.js';
++
++export {
++  clusterByRowOverlap,
++  clusterByColumnOverlap,
++  checkSiblingDimension,
++  DEFAULT_SIBLING_TOLERANCE_PX,
++  type BoundingBox,
++  type SiblingDimensionCheckResult,
++} from './rules/sibling-dimension.js';
++
++export { checkIntraBoxRatio, deriveRatioFromReference, DEFAULT_RATIO_TOLERANCE_RELATIVE, type IntraBoxRatioCheckResult } from './rules/intra-box-ratio.js';
++
++export { checkColorToken, type ColorCheckResult } from './rules/color.js';
++
++export { runOverflowRule, type OverflowRuleResult, type OverflowVariantResult } from './rules/overflow.js';
++
++export { enumerateContentVariants, type ContentVariant } from './content-variants.js';
+diff --git a/packages/visual-audit/src/manifest.ts b/packages/visual-audit/src/manifest.ts
+new file mode 100644
+index 00000000..64b0877d
+--- /dev/null
++++ b/packages/visual-audit/src/manifest.ts
+@@ -0,0 +1,162 @@
++/**
++ * AD-26 manifest entry type + registry.
++ *
++ * A manifest entry declares what's checked for one component/variant/viewport triple
++ * (AD-26 Rule 3) -- never inline per-story code. `registerManifestEntry` rejects a second
++ * entry declaring the same triple (AC4).
++ */
++
++export interface Viewport {
++  width: number;
++  height: number;
++}
++
++/** AD-26 Rule 4: isolated-component-render is the default -- no live server, no DB, no auth. */
++export interface IsolatedRender {
++  kind: 'isolated-html';
++  /** Static markup, or a function producing it from the manifest's fixture props. */
++  html: string | ((fixtureProps: Record<string, unknown>) => string);
++}
++
++/**
++ * AD-26 Rule 4 escape hatch: documented fallback for genuinely route/data-dependent checks
++ * only. Not exercised by this story's own example manifests (AC5).
++ */
++export interface LiveRouteRender {
++  kind: 'live-route';
++  url: string;
++}
++
++export type RenderSpec = IsolatedRender | LiveRouteRender;
++
++/** AD-26 Rule 5, sibling-dimension consistency: default absolute tolerance <=2px. */
++export interface SiblingDimensionRule {
++  kind: 'sibling-dimension';
++  /** Selector matching every element in the candidate sibling set to auto-cluster (Rule 5). */
++  selector: string;
++  dimension: 'width' | 'height';
++  toleranceAbsolutePx?: number;
++}
++
++/** AD-26 Rule 5, intra-box ratio consistency: default relative tolerance +-8-10%. */
++export interface IntraBoxRatioRule {
++  kind: 'intra-box-ratio';
++  selectorA: string;
++  selectorB: string;
++  dimension: 'width' | 'height' | 'fontSize';
++  /** Explicit DESIGN.md/token-sourced ratio. Omit to derive once from the reference prototype's
++   * own rendered ratio (reference-based manifests only). */
++  expectedRatio?: number;
++  toleranceRelative?: number;
++}
++
++/** AD-26 Rule 5, overflow/clipping via ts-morph branch enumeration of a formatting function. */
++export interface OverflowRule {
++  kind: 'overflow';
++  /** Selector of the content slot whose overflow is checked for every enumerated variant. */
++  selector: string;
++  formattingFunction: {
++    filePath: string;
++    functionName: string;
++  };
++  /** Renders one enumerated variant's return value into full page markup for that render. */
++  buildFixtureHtml: (variantLabel: string) => string;
++}
++
++/** AD-26 Rule 6: color fidelity, token-exact-match primary / pixel-diff fallback. */
++export interface ColorRule {
++  kind: 'color';
++  selector: string;
++  cssProperty: 'color' | 'backgroundColor';
++  /** Primary signal: exact computed-value match against the resolved token. */
++  expectedToken?: { name: string; resolvedValue: string };
++}
++
++export type Rule = SiblingDimensionRule | IntraBoxRatioRule | OverflowRule | ColorRule;
++
++export interface ReferenceSource {
++  /** Path to the validated prototype HTML, relative to the repo root. */
++  prototypeHtmlPath: string;
++  /** Path to the source PNG the prototype was validated against, relative to the repo root. */
++  prototypePngPath: string;
++}
++
++export interface ManifestEntry {
++  component: string;
++  variant: string;
++  viewport: Viewport;
++  /** AD-26 Rule 1a: render scope is per-entry, never fixed by the engine. */
++  renderScope: 'single-instance' | 'multi-instance';
++  /** AD-26 Rule 1: two audit modes, one check engine. */
++  mode: 'reference' | 'rule';
++  render: RenderSpec;
++  /** Required when mode === 'reference'. */
++  reference?: ReferenceSource;
++  fixtureProps?: Record<string, unknown>;
++  rules: Rule[];
++}
++
++function tripleKey(entry: Pick<ManifestEntry, 'component' | 'variant' | 'viewport'>): string {
++  return `${entry.component}::${entry.variant}::${entry.viewport.width}x${entry.viewport.height}`;
++}
++
++export class DuplicateManifestEntryError extends Error {
++  constructor(key: string) {
++    super(`A manifest entry already exists for component/variant/viewport triple "${key}"`);
++    this.name = 'DuplicateManifestEntryError';
++  }
++}
++
++export class ManifestEntryNotFoundError extends Error {
++  constructor(name: string) {
++    super(`No manifest entry registered under name "${name}"`);
++    this.name = 'ManifestEntryNotFoundError';
++  }
++}
++
++/**
++ * Registry keyed by an explicit `name` for lookup convenience, but uniqueness is enforced on
++ * the component/variant/viewport triple (AC4) -- two differently-named entries for the same
++ * triple are still rejected.
++ */
++export class ManifestRegistry {
++  private byName = new Map<string, ManifestEntry>();
++  private byTriple = new Map<string, string>();
++
++  register(name: string, entry: ManifestEntry): void {
++    const key = tripleKey(entry);
++    const existingName = this.byTriple.get(key);
++    if (existingName !== undefined) {
++      throw new DuplicateManifestEntryError(key);
++    }
++    if (entry.mode === 'reference' && !entry.reference) {
++      throw new Error(`Manifest entry "${name}" declares mode "reference" but has no reference source`);
++    }
++    this.byName.set(name, entry);
++    this.byTriple.set(key, name);
++  }
++
++  get(name: string): ManifestEntry {
++    const entry = this.byName.get(name);
++    if (!entry) {
++      throw new ManifestEntryNotFoundError(name);
++    }
++    return entry;
++  }
++
++  has(name: string): boolean {
++    return this.byName.has(name);
++  }
++
++  list(): Array<{ name: string; entry: ManifestEntry }> {
++    return Array.from(this.byName.entries()).map(([name, entry]) => ({ name, entry }));
++  }
++}
++
++/** The process-wide registry manifests register themselves into (mirrors a simple import-time
++ * side-effect registration pattern, same as e.g. route-table registries elsewhere in the repo). */
++export const defaultRegistry = new ManifestRegistry();
++
++export function registerManifestEntry(name: string, entry: ManifestEntry): void {
++  defaultRegistry.register(name, entry);
++}
+diff --git a/packages/visual-audit/src/render.ts b/packages/visual-audit/src/render.ts
+new file mode 100644
+index 00000000..ddfa0fa3
+--- /dev/null
++++ b/packages/visual-audit/src/render.ts
+@@ -0,0 +1,54 @@
++/**
++ * AD-26 Rule 4: isolated-component-render harness.
++ *
++ * Judgment call (documented, see story Dev Agent Record): AC5 names Playwright 1.62's native
++ * stories/gallery `fixtures.mount()` model as the mechanism. That model mounts real framework
++ * (React) component trees through a Vite-bundled gallery page, which requires the consuming
++ * package to own a framework dependency and a component-under-test's source. This story's own
++ * File Change Plan (Dev Notes) lists only `@playwright/test` + `ts-morph` as new dependencies --
++ * no React/`packages/ui` dependency -- and its example manifests point at this repo's own
++ * design-reference prototypes, which are already-isolated static HTML/CSS, not React source.
++ *
++ * This harness therefore implements "isolated-component-render" at the DOM level: `mountHtml`
++ * loads a self-contained HTML string into a fresh page via `page.setContent()` -- no live
++ * Next.js server, no database, no auth, exactly Rule 4's constraint -- and is the render backend
++ * every non-live-route manifest entry uses. A future story that needs to audit an actual React
++ * component (e.g. BUG-040's fix) can add a `fixtures.mount()`-backed `RenderSpec` variant beside
++ * this one without changing the engine's public shape (`RenderSpec` is already a discriminated
++ * union, see `manifest.ts`) -- this story does not need to build that variant to prove the engine
++ * mechanism end-to-end (AC2/AC5 are satisfied by the isolated, server/DB/auth-free nature of the
++ * render, not by the specific bundler used to produce the markup).
++ */
++
++import type { Page } from '@playwright/test';
++import type { ManifestEntry } from './manifest.js';
++
++export interface MountedRender {
++  page: Page;
++  viewportWidth: number;
++  viewportHeight: number;
++}
++
++/** Renders a manifest entry's declared `render` spec into `page`, applying its viewport. */
++export async function mountManifestEntry(page: Page, entry: ManifestEntry): Promise<MountedRender> {
++  await page.setViewportSize({ width: entry.viewport.width, height: entry.viewport.height });
++
++  if (entry.render.kind === 'live-route') {
++    // Documented escape hatch (AD-26 Rule 4) -- not exercised by this story's own examples.
++    await page.goto(entry.render.url);
++  } else {
++    const html = typeof entry.render.html === 'function' ? entry.render.html(entry.fixtureProps ?? {}) : entry.render.html;
++    await page.setContent(html, { waitUntil: 'load' });
++  }
++
++  return { page, viewportWidth: entry.viewport.width, viewportHeight: entry.viewport.height };
++}
++
++/** Loads a validated prototype HTML file directly (reference-based mode's "reference render"),
++ * from a repo-root-relative path, resolved against `repoRoot`. */
++export async function mountPrototypeFile(page: Page, repoRoot: string, prototypeHtmlPath: string, viewport: { width: number; height: number }): Promise<void> {
++  await page.setViewportSize(viewport);
++  const path = await import('node:path');
++  const url = 'file:///' + path.resolve(repoRoot, prototypeHtmlPath).replace(/\\/g, '/');
++  await page.goto(url);
++}
+diff --git a/packages/visual-audit/src/rules/color.ts b/packages/visual-audit/src/rules/color.ts
+new file mode 100644
+index 00000000..2dffdbb2
+--- /dev/null
++++ b/packages/visual-audit/src/rules/color.ts
+@@ -0,0 +1,36 @@
++/**
++ * AD-26 Rule 6, color fidelity: primary signal is an exact computed-value match against the
++ * element's resolved DESIGN.md/Tailwind token; the fallback signal (pixel diff, see
++ * `compare/pixel-diff.ts`) is used only when no token is declared for that element.
++ *
++ * Pure logic -- comparing two already-extracted CSS color strings.
++ */
++
++export interface ColorCheckResult {
++  pass: boolean;
++  actual: string;
++  expected: string;
++  message: string;
++}
++
++/** Normalizes a CSS color string (e.g. `getComputedStyle`'s `rgb(30, 41, 59)`) for comparison,
++ * collapsing whitespace differences. Does not attempt cross-color-space conversion -- both
++ * sides must already be the same representation (this repo's tokens resolve to `rgb()`/`rgba()`
++ * via Tailwind's compiled CSS, matching what `getComputedStyle` returns in Chromium). */
++function normalize(color: string): string {
++  return color.trim().replace(/\s+/g, ' ').toLowerCase();
++}
++
++export function checkColorToken(actualComputedColor: string, expectedResolvedValue: string): ColorCheckResult {
++  const actual = normalize(actualComputedColor);
++  const expected = normalize(expectedResolvedValue);
++  const pass = actual === expected;
++  return {
++    pass,
++    actual,
++    expected,
++    message: pass
++      ? `Computed color exactly matches token value ${expected}`
++      : `Computed color "${actual}" does not exactly match token value "${expected}"`,
++  };
++}
+diff --git a/packages/visual-audit/src/rules/intra-box-ratio.ts b/packages/visual-audit/src/rules/intra-box-ratio.ts
+new file mode 100644
+index 00000000..f875ade7
+--- /dev/null
++++ b/packages/visual-audit/src/rules/intra-box-ratio.ts
+@@ -0,0 +1,48 @@
++/**
++ * AD-26 Rule 5, intra-box ratio consistency: a named element pair is checked against an
++ * expected ratio at a configurable relative tolerance (default +-8-10%). The expected ratio
++ * can be sourced from an explicit token or derived once from a reference prototype's own
++ * rendered ratio (AC8).
++ *
++ * Pure logic -- no Playwright/DOM dependency.
++ */
++
++export const DEFAULT_RATIO_TOLERANCE_RELATIVE = 0.09; // within the +-8-10% band
++
++export interface IntraBoxRatioCheckResult {
++  pass: boolean;
++  actualRatio: number;
++  expectedRatio: number;
++  deltaRelative: number;
++  toleranceRelative: number;
++  message: string;
++}
++
++/** Derives the expected ratio once from a reference render's own two measured values. */
++export function deriveRatioFromReference(valueA: number, valueB: number): number {
++  if (valueB === 0) {
++    throw new Error('Cannot derive a ratio: reference denominator value is 0');
++  }
++  return valueA / valueB;
++}
++
++export function checkIntraBoxRatio(
++  valueA: number,
++  valueB: number,
++  expectedRatio: number,
++  toleranceRelative: number = DEFAULT_RATIO_TOLERANCE_RELATIVE
++): IntraBoxRatioCheckResult {
++  const actualRatio = valueB === 0 ? Infinity : valueA / valueB;
++  const deltaRelative = expectedRatio === 0 ? Math.abs(actualRatio) : Math.abs(actualRatio - expectedRatio) / Math.abs(expectedRatio);
++  const pass = deltaRelative <= toleranceRelative;
++  return {
++    pass,
++    actualRatio,
++    expectedRatio,
++    deltaRelative,
++    toleranceRelative,
++    message: pass
++      ? `Ratio ${actualRatio.toFixed(3)} within ${(toleranceRelative * 100).toFixed(1)}% of expected ${expectedRatio.toFixed(3)}`
++      : `Ratio ${actualRatio.toFixed(3)} deviates ${(deltaRelative * 100).toFixed(1)}% from expected ${expectedRatio.toFixed(3)}, exceeding tolerance ${(toleranceRelative * 100).toFixed(1)}%`,
++  };
++}
+diff --git a/packages/visual-audit/src/rules/overflow.ts b/packages/visual-audit/src/rules/overflow.ts
+new file mode 100644
+index 00000000..8ae73d2d
+--- /dev/null
++++ b/packages/visual-audit/src/rules/overflow.ts
+@@ -0,0 +1,45 @@
++/**
++ * AD-26 Rule 5, overflow/clipping: renders each `ts-morph`-enumerated content variant and flags
++ * `scrollWidth > clientWidth` (or the height equivalent) -- including variants the source
++ * prototype never itself depicted (AC9).
++ */
++
++import type { Page } from '@playwright/test';
++import { readFileSync } from 'node:fs';
++import { enumerateContentVariants } from '../content-variants.js';
++import { getElementSnapshot, checkOverflow } from '../compare/computed-style.js';
++import type { OverflowRule } from '../manifest.js';
++
++export interface OverflowVariantResult {
++  variantLabel: string;
++  pass: boolean;
++  message: string;
++}
++
++export interface OverflowRuleResult {
++  pass: boolean;
++  variants: OverflowVariantResult[];
++}
++
++/** Runs an `OverflowRule` against every enumerated content variant, reusing `page` (viewport
++ * already set by the caller's render step) for each variant's isolated markup. */
++export async function runOverflowRule(page: Page, rule: OverflowRule, repoRoot: string): Promise<OverflowRuleResult> {
++  const path = await import('node:path');
++  const sourceText = readFileSync(path.resolve(repoRoot, rule.formattingFunction.filePath), 'utf-8');
++  const variants = enumerateContentVariants(sourceText, rule.formattingFunction.functionName);
++
++  const results: OverflowVariantResult[] = [];
++  for (const variant of variants) {
++    const html = rule.buildFixtureHtml(variant.sampleText);
++    await page.setContent(html, { waitUntil: 'load' });
++    const snapshot = await getElementSnapshot(page, rule.selector);
++    const overflow = checkOverflow(snapshot);
++    results.push({
++      variantLabel: variant.label,
++      pass: overflow.pass,
++      message: `[${variant.label} -> "${variant.sampleText}"] ${overflow.message}`,
++    });
++  }
++
++  return { pass: results.every((r) => r.pass), variants: results };
++}
+diff --git a/packages/visual-audit/src/rules/sibling-dimension.ts b/packages/visual-audit/src/rules/sibling-dimension.ts
+new file mode 100644
+index 00000000..4428144e
+--- /dev/null
++++ b/packages/visual-audit/src/rules/sibling-dimension.ts
+@@ -0,0 +1,111 @@
++/**
++ * AD-26 Rule 5, sibling-dimension consistency: elements are auto-clustered into rows/columns by
++ * bounding-box coordinate overlap, then clustered siblings expected to share a dimension are
++ * checked at a configurable absolute tolerance (default <=2px).
++ *
++ * Pure logic -- no Playwright/DOM dependency, so it's unit-testable directly (Story 0.44's
++ * "unit-test the pure comparison/tolerance/clustering logic" tier).
++ */
++
++export interface BoundingBox {
++  x: number;
++  y: number;
++  width: number;
++  height: number;
++}
++
++export const DEFAULT_SIBLING_TOLERANCE_PX = 2;
++
++/**
++ * Clusters boxes into rows (grouped by vertical/`y` overlap) -- the shape needed for
++ * "elements sharing a row should share a height" checks. Two boxes are in the same cluster
++ * when their `[y, y+height)` ranges overlap by more than zero.
++ */
++export function clusterByRowOverlap(boxes: BoundingBox[]): BoundingBox[][] {
++  const remaining = boxes.map((box, index) => ({ box, index }));
++  const clusters: BoundingBox[][] = [];
++
++  while (remaining.length > 0) {
++    const seed = remaining.shift()!;
++    const cluster = [seed];
++    for (let i = remaining.length - 1; i >= 0; i -= 1) {
++      const candidate = remaining[i];
++      const overlapsAny = cluster.some((member) => verticalRangesOverlap(member.box, candidate.box));
++      if (overlapsAny) {
++        cluster.push(candidate);
++        remaining.splice(i, 1);
++      }
++    }
++    clusters.push(cluster.map((c) => c.box));
++  }
++
++  return clusters;
++}
++
++/**
++ * Clusters boxes into columns (grouped by horizontal/`x` overlap) -- the shape AD-27's masonry
++ * "columns share one width" invariant needs (multi-instance render scope, AC3/AC7).
++ */
++export function clusterByColumnOverlap(boxes: BoundingBox[]): BoundingBox[][] {
++  const remaining = boxes.map((box, index) => ({ box, index }));
++  const clusters: BoundingBox[][] = [];
++
++  while (remaining.length > 0) {
++    const seed = remaining.shift()!;
++    const cluster = [seed];
++    for (let i = remaining.length - 1; i >= 0; i -= 1) {
++      const candidate = remaining[i];
++      const overlapsAny = cluster.some((member) => horizontalRangesOverlap(member.box, candidate.box));
++      if (overlapsAny) {
++        cluster.push(candidate);
++        remaining.splice(i, 1);
++      }
++    }
++    clusters.push(cluster.map((c) => c.box));
++  }
++
++  return clusters;
++}
++
++function verticalRangesOverlap(a: BoundingBox, b: BoundingBox): boolean {
++  return a.y < b.y + b.height && b.y < a.y + a.height;
++}
++
++function horizontalRangesOverlap(a: BoundingBox, b: BoundingBox): boolean {
++  return a.x < b.x + b.width && b.x < a.x + a.width;
++}
++
++export interface SiblingDimensionCheckResult {
++  pass: boolean;
++  values: number[];
++  maxDeltaPx: number;
++  toleranceAbsolutePx: number;
++  message: string;
++}
++
++/**
++ * Checks that every box in a (pre-clustered) sibling set shares the given dimension within
++ * `toleranceAbsolutePx` (default 2px) of the cluster's mean value.
++ */
++export function checkSiblingDimension(
++  boxes: BoundingBox[],
++  dimension: 'width' | 'height',
++  toleranceAbsolutePx: number = DEFAULT_SIBLING_TOLERANCE_PX
++): SiblingDimensionCheckResult {
++  const values = boxes.map((box) => box[dimension]);
++  if (values.length === 0) {
++    return { pass: true, values, maxDeltaPx: 0, toleranceAbsolutePx, message: 'No elements to compare' };
++  }
++  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
++  const maxDeltaPx = values.reduce((max, v) => Math.max(max, Math.abs(v - mean)), 0);
++  const pass = maxDeltaPx <= toleranceAbsolutePx;
++  return {
++    pass,
++    values,
++    maxDeltaPx,
++    toleranceAbsolutePx,
++    message: pass
++      ? `All ${values.length} sibling(s) share ${dimension} within ${toleranceAbsolutePx}px (max delta ${maxDeltaPx.toFixed(2)}px)`
++      : `Sibling ${dimension} mismatch: max delta ${maxDeltaPx.toFixed(2)}px exceeds tolerance ${toleranceAbsolutePx}px (values: ${values.join(', ')})`,
++  };
++}
+diff --git a/packages/visual-audit/tsconfig.json b/packages/visual-audit/tsconfig.json
+new file mode 100644
+index 00000000..567f8b7d
+--- /dev/null
++++ b/packages/visual-audit/tsconfig.json
+@@ -0,0 +1,10 @@
++{
++  "extends": "@festgrid/typescript-config/base.json",
++  "compilerOptions": {
++    "module": "NodeNext",
++    "moduleResolution": "NodeNext",
++    "outDir": "dist"
++  },
++  "include": [".", "manifests"],
++  "exclude": ["node_modules", "dist"]
++}

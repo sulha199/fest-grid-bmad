@@ -11,7 +11,7 @@ test('formatEmptyScrapeCycleReason', async (t) => {
   await t.test('says nobody is eligible when there is nothing subscribed', () => {
     const reason = formatEmptyScrapeCycleReason({
       subscribedScrapable: 0, skippedRecentlyScraped: 0, newestLastScrapedAt: null,
-      skippedPendingBrightData: 0, skippedOther: 0, cutoff, mode: 'scheduled',
+      skippedPendingBrightData: 0, skippedByBackoff: 0, skippedOther: 0, cutoff, mode: 'scheduled',
     });
     assert.match(reason, /No subscribed profile is eligible/);
   });
@@ -19,17 +19,25 @@ test('formatEmptyScrapeCycleReason', async (t) => {
   await t.test('names how many were skipped as recent, the newest stamp and the cutoff (the 2026-10-24 starvation)', () => {
     const reason = formatEmptyScrapeCycleReason({
       subscribedScrapable: 38, skippedRecentlyScraped: 38, newestLastScrapedAt: new Date('2026-10-23T16:25:00.000Z'),
-      skippedPendingBrightData: 0, skippedOther: 0, cutoff, mode: 'recent-window',
+      skippedPendingBrightData: 0, skippedByBackoff: 0, skippedOther: 0, cutoff, mode: 'recent-window',
     });
     assert.match(reason, /38 subscribed profile\(s\) eligible: 38 skipped as scraped since 2026-10-24T02:13:00.000Z/);
     assert.match(reason, /newest lastScrapedAt 2026-10-23T16:25:00.000Z/);
     assert.match(reason, /Cutoff mode: recent-window/);
   });
 
+  await t.test('names how many were deferred by the cadence backoff', () => {
+    const reason = formatEmptyScrapeCycleReason({
+      subscribedScrapable: 10, skippedRecentlyScraped: 4, newestLastScrapedAt: new Date('2026-10-23T16:25:00.000Z'),
+      skippedPendingBrightData: 0, skippedByBackoff: 6, skippedOther: 0, cutoff, mode: 'scheduled',
+    });
+    assert.match(reason, /6 deferred by the cadence backoff/);
+  });
+
   await t.test('omits the newest stamp when nothing was skipped as recent', () => {
     const reason = formatEmptyScrapeCycleReason({
       subscribedScrapable: 2, skippedRecentlyScraped: 0, newestLastScrapedAt: null,
-      skippedPendingBrightData: 2, skippedOther: 0, cutoff, mode: 'scheduled',
+      skippedPendingBrightData: 2, skippedByBackoff: 0, skippedOther: 0, cutoff, mode: 'scheduled',
     });
     assert.doesNotMatch(reason, /newest lastScrapedAt/);
     assert.match(reason, /2 with a Bright Data job in flight/);

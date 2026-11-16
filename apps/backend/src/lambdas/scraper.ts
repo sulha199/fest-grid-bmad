@@ -10,6 +10,9 @@ import { attemptBrightDataTrigger } from '../lib/scraper/trigger-brightdata-for-
 import { attemptApifyAsyncTrigger } from '../lib/scraper/trigger-apify-for-target.js';
 import { settleWithConcurrencyLimit } from '../lib/scraper/settle-with-concurrency-limit.js';
 import { runStaleJobSweep } from '../lib/scraper/stale-job-sweep.js';
+import { runJobEngineJob } from '../lib/job-engine/run-job.js';
+import { runJobEngineSweep } from '../lib/job-engine/run-job-engine-sweep.js';
+import { registerScraperJobHandlers } from '../lib/job-engine/register-scraper-job-handlers.js';
 import {
   recordProviderHealthCheck,
   type ProviderHealthCheckPrevious,
@@ -28,6 +31,9 @@ import {
 } from '../lib/scraper/tally-scraper-provider-results.js';
 import { loadBackendEnv } from '../env.js';
 import { emitOpsMetric, OpsMetric } from '../lib/metrics/emit-metric.js';
+
+// Story 10.6: this Lambda's half of each job type that has one (the moderator re-extract's refresh phase and its late-result handler).
+registerScraperJobHandlers();
 
 // FIND-035: fallback window for a target with no `newestPostPublishedAt` (i.e. no posts
 // yet -- its first-ever scrape). Mirrors the fallback branch already proven correct in
@@ -67,13 +73,37 @@ interface DispatchOutcome {
 
 type PollAndDrainEvent = { jobType: 'poll-and-drain' };
 type StaleJobSweepEvent = { jobType: 'stale-job-sweep' };
-type ScraperEvent = SQSEvent | EventBridgeEvent<string, unknown> | PollAndDrainEvent | StaleJobSweepEvent;
+// Story 10.1a (AD-53): an async invoke carrying only the job id, from the API Lambda (start) or another host (hand-off).
+type JobEngineRunEvent = { jobType: 'job-engine-run'; jobId: string };
+// Story 10.1a (AD-53): the database-only job sweep, every 5 minutes (its own EventBridge rule).
+type JobEngineSweepEvent = { jobType: 'job-engine-sweep' };
+type ScraperEvent =
+  | SQSEvent
+  | EventBridgeEvent<string, unknown>
+  | PollAndDrainEvent
+  | StaleJobSweepEvent
+  | JobEngineRunEvent
+  | JobEngineSweepEvent;
 
 export const handler = async (
   event: ScraperEvent,
   context: Context
 ): Promise<void> => {
   console.log('Scraper lambda invoked', JSON.stringify({ event }));
+
+  // Story 10.1a: run one job-engine job. Checked before the SQS and EventBridge branches below; the event has no `Records`.
+  if (hasJobType(event, 'job-engine-run')) {
+    await runJobEngineJob((event as JobEngineRunEvent).jobId, {
+      getRemainingTimeInMillis: context.getRemainingTimeInMillis?.bind(context),
+    });
+    return;
+  }
+
+  // Story 10.1a: the 5-minute, database-only job sweep. The hourly vendor sweep below is untouched.
+  if (hasJobType(event, 'job-engine-sweep')) {
+    await runJobEngineSweep();
+    return;
+  }
 
   // Check for stale job sweep EventBridge trigger
   if (hasJobType(event, 'stale-job-sweep')) {

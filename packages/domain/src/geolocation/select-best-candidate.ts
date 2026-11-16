@@ -1,4 +1,5 @@
-import { LocationDetails } from '@festgrid/shared-types';
+import { Coordinates, LocationDetails } from '@festgrid/shared-types';
+import { computeDistanceKm } from './computeDistanceKm.js';
 
 /**
  * Geoapify's documented `rank.match_type` values, ordered from most-specific to
@@ -31,6 +32,36 @@ function matchTypeTier(matchType: string | undefined): number {
   }
   const index = MATCH_TYPE_PRIORITY.indexOf(matchType);
   return index === -1 ? MATCH_TYPE_PRIORITY.length : index;
+}
+
+/**
+ * A candidate farther than this from the account's own default location is implausible unless the geocoder is confident about
+ * it (see `HIGH_CONFIDENCE_ANYWHERE`): most posts are about places near their account, and Geoapify's `confidence` is 0 for
+ * many correct local places and for wrong far ones alike, so it cannot be used as an absolute gate (on prod, 939 `full_match`
+ * results score under 0.1, among them venues in New York, Denmark and Australia for Yogyakarta posts).
+ */
+export const PLAUSIBLE_RADIUS_KM = 300;
+/**
+ * A candidate at or above this confidence is kept wherever it is (an event genuinely in another city). Set at 0.9, not 0.5: a
+ * generic name scores 0.5 for a wrong country ("Pasar" in India for "Pasar Porosjayan"), while real exact matches score 0.9 and up
+ * (Marina Bay Sands, Lippo Plaza Jogja: 1.0).
+ */
+export const HIGH_CONFIDENCE_ANYWHERE = 0.9;
+
+/**
+ * Keeps the candidates that are plausible for an account located at `near`: within `PLAUSIBLE_RADIUS_KM`, or confident enough to
+ * trust anywhere. Order is preserved. An empty result means every candidate is a far, low-confidence guess, which the caller
+ * treats as "not found" rather than pinning the event on the wrong side of the world. Without `near` nothing is filtered.
+ */
+export function filterPlausibleCandidates(candidates: LocationDetails[], near: Coordinates | undefined): LocationDetails[] {
+  if (!near) {
+    return candidates;
+  }
+  return candidates.filter(
+    (candidate) =>
+      (candidate.confidence ?? -Infinity) >= HIGH_CONFIDENCE_ANYWHERE ||
+      computeDistanceKm(near, candidate.coordinates) <= PLAUSIBLE_RADIUS_KM
+  );
 }
 
 /**

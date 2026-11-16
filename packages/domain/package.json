@@ -50,6 +50,10 @@
       "types": "./dist/scraper/index.d.ts",
       "default": "./dist/scraper/index.js"
     },
+    "./extraction-eval": {
+      "types": "./dist/extraction-eval/index.d.ts",
+      "default": "./dist/extraction-eval/index.js"
+    },
     "./posts": {
       "types": "./dist/posts/index.d.ts",
       "default": "./dist/posts/index.js"
@@ -58,9 +62,17 @@
       "types": "./dist/users/index.d.ts",
       "default": "./dist/users/index.js"
     },
+    "./retry": {
+      "types": "./dist/retry/index.d.ts",
+      "default": "./dist/retry/index.js"
+    },
     "./shared": {
       "types": "./dist/shared/index.d.ts",
       "default": "./dist/shared/index.js"
+    },
+    "./jobs": {
+      "types": "./dist/jobs/index.d.ts",
+      "default": "./dist/jobs/index.js"
     }
   },
   "scripts": {

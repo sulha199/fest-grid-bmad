@@ -1,8 +1,8 @@
-import { callApifyClient, isApifyMemoryLimitError } from './instagram-adapter.js';
+import { callApifyClient, isApifyMemoryLimitError, isApifyMonthlyUsageLimitError } from './instagram-adapter.js';
 import { getScrapeCursor } from './get-scrape-cursor.js';
 import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
-import { recordProviderUsage, isProviderCapacityAvailable } from './usage-store.js';
+import { recordProviderUsage, isProviderCapacityAvailable, rememberExhaustedCapacity } from './usage-store.js';
 import { loadBackendEnv } from '../../env.js';
 import { recordActorRunStart } from './record-actor-run.js';
 import { generateWebhookToken } from './generate-webhook-token.js';
@@ -114,6 +114,12 @@ export let attemptApifyAsyncTrigger = async (
     }
     if (isApifyMemoryLimitError(error)) {
       console.warn(`Apify memory limit reached; ${target.username} falls back to the scraping queue`);
+      return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
+    }
+    if (isApifyMonthlyUsageLimitError(error)) {
+      console.warn(`Apify monthly usage limit reached; ${target.username} falls back to the scraping queue`);
+      // Story 10.2 (IDEA-101): remember it for the rest of the cycle instead of making one refused start per target.
+      await rememberExhaustedCapacity('apify').catch((markError) => console.error('Could not remember the exhausted Apify cap:', markError));
       return { success: false, failureReason: 'CAPACITY_EXHAUSTED' };
     }
     console.error(`Failed to trigger Apify async job for ${target.username}:`, error);

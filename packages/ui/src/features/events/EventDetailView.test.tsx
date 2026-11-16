@@ -57,6 +57,7 @@ describe('EventDetailView', () => {
         title: 'Morning Session',
         performers: 'Band A, DJ B',
         location: 'Stage 1',
+        locationKeywords: ['Stage 1', 'Navy Pier', 'Chicago'],
         ticketPrice: '$10',
         locationDetails: {
           coordinates: { lat: 41.8758, lng: -87.6245 },
@@ -109,11 +110,11 @@ describe('EventDetailView', () => {
     expect(screen.getByText('Stage 1')).toBeInTheDocument();
     expect(screen.getByText('Band A, DJ B')).toBeInTheDocument();
     expect(screen.getByText('$10')).toBeInTheDocument();
-    // Trustworthy coordinates (confidence>=0.5, full_match) -> LocationLink links directly
-    // to the coordinate (its own AC2/AC3 from Story 1.6d), not a hardcoded mapUrl.
+    // Slice 2b: the map link is always a text search (here the schedule's keywords), never
+    // coordinates, even though this location is a confident geocode.
     expect(screen.getByRole('link', { name: /Stage 1/i })).toHaveAttribute(
       'href',
-      'https://www.google.com/maps/search/?api=1&query=41.8758,-87.6245'
+      'https://www.google.com/maps/search/?api=1&query=Stage%201%20Navy%20Pier%20Chicago'
     );
 
     // Schedule 2 fallback location (no map link)
@@ -149,6 +150,28 @@ describe('EventDetailView', () => {
 
       fireEvent.click(buttons[1]);
       expect(onAddToCalendar).toHaveBeenCalledWith(['sched-2']);
+    });
+
+    it('sends the FULL intended selection: toggling one schedule on keeps the already-added ones, toggling an added one off removes only it', () => {
+      const onAddToCalendar = vi.fn();
+      const testProps = {
+        ...fullProps,
+        schedules: [
+          { ...fullProps.schedules[0], isAddedToCalendar: false },
+          { ...fullProps.schedules[1], isAddedToCalendar: true },
+        ],
+      };
+      render(<EventDetailView {...testProps} onAddToCalendar={onAddToCalendar} />);
+
+      const buttons = screen.getAllByRole('button', { name: 'Add to Calendar' });
+
+      // sched-2 already added: turning sched-1 on must not drop sched-2 (the old call passed just ['sched-1'])
+      fireEvent.click(buttons[0]);
+      expect(onAddToCalendar).toHaveBeenLastCalledWith(['sched-2', 'sched-1']);
+
+      // turning the added sched-2 off leaves nothing else selected
+      fireEvent.click(buttons[1]);
+      expect(onAddToCalendar).toHaveBeenLastCalledWith([]);
     });
 
     it('reflects isAddedToCalendar via aria-pressed and fill styling', () => {
@@ -194,12 +217,12 @@ describe('EventDetailView', () => {
 
   // Story 1.6e AC4: LocationLink adoption with the three-way scheduleLocation fallback.
   describe('schedule location via LocationLink (Story 1.6e, AC4)', () => {
-    it('renders LocationLink with the schedule\'s own name and locationDetails when schedule.location is non-blank', () => {
+    it('renders LocationLink with the schedule\'s own name and keyword query when schedule.location is non-blank', () => {
       render(<EventDetailView {...fullProps} />);
       const link = screen.getByRole('link', { name: /Stage 1/i });
       expect(link).toHaveAttribute(
         'href',
-        'https://www.google.com/maps/search/?api=1&query=41.8758,-87.6245'
+        'https://www.google.com/maps/search/?api=1&query=Stage%201%20Navy%20Pier%20Chicago'
       );
       // LocationLink renders exactly its own two icons (pin + trailing ExternalLink) --
       // the standalone MapPin this story removes is not duplicated alongside it.
@@ -207,7 +230,20 @@ describe('EventDetailView', () => {
       expect(row.querySelectorAll('svg').length).toBe(2);
     });
 
-    it('renders a LocationLink (search icon, name-only map query) when schedule.location is blank but the event-level location is not', () => {
+    it('uses the event-level keywords when the schedule has none, else the display name', () => {
+      const props = {
+        ...fullProps,
+        locationKeywords: ['Test Venue', 'Test City'],
+        schedules: [{ id: 'sched-2', eventStartDate: '2026-08-11T14:00:00Z', title: 'Afternoon Session' }],
+      };
+      render(<EventDetailView {...props} />);
+      expect(screen.getByRole('link', { name: /Test Location/i })).toHaveAttribute(
+        'href',
+        'https://www.google.com/maps/search/?api=1&query=Test%20Venue%20Test%20City'
+      );
+    });
+
+    it('renders a LocationLink (name-only map query) when schedule.location is blank but the event-level location is not', () => {
       const testProps = {
         ...fullProps,
         schedules: [
@@ -222,7 +258,7 @@ describe('EventDetailView', () => {
       render(<EventDetailView {...testProps} />);
       const link = screen.getByRole('link', { name: /Test Location/i });
       expect(link).toHaveAttribute('href', 'https://www.google.com/maps/search/?api=1&query=Test%20Location');
-      // MapPin + trailing Search icon (no coordinates, so never the confirmed-pin ExternalLink)
+      // MapPin + trailing ExternalLink icon
       expect(link.querySelectorAll('svg').length).toBe(2);
     });
 
@@ -1432,6 +1468,17 @@ describe('EventDetailView', () => {
       const names = screen.getAllByTestId('event-card-compact').map((el) => el.textContent ?? '');
       const order = ['Live-ends-sooner', 'Live-ends-later', 'Upcoming-early', 'Upcoming-late'];
       expect(order.map((n) => names.findIndex((t) => t.includes(n)))).toEqual([0, 1, 2, 3]);
+    });
+
+    it('shows the group note under the heading when the list of the post may be incomplete (AD-50), and nothing when there is none', () => {
+      const group = { postId: 'p1', accountLabel: 'Events from Acme', events: [makeEvent('e1', 'First'), makeEvent('e2', 'Second')], totalCount: 2 };
+      const { rerender } = render(
+        <EventDetailView {...fullProps} relatedEventGroups={[{ ...group, note: 'This list may be incomplete.' }]} labels={relatedLabels} />
+      );
+      expect(screen.getByTestId('related-events-note')).toHaveTextContent('This list may be incomplete.');
+
+      rerender(<EventDetailView {...fullProps} relatedEventGroups={[{ ...group, note: null }]} labels={relatedLabels} />);
+      expect(screen.queryByTestId('related-events-note')).not.toBeInTheDocument();
     });
 
     it('shows the till tag only for events that have started and end after today', () => {

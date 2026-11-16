@@ -4,7 +4,7 @@
 -- What is printed: the event name and place text exactly as the app shows them, the main schedule's date range, and four facts about the poster.
 -- What is NOT printed: no caption, no link, no handle, no platform account id. The account is a pseudonym that is stable only inside this
 -- result ("A0001"); `acct_type` is the profile's classification (ORGANIZER_VENUE_EVENT, CURATOR_GUIDE, PERSONAL, or empty), which is how a
--- brand/mall account is told from an aggregator. `organizer_name` is cut to 40 characters because BUG-071 stores model reasoning in some rows;
+-- brand/mall account is told from an aggregator. `organizer_name` is cut to 40 characters because BUG-064 stores model reasoning in some rows;
 -- drop that column if you would rather not share it.
 -- Scope: events not deleted and not merged into another, past and future (the cut-off needs as many real pairs as possible).
 -- Run it however you query production; to get a file, export the result as CSV (Supabase SQL editor: Results > Download CSV; psql: `\pset format csv`

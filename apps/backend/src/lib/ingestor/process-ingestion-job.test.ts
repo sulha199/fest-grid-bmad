@@ -441,6 +441,69 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(sentEvent.description, message.description);
   });
 
+  await t.test('Diagnostic logging: a new event with several schedules logs sent vs inserted, and never warns when they match', async (t) => {
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: 'A post used to prove the per-event schedule-count log line',
+        postUrl: 'https://instagram.com/p/post-ingest-log-' + Date.now(),
+        publishedAt: new Date(),
+      })
+      .returning();
+    extraSeededPostIds.push(post.id);
+
+    setSendEventNotificationsSeam(async () => {});
+    t.after(() => {
+      setSendEventNotificationsSeam(originalSendEventNotificationsSeam);
+    });
+
+    const originalInfo = console.info;
+    const originalWarn = console.warn;
+    const infos: string[] = [];
+    const warns: string[] = [];
+    console.info = (...args: unknown[]) => {
+      infos.push(args.map(String).join(' '));
+    };
+    console.warn = (...args: unknown[]) => {
+      warns.push(args.map(String).join(' '));
+    };
+
+    try {
+      const schedulesIn = ['2026-11-01', '2026-11-02', '2026-11-03'].map((day, i) => ({
+        isMainSchedule: i === 0,
+        eventStartDate: day,
+        eventEndDate: day,
+        title: `Row ${i + 1}`,
+        location: 'Sleman',
+      }));
+      const res = await processIngestionJob({
+        postId: post.id,
+        sourceSocialMediaAccountId: accountId,
+        eventName: 'Schedule Count Log ' + Date.now(),
+        types: [EventType.FESTIVAL],
+        categories: [EventCategory.MUSIC],
+        confidenceScore: 0.9,
+        schedules: schedulesIn,
+        extractionOrdinal: 0,
+      } as ExtractedEventMessage);
+      assert.strictEqual(res.inserted, true);
+    } finally {
+      console.info = originalInfo;
+      console.warn = originalWarn;
+    }
+
+    assert.ok(
+      infos.includes(`[ingestor] ingest-schedules path=insert post=${post.id} ordinal=0 received=3 sent=3 inserted=3`),
+      `expected the ingest-schedules line, got: ${JSON.stringify(infos)}`
+    );
+    assert.deepStrictEqual(
+      warns.filter((line) => line.includes('schedule-count-mismatch')),
+      []
+    );
+  });
+
   await t.test('Idempotency check: duplicate postId results in false and logs duplicate', async () => {
     const message: ExtractedEventMessage = {
       postId: seededPost1.id,

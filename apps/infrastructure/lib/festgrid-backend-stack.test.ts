@@ -34,8 +34,8 @@ test('FestgridBackendStack provisions correct resources', () => {
   template.resourceCountIs('AWS::ApiGateway::RestApi', 1);
 
   // 5. Assert the EventBridge scheduled rules exist with the correct rates
-  // (daily scraper seed run + hourly stale-job sweep + daily notifier sweep)
-  template.resourceCountIs('AWS::Events::Rule', 3);
+  // (daily scraper seed run + hourly stale-job sweep + daily notifier sweep + the 5-minute job-engine sweep, Story 10.1a)
+  template.resourceCountIs('AWS::Events::Rule', 4);
   template.hasResourceProperties('AWS::Events::Rule', {
     ScheduleExpression: 'rate(1 day)',
   });
@@ -544,7 +544,7 @@ test('FestgridBackendStack: the send grant covers the sender address as an ident
   assert.ok(serialized.includes('FestgridEmailIdentity'), 'the sending domain identity stays covered');
 });
 
-test('FestgridBackendStack: the Ingestor can initialise Firebase and report an alert, and the AI processor holds no Firebase credential (BUG-073)', () => {
+test('FestgridBackendStack: the Ingestor and the Scraper can initialise Firebase, the Ingestor reports an alert, and the AI processor holds no Firebase credential (BUG-073, Story 10.13)', () => {
   const resources = withEnv(
     {
       FIREBASE_PROJECT_ID: 'festdaily-test',
@@ -559,7 +559,7 @@ test('FestgridBackendStack: the Ingestor can initialise Firebase and report an a
   const aiEnv = (aiProcessor.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
   assert.ok(!('FIREBASE_PRIVATE_KEY' in aiEnv), `${aiLogicalId} never sends a push on this code, so it must not hold the Firebase private key`);
 
-  for (const prefix of ['IngestorLambda']) {
+  for (const prefix of ['IngestorLambda', 'ScraperLambda']) {
     const [logicalId, lambdaResource] = lambdaByPrefix(resources, prefix);
     const env = (lambdaResource.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
 
@@ -567,13 +567,30 @@ test('FestgridBackendStack: the Ingestor can initialise Firebase and report an a
     assert.strictEqual(env.FIREBASE_CLIENT_EMAIL, 'firebase-adminsdk@festdaily-test.iam.gserviceaccount.com', `${logicalId} needs FIREBASE_CLIENT_EMAIL`);
     const privateKey = JSON.stringify(env.FIREBASE_PRIVATE_KEY ?? '');
     assert.ok(privateKey.includes('secretsmanager') && privateKey.includes('FirebasePrivateKeySecret'), `${logicalId} needs FIREBASE_PRIVATE_KEY from the Firebase private key secret`);
-    assert.strictEqual(env.SYSTEM_ERROR_ALERT_EMAIL, 'ops@example.test', `${logicalId} needs SYSTEM_ERROR_ALERT_EMAIL to report a failure`);
+    if (prefix === 'IngestorLambda') {
+      assert.strictEqual(env.SYSTEM_ERROR_ALERT_EMAIL, 'ops@example.test', `${logicalId} needs SYSTEM_ERROR_ALERT_EMAIL to report a failure`);
+    } else {
+      // Story 10.13 (owner decision 2026-11-14): the Scraper Lambda sends the job-finished push but is not given the alert address.
+      assert.ok(!('SYSTEM_ERROR_ALERT_EMAIL' in env), `${logicalId} is not given SYSTEM_ERROR_ALERT_EMAIL`);
+    }
 
     const readsFirebaseSecret = policyStatementsFor(resources, lambdaResource).some((stmt) => {
       const actions = Array.isArray(stmt.Action) ? stmt.Action : [stmt.Action];
       return actions.includes('secretsmanager:GetSecretValue') && JSON.stringify(stmt.Resource).includes('FirebasePrivateKeySecret');
     });
     assert.ok(readsFirebaseSecret, `${logicalId} needs read access to the Firebase private key secret`);
+  }
+
+  // Story 10.13: the announcer's three settings are on the Scraper Lambda only (it runs the sweep step), with their defaults.
+  const [, scraper] = lambdaByPrefix(resources, 'ScraperLambda');
+  const scraperEnv = (scraper.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+  assert.strictEqual(scraperEnv.JOB_NOTIFY_WINDOW_MINUTES, '10');
+  assert.strictEqual(scraperEnv.JOB_NOTIFY_GRACE_SECONDS, '45');
+  assert.strictEqual(scraperEnv.JOB_NOTIFY_MAX_AGE_MINUTES, '60');
+  for (const prefix of ['AIProcessorLambda', 'ApiLambda', 'IngestorLambda']) {
+    const [, other] = lambdaByPrefix(resources, prefix);
+    const otherEnv = (other.Properties?.Environment as { Variables?: Record<string, unknown> } | undefined)?.Variables ?? {};
+    assert.ok(!('JOB_NOTIFY_WINDOW_MINUTES' in otherEnv), `${prefix} does not run the announcer`);
   }
 });
 
@@ -619,7 +636,7 @@ test('FestgridBackendStack: prod stack replaces the ESM with scheduled poll-and-
 
     // AC3: exactly 3 new rate(5 minutes) rules, each carrying the poll-and-drain marker
     // payload and targeting one of the 3 Lambdas.
-    template.resourceCountIs('AWS::Events::Rule', 6); // 1 daily scraper + 1 daily notifier + 1 hourly stale-sweep + 3 new poll-and-drain
+    template.resourceCountIs('AWS::Events::Rule', 7); // 1 daily scraper + 1 daily notifier + 1 hourly stale-sweep + 1 five-minute job-engine sweep (Story 10.1a) + 3 new poll-and-drain
     template.hasResourceProperties('AWS::Events::Rule', {
       ScheduleExpression: 'rate(5 minutes)',
       Targets: Match.arrayWith([
@@ -944,6 +961,35 @@ test('FestgridBackendStack: aiProcessorLambda has BLUR_FACES_BEFORE_AI in its en
   }
 });
 
+// AD-51 Rule 2: stepped extraction is switched on in the AI Lambda only (its sole reader), by default, and the repository
+// variable CURSOR_EXTRACTION_ENABLED="false" is the kill switch.
+test('FestgridBackendStack: CURSOR_EXTRACTION_ENABLED is on by default in aiProcessorLambda only, and "false" switches it off', () => {
+  const original = process.env.CURSOR_EXTRACTION_ENABLED;
+  const aiEnv = (stackId: string): Record<string, unknown> => {
+    const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), stackId, { stageName: 'dev' }));
+    const functions = template.findResources('AWS::Lambda::Function');
+    const ai = Object.entries(functions).find(([logicalId]) => logicalId.startsWith('AIProcessorLambda'));
+    assert.ok(ai, 'expected an "AIProcessorLambda*" function');
+    for (const [logicalId, resource] of Object.entries(functions)) {
+      if (logicalId.startsWith('AIProcessorLambda')) continue;
+      const vars = (resource.Properties as { Environment?: { Variables?: Record<string, unknown> } }).Environment?.Variables;
+      assert.ok(!vars || !('CURSOR_EXTRACTION_ENABLED' in vars), `${logicalId} must not carry CURSOR_EXTRACTION_ENABLED`);
+    }
+    return (ai[1].Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables;
+  };
+  try {
+    delete process.env.CURSOR_EXTRACTION_ENABLED;
+    assert.strictEqual(aiEnv('TestStackCursorDefault').CURSOR_EXTRACTION_ENABLED, 'true');
+    process.env.CURSOR_EXTRACTION_ENABLED = '';
+    assert.strictEqual(aiEnv('TestStackCursorEmpty').CURSOR_EXTRACTION_ENABLED, 'true', 'an unset repository variable arrives empty and means on');
+    process.env.CURSOR_EXTRACTION_ENABLED = 'false';
+    assert.strictEqual(aiEnv('TestStackCursorOff').CURSOR_EXTRACTION_ENABLED, 'false');
+  } finally {
+    if (original === undefined) delete process.env.CURSOR_EXTRACTION_ENABLED;
+    else process.env.CURSOR_EXTRACTION_ENABLED = original;
+  }
+});
+
 // Story 4.2b (AC7): the API Lambda async-invokes the AI Lambda for manual "AI-Assisted
 // Correction" extraction. It needs (a) the AI Lambda's function name in its environment, (b) an
 // IAM grant for lambda:InvokeFunction scoped to that function, and (c) no automatic async retry
@@ -1098,4 +1144,173 @@ test('FestgridBackendStack: dev has no ops alarms (IDEA-096)', () => {
 
   template.resourceCountIs('AWS::CloudWatch::Alarm', 0);
   template.resourceCountIs('AWS::SNS::Topic', 0);
+});
+
+// Story 10.1a (AC1, AC3, AC6; AD-53): the job engine's wiring. The API Lambda starts a job on the Scraper Lambda (an invoke
+// grant plus its function name), the Scraper Lambda hands a job to the AI-processor Lambda (an invoke grant plus that function
+// name; the API Lambda's own grant for a type hosted on the AI-processor already exists, Story 4.2b), both worker Lambdas know
+// the run budget and claim TTL, and a 5-minute database-only sweep rule targets the Scraper Lambda in every stage.
+test('FestgridBackendStack: the job engine wiring (Story 10.1a)', () => {
+  for (const stageName of ['dev', 'prod'] as const) {
+    const app = new cdk.App();
+    const stack = new FestgridBackendStack(app, `TestStackJobEngine-${stageName}`, { stageName });
+    const template = Template.fromStack(stack);
+
+    const lambdaFunctions = template.findResources('AWS::Lambda::Function');
+    const find = (prefix: string) => {
+      const entry = Object.entries(lambdaFunctions).find(([id]) => id.startsWith(prefix));
+      assert.ok(entry, `expected ${prefix}* in the template`);
+      return entry!;
+    };
+    const [scraperId, scraperFn] = find('ScraperLambda');
+    const [aiId, aiFn] = find('AIProcessorLambda');
+    const [, apiFn] = find('ApiLambda');
+    const envOf = (fn: { Properties: unknown }) =>
+      (fn.Properties as { Environment: { Variables: Record<string, unknown> } }).Environment.Variables;
+
+    // (a) function names are direct Refs, so a grant without a name (or the reverse) cannot ship
+    assert.deepStrictEqual(envOf(apiFn).SCRAPER_FUNCTION_NAME, { Ref: scraperId }, `${stageName}: API -> Scraper name`);
+    assert.deepStrictEqual(envOf(scraperFn).AI_PROCESSOR_FUNCTION_NAME, { Ref: aiId }, `${stageName}: Scraper -> AI name`);
+
+    // (b) a policy on the right role grants lambda:InvokeFunction on the target's ARN
+    const policies = Object.values(template.findResources('AWS::IAM::Policy')) as Array<{
+      Properties: { Roles: unknown; PolicyDocument: { Statement: any[] } };
+    }>;
+    const grants = (rolePrefix: string, targetId: string) =>
+      policies.filter(
+        (p) =>
+          JSON.stringify(p.Properties.Roles).includes(rolePrefix) &&
+          p.Properties.PolicyDocument.Statement.some((st) => {
+            const actions = ([] as string[]).concat(st.Action);
+            return actions.includes('lambda:InvokeFunction') && JSON.stringify(st.Resource).includes(targetId);
+          })
+      );
+    assert.ok(grants('ApiLambda', scraperId).length > 0, `${stageName}: the API Lambda can invoke the Scraper Lambda`);
+    assert.ok(grants('ScraperLambda', aiId).length > 0, `${stageName}: the Scraper Lambda can invoke the AI-processor Lambda`);
+
+    // (c) both worker Lambdas carry the run budget and the claim TTL
+    for (const [name, fn] of [['Scraper', scraperFn], ['AIProcessor', aiFn]] as const) {
+      assert.equal(envOf(fn).JOB_ATTEMPT_DEADLINE_MS, '150000', `${stageName}: ${name} JOB_ATTEMPT_DEADLINE_MS`);
+      assert.equal(envOf(fn).JOB_WORKER_CLAIM_TTL_MINUTES, '5', `${stageName}: ${name} JOB_WORKER_CLAIM_TTL_MINUTES`);
+    }
+
+    // (c2) Story 10.3: admission and the subscription cap settings reach the API Lambda and both workers
+    for (const [name, fn] of [['API', apiFn], ['Scraper', scraperFn], ['AIProcessor', aiFn]] as const) {
+      assert.equal(envOf(fn).MAX_CONCURRENT_JOBS_PER_USER, '3', `${stageName}: ${name} MAX_CONCURRENT_JOBS_PER_USER`);
+      assert.equal(envOf(fn).MAX_QUEUED_JOBS_PER_USER, '10', `${stageName}: ${name} MAX_QUEUED_JOBS_PER_USER`);
+      assert.equal(envOf(fn).JOB_QUEUE_MAX_WAIT_MINUTES, '30', `${stageName}: ${name} JOB_QUEUE_MAX_WAIT_MINUTES`);
+      assert.equal(envOf(fn).MAX_SUBSCRIBED_ACCOUNTS_FREE_USER, '5', `${stageName}: ${name} MAX_SUBSCRIBED_ACCOUNTS_FREE_USER`);
+    }
+    // (c3) Story 10.4: the Jobs history retention (hide-only) reaches the API Lambda, the only reader of jobs for a client
+    assert.equal(envOf(apiFn).JOBS_HISTORY_RETENTION_DAYS, '30', `${stageName}: API JOBS_HISTORY_RETENTION_DAYS`);
+
+    // (c3) Story 10.3: each worker can start a job hosted on itself (resource policy, no Ref cycle) and knows which host it is
+    assert.equal(envOf(scraperFn).JOB_HOST_SELF, 'scraper', `${stageName}: Scraper JOB_HOST_SELF`);
+    assert.equal(envOf(aiFn).JOB_HOST_SELF, 'ai-processor', `${stageName}: AIProcessor JOB_HOST_SELF`);
+    const selfPermissions = Object.values(template.findResources('AWS::Lambda::Permission')) as Array<{
+      Properties: { Action: string; FunctionName: { 'Fn::GetAtt': string[] }; Principal: { 'Fn::GetAtt': string[] } };
+    }>;
+    for (const [targetId, rolePrefix] of [[scraperId, 'ScraperLambda'], [aiId, 'AIProcessorLambda']] as const) {
+      assert.ok(
+        selfPermissions.some(
+          (p) =>
+            p.Properties.Action === 'lambda:InvokeFunction' &&
+            p.Properties.FunctionName['Fn::GetAtt'][0] === targetId &&
+            p.Properties.Principal['Fn::GetAtt'][0].startsWith(rolePrefix) &&
+            p.Properties.Principal['Fn::GetAtt'][0].includes('ServiceRole')
+        ),
+        `${stageName}: the ${rolePrefix} role may invoke its own function`
+      );
+    }
+
+    // (d) the 5-minute, database-only job sweep targets the Scraper Lambda in every stage
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'rate(5 minutes)',
+      Targets: Match.arrayWith([
+        Match.objectLike({
+          Arn: { 'Fn::GetAtt': Match.arrayWith([scraperId]) },
+          Input: JSON.stringify({ jobType: 'job-engine-sweep' }),
+        }),
+      ]),
+    });
+  }
+});
+
+// Story 10.2: the post-scraper provider order reaches the Scraper Lambda (which holds both vendor tokens), and only when set,
+// so an unset variable leaves the code default (brightdata,apify, owner decision 2026-11-11, PRD OI-1) in force.
+test('FestgridBackendStack: POST_SCRAPER_PROVIDER_ORDER is passed to the Scraper Lambda only when set (Story 10.2)', () => {
+  const saved = process.env.POST_SCRAPER_PROVIDER_ORDER;
+  const scraperEnv = (value: string | undefined) => {
+    if (value === undefined) delete process.env.POST_SCRAPER_PROVIDER_ORDER;
+    else process.env.POST_SCRAPER_PROVIDER_ORDER = value;
+    const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), `TestStackPostOrder${value ?? 'Unset'}`.replace(/[^A-Za-z0-9]/g, ''), { stageName: 'dev' }));
+    const entry = Object.entries(template.findResources('AWS::Lambda::Function')).find(([id]) => id.startsWith('ScraperLambda'));
+    assert.ok(entry, 'ScraperLambda in the template');
+    return (entry![1] as { Properties: { Environment: { Variables: Record<string, unknown> } } }).Properties.Environment.Variables;
+  };
+  try {
+    assert.equal(scraperEnv('apify,brightdata').POST_SCRAPER_PROVIDER_ORDER, 'apify,brightdata');
+    assert.equal('POST_SCRAPER_PROVIDER_ORDER' in scraperEnv(undefined), false);
+  } finally {
+    if (saved === undefined) delete process.env.POST_SCRAPER_PROVIDER_ORDER;
+    else process.env.POST_SCRAPER_PROVIDER_ORDER = saved;
+  }
+});
+
+// Story 10.6: the re-extract refresh budget reaches the Scraper Lambda (where the refresh phase runs) only when set.
+test('FestgridBackendStack: REEXTRACT_REFRESH_BUDGET_MS is passed to the Scraper Lambda only when set (Story 10.6)', () => {
+  const saved = process.env.REEXTRACT_REFRESH_BUDGET_MS;
+  const scraperEnv = (value: string | undefined) => {
+    if (value === undefined) delete process.env.REEXTRACT_REFRESH_BUDGET_MS;
+    else process.env.REEXTRACT_REFRESH_BUDGET_MS = value;
+    const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), `TestStackReextractBudget${value ?? 'Unset'}`.replace(/[^A-Za-z0-9]/g, ''), { stageName: 'dev' }));
+    const entry = Object.entries(template.findResources('AWS::Lambda::Function')).find(([id]) => id.startsWith('ScraperLambda'));
+    assert.ok(entry, 'ScraperLambda in the template');
+    return (entry![1] as { Properties: { Environment: { Variables: Record<string, unknown> } } }).Properties.Environment.Variables;
+  };
+  try {
+    assert.equal(scraperEnv('90000').REEXTRACT_REFRESH_BUDGET_MS, '90000');
+    assert.equal('REEXTRACT_REFRESH_BUDGET_MS' in scraperEnv(undefined), false);
+  } finally {
+    if (saved === undefined) delete process.env.REEXTRACT_REFRESH_BUDGET_MS;
+    else process.env.REEXTRACT_REFRESH_BUDGET_MS = saved;
+  }
+});
+
+// Story 10.5: the snapshot wait bound reaches the Scraper Lambda only when set (the code default is 480 minutes).
+test('FestgridBackendStack: BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES is passed to the Scraper Lambda only when set (Story 10.5)', () => {
+  const saved = process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
+  const scraperEnv = (value: string | undefined) => {
+    if (value === undefined) delete process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
+    else process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES = value;
+    const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), `TestStackSnapWait${value ?? 'Unset'}`.replace(/[^A-Za-z0-9]/g, ''), { stageName: 'dev' }));
+    const entry = Object.entries(template.findResources('AWS::Lambda::Function')).find(([id]) => id.startsWith('ScraperLambda'));
+    assert.ok(entry, 'ScraperLambda in the template');
+    return (entry![1] as { Properties: { Environment: { Variables: Record<string, unknown> } } }).Properties.Environment.Variables;
+  };
+  try {
+    assert.equal(scraperEnv('240').BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES, '240');
+    assert.equal('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES' in scraperEnv(undefined), false);
+  } finally {
+    if (saved === undefined) delete process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES;
+    else process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES = saved;
+  }
+});
+
+// Story 10.6 review: the moderator re-extract declares its own per-run cap (`REEXTRACT_POST_ATTEMPT_CAP_MS`, packages/domain). Both host
+// Lambdas run a phase of it, so the cap must stay safely under BOTH Lambda timeouts, or a run could be killed by the platform before the
+// engine ends it (and the face blur of phase 2 would be told it has time it does not have).
+test('FestgridBackendStack: the re-extract job type\'s per-run cap fits under the Scraper and AI-processor Lambda timeouts (Story 10.6)', () => {
+  const source = fs.readFileSync(path.resolve(__dirname, '../../../packages/domain/src/jobs/reextract-post.ts'), 'utf8');
+  const match = /REEXTRACT_POST_ATTEMPT_CAP_MS\s*=\s*(\d+)\s*\*\s*1000/.exec(source);
+  assert.ok(match, 'REEXTRACT_POST_ATTEMPT_CAP_MS is declared in seconds times 1000');
+  const capSeconds = Number(match![1]);
+  const template = Template.fromStack(new FestgridBackendStack(new cdk.App(), 'TestStackReextractCap', { stageName: 'dev' }));
+  const functions = template.findResources('AWS::Lambda::Function');
+  for (const prefix of ['ScraperLambda', 'AIProcessorLambda']) {
+    const entry = Object.entries(functions).find(([id]) => id.startsWith(prefix));
+    assert.ok(entry, `${prefix} in the template`);
+    const timeout = (entry![1] as { Properties: { Timeout: number } }).Properties.Timeout;
+    assert.ok(timeout >= capSeconds + 20, `${prefix} has a ${timeout} s timeout; the re-extract run cap is ${capSeconds} s and the engine needs 20 s after it for its final writes`);
+  }
 });

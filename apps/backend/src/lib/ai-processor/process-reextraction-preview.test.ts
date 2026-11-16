@@ -17,6 +17,7 @@ import type { ManualExtractionRequestPayload, ProcessingJobMessage, Reextraction
 import { processManualExtractionJob, setCallGeminiForManualExtractionSeam, callGeminiForManualExtractionSeam } from './process-manual-extraction-job.js';
 import { insertEventWithPrimaryPost } from '../events/set-event-primary-post.js';
 import { setDetectAndBlurFacesSeam, detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
+import { AiGatewayExhaustedError } from '../ai-gateway/adapter.js';
 
 // AD-40 -- real-DB tests for the moderator re-extract preview (AI-Lambda half). Gemini is a seam.
 // The invariants under test: the preview writes nothing to events/schedules/event_posts/posts, and
@@ -156,6 +157,12 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
     assert.strictEqual(preview.events[0].dedup.tier, 'mid');
     assert.strictEqual(preview.events[0].dedup.candidateSlug, candidate.slug);
     assert.strictEqual(preview.events[0].alreadyRepresentedBySlug, null);
+    // What a later Apply needs is kept on the job; the caption is not.
+    assert.ok(preview.extracted, 'the extraction is kept for Apply');
+    assert.strictEqual(preview.extracted.events.length, 1);
+    assert.strictEqual(preview.extracted.groupingReason, 'single-event');
+    assert.strictEqual(preview.extracted.childrensDataMatch, false);
+    assert.ok(!JSON.stringify(row.resultData).includes('The caption to extract'), 'the caption is never stored in the result');
     assert.deepStrictEqual(await fixtureCounts(), before, 'preview must not write events/schedules/event_posts');
     const [stored] = await db.select({ content: posts.content }).from(posts).where(eq(posts.id, post.id));
     assert.strictEqual(stored.content, 'The caption to extract', 'a non-curator post keeps its stored content');
@@ -326,5 +333,147 @@ test('processManualExtractionJob REEXTRACT_PREVIEW (AD-40)', async (t) => {
     const row = await readJob(id);
     assert.strictEqual(row.status, 'SUCCEEDED');
     assert.deepStrictEqual((row.resultData as ReextractionPreviewResult).events, []);
+  });
+
+  // Location keywords: generated HERE (one text-only call after the extraction), so Apply never needs a model call.
+  async function runKeywordsPreview(opts: { storedKeywords?: string[]; keywordsCallFails?: boolean }) {
+    const post = await makePost('Fun run at the zoo');
+    if (opts.storedKeywords) {
+      const stored = await makeEvent(post.id, [{ url: 'http://www.reex-run.example/' }], '2026-11-08');
+      await db.update(events).set({ locationKeywords: opts.storedKeywords }).where(eq(events.id, stored.id));
+    }
+    const requests: any[] = [];
+    setCallGeminiForManualExtractionSeam(async (req: any) => {
+      requests.push(req);
+      if (requests.length === 1) {
+        return { text: JSON.stringify({ isEvent: true, groupingReason: 'single-event', events: [previewEvent('2026-11-08')] }) } as any;
+      }
+      if (opts.keywordsCallFails) throw new Error('503 busy');
+      return { text: JSON.stringify([{ id: 's0', locationKeywords: ['Reex Zoo', 'Sleman'], countryCode: 'id' }]) } as any;
+    });
+    const id = await insertJob({
+      message: message(post, 'Fun run at the zoo'),
+      existingPostAccountId: account.id,
+      mode: 'REEXTRACT_PREVIEW',
+      postStored: true,
+      rescraped: false,
+    });
+    await processManualExtractionJob(id);
+    const row = await readJob(id);
+    return { row, requests, extracted: (row.resultData as any).extracted };
+  }
+
+  await t.test('location keywords: one text-only call fills the preview events that Apply will persist', async () => {
+    const { row, requests, extracted } = await runKeywordsPreview({});
+    assert.strictEqual(row.status, 'SUCCEEDED');
+    assert.strictEqual(requests.length, 2, 'the extraction plus one keywords call');
+    assert.ok(!('responseSchema' in requests[0] && JSON.stringify(requests[0].responseSchema).includes('locationKeywords')));
+    assert.strictEqual(requests[1].contents.split('\n').length, 1, 'the event and its schedule share one text, sent once');
+    assert.deepStrictEqual(extracted.events[0].locationKeywords, ['Reex Zoo', 'Sleman']);
+    assert.deepStrictEqual(extracted.events[0].schedules[0].locationKeywords, ['Reex Zoo', 'Sleman']);
+    assert.strictEqual(extracted.events[0].locationCountryCode, 'ID');
+  });
+
+  await t.test('location keywords: stored keywords are never reused, the text is regenerated so a re-extract can fix bad ones', async () => {
+    const { row, requests, extracted } = await runKeywordsPreview({ storedKeywords: ['Kebun Binatang Reex', 'Bantul'] });
+    assert.strictEqual(row.status, 'SUCCEEDED');
+    assert.strictEqual(requests.length, 2, 'the keywords call runs although the stored rows have keywords');
+    assert.deepStrictEqual(extracted.events[0].locationKeywords, ['Reex Zoo', 'Sleman']);
+  });
+
+  await t.test('location keywords: the keywords call uses the keys the extraction call ran on (the moderator may have none)', async () => {
+    const post = await makePost('Fun run at the zoo');
+    const used: string[][] = [];
+    setCallGeminiForManualExtractionSeam(async (req: any) => {
+      used.push(req.subscriberUserIds);
+      if (used.length === 1) throw new AiGatewayExhaustedError('the moderator has no usable key');
+      if (used.length === 2) return { text: JSON.stringify({ isEvent: true, groupingReason: 'single-event', events: [previewEvent('2026-11-08')] }) } as any;
+      return { text: JSON.stringify([{ id: 's0', locationKeywords: ['Reex Zoo', 'Sleman'], countryCode: 'ID' }]) } as any;
+    });
+    const id = await insertJob({ message: message(post, 'Fun run at the zoo'), existingPostAccountId: account.id, mode: 'REEXTRACT_PREVIEW', postStored: true, rescraped: false });
+    await processManualExtractionJob(id);
+    const row = await readJob(id);
+    assert.strictEqual(row.status, 'SUCCEEDED');
+    assert.strictEqual(used.length, 3, 'moderator key, the post account fallback, then the keywords call');
+    assert.deepStrictEqual(used[2], used[1], 'the keywords call runs on the fallback keys');
+    assert.deepStrictEqual((row.resultData as any).extracted.events[0].locationKeywords, ['Reex Zoo', 'Sleman']);
+  });
+
+  await t.test('location keywords: a failing keywords call never fails the preview', async () => {
+    const { row, requests, extracted } = await runKeywordsPreview({ keywordsCallFails: true });
+    assert.strictEqual(row.status, 'SUCCEEDED');
+    assert.strictEqual(requests.length, 2);
+    assert.strictEqual(extracted.events[0].locationKeywords, undefined);
+  });
+
+
+  await t.test('BUG-099: a carousel with an expired cover reads up to the preview cap of slides and reports the shortfall', async () => {
+    const post = await makePost('Roundup caption, schedules on later slides');
+    const originalFetch = globalThis.fetch;
+    let fetched = 0;
+    // Cover (first call) is an expired hotlink; every slide fetch succeeds.
+    globalThis.fetch = (async () => {
+      fetched++;
+      if (fetched === 1) return { ok: false, status: 403 } as any;
+      return {
+        ok: true,
+        headers: { get: (n: string) => (n.toLowerCase() === 'content-type' ? 'image/jpeg' : null) },
+        arrayBuffer: async () => Buffer.from(`slide-${fetched}`),
+      } as any;
+    }) as typeof fetch;
+
+    let sentContents: any;
+    setCallGeminiForManualExtractionSeam(async (req: any) => {
+      // Only the extraction request: the keywords call that follows it must not replace what was captured.
+      sentContents ??= req.contents;
+      return { text: JSON.stringify({ isEvent: true, groupingReason: 'roundup', events: [previewEvent('2026-11-08', name + ' slide')] }) } as any;
+    });
+
+    const slides = Array.from({ length: 12 }, (_, i) => `https://cdn.example.com/slide-${i}.jpg`);
+    try {
+      const id = await insertJob({
+        message: { ...message(post, 'Roundup caption, schedules on later slides'), imageUrl: 'https://cdn.example.com/cover.jpg', additionalImageUrls: slides },
+        existingPostAccountId: account.id,
+        mode: 'REEXTRACT_PREVIEW',
+        postStored: true,
+        rescraped: true,
+      });
+      await processManualExtractionJob(id);
+
+      const row = await readJob(id);
+      assert.strictEqual(row.status, 'SUCCEEDED');
+      const preview = row.resultData as ReextractionPreviewResult;
+      assert.strictEqual(preview.imagesAvailable, 13, 'cover + 12 slides listed');
+      assert.strictEqual(preview.imagesSent, 10, 'capped at REEXTRACT_MAX_CAROUSEL_IMAGES; the cover was lost but slides were still sent');
+      assert.ok(Array.isArray(sentContents));
+      assert.strictEqual(sentContents.length, 11, 'text + 10 slides');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await t.test('the extraction kept for Apply has the privacy discards already applied: no private contact, no child performers', async () => {
+    const caption = 'Ayo daftar Lomba Tari Anak Sanggar Melati untuk siswa SD!';
+    const post = await makePost(caption);
+    gemini([
+      {
+        ...previewEvent('2026-11-20', `Kids Dance ${suffix}`),
+        hasPrivateContact: true,
+        contactInfo: '+62 812 0000 0000',
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-20', title: 'Show', location: 'Reex Zoo', performers: ['Aisyah', 'Budi'] }],
+      },
+    ]);
+    const id = await insertJob({ message: message(post, caption), existingPostAccountId: account.id, mode: 'REEXTRACT_PREVIEW', postStored: true, rescraped: false });
+    await processManualExtractionJob(id);
+
+    const row = await readJob(id);
+    const preview = row.resultData as ReextractionPreviewResult;
+    assert.ok(preview.extracted);
+    assert.strictEqual(preview.extracted.childrensDataMatch, true);
+    const [kept] = preview.extracted.events;
+    assert.strictEqual(kept.contactInfo, undefined, 'a private contact is not stored');
+    assert.strictEqual(kept.schedules[0].performers, undefined, 'a child performer\'s name is not stored');
+    const stored = JSON.stringify(row.resultData);
+    assert.ok(!stored.includes('+62 812 0000 0000') && !stored.includes('Aisyah') && !stored.includes('Budi'));
   });
 });

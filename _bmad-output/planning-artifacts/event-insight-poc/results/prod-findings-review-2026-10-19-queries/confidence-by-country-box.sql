@@ -1,6 +1,6 @@
--- BUG-066 / IDEA-081: the stored geocode confidence of every pin, split by whether the pin is inside Indonesia's bounding box (the box the pack uses).
+-- BUG-261018-abg / IDEA-081: the stored geocode confidence of every pin, split by whether the pin is inside Indonesia's bounding box (the box the pack uses).
 -- Calibrates the confidence floor from data we already hold: if the outside-the-box pins sit at low confidence and the inside ones at high, a floor
--- separates them; if the two overlap, a floor alone cannot fix BUG-066. 627 of 1,460 pins had a stored confidence under 0.5 on 2026-10-19.
+-- separates them; if the two overlap, a floor alone cannot fix BUG-261018-abg. 627 of 1,460 pins had a stored confidence under 0.5 on 2026-10-19.
 -- Read-only; counts only. location_details is read through the normalising expression because of BUG-068.
 with s as (select latitude, longitude,
   (case when jsonb_typeof(location_details) = 'object' then location_details
@@ -37,7 +37,7 @@ select left(location, 60) as schedule_location_text, d->>'countryCode' as countr
 from s where not (latitude between -11.5 and 6.5 and longitude between 94.5 and 141.5)
 group by 1, 2, 3, 4, 5 order by 6 desc, 1 limit 40;
 
--- Is the wrong country inherited from the account's stored default location (BUG-066 mechanism 4: the account's default country is the geocoder's
+-- Is the wrong country inherited from the account's stored default location (BUG-261018-abg mechanism 4: the account's default country is the geocoder's
 -- bias for every later event of that account)? Counts only: pin country against the account's default country, for pins outside the box.
 with s as (select event_id,
   (case when jsonb_typeof(location_details) = 'object' then location_details

@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { GraphQLResolveInfo, GraphQLScalarType, GraphQLScalarTypeConfig } from 'graphql';
-import { SocialMediaAccountProfileParent, SubscriptionParent, EventParent, ReportParent, WidgetParent, AIEventFilterParent, AccountVoteParent, EmbedDomainParent, RankedAccountVoteParent, CoordinatesParent, ScheduleParent, UnprocessedScraperPayloadParent, PayloadContextParent } from '../lib/graphql-mappers.js';
+import { SocialMediaAccountProfileParent, SubscriptionParent, EventParent, ReportParent, WidgetParent, PublicWidgetParent, AIEventFilterParent, AccountVoteParent, EmbedDomainParent, RankedAccountVoteParent, CoordinatesParent, ScheduleParent, UnprocessedScraperPayloadParent, PayloadContextParent } from '../lib/graphql-mappers.js';
 import { GraphQLContext } from '../lib/auth/context.js';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
@@ -112,6 +112,42 @@ export type ApiKey = {
   maskedKey: Scalars['String']['output'];
   provider: Scalars['String']['output'];
   updatedAt: Scalars['String']['output'];
+};
+
+export type ApplyPostReextractionResult = {
+  __typename?: 'ApplyPostReextractionResult';
+  errorCode?: Maybe<ExtractionErrorCode>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  summary?: Maybe<ApplyReextractionSummary>;
+};
+
+export type ApplyReextractionEventRef = {
+  __typename?: 'ApplyReextractionEventRef';
+  eventName: Scalars['String']['output'];
+  slug: Scalars['String']['output'];
+};
+
+export type ApplyReextractionPlacedEvent = {
+  __typename?: 'ApplyReextractionPlacedEvent';
+  eventName: Scalars['String']['output'];
+  ordinal: Scalars['Int']['output'];
+  slug: Scalars['String']['output'];
+};
+
+export type ApplyReextractionSummary = {
+  __typename?: 'ApplyReextractionSummary';
+  created: Array<ApplyReextractionPlacedEvent>;
+  groupingReason?: Maybe<PostGroupingReason>;
+  linkedToExisting: Array<ApplyReextractionEventRef>;
+  orphans: Array<ApplyReextractionEventRef>;
+  queuedForReview: Scalars['Int']['output'];
+  reused: Array<ApplyReextractionPlacedEvent>;
+  skippedDeleted: Scalars['Int']['output'];
+};
+
+export type CalendarAdditionChangeInput = {
+  isAddedToCalendar: Scalars['Boolean']['input'];
+  scheduleId: Scalars['ID']['input'];
 };
 
 export type CastVoteInput = {
@@ -279,6 +315,8 @@ export type Event = {
   isHiddenForCurrentUser: Scalars['Boolean']['output'];
   links?: Maybe<Array<EventLink>>;
   location?: Maybe<Scalars['String']['output']>;
+  /** Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected. */
+  locationKeywords?: Maybe<Array<Scalars['String']['output']>>;
   organizerName?: Maybe<Scalars['String']['output']>;
   originalPostUrl?: Maybe<Scalars['String']['output']>;
   postId?: Maybe<Scalars['ID']['output']>;
@@ -410,12 +448,19 @@ export type ExtractEventDataFromUrlResult = {
 };
 
 export type ExtractionErrorCode =
+  | 'ACCOUNT_NOT_SCRAPABLE'
+  | 'APPLY_FAILED'
+  | 'CHAIN_IN_FLIGHT'
+  | 'EXPIRED'
   | 'EXTRACTION_FAILED'
+  | 'NOTHING_TO_APPLY'
   | 'NOT_FOUND'
+  | 'NOT_STORED'
   | 'NO_API_KEY'
   | 'QUOTA_EXHAUSTED'
   | 'RATE_LIMITED'
   | 'SCRAPE_FAILED'
+  | 'SCRAPE_IN_PROGRESS'
   | 'UNSUPPORTED_PLATFORM';
 
 export type ExtractionJobState =
@@ -486,6 +531,255 @@ export type InstagramEmbedStatus =
   | 'AVAILABLE'
   | 'UNAVAILABLE';
 
+export type Job = {
+  __typename?: 'Job';
+  canRetry: Scalars['Boolean']['output'];
+  completedAfterDeadline: Scalars['Boolean']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  deadlineAt: Scalars['DateTime']['output'];
+  finishedAt?: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  isCancelled: Scalars['Boolean']['output'];
+  moderatorDetails?: Maybe<JobModeratorDetails>;
+  outcome?: Maybe<JobOutcome>;
+  owner?: Maybe<JobOwner>;
+  queue?: Maybe<JobQueueInfo>;
+  reasonCode?: Maybe<JobReasonCode>;
+  reasonQueueMaxWaitMinutes?: Maybe<Scalars['Int']['output']>;
+  reasonRetryAfter?: Maybe<Scalars['DateTime']['output']>;
+  refresh?: Maybe<JobRefreshReport>;
+  retryNotBefore?: Maybe<Scalars['DateTime']['output']>;
+  startedAt?: Maybe<Scalars['DateTime']['output']>;
+  status: JobStatus;
+  steps: Array<JobStep>;
+  subject: JobSubject;
+  trigger: JobTrigger;
+  type: JobType;
+  waiting?: Maybe<JobWaitingInfo>;
+};
+
+export type JobAttempt = {
+  __typename?: 'JobAttempt';
+  budgetMs: Scalars['Int']['output'];
+  elapsedMs: Scalars['Int']['output'];
+  outcome: JobAttemptOutcome;
+  provider: JobProvider;
+  reasonCode?: Maybe<JobReasonCode>;
+};
+
+export type JobAttemptOutcome =
+  | 'EMPTY'
+  | 'FAILED'
+  | 'OVER_QUOTA'
+  | 'SKIPPED'
+  | 'SUCCEEDED'
+  | 'TIMED_OUT';
+
+export type JobConnection = {
+  __typename?: 'JobConnection';
+  edges: Array<JobEdge>;
+  pageInfo: PageInfo;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type JobEdge = {
+  __typename?: 'JobEdge';
+  cursor: Scalars['String']['output'];
+  node: Job;
+};
+
+export type JobImage = {
+  __typename?: 'JobImage';
+  position: Scalars['Int']['output'];
+  role: JobImageRole;
+  state: JobImageState;
+};
+
+export type JobImageRole =
+  | 'COVER'
+  | 'SLIDE';
+
+export type JobImageState =
+  | 'NOT_READ_EXPIRED'
+  | 'NOT_READ_UNAVAILABLE'
+  | 'NOT_SENT_OVER_CAP'
+  | 'READ';
+
+export type JobModeratorDetails = {
+  __typename?: 'JobModeratorDetails';
+  attempts: Array<JobAttempt>;
+  engineMessage?: Maybe<Scalars['String']['output']>;
+  engineReasonCode?: Maybe<Scalars['String']['output']>;
+};
+
+export type JobOutcome = {
+  __typename?: 'JobOutcome';
+  eventCount?: Maybe<Scalars['Int']['output']>;
+  kind: JobOutcomeKind;
+  postCount?: Maybe<Scalars['Int']['output']>;
+  previewApplied?: Maybe<Scalars['Boolean']['output']>;
+  previewApplyUntil?: Maybe<Scalars['DateTime']['output']>;
+};
+
+export type JobOutcomeKind =
+  | 'ACCOUNT'
+  | 'EVENTS'
+  | 'NONE'
+  | 'PREVIEW';
+
+export type JobOwner = {
+  __typename?: 'JobOwner';
+  displayName?: Maybe<Scalars['String']['output']>;
+};
+
+export type JobProvider =
+  | 'APIFY'
+  | 'BRIGHT_DATA';
+
+export type JobQueueInfo = {
+  __typename?: 'JobQueueInfo';
+  expiresAt: Scalars['DateTime']['output'];
+  maxConcurrent: Scalars['Int']['output'];
+  position: Scalars['Int']['output'];
+};
+
+export type JobReasonCode =
+  | 'ACCOUNT_NOT_FOUND'
+  | 'ACCOUNT_PRIVATE'
+  | 'ACCOUNT_TYPE_NOT_SCRAPED'
+  | 'CANCELLED'
+  | 'CHAIN_IN_FLIGHT'
+  | 'COOLDOWN'
+  | 'EXTRACTION_FAILED'
+  | 'GENERIC'
+  | 'NO_PROVIDER_REACHABLE'
+  | 'POST_NOT_FOUND'
+  | 'POST_UNAVAILABLE'
+  | 'PROVIDER_OVER_QUOTA'
+  | 'QUOTA_EXHAUSTED'
+  | 'REFRESH_DID_NOT_HEAL_IMAGES'
+  | 'REFRESH_IN_PROGRESS'
+  | 'SOME_POSTS_NOT_EXTRACTED'
+  | 'TIMED_OUT'
+  | 'VENDOR_RUN_FAILED'
+  | 'WAITED_TOO_LONG';
+
+export type JobRefreshOutcome =
+  | 'COOLDOWN'
+  | 'IN_FLIGHT'
+  | 'NOT_NEEDED'
+  | 'NOT_SCRAPED'
+  | 'NO_PROVIDER_REACHABLE'
+  | 'POST_UNAVAILABLE'
+  | 'PROVIDER_OVER_QUOTA'
+  | 'REFRESHED'
+  | 'TIMED_OUT';
+
+export type JobRefreshReport = {
+  __typename?: 'JobRefreshReport';
+  expiredLinks: Scalars['Int']['output'];
+  images: Array<JobImage>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesRead: Scalars['Int']['output'];
+  lateResultPending: Scalars['Boolean']['output'];
+  outcome: JobRefreshOutcome;
+  previewImageCap: Scalars['Int']['output'];
+  retryAfter?: Maybe<Scalars['DateTime']['output']>;
+  saved: Scalars['Boolean']['output'];
+};
+
+export type JobStartErrorCode =
+  | 'COOLDOWN'
+  | 'JOB_QUEUE_FULL'
+  | 'JOB_START_FAILED'
+  | 'SUBSCRIPTION_CAP_REACHED';
+
+export type JobStatus =
+  | 'EXPIRED'
+  | 'FAILED'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'SUCCEEDED'
+  | 'SUCCEEDED_WITH_LIMITS'
+  | 'WAITING';
+
+export type JobStep = {
+  __typename?: 'JobStep';
+  done?: Maybe<Scalars['Int']['output']>;
+  key: Scalars['String']['output'];
+  state: JobStepState;
+  total?: Maybe<Scalars['Int']['output']>;
+};
+
+export type JobStepState =
+  | 'CURRENT'
+  | 'DONE'
+  | 'PENDING'
+  | 'SKIPPED';
+
+export type JobSubject = {
+  __typename?: 'JobSubject';
+  accountId?: Maybe<Scalars['ID']['output']>;
+  displayName?: Maybe<Scalars['String']['output']>;
+  kind: JobSubjectKind;
+  platform?: Maybe<Scalars['String']['output']>;
+  postCode?: Maybe<Scalars['String']['output']>;
+  postCount?: Maybe<Scalars['Int']['output']>;
+  postId?: Maybe<Scalars['ID']['output']>;
+  profileImageUrl?: Maybe<Scalars['String']['output']>;
+  username?: Maybe<Scalars['String']['output']>;
+};
+
+export type JobSubjectInput = {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  postId?: InputMaybe<Scalars['ID']['input']>;
+  postUrlKey?: InputMaybe<Scalars['String']['input']>;
+  type: JobType;
+};
+
+export type JobSubjectKind =
+  | 'ACCOUNT'
+  | 'NONE'
+  | 'POST'
+  | 'POSTS';
+
+export type JobTrigger =
+  | 'SYSTEM'
+  | 'USER';
+
+export type JobType =
+  | 'ACCOUNT_REFRESH'
+  | 'ADMIN_OPERATION'
+  | 'CORRECTION'
+  | 'EXTRACT_FROM_URL'
+  | 'EXTRACT_SELECTED_POSTS'
+  | 'OTHER'
+  | 'PROFILE_LOOKUP'
+  | 'REEXTRACT_REFRESH'
+  | 'SUBSCRIBE';
+
+export type JobWaitingFor =
+  | 'EXTRACTION_QUEUE'
+  | 'RESULT_FROM_PROVIDER'
+  | 'RETRY_AT';
+
+export type JobWaitingInfo = {
+  __typename?: 'JobWaitingInfo';
+  done?: Maybe<Scalars['Int']['output']>;
+  resumeAt?: Maybe<Scalars['DateTime']['output']>;
+  total?: Maybe<Scalars['Int']['output']>;
+  waitingFor: JobWaitingFor;
+};
+
+export type JobsFilter = {
+  includeSystem?: InputMaybe<Scalars['Boolean']['input']>;
+  scope?: InputMaybe<JobsScope>;
+};
+
+export type JobsScope =
+  | 'ALL_USERS'
+  | 'MINE';
+
 export type LocationDetails = {
   __typename?: 'LocationDetails';
   adminArea?: Maybe<Scalars['String']['output']>;
@@ -529,6 +823,8 @@ export type ModeratorAccountProfileFilters = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  acknowledgeJobEnded: Scalars['Boolean']['output'];
+  applyPostReextraction: ApplyPostReextractionResult;
   castVote: AccountVote;
   clearAccountDefaultLocation: SocialMediaAccountProfile;
   createApiKey: ApiKey;
@@ -544,6 +840,7 @@ export type Mutation = {
   editAccountDefaultLocation: SocialMediaAccountProfile;
   extractEventDataFromUrl: ExtractEventDataFromUrlResult;
   ignoreSubsequentReports: Report;
+  markJobsOpened: Scalars['Boolean']['output'];
   markSubscriptionViewed: Subscription;
   previewPostReextraction: StartPostReextractionPreviewResult;
   registerEmbedDomain: EmbedDomain;
@@ -563,12 +860,25 @@ export type Mutation = {
    * `eventId` (the newly-ingested event) into its `candidateEventId` (the existing event), via
    * `mergeEvents`, and returns the resulting merge id. REJECT performs no merge -- a recorded
    * dismissal only.
+   *
+   * `clues` are the codes of the closed list in `packages/domain` (`DEDUP_DECISION_CLUES`) that explain the
+   * decision, at most one per exclusive group; `note` is the moderator's own words, at most 200 characters,
+   * stored and never printed anywhere. Both are optional; an invalid value is BAD_REQUEST and nothing is resolved.
    */
   resolveSuggestedEventMatch: SuggestedEventMatchResolution;
   restoreEvent: Event;
+  retryJob: RetryJobResult;
   saveAIEventFilter: AiEventFilter;
   selectPostsForExtraction: Array<Post>;
   setAccountDefaultLocation: SocialMediaAccountProfile;
+  /**
+   * Idempotently sets the calendar state of several schedules of ONE event in a single
+   * transaction (one auth check, one round of queries) -- replaces N parallel
+   * toggleCalendarAddition calls. All-or-nothing: any unknown schedule, a schedule of another
+   * event, or more than 100 changes rejects the whole call. A schedule listed twice takes its
+   * last entry. Returns one result per distinct scheduleId, in first-seen order.
+   */
+  setCalendarAdditions: Array<ToggleCalendarAdditionResult>;
   setImageStorageOptIn: SocialMediaAccountProfile;
   submitCorrection: Correction;
   submitReport: Report;
@@ -588,6 +898,16 @@ export type Mutation = {
   updateUserTimezone: Scalars['Boolean']['output'];
   updateWidget: Widget;
   withdrawVote: AccountVote;
+};
+
+
+export type MutationAcknowledgeJobEndedArgs = {
+  jobId: Scalars['ID']['input'];
+};
+
+
+export type MutationApplyPostReextractionArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -753,13 +1073,20 @@ export type MutationResolveScheduleTimezoneArgs = {
 
 export type MutationResolveSuggestedEventMatchArgs = {
   action: SuggestedEventMatchAction;
+  clues?: InputMaybe<Array<Scalars['String']['input']>>;
   id: Scalars['ID']['input'];
+  note?: InputMaybe<Scalars['String']['input']>;
 };
 
 
 export type MutationRestoreEventArgs = {
   action: SoftDeleteAction;
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationRetryJobArgs = {
+  jobId: Scalars['ID']['input'];
 };
 
 
@@ -779,6 +1106,12 @@ export type MutationSetAccountDefaultLocationArgs = {
   accountId: Scalars['ID']['input'];
   asModeratorCorrection?: InputMaybe<Scalars['Boolean']['input']>;
   input: SetAccountDefaultLocationInput;
+};
+
+
+export type MutationSetCalendarAdditionsArgs = {
+  changes: Array<CalendarAdditionChangeInput>;
+  eventId: Scalars['ID']['input'];
 };
 
 
@@ -893,6 +1226,10 @@ export type Post = {
   __typename?: 'Post';
   accountId: Scalars['ID']['output'];
   content?: Maybe<Scalars['String']['output']>;
+  /** The reason code of the last failed attempt (for example unavailable, blocked); null when none is on record. */
+  extractionFailureReason?: Maybe<Scalars['String']['output']>;
+  /** When the automatic retry of a failed attempt is due (ISO 8601); null when none is scheduled. */
+  extractionNextAttemptAt?: Maybe<Scalars['String']['output']>;
   extractionStatus: PostExtractionStatus;
   id: Scalars['ID']['output'];
   imageUrl?: Maybe<Scalars['String']['output']>;
@@ -910,10 +1247,22 @@ export type PostConnection = {
 };
 
 /**
- * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING posts
- * can be selected for extraction.
+ * Whether the events of a source post may be a partial list (AD-50): COMPLETE, IN_PROGRESS (a stepped extraction is still adding
+ * events), or PARTIAL (it ended without reading every slide and will not be finished).
+ */
+export type PostEventsCompleteness =
+  | 'COMPLETE'
+  | 'IN_PROGRESS'
+  | 'PARTIAL';
+
+/**
+ * Where a post is in extraction (PRD 3.10). Derived from the post's state, never edited. Only PENDING and
+ * ATTEMPT_FAILED posts can be selected for extraction. ATTEMPT_FAILED (AD-52): an extraction attempt failed and no
+ * job is running; `extractionNextAttemptAt` says when the automatic retry is due, and is null once retries are spent
+ * or cannot help.
  */
 export type PostExtractionStatus =
+  | 'ATTEMPT_FAILED'
   | 'EXTRACTING'
   | 'NOT_EVENT'
   | 'PENDING'
@@ -929,8 +1278,12 @@ export type PostGroupingReason =
 
 export type PostReextractionPreview = {
   __typename?: 'PostReextractionPreview';
+  applicable: Scalars['Boolean']['output'];
+  applied?: Maybe<ApplyReextractionSummary>;
   events: Array<ReextractionPreviewEvent>;
   groupingReason?: Maybe<PostGroupingReason>;
+  imagesAvailable: Scalars['Int']['output'];
+  imagesSent: Scalars['Int']['output'];
   postStored: Scalars['Boolean']['output'];
   rescraped: Scalars['Boolean']['output'];
 };
@@ -995,8 +1348,19 @@ export type ProposedScheduleCorrectionInput = {
   title?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type PublicWidget = {
+  __typename?: 'PublicWidget';
+  createdAt: Scalars['String']['output'];
+  displayMode: WidgetDisplayMode;
+  expression: FilterNode;
+  filters?: Maybe<EventFilter>;
+  id: Scalars['ID']['output'];
+  theme: WidgetTheme;
+};
+
 export type Query = {
   __typename?: 'Query';
+  activeJobs: Array<Job>;
   addressAutocomplete: Array<AddressSuggestion>;
   embedDomainsForWidget: Array<EmbedDomain>;
   event?: Maybe<Event>;
@@ -1006,6 +1370,8 @@ export type Query = {
   health: Scalars['Boolean']['output'];
   instagramEmbedBySlug: InstagramEmbedBySlug;
   isOriginAllowedForWidget: Scalars['Boolean']['output'];
+  job?: Maybe<Job>;
+  jobsFinishedSinceLastOpened: Scalars['Int']['output'];
   me: Me;
   /**
    * Combined count of items awaiting moderator action across Moderator Items
@@ -1024,6 +1390,7 @@ export type Query = {
   myAIEventFilters: Array<AiEventFilter>;
   myApiKeys: Array<ApiKey>;
   myExtractionQuota: ExtractionQuota;
+  myJobs: JobConnection;
   myLocations: Array<UserLocation>;
   myReports: Array<Report>;
   mySettings: UserSettings;
@@ -1055,7 +1422,14 @@ export type Query = {
   suggestedEventMatches: SuggestedEventMatchConnection;
   voteRegionBreakdown: Array<RegionVoteBucket>;
   votedAccountSuggestions: Array<RankedAccountVote>;
-  widgetById?: Maybe<Widget>;
+  widgetById?: Maybe<PublicWidget>;
+};
+
+
+export type QueryActiveJobsArgs = {
+  endedWithinMinutes?: InputMaybe<Scalars['Int']['input']>;
+  filter?: InputMaybe<JobsFilter>;
+  subject?: InputMaybe<JobSubjectInput>;
 };
 
 
@@ -1106,6 +1480,19 @@ export type QueryInstagramEmbedBySlugArgs = {
 export type QueryIsOriginAllowedForWidgetArgs = {
   origin: Scalars['String']['input'];
   widgetId: Scalars['ID']['input'];
+};
+
+
+export type QueryJobArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryMyJobsArgs = {
+  after?: InputMaybe<Scalars['String']['input']>;
+  filter?: InputMaybe<JobsFilter>;
+  first?: InputMaybe<Scalars['Int']['input']>;
+  onlyEnded?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 
@@ -1263,6 +1650,7 @@ export type RegionVoteBucket = {
 export type RelatedEventGroup = {
   __typename?: 'RelatedEventGroup';
   eventIds: Array<Scalars['ID']['output']>;
+  extractionProgress: PostEventsCompleteness;
   postId: Scalars['ID']['output'];
 };
 
@@ -1329,6 +1717,23 @@ export type ResolvedAiEventFilterResult = {
   resolvedFilter: EventFilter;
 };
 
+export type RetryJobOutcome =
+  | 'REFUSED'
+  | 'REUSED'
+  | 'STARTED';
+
+export type RetryJobResult = {
+  __typename?: 'RetryJobResult';
+  activeCount?: Maybe<Scalars['Int']['output']>;
+  cap?: Maybe<Scalars['Int']['output']>;
+  errorCode?: Maybe<JobStartErrorCode>;
+  job?: Maybe<Job>;
+  maxQueued?: Maybe<Scalars['Int']['output']>;
+  outcome: RetryJobOutcome;
+  reservedCount?: Maybe<Scalars['Int']['output']>;
+  retryNotBefore?: Maybe<Scalars['DateTime']['output']>;
+};
+
 export type Schedule = {
   __typename?: 'Schedule';
   applicableDaysOfWeek?: Maybe<Array<DayOfWeek>>;
@@ -1343,6 +1748,8 @@ export type Schedule = {
   isMainSchedule: Scalars['Boolean']['output'];
   location?: Maybe<Scalars['String']['output']>;
   locationDetails?: Maybe<LocationDetails>;
+  /** Place names for searching `location` on a map, most specific first. Null when none are known: older rows, or the location text was corrected. */
+  locationKeywords?: Maybe<Array<Scalars['String']['output']>>;
   performers?: Maybe<Array<Scalars['String']['output']>>;
   registrationUrl?: Maybe<Scalars['String']['output']>;
   ticketPrice?: Maybe<Scalars['String']['output']>;
@@ -1498,6 +1905,7 @@ export type SuggestedEventMatchResolution = {
 
 export type SuggestedEventMatchStatus =
   | 'accepted'
+  | 'expired'
   | 'pending'
   | 'rejected';
 
@@ -1719,7 +2127,12 @@ export type ResolversTypes = ResolversObject<{
   ActorRunVendor: ActorRunVendor;
   AddressSuggestion: ResolverTypeWrapper<AddressSuggestion>;
   ApiKey: ResolverTypeWrapper<ApiKey>;
+  ApplyPostReextractionResult: ResolverTypeWrapper<ApplyPostReextractionResult>;
+  ApplyReextractionEventRef: ResolverTypeWrapper<ApplyReextractionEventRef>;
+  ApplyReextractionPlacedEvent: ResolverTypeWrapper<ApplyReextractionPlacedEvent>;
+  ApplyReextractionSummary: ResolverTypeWrapper<ApplyReextractionSummary>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  CalendarAdditionChangeInput: CalendarAdditionChangeInput;
   CastVoteInput: CastVoteInput;
   Coordinates: ResolverTypeWrapper<CoordinatesParent>;
   CoordinatesInput: CoordinatesInput;
@@ -1767,6 +2180,36 @@ export type ResolversTypes = ResolversObject<{
   InstagramEmbedStatus: InstagramEmbedStatus;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>;
+  Job: ResolverTypeWrapper<Job>;
+  JobAttempt: ResolverTypeWrapper<JobAttempt>;
+  JobAttemptOutcome: JobAttemptOutcome;
+  JobConnection: ResolverTypeWrapper<JobConnection>;
+  JobEdge: ResolverTypeWrapper<JobEdge>;
+  JobImage: ResolverTypeWrapper<JobImage>;
+  JobImageRole: JobImageRole;
+  JobImageState: JobImageState;
+  JobModeratorDetails: ResolverTypeWrapper<JobModeratorDetails>;
+  JobOutcome: ResolverTypeWrapper<JobOutcome>;
+  JobOutcomeKind: JobOutcomeKind;
+  JobOwner: ResolverTypeWrapper<JobOwner>;
+  JobProvider: JobProvider;
+  JobQueueInfo: ResolverTypeWrapper<JobQueueInfo>;
+  JobReasonCode: JobReasonCode;
+  JobRefreshOutcome: JobRefreshOutcome;
+  JobRefreshReport: ResolverTypeWrapper<JobRefreshReport>;
+  JobStartErrorCode: JobStartErrorCode;
+  JobStatus: JobStatus;
+  JobStep: ResolverTypeWrapper<JobStep>;
+  JobStepState: JobStepState;
+  JobSubject: ResolverTypeWrapper<JobSubject>;
+  JobSubjectInput: JobSubjectInput;
+  JobSubjectKind: JobSubjectKind;
+  JobTrigger: JobTrigger;
+  JobType: JobType;
+  JobWaitingFor: JobWaitingFor;
+  JobWaitingInfo: ResolverTypeWrapper<JobWaitingInfo>;
+  JobsFilter: JobsFilter;
+  JobsScope: JobsScope;
   LocationDetails: ResolverTypeWrapper<Omit<LocationDetails, 'coordinates'> & { coordinates: ResolversTypes['Coordinates'] }>;
   LocationFilter: ResolverTypeWrapper<Omit<LocationFilter, 'coordinates'> & { coordinates?: Maybe<ResolversTypes['Coordinates']> }>;
   LocationFilterInput: LocationFilterInput;
@@ -1778,6 +2221,7 @@ export type ResolversTypes = ResolversObject<{
   PayloadContext: ResolverTypeWrapper<PayloadContextParent>;
   Post: ResolverTypeWrapper<Post>;
   PostConnection: ResolverTypeWrapper<PostConnection>;
+  PostEventsCompleteness: PostEventsCompleteness;
   PostExtractionStatus: PostExtractionStatus;
   PostGroupingReason: PostGroupingReason;
   PostReextractionPreview: ResolverTypeWrapper<PostReextractionPreview>;
@@ -1786,6 +2230,7 @@ export type ResolversTypes = ResolversObject<{
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ResolverTypeWrapper<ProposedScheduleCorrectionData>;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
+  PublicWidget: ResolverTypeWrapper<PublicWidgetParent>;
   Query: ResolverTypeWrapper<{}>;
   RankedAccountVote: ResolverTypeWrapper<RankedAccountVoteParent>;
   ReextractionDedupTier: ReextractionDedupTier;
@@ -1804,6 +2249,8 @@ export type ResolversTypes = ResolversObject<{
   ReprocessResult: ResolverTypeWrapper<ReprocessResult>;
   ResolveScheduleTimezoneResult: ResolverTypeWrapper<ResolveScheduleTimezoneResult>;
   ResolvedAIEventFilterResult: ResolverTypeWrapper<Omit<ResolvedAiEventFilterResult, 'resolvedFilter'> & { resolvedFilter: ResolversTypes['EventFilter'] }>;
+  RetryJobOutcome: RetryJobOutcome;
+  RetryJobResult: ResolverTypeWrapper<RetryJobResult>;
   Schedule: ResolverTypeWrapper<ScheduleParent>;
   ScheduleTimezoneStatus: ScheduleTimezoneStatus;
   ScraperActorRun: ResolverTypeWrapper<ScraperActorRun>;
@@ -1855,7 +2302,12 @@ export type ResolversParentTypes = ResolversObject<{
   ActorRunFilters: ActorRunFilters;
   AddressSuggestion: AddressSuggestion;
   ApiKey: ApiKey;
+  ApplyPostReextractionResult: ApplyPostReextractionResult;
+  ApplyReextractionEventRef: ApplyReextractionEventRef;
+  ApplyReextractionPlacedEvent: ApplyReextractionPlacedEvent;
+  ApplyReextractionSummary: ApplyReextractionSummary;
   Boolean: Scalars['Boolean']['output'];
+  CalendarAdditionChangeInput: CalendarAdditionChangeInput;
   CastVoteInput: CastVoteInput;
   Coordinates: CoordinatesParent;
   CoordinatesInput: CoordinatesInput;
@@ -1887,6 +2339,21 @@ export type ResolversParentTypes = ResolversObject<{
   InstagramEmbedBySlug: InstagramEmbedBySlug;
   Int: Scalars['Int']['output'];
   JSON: Scalars['JSON']['output'];
+  Job: Job;
+  JobAttempt: JobAttempt;
+  JobConnection: JobConnection;
+  JobEdge: JobEdge;
+  JobImage: JobImage;
+  JobModeratorDetails: JobModeratorDetails;
+  JobOutcome: JobOutcome;
+  JobOwner: JobOwner;
+  JobQueueInfo: JobQueueInfo;
+  JobRefreshReport: JobRefreshReport;
+  JobStep: JobStep;
+  JobSubject: JobSubject;
+  JobSubjectInput: JobSubjectInput;
+  JobWaitingInfo: JobWaitingInfo;
+  JobsFilter: JobsFilter;
   LocationDetails: Omit<LocationDetails, 'coordinates'> & { coordinates: ResolversParentTypes['Coordinates'] };
   LocationFilter: Omit<LocationFilter, 'coordinates'> & { coordinates?: Maybe<ResolversParentTypes['Coordinates']> };
   LocationFilterInput: LocationFilterInput;
@@ -1904,6 +2371,7 @@ export type ResolversParentTypes = ResolversObject<{
   ProposedEventCorrectionInput: ProposedEventCorrectionInput;
   ProposedScheduleCorrectionData: ProposedScheduleCorrectionData;
   ProposedScheduleCorrectionInput: ProposedScheduleCorrectionInput;
+  PublicWidget: PublicWidgetParent;
   Query: {};
   RankedAccountVote: RankedAccountVoteParent;
   ReextractionPreviewDedup: ReextractionPreviewDedup;
@@ -1918,6 +2386,7 @@ export type ResolversParentTypes = ResolversObject<{
   ReprocessResult: ReprocessResult;
   ResolveScheduleTimezoneResult: ResolveScheduleTimezoneResult;
   ResolvedAIEventFilterResult: Omit<ResolvedAiEventFilterResult, 'resolvedFilter'> & { resolvedFilter: ResolversParentTypes['EventFilter'] };
+  RetryJobResult: RetryJobResult;
   Schedule: ScheduleParent;
   ScraperActorRun: ScraperActorRun;
   SetAccountDefaultLocationInput: SetAccountDefaultLocationInput;
@@ -2014,6 +2483,37 @@ export type ApiKeyResolvers<ContextType = GraphQLContext, ParentType extends Res
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type ApplyPostReextractionResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ApplyPostReextractionResult'] = ResolversParentTypes['ApplyPostReextractionResult']> = ResolversObject<{
+  errorCode?: Resolver<Maybe<ResolversTypes['ExtractionErrorCode']>, ParentType, ContextType>;
+  errorMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  summary?: Resolver<Maybe<ResolversTypes['ApplyReextractionSummary']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ApplyReextractionEventRefResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ApplyReextractionEventRef'] = ResolversParentTypes['ApplyReextractionEventRef']> = ResolversObject<{
+  eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  slug?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ApplyReextractionPlacedEventResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ApplyReextractionPlacedEvent'] = ResolversParentTypes['ApplyReextractionPlacedEvent']> = ResolversObject<{
+  eventName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  ordinal?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  slug?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type ApplyReextractionSummaryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['ApplyReextractionSummary'] = ResolversParentTypes['ApplyReextractionSummary']> = ResolversObject<{
+  created?: Resolver<Array<ResolversTypes['ApplyReextractionPlacedEvent']>, ParentType, ContextType>;
+  groupingReason?: Resolver<Maybe<ResolversTypes['PostGroupingReason']>, ParentType, ContextType>;
+  linkedToExisting?: Resolver<Array<ResolversTypes['ApplyReextractionEventRef']>, ParentType, ContextType>;
+  orphans?: Resolver<Array<ResolversTypes['ApplyReextractionEventRef']>, ParentType, ContextType>;
+  queuedForReview?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  reused?: Resolver<Array<ResolversTypes['ApplyReextractionPlacedEvent']>, ParentType, ContextType>;
+  skippedDeleted?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type CoordinatesResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Coordinates'] = ResolversParentTypes['Coordinates']> = ResolversObject<{
   lat?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
   lng?: Resolver<ResolversTypes['Float'], ParentType, ContextType>;
@@ -2094,6 +2594,7 @@ export type EventResolvers<ContextType = GraphQLContext, ParentType extends Reso
   isHiddenForCurrentUser?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   links?: Resolver<Maybe<Array<ResolversTypes['EventLink']>>, ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  locationKeywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   organizerName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   originalPostUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   postId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
@@ -2203,6 +2704,132 @@ export interface JsonScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes
   name: 'JSON';
 }
 
+export type JobResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Job'] = ResolversParentTypes['Job']> = ResolversObject<{
+  canRetry?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  completedAfterDeadline?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  deadlineAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  finishedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  isCancelled?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  moderatorDetails?: Resolver<Maybe<ResolversTypes['JobModeratorDetails']>, ParentType, ContextType>;
+  outcome?: Resolver<Maybe<ResolversTypes['JobOutcome']>, ParentType, ContextType>;
+  owner?: Resolver<Maybe<ResolversTypes['JobOwner']>, ParentType, ContextType>;
+  queue?: Resolver<Maybe<ResolversTypes['JobQueueInfo']>, ParentType, ContextType>;
+  reasonCode?: Resolver<Maybe<ResolversTypes['JobReasonCode']>, ParentType, ContextType>;
+  reasonQueueMaxWaitMinutes?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  reasonRetryAfter?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  refresh?: Resolver<Maybe<ResolversTypes['JobRefreshReport']>, ParentType, ContextType>;
+  retryNotBefore?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  startedAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['JobStatus'], ParentType, ContextType>;
+  steps?: Resolver<Array<ResolversTypes['JobStep']>, ParentType, ContextType>;
+  subject?: Resolver<ResolversTypes['JobSubject'], ParentType, ContextType>;
+  trigger?: Resolver<ResolversTypes['JobTrigger'], ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['JobType'], ParentType, ContextType>;
+  waiting?: Resolver<Maybe<ResolversTypes['JobWaitingInfo']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobAttemptResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobAttempt'] = ResolversParentTypes['JobAttempt']> = ResolversObject<{
+  budgetMs?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  elapsedMs?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  outcome?: Resolver<ResolversTypes['JobAttemptOutcome'], ParentType, ContextType>;
+  provider?: Resolver<ResolversTypes['JobProvider'], ParentType, ContextType>;
+  reasonCode?: Resolver<Maybe<ResolversTypes['JobReasonCode']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobConnectionResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobConnection'] = ResolversParentTypes['JobConnection']> = ResolversObject<{
+  edges?: Resolver<Array<ResolversTypes['JobEdge']>, ParentType, ContextType>;
+  pageInfo?: Resolver<ResolversTypes['PageInfo'], ParentType, ContextType>;
+  totalCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobEdgeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobEdge'] = ResolversParentTypes['JobEdge']> = ResolversObject<{
+  cursor?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  node?: Resolver<ResolversTypes['Job'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobImageResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobImage'] = ResolversParentTypes['JobImage']> = ResolversObject<{
+  position?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  role?: Resolver<ResolversTypes['JobImageRole'], ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['JobImageState'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobModeratorDetailsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobModeratorDetails'] = ResolversParentTypes['JobModeratorDetails']> = ResolversObject<{
+  attempts?: Resolver<Array<ResolversTypes['JobAttempt']>, ParentType, ContextType>;
+  engineMessage?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  engineReasonCode?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobOutcomeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobOutcome'] = ResolversParentTypes['JobOutcome']> = ResolversObject<{
+  eventCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  kind?: Resolver<ResolversTypes['JobOutcomeKind'], ParentType, ContextType>;
+  postCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  previewApplied?: Resolver<Maybe<ResolversTypes['Boolean']>, ParentType, ContextType>;
+  previewApplyUntil?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobOwnerResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobOwner'] = ResolversParentTypes['JobOwner']> = ResolversObject<{
+  displayName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobQueueInfoResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobQueueInfo'] = ResolversParentTypes['JobQueueInfo']> = ResolversObject<{
+  expiresAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>;
+  maxConcurrent?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  position?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobRefreshReportResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobRefreshReport'] = ResolversParentTypes['JobRefreshReport']> = ResolversObject<{
+  expiredLinks?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  images?: Resolver<Array<ResolversTypes['JobImage']>, ParentType, ContextType>;
+  imagesAvailable?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  imagesRead?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  lateResultPending?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  outcome?: Resolver<ResolversTypes['JobRefreshOutcome'], ParentType, ContextType>;
+  previewImageCap?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  retryAfter?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  saved?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobStepResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobStep'] = ResolversParentTypes['JobStep']> = ResolversObject<{
+  done?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  key?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  state?: Resolver<ResolversTypes['JobStepState'], ParentType, ContextType>;
+  total?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobSubjectResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobSubject'] = ResolversParentTypes['JobSubject']> = ResolversObject<{
+  accountId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  displayName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  kind?: Resolver<ResolversTypes['JobSubjectKind'], ParentType, ContextType>;
+  platform?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  postCode?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  postCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  postId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  profileImageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  username?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
+export type JobWaitingInfoResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['JobWaitingInfo'] = ResolversParentTypes['JobWaitingInfo']> = ResolversObject<{
+  done?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  resumeAt?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  total?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  waitingFor?: Resolver<ResolversTypes['JobWaitingFor'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type LocationDetailsResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['LocationDetails'] = ResolversParentTypes['LocationDetails']> = ResolversObject<{
   adminArea?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   city?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -2235,6 +2862,8 @@ export type MeResolvers<ContextType = GraphQLContext, ParentType extends Resolve
 }>;
 
 export type MutationResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = ResolversObject<{
+  acknowledgeJobEnded?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationAcknowledgeJobEndedArgs, 'jobId'>>;
+  applyPostReextraction?: Resolver<ResolversTypes['ApplyPostReextractionResult'], ParentType, ContextType, RequireFields<MutationApplyPostReextractionArgs, 'jobId'>>;
   castVote?: Resolver<ResolversTypes['AccountVote'], ParentType, ContextType, RequireFields<MutationCastVoteArgs, 'input'>>;
   clearAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationClearAccountDefaultLocationArgs, 'accountId'>>;
   createApiKey?: Resolver<ResolversTypes['ApiKey'], ParentType, ContextType, RequireFields<MutationCreateApiKeyArgs, 'input'>>;
@@ -2250,6 +2879,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   editAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationEditAccountDefaultLocationArgs, 'accountId' | 'input'>>;
   extractEventDataFromUrl?: Resolver<ResolversTypes['ExtractEventDataFromUrlResult'], ParentType, ContextType, RequireFields<MutationExtractEventDataFromUrlArgs, 'url'>>;
   ignoreSubsequentReports?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationIgnoreSubsequentReportsArgs, 'reportId'>>;
+  markJobsOpened?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   markSubscriptionViewed?: Resolver<ResolversTypes['Subscription'], ParentType, ContextType, RequireFields<MutationMarkSubscriptionViewedArgs, 'subscriptionId'>>;
   previewPostReextraction?: Resolver<ResolversTypes['StartPostReextractionPreviewResult'], ParentType, ContextType, Partial<MutationPreviewPostReextractionArgs>>;
   registerEmbedDomain?: Resolver<ResolversTypes['EmbedDomain'], ParentType, ContextType, RequireFields<MutationRegisterEmbedDomainArgs, 'pattern' | 'widgetId'>>;
@@ -2266,9 +2896,11 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   resolveScheduleTimezone?: Resolver<ResolversTypes['ResolveScheduleTimezoneResult'], ParentType, ContextType, RequireFields<MutationResolveScheduleTimezoneArgs, 'scheduleId' | 'timezone'>>;
   resolveSuggestedEventMatch?: Resolver<ResolversTypes['SuggestedEventMatchResolution'], ParentType, ContextType, RequireFields<MutationResolveSuggestedEventMatchArgs, 'action' | 'id'>>;
   restoreEvent?: Resolver<ResolversTypes['Event'], ParentType, ContextType, RequireFields<MutationRestoreEventArgs, 'action' | 'id'>>;
+  retryJob?: Resolver<ResolversTypes['RetryJobResult'], ParentType, ContextType, RequireFields<MutationRetryJobArgs, 'jobId'>>;
   saveAIEventFilter?: Resolver<ResolversTypes['AIEventFilter'], ParentType, ContextType, RequireFields<MutationSaveAiEventFilterArgs, 'prompt'>>;
   selectPostsForExtraction?: Resolver<Array<ResolversTypes['Post']>, ParentType, ContextType, RequireFields<MutationSelectPostsForExtractionArgs, 'postIds'>>;
   setAccountDefaultLocation?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetAccountDefaultLocationArgs, 'accountId' | 'input'>>;
+  setCalendarAdditions?: Resolver<Array<ResolversTypes['ToggleCalendarAdditionResult']>, ParentType, ContextType, RequireFields<MutationSetCalendarAdditionsArgs, 'changes' | 'eventId'>>;
   setImageStorageOptIn?: Resolver<ResolversTypes['SocialMediaAccountProfile'], ParentType, ContextType, RequireFields<MutationSetImageStorageOptInArgs, 'accountId' | 'optedIn'>>;
   submitCorrection?: Resolver<ResolversTypes['Correction'], ParentType, ContextType, RequireFields<MutationSubmitCorrectionArgs, 'eventId' | 'proposedData' | 'source'>>;
   submitReport?: Resolver<ResolversTypes['Report'], ParentType, ContextType, RequireFields<MutationSubmitReportArgs, 'eventId' | 'reason'>>;
@@ -2316,6 +2948,8 @@ export type PayloadContextResolvers<ContextType = GraphQLContext, ParentType ext
 export type PostResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Post'] = ResolversParentTypes['Post']> = ResolversObject<{
   accountId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   content?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  extractionFailureReason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  extractionNextAttemptAt?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   extractionStatus?: Resolver<ResolversTypes['PostExtractionStatus'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   imageUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -2334,8 +2968,12 @@ export type PostConnectionResolvers<ContextType = GraphQLContext, ParentType ext
 }>;
 
 export type PostReextractionPreviewResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PostReextractionPreview'] = ResolversParentTypes['PostReextractionPreview']> = ResolversObject<{
+  applicable?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  applied?: Resolver<Maybe<ResolversTypes['ApplyReextractionSummary']>, ParentType, ContextType>;
   events?: Resolver<Array<ResolversTypes['ReextractionPreviewEvent']>, ParentType, ContextType>;
   groupingReason?: Resolver<Maybe<ResolversTypes['PostGroupingReason']>, ParentType, ContextType>;
+  imagesAvailable?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  imagesSent?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   postStored?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   rescraped?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -2376,7 +3014,18 @@ export type ProposedScheduleCorrectionDataResolvers<ContextType = GraphQLContext
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type PublicWidgetResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['PublicWidget'] = ResolversParentTypes['PublicWidget']> = ResolversObject<{
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  displayMode?: Resolver<ResolversTypes['WidgetDisplayMode'], ParentType, ContextType>;
+  expression?: Resolver<ResolversTypes['FilterNode'], ParentType, ContextType>;
+  filters?: Resolver<Maybe<ResolversTypes['EventFilter']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  theme?: Resolver<ResolversTypes['WidgetTheme'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type QueryResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = ResolversObject<{
+  activeJobs?: Resolver<Array<ResolversTypes['Job']>, ParentType, ContextType, RequireFields<QueryActiveJobsArgs, 'endedWithinMinutes'>>;
   addressAutocomplete?: Resolver<Array<ResolversTypes['AddressSuggestion']>, ParentType, ContextType, RequireFields<QueryAddressAutocompleteArgs, 'input'>>;
   embedDomainsForWidget?: Resolver<Array<ResolversTypes['EmbedDomain']>, ParentType, ContextType, RequireFields<QueryEmbedDomainsForWidgetArgs, 'widgetId'>>;
   event?: Resolver<Maybe<ResolversTypes['Event']>, ParentType, ContextType, RequireFields<QueryEventArgs, 'id'>>;
@@ -2386,11 +3035,14 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   health?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   instagramEmbedBySlug?: Resolver<ResolversTypes['InstagramEmbedBySlug'], ParentType, ContextType, RequireFields<QueryInstagramEmbedBySlugArgs, 'slug'>>;
   isOriginAllowedForWidget?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryIsOriginAllowedForWidgetArgs, 'origin' | 'widgetId'>>;
+  job?: Resolver<Maybe<ResolversTypes['Job']>, ParentType, ContextType, RequireFields<QueryJobArgs, 'id'>>;
+  jobsFinishedSinceLastOpened?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   me?: Resolver<ResolversTypes['Me'], ParentType, ContextType>;
   moderatorPendingItemCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   myAIEventFilters?: Resolver<Array<ResolversTypes['AIEventFilter']>, ParentType, ContextType>;
   myApiKeys?: Resolver<Array<ResolversTypes['ApiKey']>, ParentType, ContextType>;
   myExtractionQuota?: Resolver<ResolversTypes['ExtractionQuota'], ParentType, ContextType>;
+  myJobs?: Resolver<ResolversTypes['JobConnection'], ParentType, ContextType, RequireFields<QueryMyJobsArgs, 'first' | 'onlyEnded'>>;
   myLocations?: Resolver<Array<ResolversTypes['UserLocation']>, ParentType, ContextType>;
   myReports?: Resolver<Array<ResolversTypes['Report']>, ParentType, ContextType>;
   mySettings?: Resolver<ResolversTypes['UserSettings'], ParentType, ContextType>;
@@ -2413,7 +3065,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   suggestedEventMatches?: Resolver<ResolversTypes['SuggestedEventMatchConnection'], ParentType, ContextType, Partial<QuerySuggestedEventMatchesArgs>>;
   voteRegionBreakdown?: Resolver<Array<ResolversTypes['RegionVoteBucket']>, ParentType, ContextType, RequireFields<QueryVoteRegionBreakdownArgs, 'accountId'>>;
   votedAccountSuggestions?: Resolver<Array<ResolversTypes['RankedAccountVote']>, ParentType, ContextType, Partial<QueryVotedAccountSuggestionsArgs>>;
-  widgetById?: Resolver<Maybe<ResolversTypes['Widget']>, ParentType, ContextType, RequireFields<QueryWidgetByIdArgs, 'id'>>;
+  widgetById?: Resolver<Maybe<ResolversTypes['PublicWidget']>, ParentType, ContextType, RequireFields<QueryWidgetByIdArgs, 'id'>>;
 }>;
 
 export type RankedAccountVoteResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RankedAccountVote'] = ResolversParentTypes['RankedAccountVote']> = ResolversObject<{
@@ -2464,6 +3116,7 @@ export type RegionVoteBucketResolvers<ContextType = GraphQLContext, ParentType e
 
 export type RelatedEventGroupResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RelatedEventGroup'] = ResolversParentTypes['RelatedEventGroup']> = ResolversObject<{
   eventIds?: Resolver<Array<ResolversTypes['ID']>, ParentType, ContextType>;
+  extractionProgress?: Resolver<ResolversTypes['PostEventsCompleteness'], ParentType, ContextType>;
   postId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -2511,6 +3164,18 @@ export type ResolvedAiEventFilterResultResolvers<ContextType = GraphQLContext, P
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
 
+export type RetryJobResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['RetryJobResult'] = ResolversParentTypes['RetryJobResult']> = ResolversObject<{
+  activeCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  cap?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  errorCode?: Resolver<Maybe<ResolversTypes['JobStartErrorCode']>, ParentType, ContextType>;
+  job?: Resolver<Maybe<ResolversTypes['Job']>, ParentType, ContextType>;
+  maxQueued?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  outcome?: Resolver<ResolversTypes['RetryJobOutcome'], ParentType, ContextType>;
+  reservedCount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  retryNotBefore?: Resolver<Maybe<ResolversTypes['DateTime']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+}>;
+
 export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Schedule'] = ResolversParentTypes['Schedule']> = ResolversObject<{
   applicableDaysOfWeek?: Resolver<Maybe<Array<ResolversTypes['DayOfWeek']>>, ParentType, ContextType>;
   createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -2524,6 +3189,7 @@ export type ScheduleResolvers<ContextType = GraphQLContext, ParentType extends R
   isMainSchedule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   location?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   locationDetails?: Resolver<Maybe<ResolversTypes['LocationDetails']>, ParentType, ContextType>;
+  locationKeywords?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   performers?: Resolver<Maybe<Array<ResolversTypes['String']>>, ParentType, ContextType>;
   registrationUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ticketPrice?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -2737,6 +3403,10 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ActorRunEdge?: ActorRunEdgeResolvers<ContextType>;
   AddressSuggestion?: AddressSuggestionResolvers<ContextType>;
   ApiKey?: ApiKeyResolvers<ContextType>;
+  ApplyPostReextractionResult?: ApplyPostReextractionResultResolvers<ContextType>;
+  ApplyReextractionEventRef?: ApplyReextractionEventRefResolvers<ContextType>;
+  ApplyReextractionPlacedEvent?: ApplyReextractionPlacedEventResolvers<ContextType>;
+  ApplyReextractionSummary?: ApplyReextractionSummaryResolvers<ContextType>;
   Coordinates?: CoordinatesResolvers<ContextType>;
   Correction?: CorrectionResolvers<ContextType>;
   DateRangeFilter?: DateRangeFilterResolvers<ContextType>;
@@ -2755,6 +3425,19 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   InstagramEmbed?: InstagramEmbedResolvers<ContextType>;
   InstagramEmbedBySlug?: InstagramEmbedBySlugResolvers<ContextType>;
   JSON?: GraphQLScalarType;
+  Job?: JobResolvers<ContextType>;
+  JobAttempt?: JobAttemptResolvers<ContextType>;
+  JobConnection?: JobConnectionResolvers<ContextType>;
+  JobEdge?: JobEdgeResolvers<ContextType>;
+  JobImage?: JobImageResolvers<ContextType>;
+  JobModeratorDetails?: JobModeratorDetailsResolvers<ContextType>;
+  JobOutcome?: JobOutcomeResolvers<ContextType>;
+  JobOwner?: JobOwnerResolvers<ContextType>;
+  JobQueueInfo?: JobQueueInfoResolvers<ContextType>;
+  JobRefreshReport?: JobRefreshReportResolvers<ContextType>;
+  JobStep?: JobStepResolvers<ContextType>;
+  JobSubject?: JobSubjectResolvers<ContextType>;
+  JobWaitingInfo?: JobWaitingInfoResolvers<ContextType>;
   LocationDetails?: LocationDetailsResolvers<ContextType>;
   LocationFilter?: LocationFilterResolvers<ContextType>;
   Me?: MeResolvers<ContextType>;
@@ -2768,6 +3451,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   PostReextractionPreviewStatus?: PostReextractionPreviewStatusResolvers<ContextType>;
   ProposedEventCorrectionData?: ProposedEventCorrectionDataResolvers<ContextType>;
   ProposedScheduleCorrectionData?: ProposedScheduleCorrectionDataResolvers<ContextType>;
+  PublicWidget?: PublicWidgetResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   RankedAccountVote?: RankedAccountVoteResolvers<ContextType>;
   ReextractionPreviewDedup?: ReextractionPreviewDedupResolvers<ContextType>;
@@ -2781,6 +3465,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ReprocessResult?: ReprocessResultResolvers<ContextType>;
   ResolveScheduleTimezoneResult?: ResolveScheduleTimezoneResultResolvers<ContextType>;
   ResolvedAIEventFilterResult?: ResolvedAiEventFilterResultResolvers<ContextType>;
+  RetryJobResult?: RetryJobResultResolvers<ContextType>;
   Schedule?: ScheduleResolvers<ContextType>;
   ScraperActorRun?: ScraperActorRunResolvers<ContextType>;
   SocialMediaAccountProfile?: SocialMediaAccountProfileResolvers<ContextType>;

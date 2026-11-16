@@ -5,17 +5,27 @@ import {
   ScraperAccountRef,
   ScrapedPost,
   AccountProfileLookupResult,
+  ProfileScrapeOptions,
+  ProfileScraperAdapter,
+  PostScraperAdapter,
+  ScrapedProfile,
   ApifyRequestTimeoutError,
   nextApifyMemoryLimitWaitMs,
   resolveApifyMemoryLimitMaxWaitMs,
+  isTransientVendorFailure,
+  buildPostImageUrls,
+  PostUnavailableError,
 } from '@festgrid/domain';
-import { assertProviderCapacityAvailable, recordProviderUsage } from './usage-store.js';
+import { assertProviderCapacityAvailable, rememberExhaustedCapacity, recordProviderUsage } from './usage-store.js';
+import { fetchScrapedProfile, registerProfileScraperAdapter } from './profile-scraper.js';
+import { registerPostScraperAdapter } from './post-scraper-registry.js';
 import { loadBackendEnv } from '../../env.js';
 import { compileValidator } from '../../validation/validate.js';
 import { scrapedPostSchema } from '../../validation/scraped-post.schema.js';
 import { persistUnprocessedPayload } from '../posts/persist-unprocessed-payload.js';
 import { recordSyncActorRun } from './record-actor-run.js';
 import { callVendor, VendorDpaNotConfirmedError, VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
+import { dedupeImageUrlsByFileName } from '@festgrid/domain/posts';
 
 // ============================================================================
 // ACTOR INPUT TYPES
@@ -61,6 +71,8 @@ interface ClassifyAccountProfileActorInput {
 // ============================================================================
 
 interface ApifyClassifyProfileItem {
+  id?: string;
+  profilePicUrl?: string;
   biography?: string;
   fullName?: string;
   username?: string;
@@ -157,7 +169,7 @@ function normalizeApifyError(err: unknown, context: string): Error {
   // Story 0.i2d (AC5) — a deliberate kill-switch rejection or the wrapper's own generic
   // timeout bound are not Apify-vendor-shaped errors to re-wrap; pass them through unchanged
   // so a future caller can still distinguish them via `instanceof`.
-  if (err instanceof VendorDpaNotConfirmedError || err instanceof VendorCallTimeoutError || err instanceof ApifyMemoryLimitExhaustedError) {
+  if (err instanceof VendorDpaNotConfirmedError || err instanceof VendorCallTimeoutError || err instanceof ApifyMemoryLimitExhaustedError || err instanceof ApifyMonthlyUsageLimitError) {
     return err;
   }
 
@@ -165,6 +177,14 @@ function normalizeApifyError(err: unknown, context: string): Error {
     const detail = err.data && typeof err.data === 'object' && 'error' in err.data && err.data.error && typeof err.data.error === 'object' && 'message' in err.data.error
       ? String((err.data as any).error.message)
       : err.message;
+
+    // FIND-261102-4qm -- the API Lambda sets no audit context, so callApifyActor does not wait for memory
+    // there and rethrows the raw 402; wrapped into a plain Error below it would look like a failure
+    // AFTER the vendor call started (and start the moderator re-extract's 10-minute cooldown) although
+    // Apify refused to START the run. Type it here, at the one place every caller's error passes through.
+    if (isApifyMemoryLimitError(err)) {
+      return new ApifyMemoryLimitExhaustedError(0, 1, detail);
+    }
 
     return new Error(`Apify request failed while ${context}: ${detail}`);
   }
@@ -188,22 +208,14 @@ export function setGetApifyClient(fn: typeof getApifyClient) {
   getApifyClient = fn;
 }
 
-// Story 0.i2d (AD-32 Rule 4) — mirrors isGeminiErrorTransient's exact shape (gemini-client.ts):
-// a 5xx ApifyApiError, or a network-level error code on the error itself or its `cause`, is
-// transient. Never a default-transient fallback.
-const TRANSIENT_CONNECTION_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EAI_AGAIN']);
-
+// Story 0.i2d (AD-32 Rule 4): a 5xx ApifyApiError, or a network-level error code on the error itself or its `cause`, is
+// transient; never a default-transient fallback. Story 10.2 (FIND-082): the rule itself is the shared
+// `isTransientVendorFailure`; this function only says where to read the status and the code from.
 export function isApifyErrorTransient(error: unknown): boolean {
   if (error instanceof ApifyApiError) {
-    return typeof error.statusCode === 'number' && error.statusCode >= 500 && error.statusCode <= 599;
+    return isTransientVendorFailure({ statusCode: error.statusCode });
   }
-
-  const code = (error as any)?.code ?? (error as any)?.cause?.code;
-  if (typeof code === 'string' && TRANSIENT_CONNECTION_CODES.has(code)) {
-    return true;
-  }
-
-  return false;
+  return isTransientVendorFailure({ code: (error as any)?.code ?? (error as any)?.cause?.code });
 }
 
 // Apify refuses a run with 402 + this type when the account's concurrent-memory cap is already in use
@@ -227,6 +239,25 @@ export class ApifyMemoryLimitExhaustedError extends Error {
   ) {
     super(`Apify account memory limit still reached after waiting ${waitedMs}ms over ${attempts} attempts (no run started): ${detail}`);
     this.name = 'ApifyMemoryLimitExhaustedError';
+  }
+}
+
+// The Apify account's monthly spend cap is reached (prod 2026-10-29: the FREE plan's $5): every start is
+// refused with 403 `platform-feature-disabled` until the usage cycle resets, whatever the retry. Like the
+// memory cap it is a condition of our own account, not the vendor failing.
+export function isApifyMonthlyUsageLimitError(error: unknown): boolean {
+  return error instanceof ApifyApiError && error.statusCode === 403 && error.type === 'platform-feature-disabled';
+}
+
+/**
+ * Apify refused to start the run because the account's monthly usage limit is exhausted. Nothing was started,
+ * so nothing is audited (it must not count against Apify's health) and redelivery cannot help: the queue
+ * worker does not rethrow it, and the next daily batch tries again.
+ */
+export class ApifyMonthlyUsageLimitError extends Error {
+  constructor(detail: string) {
+    super(`Apify monthly usage limit reached: ${detail}`);
+    this.name = 'ApifyMonthlyUsageLimitError';
   }
 }
 
@@ -345,13 +376,21 @@ export let callApifyActor = async <T extends ActorId>(actorId: T, input: ActorIn
         accountedMs = spentMs + waitMs;
       }
     }
-  } catch (err) {
+  } catch (rawErr) {
+    const err = isApifyMonthlyUsageLimitError(rawErr)
+      ? new ApifyMonthlyUsageLimitError(rawErr instanceof Error ? rawErr.message : String(rawErr))
+      : rawErr;
+    if (err instanceof ApifyMonthlyUsageLimitError) {
+      // Story 10.2 (IDEA-101): remember it for the rest of the cycle, so no later caller makes a refused start.
+      await rememberExhaustedCapacity('apify').catch((markError) => console.error('Could not remember the exhausted Apify cap:', markError));
+    }
     // A failed or timed-out call used to leave no trace: no audit row, so provider health never saw it
     // (2026-10-23: 11 profiles dropped on a 26s timeout). Recorded OUTSIDE the guarded call, like the
     // success row below; the caller still gets the original error. Except the memory cap: that is a
     // capacity condition of our own account, not the vendor failing (2026-10-25: 31 such FAILED rows
-    // counted against Apify's health), and no run was started.
-    if (auditProfileId && !(err instanceof ApifyMemoryLimitExhaustedError)) {
+    // counted against Apify's health), and no run was started. The monthly usage limit is the same kind of
+    // condition (2026-10-30: 105 FAILED rows).
+    if (auditProfileId && !(err instanceof ApifyMemoryLimitExhaustedError) && !(err instanceof ApifyMonthlyUsageLimitError)) {
       await recordSyncActorRun({
         vendor: 'APIFY',
         profileId: auditProfileId,
@@ -507,10 +546,19 @@ export async function mapApifyItemToScrapedPost(item: any): Promise<ScrapedPost 
     // Carousel/Sidecar post (AC1/AC2): capture every slide's image URL beyond the cover, in Apify's
     // childPosts slide order, dropping falsy/missing displayUrl entries defensively. Omitted entirely
     // for non-Sidecar items or those with no childPosts (no behavior change for single-image posts).
+    // BUG-101: Apify's childPosts[0] is typically the cover, re-served under a different signed
+    // query -- de-duplicate cover + every child by file name using the same shared
+    // packages/domain helper build-gemini-request.ts uses at read time, so a repeated cover is
+    // dropped regardless of where it appears in childPosts (not just index 0), a non-cover slide
+    // that itself repeats another is also caught, and (per the helper's own fallback) a cover
+    // whose own URL fails to parse still compares by its full URL instead of skipping the check.
     ...(item.type === 'Sidecar' && Array.isArray(item.childPosts) && item.childPosts.length > 0 && (() => {
-      const additionalImageUrls = item.childPosts
+      const childUrls = item.childPosts
         .map((cp: { displayUrl?: string }) => cp.displayUrl)
         .filter((url: string | undefined): url is string => Boolean(url));
+      const additionalImageUrls = imageUrl
+        ? buildPostImageUrls(imageUrl, childUrls).additionalImageUrls
+        : dedupeImageUrlsByFileName(childUrls);
       return additionalImageUrls.length > 0 ? { additionalImageUrls } : {};
     })()),
   };
@@ -571,44 +619,194 @@ function isNotFoundItem(item: any, kind: 'post' | 'profile'): boolean {
   return false;
 }
 
+// ============================================================================
+// APIFY PROFILE ADAPTER -- the Apify side of the profile-scraper chain (profile-scraper.ts)
+// ============================================================================
+
+async function apifyLookupProfile(handleOrUrl: string, budgetMs: number): Promise<ScrapedProfile | null> {
+  await assertProviderCapacityAvailable('apify', `profile ${handleOrUrl}`);
+
+  const runLookup = async (): Promise<ScrapedProfile | null> => {
+    try {
+      const url = handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.instagram.com/${handleOrUrl}/`;
+      const input: LookupAccountProfileActorInput = {
+        directUrls: [url],
+        resultsType: 'details',
+        resultsLimit: 1,
+      };
+      const items = (await callApifyActor(LOOKUP_ACCOUNT_PROFILE_ACTOR, input)) as LookupAccountProfileActorOutput;
+
+      if (!items || items.length === 0) {
+        return null;
+      }
+
+      const item = items[0];
+      if (isNotFoundItem(item, 'profile')) {
+        return null;
+      }
+      const result: ScrapedProfile = {
+        accountId: item.id || item.username || '',
+        displayName: item.fullName || item.displayName || item.name || item.username || '',
+        username: item.username || '',
+        profileImageUrl: item.profilePicUrl || item.profileImageUrl || undefined,
+      };
+
+      await recordProviderUsage('apify', 1);
+
+      return result;
+    } catch (err) {
+      console.error(`Instagram Scraper Adapter error looking up profile for ${handleOrUrl}:`, err);
+      throw normalizeApifyError(err, `looking up profile ${handleOrUrl}`);
+    }
+  };
+
+  return withTimeoutOrThrow(runLookup(), Math.min(budgetMs, PROFILE_LOOKUP_TIMEOUT_MS), 'Account profile lookup timed out');
+}
+
+async function apifyClassificationProfile(username: string, budgetMs: number): Promise<ScrapedProfile | null> {
+  await assertProviderCapacityAvailable('apify', `profile-classify ${username}`);
+
+  const runLookup = async (): Promise<ScrapedProfile | null> => {
+    try {
+      const input: ClassifyAccountProfileActorInput = {
+        usernames: [username],
+        includeAboutSection: false,
+      };
+      const items = (await callApifyActor(CLASSIFY_ACCOUNT_PROFILE_ACTOR, input)) as ClassifyAccountProfileActorOutput;
+
+      if (!items || items.length === 0) {
+        return null;
+      }
+
+      const item = items[0];
+      if (item.error === 'not_found' || !item.username || !item.fullName || !item.biography) {
+        return null;
+      }
+
+      await recordProviderUsage('apify', 1);
+
+      return {
+        accountId: item.id || item.username,
+        username: item.username,
+        displayName: item.fullName,
+        profileImageUrl: item.profilePicUrl || undefined,
+        biography: item.biography,
+        businessCategoryName: item.businessCategoryName || null,
+      };
+    } catch (err) {
+      console.error(`Instagram Scraper Adapter error during account classification profile lookup for ${username}:`, err);
+      throw normalizeApifyError(err, `looking up profile for classification ${username}`);
+    }
+  };
+
+  return withTimeoutOrThrow(runLookup(), Math.min(budgetMs, PROFILE_LOOKUP_TIMEOUT_MS), 'Account profile lookup for classification timed out');
+}
+
+export const apifyProfileAdapter: ProfileScraperAdapter = {
+  name: 'apify',
+  // An Apify profile run answers in seconds, so any budget is worth trying.
+  minBudgetMs: 0,
+  fetchProfile: (handle, { purpose, budgetMs }) =>
+    purpose === 'lookup' ? apifyLookupProfile(handle, budgetMs) : apifyClassificationProfile(handle, budgetMs),
+};
+
+registerProfileScraperAdapter(apifyProfileAdapter);
+
+/**
+ * Apify returned nothing usable for a post and did not say it is gone (an empty list, or an item that cannot be read as a post).
+ * Thrown only to the provider chain (Story 10.2), so the next provider is tried; the existing `getPostByUrl` callers keep
+ * getting `null` for it.
+ */
+export class ApifyPostUnavailableError extends PostUnavailableError {
+  constructor(detail: string) {
+    super(`Apify returned no post: ${detail}`);
+    this.name = 'ApifyPostUnavailableError';
+  }
+}
+
+/** How long one Apify post-by-URL call may take. */
+const APIFY_POST_BY_URL_TIMEOUT_MS = 20_000;
+
+/**
+ * One post by URL through the Apify post scraper (guarded call, capacity gate, usage recorded, 20 s cap).
+ * `onUnreadable` says what an empty or unreadable result becomes: `'null'` (the behaviour `getPostByUrl` has always had) or
+ * `'throw'` (`ApifyPostUnavailableError`, for the provider chain, where `null` would mean "the post does not exist").
+ * A not-found item is `null` in both: that is an answer.
+ */
+async function fetchApifyPost(url: string, onUnreadable: 'null' | 'throw', budgetMs?: number): Promise<ScrapedPost | null> {
+  await assertProviderCapacityAvailable('apify', `URL ${url}`);
+
+  const unreadable = (detail: string): null => {
+    if (onUnreadable === 'throw') {
+      throw new ApifyPostUnavailableError(detail);
+    }
+    return null;
+  };
+
+  const runCall = async (): Promise<ScrapedPost | null> => {
+    try {
+      const input: GetPostByUrlActorInput = {
+        username: [url],
+        dataDetailLevel: 'detailedData',
+      };
+      const items = (await callApifyActor(GET_POST_BY_URL_ACTOR, input)) as GetPostByUrlActorOutput;
+
+      if (!items || items.length === 0) {
+        return unreadable('an empty result');
+      }
+
+      const item = items[0];
+      // Only Apify's explicit `not_found` is an ANSWER for the chain. An item that merely lacks a caption or a timestamp
+      // (`isNotFoundItem`'s fallback heuristic) is unreadable: the chain moves on to the next provider; `getPostByUrl` keeps
+      // returning null for it, as before.
+      if (item?.error === 'not_found') {
+        return null;
+      }
+      if (isNotFoundItem(item, 'post')) {
+        return unreadable('the item has no caption or timestamp');
+      }
+
+      const post = await mapApifyItemToScrapedPost(item);
+      if (!post) {
+        return unreadable('the item could not be read as a post');
+      }
+
+      await recordProviderUsage('apify', 1);
+      return post;
+    } catch (err) {
+      if (err instanceof ApifyPostUnavailableError) {
+        throw err;
+      }
+      throw normalizeApifyError(err, `fetching post by URL ${url}`);
+    }
+  };
+
+  // `getPostByUrl` has always answered null when the 20 s cap passes. To the chain that would read as "the post does not exist"
+  // and stop it, so the chain's call THROWS on the timeout instead (ApifyRequestTimeoutError, recorded TIMED_OUT), and is
+  // bounded by the time the chain has left, never longer than the 20 s cap.
+  if (onUnreadable === 'throw') {
+    const capMs = Math.max(1, Math.min(APIFY_POST_BY_URL_TIMEOUT_MS, budgetMs ?? APIFY_POST_BY_URL_TIMEOUT_MS));
+    return withTimeoutOrThrow(runCall(), capMs, `Apify post fetch timed out after ${capMs}ms`);
+  }
+  return withTimeout(runCall(), APIFY_POST_BY_URL_TIMEOUT_MS);
+}
+
+/** The Apify member of the post-scraper provider chain (Story 10.2). An Apify run is bounded at 20 s, so any budget is worth trying. */
+export const apifyPostAdapter: PostScraperAdapter = {
+  name: 'apify',
+  minBudgetMs: 0,
+  fetchPost: (url, { budgetMs }) => fetchApifyPost(url, 'throw', budgetMs),
+};
+
+registerPostScraperAdapter(apifyPostAdapter);
+
 export const instagramScraperAdapter: ScraperAdapter = {
   // apify/instagram-post-scraper filters server-side on both onlyPostsNewerThan and
   // resultsLimit, so the new-subscribe path can fetch once instead of retrying windows.
   supportsNewerThanAndLimitFiltering: true,
 
   async getPostByUrl(url: string): Promise<ScrapedPost | null> {
-    await assertProviderCapacityAvailable('apify', `URL ${url}`);
-
-    const runCall = async (): Promise<ScrapedPost | null> => {
-      try {
-        const input: GetPostByUrlActorInput = {
-          username: [url],
-          dataDetailLevel: 'detailedData',
-        };
-        const items = (await callApifyActor(GET_POST_BY_URL_ACTOR, input)) as GetPostByUrlActorOutput;
-
-        if (!items || items.length === 0) {
-          return null;
-        }
-
-        const item = items[0];
-        if (isNotFoundItem(item, 'post')) {
-          return null;
-        }
-
-        const post = await mapApifyItemToScrapedPost(item);
-        if (!post) {
-          return null;
-        }
-
-        await recordProviderUsage('apify', 1);
-        return post;
-      } catch (err) {
-        throw normalizeApifyError(err, `fetching post by URL ${url}`);
-      }
-    };
-
-    return withTimeout(runCall(), 20000);
+    return fetchApifyPost(url, 'null');
   },
 
   async getNewestPosts(account: ScraperAccountRef, options?: { newerThan?: string }): Promise<ScrapedPost[]> {
@@ -638,80 +836,29 @@ export const instagramScraperAdapter: ScraperAdapter = {
     }
   },
 
-  async lookupAccountProfile(handleOrUrl: string): Promise<AccountProfileLookupResult | null> {
-    await assertProviderCapacityAvailable('apify', `profile ${handleOrUrl}`);
-
-    const runLookup = async (): Promise<AccountProfileLookupResult | null> => {
-      try {
-        const url = handleOrUrl.startsWith('http') ? handleOrUrl : `https://www.instagram.com/${handleOrUrl}/`;
-        const input: LookupAccountProfileActorInput = {
-          directUrls: [url],
-          resultsType: 'details',
-          resultsLimit: 1,
-        };
-        const items = (await callApifyActor(LOOKUP_ACCOUNT_PROFILE_ACTOR, input)) as LookupAccountProfileActorOutput;
-
-        if (!items || items.length === 0) {
-          return null;
-        }
-
-        const item = items[0];
-        if (isNotFoundItem(item, 'profile')) {
-          return null;
-        }
-        const result: AccountProfileLookupResult = {
-          accountId: item.id || item.username || '',
-          displayName: item.fullName || item.displayName || item.name || item.username || '',
-          username: item.username || '',
-          profileImageUrl: item.profilePicUrl || item.profileImageUrl || undefined,
-        };
-
-        await recordProviderUsage('apify', 1);
-
-        return result;
-      } catch (err) {
-        console.error(`Instagram Scraper Adapter error looking up profile for ${handleOrUrl}:`, err);
-        throw normalizeApifyError(err, `looking up profile ${handleOrUrl}`);
-      }
+  async lookupAccountProfile(handleOrUrl: string, options?: ProfileScrapeOptions): Promise<AccountProfileLookupResult | null> {
+    const profile = await fetchScrapedProfile(handleOrUrl, 'lookup', options?.budgetMs ?? PROFILE_LOOKUP_TIMEOUT_MS);
+    if (!profile) {
+      return null;
+    }
+    return {
+      accountId: profile.accountId,
+      displayName: profile.displayName,
+      username: profile.username,
+      profileImageUrl: profile.profileImageUrl,
     };
-
-    return withTimeoutOrThrow(runLookup(), PROFILE_LOOKUP_TIMEOUT_MS, 'Account profile lookup timed out');
   },
 
-  async getAccountClassificationProfile(username: string): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> {
-    await assertProviderCapacityAvailable('apify', `profile-classify ${username}`);
-
-    const runLookup = async (): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> => {
-      try {
-        const input: ClassifyAccountProfileActorInput = {
-          usernames: [username],
-          includeAboutSection: false,
-        };
-        const items = (await callApifyActor(CLASSIFY_ACCOUNT_PROFILE_ACTOR, input)) as ClassifyAccountProfileActorOutput;
-
-        if (!items || items.length === 0) {
-          return null;
-        }
-
-        const item = items[0];
-        if (item.error === 'not_found' || !item.username || !item.fullName || !item.biography) {
-          return null;
-        }
-
-        await recordProviderUsage('apify', 1);
-
-        return {
-          biography: item.biography || '',
-          username: item.username || '',
-          displayName: item.fullName || '',
-          businessCategoryName: item.businessCategoryName || null,
-        };
-      } catch (err) {
-        console.error(`Instagram Scraper Adapter error during account classification profile lookup for ${username}:`, err);
-        throw normalizeApifyError(err, `looking up profile for classification ${username}`);
-      }
+  async getAccountClassificationProfile(username: string, options?: ProfileScrapeOptions): Promise<{ biography: string; username: string; displayName: string; businessCategoryName: string | null } | null> {
+    const profile = await fetchScrapedProfile(username, 'classification', options?.budgetMs ?? PROFILE_LOOKUP_TIMEOUT_MS);
+    if (!profile) {
+      return null;
+    }
+    return {
+      biography: profile.biography ?? '',
+      username: profile.username,
+      displayName: profile.displayName,
+      businessCategoryName: profile.businessCategoryName ?? null,
     };
-
-    return withTimeoutOrThrow(runLookup(), PROFILE_LOOKUP_TIMEOUT_MS, 'Account profile lookup for classification timed out');
   },
 };

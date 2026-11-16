@@ -25,11 +25,18 @@ export * from './resolveInstagramEmbedResult.js';
 export * from './matches-childrens-data-keyword-filter.js';
 export * from './build-correction-classification-text.js';
 export * from './sanitize-event-links.js';
+export * from './normalize-location-keywords.js';
 export * from './parse-platform-prefixed-event-slug.js';
 export * from './assign-extraction-ordinals.js';
 export * from './match-scoring.js';
+export * from './match-suggestion-expiry.js';
+export * from './venue-text-match.js';
 export * from './unfilled.js';
 export * from './__fixtures__/ended-cases.js';
 
 export const DEFAULT_CANCELLED_REPORT_THRESHOLD = 3;
 export const DEFAULT_CANCELLED_REPORT_WINDOW_DAYS = 7;
+export * from './dedup-review-evidence.js';
+export * from './dedup-review-apply.js';
+export * from './dedup-decision-clues.js';
+export * from './pair-post-events.js';

@@ -30,7 +30,7 @@ Source: read-only queries against production (PostgreSQL 17.6, Supabase) on 2026
 
 **Parsed country mix (1,460 pins):** id 933 (64%), none 160, us 104, fr 41, dk 27, my 24, in 23, es 19, eg 13, ca 11, br 10, lb 7. `with_admin_area` was not re-measured on parsed data.
 
-**Wrong-country pins (BUG-066 Geocoding can land in the wrong country, now seen in production).** 379 pins lie outside Indonesia's bounding box. Some are right (Denmark Open, an Egypt event), many are not: Sleman City Hall at roughly (34, -84) in the US, Galeria Mall Jogja in Mexico, Plaza Ambarrukmo outlets in New York, "Online" in Montpellier. 26 SCH schedules are affected.
+**Wrong-country pins (BUG-261018-abg Geocoding can land in the wrong country, now seen in production).** 379 pins lie outside Indonesia's bounding box. Some are right (Denmark Open, an Egypt event), many are not: Sleman City Hall at roughly (34, -84) in the US, Galeria Mall Jogja in Mexico, Plaza Ambarrukmo outlets in New York, "Online" in Montpellier. 26 SCH schedules are affected.
 
 ## 4. Case study: SCH *8th Anniversary: REBORN*
 
@@ -87,11 +87,11 @@ Two consequences to decide explicitly: (a) the `program-lineup` rule currently k
 | Proposed | Type | Title |
 |---|---|---|
 | BUG-068 | bug | `schedules.location_details` is stored as a JSON string, not an object, in every production row |
-| FIND-091 | finding | Production measurements: wrong-country pins, matcher recall 5%, caption duplicates, and the pack's artifacts (links this write-up) |
+| FIND-261019-wfg | finding | Production measurements: wrong-country pins, matcher recall 5%, caption duplicates, and the pack's artifacts (links this write-up) |
 | IDEA-084 | idea | Event groups: a named programme with children, detected by title, anchor and suggestion, confirmed by a person |
 | IDEA-085 | idea | Raise the duplicate matcher's recall and clear the moderator queue before grouping |
 
-Existing rows involved: BUG-066 (wrong country), BUG-063 (adminArea never written), BUG-064 (online and multi-venue events), IDEA-073 (area ladder), IDEA-081 (target-area resolver), IDEA-074 (personalized Discovery).
+Existing rows involved: BUG-261018-abg (wrong country), BUG-261018-ij7 (adminArea never written), BUG-261018-nyt (online and multi-venue events), IDEA-261018-iv7 (area ladder), IDEA-081 (target-area resolver), IDEA-074 (personalized Discovery).
 
 ## 9. Not verified
 

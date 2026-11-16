@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { useGetEventBySlugQuery, useGetInstagramEmbedBySlugQuery, useGetInstagramEmbedForEventQuery, useGetRelatedEventIdsQuery, useGetEventsQuery, useToggleFavoriteMutation, useToggleCalendarAdditionMutation, useResolveScheduleTimezoneMutation, useMeQuery, useGetMySubscriptionsQuery, useSubscribeToAccountMutation, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
+import { useGetEventBySlugQuery, useGetInstagramEmbedBySlugQuery, useGetInstagramEmbedForEventQuery, useGetRelatedEventIdsQuery, useGetEventsQuery, useToggleFavoriteMutation, useSetCalendarAdditionsMutation, useResolveScheduleTimezoneMutation, useMeQuery, useGetMySubscriptionsQuery, useSubscribeToAccountMutation, useRemoveSubscriptionMutation, SoftDeleteAction } from "@/generated/graphql"
 import { graphqlClient } from "@/lib/graphql-client"
 import { useQueryClient } from "@tanstack/react-query"
 import { useAuthSession } from "@/components/providers/auth-session-provider"
@@ -22,6 +22,10 @@ import { EventPreviewCard } from "./event-preview-card"
 import { getPlatformSlug } from "@festgrid/domain/scraper"
 import { mapDaysOfWeekToDomain } from "@/lib/day-of-week-mapping"
 import { ClientError } from "graphql-request"
+import { useSubscriptionCapRefusal } from "@/features/subscriptions/use-subscription-cap-refusal"
+import { readSubscriptionCapRefusal } from "@/features/subscriptions/subscription-cap-error"
+import { SubscriptionCapDialog } from "@/features/subscriptions/SubscriptionCapDialog"
+import { useSubscriptionCapAnnouncement } from "@/features/subscriptions/SubscriptionCapNoticeConnected"
 
 // Story 3.19 (AC1-4) -- shared sanitized payload shape for both subscribe/unsubscribe toggle
 // instances in this file. Deliberately local/un-exported (see Dev Notes' Gate 2/3 findings --
@@ -200,7 +204,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
         // than silently returning) routes this through the mutation's own onError
         // above -- rolling back the optimistic flip and announcing the failure -- via
         // TanStack Query's execute(), which calls onError for any error thrown out of
-        // onSuccess (see @tanstack/query-core mutation.ts). toggleCalendarAddition's
+        // onSuccess (see @tanstack/query-core mutation.ts). setCalendarAdditions'
         // equivalent guard below doesn't need its own console.error: its caller,
         // handleAddToCalendar, already logs the propagated rejection in its catch.
         console.error("toggleFavorite mutation returned no data", { eventId: variables.eventId })
@@ -263,10 +267,17 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     },
   })
 
-  const { mutateAsync: toggleCalendarAddition } = useToggleCalendarAdditionMutation(graphqlClient, {
+  // One batched, idempotent mutation for every schedule changed in a single dialog confirm or
+  // icon click (replaces one toggleCalendarAddition call per schedule: N auth checks + N
+  // transactions on a max:1-connection Lambda). Atomic server-side, so there is no partial
+  // success to reconcile: either every change applied (onSuccess) or none did (onError).
+  const { mutateAsync: setCalendarAdditions } = useSetCalendarAdditionsMutation(graphqlClient, {
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: ["getEventBySlug"] })
       const previousData = queryClient.getQueriesData({ queryKey: ["getEventBySlug"] })[0]?.[1]
+      // GraphQL list inputs are typed `T | T[]` (list coercion); handleAddToCalendar always sends an array.
+      const sentChanges = Array.isArray(variables.changes) ? variables.changes : [variables.changes]
+      const desired = new Map(sentChanges.map((c) => [String(c.scheduleId), c.isAddedToCalendar]))
 
       queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
         const typedOld = old as any
@@ -275,12 +286,9 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           ...typedOld,
           eventBySlug: {
             ...typedOld.eventBySlug,
-            schedules: (typedOld.eventBySlug.schedules || []).map((s: any) => {
-              if (s.id === variables.scheduleId) {
-                return { ...s, isAddedToCalendar: !s.isAddedToCalendar }
-              }
-              return s
-            }),
+            schedules: (typedOld.eventBySlug.schedules || []).map((s: any) =>
+              desired.has(s.id) ? { ...s, isAddedToCalendar: desired.get(s.id) } : s
+            ),
           },
         }
       })
@@ -294,14 +302,14 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       setLiveMessage(t("calendarErrorAnnouncement"))
     },
     onSuccess: (data, variables) => {
-      if (!data?.toggleCalendarAddition) {
+      if (!data?.setCalendarAdditions) {
         // Same reasoning as toggleFavorite's guard above: throw so this routes through
         // onError (rollback + announcement) and so the rejection propagates out of
-        // mutateAsync, which handleAddToCalendar's try/catch below depends on to know
-        // this schedule's toggle actually failed (it must not report success/download
-        // the .ics file for a toggle that silently returned no data).
-        throw new Error("toggleCalendarAddition mutation returned no data")
+        // mutateAsync, which handleAddToCalendar and the dialog's awaited onConfirm depend on
+        // to know the change actually failed (no success toast, dialog stays open).
+        throw new Error("setCalendarAdditions mutation returned no data")
       }
+      const confirmed = new Map(data.setCalendarAdditions.map((r) => [r.scheduleId, r.isAddedToCalendar]))
       queryClient.setQueriesData({ queryKey: ["getEventBySlug"] }, (old: unknown) => {
         const typedOld = old as any
         if (!typedOld?.eventBySlug) return typedOld
@@ -309,19 +317,18 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           ...typedOld,
           eventBySlug: {
             ...typedOld.eventBySlug,
-            schedules: (typedOld.eventBySlug.schedules || []).map((s: any) => {
-              if (s.id === variables.scheduleId) {
-                return { ...s, isAddedToCalendar: data.toggleCalendarAddition.isAddedToCalendar }
-              }
-              return s
-            }),
+            schedules: (typedOld.eventBySlug.schedules || []).map((s: any) =>
+              confirmed.has(s.id) ? { ...s, isAddedToCalendar: confirmed.get(s.id) } : s
+            ),
           },
         }
       })
 
-      posthog.capture(data.toggleCalendarAddition.isAddedToCalendar ? "event_added_to_calendar" : "event_removed_from_calendar", {
-        eventId: variables.eventId,
-        scheduleId: variables.scheduleId,
+      data.setCalendarAdditions.forEach((result) => {
+        posthog.capture(result.isAddedToCalendar ? "event_added_to_calendar" : "event_removed_from_calendar", {
+          eventId: variables.eventId,
+          scheduleId: result.scheduleId,
+        })
       })
     },
   })
@@ -361,6 +368,15 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
     },
   })
 
+  // Story 10.3a: a subscribe refused with SUBSCRIPTION_CAP_REACHED opens a small dialog with the cap notice instead of the
+  // generic failure message; the toggle stays "not subscribed" (nothing optimistic to roll back, confirm-then-refetch).
+  const { state: capState, show: showCapRefusal, clear: clearCapRefusal } = useSubscriptionCapRefusal()
+  const capAnnouncement = useSubscriptionCapAnnouncement()
+  const announceSubscribeFailure = (err: unknown, ctx: Parameters<typeof showCapRefusal>[1]) => {
+    const refusal = showCapRefusal(err, ctx) ? readSubscriptionCapRefusal(err) : null
+    setLiveMessage(refusal ? capAnnouncement(refusal) : t("subscribeErrorAnnouncement"))
+  }
+
   const { mutate: subscribeToAccount, isPending: isSubscribingToAccount } = useSubscribeToAccountMutation(graphqlClient, {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["getMySubscriptions"] })
@@ -373,7 +389,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       posthog.capture("subscription_toggle_succeeded", payload)
     },
     onError: (err, variables) => {
-      setLiveMessage(t("subscribeErrorAnnouncement"))
+      announceSubscribeFailure(err, { surface: "event_detail_source", accountId: variables.input.accountId, username: variables.input.username })
       const payload: SubscriptionToggleFailedPayload = {
         action: "subscribe",
         platform: variables.input.platform,
@@ -424,7 +440,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
       posthog.capture("subscription_toggle_succeeded", payload)
     },
     onError: (err, variables) => {
-      setLiveMessage(t("subscribeErrorAnnouncement"))
+      announceSubscribeFailure(err, { surface: "event_detail_coauthor", accountId: variables.input.accountId, username: variables.input.username })
       const payload: SubscriptionToggleFailedPayload = {
         action: "subscribe",
         // From this mutation's own variables, not shared pending state: another coauthor toggle
@@ -731,61 +747,50 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
 
     if (!eventId) return
 
-    const changedIds: string[] = []
+    const changes: { scheduleId: string; isAddedToCalendar: boolean }[] = []
     const addedIds: string[] = []
 
     ;(data?.eventBySlug?.schedules || []).forEach((s) => {
       const isCurrentlyAdded = !!s.isAddedToCalendar
       const isNewlySelected = selectedIds.includes(s.id)
       if (isCurrentlyAdded !== isNewlySelected) {
-        changedIds.push(s.id)
+        changes.push({ scheduleId: s.id, isAddedToCalendar: isNewlySelected })
         if (isNewlySelected) {
           addedIds.push(s.id)
         }
       }
     })
 
-    if (changedIds.length === 0) return
+    if (changes.length === 0) return
 
-    const settled = await Promise.allSettled(
-      changedIds.map((scheduleId) => toggleCalendarAddition({ eventId, scheduleId }))
-    )
-
-    const succeededIds: string[] = []
-    const failedIds: string[] = []
-    changedIds.forEach((scheduleId, index) => {
-      if (settled[index]?.status === "fulfilled") {
-        succeededIds.push(scheduleId)
-      } else {
-        failedIds.push(scheduleId)
-      }
-    })
-
-    const downloadIds = addedIds.filter((id) => succeededIds.includes(id))
-
-    if (downloadIds.length > 0) {
+    // Every toggle-ON always downloads its .ics, started right away: the file is built from the
+    // event's own data (the /api/calendar/ics route never reads calendar state), so it neither
+    // needs nor waits for the mutation -- the user is not held up by the save, and still gets the
+    // file if the save fails (the error announcement/rollback below covers the save itself).
+    // Navigating to an attachment response does not unload the page, so the in-flight mutation
+    // below is unaffected.
+    if (addedIds.length > 0) {
       const queryParams = new URLSearchParams()
       queryParams.set("eventId", eventId)
-      downloadIds.forEach((id) => {
+      addedIds.forEach((id) => {
         queryParams.append("scheduleId", id)
       })
       window.location.assign(`/api/calendar/ics?${queryParams.toString()}`)
 
       posthog.capture("calendar_ics_downloaded", {
         eventId,
-        scheduleIds: downloadIds,
+        scheduleIds: addedIds,
       })
     }
 
-    if (failedIds.length > 0) {
-      // Do not toast success and re-throw so the dialog's awaited onConfirm knows
-      // this confirm failed (at least partially) and keeps itself open instead of
-      // closing on a false-success basis. Each failed schedule's own mutation
-      // onError above already surfaced the user-visible calendarErrorAnnouncement
-      // and rolled back its optimistic flip; succeeded schedules stick via the
-      // cache update above and the dialog's own prop-resync effect.
-      console.error("Failed to update calendar additions", { failedIds })
-      throw new Error("Failed to update calendar additions")
+    try {
+      await setCalendarAdditions({ eventId, changes })
+    } catch (err) {
+      // The mutation's own onError already announced the failure and rolled back the optimistic
+      // flip. Re-throw so the dialog's awaited onConfirm keeps itself open instead of closing on
+      // a false-success basis, and so no success toast is shown.
+      console.error("Failed to update calendar additions", { scheduleIds: changes.map((c) => c.scheduleId) })
+      throw err
     }
 
     toast.success(t("addToCalendarSuccessAnnouncement"))
@@ -813,6 +818,13 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
           platformSlug && sourcePost?.postType && sourcePost?.platformPostId
             ? `/posts/${platformSlug}/${sourcePost.postType}/${sourcePost.platformPostId}/events`
             : null
+
+        const note =
+          group.extractionProgress === "PARTIAL"
+            ? t("relatedEventsPartialNote")
+            : group.extractionProgress === "IN_PROGRESS"
+              ? t("relatedEventsInProgressNote")
+              : null
 
         const events: EventDetailViewRelatedEvent[] = group.eventIds
           .map((id) => relatedEventsListData?.events.items.find((e) => e.id === id))
@@ -1006,6 +1018,7 @@ export const EventDetailWrapper: React.FC<EventDetailWrapperProps> = ({ slug, is
         <div aria-live="polite" className="sr-only">
           {liveMessage}
         </div>
+        <SubscriptionCapDialog state={capState} onClose={clearCapRefusal} />
         {navigationHeader}
         <CarouselContent>
           {nav.hasListContext && !nav.previous.disabled && (

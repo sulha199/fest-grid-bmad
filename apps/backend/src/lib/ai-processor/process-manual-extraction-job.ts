@@ -2,13 +2,9 @@ import { and, eq } from 'drizzle-orm';
 import { manualExtractionJobs } from '@festgrid/database';
 import { mapExtractionPayloadToProposedCorrection } from '@festgrid/domain/events';
 import { db } from '../../db/client.js';
-import { loadBackendEnv } from '../../env.js';
-import { compileValidator } from '../../validation/validate.js';
-import { extractedEventSchema } from '../../validation/extracted-event.schema.js';
-import { callGemini as defaultCallGemini, AiGatewayExhaustedError, AiGatewayBusyError } from '../ai-gateway/adapter.js';
-import { getActiveSubscriberUserIds } from '../subscriptions/get-active-subscriber-user-ids.js';
-import { buildGeminiExtractionRequest } from './build-gemini-request.js';
-import { buildReextractionPreview } from './build-reextraction-preview.js';
+import { callGemini as defaultCallGemini } from '../ai-gateway/adapter.js';
+import { ExtractionFailure, extractEventsWithGemini, type ExtractionErrorCode } from './extract-events-with-gemini.js';
+import { generateReextractionPreview } from './generate-reextraction-preview.js';
 import { blankManualJobPayloadContent } from '../extraction/blank-manual-job-payload.js';
 
 // Story 4.2b -- runs inside the AI Lambda (the only Lambda with the image-processing runtime for
@@ -16,8 +12,8 @@ import { blankManualJobPayloadContent } from '../extraction/blank-manual-job-pay
 // 4.2a's `extractEventDataFromUrl`, which previously ran inline in the API Lambda. The
 // synchronous pre-checks (dedup lookup, platform detection, key pre-check, scrape) stay in the
 // resolver; this file never touches `posts`/`events` and writes no extraction_audit_logs row.
-
-const validateExtractedEvent = compileValidator<any>(extractedEventSchema);
+// Story 10.6: the Gemini call and the preview build moved to `extract-events-with-gemini.ts` and `generate-reextraction-preview.ts`
+// so the engine job's preview handler runs the same code; the seam below is still the one tests (and that handler) swap.
 
 export let callGeminiForManualExtractionSeam = defaultCallGemini;
 export function setCallGeminiForManualExtractionSeam(fn: typeof defaultCallGemini) {
@@ -29,22 +25,13 @@ export interface ProcessManualExtractionJobDeps {
   getRemainingTimeInMillis?: () => number;
 }
 
-type ExtractionErrorCode = 'QUOTA_EXHAUSTED' | 'EXTRACTION_FAILED';
-
-class ManualExtractionFailure extends Error {
-  constructor(
-    readonly errorCode: ExtractionErrorCode,
-    message: string
-  ) {
-    super(message);
-  }
-}
-
 async function markFailed(jobId: string, errorCode: ExtractionErrorCode, errorMessage: string): Promise<void> {
+  // Guarded on PROCESSING (like the two SUCCEEDED writes below): the 5-minute stale sweep may already have ended this job, and a
+  // late worker must never overwrite that (or a result that already landed).
   await db
     .update(manualExtractionJobs)
     .set({ status: 'FAILED', errorCode, errorMessage, completedAt: new Date(), updatedAt: new Date() })
-    .where(eq(manualExtractionJobs.id, jobId));
+    .where(and(eq(manualExtractionJobs.id, jobId), eq(manualExtractionJobs.status, 'PROCESSING')));
 }
 
 export async function processManualExtractionJob(jobId: string, deps?: ProcessManualExtractionJobDeps): Promise<void> {
@@ -67,89 +54,39 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
   await blankManualJobPayloadContent(jobId);
 
   try {
-    const env = loadBackendEnv();
     const { message, existingPostAccountId } = job.requestPayload;
+    const isPreview = job.requestPayload.mode === 'REEXTRACT_PREVIEW';
+    // The seam is read at call time (a thunk), so a test can swap it between runs.
+    const callGemini: typeof defaultCallGemini = (request) => callGeminiForManualExtractionSeam(request);
 
-    // Always blurred -- there is deliberately NO publisher opt-in path for manual extraction
-    // (user decision, Story 4.2b). The global BLUR_FACES_BEFORE_AI switch is respected exactly as
-    // processAiJob does; fail-closed behavior is inherited from the builder (Story 3.20).
-    const { request } = await buildGeminiExtractionRequest(
-      message,
-      env.blurFacesBeforeAi
-        ? {
-            blurFacesBeforeAi: {
-              isOwnerOptedIn: false,
-              getRemainingTimeInMillis: deps?.getRemainingTimeInMillis,
-            },
-          }
-        : undefined
-    );
-
-    let resultText: string;
-    try {
-      resultText = (
-        await callGeminiForManualExtractionSeam({
-          ...request,
-          provider: 'gemini',
-          subscriberUserIds: [job.requestedByUserId],
-        })
-      ).text;
-    } catch (err) {
-      // Temporary key contention is not quota exhaustion: report it truthfully so the user knows
-      // to simply retry (manual jobs deliberately have no automatic retry -- see the stack).
-      if (err instanceof AiGatewayBusyError) {
-        throw new ManualExtractionFailure('EXTRACTION_FAILED', 'Gemini is temporarily busy with other requests. Please try again in a moment.');
-      }
-      if (!(err instanceof AiGatewayExhaustedError)) throw err;
-      if (!existingPostAccountId) {
-        throw new ManualExtractionFailure('QUOTA_EXHAUSTED', 'No available Gemini API key to perform this extraction.');
-      }
-      // TIER_2 shared round-robin fallback (existing-post branch only, as in Story 4.2a).
-      const subscriberUserIds = await getActiveSubscriberUserIds(existingPostAccountId);
-      try {
-        resultText = (
-          await callGeminiForManualExtractionSeam({ ...request, provider: 'gemini', subscriberUserIds })
-        ).text;
-      } catch (fallbackErr) {
-        if (fallbackErr instanceof AiGatewayBusyError) {
-          throw new ManualExtractionFailure('EXTRACTION_FAILED', 'Gemini is temporarily busy with other requests. Please try again in a moment.');
-        }
-        if (fallbackErr instanceof AiGatewayExhaustedError) {
-          throw new ManualExtractionFailure('QUOTA_EXHAUSTED', 'No available Gemini API key to perform this extraction.');
-        }
-        throw fallbackErr;
-      }
-    }
-
-    let payload: any;
-    try {
-      payload = JSON.parse(resultText);
-    } catch {
-      throw new ManualExtractionFailure('EXTRACTION_FAILED', 'The extracted content could not be validated.');
-    }
-    if (!validateExtractedEvent(payload)) {
-      throw new ManualExtractionFailure('EXTRACTION_FAILED', 'The extracted content could not be validated.');
-    }
-    if (job.requestPayload.mode === 'REEXTRACT_PREVIEW') {
-      // AD-40 -- preview: report grouping, every event and its dry-run dedup outcome. "Not an
-      // event" is a valid, informative preview (zero events), not a failure.
-      const previewEvents = payload.isEvent === false || !Array.isArray(payload.events) ? [] : payload.events;
-      const preview = await buildReextractionPreview({
-        executor: db,
-        payload: { events: previewEvents, groupingReason: payload.groupingReason },
+    if (isPreview) {
+      // AD-40 -- preview: report grouping, every event and its dry-run dedup outcome (the shared preview build).
+      const preview = await generateReextractionPreview({
         message,
+        existingPostAccountId,
+        requestedByUserId: job.requestedByUserId,
         postStored: job.requestPayload.postStored ?? Boolean(existingPostAccountId),
         rescraped: job.requestPayload.rescraped ?? false,
-        maxEvents: env.maxExtractedEventsPerPost,
+        getRemainingTimeInMillis: deps?.getRemainingTimeInMillis,
+        callGemini,
       });
       await db
         .update(manualExtractionJobs)
         .set({ status: 'SUCCEEDED', resultData: preview, completedAt: new Date(), updatedAt: new Date() })
-        .where(eq(manualExtractionJobs.id, jobId));
+        .where(and(eq(manualExtractionJobs.id, jobId), eq(manualExtractionJobs.status, 'PROCESSING')));
       return;
     }
+
+    const { payload } = await extractEventsWithGemini({
+      message,
+      existingPostAccountId,
+      requestedByUserId: job.requestedByUserId,
+      isPreview: false,
+      getRemainingTimeInMillis: deps?.getRemainingTimeInMillis,
+      callGemini,
+    });
     if (payload.isEvent === false || !Array.isArray(payload.events) || payload.events.length === 0) {
-      throw new ManualExtractionFailure('EXTRACTION_FAILED', 'The linked post does not appear to describe an event.');
+      throw new ExtractionFailure('EXTRACTION_FAILED', 'The linked post does not appear to describe an event.');
     }
     if (payload.events.length > 1) {
       console.warn(
@@ -166,9 +103,9 @@ export async function processManualExtractionJob(jobId: string, deps?: ProcessMa
         completedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(manualExtractionJobs.id, jobId));
+      .where(and(eq(manualExtractionJobs.id, jobId), eq(manualExtractionJobs.status, 'PROCESSING')));
   } catch (err) {
-    if (err instanceof ManualExtractionFailure) {
+    if (err instanceof ExtractionFailure) {
       await markFailed(jobId, err.errorCode, err.message);
       return;
     }

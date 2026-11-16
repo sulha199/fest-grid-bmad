@@ -3,7 +3,7 @@
  * without a default location. It matters because the schedule-timezone resolver (resolve-schedule-timezones.ts)
  * falls back, for a schedule whose venue did not geocode, to "the source account's own timezone", which today
  * exists only as the timezone of the account's default location. Take the default location away from curators
- * (BUG-065) and that tier disappears: their location-less events drop to "exactly one subscriber" or to
+ * (BUG-261018-jwf) and that tier disappears: their location-less events drop to "exactly one subscriber" or to
  * NEEDS_CLARIFICATION, a moderator-only queue.
  *
  * THE COUNTRY DOES NOT DETERMINE THE ZONE. Indonesia has three (WIB Asia/Jakarta +7, WITA Asia/Makassar +8,

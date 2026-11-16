@@ -32,6 +32,9 @@ export interface AppShellProps {
   role?: string;
   /** Combined pending-item count (PRD Section 3.9.3) -- badges the avatar when closed, and the "Moderator Items" entry when open. */
   moderatorPendingItemCount?: number;
+  /** Story 10.13: jobs finished since the Jobs page was last opened, and the sentence that says so (the Jobs menu entry's badge). */
+  jobsBadgeCount?: number;
+  jobsBadgeLabel?: string;
   onSignOut?: () => void;
   userMenuLabels?: Record<string, string>;
   resolveHref?: (entry: import('./profile-menu-entries').ProfileMenuEntry) => string;
@@ -49,6 +52,8 @@ export function AppShell({
   labels,
   role,
   moderatorPendingItemCount = 0,
+  jobsBadgeCount = 0,
+  jobsBadgeLabel,
   onSignOut,
   userMenuLabels,
   resolveHref,
@@ -152,6 +157,8 @@ export function AppShell({
           displayName={displayName}
           role={role}
           moderatorPendingItemCount={moderatorPendingItemCount}
+          jobsBadgeCount={jobsBadgeCount}
+          jobsBadgeLabel={jobsBadgeLabel}
           onSignOut={onSignOut || (() => {})}
           renderLink={renderLink}
           labels={userMenuLabels || {}}
@@ -194,6 +201,8 @@ export function AppShell({
               displayName={displayName}
               role={role}
               moderatorPendingItemCount={moderatorPendingItemCount}
+              jobsBadgeCount={jobsBadgeCount}
+              jobsBadgeLabel={jobsBadgeLabel}
               onSignOut={onSignOut || (() => {})}
               renderLink={renderLink}
               labels={userMenuLabels || {}}

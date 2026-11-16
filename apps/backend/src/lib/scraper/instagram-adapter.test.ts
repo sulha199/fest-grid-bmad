@@ -8,7 +8,10 @@ import {
   mapApifyItemToScrapedPost,
   callApifyClient,
   isApifyErrorTransient,
+  apifyPostAdapter,
+  ApifyPostUnavailableError,
 } from './instagram-adapter.js';
+import { getPostScraperAdapters } from './post-scraper-registry.js';
 import { db } from '../../db/client.js';
 import { scraperProviderUsage, unprocessedScraperPayloads } from '@festgrid/database';
 import { ScraperCapacityExceededError, ApifyRequestTimeoutError } from '@festgrid/domain';
@@ -185,6 +188,79 @@ test('instagram-adapter tests', async (t) => {
     ]);
   });
 
+  await t.test('mapApifyItemToScrapedPost (BUG-101) drops childPosts[0] when it IS the cover (same file name, different signed query)', async () => {
+    const item = {
+      type: 'Sidecar',
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_sidecar_cover_repeat/',
+      caption: 'Carousel caption whose first child repeats the cover',
+      displayUrl: 'https://scontent.cdninstagram.com/v/t51/cover_abc123_n.jpg?oe=aaa&_nc_cid=1',
+      childPosts: [
+        // Same file name as the cover (`cover_abc123_n.jpg`), different signed query -- this IS the cover.
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/cover_abc123_n.jpg?oe=bbb&_nc_cid=2' },
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide2_def456_n.jpg?oe=ccc&_nc_cid=3' },
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide3_ghi789_n.jpg?oe=ddd&_nc_cid=4' },
+      ],
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    assert.strictEqual(result!.imageUrl, 'https://scontent.cdninstagram.com/v/t51/cover_abc123_n.jpg?oe=aaa&_nc_cid=1');
+    // The repeated-cover first child is dropped; every other slide stays, in order.
+    assert.deepStrictEqual(result!.additionalImageUrls, [
+      'https://scontent.cdninstagram.com/v/t51/slide2_def456_n.jpg?oe=ccc&_nc_cid=3',
+      'https://scontent.cdninstagram.com/v/t51/slide3_ghi789_n.jpg?oe=ddd&_nc_cid=4',
+    ]);
+  });
+
+  await t.test('mapApifyItemToScrapedPost (BUG-101 regression guard) keeps a Bright-Data-style childPosts list with no cover repeat unchanged', async () => {
+    const item = {
+      type: 'Sidecar',
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_sidecar_no_repeat/',
+      caption: 'Carousel caption with no repeated cover',
+      displayUrl: 'https://scontent.cdninstagram.com/v/t51/cover_xyz111_n.jpg?oe=aaa',
+      childPosts: [
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide1_xyz222_n.jpg?oe=bbb' },
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide2_xyz333_n.jpg?oe=ccc' },
+      ],
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    assert.deepStrictEqual(result!.additionalImageUrls, [
+      'https://scontent.cdninstagram.com/v/t51/slide1_xyz222_n.jpg?oe=bbb',
+      'https://scontent.cdninstagram.com/v/t51/slide2_xyz333_n.jpg?oe=ccc',
+    ]);
+  });
+
+  await t.test('mapApifyItemToScrapedPost (BUG-101) also drops a later non-cover slide that repeats an earlier slide by file name', async () => {
+    const item = {
+      type: 'Sidecar',
+      timestamp: '2026-08-08T00:00:00Z',
+      url: 'https://www.instagram.com/p/C_sidecar_mid_repeat/',
+      caption: 'Carousel caption with a repeated mid-carousel slide, not the cover',
+      displayUrl: 'https://scontent.cdninstagram.com/v/t51/cover_mid111_n.jpg?oe=aaa',
+      childPosts: [
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide1_mid222_n.jpg?oe=bbb' },
+        // Same file name as slide1 above, different signed query -- a genuine Apify repeat of a
+        // non-cover slide (not just childPosts[0]).
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide1_mid222_n.jpg?oe=ccc' },
+        { displayUrl: 'https://scontent.cdninstagram.com/v/t51/slide2_mid333_n.jpg?oe=ddd' },
+      ],
+    };
+
+    const result = await mapApifyItemToScrapedPost(item);
+
+    assert.ok(result !== null);
+    assert.deepStrictEqual(result!.additionalImageUrls, [
+      'https://scontent.cdninstagram.com/v/t51/slide1_mid222_n.jpg?oe=bbb',
+      'https://scontent.cdninstagram.com/v/t51/slide2_mid333_n.jpg?oe=ddd',
+    ]);
+  });
+
   await t.test('mapApifyItemToScrapedPost drops a childPost missing displayUrl and keeps the rest', async () => {
     const item = {
       type: 'Sidecar',
@@ -333,6 +409,81 @@ test('instagram-adapter tests', async (t) => {
     });
     assert.ok(post);
     assert.strictEqual(post!.content, 'My first post!');
+  });
+
+  // Story 10.2 (AC4, AC5): the Apify member of the post chain. getPostByUrl keeps its null-for-nothing behaviour for today's
+  // callers; the chain adapter THROWS for nothing, because to a chain null means "the post does not exist".
+  await t.test('apifyPostAdapter declares name apify and no minimum budget, and returns the mapped post', async () => {
+    setCallApifyActor(async () => [{ url: 'https://www.instagram.com/p/AAA/', caption: 'Hello', timestamp: '2026-11-11T00:00:00Z' }]);
+    assert.strictEqual(apifyPostAdapter.name, 'apify');
+    assert.strictEqual(apifyPostAdapter.minBudgetMs, 0);
+    const post = await apifyPostAdapter.fetchPost('https://www.instagram.com/p/AAA/', { budgetMs: 10_000, credential: { kind: 'app-funded' } });
+    assert.strictEqual(post?.content, 'Hello');
+  });
+
+  await t.test('an empty Apify result THROWS for the chain but stays null for getPostByUrl', async () => {
+    setCallApifyActor(async () => []);
+    await assert.rejects(
+      () => apifyPostAdapter.fetchPost('https://www.instagram.com/p/EMPTY/', { budgetMs: 10_000, credential: { kind: 'app-funded' } }),
+      (e: unknown) => e instanceof ApifyPostUnavailableError && /an empty result/.test(e.message)
+    );
+    assert.strictEqual(await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/EMPTY/'), null);
+  });
+
+  await t.test('an item that cannot be read as a post THROWS for the chain but stays null for getPostByUrl', async () => {
+    setCallApifyActor(async () => [{ url: 'https://www.instagram.com/p/BAD/', id: '12345', displayUrl: 'https://example.com/img.jpg' }] as any);
+    await assert.rejects(
+      () => apifyPostAdapter.fetchPost('https://www.instagram.com/p/BAD/', { budgetMs: 10_000, credential: { kind: 'app-funded' } }),
+      ApifyPostUnavailableError
+    );
+    assert.strictEqual(await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/BAD/'), null);
+  });
+
+  await t.test('a not-found item is null for both: an answer, so the chain stops', async () => {
+    setCallApifyActor(async () => [{ url: 'https://www.instagram.com/p/GONE/', error: 'not_found', errorDescription: 'Restricted or not found' }]);
+    assert.strictEqual(await apifyPostAdapter.fetchPost('https://www.instagram.com/p/GONE/', { budgetMs: 10_000, credential: { kind: 'app-funded' } }), null);
+  });
+
+  // Review finding: withTimeout answers null, which a chain reads as "the post does not exist". The chain's Apify call must throw.
+  await t.test('a slow Apify call THROWS ApifyRequestTimeoutError for the chain (never "not found"), bounded by the budget', async () => {
+    setCallApifyActor(() => new Promise(() => {})); // never answers
+    const startedAt = Date.now();
+    await assert.rejects(
+      () => apifyPostAdapter.fetchPost('https://www.instagram.com/p/SLOW/', { budgetMs: 50, credential: { kind: 'app-funded' } }),
+      (e: unknown) => e instanceof ApifyRequestTimeoutError && /timed out after 50ms/.test(e.message)
+    );
+    assert.ok(Date.now() - startedAt < 2000, 'bounded by the 50 ms budget, not the 20 s cap');
+  });
+
+  await t.test('getPostByUrl keeps its old answer for a slow call (null after the 20 s cap) and the cap is not shortened by a budget', async () => {
+    setCallApifyActor(async () => [{ url: 'https://www.instagram.com/p/OK/', caption: 'ok', timestamp: '2026-11-11T00:00:00Z' }]);
+    assert.ok(await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/OK/'));
+  });
+
+  await t.test('the Apify post adapter is the one registered for the chain, after Bright Data by default', () => {
+    assert.deepStrictEqual(getPostScraperAdapters().map((a) => a.name), ['brightdata', 'apify']);
+  });
+
+  await t.test('a carousel never lists the cover as a slide, wherever the repeat sits in childPosts (BUG-261102-4rm)', async () => {
+    setCallApifyActor(async () => [{
+      url: 'https://www.instagram.com/p/CAR/',
+      caption: 'Carousel',
+      timestamp: '2026-11-11T00:00:00Z',
+      type: 'Sidecar',
+      displayUrl: 'https://cdn.example.com/v/t51/111_n.jpg?sig=aaa',
+      childPosts: [
+        { displayUrl: 'https://cdn.example.com/v/t51/222_n.jpg?sig=bbb' },
+        { displayUrl: 'https://cdn.example.com/v/t51/111_n.jpg?sig=zzz' },
+        { displayUrl: 'https://cdn.example.com/v/t51/222_n.jpg?sig=ccc' },
+        { displayUrl: 'https://cdn.example.com/v/t51/333_n.jpg?sig=ddd' },
+      ],
+    }]);
+    const post = await apifyPostAdapter.fetchPost('https://www.instagram.com/p/CAR/', { budgetMs: 10_000, credential: { kind: 'app-funded' } });
+    assert.strictEqual(post?.imageUrl, 'https://cdn.example.com/v/t51/111_n.jpg?sig=aaa');
+    assert.deepStrictEqual(post?.additionalImageUrls, [
+      'https://cdn.example.com/v/t51/222_n.jpg?sig=bbb',
+      'https://cdn.example.com/v/t51/333_n.jpg?sig=ddd',
+    ]);
   });
 
   await t.test('lookupAccountProfile maps details correctly and records usage', async () => {

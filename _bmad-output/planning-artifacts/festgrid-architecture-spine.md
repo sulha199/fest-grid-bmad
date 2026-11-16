@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-10-23T00:00:00Z"
+updated: "2026-11-09T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -127,6 +127,7 @@ This document defines the core architectural invariants for the FestDaily applic
     3.  **Single enforcement surface:** `requireAuth`/`requireModerator` (exported once from the backend's auth-context layer) are the only sanctioned way for a resolver to enforce "caller must be logged in" / "caller must be a moderator." Individual resolvers must import and call these rather than re-implementing equivalent checks.
     4.  **Role model:** Application-level authorization uses the `users.role` column (`user` | `moderator`, assigned manually via direct database access per the PRD's MVP scope — no self-service promotion). This is distinct from Supabase's own JWT `role` claim, which reflects the caller's Postgres role (`authenticated`/`anon`/`service_role`) for Supabase's Row Level Security and must never be used for application-level authorization decisions.
     5.  **New moderator-gated resources extend, not bypass, this surface:** e.g. accepting/reverting a `DefaultLocationChangeRequest` (PRD Section 4.14) is gated by the same `requireModerator` check as report moderation — a new resource type, not a new enforcement mechanism.
+*   **Enforced by (added 2026-11-04):** `apps/backend/src/schema/auth-surface.ratchet.test.ts`, a source-scan ratchet over the TypeScript AST of `src/schema/resolvers.ts` and the merged `.graphql` files. Rule 3: every `Query`/`Mutation` field must call `requireAuth`/`requireModerator` on a top-level statement before its first `await`, with no `if`, loop, `switch`, label, `return` or `throw` ahead of it (`if (x) return data; requireAuth(c)` fails), or be listed in the test's `PUBLIC_ROOT_FIELDS` (never guarded) or `OPTIONAL_AUTH_ROOT_FIELDS` (guarded only inside a branch), each entry carrying a reason and a source and failing the moment it goes stale. A `try` block counts only when its `catch` ends in `throw` or an empty `return` (`return`, `return null`, `return undefined`) and returns no data earlier: `try { requireAuth(c) } catch {}` swallows the failure and `catch { return await db.select() }` serves the failed caller, so neither is a guard. The check reads statement shapes, not a full control-flow graph (a guard hidden inside a helper, or a call that throws before the guard, is not modelled), and the detector is pinned by a table of accepted and rejected snippets in the same file. Hand-rolled reads of `context.user` are held to a shrink-only list. Rule 1: no root argument or input field may name the acting user (`userId`, `ownerId`, ...). Related (added 2026-11-07): nothing reachable from the return type of a `PUBLIC_ROOT_FIELDS` query may carry a user identifier field (`ownerUserId`, `createdByUserId`, ...), because a caller with no session must not learn who owns something; `Query.widgetById` returns `PublicWidget` (no owner, no `deletedAt`) for that reason. Not covered: full path analysis, that a resolver checks ownership of the *resource*, and object-type field resolvers (`Event.*`, `Report.*`). Those stay with the resolvers' own integration tests.
 
 ---
 
@@ -140,7 +141,7 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Prevents:** Hard deletes on bound tables, and any read path that bypasses the active-rows-only default — which would silently resurface data a user removed or a moderator reverted. Also prevents each soft-delete-capable resource from inventing its own bespoke restore mechanism (rule 4), and prevents a mutation from claiming rule-4 compliance by signature alone without the underlying table/resolver actually supporting a reachable restore.
 *   **Rule:**
     1.  **Field:** Each bound table carries `deletedAt: timestamp | null`. `null`/absent means the row is active.
-    2.  **Query default (target — not yet the current state, found during this AD's 2026-08-06 reviewer pass):** The `Unified Query DSL` (AD-1) and `Unified Event Querying` (AD-2) are intended to apply an implicit `deletedAt IS NULL` condition on bound tables for every query, enforced once in the shared query-building layer — never per-resolver. **As shipped today, this is not true:** `packages/graphql-select`'s `buildDrizzleWhere`/`buildOptimizedDrizzleSelect` have no `deletedAt` awareness at all; `favorites`/`calendarAdditions` filtering is hand-written `isNull(...)` at six separate call sites in `apps/backend/src/schema/resolvers.ts`; and `myLocations` is a hand-written query that doesn't go through the DSL at all. This is exactly the divergence this rule exists to prevent, already present in shipped code. **Required fix (tracked as follow-up, not built in this AD's session):** a single shared `activeOnly(table)` Drizzle where-fragment helper, exported from `@festgrid/graphql-select`, imported by every resolver — DSL-based or hand-written — in place of inline `isNull(...)` calls. Retrofit the six existing `favorites`/`calendarAdditions` call sites and add it to `myLocations`, in the same follow-up story that migrates `deleteUserLocation` (rule 4). A caller must explicitly opt in to see soft-deleted rows (e.g., the Moderator Items screen).
+    2.  **Query default (partly built; status updated 2026-11-07):** The intent is that every read of a bound table applies an implicit `deletedAt IS NULL`, enforced once in the shared query-building layer, never per-resolver. **Current state:** the single helper exists, `activeOnly(table)` in `packages/graphql-select/active-only.ts` (Story 0.22), and the resolvers, DSL-based or hand-written, read active rows through it (dozens of call sites in `apps/backend/src/schema/resolvers.ts`, `myLocations` included). **No hand-written `isNull(table.deletedAt)` remains in the backend**, and `lint:invariants` (`apps/backend/eslint.invariants.config.mjs`, added 2026-11-04) fails the build on one, including the spellings `d.isNull(t.deletedAt)`, `isNull(t['deletedAt'])` and `isNull(t["deletedAt"])` (selector widened 2026-11-07). **What is still not true:** the shared builders, `buildDrizzleWhere` and `buildOptimizedDrizzleSelect`, have no `deletedAt` awareness at all, so the default is applied by each resolver *calling* `activeOnly`, not by the layer. The lint rule catches a hand-written filter; it cannot catch a resolver that reads a bound table with no filter at all, and it does not follow a local alias of `isNull` (`const nul = isNull; nul(t.deletedAt)`). Those two gaps are what code review and the per-resolver tests cover until the builders apply the filter themselves. A caller must explicitly opt in to see soft-deleted rows (e.g., the Moderator Items screen).
     3.  **Indexing:** Use Postgres partial indexes scoped to active rows (`WHERE deleted_at IS NULL`) on each table's hot lookup columns, rather than a bare index on `deleted_at`. **Known tooling limitation (verified 2026-08-06):** the installed `drizzle-kit@^0.21.2`/`drizzle-orm@^0.30.10` does not emit the `WHERE` predicate for partial indexes in generated migration SQL, even when declared correctly as `.where(sql\`deleted_at IS NULL\`)` in `schema.ts` — confirmed against this project's own generated migration (`packages/database/migrations/0004_optimal_frog_thor.sql`, no `WHERE` clause present) and matching still-open upstream issues ([drizzle-orm#3349](https://github.com/drizzle-team/drizzle-orm/issues/3349), [drizzle-kit-mirror#461](https://github.com/drizzle-team/drizzle-kit-mirror/issues/461)). The two indexes already in `schema.ts` claiming to be partial (`idx_favorites_active`, `idx_calendar_additions_active`) are therefore live in Postgres today as full, non-partial indexes. Until upstream fixes this (recheck on the next `drizzle-kit` upgrade), any migration adding one of these indexes must hand-edit the generated SQL file to append the `WHERE deleted_at IS NULL` clause before running it, with a comment noting the hand-edit and linking the tracked issue; a follow-up migration should correct the two already-shipped indexes to match. Use the real table/column identifiers, not the PRD's singular domain names:
 
         ```sql
@@ -203,7 +204,13 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Binds:** `posts.durableImageUrl`/`posts.imageUrlExpiresAt` (new columns) and how the Event
     GraphQL resolver computes the `imageUrl` it serves, for posts that yield a
     successfully-extracted `EventInfo` (PRD §4.1/§4.7, amended 2026-08-25). `posts.imageUrl`
-    itself is unaffected — it keeps meaning "the raw scraper-source URL," never overwritten. Does
+    itself is unaffected by re-hosting — it keeps meaning "the raw scraper-source URL," never overwritten
+    by Rules 1 to 7. **Amended 2026-11-12 (Story 10.6, AD-40 Rule 9):** the moderator re-extract's image
+    refresh is the ONE writer that may replace the raw scraper-source links (`posts.imageUrl`,
+    `additionalImageUrls`) and the cover's `imageUrlExpiresAt` with fresh ones, because a hotlink that has
+    expired is useless to read, show or re-host; it goes through `saveRefreshedPostImages` and the pure
+    `decideFreshImagesToSave` (never the caption, never an empty slide list over a non-empty one, never a
+    640 px image over a full-size one still valid). `durableImageUrl` is untouched. Does
     not bind `posts.videoUrl` — video is explicitly accepted as ephemeral (see Rule 3).
 *   **Prevents:** Building a new/duplicate media-download step — this reuses the byte fetch the
     AI-extraction path already performs for Gemini's vision call; serving media directly from a
@@ -247,7 +254,9 @@ This document defines the core architectural invariants for the FestDaily applic
         can retry it via the same `onError` pattern if the served choice fails earlier than its
         nominal expiry. This offloads an event's freshest, highest-traffic window onto Instagram's
         own CDN at the cost of one extra stored timestamp — a real reduction in CloudFront usage,
-        unlike the client-side approach considered and rejected below.
+        unlike the client-side approach considered and rejected below. (Amended 2026-11-12, Story 10.6: the
+        stored expiry is rewritten with the link when a moderator re-extract refreshes the cover; it is
+        still parsed from the link at write time, never at read time.)
     4.  **Scope boundary (explicit MVP decision):** only posts that reach a successful extraction
         are re-hosted. Posts that never extract (rejected, or awaiting triage in Manual Post
         Selection) keep their raw, time-limited scraper-source `imageUrl` — acceptable given
@@ -345,6 +354,11 @@ This document defines the core architectural invariants for the FestDaily applic
         response now carries `events[]`; `minScheduleCount`/`expectedScheduleNames` become
         **per-event** fields and the post-level `minEventCount` joins them. All three stay
         log-only signals under rule 3 — a short event list never triggers another Gemini call.
+    5.  **Amended 2026-11-09 (AD-46):** Rules 1 and 3 are superseded for posts the continue rules of AD-46
+        select (multi-slide roundups, separate-events posts and the one-follow-up lineups): they are extracted in
+        steps (AD-47) and the batched cap proved insufficient (post `DfLcqoqj-al`). Every other post keeps exactly
+        one request. Rule 2 (extraction-time-only images) and the quota rationale of Rule 1 still bind; AD-51 bounds
+        the request count.
 
 ---
 
@@ -362,8 +376,7 @@ This document defines the core architectural invariants for the FestDaily applic
     `confidence`/`matchType` signal that says how ambiguous that match was (the BUG-027 failure
     class); a low- or synthetic-confidence result being treated as authoritative simply because it
     was Geoapify's top-ranked entry; and, on the schedule-location path, a same-named venue abroad
-    being preferred over the local one because the account's own country was not used as a search
-    bias.
+    being preferred over the local one because no country was applied to the search (Rule 3, Rule 6).
 *   **Rule:**
     1.  **Every mapper populates the signal.** `geocodeAddress` and `reverseGeocode` spread
         Geoapify's `rank.confidence`/`rank.match_type` and `country_code` onto `LocationDetails`
@@ -383,12 +396,13 @@ This document defines the core architectural invariants for the FestDaily applic
         - **Enforced by:** re-ranking — `packages/domain/src/geolocation/select-best-candidate.test.ts`
           (pure-function coverage of `selectBestCandidate`) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s
           `'adapter resolveLocation re-ranks ADDRESS by confidence (BUG-017)'` integration test;
-          map-link gate — `packages/domain/src/geolocation/is-location-trustworthy.test.ts` +
-          `packages/ui/src/core/LocationLink.test.tsx` (confidence-boundary cases; Story 1.6d, carries the
-          0.i7z ratchet header) + the `locationDetails` passthrough test in
-          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e; supersedes the removed
-          `mapUrl gating (Story 0.i7c / 0.i7z)` block — both 1.6d and 1.6e have now landed, so this is the
-          current enforcer, not a future-tense placeholder); account-card consumer —
+          map-link (reversed by location keywords slice 2b: the link is always a text search, never gated on
+          confidence, so it no longer reads the signal; `isLocationTrustworthy` remains only the gate for
+          showing the account-card label and the event-detail map pin) —
+          `packages/domain/src/geolocation/build-location-search-query.test.ts` +
+          `packages/ui/src/core/LocationLink.test.tsx` (always a text search, single icon, no coordinates;
+          carries the 0.i7z ratchet header) + the `locationDetails`/`locationKeywords` passthrough tests in
+          `apps/web/src/features/events/mapper.test.ts` (Story 1.6e); account-card label gate —
           `packages/ui/src/features/subscriptions/SubscribedAccountCard.test.tsx`'s `location prop`
           block (Story 0.i6e, carries the 0.i7z ratchet header, including the `confidence: 0.5`/
           `matchType: 'full_match'` trustworthy boundary case and the `null`-confidence untrustworthy
@@ -398,19 +412,77 @@ This document defines the core architectural invariants for the FestDaily applic
           (`apps/web/src/features/subscriptions/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/mutations.graphql.test.ts`,
           `apps/web/src/features/locations/queries.graphql.test.ts`). (Story 0.i7z AC 2–4 ratchet.)
-    3.  **Country bias is part of the resolution identity.** The schedule-location geocoding path
-        passes the account's own `defaultLocation.countryCode` as `bias=countrycode:xx`, and the
-        ADDRESS cache key folds that bias in, so two accounts geocoding the identical address with
-        different biases can never be served each other's cached result. When no bias is known, the
-        parameter (and its cache-key segment) is omitted entirely. **Amended 2026-10-19 (Rule 3a):** when
-        the account has no default country the resolver sends `bias=countrycode:<country>` from
-        `GEOAPIFY_DEFAULT_COUNTRY` (env, default `id`) and the cache key folds that value in; the
-        parameter is omitted only when the deployment sets no default. The old claim that omitting
-        the bias is "self-healing, not a gap" is withdrawn.
-        - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (countryBias
-          cache-key folding) + `apps/backend/src/lib/geolocation/adapter.test.ts`'s countryBias
-          integration case.
-    **Amended 2026-10-19 (production check, BUG-066; evidence:
+    3.  **The country filter is part of the resolution identity (rewritten 2026-11-11; it replaces the
+        soft country bias).** An ADDRESS query carries an optional `countryFilter`, sent to Geoapify as the
+        HARD restriction `filter=countrycode:xx` (lower-case); the soft `bias=countrycode:` is gone (it changed
+        no result in a 54-location test). The ADDRESS cache key folds the filter in (`|filter:xx|none`), so
+        the same address searched inside one country, another, or everywhere can never be served each
+        other's cached result. Which country a text is searched in is decided by Rule 6 and never read from
+        the account's own location.
+        - **Enforced by:** `packages/domain/src/geolocation/build-cache-key.test.ts` (filter folding) +
+          `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the `filter` parameter, no `bias=countrycode`)
+          + `adapter.test.ts`'s countryFilter integration case.
+    4.  **The account's own location is a proximity bias, and a far low-confidence guess is no match
+        (added 2026-11-10; amended 2026-11-11).** The schedule-location path also passes the account's
+        `defaultLocation.coordinates` as `bias=proximity:lon,lat` (a soft preference, so an
+        event in another city still resolves), and the ADDRESS cache key folds the point in, rounded to
+        0.1 degree. It is passed only when the account default's country is the country hint of the text
+        being resolved (or the text has no hint); a default of another or unknown country is ignored for that
+        text, because a wrong default (Poland, Pennsylvania) would otherwise make the plausibility filter
+        discard correct matches. With a proximity point, `filterPlausibleCandidates` drops a candidate farther than
+        300 km from it unless its confidence is at least 0.9 (a generic name scores 0.5 for a wrong country); when none is left the call is "not found",
+        so the event keeps its address text and takes the account's timezone instead of being pinned on
+        another continent. Without a point nothing is filtered, as before. Confidence alone is not an
+        absolute gate: on prod 939 `full_match` results score under 0.1, wrong ones (a Yogyakarta hall in
+        New York) and correct ones (Lippo Plaza Jogja) alike. Existing stored locations are not
+        re-resolved by this rule.
+        - **Enforced by:** `packages/domain/src/geolocation/select-best-candidate.test.ts` (the
+          plausibility filter) + `build-cache-key.test.ts` (the `near` segment) +
+          `apps/backend/src/lib/geolocation/geoapify-client.test.ts` (the bias parameter) +
+          `adapter.test.ts` (far candidates dropped, local one kept, none left is not found, nothing
+          filtered without a point) + `resolve-account-and-locations.test.ts` (the point is sent only when the
+          default's country matches the hint).
+    5.  **A synchronous request pays for each distinct address once, and "not found" is cached for a day
+        (added 2026-11-10).** The moderator re-extract Apply geocodes every schedule inside the API
+        Lambda's 28 s budget (API Gateway cuts at 29 s). The lookups of one request therefore share a geocode
+        session (Rule 6): one lookup per distinct query in the whole request, across its events (schedules
+        that share a venue, or fall back to the event-level location, share the answer), and `resolveLocation` stores a definite "no match" in
+        `geolocation_cache` (the `result` holds `{ notFound: true }`, no schema change) and serves it for
+        `NOT_FOUND_TTL_MS` (24 h, measured from `updated_at`); a later hit replaces it. Only
+        `GeolocationNotFoundError` is cached, never an outage, a rate limit or a bad key. Positive entries
+        still never expire. Trigger: a re-extract of a Sleman flyer (20 dates, event-level location "Berbagai
+        lokasi di Kabupaten Sleman") geocoded that text 20 times in a row and timed out four times.
+        - **Enforced by:** `apps/backend/src/lib/geolocation/cache-store.test.ts` (the not-found entry,
+          its window) + `adapter.test.ts` (a repeat is served from the cache, an expired miss is retried, an
+          outage is not cached) + `resolve-account-and-locations.test.ts` (20 schedules on 2 addresses make
+          2 lookups, one log line per unresolved address).
+    6.  **Geocoding runs from location keywords under a country hint, in a request-scoped session, and records
+        how it resolved (added 2026-11-11, slice 2a of the location keywords).** For each schedule the address
+        source is its own location text, else the event's, else the account default's address (the last is a
+        single plain lookup and records nothing). A text with keywords (slice 1) is searched by a 2-step
+        ladder: all keywords joined, then without the most specific one, the second step only after "not
+        found"; a text without keywords uses a code-cleaned fallback ladder of the same shape. The country
+        hint of a text is, in order: its own `locationCountryCode` (the model's code, or the post's
+        consensus), the platform default `DEFAULT_COUNTRY_CODE`, none; nothing in code names a country. A
+        text's own code is trusted: hard filter, no unfiltered pass after it. The platform default is a
+        guess: filtered first, then one unfiltered pass. An outage ends the ladder and nothing is cached.
+        The lookups of one request share a `GeocodeSession`: a memo by cache key (also across events) and, for
+        the API Apply, a budget of 12 uncached geocoder calls (cache hits are free); a spent budget skips the
+        remaining lookups and logs `geocode-budget-exhausted` once. Each schedule records how it resolved in
+        `schedules.location_resolution` (`kw1`, `kw2`, `fb1`, `fb2`, `none` for nothing plausible, `skipped`
+        for a spent budget or outage; null = never attempted), written with `location_details`, replaced with
+        it on enrichment and copied on merge; it is internal and not exposed on GraphQL. The kill switch
+        `KEYWORD_GEOCODING_ENABLED` (default on; only `false` disables) restores the plain single-address
+        lookup with no filter, no ladder and nothing recorded. There is no confidence floor (Rule 4's note
+        stands) and no backfill of existing events.
+        - **Enforced by:** `packages/domain/src/geolocation/resolve-country-hint.test.ts` and
+          `build-location-queries.test.ts` (the hint order, both ladders, the filtered/unfiltered plan) +
+          `apps/backend/src/lib/geolocation/geocode-session.test.ts` (memo, budget, one log) +
+          `apps/backend/src/lib/ai-processor/resolve-account-and-locations.test.ts` (ladder steps, hint,
+          proximity rule, outage, kill switch, shared session) + `apps/backend/src/lib/extraction/apply-post-reextraction.test.ts`
+          (14 events on 13 places: 12 lookups, the rest `skipped`) + `set-event-primary-post.test.ts` and
+          `merge-events.test.ts` (the column follows the coordinates).
+    **Amended 2026-10-19 (production check, BUG-261018-abg; historical: the soft country bias it discusses was replaced by the hard country filter of Rule 3 on 2026-11-11; evidence:
     `event-insight-poc/prod-check-results-review-2026-10-19.md` §3 and §10).**
     3a. **Rule 3's "self-healing, not a gap" is withdrawn** (corrected in place above). Production:
         627 of 1,460 stored pins (43%) have a stored confidence under 0.5. Of the 333 pins outside
@@ -420,8 +492,8 @@ This document defines the core architectural invariants for the FestDaily applic
         preference (Geoapify "prioritizes"; a `filter` is the hard form, and the repo's probe shows
         it gives the same answer) and changes few answers (12 of 14 identical under `bias=us` and
         `bias=id`), so omitting it correlates with wrong pins and is not shown to cause them. The
-        protection is Rule 4, not the bias.
-    4.  **Pin trust is one predicate, computed once per schedule and stored.** `[PROPOSED by the
+        protection is Rule 7, not the bias.
+    7.  **Pin trust is one predicate (numbered Rule 4 on the planning branch until the 2026-11 merge; older reviews and memlogs cite it as AD-14 Rule 4), computed once per schedule and stored.** `[PROPOSED by the
         2026-10-19 architect review; the idea of a "trusted pin" is user-accepted (AD-39), this
         predicate's shape is not yet]` `isPinTrusted()` in `packages/domain` extends the shipped
         `isLocationTrustworthy` (`confidence >= 0.5` and `matchType === 'full_match'`) and is true
@@ -436,10 +508,10 @@ This document defines the core architectural invariants for the FestDaily applic
         precision; without `full_match` precision at 0.5 falls from 44% to 39%. Seven of the 15
         correct pins are already below the floor (four with a stored confidence of 0.00 to 0.45,
         three with none), because a compound text scored low and still found the building: the
-        fix is a cleaner query (Rule 5), not a lower floor. `confidence_city_level` and
+        fix is a cleaner query (Rule 8), not a lower floor. `confidence_city_level` and
         `confidence_street_level` are **not** an alternative: they are present in 19 of 192 probe
         rows;
-        (b) the answer is not a non-place (Rule 5);
+        (b) the answer is not a non-place (Rule 8);
         (c) when the schedule's place has area keys from a source that does **not** depend on the
         pin (a stated area, the roundup heading: AD-39 Rule 2 steps 1 and 3), the pin's
         administrative path intersects them below country level (the country never counts); keys
@@ -490,8 +562,8 @@ This document defines the core architectural invariants for the FestDaily applic
         (`trusted | untrusted | none`) with `pin_evaluated_with` (floor and gazetteer version). The
         inputs (`confidence`, `matchType`, `countryCode`) stay in `location_details`; a change of
         floor or gazetteer version re-derives the rows whose `pin_evaluated_with` differs. Until the
-        area resolver and BUG-063 supply path data, (c) is vacuously true; **(e) closes the
-        wrong-country pins at once, and BUG-066 stays open for the in-country wrong-city pins
+        area resolver and BUG-261018-ij7 supply path data, (c) is vacuously true; **(e) closes the
+        wrong-country pins at once, and BUG-261018-abg stays open for the in-country wrong-city pins
         (Transmart Cirebon answered in Surabaya, Balai Kota Yogyakarta in Jakarta) until (c) can
         run**.
         **Readers.** Every reader of a pin reads `pin_trust` and nothing else: the map link
@@ -529,11 +601,11 @@ This document defines the core architectural invariants for the FestDaily applic
         **Enforced by:** a source-scan test failing on `.confidence`/`matchType` reads outside
         `packages/domain/src/geolocation`; the re-pointed Rule 2 tests; truth-table tests of
         `isPinTrusted`.
-    5.  **Geocode input hygiene.** Two pure functions in `packages/domain/src/geolocation/` own it
+    8.  **Geocode input hygiene (numbered Rule 5 until the 2026-11 merge; older documents cite it as AD-14 Rule 5).** Two pure functions in `packages/domain/src/geolocation/` own it
         (a third, `pickVenueSegment()`, is proposed below), with English and Indonesian token lists
         and tests built from the production texts:
         `isNonPlace()` ("Online" is in production data; "Zoom" and "Google Meet" so far only in
-        POC extraction output, BUG-064) and `stripSubVenueQualifier()` (floor, level, room,
+        POC extraction output, BUG-261018-nyt) and `stripSubVenueQualifier()` (floor, level, room,
         counter, atrium; `lantai`, `lt.`, `ground floor`). `adapter.resolveLocation` calls both
         **before** it builds the cache key, so the key is built from the stripped text; a non-place
         is never sent to the geocoder, and the venue name plus the stated city are kept. Production
@@ -550,12 +622,12 @@ This document defines the core architectural invariants for the FestDaily applic
         segment. `[ASSUMPTION]` 16 of 21 is an upper bound: the probe's word list was written while
         looking at these 21 texts. A held-out set of 20 further texts is run before the list is
         frozen (Round 4 ask 4, analysis §6). Seven texts stay wrong even at venue-segment level
-        ("Court 2" answered in Canada at 1.00, "Online" in France at 1.00), which is why Rule 4 (e)
+        ("Court 2" answered in Canada at 1.00, "Online" in France at 1.00), which is why Rule 7 (e)
         exists.
     *   **Deferred (AD-14 amendment):** the floor value and the `full_match` clause were calibrated
-        2026-10-20 on 87 person-labelled pins and the compound-text probe (Rule 4, `[PROPOSED]`,
+        2026-10-20 on 87 person-labelled pins and the compound-text probe (Rule 7, `[PROPOSED]`,
         awaiting the owner's yes); what stays open is the sample size (15 correct pins: a direction, not a rate), which result types
-        count as a place, the held-out geocode set (Rule 5), the 158 pins with no stored signal
+        count as a place, the held-out geocode set (Rule 8), the 158 pins with no stored signal
         (reverse-geocoded by the derive job for a country code only; 3 of the 4 sampled are right, too
         few to trust them without it), and the re-geocode of the 213 open events with an untrusted
         pin. The gazetteer-first routing of area phrases
@@ -996,9 +1068,26 @@ This document defines the core architectural invariants for the FestDaily applic
         `useState` cursor that must be remembered to reset on filter change. This is what
         structurally prevents BUG-019's failure mode from recurring at a new call site.
         - **Enforced by:** `packages/ui/src/hooks/useListPaginationController.test.ts` (Story
-          0.i5a) proves the reset-on-filter-change contract in isolation; adoption at concrete
-          call sites (Discovery's `home-content.tsx`, moderator tools) and the CI-enforced
-          no-local-pagination-state ratchet land in Stories 0.i5b/0.i5c/0.i5d/0.i5z.
+          0.i5a) proves the reset-on-filter-change contract in isolation. Every paged list
+          (Discovery, Feed, Favorites, the post-events page and the four moderator-tools pages) now
+          uses the controller, and `packages/ui/src/__tests__/ad18-list-pagination.ratchet.test.ts`
+          (Story 0.i5z, added 2026-11-05) fails if any file under `packages/ui/src` or
+          `apps/web/src` declares state named like pagination state (`cursor`, `endCursor`,
+          `hasNextPage`, `pageIndex`, `page`, `after`, `skip`, ...) with `useState` or `useReducer`,
+          also when kept inside an object, as a `<name>Ref`, or as `useQueryState('page' | 'cursor' |
+          'offset' | ...)`, or if one of those eight lists stops calling the controller (read from the
+          syntax tree, so commented-out code does not count). It works by name and shape, so it is a
+          tripwire and not a proof: it does not see pagination state wrapped in a custom hook or a
+          store, nor a name outside its list, and `offset` as *component* state is deliberately
+          allowed (`swipe-to-reveal.tsx` keeps a gesture offset in `useState`). It does not try to
+          ban local *filter* state (a list's filters are the controller's
+          `filterKey`, and "is this a filter?" has no reliable static test); a filter change
+          resetting to page 1 is proved by the controller's test and by the `pagination` suite of
+          each moderator page (BUG-019's exact case). The moderator pages page with
+          `PaginationControls` (`packages/ui/src/core/pagination-controls.tsx`, Story 0.i5c) and
+          report `hasNextPage`/`totalCount` through `useReportConnectionPageMeta`
+          (`apps/web/src/features/pagination/`), which re-reports on `resetToken` so a cleared
+          controller is never left at "no next page" when the new page reports the same numbers.
 
 ---
 
@@ -1052,6 +1141,19 @@ This document defines the core architectural invariants for the FestDaily applic
     the new-mechanism surface below (Rules 2–4 originally covered both a start-boundary and an
     end-boundary clock-time check; only the end-boundary check survives). AD ID and Binds/Prevents
     below are otherwise unchanged from the original pass; only the Rule is amended.
+*   **Amended 2026-10-31 (BUG-096), user-directed (option A of an architect review):** the list's
+    *past-event cutoff* — `buildDefaultEventVisibilityConditions`' `scheduleDateRange.overlaps`,
+    `Query.events`' `isPastEvent` and `Event.isExpiredForCurrentUser` — no longer uses the UTC date.
+    It is the date of the request's one captured `now` in each schedule's own timezone, counted back
+    `hidePastEventsAfterDays`, taking the schedule's zone only when `timezoneStatus = RESOLVED` (the
+    card's wall-clock rule, `resolveScheduleTimezone`) and UTC otherwise, computed by one SQL
+    function, `schedule_past_cutoff_date` (migration 0090, built into SQL by `buildPastCutoffDateSql`).
+    That is a separate mechanism from this AD's `notEnded`, which is **unchanged**: Rule 2's `notEnded`
+    and Rules 2–3's `todayISO`/`tomorrowISO` still read the UTC date, and the `ended-cases` fixture
+    (Rule 4) stays UTC-pinned, so the "Today" toggle can still disagree with a card for a few hours
+    around local midnight (tracked as BUG-097). **Prevents** a second, independent definition of the
+    cutoff, and `AT TIME ZONE` applied to an unvalidated stored string (an unrecognised zone name
+    raises and would fail the whole list; the function falls back to UTC instead).
 *   **Binds:** IDEA-019's card-view temporal filter (`EXPERIENCE.md` § "Temporal Filter: Today /
     Upcoming / All"), `EventFilterInput` (`apps/backend/src/schema/events.graphql`),
     `buildEventsQueryCondition.ts` (client-invoked per `home-content.tsx:178-183`), and
@@ -1822,6 +1924,9 @@ This document defines the core architectural invariants for the FestDaily applic
         Per-post cap on events (default 10, configurable); timezone inference, private-contact and
         performer-leakage guards (3.6a/3.6i/3.6j) run **per event**; the children's-data filter
         (3.6k) stays post-level.
+        **Amended 2026-11-09 (AD-46):** "one Gemini call per post" and the per-post cap of events hold for the
+        one-request path only. A post selected by AD-46's continue rules is extracted in steps; the per-call cap
+        (about 25) and AD-51's request bound replace the per-post cap there.
         **Grouping rules, in order:** (1) any strong signal — own registration/ticket/fee/sign-up,
         own organizer handle, different venue — ⇒ separate events; (2) two or more weak signals —
         standalone headliner/title, dates more than ~7 days apart, different category ⇒ separate;
@@ -1859,7 +1964,11 @@ This document defines the core architectural invariants for the FestDaily applic
         mid ⇒ moderation queue; low ⇒ new event. Thresholds are tuned in Story 3.6v (values: see the 2026-10-12 amendment below).
         **Mid-confidence interim:** the item is ingested as its own **new event** (so its
         `(post, ordinal)` slot is taken and a re-run skips it, Rule 3) and a suggested-match record
-        is queued; approving it *is* a merge (Rule 9), rejecting it is a recorded dismissal. There is
+        is queued; approving it *is* a merge (Rule 9), rejecting it is a recorded dismissal. **Amended
+        2026-11-01 (AD-45):** an owner-released AI reviewer may also accept a queued mid pair, under AD-45's
+        floor and caps; the AI reviewer alone never rejects (**amended 2026-11-07, FIND-120:** the apply bridge
+        can record a reject, see AD-45 Rule 3; **FIND-121, 2026-11-07:** the attended decision loop offers a
+        moderator that reject). There is
         no separate "pending" event state. An event absorbs **at most one item per post**: when two
         items of one post match the same event, the better-scoring one links and the other is
         treated as a lower band. The suggested-match record's shape: see the 2026-10-12 amendment below.
@@ -1916,7 +2025,7 @@ This document defines the core architectural invariants for the FestDaily applic
             event as loser, which also flips the suggestion to `accepted` and writes an
             `event_merges` journal row; REJECT only records `rejected`. `undoEventMerge` restores
             both events and returns the suggestion to `pending`.
-        **Amended 2026-10-18 (BUG-070, GembiRun Loka 2026).** One event was posted three ways: a
+        **Amended 2026-10-18 (BUG-063, GembiRun Loka 2026).** One event was posted three ways: a
         registration-deadline post (schedule 21 Oct) and a race-day post (8 Nov) created two events
         that never matched, because the candidate query only looked ±2 days around the new
         schedule. The registration link, name, venue and account were identical. Rule 5 already
@@ -2099,9 +2208,12 @@ This document defines the core architectural invariants for the FestDaily applic
             similarity. A qualifier on one side only ("(SOLD OUT)", "(GEF)") or one the other side
             repeats stays noise.
         *   **No venue conflict.** `hasVenueConflict`: a side with no venue never conflicts; equal or
-            containing venue texts, or coordinates within 5 km (`VENUE_COMPATIBLE_METERS`), are
-            compatible; both venues known and clearly different (a touring event) blocks. Only
-            schedule pairs inside the window are compared.
+            containing venue texts, one place spelled two ways (`venueTextsSamePlace`, amended
+            2026-10-30, IDEA-110: position words such as "ground floor"/"lantai 3" and abbreviations
+            are ignored, then equal place tokens, or at least three tokens inside a longer text),
+            or coordinates within 5 km (`VENUE_COMPATIBLE_METERS`), are compatible; both venues
+            known and clearly different (a touring event) blocks. Only schedule pairs inside the
+            window are compared.
         *   **Same account or shared link.** `organizerMatch || sharedLink`. Under the unchanged
             weights a `mid` is unreachable without one of the two, so this is implied today; it is
             explicit so a later weight change cannot silently drop it.
@@ -2130,8 +2242,9 @@ This document defines the core architectural invariants for the FestDaily applic
             names are equal and have at least two words (`normalizeEventNameStrict`: lowercase,
             punctuation and year tokens removed, **bracketed text kept**; no trigram path); and one
             schedule pair has the **same `eventStartDate`**, a **positive venue match on that same
-            pair** (equal trimmed lowercase text, or coordinates within 150 m; two absent venues are
-            not a match), and equal start times when both are set. The posting account, organizer,
+            pair** (equal trimmed lowercase text, the same place spelled two ways per
+            `venueTextsSamePlace` (amended 2026-10-30, IDEA-110), or coordinates within 150 m; two
+            absent venues are not a match), and equal start times when both are set. The posting account, organizer,
             links and score are not inputs, so a different curator's stub links on the same terms.
             Same name and date at a different or unknown venue are different events and never link.
         *   **Additive link** (`enrichAndPromoteEvent(..., { additive: true })`, set when
@@ -2200,6 +2313,32 @@ This document defines the core architectural invariants for the FestDaily applic
         alone, so merging two siblings cannot drop an occurrence or repoint a calendar entry to
         another venue. (iii) A moderator merge of split siblings is the exception that ends
         in the AD-38 Rule 4 undo, not a way to re-create the multi-place event.
+        **Amended 2026-10-30 (one accept/reject entry point; design record:
+        `_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece A).** A moderator's accept or reject of a pending
+        suggestion is `resolveSuggestedMatch()` (`apps/backend/src/lib/events/resolve-suggested-match.ts`);
+        `Mutation.resolveSuggestedEventMatch` calls it. It runs
+        in a **caller-owned transaction**, reads the suggestion `FOR UPDATE` and rechecks `pending`,
+        so a concurrent resolve **of the same row** (a second moderator, or a script) waits and then
+        sees the row is no longer pending. Before this, the pending check ran outside the transaction and neither the
+        accept flip nor REJECT guarded on `pending`, so a REJECT made between the check and the merge
+        was overwritten to `accepted`; REJECT now runs in the same transaction as ACCEPT, the one
+        intended behavior change. Errors are typed (`SuggestedMatchNotFoundError`,
+        `SuggestedMatchNotPendingError`, `SuggestedMatchInvalidActionError`; `EventMergeInvalidStateError`
+        passes through) and the resolver maps them to its unchanged GraphQL codes. **Enforced by**
+        `suggested-match-resolve-ratchet.test.ts`: only `merge-events.ts`, `resolve-suggested-match.ts` and the
+        expiry writer `expire-match-suggestions.ts` (IDEA-107; its UPDATE keeps its own `pending` guard, which
+        the ratchet pins) may update `event_match_candidates` (a regex scan of the non-test `.ts` files under `apps/backend/src`: drizzle update or upsert, an import, destructuring or assignment alias,
+        a namespace import or bracket access, or raw SQL), and `resolvers.ts` must call `resolveSuggestedMatch()` and
+        never `mergeEvents()` directly. **Known gaps, deferred (BUG-094):** the ratchet does not catch
+        another file calling `mergeEvents(..., suggestionId)`, and the backlog drain
+        (`drain-match-backlog.ts`) does, so it takes no suggestion lock and `mergeEvents` step 11 has no
+        `pending` guard (a drain can overwrite a concurrent REJECT); and the lock covers the suggestion
+        row only, not the two events, so two different suggestions that share an event, resolved at
+        the same time, can both pass the mergeable check. A second caller (an operator script or the
+        planned AI-assisted review) adopts the same function. **Amended 2026-11-01 (AD-45):** the AI-assisted
+        review is that caller, with `via: 'ai_skill'` recorded on the suggestion and the journal row; AD-45 governs when it may run.
+        **Amended 2026-11-07 (AD-45, FIND-120):** the same function also records a reject (`'REJECT'`,
+        `via: 'ai_skill'`), with no journal row and no event touched; AD-45 Rules 3 and 4 govern it.
     10. **Notifications are per event, with one marker.** `events.notified_at` is set by one
         notify helper and nowhere else. An event notifies at ingestion iff its primary post's
         `grouping_reason` is not `roundup` and the post is not curator-sourced (AD-31 Rule 3
@@ -2591,6 +2730,26 @@ This document defines the core architectural invariants for the FestDaily applic
         An account reclassified `PERSONAL`, or unsubscribed, between the original scrape and the
         failure is not scraped on the fallback path. Rule 4's exemption covers only the
         *processing* half of those handlers.
+    7.  **Amended 2026-10-31 (FIND-110): the two paths that fetch ONE post by URL adopt the gate.**
+        The moderator re-extract rescrape (`startPostReextractionPreview`) and
+        `extractEventDataFromUrl` start a scrape although they scrape no account, and PRD 3.16 says a
+        personal or awaiting-approval account is never scraped. Both call `isScrapableAccountType()`
+        through `apps/backend/src/lib/scraper/post-scrape-gate.ts`: a stored post is gated on its
+        owning account **before** the scrape; an unknown URL has no account to look up first, so the
+        account the scrape returns (`ownerUsername`) is looked up **after** it, and a known
+        non-scrapable account refuses the result (no job, no caption copy; the refused scrape is
+        recorded against the re-extract cooldown). A stored post with a caption still previews
+        without a scrape; with none, the caller gets `ACCOUNT_NOT_SCRAPABLE`. An unknown owner
+        is allowed: nothing marks it as off limits. `post-scrape-gate.test.ts` covers every
+        type x status combination through both lookups. **Amended 2026-11-12 (Story 10.6):** the engine
+        job `reextract-post` (AD-53 Rule 17) applies the same stored-post gate before its image refresh. A
+        refused account skips the REFRESH only: no vendor call is made, the job reports
+        `ACCOUNT_TYPE_NOT_SCRAPED` and still previews on the stored images (a caption we hold previews,
+        as above), ending `SUCCEEDED_WITH_LIMITS`. A post that needs no refresh does not touch the gate.
+        With NO caption stored there is nothing to preview from, so the job ends FAILED with the same
+        reason (`ACCOUNT_NOT_SCRAPABLE` to the screen, as before); a URL that is not stored is gated on the
+        owner the fetch returns, after it, exactly as the old path did, and the fetch counts toward the
+        cooldown. The late-result handler gates the post's account again (hours may have passed).
 *   **Enforced by:** the unit tests in Rule 1 and the lockstep tests in Rule 3. No lint or source-scan
     ratchet yet; see Deferred.
 *   **Deferred:** a source-scan ratchet forbidding a raw `accountTypeStatus === ` comparison outside
@@ -2735,7 +2894,7 @@ This document defines the core architectural invariants for the FestDaily applic
         new posts are matched against the seeded list in memory at ingest (refreshed per
         invocation), never by scanning captions; third-party captions never attach an event on
         their own, and the "shares its venue" test calls `isSamePlace` (AD-38 Rule 1) with the
-        organizer, not coordinates, until BUG-066 and AD-37's migration land. `[ASSUMPTION]`
+        organizer, not coordinates, until BUG-261018-abg and AD-37's migration land. `[ASSUMPTION]`
         (review gaps G6/G7, not yet user-confirmed).
         **Amended 2026-10-20 (Round 3 item 16).** Tier 1 now finds 19 groups and 56 events (it found
         17 and 52 on 2026-10-19); **SCH is not one of them** (its children are named "SCH Choir
@@ -2828,11 +2987,11 @@ This document defines the core architectural invariants for the FestDaily applic
         A child event missing a location MAY eventually inherit its anchor's venue, but this
         **must not ship** before `schedules.location_details`'s JSON-string storage (BUG-068) is
         fixed and reverified on production. Shipping earlier risks propagating a double-encoded or
-        (BUG-066) wrong-country value to every ungrounded child. This AD reserves the behavior; it
+        (BUG-261018-abg) wrong-country value to every ungrounded child. This AD reserves the behavior; it
         does not build it.
         **Amended 2026-10-19.** The BUG-068 writer fix is implemented (AD-37) and **not deployed**;
         the gate is now "writer deployed, row migration run and verified on production, and
-        BUG-066's wrong-country pins no longer reach a child". **Audience-area inheritance** (a
+        BUG-261018-abg's wrong-country pins no longer reach a child". **Audience-area inheritance** (a
         child with no stated area taking its group's) does not depend on coordinates and is
         therefore not gated by this Rule; it is an open decision (AD-39, Deferred).
     10. **Deduplication-first is a hard sequencing rule, not a preference.** Grouping must not run —
@@ -3136,7 +3295,7 @@ This document defines the core architectural invariants for the FestDaily applic
         - The card shows the count of *matching* members ("+2 more matching sessions") from the
           same pass; with one match it is a plain event card with a small "part of <group>" link.
           The programme anchor gets no cover priority in v1. `totalCount` is computed with the same
-          cap or dropped (FIND-088 shows nothing reads it).
+          cap or dropped (FIND-261019-whr shows nothing reads it).
         - **Group-level seen, for a series.** Any member seen counts as the series seen, otherwise
           the cover rotates to the next occurrence and re-surfaces as new. If "seen" feeds the
           score, its `bool_or` window runs before the rescore and the `row_number` after it.
@@ -3300,7 +3459,7 @@ This document defines the core architectural invariants for the FestDaily applic
            a dissolved group (the writer checks `status`), and a place-split group is created only
            when at least two same-country children exist. AD-39 Rule 7's switch step also requires
            `count(*) WHERE country_key IS NULL AND deleted_at IS NULL AND area_status IS NOT NULL` to
-           be zero before any group detector flag is turned on. `eventCountry()` and AD-14 Rule 4
+           be zero before any group detector flag is turned on. `eventCountry()` and AD-14 Rule 7
            (e) share one function and one test table.
         3. **Serialisation.** The lock is `pg_advisory_xact_lock(hashtextextended(concat_ws('|',
            'series', detector, country_key, coalesce(organizer::text, '*')), 0))`: never NULL (a NULL
@@ -3462,7 +3621,7 @@ This document defines the core architectural invariants for the FestDaily applic
     the ratchet `packages/database/jsonb-columns.test.ts` and the regression test
     `apps/backend/src/schema/jsonb-encoding.test.ts`; every `postgres()` client (`db/client.ts`,
     scripts, seeds); any SQL that reads a jsonb column (`->>`, `jsonb_array_elements`, `@>`,
-    expression indexes: IDEA-073, IDEA-081, AD-39, AD-36 Rule 9) including the two that exist today,
+    expression indexes: IDEA-261018-iv7, IDEA-081, AD-39, AD-36 Rule 9) including the two that exist today,
     the `adminArea`/`venueType` filters at `resolvers.ts:3401–3402`; the migration runbook
     `_bmad-output/implementation-artifacts/backlog/BUG-068-jsonb-migration/`; BUG-068 (implemented
     2026-10-19, commit `decbd76`, **not deployed**).
@@ -3532,7 +3691,7 @@ This document defines the core architectural invariants for the FestDaily applic
     `result`, `raw_payload`, `request_payload`, `result_data`, `filters`, `resolved_filter`) only
     after sampling, because a legitimately stored string that starts with `{` is indistinguishable
     from a double-encoded object; removing the defensive `->>` reads in `queryUnprocessedPayloads`
-    (keep until step 4 is verified); BUG-066 (wrong pins) and BUG-063 (`adminArea` never written, 0
+    (keep until step 4 is verified); BUG-261018-abg (wrong pins) and BUG-261018-ij7 (`adminArea` never written, 0
     of 1,460) are separate.
 *   **Verified:** `apps/backend/scripts/poc-event-insight/probe-jsonb-encoding.ts` on a scratch
     PostgreSQL 16.15, 2026-10-19: Drizzle `jsonb()` and `$1::jsonb` with a JSON string store a
@@ -3551,13 +3710,13 @@ This document defines the core architectural invariants for the FestDaily applic
     `isSamePlace`, `normalizeName`, `siblingOrdinal`); the gazetteer data file (AD-39); AD-30 Rule 5
     (grouping rules), Rule 7 (matcher candidate exclusions, the sweep) and Rule 9 (`mergeEvents`,
     enrichment); `notify-new-event.ts` (via AD-36 Rule 14); the split journal and the Moderator
-    Tools "split event" action; AD-36 (groups); `Query.events` location filters (BUG-064, via
+    Tools "split event" action; AD-36 (groups); `Query.events` location filters (BUG-261018-nyt, via
     AD-39); `diagrams/event-dedup-flow.html`; IDEA-086, IDEA-084, IDEA-085; the Gemini quota (AD-10,
     AD-32). Evidence: `event-insight-poc/prod-check-results-review-2026-10-19.md`; the Riot Jogja
     "Wednesday Night Run" case, reported by the product owner (prevalence unmeasured until Round 3
     items 11 and 13).
 *   **Prevents:** An event whose schedules sit at several venues, so any filter that joins the main
-    schedule is wrong for it (BUG-064) and "different venue ⇒ separate events" (AD-30 Rule 5 (1))
+    schedule is wrong for it (BUG-261018-nyt) and "different venue ⇒ separate events" (AD-30 Rule 5 (1))
     holds only if the prompt obeys; one caption extracted into 7 events in one post and 10 in
     another; programme items hidden as schedules where no list, filter or calendar can reach them
     (`program-lineup`, 47 production posts); the matcher scoring two sibling places of one series as
@@ -3776,7 +3935,7 @@ This document defines the core architectural invariants for the FestDaily applic
         AD-30 Rule 9.
     7.  **Consequences owned elsewhere.** Notifications per (group, source post) and favorites
         (AD-36 Rules 14–15); the Discovery collapse (AD-36 Rule 13); area filters (AD-39 Rule 5:
-        with one place per event the main-schedule join of BUG-064 is correct for place filters; the
+        with one place per event the main-schedule join of BUG-261018-nyt is correct for place filters; the
         date leaves stay independent `EXISTS` subqueries); a PRD change for per-group notifications.
     8.  **Rollout and recovery.** `[PROPOSED]` Each new capability ships behind a flag, default off
         (PostHog or `parseBooleanDefaultOn` in `env.ts`): `place-normalizer`,
@@ -3828,9 +3987,9 @@ This document defines the core architectural invariants for the FestDaily applic
     and the two other places that apply an account default (`transformGeminiResponseToEventInfo`,
     timezone tier 2); the `Query.events` location filters, tier ordering (the POC's `tierFor`) and
     partial-match lane; the paid score's distance term; AD-14 (pin trust), AD-22 (Nearby), AD-24
-    (badge primitives), AD-34 (account types); the GraphQL `Event` and `Schedule` types; IDEA-073
+    (badge primitives), AD-34 (account types); the GraphQL `Event` and `Schedule` types; IDEA-261018-iv7
     (area ladder), IDEA-075 (audience-area enrichment), IDEA-081 (target-area resolver), IDEA-087
-    (new: place model), BUG-063, BUG-064, BUG-065, BUG-066. Reference implementations (POC, not
+    (new: place model), BUG-261018-ij7, BUG-261018-nyt, BUG-261018-jwf, BUG-261018-abg. Reference implementations (POC, not
     production): `apps/backend/scripts/poc-event-insight/area-resolver.ts`, `location-policy.ts`,
     `audience-areas.ts`, `partial-match.ts`.
 *   **Prevents:** One nullable location read as "anywhere" by one unit and as "hidden" by another;
@@ -3839,12 +3998,12 @@ This document defines the core architectural invariants for the FestDaily applic
     `transformGeminiResponseToEventInfo` copies its address into `events.location`; timezone tier 2
     uses it) and indistinguishable from a stated place (11 of the 17 production curators hold an
     arbitrary default); a wrong-country pin driving the map link, the radius filter and the Nearby
-    badge (BUG-066); an area-level guess presented as a distance; a strict "in Sleman" filter that
+    badge (BUG-261018-abg); an area-level guess presented as a distance; a strict "in Sleman" filter that
     admits a DIY-wide event; list and detail disagreeing about how exact a place is; seven writers
     leaving the place columns inconsistent with each other.
 *   **Rule:**
     1.  **Three independent facts, never inferred from one another.** `[ADOPTED, user-accepted]`
-        (a) The **pin**: coordinates plus `schedules.pin_trust` (AD-14 Rule 4). (b) The **area**:
+        (a) The **pin**: coordinates plus `schedules.pin_trust` (AD-14 Rule 7). (b) The **area**:
         `events.area_status` (`known | unknown`; `unknown` is a value, **never null read as
         "national"**), `events.area_keys text[]` (ancestor-closed: a Sleman event stores
         `{id, id-yo, id-yo-sleman}`; `inside X` is `area_keys @> {X}`), `events.area_leaf_key` (the
@@ -3884,7 +4043,7 @@ This document defines the core architectural invariants for the FestDaily applic
         are not sent to the geocoder (production: answered with a PLN office at 0.66). **Writes are
         compare-and-set on rank** `stated > pin > heading > account`: an `UPDATE` applies only when
         the new `area_source` outranks the stored one or the status is `unknown`, so a slow ladder
-        result cannot overwrite a stated area. A stated area and a pin must agree (AD-14 Rule 4
+        result cannot overwrite a stated area. A stated area and a pin must agree (AD-14 Rule 7
         (c)); on conflict the pin is `untrusted`, not the text.
     3.  **Account fallbacks are narrow, recorded and in one function.**
         `[ADOPTED, user-directed and user-accepted; the "everything else" bullet accepted
@@ -3893,7 +4052,7 @@ This document defines the core architectural invariants for the FestDaily applic
         (`packages/domain`), which `resolveAccountAndLocations`, `transformGeminiResponseToEventInfo`
         and timezone tier 2 all call (a source-scan ratchet fails any other read).
         - **Curators** (`CURATOR_GUIDE`): an event with no exact location does **not** take the
-          account's location (reverses today's fallback; BUG-065), and the audience area is
+          account's location (reverses today's fallback; BUG-261018-jwf), and the audience area is
           **never** derived with Geoapify (its pick for a curator is a different venue each time:
           12 posts, 12 places). The account instead carries an **audience target area**, stored as
           `social_media_account_profiles.audience_area_keys text[]` with `audience_area_source`
@@ -3969,7 +4128,7 @@ This document defines the core architectural invariants for the FestDaily applic
         cap (start values at story time, from Round 3 item 9). Resolution is retried by a nightly
         `resolve-unknown-areas` job, at most N geocodes per run `[ASSUMPTION]`, in the order roundup
         heading, then account area, keyed by `(step, input version)` so a later input (a new
-        audience area) re-queues once. (Qualifier stripping is AD-14 Rule 5 and happens before the
+        audience area) re-queues once. (Qualifier stripping is AD-14 Rule 8 and happens before the
         first geocode, so it is not a ladder step.) The moderator "needs location" list is a
         **backstop, never the mechanism** (moderators resolved 0 of 147 queued candidates). The
         `'Location not specified'` placeholder in `events.location` (NOT NULL) is not a second
@@ -3978,12 +4137,12 @@ This document defines the core architectural invariants for the FestDaily applic
         full, 4 stub) and 58 more have place text only; 155 (34%) have a pin the shipped test
         trusts and 213 (47%) a pin it rejects. The count of `unknown` events is **larger than 26
         once Rule 3 applies**, because curator events that carry an account-default pin today lose
-        it (BUG-065). The Rule 7 fingerprint counts size that before the switch (Round 4 ask 2).
+        it (BUG-261018-jwf). The Rule 7 fingerprint counts size that before the switch (Round 4 ask 2).
         The alternative to publishing (a hold) has no worker: moderators resolved 0 of 147 and
         receive no queue notification.
     5.  **Filter and lane semantics.** `[ADOPTED]`
         - A strict "in X" area filter matches an event only when its area key is the **same as or
-          inside** X. `LocationFilterInput.adminArea` (never written, BUG-063) is replaced by
+          inside** X. `LocationFilterInput.adminArea` (never written, BUG-261018-ij7) is replaced by
           `areaKey`. An event whose area **covers** X (a DIY-wide curator event for a Sleman user)
           goes to the **partial-match lane**, delivered as `matchLane: STRICT | PARTIAL` ordering
           in the **same** query so the AD-36 Rule 13 collapse sees both; `sibling`, `other` and
@@ -4054,7 +4213,7 @@ This document defines the core architectural invariants for the FestDaily applic
         - **Source order, first that answers:** (1) the audience the post states (a named country,
           nationwide wording such as "se-Indonesia", several countries); an online event with no
           stated audience is `international`; (2) the country of the event's known place: a trusted
-          pin's country or the single country named in the stated text (AD-14 Rule 4 (e)), or the
+          pin's country or the single country named in the stated text (AD-14 Rule 7 (e)), or the
           root key of its known area (area keys are ancestor-closed, Rule 1); (3) the account's own
           country when it has one (IDEA-075); (4) the platform default country `id`, recorded with
           source `default`.
@@ -4101,14 +4260,14 @@ This document defines the core architectural invariants for the FestDaily applic
     other and unknown; the migration-journal CI check.
 *   **Considered and rejected:** reading a missing area as national, or hiding unknown-area events
     (the first shows a local event to everyone, the second drops events whose posts only omit the
-    place); the account's location as a curator fallback (BUG-065; arbitrary defaults); one
+    place); the account's location as a curator fallback (BUG-261018-jwf; arbitrary defaults); one
     `location_confidence` scalar for all three facts; a **stored** `location_precision` (a function
     of two other columns on different tables; it drifts when the ladder resolves an area);
     `detail_level` as the precision field; the moderator list as the mechanism; a Nearby badge for
     area-only events; a `NOT NULL DEFAULT 'none'` for `pin_trust` (a straggling old Lambda would
     write indistinguishable "no pin" rows during a rolling deploy).
 *   **Deferred:** the pin-trust floor and the `full_match` question were calibrated 2026-10-20
-    (`[PROPOSED]` in AD-14 Rule 4, awaiting the owner's yes), so they are no longer open here; a **real-curator
+    (`[PROPOSED]` in AD-14 Rule 7, awaiting the owner's yes), so they are no longer open here; a **real-curator
     evaluation of the area guess** (the stored profiles of the 17 curators and a sample of the
     legacy 463 through the profile-insight prompt and the gazetteer, compared with a person's
     judgement) before the model-derived area is trusted without a moderator pass; the gazetteer's data
@@ -4122,10 +4281,10 @@ This document defines the core architectural invariants for the FestDaily applic
         file, `resolveEventPlace()` and the single writers (Rules 1–3, 7).
     2.  **Curator audience area** — `audience_area_keys`, `setAudienceArea()`, the
         P/Q validation, the legacy derivation and the removal of the account-
-        default fallback for curators (Rule 3; BUG-065, IDEA-075), and the real-curator evaluation
+        default fallback for curators (Rule 3; BUG-261018-jwf, IDEA-075), and the real-curator evaluation
         that gates confirming without review.
     3.  **Derive and switch** — the Rule 7 job and the reader flip, after AD-37's row migration.
-    4.  **Filter, lane and score semantics** (Rule 5; BUG-064, IDEA-081).
+    4.  **Filter, lane and score semantics** (Rule 5; BUG-261018-nyt, IDEA-081).
     5.  **Exposure and badge** (Rule 6) — with the UX step.
 
 ---
@@ -4144,17 +4303,25 @@ This document defines the core architectural invariants for the FestDaily applic
     moderator's edits; a post caption (especially a curator caption, deliberately null in `posts`
     since Story 3.4o) outliving its use; a rescrape loop spending scraper credit.
 *   **Rule:**
-    1.  **Preview only.** The operation writes nothing to `events`, `schedules`, `event_posts`,
-        `event_match_candidates`, `posts` or `extraction_audit_logs`, and enqueues nothing. Its
-        only writes are the job row and its result. There is **no apply step**: ingestion
-        idempotency on `(post, extraction_ordinal)` (AD-30 Rule 3) skips every item the post
-        already produced, so applying a re-run could only add items with a new ordinal. A write
-        mode is a spine amendment.
+    1.  **Preview is write-free; Apply is the one write (amended 2026-10-31, IDEA-103).** Previewing
+        writes nothing to `events`, `schedules`, `event_posts`, `event_match_candidates`, `posts` or
+        `extraction_audit_logs`, and enqueues nothing. Its only writes are the job row and its result.
+        (**Amended 2026-11-12, Story 10.6:** plus, for a post served by the engine job, the fresh image
+        links of its refresh phase, written to `posts` through the one rule of Rule 9; nothing else.)
+        Ingestion idempotency on `(post, extraction_ordinal)` (AD-30 Rule 3) skips every item the post
+        already produced, so re-running ingestion can never change an existing event. The one way to
+        change them is **Apply** (Rule 8): an explicit, confirmed moderator action on a finished
+        preview. Any other write mode is a spine amendment.
     2.  **One decision, two callers.** `evaluateIngestionMatch(tx, message, sourcePost)` owns the
         stub rule (AD-30 Rule 10), the roundup/curator organizer discount (BUG-058, IDEA-068) and
         `findMatchingEvent`. `processIngestionJob` acts on its result; the preview reports it. The
         preview does not reimplement any part of it.
-    3.  **Reuse the manual extraction job.** A `REEXTRACT_PREVIEW` job runs in the AI Lambda like a
+    3.  **Reuse the manual extraction job.** (**Amended 2026-11-12, Story 10.6:** EVERY preview is now the
+        engine job `reextract-post` (Rule 9) and its result lives on `jobs.result_data`; a new preview no
+        longer creates a `manual_extraction_jobs` row. The manual job's `REEXTRACT_PREVIEW` branch, its read
+        and its Apply are kept only for rows written before the change (a 30-minute window; remove with Story
+        10.9, PRD OI-4, which decides `manual_extraction_jobs` for the other callers). The shared extraction
+        code is `extract-events-with-gemini.ts` and `generate-reextraction-preview.ts`.) A `REEXTRACT_PREVIEW` job runs in the AI Lambda like a
         correction job (same face blur, same key tiers, same `manual_extraction_jobs` row, owner-
         scoped to the requesting moderator), and stores a `ReextractionPreviewResult` in
         `result_data`. It reports every event of the post (not just the first), the post's
@@ -4166,23 +4333,139 @@ This document defines the core architectural invariants for the FestDaily applic
     4.  **No geocoder or timezone calls.** The preview builds messages with empty resolved
         locations, so the venue signal is the location string only; a match that relies on
         coordinates within 150 m will score lower in the preview than in ingestion.
-    5.  **Rescrape only when the caption is missing**, via `getScraperAdapter(platform).getPostByUrl`.
-        A stored caption is never refetched. A rescrape of one URL is limited to once per 10
+    5.  **Rescrape when the caption is missing or the stored image links have expired**, via
+        `getScraperAdapter(platform).getPostByUrl`. (**Amended 2026-11-12, Story 10.6:** the fetch is now
+        always Rule 9's: the post chain, Apify first, with its cooldown read from `job_attempts` and its
+        lease; the text below describes what it replaced, and its guarantees (cooldown only when a vendor
+        call ran, one fetch of a URL at a time, the AD-34 gate) are kept.) (Amended 2026-10-31, BUG-099: the rule used to be
+        "only when the caption is missing"; the cover and slide URLs are hotlinks that expire, so a
+        stored caption with dead links previewed a carousel from its first image at best.) A stored
+        caption is never replaced by the rescraped one: an image refresh supplies only the scraper's
+        fresh `imageUrl` and `additionalImageUrls`, and a blocked or failed refresh falls back to
+        the stored data. `postImagesNeedRefresh` (`packages/domain/src/posts/`) decides; a post with
+        no images is text-only and never triggers a scrape. The preview sends up to
+        `REEXTRACT_MAX_CAROUSEL_IMAGES` (10) slides, keeps trying them when the cover link cannot be
+        fetched (a cover *blur* failure stays text-only and fail-closed), and reports
+        `imagesAvailable` / `imagesSent` so a shortfall is shown, never silent. A rescrape of one URL
+        is limited to once per 10
         minutes (`REEXTRACT_RESCRAPE_COOLDOWN_MS`), checked against recent preview jobs; it does not
-        limit previews of stored captions. A scrape that throws or returns nothing is recorded as an
+        limit previews of a stored caption whose image links are still valid. Inside the window a
+        blocked rescrape reuses the usable (not expired) links the last rescrape found, taken from
+        that job's payload, never from `posts`. (Amended 2026-10-31, FIND-110: one scrape of a
+        URL at a time. A per-URL lease `post-url-scrape:<hash>` in `vendor_call_locks`
+        (`tryClaimInFlight`, `guarded-call.ts`, TTL 60 s) covers the cooldown re-check, the scrape
+        and the job-row insert, so a second request either sees the lease busy or the first one's
+        row. A busy lease means no second scrape: a stored caption previews on the first run's fresh
+        links, or on stored data; a post with no caption gets `SCRAPE_IN_PROGRESS`, because a caption
+        is never stored and so cannot be handed to another request. `extractEventDataFromUrl` takes
+        the same lease. The stored-post and by-owner scrape gate of AD-34 Rule 7 also applies.) A scrape that throws or returns nothing is recorded as an
         already-FAILED job so it counts too (a post that never scrapes cannot be retried without
         limit). An image-only post (empty caption) is not a failure. A URL that is not in the
         database is scraped, previewed without an account signal (`postStored: false`, authorship
         assumed to be the organizer's, so not a stub), and never stored.
-    6.  **The caption never persists.** (a) A rescraped caption is held only in the job's
+    6.  **The caption never persists.** (**Amended 2026-11-12, Story 10.6:** a re-extract's fetched caption is held on the engine job,
+        `jobs.input.held`, only between its two phases and blanked when phase 2 ends, with a sweep as the backstop: Rule 9. The text below
+        describes the manual job's guarantee, which the engine job keeps in the same terms.) (a) A rescraped caption is held only in the job's
         `request_payload` and is **never written to `posts.content`**, for any account type. (b)
         `request_payload.message.content` is blanked as soon as the AI Lambda claims the job
         (the run works from its in-memory copy, so a timeout or crash mid-run leaves nothing), and
         again in its `finally`, on a failed start, and on the lazy stale-job failure
         (`blankManualJobPayloadContent`), for correction jobs too. The one uncovered window, a job
-        inserted but never claimed and never polled, is deferred (FIND-092). (c) A stored caption of a
+        inserted but never claimed and never polled, is deferred (FIND-086). (c) A stored caption of a
         non-curator post is untouched.
     7.  **Moderator only.** Both operations call `requireModerator`.
+    8.  **Apply (added 2026-10-31).** `Mutation.applyPostReextraction(jobId)`, moderator only, owner-
+        scoped, applies the exact extraction the moderator previewed, not a new Gemini call. The
+        preview job keeps `result_data.extracted` (validated events, grouping, post title, and the
+        children's-data filter's verdict, the one caption-derived fact the event builder needs; never
+        the caption) and Apply nulls it. It applies once (`appliedAt`; a second call returns the first
+        result), within 30 minutes of the preview finishing, only for a stored post, in ONE
+        transaction (a failure rolls everything back, `APPLY_FAILED`) with the job row locked
+        `FOR UPDATE`. Steps: (a) the post's `grouping_reason` and `title` are rewritten; (b) the post's
+        existing events are paired to the items by name and date (`pairPostEventsToItems`,
+        `packages/domain`: score at least 0.5 AND name similarity at least 0.4, so a shared date alone
+        never pairs; on a tie a live event beats a deleted twin), never by ordinal, since ordinals
+        sort by earliest date then name and shift when the set grows; (c) a paired event is **reused**: same id, slug, favorites, calendar
+        entries, aliases; it takes the item's data through `enrichAndPromoteEvent` (an applied
+        correction's fields keep their value; a schedule the new extraction no longer lists is removed
+        unless a calendar entry uses it; the slug is stripped from what is passed in, so a reused
+        event is never re-slugged) and is demoted to `detail_level = 'stub'` only when this post is its
+        **primary** post and `resolveStubSource` says the post is a roundup or curator post. An event
+        whose primary post is **another** post (typically the organizer's) is not enriched at all:
+        it keeps its data, schedules and detail level and only moves this post's link to the new
+        ordinal;
+        (d) every other item goes through the ingestion decision and write
+        (`evaluateIngestionMatch`, `writeIngestionDecision`), so a high match links to an existing
+        event and a mid match queues a suggestion; (e) a live event no item matched is left as it is
+        and reported. It **never deletes** an event and **never recreates** one a moderator deleted or
+        merged away (PRD 3.7 "No Duplicate Re-Extraction"): an item matching one is skipped, and that
+        event keeps its ordinal. No notification is sent. Events are built as extraction builds them,
+        with real locations and timezones (`buildExtractedEventMessage`, shared with `processAiJob`).
+        Ordinals: `(post, extraction_ordinal)` is unique on both `events` and `event_posts`, and
+        `events` forbids a NULL ordinal on a primary post, so moving events are first parked at
+        `PARKED_ORDINAL_BASE + n` (30000+), then given their final ordinal (`assignApplyOrdinals`),
+        which skips slots still held by events that do not move and, for a new item, any ordinal whose
+        derived slug a reused event, an orphan or a deleted event keeps (`events.slug` is unique).
+        Applies of one post are serialized by a `FOR UPDATE` lock on the post row (taken before the
+        job row's). A preview that found no events is refused (`NOTHING_TO_APPLY`): applying it would
+        blank the post's title and orphan every event. The kept extraction has the privacy discards
+        already applied (no private contact, no child performer names), because an unapplied preview
+        keeps it on the job row until a sweep exists (see the deferred retention row). There is no
+        undo; a `reextract_apply` JSON log line records the event ids touched. (Amended 2026-11-12, Story 10.6:
+        Apply reads and marks the preview on whichever row holds it, `jobs` or `manual_extraction_jobs`,
+        through `reextract-preview-job.ts`; its window runs from `jobs.finished_at` for an engine job.)
+    9.  **The engine job `reextract-post` (Story 10.6, 2026-11-12; AD-53 Rule 17).** Every re-extract (a
+        stored post with its caption, a stored post whose caption is not stored, a URL not in the database) is
+        a two-phase engine job that OWNS THE RESULT. Phase 1, in the Scraper Lambda: `reextractRefreshReasons`
+        (pure, `packages/domain/src/posts/reextract-image-refresh.ts`) says whether a fetch is needed: the
+        caption is missing, the cover link expired (or slides with no cover), a slide link expired, the cover
+        is low resolution (an `s<W>x<H>` token of at most 640 in the `stp` query), or slides are unknown (no
+        post type and no slide list). If one applies, the post chain fetches the post with this type's own
+        order, Apify then Bright Data, inside `REEXTRACT_REFRESH_BUDGET_MS` (120 s), under the per-URL lease
+        (held for the budget plus 30 s, `claimPostUrlScrape(url, ttl)`), and not within 10 minutes of a
+        refresh whose vendor call ran (read from `job_attempts` by the job's input key; an attempt counts when
+        its outcome is SUCCEEDED, EMPTY, TIMED_OUT or FAILED; a refusal before any call, FIND-261102-4qm, is
+        OVER_QUOTA or SKIPPED and never starts it; a re-run of phase 1 for a job that already made its call
+        does not make it again). For a stored post the fetch saves, through `saveRefreshedPostImages` and the
+        pure `decideFreshImagesToSave`, the cover, the slides and the cover's expiry, and fills a NULL post
+        type from the post URL; it never saves the caption, never an empty or SHORTER slide list over a stored
+        one, never a 640 px image over a full-size one still valid. For a URL that is not stored nothing is
+        saved: there is no post. Phase 2, in the AI-processor Lambda after a hand-off (AD-53 Rule 8): the same
+        Gemini extraction and preview code as the manual job, and the result, `ReextractionPreviewResult` plus
+        the `refresh` report, is the job's `result_data`. One run of either phase may use 270 s (`attemptCapMs`
+        of the type, under both Lambdas' 300 s), so the face blur's 60 s floor holds at every image, as it did
+        for the manual job.
+        **The held caption (owner decision 2026-11-12).** A caption that had to be fetched (a post with none
+        stored, a URL) is HELD on the job (`jobs.input.held`, with the fetched cover, slides and owner handle)
+        ONLY between the two phases. Phase 2 blanks it in its `finally` (success, expected failure, throw),
+        `sweepHeldPostRetention` blanks any that outlived the job (an expired or cancelled one, a dead Lambda)
+        or the 30-minute window, and the start path blanks the one of a job it cancels. It never reaches
+        `result_data`, `job_attempts`, an error message, a log line (an unexpected error is rethrown by name
+        only) or the GraphQL output; the late-result handler reads only the image list of a record.
+        **Endings.** With the caption stored, no refresh problem fails the job: the preview continues on the
+        stored images and the job ends SUCCEEDED_WITH_LIMITS with the reason (`COOLDOWN`,
+        `ACCOUNT_TYPE_NOT_SCRAPED`, `REFRESH_IN_PROGRESS`, `POST_UNAVAILABLE`, `NO_PROVIDER_REACHABLE`,
+        `PROVIDER_OVER_QUOTA`, `TIMED_OUT`, or `REFRESH_DID_NOT_HEAL_IMAGES` when a provider answered but saved
+        nothing and links stay expired) and a plain message; the report names the outcome, why a fetch was
+        due, whether links were saved, whether a late result is pending, when a retry is possible and how many
+        stored links are still expired (the banner is Story 10.6a). With NO caption stored, the same refusals
+        end the job FAILED with the reason, mapped to the codes the screen already reads
+        (`ACCOUNT_NOT_SCRAPABLE`, `RATE_LIMITED`, `SCRAPE_IN_PROGRESS`, `SCRAPE_FAILED`). The job never WAITS
+        for a Bright Data snapshot: one that outlives the budget is linked to the job (AD-53 Rule 16) and the
+        type's late-result handler saves its links (after the AD-34 gate again) through the same writer,
+        answering `NO_CHANGE` so a finished or expired job is never revived. **Starting.** The input is
+        `{ postId }` (key the post id) or `{ url }` (key the platform identity), so a second click joins the
+        open job, EXCEPT an admitted, open job with no write to it for 5 minutes, which is cancelled (plain
+        reason) and replaced by a fresh job; the rule is in the re-extract start path, never `admitJob`, and a
+        job still waiting for a place is never replaced. An unapplied job's `extracted` is cleared past the
+        30-minute window by the job-engine sweep. The moderator operations are unchanged and read whichever row
+        holds the preview.
+        **The per-image report (Story 10.6a, show the Re-extract progress, the missing-images banner and Retry, 2026-11-13).** Phase 2 also
+        writes `result_data.images` (one `{ position, role, state }` for each image the post lists after the file-name de-duplication,
+        position 0 the cover, state `READ`, `NOT_READ_EXPIRED`, `NOT_READ_UNAVAILABLE` or `NOT_SENT_OVER_CAP`; never a URL) and
+        `result_data.imageCap` (the slide cap the request used) beside `imagesAvailable` and `imagesSent`. They reach a screen only as the
+        moderator-only `Job.refresh` (AD-53 Rule 18), so the banner can name the missing images and a carousel longer than the preview cap
+        gets its own line and no Retry; a job finished before Story 10.6a has neither and the banner shows the counts.
 *   **Gotcha, recorded because it bit this work:** drizzle/postgres.js stores a jsonb column
     written from a JS object as a jsonb **string** holding the JSON (`events.links`,
     `manual_extraction_jobs.request_payload`). Raw SQL over such a column must unwrap it
@@ -4191,8 +4474,8 @@ This document defines the core architectural invariants for the FestDaily applic
     AD-37:** new writes go through `customJsonb` and stop producing jsonb strings; the raw-SQL
     unwrap above stays required, with the AD-37 guard on the first character, until the AD-37
     row migration has run on the table.
-*   **Considered and rejected:** an apply/replace mode (soft-deleting a post's events risks
-    favorites, calendar entries and slugs); writing the rescraped caption to `posts.content` and
+*   **Considered and rejected:** an apply mode that replaces events (soft-deleting a post's events and
+    recreating them risks favorites, calendar entries and slugs; Rule 8's Apply reuses them instead); writing the rescraped caption to `posts.content` and
     purging it afterward (a crash between the two leaves a curator caption stored; holding it only
     in the job payload leaves nothing to purge); a new table for previews (the job table already
     carries owner scope, status and result); a cooldown on every preview (a moderator re-checking
@@ -4355,6 +4638,12 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **Docs** — `docs/infrastructure/architecture-diagram.md` and `high-level-overview.md`
         (the API → scraper async-invoke edge and the sweep) in the same change as story 1
         (CLAUDE.md §4); the `project-context.md` rule added with this AD is updated by the same story.
+*   **Amended 2026-11-11 (pointer to AD-53):** follow-up 1, the classify-account mechanism story (columns, invoke
+    seam, worker branch, claim and attempt logic, CDK grant), is implemented THROUGH the generic job engine of AD-53, not as
+    a classify-account-specific build: one record, one registry, one worker for every long vendor-backed action. Story 10.7
+    moves `subscribeToAccount`'s classification onto it, and is where Rule 1 ("the subscription always succeeds") is amended
+    for an account that is not found, is private or has no reachable provider (PRD FR126, FR122). Rules 1 to 11 otherwise
+    remain accurate descriptions of the classify-account behaviour the engine will host.
 
 ---
 
@@ -4592,23 +4881,23 @@ This document defines the core architectural invariants for the FestDaily applic
     appears.
 *   **Deferred:** the ADs below are the *planned direction* of the 2026-10-22 architecture review and
     are **not built**; each has a backlog row.
-    1.  **A per-profile watermark** (BUG-076): `max(published_at)` can run ahead of what a profile's own
+    1.  **A per-profile watermark** (BUG-261022-3vh): `max(published_at)` can run ahead of what a profile's own
         scrape captured (the mappers stamp the scrape time on an undated item; a post published by
         another profile counts toward the publisher). Target: a `scraped_through_at` advanced only from
         vendor-supplied dates of records actually delivered, read by every scrape start, which also
         replaces the five independent "newest post" readers.
-    2.  **Persisted classification evidence and an `inconclusive` class** (IDEA-098): the class is derived
+    2.  **Persisted classification evidence and an `inconclusive` class** (IDEA-261022-sdx): the class is derived
         (`FAILED`, or `SUCCEEDED` with 0 items), so "empty because `dead_page`" and "empty because the
         lookup failed" are stored identically. Store the progress report on every zero-record row.
     3.  **Persisted provider health, a DB-lease probe on a canary, hysteresis, one route resolver, an
-        owner override** (IDEA-097): the probe claim is an in-process `Map` (AD-32 Rule 2 names that
+        owner override** (IDEA-261022-iyj): the probe claim is an in-process `Map` (AD-32 Rule 2 names that
         anti-pattern); the sample ignores `triggerMode`; the chain order is encoded twice and differs
         (batch Bright Data first, on-demand Apify first).
     4.  **Alerting that works without SES, and failure days by UTC date** (IDEA-096): until BUG-073 is
         fixed nothing reaches a human in production when a provider degrades; a CloudWatch alarm on the
         failover log lines and a vendor-agnostic "no posts saved in 24 h" alarm need no SES.
-    5.  **Webhooks acknowledge; the scraper Lambda classifies and re-queues** (IDEA-098), with every
-        PENDING-to-terminal transition an atomic claim (BUG-078).
+    5.  **Webhooks acknowledge; the scraper Lambda classifies and re-queues** (IDEA-261022-sdx), with every
+        PENDING-to-terminal transition an atomic claim (BUG-261022-a2z).
     6.  **The budget gate counts delivered items** (BUG-079), so failover spend is bounded by it.
     7.  **`posts_to_not_include`** (IDEA-099), once its id format is verified.
 
@@ -4847,6 +5136,842 @@ This document defines the core architectural invariants for the FestDaily applic
         and boundary lines above in the single definitions source, re-derives the golden corpus
         (fixtures 3, 5, 9, 10, 11 change) and re-runs it live, then re-runs the CC-024 regression on
         fresh image links.
+
+---
+
+### AD-45: A Credential-Less Agent May Act on the Moderator Queue Only Through a CI Bridge That Bounds, Attributes and Releases It
+
+*   **Binds:** `.github/workflows/dedup-review-export.yml` and `dedup-review-apply.yml`;
+    `scripts/dedup-review-apply-guard.sh`; `apps/backend/src/dedup-review-export.ts` and
+    `dedup-review-apply.ts` with `lib/events/dedup-review-*.ts`; the judge, floor and caps in
+    `packages/domain/src/events/dedup-review-evidence.ts` and `dedup-review-apply.ts`;
+    `resolveSuggestedMatch()` and `mergeEvents()` (AD-30 Rule 9); the columns
+    `event_match_candidates.resolved_via` and `event_merges.performed_via`; the GitHub environments
+    `dedup-review` and `dedup-review-live`; PRD 3.7 (Matching) and 3.9.3 (Moderator Tools). Design
+    record: `_bmad-output/specs/ai-dedup-review/DESIGN.md`. Interacts with AD-30 Rules 7 and 9, AD-34
+    (the scrape gate is a separate rule) and AD-40 (a write-free preview, unrelated).
+*   **Amended 2026-11-07 (FIND-120):** the apply-side reject path below is an amendment of this AD, not a new
+    AD. Each amended rule carries its own dated note. **Amended 2026-11-07 (FIND-124):** the same for the floor
+    override, a decision kind that merges a pair the floor refuses. **Amended 2026-11-11:** the same for the floor's
+    name rule, Rule 3.
+*   **Prevents:** An AI session holding database credentials. A second, divergent accept path whose
+    checks differ from the moderator's. A merge made on evidence that changed after it was reviewed.
+    A prompt-injected or mistaken decision merging events the deterministic rules never would. An
+    unbounded run. An AI merge that cannot be told from a moderator's. A secret or private text in a
+    public Actions log. Calling the approval click a review of the decisions when it is not. **Amended 2026-11-07 (FIND-120):** A
+    reject recorded on evidence that changed, past its caps, or without the owner's switch. **Amended 2026-11-07
+    (FIND-124):** A floor-less merge made without its own input and its own owner switch, or one the daily or an unattended review
+    can reach without the owner's switch and approval (the skill's rule is prose; the switch and the approval are the gates).
+*   **Rule:**
+    1.  **The bridge.** An AI reviewer (the `moderator-dedup-review` skill, a cloud session with no database
+        credentials) reaches the database only through two manually dispatched workflows: the **export**
+        (read-only, a `READ ONLY` transaction, evidence JSON) and the **apply** (acts on ACCEPT decisions;
+        **amended 2026-11-07, FIND-120:** and, when switched on, on REJECT decisions, Rule 3; **FIND-124:** and, when
+        its own switch is on, on `accept-override` decisions, which merge with no floor, Rule 3). Actions never runs an LLM. Both run from `master` only, and each prints one JSON line between
+        fixed markers.
+    2.  **One accept path.** Every AI merge is `resolveSuggestedMatch(..., via: 'ai_skill')`: the same row
+        lock, status check and journal as a moderator's accept. A source-scan test fails if the apply code
+        calls `mergeEvents`, updates the table, or writes anything itself, and another fails if the GraphQL
+        resolvers pass or write the flag. **Amended 2026-11-07 (FIND-120):** a reject goes through the same
+        shared function (`resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')`); the source-scan test is
+        unchanged.
+    3.  **A floor weaker than the thresholds, strict where it matters.** The reviewer may accept only a
+        `mid` pair that passes the floor: no earlier undo, an anchor a public post cannot fake alone (the
+        organizer, or a shared link together with a venue match), no venue conflict, a day gap of 0 (or up
+        to 90 with a shared link), every schedule of the new event covered inside that window, names that do
+        not contradict (**amended 2026-11-11:** the floor reads names with its own `namesContradictForReview`, which is
+        the ingestion rule `namesContradict` plus one exception: a name against the same name plus a subtitle, after a
+        `: ` or a spaced dash, whose only numbers are bare, at least three digits long and not after a sequence word
+        such as "Day", "Part" or "Hari ke", as "Pre-Event Webinar" against "Pre-Event Webinar: Study Abroad 101". A
+        number outside such a subtitle, a bracketed qualifier, a category such as "10K", an ordinal such as "2nd" and a
+        campaign number with no shared head still refuse. Ingestion's auto-link keeps `namesContradict`, unchanged).
+        Evidence is recomputed server-side and compared by hash before every merge, and
+        again under row locks. The reviewer never rejects, and never merges what the floor refuses (**amended 2026-11-07, FIND-124:** except as a moderator's `accept-override`, below). The same
+        holds for a pair a moderator accepts in the attended decision loop (`FIND-119`): it is merged only if
+        `validate` calls it eligible, and the loop offers no reject. **Amended 2026-11-07 (FIND-120):** the
+        skill's own rule stands (the daily AI review never rejects), and the sentence "the loop offers no reject"
+        stayed true until `FIND-121` (next paragraph). What changed is the bridge: an apply decision may carry `action: reject`
+        (exactly `accept`, the default, `reject` or, since FIND-124, `accept-override`). A reject is judged on the pair's state, the evidence hash,
+        the invoker and the caps, with no floor, except that a `high`-tier pair is skipped `already-high`. It is
+        recorded by `resolveSuggestedMatch(..., 'REJECT', via: 'ai_skill')` under the invoker moderator:
+        `status = rejected`, `resolved_via = ai_skill`, no `event_merges` row, events untouched. It locks the
+        suggestion row only, is judged again under that lock, and `validate` skips it `event-already-in-run`
+        when an earlier accept in the file claimed one of its events (live reports `stale-pair` or
+        `stale-evidence` after that merge). It ships dark: it needs the workflow input `allow_rejects` and, in
+        `apply`, the Rule 7 variable. The hash and state checks keep a reject on current evidence; they do not
+        stop a malicious decision, since anyone who can read the export can compute a hash. The bounds are the
+        pending state, the caps, the owner's variable and the owner's approval of each run; the last two are
+        only as strong as the Rule 6 Limit. Worst case with the switch on: ten pairs a day hidden from every
+        moderator, reopened only by the owner's SQL; with it off, none. **Amended 2026-11-07 (FIND-124):** an apply
+        decision may also carry `action: accept-override` (exactly that string), a merge of a pair the floor refuses:
+        the same shared function (`resolveSuggestedMatch(..., 'ACCEPT', via: 'ai_skill')`), judged on the pair's
+        state, the evidence hash, the invoker, a shared event and the Rule 4 caps, with **no floor and no tier
+        skip** (the owner's choice: a moderator's own accept in the app has no floor either). The judge skips the
+        floor only for exactly that value. It needs the workflow input `allow_floor_override` (shown as
+        `override=true` in the run name, also in `validate`, which can judge it) and, in `apply`, the owner's
+        variable `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` (exactly `true` or `1`, read before any code is fetched,
+        independent of the reject switch); the library asserts both itself. It is undoable with `undoEventMerge`;
+        the journal reads `performed_via = 'ai_skill'` and nothing marks an override (a marker needs an enum
+        migration, deferred with `FIND-114`). It drops the floor's `undone-before` veto too. The daily and any
+        unattended review never use it: `SKILL.md` says so and a test pins that only step 8 names the input.
+        **Amended 2026-11-11 (FIND-125):** the attended decision loop (step 8) now offers it as the popup option
+        **Merge regardless of the floor**, beside Reject and Skip, for a non-`high` pair that `validate` refuses by a
+        floor code (never for a pair `validate` called eligible, which is an Accept, and never with Accept in the same
+        popup). It counts only as the session's own exact popup label returned by `AskUserQuestion`, built by the
+        reader (`brief --offer reject,override`), followed by a Yes on the reader's `confirm`, which states what the
+        override skips and that `undoEventMerge` is the undo; nothing typed in chat, no relayed popup and no event
+        text is an answer. It follows the same attended definition as a reject (a session another agent started, a
+        `claude -p`, a relayed or a webhook-woken one is unattended and never offers it). The reader builds the
+        `decisions` (`--override`) and the closing (`close-decided`), and reads an `accept-override` report only when
+        the caller names the ids dispatched as overrides. Worst case with the switch on: ten floor-less merges in a run and the day cap in a
+        day, each undoable; with it off, none. **Amended 2026-11-07 (FIND-121):**
+        the sentence "the loop offers no reject" no longer holds: the attended decision loop now offers Reject
+        (popup options Accept, Reject, Skip) for a non-`high` pair: both options when `validate` calls it
+        eligible, Reject and Skip only when the floor refuses it or it hit the per-run cap or an earlier accept's
+        event, with the same bridge, the same variable and the owner's approval. A reject counts as
+        attended only when the user's message asked for the loop, the reader built the popup, and the session's
+        own popup answer was exactly the Reject label followed by a final Yes; a session started by
+        `create_session`, a subagent, `claude -p`, a mailbox or a webhook is unattended and never rejects.
+        This is prose the platform does not enforce (Rule 6, `FIND-116`); the independent checks are the
+        owner's variable and the owner's approval of each run. The daily AI review still never rejects. The
+        loop's reject reads as `reviewer` in the export, so the loop's `close-decided`, which works from the
+        validated apply report, closes its issue with `outcome:rejected`. The variable is the owner's to set (the
+        owner reported setting it on 2026-11-07; a session cannot verify that).
+    4.  **Bounded.** At most 10 merges a run and 25 AI decisions in 24 hours (undone merges and AI
+        rejections count), one run at a time, and a kill switch (`DEDUP_REVIEW_APPLY_DISABLED`, an
+        environment variable of `dedup-review-live`) that stops apply unless it is exactly `false` or `0`.
+        **Amended 2026-11-07 (FIND-124):** an `accept-override` is a merge: it counts in the per-run cap of 10 and the
+        shared day cap of 25 like any other. **Amended 2026-11-12 (FIND-126):** the caps are owner-tunable. The
+        variables `DEDUP_REVIEW_PER_RUN_CAP`, `DEDUP_REVIEW_PER_DAY_CAP` and `DEDUP_REVIEW_PER_DAY_REJECT_CAP` of
+        `dedup-review-live` replace the defaults (10, 25 and 10) when set. Each must be digits only, a positive whole
+        number, and not above a ceiling that the code owns (per run 100, per day 200, rejects 100), or the run is
+        refused before any code is fetched; raising a ceiling needs a reviewed PR. The same variables are read by the
+        `validate` job when they are set in the `dedup-review` environment, so a validate judges against the caps
+        apply will use (apply's own variables always bind; validate sees no variable otherwise). `accept-override`
+        merges keep a fixed cap of 10 a run whatever the per-run cap is, so raising it does not widen the floor-less
+        path. The worst case of an unattended day is therefore the day cap, not 25; the daily review never rejects or
+        overrides, so only attended decisions reach the reject cap.
+        **Amended 2026-11-07 (FIND-120):** the per-run cap of 10 counts merges only; a reject never counts
+        against it. The shared 25-per-24h cap counts merges (undone ones included) plus AI rejections. Rejects
+        also have their own cap of 10 per 24 hours, counted from the suggestion rows (`status = 'rejected'` and
+        `resolved_via = 'ai_skill'`), so an owner reopening one removes it from the count, unlike an undone
+        merge. Both day checks report `per-day-cap`; a failed reject reuses `merge-failed`.
+    5.  **Attributed.** The invoker is identified by the SHA-256 of the lowercased Claude account email,
+        matched to exactly one active moderator, who is recorded as the actor; `resolved_via` and
+        `performed_via` say the AI made it (**amended 2026-11-07, FIND-120:** a reject writes no `performed_via`;
+        its `resolved_via = ai_skill` says the bridge recorded it, not who decided). This is transparency, not authentication: anyone who can
+        dispatch the workflow can supply any hash. **Accepted exposures:** the hash, the run tag and the
+        decisions (ids, hashes, free-text `reasons`) are public inputs and stay in logs for their retention;
+        a refusal versus a clean report tells a guesser whether an address is a moderator's; the skill sends
+        `reasons: []`. **Amended 2026-11-11 (decision clues):** a decision may also carry `clues`, codes of a closed
+        list that are public-safe; a free-text note never travels through the bridge (a `note` key refuses the file) and
+        only the moderator screen can store one.
+    6.  **The gate releases a credential; it does not review decisions.** `apply`, a dry run included, runs in
+        `dedup-review-live` and waits for the owner's approval, which releases the write credential. The
+        approver sees ids and hashes and cannot judge a merge or a reject from them. `validate`, the skill's shadow mode,
+        runs in `dedup-review` with a read-only role and needs none. An approval can come after `master` has
+        moved, so `apply` refuses unless its commit is still the head of `master`. **Limit:** the gate stops
+        anyone but the approver. If the AI session dispatches with a token that belongs to the one required
+        reviewer, it can approve its own run through the API, so the gate does not stop that session. To make it
+        real the session must dispatch as a separate account that is not a reviewer, with "Prevent self-review"
+        on; until then the gate is only as strong as the separation of that token. **Amended 2026-11-07
+        (FIND-120):** the reject switch (`allow_rejects` and the Rule 7 variable) is as strong as this Limit: a
+        token that can dispatch, or an admin token that can edit the variable, defeats it. **Amended 2026-11-07
+        (FIND-124):** the same holds for the override switch (`allow_floor_override` and
+        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`). It removes the floor, so the owner turns the variable on only while an
+        attended session runs and off again after: with it on, a prompt-injected unattended session that dispatched
+        the input would be stopped only by the owner's click on a run named `override=true`.
+        **Amended 2026-11-11 (FIND-125):** the skill now dispatches that input, but only in the attended loop; the
+        owner's "on only while an attended session runs" rule is therefore the window in which that loop can merge a
+        pair the floor refuses, and the skill's rule 7 is prose (the platform does not enforce it), as for rejects.
+    7.  **What protects the credential.** Rules 3 and 4 bound a mistaken or manipulated *decision*. They do
+        nothing if the credential leaks. That is covered only to the extent these are in place: both environments
+        limited to `master`; the required reviewer; no repository or organization secret or variable of the
+        same name (**amended 2026-11-07, FIND-120:** this holds for `DEDUP_REVIEW_REJECT_ENABLED` too, an
+        environment variable of `dedup-review-live`, off unless exactly `true` or `1`; **FIND-124:** and for
+        `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED`, by the same rule; **FIND-125:** the attended loop is the one session that dispatches the input, so the variable is on only while it runs); a reviewed `master` (the ruleset `protect-master`, since 2026-11-03: a pull request is
+        required, a code owner named in `.github/CODEOWNERS` must approve a change to the workflows, `scripts/`
+        and the dedup code, and force pushes and deletion are blocked; the repository admin role bypasses it
+        inside a pull request, so it stops everyone but the owner and a session using the owner's token; tested
+        2026-11-03: a direct push and a branch deletion are refused even for the owner, but a pull request that
+        touches an owned path merges with a plain `gh pr merge`, the bypass being automatic); and
+        the supply chain of the apply job (no dependency lifecycle scripts, no persisted checkout token, no
+        restored cache, actions pinned by commit SHA). **The apply workflow's actions have been pinned by SHA
+        since 2026-11-03.** `--ignore-scripts`
+        stops lifecycle scripts only: a dependency's own code still runs when it is built (a step without the
+        credential) and when the script imports it (a step with it). The read-only secret has the same exposure:
+        `backup_ro` reads every table, the export holds it with tag-pinned actions (`FIND-109`), `validate` holds
+        it with SHA-pinned ones, and `validate` needs no approval. **Precondition (owner decision 2026-11-01),
+        met 2026-11-03:** the write secret is created only after the actions in the apply workflow are pinned
+        by SHA. The owner role is already in `production` and used by other workflows without a reviewer; the
+        write secret holds a different, narrower role (Rule 8), so this does not add a copy of it.
+    8.  **The write role is a narrow role, not the owner role.** The secret holds `dedup_review_apply`
+        (created 2026-11-03): `BYPASSRLS`, no DDL, `UPDATE` and `INSERT` only on the tables a merge changes
+        (grants in `3-database.md`). The time-boxed use of the migration (owner) role that this rule first
+        allowed, expiring 2026-12-31, was not taken. Its read grant is `SELECT` on the tables in `public`, with
+        no `pg_read_all_data` and so no `auth` schema; narrowing that to the evidence tables is what remains of
+        `FIND-114`. Rotating its password means updating one secret.
+    9.  **Reversibility and audit.** A merge is undoable through `undoEventMerge` (AD-30 Rule 9), with the
+        known gap that undo does not refuse when a later merge touched the winner (`FIND-113`). **Amended
+        2026-11-07 (FIND-120):** a reject is not undoable in the app (a moderator's own reject is the same
+        today; no un-reject exists and the only merge entry point is `resolveSuggestedEventMatch` on a pending
+        suggestion). List AI rejects from the database with `status = 'rejected' and resolved_via = 'ai_skill'`
+        (newest `resolved_at` first); a lost report after a live commit is checked by that listing (rejects
+        write no journal row) as well as the `event_merges` listing. The owner reopens one by SQL, which lives
+        in the runbook (`docs/infrastructure/7-event-dedup.md`) and never in code (**FIND-121:** this holds for a
+        reject chosen in the attended loop too, so the loop asks a final Yes that names the one-way effect). **FIND-124:** a merge made by an override is undone
+        like any other with `undoEventMerge`; **Amended 2026-11-11 (FIND-125):** the skill's reader reads an override
+        run's report when the caller names the ids dispatched as overrides (an unannounced one is still refused with
+        exit 7) and `close-decided` closes the issue with its own comment; a lost report is checked from the database
+        as for any other merge. The list to
+        undo from is the database's, not the log: `event_merges` where `performed_via = 'ai_skill'` and
+        `undone_at` is null. Actions logs expire (90 days by default) and do not record the approver; storing
+        the run id in the journal is deferred (`FIND-114`). Moderators have no screen for AI merges yet
+        (`IDEA-113`).
+    10. **Nothing private in a public log.** No username, account id, caption or email is read into the
+        output; event text passes through as stored on public event pages; an unexpected error prints only
+        its class, SQLSTATE code and a fixed hint. The job summary holds counts, the two oldest-pending timestamps (raw) and fixed reason codes only;
+        the log holds the script's whole report (suggestion ids and merge ids, no more private than the public
+        dispatch inputs). **Amended 2026-11-07 (FIND-120):** `action` joins the public inputs; nothing else does.
+        The export's report of what became of the pairs the reviewer escalated (`skipResolved`,
+        the decisions in `recentlyResolved`, the counts and the two queue ages) holds ids, statuses, timestamps and
+        the `human`, `reviewer`, `system`, `unknown` class only, and sits outside `evidenceHash` (FIND-115).
+*   **Enforced by:** `dedup-review-workflow.test.ts` (the workflow's text and the guard script's behavior),
+    `suggested-match-resolve-ratchet.test.ts`, the domain tests of the judge and floor (100% coverage), and
+    the apply library's tests against a real database.
+
+---
+
+### AD-46: Selected Multi-Slide Posts Are Extracted in Steps; the Continue Decision Is Code, Never the Model
+
+*   **Binds:** `apps/backend/src/lib/ai-processor/process-ai-job.ts` and `build-gemini-request.ts`; a new pure
+    decision function in `packages/domain/src/` (the table in
+    `_bmad-output/specs/spec-cursor-extraction/continue-rules.md`); `MAX_CAROUSEL_IMAGES`; the AD-30 Rule 5
+    payload. Spec: `_bmad-output/specs/spec-cursor-extraction/SPEC.md` (CAP-1, CAP-2, CAP-8). Evidence: `evidence.md`
+    in the same folder (post `DfLcqoqj-al`: 8 of about 200 events imported).
+*   **Supersedes:** AD-13 Rule 1 ("one request per post, always") and Rule 3 (the multi-call loop "rejected,
+    revisit if the batched cap proves insufficient"; it did). Amends AD-30 Rule 5 ("one Gemini call per post"; the
+    per-post cap of 10 events). Each carries a dated note below.
+*   **Prevents:** Chunking posts that need one request (138 of the 209 over-cap posts are single-event photo
+    carousels); a loop whose continue or stop is the model's say-so (the model ignored the prompt's cap of 10 in
+    prior runs); two units reading the same post plan differently; a post silently losing most of its items.
+*   **Rule:**
+    1.  **One request stays the default.** The first request of every post is today's: the cover plus up to
+        `MAX_CAROUSEL_IMAGES` slides, the caption, one Gemini call. Posts with 6 images or fewer (95%) never
+        leave this path.
+    2.  **The first request also returns a small post plan** (claimed item count, per-slide role, items per
+        list slide, date range covered, whether more items are likely). The fields are optional in the consumer
+        schema and, before shipping, are verified live against the model-facing schema (growing it once caused
+        whole-request 400 INVALID_ARGUMENT; see `build-gemini-request.ts`).
+    3.  **The decision is a pure function of the cursor and the step's result** (AD-47), evaluated after the first
+        request and after every step, top to bottom, first match wins. The plan fields inform it (density,
+        "known partial" note); they never extend the loop past the unread slides.
+    4.  **Which posts continue** (the table in `continue-rules.md` is the contract): `roundup` and
+        `separate-events` with unread slides chunk further while the last step added at least one new event;
+        `program-lineup` and `dependent-stages` make ONE follow-up request with all remaining slides (up to 10
+        images in total) because their schedules merge into one event; `single-event` with at least one event
+        stops; zero events with slides remaining continues (a text-free cover is not a stop signal), at most 2
+        empty steps. "New event" means not already present for the post by normalized name plus start date.
+    5.  **Per-call event cap.** About 25 events per call, enforced in code, on every request including the first
+        (a post cannot be known to step before its first request returns). With the kill switch on it replaces the
+        per-post cap of 10 (AD-30 Rule 5, `MAX_EXTRACTED_EVENTS_PER_POST`); with the switch off the cap of 10 stays.
+        A first request that reaches the cap is at risk (AD-49) and is split like any window, so no item beyond the
+        cap is lost before the cursor moves past it.
+    5a. **Which label decides.** The first request's `groupingReason` decides the path. Labels returned by later
+        steps are logged and never stop or redirect the loop (a later 1-slide window cannot end a roundup).
+    6.  **Quota trade-off recorded.** Steps multiply requests against the quotas of the keys used (AD-13's quota
+        rationale still binds). AD-51 bounds the multiplication by construction.
+    7.  **Amended 2026-11-09 (supersession).** AD-13 Rule 1 and Rule 3 and AD-30 Rule 5 carry a pointer to this
+        AD; their text is otherwise unchanged.
+*   **Enforced by:** domain unit tests that reproduce every row of the table (CAP-2); the live regression harness
+    over the corpus in `evidence.md`.
+
+---
+
+### AD-47: A Step Is One Queue Message Carrying the Cursor; the Cursor Is Also Persisted; Resume Is Automatic
+
+*   **Binds:** the AI processing queue and the AI processor Lambda (5-minute EventBridge tick,
+    `pollAndDrainQueue`, the PR #180 per-message budget); `posts` (new nullable `extraction_cursor` jsonb, null when
+    no chain is in flight); `extraction_audit_logs` (AD-29); `POST_EXTRACTION_CLAIM_TTL_MINUTES` and
+    `enqueue-post-for-processing.ts` (Story 3.6z claim). Spec: CAP-3, CAP-7.
+*   **Prevents:** A loop inside one Lambda invocation (it would outrun the per-message budget); a post left
+    half-extracted until a human notices; two steps of one post running at once; a redelivered step changing
+    results; readers of "the latest audit row" misreading a step row as the post's final verdict.
+*   **Rule:**
+    1.  **One step, one message.** Each step is a separate message carrying the cursor: post id, next slide index,
+        next free ordinal (AD-48), the dedupe keys of events found by committed steps, the first request's grouping
+        reason, whether the one follow-up was made, empty-step count, step count and lease nonce, window size, total
+        image count, unread slides at the start, requests made so far (AD-51), resume attempts, re-scrape count and
+        time, the image links for the unread slides, last observed items per slide, claimed item count. It is one
+        versioned JSON type in `packages/domain`, read and written by one function. It never holds the caption (Rule 7)
+        and `posts.extraction_cursor` is never exposed through GraphQL (it holds image links).
+        The step must fit the budget of AD-28 and PR #180 (blur floor plus margin); a step that would start below it
+        is left in flight, not run.
+    2.  **Serial per post.** The next step message is enqueued only after the previous step has committed, with a
+        short delay. Steps of different posts run in parallel as today.
+    3.  **The post stays in progress** (`is_extracted` false, the extraction claim held and refreshed by each commit)
+        until the last step. Each step writes its own `extraction_audit_logs` row. Every reader of "the latest audit row"
+        (quality tooling, the moderator preview) is reviewed in the story that ships this and must read the
+        post's last step or all of its rows, never assume one row per post.
+    4.  **One writer, one lease.** Every write of the cursor, including the resume pass's, goes through one function
+        that compare-and-sets on (step count, lease nonce). A step takes its lease by that compare-and-set before its
+        first Gemini request; a copy that cannot take it, a message whose step count is older than the persisted
+        cursor, and a message for a post with a null cursor, `is_extracted` true or no longer existing are dropped.
+        This is how a redelivered or resumed duplicate changes nothing. The resume pass bumps the nonce, never the step
+        count, so it cannot kill a live step after its side effects; a step that loses its lease stops before enqueueing.
+    4a. **Commit order.** A step (1) takes the lease, (2) calls Gemini, (3) reserves its ordinal range by compare-and-set
+        (AD-48), (4) enqueues its ingestion messages, (5) commits: advances the next slide, step count and the dedupe
+        keys in one compare-and-set, then enqueues the next step. A crash before (5) replays the step with a fresh range;
+        a crash before (3) loses nothing.
+    5.  **Resume is automatic.** The tick begins with a resume pass: a post with a cursor, a claim older than the
+        claim TTL, valid images and attempts left (counted in the cursor and never reset, growing delay, starting value
+        6) has its next step re-enqueued from the persisted cursor. The pass reads the kill switch first (AD-51 Rule 2).
+        No human step. The claim TTL must exceed the longest step-message delay. A dead-lettered copy is harmless
+        because steps are idempotent (Rule 4, AD-48).
+    5a. **A non-null cursor is a claim of any age.** `enqueuePostForProcessing` and the PENDING status derivation treat
+        `extraction_cursor IS NOT NULL` as in progress regardless of `queued_for_extraction_at`; only the resume pass may
+        reclaim it. A fresh chain therefore never starts on a post whose chain is alive.
+    5b. **Every stop path is atomic.** It sets the cursor to null, `is_extracted` true and `extraction_partial` (AD-50)
+        according to the outcome in one write: clean end, the follow-up of AD-46 Rule 4 with slides still unread
+        (partial), the AD-51 bound, the kill switch, attempts spent, a slide count that changed. A deleted post or one
+        that fails the AD-34 gate clears the chain and enqueues no ingestion.
+    6.  **Order before giving up.** Queue retries of the step; resume-pass attempts while images are valid; one
+        re-scrape when images expired (AD-51 Rule 4); only then the cursor is cleared and the post is flagged partial
+        for good (AD-50).
+    7.  **The caption never persists.** A step reads the caption from `posts.content` in memory and sends it in its
+        request; the message and the cursor never carry it (AD-40). A post whose caption was already nulled (a curator
+        post, Story 3.4o) takes the image-only path from step 2 on and the step line says so.
+*   **Enforced by:** a test that re-delivers a step message twice and finds the same events once; a test that forces
+    429, 503 and a timeout on one step and finds the chain finished by the next tick.
+
+---
+
+### AD-48: Extraction Ordinals for Stepped Posts Are Per-Step Ranges From a Next-Free Value in the Cursor
+
+*   **Binds:** `packages/domain/src/events/assign-extraction-ordinals.ts` and `pair-post-events.ts`;
+    `event_posts.extraction_ordinal` (`smallint`) and the slug suffix that follows it; `process-ingestion-job.ts`'s
+    `(post, ordinal)` lookup; the re-extract Apply (`assignApplyOrdinals`, `PARKED_ORDINAL_BASE`, AD-40). Interacts
+    with AD-30 Rules 1, 3 and 8.
+*   **Prevents:** Two steps numbering the same slot; a number that changes between two runs of the same step; an
+    event lost because a unique violation was read as an idempotent skip (AD-30 Rule 3); a renumbering of events that
+    already have public slugs.
+*   **Rule:**
+    1.  **The first request numbers as today** (`assignExtractionOrdinals`: 0 to n - 1 by earliest schedule date). The
+        cursor's next-free ordinal starts at n.
+    2.  **Each later step takes the next range** from the cursor, assigned after the step's window result is final
+        (after any split of AD-49), in the order (earliest start date, normalized name, original index), which is
+        deterministic for a given result. The range is **reserved by compare-and-set on the cursor before the
+        ingestion messages are enqueued** (AD-47 Rule 4a), so a replayed step starts after the reserved range; gaps in
+        the numbering are harmless. The dedupe is against the post's events in the database plus the keys held by the
+        cursor; the slot of a replay never collides with one the first run may still insert. Ranges ascend across steps.
+        The reservation happens under the post-row lock that the re-extract Apply also takes (AD-40), and skips ordinals
+        at or above `PARKED_ORDINAL_BASE`.
+    3.  **Why not the other options.** Numbering by event `created_at` was rejected: ingestion looks up
+        `(post, ordinal)` before inserting, so the number must exist before the event, and `created_at` reflects the
+        race between parallel ingestion consumers, so a redelivered message could number differently. Allocating
+        `max + 1` at insert races between parallel ingestion messages and a unique violation would silently lose an
+        event. A content key replacing the ordinal was rejected: the ordinal drives the slug and AD-30's identity.
+    4.  **Only the cursor allocates.** Ingestion keeps its idempotent skip on an occupied slot (AD-30 Rule 3) and never
+        allocates a number itself; an occupied slot with a different event is logged as `ordinal-slot-conflict` and flags
+        the post partial, never overwritten. With one allocator, write-ahead reservation and the lease, this is
+        unreachable in normal operation and a bug when seen.
+    5.  **The ceiling.** Events per post are at most (requests allowed by AD-51) times the per-call cap of AD-46, far
+        below `PARKED_ORDINAL_BASE` and the `smallint` limit; the story states the derived figure.
+*   **Enforced by:** domain tests for range allocation and determinism; an ingestion test for the conflict path; a
+    replay of `DfRtgnXE_41` (26 events) in 3 steps yielding 26 distinct events.
+
+---
+
+### AD-49: The Gemini Client Reports Truncation and Usage; an Unparseable Response Is Never Dropped
+
+*   **Binds:** `apps/backend/src/lib/ai-gateway/gemini-client.ts` (today it returns only `text`);
+    `process-ai-job.ts` (today a JSON parse failure logs and returns silently); AD-29 audit rows; the response schema
+    in `build-gemini-request.ts`. Spec: CAP-4.
+*   **Prevents:** Losing items silently when the output stops at the token limit; a parse failure that ends the job
+    with no trace; different units inventing their own truncation test.
+*   **Rule:**
+    1.  **The client returns `finishReason` and the token usage** (`usageMetadata.candidatesTokenCount`,
+        `promptTokenCount`) next to `text`, additively: existing callers keep reading `text`.
+    2.  **At risk** means any of: `finishReason` is `MAX_TOKENS`; output tokens at 90% or more of
+        `maxOutputTokens`; events at the per-call cap; the model's `minEventCount` above events plus
+        `skippedItems`; a JSON parse failure with an unterminated string (a truncation seen in the live corpus).
+    3.  **An at-risk window is split and retried** (halved, down to 1 slide; for the first request, down to fewer
+        slides, the cursor then starting after the slides actually read) before the continue rules are consulted. Every
+        retry counts toward the AD-51 bound. A 1-slide window that still truncates keeps its result and marks the post partial. A parse failure
+        on a window of 2 or more slides is treated as at risk; on 1 slide it is retried once, then recorded as a failed
+        step (audit row with the reason) and the post is left retriable by the resume pass, never dropped.
+    3a. **Thinking tokens** are not measured yet; the 90% rule uses reported output tokens and is tuned with the live
+        harness.
+    4.  **The starting values** (25 events per call, 90%, a first window of 2 slides) are code constants tuned by the
+        harness, not environment values (AD-51).
+*   **Enforced by:** client tests with a mocked SDK response for each signal; a process-ai-job test for the
+    parse-failure path.
+
+---
+
+### AD-50: A Post Is "Still Being Finished" or "Partial"; the Roundup Sibling List Is a Separate Read
+
+*   **Binds:** `posts` (`extraction_cursor` from AD-47 and a new `extraction_partial` boolean, default false);
+    `event_posts`; a new read next to `Query.relatedEventIds`; the stub event page. Interacts with AD-30 Rules 4 and
+    10. Spec: CAP-9.
+*   **Prevents:** A permanent "partial" claim on a post that is only waiting for its next step; a join added to
+    `Query.events` or `Query.eventBySlug` (AD-30 Rule 4); a stub page that gives no hint that other items exist;
+    notifications from stubs.
+*   **Rule:**
+    1.  **Two states, one meaning each** (every stop path of AD-47 Rule 5b writes the right one atomically). A non-null cursor means "still being finished". `extraction_partial` true
+        means "will not be finished" (images expired and the re-scrape refused or failed, attempts spent, the slide
+        count changed, or a 1-slide window still truncated), set when the cursor is cleared (AD-47 Rule 6) or when
+        the loop stops with slides unread because of the AD-51 bound or kill switch.
+    2.  **The page note shows for either state,** with different words, and links to the source post.
+        `claimedItemCount` informs the note's wording only.
+    3.  **The sibling list is a read of `event_posts`** for the roundup's post, shown on a roundup stub page only, as
+        its own query (precedent `Query.relatedEventIds`). It adds no join and no field to `Query.events` or
+        `Query.eventBySlug`; an ordinary event page is unchanged.
+    4.  **Stubs never notify** (AD-30 Rule 10) and the new events join the same post as stubs, not as a new post.
+    5.  **Recovery clears the flag.** A successful re-extract Apply (AD-40) sets `extraction_partial` false.
+*   **Enforced by:** a query-plan test that `Query.events` and `Query.eventBySlug` are unchanged; resolver tests for
+    the sibling read and the two states.
+
+---
+
+### AD-51: The Work per Post Is Bounded by Construction; a Kill Switch Turns the Loop Off; Provider Errors and Expired Images Have One Policy
+
+*   **Binds:** the stepped path of `process-ai-job.ts`; one new environment variable `CURSOR_EXTRACTION_ENABLED` in
+    `apps/backend/src/env.ts`; AD-28 (blur per step), AD-14 (geocoding), AD-32 (vendor wrapper), AD-34 (scrape gate),
+    AD-40 (never keep a caption); the FIND-110 one-scrape-per-URL lease; the PR #180 budget. Spec: CAP-6, CAP-7,
+    CAP-10.
+*   **Prevents:** An unbounded request count for one post; a tunable cap that an operator mis-sets; a retry storm
+    against a metered scraper or a rate-limited model; a re-scrape that renumbers events or rewrites the post.
+*   **Rule:**
+    1.  **The bound is structural.** The requests after the first may not exceed twice the post's unread slides at the
+        start of the loop (images beyond the first request's window; a 20-image post: at most 2 x 14 = 28). The first
+        request is not counted but its own splits are. The cursor holds `requestsMade` and the unread count at the
+        start; the counter is incremented and persisted by compare-and-set **before** each Gemini call, so a request
+        that crashed or was redelivered still counts, and resume attempts never reset it. A check before every request
+        logs and stops the loop when the bound would be exceeded and flags the post partial (AD-47 Rule 5b). There is no
+        per-post step cap, event cap or daily limit to tune; the AD-49 constants are code.
+    2.  **The kill switch** `CURSOR_EXTRACTION_ENABLED` (read per message). Off means every post takes the
+        one-request path of AD-46 Rule 1 (with the old cap of 10); a chain already in flight, and the resume pass, stop
+        at the next step and flag the post partial. `[ASSUMPTION]` the code default is off and infra turns it on after the live regression passes (ships
+        dark, like AD-45).
+    3.  **429 and 503.** A step that gets one is retried through the queue with a visibility delay; steps of one post
+        are serial (AD-47 Rule 2), which spaces its requests; no in-Lambda retry loop. Key selection (subscriber BYOK
+        by tier, then the system key) is unchanged.
+    4.  **Re-scrape before giving up.** When the stored image links have expired (read from the URL itself) or a slide
+        fetch fails with 403, 404 or 410 while slides remain, the resume pass re-scrapes: at most 2 per post, at least
+        10 minutes apart (the AD-40 re-scrape cooldown), only through the AD-32 wrapper, the AD-34 gate
+        (`isStoredPostAccountScrapable`) and the FIND-110 lease. It replaces only the image links held in the cursor;
+        progress is untouched, the caption is not stored and `posts` is not rewritten. The re-scrape is recorded where
+        AD-40's cooldown reads its own (one ledger), so a moderator preview and a chain cannot both hit the vendor
+        within the cooldown. The moderator preview and Apply refuse a post with a non-null cursor (`CHAIN_IN_FLIGHT`). The fresh slide list must have the
+        same count and order as the stored one, else the post ends partial. A refused or failed scrape ends the post
+        partial with the reason logged; the scrape is never retried in a loop (the prod Apify account is on a capped plan).
+    5.  **Per-step budgets.** Each step blurs only its own images (AD-28 fail-closed, never sends unblurred bytes) and
+        must fit the per-message budget; geocoding happens at ingestion, about one call per schedule (AD-14), and is not
+        part of the step's budget.
+    6.  **One greppable line per step** (slides read, events added, input and output tokens, `finishReason`, and the
+        stop rule or bound that ended the loop) for operators.
+*   **Enforced by:** a 20-image fixture whose every response forces splits (never above the bound; an injected
+    violation logs and stops); a test with the switch off; a re-scrape test that checks the cursor's progress survives.
+
+---
+
+---
+
+### AD-52: One Retry Policy Maps a Classified Failure to a Decision; Durable Retries Live in a Post-Level Attempt Ledger
+
+*   **Binds:** a new pure module `packages/domain/src/retry/` (the situation set and `decideRetry`); the guarded
+    vendor wrapper `callVendor` (AD-32 Rule 4: today a yes/no `isTransient` and a fixed `computeBackoffDelayMs`); the
+    Gemini key loop in `apps/backend/src/lib/ai-gateway/adapter.ts`; `send-sqs-message-with-retry.ts`;
+    `eval-retry-policy.ts` (folds in); `processAiJob`; `posts` (new columns below); the resume pass of AD-47 Rule 5;
+    `derivePostExtractionStatus` and its SQL twin in `post-extraction-status.ts`, the `PostExtractionStatus` GraphQL
+    enum and the moderator extract screen. Consumes AD-49 (finish reasons) and AD-51 (re-scrape). Build slices 1b and
+    1c in `_bmad-output/specs/spec-cursor-extraction/build-slices.md`.
+*   **Prevents:** Each client inventing its own retry rule (four exist today and disagree); retrying what can never
+    succeed (a safety block, a bad request); repeating a request that was cut off at the token limit instead of
+    splitting it; burning attempts against a spent daily quota; a post whose attempt failed looking the same as one never
+    tried; retries that outlive the image links; an in-call loop and a durable loop multiplying each other's attempts.
+*   **Rule:**
+    1.  **Classify, then decide.** A client adapter maps its raw error or response to one `Situation` from a closed set
+        (it never decides to retry itself): `rate_limited` (with the server's retry-after when given), `quota_exhausted_daily`,
+        `unavailable` (5xx, connection reset), `timeout`, `truncated`, `unparseable`, `blocked`, `invalid_credential`,
+        `bad_request`, `image_expired`, `unknown`. The classifier is the only vendor-specific code.
+    2.  **`decideRetry(situation, attempt, hint) -> { action, delayMs?, reason }` is pure** and the only place the table
+        below lives. Actions: `retry_now` (inside the caller's time budget), `retry_later` (durable, with a delay),
+        `switch_credential`, `split_window` (AD-49), `rescrape` (AD-51 Rule 4), `give_up`. Backoff is exponential with
+        jitter and a cap (the shape of `computeBackoffDelayMs`), and a server hint overrides it.
+
+        | Situation | Action |
+        |---|---|
+        | `rate_limited` | The hint plus a margin, else backoff; `switch_credential` when another key exists; `retry_now` only if the delay fits the budget, else `retry_later` |
+        | `quota_exhausted_daily` | `retry_later` at the next quota reset, at most one day out, else `give_up` |
+        | `unavailable`, `timeout` | Exponential backoff with jitter: `retry_now` while the budget allows, else `retry_later` |
+        | `truncated` | Never the same request again: `split_window` (a single slide that still truncates: `give_up`, keep the result) |
+        | `unparseable` (not truncated) | One `retry_now`, then `retry_later` |
+        | `blocked`, `bad_request` | `give_up` now, reason recorded |
+        | `invalid_credential` | `switch_credential`; with no key left `give_up` |
+        | `image_expired` | `rescrape`, then per AD-51 |
+        | `unknown` | One `retry_later`, then `give_up` |
+    3.  **Two layers, one policy, no multiplication.** `callVendor` executes only `retry_now` decisions, inside the
+        caller's overall budget (AD-32). Every other action is returned to the caller as a typed outcome. A post's durable
+        attempts count failed jobs, not in-call retries, so a job that retried twice in-call and then failed counts once.
+    4.  **The post-level ledger.** `posts.extraction_attempts` (integer, default 0), `extraction_failure_reason`
+        (nullable, the situation) and `extraction_next_attempt_at` (nullable timestamp). A failed job writes all three
+        in one update that also releases the claim; success clears them. Starting values (code constants, not env):
+        at most 5 attempts and 24 hours from the first failure, never past the image expiry (AD-51 Rule 4 re-scrapes first).
+        When `decideRetry` returns `give_up` or the attempts run out, `extraction_next_attempt_at` is set to null and the
+        reason stays.
+    5.  **One resume pass.** The resume pass at the start of the AI Lambda's tick (AD-47 Rule 5) also enqueues posts whose
+        `extraction_next_attempt_at` is due, not extracted, with attempts left, through the same atomic claim as
+        `enqueuePostForProcessing`. A post with a cursor (AD-47) is governed by its cursor counters and ends partial
+        (AD-50), not ATTEMPT_FAILED; the ledger governs every other post.
+    6.  **`ATTEMPT_FAILED` is derived.** Not extracted, `extraction_failure_reason` not null and no live claim. It means
+        "retry pending" while `extraction_next_attempt_at` is set and "given up" when it is null. The domain rule, its SQL
+        twin, the GraphQL enum and the moderator filter change together (the existing lockstep test checks every status
+        against both forms). The moderator screen shows the reason and the next attempt time; a moderator's manual
+        selection resets the attempts to 0.
+    7.  **Adoption is per client.** This AD changes no client by itself. Apify, Bright Data, the SQS send and internal API
+        calls adopt it by supplying a classifier, each in its own small change; `eval-retry-policy.ts` becomes a thin
+        reader of the same table.
+    8.  **Every decision leaves one greppable line:** `[retry-decision] subject=<id> situation=<s> action=<a>
+        attempt=<n> delayMs=<ms>`.
+*   **Enforced by:** domain tests over every row of the table (100% coverage like other domain code); the status
+    lockstep test; a test that a job failing after in-call retries increments the ledger once.
+
+---
+
+### AD-53: The Job Engine: One Record, One Registry, One Worker For Every Long-Running Vendor-Backed Action
+
+*   **Binds:** `packages/database/schema.ts` (`jobs`, `job_attempts`; migrations 0096 and 0097, and 0099 and 0100 of
+    Story 10.3); `packages/domain/src/jobs/job-engine.ts`, `admission.ts` and `subscriptions/subscription-cap.ts`;
+    `apps/backend/src/lib/job-engine/` (registry, `admitJob`, `startJob`, promotion, re-admission, `cancelJob`,
+    followers, worker, sweeps); `apps/backend/src/lib/subscriptions/subscription-cap.ts`; `apps/backend/src/lib/aws/invoke-job-engine-worker.ts`; the `job-engine-run` branch of the Scraper and
+    AI-processor Lambdas and the `job-engine-sweep` branch of the Scraper Lambda; `festgrid-backend-stack.ts` (two
+    invoke grants, seven environment variables, one 5-minute rule; Story 10.6 adds `REEXTRACT_REFRESH_BUDGET_MS` on the
+    Scraper). PRD 3.18 and 4.21 (FR116 to FR130). Consumes AD-32
+    (the guarded wrapper stays the only way to a vendor), AD-34 (the scrape gate), AD-51 (a post's own re-scrape).
+    Amends AD-41 by a pointer (below). Epic 10, Story 10.1a.
+*   **Prevents:** each long vendor-backed action inventing its own record, status, deadline and sweep (four such
+    records exist today); an action that outlives the API Lambda's 28 s limit inside the request; a job nobody ends;
+    two workers running one job; a waiting job holding a user's place; a late handler overwriting a job that already
+    ended; the API Lambda bundling a host's handler (the AI-processor's `sharp` and `face-api`, the scraper's vendor
+    adapters).
+*   **Rule:**
+    1.  **One record.** `jobs` (with `job_attempts`) is the user-facing record of every long action. It REFERENCES
+        `apify_pending_jobs`, `brightdata_pending_jobs`, `scraper_actor_runs` (through
+        `job_attempts.scraper_actor_run_id`) and `vendor_call_locks`; it replaces none of them.
+        `manual_extraction_jobs` is untouched; whether it moves onto this table is Story 10.9's decision (PRD OI-4).
+        No `deletedAt`: these are append-only lifecycle records, like `scraper_actor_runs`. `type`, `reason_code`
+        and `phase` are text, so a new job type or reason never needs a migration; `status`, `trigger` and
+        `job_attempts.outcome` are enums (closed PRD sets). The type-specific input a handler needs is `jobs.input`;
+        it never holds a vendor token or a caption, with ONE bounded exception: the moderator re-extract holds a
+        fetched post (`input.held`) for the minutes between its two phases and blanks it when phase 2 ends (Rule 17). Both tables are server-only: row level security is enabled with no
+        policy in the migration that creates them (migration 0084's rule; the backend connects as the owner, and the
+        Jobs page reads through GraphQL, Story 10.4).
+    2.  **One registry, two halves.** The pure `JobTypeDefinition { type, host, maxDurationMs }` lives in
+        `packages/domain`, importable by the API Lambda, which must not import a handler. A handler is registered
+        only inside its own host Lambda. A job whose type has no handler in the Lambda that runs it ends FAILED with
+        `HANDLER_NOT_REGISTERED`; Story 10.14z later makes that a compile or test-time error for a real type.
+    3.  **Starting.** `startJob` (API Lambda) asks `admitJob` (Rule 12) to write the row, then, for an ADMITTED job
+        only, fires one async invoke (`InvocationType: 'Event'`) at the type's host with
+        `{ jobType: 'job-engine-run', jobId }` and returns the job id inside about one second. A failed invoke ends the job FAILED (`START_FAILED`, not a provider reason), the shape of
+        `startManualExtractionJob`. It is the only entry point; no entry point for system jobs exists (Rule 10).
+    4.  **One claim.** One conditional `UPDATE ... RETURNING` (the shape of AD-41 Rule 3) with the TTL
+        `JOB_WORKER_CLAIM_TTL_MINUTES` (5). It takes only an ADMITTED QUEUED or RUNNING row, and only when no live
+        claim exists. It never takes a WAITING row (that would bypass admission): `readmitWaitingJob` sends a due
+        WAITING job back through admission first (Rule 12). No row returned means another worker owns it, it ended, it is
+        not admitted, or it is WAITING: the invocation exits quietly (an async invoke can be delivered twice).
+    5.  **Two bounds.** `deadline_at` bounds the WHOLE job: admission time plus the type's `maxDurationMs`. One RUN
+        of a handler is capped separately by the smallest of the type's own `attemptCapMs` (Story 10.6; absent, the
+        environment's `JOB_ATTEMPT_DEADLINE_MS`, 150 s), the time left to `deadline_at` and the Lambda's own remaining time. A run past its budget ends the job EXPIRED (`TIMED_OUT`); a
+        handler that throws ends it FAILED (`HANDLER_ERROR`) with a FIXED plain-words `error_message`: the raw error goes
+        to the logs only, because the Jobs page reads that column and a vendor error can carry a URL, a response body or
+        caption text (PRD: vendor trouble is recorded, never raw). An ending other than Succeeded without a reason is
+        recorded as `UNSPECIFIED`, never with none (FR117). A job that must outlast one run returns WAITING. The handler
+        context carries an `AbortSignal` that fires when the run's budget is used up: the job is already ended then, so
+        a handler passes it to every vendor call and wait, or it keeps running in a frozen Lambda and resumes on the next
+        warm invocation.
+    6.  **Guarded writes.** Every write after the claim requires the row to be RUNNING and the claim to be this
+        worker's (or released by its own hand-off), so a handler that finishes after its budget cannot overwrite a job
+        that already ended.
+    7.  **Statuses and places.** QUEUED, RUNNING, WAITING (waiting for a later time or for a result from elsewhere;
+        `resume_at` is the due time or null for an event), then the four endings. A job **holds a place from its
+        ADMISSION** (`admitted_at` set, status QUEUED or RUNNING) until it ends or goes WAITING; an admitted job no worker
+        has claimed yet counts, otherwise simultaneous starts would all see zero running. A QUEUED job with `admitted_at`
+        null is waiting for a place and holds none; a WAITING job holds none (FR121). (Story 10.1a had read RUNNING as the
+        only place-holding status; Story 10.3 corrected it, see Rule 12.)
+    8.  **Cross-Lambda hand-off carries only `{ jobId }`.** A handler that needs another Lambda's capabilities calls
+        `handOffToLambda(functionName)` and returns HANDED_OFF. The worker releases its claim BEFORE the invoke (the
+        receiver claims with the same update and would otherwise be refused for the whole TTL), the receiver reloads
+        the row and resumes from its stored `phase`. A vendor token, a caption or a phase is never carried in the
+        message (AD-41 Rule 2: the payload is a hint, the worker decides from the database). Once the hand-off invoke is
+        accepted the receiver owns the job: nothing the sender does afterwards (finish, throw, run out of time) writes to
+        it, and a handler that returns HANDED_OFF without having handed off ends the job FAILED (`HANDOFF_MISSING`)
+        instead of leaving it RUNNING with nobody invoked. Each type's `host` names
+        its first Lambda: a scrape-then-extract type hosts on the Scraper and hands off to the AI-processor (the only
+        direction any known type needs; the reverse grant is added by the first story that does), while a job whose
+        own work makes no vendor call hosts on the AI-processor directly.
+    9.  **One database-only sweep, every 5 minutes.** Its own EventBridge rule (`job-engine-sweep`, Scraper Lambda)
+        ends every admitted, non-terminal job past `deadline_at` (EXPIRED, `TIMED_OUT`) and clears its claim;
+        since Story 10.3 it also expires a job that waited for a place longer than `JOB_QUEUE_MAX_WAIT_MINUTES`
+        (EXPIRED, `WAITED_TOO_LONG`), settles followers whose leader ended or vanished, re-admits every non-follower
+        WAITING job whose `resume_at` is due, promotes queued jobs into free places and re-invokes an admitted job nobody is running
+        (a lost start invoke or a crashed worker's stale claim, untouched for the claim TTL; the claim makes a duplicate
+        invoke harmless), so a lost wake-up strands nothing; each step is in its own try/catch. It also enforces retention on `manual_extraction_jobs` (an unclaimed or stuck job keeps no caption past the stale
+        limit, an unapplied re-extract preview keeps no extraction past the Apply window: FIND-086 and FIND-111). It
+        does not touch `vendor_call_locks` (AD-32's own TTL releases a dead worker's lease). **This departs from AD-41
+        Rule 5's "no new rule" on purpose:** the hourly vendor sweep also makes vendor progress calls and must not run
+        more often, while this one makes none, so a hung job ends in minutes, not up to an hour.
+    10. **User job or system job.** `trigger` is USER or SYSTEM and `owner_user_id` is required for USER only, by the
+        CHECK `jobs_user_job_has_owner` (migration 0097; hand-written SQL because drizzle-kit 0.21 does not emit CHECK
+        constraints). Places, queueing, reuse, notifications and the ordinary Jobs page apply to user jobs only
+        (FR130). No system job type is built; the daily scrape, automatic extraction and AD-52 retries stay outside the
+        engine.
+    11. **Adoption.** A new job type registers a definition and, in its host Lambda, a handler; it never adds a second
+        private mechanism. A handler that reaches a vendor still goes through the AD-32 wrapper and the AD-34 gate.
+    12. **Admission, queue and re-admission (Story 10.3).** One function, `admitJob`, decides who may run, for a new
+        start, a promotion and a re-admission. It runs in ONE transaction holding `SELECT ... FOR UPDATE` on the user's
+        `users` row (a transaction-scoped row lock is safe under the transaction-mode pooler; a session advisory lock is
+        not, AD-32), and applies, in order: reuse (Rule 13), the subscription cap (Rule 14), sharing (Rule 13), then the
+        limits: at most `MAX_CONCURRENT_JOBS_PER_USER` (3) places held, at most `MAX_QUEUED_JOBS_PER_USER` (10) waiting
+        (`JOB_QUEUE_FULL` beyond), every job type counts, a newcomer never jumps an existing queue. A job over the limit is
+        QUEUED with `admitted_at` null and `queued_since` set; promotion (`promoteQueuedJobs`) admits the oldest first
+        (`queued_since`, then id), re-sets `deadline_at` to now plus the type's `maxDurationMs` and invokes the host after
+        the transaction commits; it runs at the end of every worker run (any ending, and WAITING), after a failed start,
+        from `cancelJob`, and in the sweep. A WAITING job is re-admitted like a new start (`readmitWaitingJob`: back to the
+        queue, then promoted); event sources call it directly, the sweep calls it for a due `resume_at`. User jobs only: a
+        SYSTEM job (FR130) uses and waits for no user's place and is admitted at once. A type that has no definition in the
+        Lambda that promotes it stays queued, so every Lambda that promotes (and every Lambda that enforces the cap, Rule 14)
+        must register ALL job type definitions (the pure half of Rule 2). **Which Lambda can start which host:** the API
+        reaches both; the Scraper reaches itself and the AI-processor; the AI-processor reaches only itself (the two
+        Lambdas' environments cannot name each other without a cycle; a Lambda starts a host on itself through
+        `JOB_HOST_SELF` plus `AWS_LAMBDA_FUNCTION_NAME` and a resource policy on the function). A promotion that cannot
+        reach a job's host puts the job back in the queue in its old place (never fails it); the sweep, which runs on the
+        Scraper, starts it within 5 minutes.
+    13. **Reuse and sharing (Story 10.3, FR120).** The same work (owner, type, input key) already open for the user is
+        REUSED: nothing written, nothing invoked; the partial unique index `uq_jobs_open_input` is the backstop and a
+        follower counts as open work. A type may declare `sharedAcrossUsers` (its `resultData` is then public by
+        contract): a second user starting the same input joins the oldest admitted, open, non-follower job of another
+        user as a FOLLOWER (`leader_job_id`, status WAITING, phase `following-leader`, no place held, no vendor call). When
+        the leader ends the follower takes its status, reason, message and `resultData` (`settleFollowers`); a follower
+        whose leader row was deleted (`ON DELETE SET NULL`) fails `LEADER_LOST` in the sweep. Two users starting a shared
+        input at the very same instant may both lead (each takes its own user lock): duplicate work, never corruption.
+        Cancelling a leader ends its followers with the same ending (no follower is promoted to leader: a deliberate
+        simplification).
+    14. **The subscription cap (Story 10.3, FR122).** `MAX_SUBSCRIBED_ACCOUNTS_FREE_USER` (5) applies to every user who is
+        not a moderator; there is no tier model yet. It counts active subscriptions plus reserved slots (open jobs of a
+        type with `reservesSubscriptionSlot`). The check runs under the same user row lock, in `admitJob` for a
+        slot-reserving type, and in `subscribeToAccount` (check and insert in one transaction, BEFORE any classification
+        or scrape, so a refusal spends no vendor credit) and `removeSubscription` RESTORE. A refusal is the typed
+        `SubscriptionCapReachedError { activeCount, reservedCount, cap }`, surfaced as the GraphQL error
+        `SUBSCRIPTION_CAP_REACHED` (Story 10.3a shows it). The job whose handler turns its own reservation into the
+        subscription passes `consumesReservationOfJobId` to `subscribeToAccount`, so it is not counted against itself.
+        Known edge: the subscription is written before the vendor cascade and removed again if the cascade throws; a
+        concurrent subscribe to the same account in that window can report `alreadySubscribed` for a row that is then
+        removed, and a Lambda killed mid-cascade leaves the row (a retry returns `alreadySubscribed`).
+    15. **The post-scraper provider chain (Story 10.2, FR118).** Fetching one post goes through
+        `fetchScrapedPost` (`lib/scraper/post-scraper.ts`): an ordered chain of `PostScraperAdapter`s (pure contract and
+        `runPostScraperChain` in `packages/domain/src/scraper/post-scraper-adapter.ts`, the twin of the profile chain), order
+        `POST_SCRAPER_PROVIDER_ORDER`, **default `brightdata,apify`** (owner decision 2026-11-11, PRD OI-1: the profile chain keeps
+        Apify first, so posts prefer Bright Data to spare Apify's free plan; Bright Data's images are 640 px). It runs in the
+        Scraper Lambda, which holds both vendor tokens. Each adapter goes through the guarded vendor call (AD-32), declares
+        `minBudgetMs`, and is skipped without a call when the time left is too short, its provider's cap is known to be used up,
+        or its provider is degraded (the same `gateDegradedProvider` the daily batch uses; a `probe` verdict goes ahead). A check
+        that cannot be read fails open. An adapter's own timeout THROWS (a chain must never read a timeout as "the post does not
+        exist"), and the Apify call is bounded by the time the chain has left.
+        `null` from an adapter means the vendor says the post does not exist (the chain stops); an empty or unreadable result
+        THROWS (`PostUnavailableError`) so the next provider is tried. Each provider considered writes one `job_attempts` row
+        (`lib/job-engine/record-job-attempt.ts`; outcome SUCCEEDED, FAILED, EMPTY, TIMED_OUT, OVER_QUOTA or SKIPPED, a reason code
+        only, never the raw vendor error). An exhausted Apify monthly cap is remembered for the rest of the usage cycle
+        (`scraper_provider_usage.capacity_exhausted_until`, set by `markProviderCapacityExhausted`, read by
+        `isProviderCapacityAvailable`). Our usage cycle is not Apify's billing date, so the marker is the end of our cycle OR three
+        days from now, whichever is sooner: at worst one refused call every three days, never a month of skipping a provider whose
+        plan has reset or been upgraded. It also spares the daily batch one refused start per target (IDEA-101); a queued scrape
+        that meets the remembered cap is dropped with one warning, never redelivered into the DLQ. The credential comes from the job type through
+        `resolvePostScrapeCredential` (`app-funded` only until Story 3-4b, PRD OI-3). **For adopters (Stories 10.5 to 10.10):** a chain that skipped every provider
+        throws `PostScraperBudgetError`, which is a pre-vendor-call failure like `ScraperCapacityExceededError`: it must not start
+        the 10-minute re-extract cooldown (the cooldown reads `job_attempts`, where a chain that skipped every provider writes only
+        SKIPPED or OVER_QUOTA rows). `POST_SCRAPER_PROVIDER_ORDER` is set only on the
+        Scraper Lambda, where the chain runs; set it on the API Lambda too if a caller there ever uses the chain. The cover and the slide list come from
+        `buildPostImageUrls`, so the slides never repeat the cover (BUG-261102-4rm). One transient-error rule,
+        `isTransientVendorFailure`, serves the Apify, Bright Data and Gemini classifiers (FIND-082). **No production caller uses
+        the chain yet**: `start-post-reextraction-preview.ts` and `resume-stalled-chains.ts` still call `getPostByUrl`; Stories 10.5
+        to 10.10 adopt it. Only Instagram has a chain; another platform uses its own adapter. (**Amended 2026-11-12, Story
+        10.6:** the first production caller is the moderator re-extract job (Rule 17). A caller may pass its own `order`
+        (`getPostScraperAdapters(order)`; `POST_SCRAPER_PROVIDER_ORDER` is then not read) and an `onAttempt` hook that sees each
+        provider considered; the default `brightdata,apify` is unchanged for every other caller. `toJobAttemptRow` records Apify's
+        memory and monthly caps as OVER_QUOTA and the DPA gate as SKIPPED, so a refusal before any call is distinguishable from a
+        call that ran.)
+    16. **Late vendor results (Story 10.5, FR119).** A Bright Data snapshot still running when the post chain's budget ran out is
+        linked to the job (`job_vendor_snapshots`: `job_id`, `provider`, unique `snapshot_id`, `status` PENDING, COLLECTING, COLLECTED
+        or GAVE_UP, `wait_until`; row level security on, no policy), written by `fetchScrapedPost` through
+        `BrightDataSnapshotPendingError`, so no handler has to; the chain still moves on to Apify. The 5-minute job sweep step
+        `collectLateVendorResults` asks Bright Data for each PENDING link's progress and applies the pure `decideSnapshotWait`:
+        `ready` is collected, `failed` is given up (a WAITING job ends FAILED / `VENDOR_RUN_FAILED`), still in flight is waited for
+        until `BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES` after it started (default 480: on 2026-10-29, 21 of 38 snapshots took 5 to 6
+        hours; an assumption to tune), then given up (a WAITING job ends EXPIRED / `WAITED_TOO_LONG`). The bound never delays a ready
+        or failed snapshot. **The claim is the only door:** one conditional `UPDATE ... WHERE status = 'PENDING'` (PENDING to
+        COLLECTING), so a duplicate delivery, or two sweeps at once, runs the type's late-result handler at most once; COLLECTED is
+        written only after the handler ran AND the job was settled. The records are downloaded BEFORE the claim (a failed download
+        leaves the link PENDING); a handler or settle that throws puts the link back to PENDING, and a link left COLLECTING by a
+        Lambda that died mid-way (older than 10 minutes) is put back by the next sweep, so handlers must be idempotent. A link is
+        given up when its job already succeeded another way (a slower provider's images must not overwrite them), past the wait
+        bound when the progress call keeps failing, and 24 hours past the bound whatever the snapshot or handler do; one failed
+        snapshot does not end a job that has another open link. The late-result handler is a second registry beside the job
+        handlers (`registerLateResultHandler`, Scraper Lambda only): Story 10.6's moderator re-extract registers the first real one
+        (Rule 17), which saves the fresh image links to `posts`. (**Amended 2026-11-12, Story 10.6:** a handler may answer `NO_CHANGE`:
+        its result was saved where it belongs and the job's own ending stands, so nothing is settled; and a job that ended
+        SUCCEEDED_WITH_LIMITS is still collected, because nothing answered it, while one that ended SUCCEEDED is still given up.) A job is finished from the handler's answer by one guarded
+        update: only a job still WAITING, RUNNING or QUEUED, or EXPIRED for `TIMED_OUT`, is settled (`canSettleFromLateResult`), becoming
+        SUCCEEDED or SUCCEEDED_WITH_LIMITS (UNSPECIFIED when the handler gave no reason) with `completed_after_deadline` true when the
+        finish is past `deadline_at`, then promotion and follower settling run as for any ending, and followers that had copied the
+        leader's TIMED_OUT ending are settled again with its success; any other ending (FAILED, CANCELLED, EXPIRED for another reason) is never
+        revived, though its records are still handed to the handler. The daily batch (`stale-job-sweep.ts`) also waits, under the
+        same bound, for a snapshot Bright Data still reports as running, instead of recording it TIMED_OUT and sending it to the paid
+        Apify fallback (IDEA-102): the pending job stays PENDING with its expiry pushed 30 minutes (the sweep only reads expired jobs, so it looks again every hour;
+        a full hour would skip every other run); `starting` counts as still running. While a snapshot waits, provider health sees
+        nothing for it (it ignores PENDING), so a vendor outage is noticed only when snapshots finally fail. Only the sweep
+        collects a linked snapshot; the sync post scrape registers no webhook.
+    17. **The first two-phase type: the moderator re-extract (Story 10.6, FR125).** `reextract-post` is the model of a
+        scrape-then-extract job. Its pure definition (`packages/domain/src/jobs/reextract-post.ts`: type, host `scraper`, 10 minute
+        bound, a per-run cap of 270 s, input `{ postId }` or `{ url }`, the reuse keys, its own provider order `apify,brightdata`,
+        the ending and status mapping) **registers itself when the `jobs` barrel is imported**, so the API, Scraper and AI-processor
+        Lambdas all know it (Rule 12) without any of them importing a handler. A type may declare `attemptCapMs`, the time one run of
+        its handler may use instead of `JOB_ATTEMPT_DEADLINE_MS` (still bounded by the job's deadline and the Lambda's remaining time):
+        phase 2's face blur needs 60 s left at each image and the handler's remaining time is the run's budget, so the 150 s default
+        would have let the blur work only in the first 90 s; `festgrid-backend-stack.test.ts` fails if either host Lambda's timeout
+        drops to the cap plus 20 s. The handlers are registered per host at cold start (`register-scraper-job-handlers.ts`: phase 1
+        and the late-result handler; `register-ai-processor-job-handlers.ts`: phase 2); a Lambda holds only its own half, which
+        `lambda-sharp-isolation.test.ts` proves by bundling. Phase 1 records its report on the job, holds a fetched caption on the job
+        when the post has none stored (`input.held`, AD-40 Rule 9; blanked when phase 2 ends, by the sweep as a backstop), sets the phase
+        to `preview` and `handOffToLambda`s to the AI-processor, which resumes from the phase (Rule 8). A handler result may carry
+        `errorMessage`, the plain words of a FAILED or SUCCEEDED_WITH_LIMITS ending (never a raw error). The job type owns its result on
+        `result_data`; reading and Apply serve it without a schema change. The rules of the refresh, the save, the cooldown, the held
+        caption and the ending are AD-40 Rule 9, the account gate AD-34 Rule 7, the saved columns AD-12. The start path replaces an
+        admitted job with no progress for 5 minutes (cancelled with a plain reason) instead of returning its id; every other type keeps
+        plain reuse. Dispatch to the two result stores (`jobs` and `manual_extraction_jobs`, for rows written before the change) lives
+        in `reextract-preview-job.ts` until Story 10.9 decides (PRD OI-4).
+    18. **The Jobs read API and the Jobs page (Story 10.4, FR123, FR130).** `job`, `myJobs` and `activeJobs` (`requireAuth` first, no `userId`
+        argument) read `jobs` through `read-jobs.ts`, which reads `input` and `result_data` only through named JSON paths and never whole
+        (a held caption and the preview live there, Rule 17; `jobs-read-no-whole-json.ratchet.test.ts` pins it), shows vendor names, attempts
+        and the engine's own message to a moderator only, and answers `null` for another user's job, a system job or a job past retention.
+        `retryJob` starts a new job through a per-type retry starter registered by the type's adoption story (`job-retry-registry.ts`; a type
+        with none is not retryable, and Retry never copies `input.held`). Retention is **hide-only** (owner decision 2026-11-13): a terminal
+        job older than `JOBS_HISTORY_RETENTION_DAYS` (default 30, measured from `finished_at`) is hidden from every read and nothing is
+        deleted; a physical delete is a follow-up. The Jobs page pages its Finished list with Previous and Next through
+        `useListPaginationController` (AD-18 Rule 4), not infinite scroll (owner-confirmed 2026-11-13).
+        **`Job.refresh` (Story 10.6a, 2026-11-13).** The Re-extract report is a field of `Job` for a moderator viewer and a `reextract-post` job
+        only (`null` for everyone else, with no query work for them); it is read through the named paths `{refresh,*}`, `{imagesAvailable}`,
+        `{imagesSent}`, `{imageCap}` and `#> '{images}'` (never the column whole), and `images` is copied field by field with each value
+        checked against its enum and the list bounded, so no caption, image URL or vendor name can reach the response.
+    18. **Job notices come from one announcer that reads row state (Story 10.13, notify when a job finishes, FR124).** A job
+        reaches a terminal state in at least nine places and several never call `afterJobEnded`, so no notice is raised at an
+        ending write. `announceEndedJobs` (`apps/backend/src/lib/job-engine/announce-ended-jobs.ts`) is the last step of the
+        five-minute sweep: it selects terminal user jobs with `owner_notified_at` null, applies the pure `decideJobNotice`
+        (grace `JOB_NOTIFY_GRACE_SECONDS` 45, merge window `JOB_NOTIFY_WINDOW_MINUTES` 10, max age
+        `JOB_NOTIFY_MAX_AGE_MINUTES` 60), claims the group with one UPDATE guarded on `owner_notified_at IS NULL` before it
+        sends (overlapping runs send once), then sends one FCM push (and, for a moderator owner, one mail through the
+        single-recipient mode of AD-54) built only by `buildJobFinishedPush` and `buildJobFinishedSummary`. State is three
+        columns of migration 0104: `user_settings.jobs_last_opened_at` (the badge watermark), `user_settings.last_job_push_at`
+        (the merge window) and `jobs.owner_notified_at`. "Watching" is the client saying so: `acknowledgeJobEnded` from a
+        visible tab; nothing is written on a poll. The Scraper Lambda holds the Firebase variables and the secret read for
+        it; the AI processor holds none. A system job (no owner) is never announced. A late result that revives an expired job
+        and a follower settled from its leader clear `owner_notified_at`, so the owner is told again once; an owner's own
+        cancel sets it. `job-announcer-single-sender.ratchet.test.ts` pins that no other file under `job-engine/` sends.
+*   **Considered and rejected:** generalising `manual_extraction_jobs` (its row is shaped around a post caption and a
+    Gemini payload; the migration decision is deferred to Story 10.9); adding the sweep to the hourly vendor sweep
+    (hourly latency, and it makes vendor calls); a Postgres advisory lock for the claim (unsafe under the
+    transaction-mode pooler, AD-32); a new queue (an invoke carrying only `{ jobId }` plus database state already makes
+    redelivery safe, the AD-41 precedent); a `usesVendor` flag with a second limit (every job type can reach a vendor);
+    `deadline_at` as insert time plus the attempt cap (it would expire a job that is legitimately WAITING, or on its
+    second provider attempt); declaring the CHECK in the drizzle schema (drizzle-kit 0.21 omits it, so a later upgrade
+    would emit a duplicate constraint).
+*   **Deferred:** the refusal screen and upgrade call to action (10.3a); a tier model for the cap; promoting a follower to
+    leader when its leader is cancelled; the provider chain and the
+    `job_attempts` rows it writes (10.2); the GraphQL surface, the Jobs page and retention-driven deletion of old rows
+    (10.4); late vendor results (10.5); the re-extract on the engine (10.6; its screen, 10.6a); moving `manual_extraction_jobs`
+    onto this table and holding a transient caption for a caption-less post (10.9, OI-4); a reverse AI-processor to Scraper hand-off.
+*   **Enforced by:** `jobs-schema.test.ts` (constraint, enums, cascade), `run-job.test.ts` (claim, budget, guarded
+    writes, WAITING, hand-off), `sweep-expired-jobs.test.ts`, `sweep-stale-manual-extraction-jobs.test.ts`,
+    `job-engine-branches.test.ts`, the CDK assertions of Story 10.1a; for Story 10.3 `admit-job.test.ts`,
+    `promote-queued-jobs.test.ts`, `readmit-waiting-job.test.ts`, `cancel-job.test.ts`, `settle-followers.test.ts`,
+    `sweep-job-queue.test.ts`, `admission.concurrency.test.ts` (simultaneous starts, exact counts),
+    `subscribe-to-account.cap.test.ts` and the CDK assertion of the four settings; for Story 10.5 `late-result.test.ts` (domain),
+    `late-results.test.ts`, `link-job-vendor-snapshot.test.ts` and `stale-job-sweep-brightdata.test.ts`; for Story 10.6
+    `reextract-image-refresh.test.ts` and `reextract-post.test.ts` (domain), `reextract-refresh-handler.test.ts`,
+    `save-refreshed-post-images.test.ts`, `reextract-preview-handler.test.ts`, `reextract-late-result-handler.test.ts`,
+    `reextract-engine-flow.test.ts` (start to preview to Apply with fake vendors) and the bundle checks in
+    `lambda-sharp-isolation.test.ts`; for Story 10.2 `post-scraper-adapter.test.ts`
+    (domain), `post-scraper.test.ts`, `brightdata-post-adapter.test.ts`, `record-job-attempt.test.ts`, the quota-memory tests in
+    `usage-store.test.ts` and `transient-classifiers.test.ts`; Story 10.14z adds the ratchets.
+
+### AD-54: Every Moderator Notification Goes Through One Templated, Throttled, Escaping Helper
+
+*   **Binds:** `apps/backend/src/lib/notifications/notify-all-moderators.ts` (`notifyAllModerators`);
+    `packages/domain/src/email/render-template.ts` and `escape-html.ts`; `packages/domain/src/email/moderator-notification.ts`
+    (the template keys, review paths, default throttle entities and the typed result);
+    `apps/backend/src/lib/alerts/alert-email-budget-store.ts` and the table `alert_email_rate_limits` (no migration);
+    the setting `MODERATOR_NOTIFY_COOLDOWN_MINUTES`; the five moderator template keys
+    `DANGEROUS_EVENT_MODERATOR_ALERT`, `DEFAULT_LOCATION_CHANGE_AWAITING_APPROVAL_ALERT`,
+    `DEFAULT_LOCATION_CHANGE_MODERATOR_ALERT`, `SCRAPER_AUDIT_TRAIL_FAILURE_ALERT` and
+    `SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT`. Covers BUG-003 (no email when a location change enters AWAITING_APPROVAL),
+    FIND-020 (the scraper audit-trail alert lacks throttling and dedup) and FIND-021 (render-template.ts has no
+    HTML-escaping). Consumes the fixed-window rule shared with the AI-filter limiter (`evaluatePromptFilterRateLimit`) and the public-mutation budget precedent
+    (`Mutation.reportSystemError`); consumes AD-8 (`activeOnly`). Epic 0.i1, Story 0.i1a (build the notifyAllModerators
+    helper with escaped, throttled templates).
+*   **Prevents:** a call site that looks up moderators, fans out or builds `moderatorReviewUrl` by itself (it was copied
+    into five places); a template that puts scraper- or user-influenced text into a moderator's inbox unescaped
+    (database error text, a post URL, an event name); a header-injected subject; the same alert sent on every
+    occurrence, so a failing write floods the inbox; a moderator-only mail reaching an ordinary user through a
+    single-recipient call; a mail dropped because the Lambda froze after the response.
+*   **Rule:**
+    1.  **One helper.** `notifyAllModerators(templateKey, vars, options?)` is the only code that looks up moderators or
+        builds `moderatorReviewUrl` (from `WEB_APP_BASE_URL` and the template's path in `MODERATOR_REVIEW_PATHS`). A caller
+        passes the template's variables without the URL; passing one is a type error and is overwritten at runtime.
+        The lookup reads active moderators only (`activeOnly(users)`).
+    2.  **Every template escapes.** `renderEmailTemplate` escapes every interpolated value in the `html` part
+        (`escapeHtml`), removes line breaks and control characters from the `subject` (`sanitizeSubjectValue`) and leaves
+        the `text` part unchanged. It applies to every template key with no opt-in, so a template added later is escaped
+        by construction. A URL variable placed in `href` is protected against attribute break-out only, not against a
+        `javascript:` scheme: every URL variable today is built by the server, and a template that takes a URL from
+        untrusted text needs a scheme check at its call site.
+    3.  **Throttled per template and entity.** Before any send the helper claims one slot in `alert_email_rate_limits`
+        through `takeAlertEmailBudget(key, { maxSends: 1, windowMinutes })`, key
+        `moderator-notify:{templateKey}:{first 32 hex of sha256 of the entity}` (the entity text is hashed, never stored).
+        The window is `MODERATOR_NOTIFY_COOLDOWN_MINUTES`, default 60, a FIXED window opened by the first send, not a
+        sliding one. The entity is the caller's `entityKey` or the template's rule in
+        `MODERATOR_NOTIFICATION_ENTITY_KEYS` (the audit trail uses `source`, never `message` or `context`). A
+        database error while claiming sends nothing (fail closed). The claim is released when every send fails, so a
+        mail nobody received does not silence the next occurrence; it is kept when at least one send succeeded. Rows older
+        than 30 days are pruned best effort, matching only `moderator-notify:` keys; the cooldown setting is therefore capped
+        at 10080 minutes (7 days) in `env.ts`, so a live window is never pruned.
+    4.  **Single-recipient mode.** `options.recipientUserId` notifies only that user, and only if they are an active
+        moderator; any other id is refused (`refused_not_moderator`), nothing is sent and no slot is spent. The slot is per
+        template, entity and recipient. Story 10.13 (notify when a job finishes) is its first user: the template `JOB_FINISHED_MODERATOR_NOTICE` (review path `/jobs`, entity the group's smallest job id) is mailed to a moderator who owns the job, grouped like the push (AD-53 Rule 18).
+    5.  **Typed result, awaited, quiet.** The helper never throws and returns `sent`, `failed`, `throttled`,
+        `no_moderators`, `refused_not_moderator` or `error` (stage `lookup` or `throttle`). The send is awaited, never
+        fire-and-forget (the API and AI-processor Lambdas freeze after the response). A log line holds the template key,
+        the status and counts, and a user id on a failed send, never an address, a name or a variable value.
+    6.  **Adoption.** Moved in Story 0.i1a: the dangerous-report alert (throttle entity: the event id) and the scraper
+        provider-down alert (entity: the provider). Moves next: the two location-change alerts in Story 0.i1b (its mail for a change entering AWAITING_APPROVAL already exists; the work is moving it onto the helper) and the audit-trail alert in Story 0.i1c (route the
+        scraper audit-trail alert through the shared helper). Story 10.13 adds its own template key, review path and entity
+        rule (the exhaustive Records fail the type check until it does).
+    7.  **Not covered here.** `SYSTEM_ERROR_ALERT` (one fixed address, its own budget in `Mutation.reportSystemError`) and
+        the user-facing mails (`QUOTA_EXHAUSTION_WARNING`, `INVALID_API_KEY_ALERT`) are not moderator notifications. FIND-020's
+        residual stays unresolved: the audit-trail alert depends on the same database it may be reporting on, and a
+        database error in the throttle means it is not sent. The repo-wide ratchet that no file bypasses the helper is
+        Story 0.i1z.
+*   **Rejected:** a dedicated throttle table (a migration, a second concurrency mechanism, and a clash in numbering with
+    Story 10.13's migration); a sliding "last sent at" cooldown (needs a column the shared table lacks); a CloudWatch alarm
+    and SNS topic (Story 3.4q chose the database-backed path); failing open when the throttle cannot be read (a flood is the
+    worse failure); escaping the `text` part (it would show `&amp;` to the reader).
+*   **Enforced by:** `render-template.escaping.test.ts` (every template with a script-bearing payload, and the named
+    dangerous-report and audit-trail cases), `moderator-notification.test.ts` (every template that links to the review page
+    is a moderator template and has a path and an entity rule), `notify-all-moderators.test.ts` and
+    `notify-all-moderators.integration.test.ts` (fan-out, URL, throttle, release, single mode, rendering through the helper),
+    `alert-email-budget-store.test.ts` (compare-and-swap under five parallel calls, release, prune), the adapter test for
+    the SES `Html.Data` and `Text.Data` split; Story 0.i1z adds the sweep. Numbering checked on all nine local branches on
+    2026-11-14: AD-53 was the highest.
 
 ---
 

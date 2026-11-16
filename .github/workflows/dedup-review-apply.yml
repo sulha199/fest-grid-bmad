@@ -1,0 +1,453 @@
+name: Dedup Review Apply
+
+# Names the run after its mode, whether it is live, and the caller's tag, so the approver sees what they are
+# releasing (key=value, so a tag cannot pose as the flag) and a caller that dispatched this workflow can find
+# its own run (dispatching returns no run id). A run that may hold rejects says `rejects=true` before the tag, and one
+# that may hold floor overrides says `override=true` after it (so a long tag cannot push either out of view); an
+# accept-only run's title is exactly as it always was, which the skill relies on to find its runs.
+run-name: Dedup Review Apply mode=${{ inputs.mode }} live=${{ inputs.mode == 'apply' && inputs.live }} ${{ inputs.allow_rejects && 'rejects=true ' || '' }}${{ inputs.allow_floor_override && 'override=true ' || '' }}tag=${{ inputs.run_tag }}
+
+# AI-assisted dedup review, apply side (design: _bmad-output/specs/ai-dedup-review/DESIGN.md, piece B2b-2;
+# architecture decision AD-45). Manual-only: it takes the reviewer's decisions (an AI session that has no
+# database credentials of its own) and runs apps/backend/src/dedup-review-apply.ts on them. A decision is an
+# ACCEPT (it merges, judged by the floor) unless it says `action: reject` or `action: accept-override`; a reject is off unless `allow_rejects` is true and, for
+# `apply`, the owner has set the variable DEDUP_REVIEW_REJECT_ENABLED (see setup step 3). `action: accept-override`
+# merges with no floor (FIND-124): off unless `allow_floor_override` is true and, for `apply`, the owner has set
+# DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED (setup step 3).
+#
+#   mode validate : every check in a READ ONLY snapshot, merges nothing. This is the shadow mode. It uses the
+#                   read-only secret of the `dedup-review` environment and needs no approval.
+#   mode apply    : a dry run (the merges run and are rolled back) unless `live` is true, in which case they
+#                   commit. It uses the WRITE secret of the `dedup-review-live` environment, which requires
+#                   the owner's approval, so every apply run, a dry run included, waits for a click. That
+#                   click releases the credential; it is not a review of the decisions (the approver sees ids).
+#
+# THE REPO IS PUBLIC. The dispatch inputs (run tag, decisions, invoker hash) show on the run page and in the
+# log, and step env blocks are printed in every run, so none of them may hold anything private. The invoker
+# hash is the SHA-256 of the lowercased account email, never the address. The skill sends `reasons: []`. An entry may also hold `clues`: codes of a closed list (public-safe),
+# never free text; the script refuses any other key, a `note` included.
+# The job SUMMARY holds counts and fixed reason codes only; the LOG holds the script's whole report (ids and
+# merge ids, no more private than the public inputs). See scripts/dedup-review-apply-guard.sh.
+#
+# What protects the write credential is NOT the floor, the caps or the kill switch in the script (those bound
+# a mistaken or prompt-injected decision). It is: the environment's branch rule and required reviewer, a
+# reviewed `master`, who can approve, and the supply chain of this job. See AD-45 and
+# docs/infrastructure/7-event-dedup.md. TWO HONEST LIMITS: (1) if the AI session dispatches with a token that
+# belongs to the one required reviewer, it can approve its own run through the API, so the click only stops
+# anyone else; dispatch with a separate account that is not a reviewer to make the gate real. (2) The actions
+# below are pinned by commit SHA (the trailing comment names the tag, for people), so a moved tag cannot
+# change this job, and a newer release is taken only by re-pinning by hand; `--ignore-scripts` stops
+# dependencies' lifecycle scripts only, not their code when it is built or imported.
+#
+# One-time setup (the owner does this in GitHub; nothing here can create it). Create the environments BEFORE
+# this file reaches master: a workflow that names a missing environment makes GitHub create it unprotected.
+#   1. Environment `dedup-review` (already used by the export): Deployment branches limited to `master`.
+#   2. New environment `dedup-review-live`: Deployment branches limited to `master`; Required reviewers: the
+#      owner. "Prevent self-review": ON if the AI session dispatches with a different account (recommended);
+#      OFF only if it dispatches with the owner's own token, in which case nobody could approve otherwise and
+#      the gate does not stop that session (limit 1 above).
+#   3. In `dedup-review-live`, the VARIABLE `DEDUP_REVIEW_APPLY_DISABLED` set to `false` (an environment
+#      variable, so only an admin edits it). The apply job refuses unless it is exactly `false` or `0`, so a
+#      deleted or misspelled variable stops apply. To switch apply off, set it to `true`: it applies to jobs
+#      that start afterwards; to stop a run that has started, cancel it (a live run that is cancelled before
+#      its commit rolls back). Rejects are OFF until you also set the VARIABLE `DEDUP_REVIEW_REJECT_ENABLED` to
+#      `true` or `1` here (unset, empty or anything else keeps them off, for a dry run as well as a live one;
+#      `validate` cannot see it and checks only `allow_rejects`). The skill's attended decision loop uses rejects
+#      (FIND-121): a reject cannot be undone in the app, so set it only if you accept that. The floor override is
+#      OFF until you set the VARIABLE `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` to `true` or `1` here, by the same rule
+#      (`validate` cannot see it and checks only `allow_floor_override`). It merges a pair the floor refuses, tier
+#      included, so turn it on only while an attended session runs, and off again after.
+#   4. In `dedup-review-live`, the SECRET `DEDUP_REVIEW_APPLY_DATABASE_URL`: the URL of the narrow role
+#      `dedup_review_apply` (BYPASSRLS, no DDL, update and insert only on the tables a merge changes; the script
+#      refuses a role that does not bypass row level security). It is not the owner role. The owner decided
+#      (2026-11-01) that this secret is created only once the actions below are pinned by commit SHA, which
+#      this change does. Rotating the role's password means updating this one secret.
+#   5. Optional caps (FIND-126), VARIABLES of `dedup-review-live`: DEDUP_REVIEW_PER_RUN_CAP (merges a run, default 10,
+#      ceiling 100), DEDUP_REVIEW_PER_DAY_CAP (AI merges plus rejects in 24 hours, default 25, ceiling 200) and
+#      DEDUP_REVIEW_PER_DAY_REJECT_CAP (rejects in 24 hours, default 10, ceiling 100). Each is a plain positive number
+#      (digits only); anything else, or a number above its ceiling, stops the run before any code is fetched. The
+#      ceilings are in the code (packages/domain/src/events/dedup-review-apply.ts), so changing one needs a reviewed
+#      PR. Override merges keep a fixed cap of 10 a run whatever the per-run cap is. `validate` cannot see
+#      `dedup-review-live`: to judge against the same caps, set the same variables in `dedup-review` too (apply's own
+#      always bind). The run name does not show the caps, so the approver cannot see them there.
+#   6. No repository-level or organization-level secret OR variable may carry the names of the two database
+#      secrets, of DEDUP_REVIEW_APPLY_DISABLED, DEDUP_REVIEW_REJECT_ENABLED, DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED or the three cap variables: an outer one is visible to
+#      every job (a secret) or shows through when the environment's own is deleted (a variable).
+#   7. First run: dispatch `validate` with decisions `{"schemaVersion":1,"decisions":[]}` and your account's
+#      hash. Then, once the secret exists, one approved dry run (`apply`, `live` false): it also proves the
+#      write role bypasses row level security.
+# The jobs only run from `master`; that is a convenience against an accidental dispatch from another ref, not a
+# security control (a branch can edit this file). The environments' branch rule in steps 1 and 2 is. A dispatch
+# from another ref fails loudly in the first job instead of skipping everything.
+on:
+  workflow_dispatch:
+    inputs:
+      run_tag:
+        description: 'Optional label echoed in the run name and the output (up to 64 letters, digits, ".", "_" or "-").'
+        required: false
+        type: string
+        default: ''
+      mode:
+        description: 'validate: read-only checks, merges nothing. apply: a dry run unless live is true; waits for the owner''s approval.'
+        required: true
+        type: choice
+        options:
+          - validate
+          - apply
+        default: validate
+      live:
+        description: 'With mode apply: commit the merges (otherwise a dry run). live with mode validate is refused.'
+        required: false
+        type: boolean
+        default: false
+      decisions:
+        description: 'The decisions file: {"schemaVersion":1,"decisions":[{"suggestionId","evidenceHash","reasons","action"?,"clues"?}]}. action is accept (the default), reject or accept-override. clues is a list of clue codes, never text. Public. Send reasons as []. GitHub caps all inputs together at 65,535 characters.'
+        required: true
+        type: string
+      invoker_hash:
+        description: 'SHA-256 hex of the lowercased, trimmed Claude account email, matched to exactly one active moderator. Public; never the address.'
+        required: true
+        type: string
+      allow_rejects:
+        description: 'Allow decisions with action reject (off by default). The run name then says rejects=true. For apply the owner variable DEDUP_REVIEW_REJECT_ENABLED must also be true or 1.'
+        required: false
+        type: boolean
+        default: false
+      allow_floor_override:
+        description: 'Allow decisions with action accept-override, a merge with no floor (off by default). The run name then says override=true. For apply the owner variable DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED must also be true or 1.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  inputs:
+    name: Check the ref and the inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # No `if:` on this job on purpose: a dispatch from another ref must fail here with a message, not skip
+      # every job and look like a run that did nothing.
+      - name: Check the ref
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/master ]; then
+            echo "::error::This workflow runs only from master (it was dispatched from $GITHUB_REF). Dispatch it with ref master."
+            exit 1
+          fi
+
+      # These checks use no secret and run before the owner is asked to approve anything, so an approval is not
+      # spent on a run that cannot work.
+      - name: Check the inputs
+        env:
+          MODE: ${{ inputs.mode }}
+          LIVE: ${{ inputs.live }}
+          INVOKER_HASH: ${{ inputs.invoker_hash }}
+          RUN_TAG: ${{ inputs.run_tag }}
+          DECISIONS: ${{ inputs.decisions }}
+          ALLOW_REJECTS: ${{ inputs.allow_rejects }}
+          ALLOW_FLOOR_OVERRIDE: ${{ inputs.allow_floor_override }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in
+            validate | apply) ;;
+            *) echo "::error::mode must be validate or apply."; exit 1 ;;
+          esac
+          if [ "$MODE" = validate ] && [ "$LIVE" = true ]; then
+            echo "::error::live is only valid with mode apply."
+            exit 1
+          fi
+          # Bash regex on the whole value: grep would match a single line of a multi-line value.
+          if ! [[ "$INVOKER_HASH" =~ ^[0-9a-fA-F]{64}$ ]]; then
+            echo "::error::invoker_hash must be 64 hex characters."
+            exit 1
+          fi
+          if [ -n "$RUN_TAG" ] && ! [[ "$RUN_TAG" =~ ^[A-Za-z0-9._-]{1,64}$ ]]; then
+            echo "::error::run_tag must be 1 to 64 letters, digits, '.', '_' or '-'."
+            exit 1
+          fi
+          if [ "${#DECISIONS}" -eq 0 ] || [ "${#DECISIONS}" -gt 65535 ]; then
+            echo "::error::decisions must be 1 to 65,535 characters."
+            exit 1
+          fi
+          if ! printf '%s' "$DECISIONS" | jq -e '(.schemaVersion == 1) and (.decisions | type == "array") and ((.decisions | length) <= 100)' > /dev/null 2>&1; then
+            echo "::error::decisions must be JSON of the form {\"schemaVersion\":1,\"decisions\":[...]} with at most 100 decisions."
+            exit 1
+          fi
+          # A reject needs allow_rejects. This check is stricter than the script's own: any action other than
+          # exactly "accept" or "accept-override" counts, so a wrong-case value cannot slip past it. The script stays
+          # the authority.
+          if [ "${ALLOW_REJECTS:-}" != true ]; then
+            # Fail closed: if jq cannot read the decisions here, the run stops instead of slipping past the check.
+            if ! other=$(printf '%s' "$DECISIONS" | jq -r '[.decisions[]? | objects | select(has("action") and .action != "accept" and .action != "accept-override")] | length'); then
+              echo "::error::The decisions could not be checked for rejects."
+              exit 1
+            fi
+            if [ "$other" != 0 ]; then
+              echo "::error::A decision carries an action other than accept or accept-override, which needs allow_rejects. Dispatch again with allow_rejects true to send a reject."
+              exit 1
+            fi
+          fi
+          # An accept-override needs allow_floor_override, whatever allow_rejects says. Fail closed the same way.
+          if [ "${ALLOW_FLOOR_OVERRIDE:-}" != true ]; then
+            if ! overrides=$(printf '%s' "$DECISIONS" | jq -r '[.decisions[]? | objects | select(.action == "accept-override")] | length'); then
+              echo "::error::The decisions could not be checked for overrides."
+              exit 1
+            fi
+            if [ "$overrides" != 0 ]; then
+              echo "::error::A decision carries the action accept-override, which needs allow_floor_override. Dispatch again with allow_floor_override true to send an override."
+              exit 1
+            fi
+          fi
+
+  validate:
+    name: Validate the decisions (read-only)
+    needs: inputs
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && inputs.mode == 'validate'
+    timeout-minutes: 15
+    environment: dedup-review
+    # One group per run_tag, or per run when there is no tag: with a shared group GitHub keeps one pending run
+    # and cancels older pending ones, which would silently drop a caller's run.
+    concurrency:
+      group: dedup-review-apply-validate-${{ inputs.run_tag || github.run_id }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+        with:
+          run_install: false
+
+      # No `cache:` here on purpose: this job holds a database credential, and a restored cache is code
+      # this run did not fetch. The install takes seconds.
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: 'package.json'
+
+      # --ignore-scripts: no dependency's lifecycle script runs. Their code still runs when it is built (a step
+      # without the credential) and when the script imports it (a step with it).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      # Workspace packages (@festgrid/database, @festgrid/domain) resolve to their gitignored dist/
+      # output, so the backend's dependencies must be built before the script can import them.
+      - name: Build the backend's workspace dependencies
+        run: pnpm --filter "backend^..." build
+
+      - name: Check the credential is configured
+        env:
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_READONLY_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::The 'dedup-review' environment has no DEDUP_REVIEW_READONLY_DATABASE_URL secret. See the setup steps at the top of this workflow."
+            exit 1
+          fi
+
+      - name: Validate
+        env:
+          # loadBackendEnv() (run at import time by db/client.ts) requires this; the script never
+          # binds a port, so any valid number works.
+          BACKEND_PORT: '4001'
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_READONLY_DATABASE_URL }}
+          # Inputs reach the script through the environment, never interpolated into the shell text;
+          # the script validates every one of them before it opens a database connection.
+          DEDUP_REVIEW_INVOKER_HASH: ${{ inputs.invoker_hash }}
+          # Optional, FIND-126: the same cap variables as apply, read from the `dedup-review` environment so a validate
+          # judges against the caps apply will use (set them in both; apply's own are the ones that bind).
+          DEDUP_REVIEW_PER_RUN_CAP: ${{ vars.DEDUP_REVIEW_PER_RUN_CAP }}
+          DEDUP_REVIEW_PER_DAY_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_CAP }}
+          DEDUP_REVIEW_PER_DAY_REJECT_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_REJECT_CAP }}
+          DECISIONS: ${{ inputs.decisions }}
+          RUN_TAG: ${{ inputs.run_tag }}
+          ALLOW_REJECTS: ${{ inputs.allow_rejects }}
+          ALLOW_FLOOR_OVERRIDE: ${{ inputs.allow_floor_override }}
+        run: |
+          # GitHub runs this with `bash -e`, which `set -uo pipefail` does not undo: a failing script would end
+          # the step before the guard ran. `|| rc=$?` keeps the status and carries on to the guard.
+          set -uo pipefail
+          printf '%s' "$DECISIONS" > "$RUNNER_TEMP/decisions.json"
+          args=(--mode validate --decisions-file "$RUNNER_TEMP/decisions.json" --run-tag "$RUN_TAG")
+          if [ "${ALLOW_REJECTS:-}" = true ]; then
+            args+=(--allow-rejects)
+          fi
+          if [ "${ALLOW_FLOOR_OVERRIDE:-}" = true ]; then
+            args+=(--allow-floor-override)
+          fi
+          rc=0
+          (cd apps/backend && pnpm exec tsx src/dedup-review-apply.ts "${args[@]}") > "$RUNNER_TEMP/dedup-review-apply.out" || rc=$?
+          bash scripts/dedup-review-apply-guard.sh "$RUNNER_TEMP/dedup-review-apply.out" "$rc" validate false "${ALLOW_FLOOR_OVERRIDE:-false}"
+
+  apply:
+    name: Apply the decisions (dry run unless live; needs approval)
+    needs: inputs
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && inputs.mode == 'apply'
+    timeout-minutes: 15
+    environment: dedup-review-live
+    # All apply runs share one group, so two cannot overlap. GitHub keeps one pending run and cancels an
+    # older pending one, and a run waiting for approval holds the slot (verified 2026-11-03, see the
+    # runbook); the caller treats a cancelled run as "dispatch again". The script's advisory lock is the real
+    # guard against two live runs.
+    concurrency:
+      group: dedup-review-apply-write
+      cancel-in-progress: false
+    steps:
+      # First, before the checkout, the install and the build: the switch and the secret need no code. (The
+      # approval has already happened by now, and `vars` is fixed when the job starts.)
+      - name: Check the credential and the kill switch
+        env:
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_APPLY_DATABASE_URL }}
+          DISABLED: ${{ vars.DEDUP_REVIEW_APPLY_DISABLED }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::The 'dedup-review-live' environment has no DEDUP_REVIEW_APPLY_DATABASE_URL secret. See the setup steps at the top of this workflow."
+            exit 1
+          fi
+          # Fail closed: only an explicit false or 0 enables apply. A deleted or misspelled variable is empty.
+          case "$DISABLED" in
+            false | 0) ;;
+            *)
+              echo "::error::Apply is switched off: the variable DEDUP_REVIEW_APPLY_DISABLED of the 'dedup-review-live' environment must be exactly false or 0 for apply to run (it is empty when missing)."
+              exit 1
+              ;;
+          esac
+
+      # Rejects are off unless the owner set the variable: a run that allows them (dry or live) stops here before
+      # any code is fetched. The approval click is already spent by now, like the checks above.
+      - name: Check the reject switch
+        env:
+          ALLOW_REJECTS: ${{ inputs.allow_rejects }}
+          REJECT_ENABLED: ${{ vars.DEDUP_REVIEW_REJECT_ENABLED }}
+        run: |
+          if [ "${ALLOW_REJECTS:-}" = true ]; then
+            case "$REJECT_ENABLED" in
+              true | 1) ;;
+              *)
+                echo "::error::Rejects are switched off: the variable DEDUP_REVIEW_REJECT_ENABLED of the 'dedup-review-live' environment must be exactly true or 1 for a run that allows rejects (it is empty when missing)."
+                exit 1
+                ;;
+            esac
+          fi
+
+      # The floor override is off unless the owner set its variable, by the same rule: a run that allows it (dry or
+      # live) stops here before any code is fetched.
+      - name: Check the floor override switch
+        env:
+          ALLOW_FLOOR_OVERRIDE: ${{ inputs.allow_floor_override }}
+          FLOOR_OVERRIDE_ENABLED: ${{ vars.DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED }}
+        run: |
+          if [ "${ALLOW_FLOOR_OVERRIDE:-}" = true ]; then
+            case "$FLOOR_OVERRIDE_ENABLED" in
+              true | 1) ;;
+              *)
+                echo "::error::The floor override is switched off: the variable DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED of the 'dedup-review-live' environment must be exactly true or 1 for a run that allows overrides (it is empty when missing)."
+                exit 1
+                ;;
+            esac
+          fi
+
+      # The cap variables (FIND-126) are optional; a set one must be a plain positive number within the code's ceiling
+      # (the script checks the same, but this stops the run before any code is fetched, like the switches above).
+      - name: Check the cap variables
+        env:
+          PER_RUN_CAP: ${{ vars.DEDUP_REVIEW_PER_RUN_CAP }}
+          PER_DAY_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_CAP }}
+          PER_DAY_REJECT_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_REJECT_CAP }}
+        run: |
+          check() {
+            name="$1"; value="$2"; ceiling="$3"
+            if [ -n "$value" ]; then
+              if ! printf '%s' "$value" | grep -Eq '^[1-9][0-9]{0,5}$' || [ "$value" -gt "$ceiling" ]; then
+                echo "::error::The variable $name of the 'dedup-review-live' environment must be a whole number from 1 to $ceiling, in digits only (or unset for the default)."
+                exit 1
+              fi
+            fi
+          }
+          check DEDUP_REVIEW_PER_RUN_CAP "$PER_RUN_CAP" 100
+          check DEDUP_REVIEW_PER_DAY_CAP "$PER_DAY_CAP" 200
+          check DEDUP_REVIEW_PER_DAY_REJECT_CAP "$PER_DAY_REJECT_CAP" 100
+
+      - name: Checkout Repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # The commit was fixed when this run was dispatched, and the approval can come days later. Refuse to run
+      # code that `master` has since moved past (a fix to the floor, say).
+      - name: Check this commit is still the head of master
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin master
+          if [ "$(git rev-parse FETCH_HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error::master has moved since this run was dispatched, so it would run old code. Dispatch it again."
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+        with:
+          run_install: false
+
+      # No `cache:` here on purpose: this job holds the write credential, and a restored cache is code this
+      # run did not fetch. The install takes seconds.
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: 'package.json'
+
+      # --ignore-scripts: no dependency's lifecycle script runs. Their code still runs when it is built (a step
+      # without the credential) and when the script imports it (a step with it).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build the backend's workspace dependencies
+        run: pnpm --filter "backend^..." build
+
+      - name: Apply
+        env:
+          BACKEND_PORT: '4001'
+          DATABASE_URL: ${{ secrets.DEDUP_REVIEW_APPLY_DATABASE_URL }}
+          DEDUP_REVIEW_INVOKER_HASH: ${{ inputs.invoker_hash }}
+          DEDUP_REVIEW_APPLY_DISABLED: ${{ vars.DEDUP_REVIEW_APPLY_DISABLED }}
+          DEDUP_REVIEW_REJECT_ENABLED: ${{ vars.DEDUP_REVIEW_REJECT_ENABLED }}
+          DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED: ${{ vars.DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED }}
+          DEDUP_REVIEW_PER_RUN_CAP: ${{ vars.DEDUP_REVIEW_PER_RUN_CAP }}
+          DEDUP_REVIEW_PER_DAY_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_CAP }}
+          DEDUP_REVIEW_PER_DAY_REJECT_CAP: ${{ vars.DEDUP_REVIEW_PER_DAY_REJECT_CAP }}
+          DECISIONS: ${{ inputs.decisions }}
+          RUN_TAG: ${{ inputs.run_tag }}
+          LIVE: ${{ inputs.live }}
+          ALLOW_REJECTS: ${{ inputs.allow_rejects }}
+          ALLOW_FLOOR_OVERRIDE: ${{ inputs.allow_floor_override }}
+        run: |
+          # GitHub runs this with `bash -e`, which `set -uo pipefail` does not undo: a failing script would end
+          # the step before the guard ran. `|| rc=$?` keeps the status and carries on to the guard.
+          set -uo pipefail
+          printf '%s' "$DECISIONS" > "$RUNNER_TEMP/decisions.json"
+          args=(--mode apply --decisions-file "$RUNNER_TEMP/decisions.json" --run-tag "$RUN_TAG")
+          if [ "$LIVE" = true ]; then
+            args+=(--live)
+          fi
+          if [ "${ALLOW_REJECTS:-}" = true ]; then
+            args+=(--allow-rejects)
+          fi
+          if [ "${ALLOW_FLOOR_OVERRIDE:-}" = true ]; then
+            args+=(--allow-floor-override)
+          fi
+          rc=0
+          (cd apps/backend && pnpm exec tsx src/dedup-review-apply.ts "${args[@]}") > "$RUNNER_TEMP/dedup-review-apply.out" || rc=$?
+          bash scripts/dedup-review-apply-guard.sh "$RUNNER_TEMP/dedup-review-apply.out" "$rc" apply "$LIVE" "${ALLOW_FLOOR_OVERRIDE:-false}"
+
+      # A cancel, a timeout or a killed runner after the commit loses the report and the guard's message. This
+      # step runs in those cases (and after any earlier failure, so read it as conditional).
+      - name: After a failed or cancelled run
+        if: failure() || cancelled()
+        run: |
+          echo "::warning::If the Apply step had started a live run, its transaction may have committed before the run ended, and a cancel or timeout loses the report. Before running it again for the same decisions, list event_merges rows with performed_via = 'ai_skill' (newest first) to see what was merged, and event_match_candidates rows with status = 'rejected' and resolved_via = 'ai_skill' to see what was rejected."

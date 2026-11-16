@@ -1,0 +1,604 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { eq, inArray } from 'drizzle-orm';
+import { jobs, users } from '@festgrid/database';
+import { registerJobTypeDefinition, type JobHandler, type JobHandlerResult } from '@festgrid/domain/jobs';
+import { db } from '../../db/client.js';
+import { setInvokeJobEngineWorker, invokeJobEngineWorker } from '../aws/invoke-job-engine-worker.js';
+import { registerJobHandler } from './job-registry.js';
+import { runJobEngineJob } from './run-job.js';
+
+// Story 10.1a Task 3 -- the worker (AC2, AC3): atomic claim, the run's budget, phase writes, WAITING, the
+// cross-Lambda hand-off and the guarded writes that keep a late handler from overwriting an ended job.
+
+const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+let typeCounter = 0;
+const createdUserIds: string[] = [];
+const originalInvoke = invokeJobEngineWorker;
+const originalAttemptCap = process.env.JOB_ATTEMPT_DEADLINE_MS;
+const originalClaimTtl = process.env.JOB_WORKER_CLAIM_TTL_MINUTES;
+
+async function makeUser(): Promise<string> {
+  const [user] = await db
+    .insert(users)
+    .values({ email: `run-job-${suffix}-${createdUserIds.length}@example.test` })
+    .returning({ id: users.id });
+  createdUserIds.push(user.id);
+  return user.id;
+}
+
+function defineType(handler: JobHandler | null, maxDurationMs = 600_000): string {
+  const type = `fixture-run-${suffix}-${typeCounter++}`;
+  registerJobTypeDefinition({ type, host: 'scraper', maxDurationMs });
+  if (handler) registerJobHandler(type, handler);
+  return type;
+}
+
+async function insertJob(type: string, overrides: Partial<typeof jobs.$inferInsert> = {}) {
+  const ownerUserId = await makeUser();
+  const [job] = await db
+    .insert(jobs)
+    .values({
+      type,
+      ownerUserId,
+      trigger: 'USER',
+      inputKey: `k-${suffix}-${typeCounter++}`,
+      input: { hello: 'world' },
+      admittedAt: new Date(),
+      deadlineAt: new Date(Date.now() + 600_000),
+      ...overrides,
+    })
+    .returning();
+  return job;
+}
+
+async function readJob(id: string) {
+  const [job] = await db.select().from(jobs).where(eq(jobs.id, id));
+  return job;
+}
+
+function handlerReturning(result: JobHandlerResult): JobHandler {
+  return { run: async () => result };
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test.beforeEach(() => {
+  delete process.env.JOB_ATTEMPT_DEADLINE_MS;
+  delete process.env.JOB_WORKER_CLAIM_TTL_MINUTES;
+});
+
+test.after(async () => {
+  setInvokeJobEngineWorker(originalInvoke);
+  if (originalAttemptCap === undefined) delete process.env.JOB_ATTEMPT_DEADLINE_MS;
+  else process.env.JOB_ATTEMPT_DEADLINE_MS = originalAttemptCap;
+  if (originalClaimTtl === undefined) delete process.env.JOB_WORKER_CLAIM_TTL_MINUTES;
+  else process.env.JOB_WORKER_CLAIM_TTL_MINUTES = originalClaimTtl;
+  if (createdUserIds.length > 0) {
+    // jobs.owner_user_id cascades: deleting the users removes every job row this file created.
+    await db.delete(users).where(inArray(users.id, createdUserIds));
+  }
+});
+
+test('runJobEngineJob: claim and outcomes', async (t) => {
+  await t.test('SUCCEEDED: writes status, result, finish time, clears the claim', async () => {
+    const type = defineType(handlerReturning({ outcome: 'SUCCEEDED', resultData: { ok: true } }));
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'SUCCEEDED');
+    assert.deepEqual(row.resultData, { ok: true });
+    assert.ok(row.finishedAt instanceof Date);
+    assert.equal(row.workerClaimedAt, null);
+    assert.equal(row.completedAfterDeadline, false);
+  });
+
+  await t.test('SUCCEEDED_WITH_LIMITS and FAILED keep the handler\'s reason code', async () => {
+    const limits = defineType(handlerReturning({ outcome: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'STORED_IMAGES_USED' }));
+    const failed = defineType(handlerReturning({ outcome: 'FAILED', reasonCode: 'ACCOUNT_NOT_FOUND' }));
+    const a = await insertJob(limits);
+    const b = await insertJob(failed);
+    await runJobEngineJob(a.id, {});
+    await runJobEngineJob(b.id, {});
+    assert.deepEqual([(await readJob(a.id)).status, (await readJob(a.id)).reasonCode], ['SUCCEEDED_WITH_LIMITS', 'STORED_IMAGES_USED']);
+    assert.deepEqual([(await readJob(b.id)).status, (await readJob(b.id)).reasonCode], ['FAILED', 'ACCOUNT_NOT_FOUND']);
+  });
+
+  await t.test('Story 10.6: a handler\'s own plain-words message is stored on FAILED and SUCCEEDED_WITH_LIMITS, and null when it gave none', async () => {
+    const failed = defineType(handlerReturning({ outcome: 'FAILED', reasonCode: 'QUOTA_EXHAUSTED', errorMessage: 'No available Gemini API key to perform this extraction.' }));
+    const limits = defineType(handlerReturning({ outcome: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'COOLDOWN', errorMessage: 'The preview used the stored images.' }));
+    const bare = defineType(handlerReturning({ outcome: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'COOLDOWN' }));
+    const [a, b, c] = [await insertJob(failed), await insertJob(limits), await insertJob(bare)];
+    for (const job of [a, b, c]) await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(a.id)).errorMessage, 'No available Gemini API key to perform this extraction.');
+    assert.equal((await readJob(b.id)).errorMessage, 'The preview used the stored images.');
+    assert.equal((await readJob(c.id)).errorMessage, null);
+  });
+
+  await t.test('an ending that needs a reason but gives none is recorded as UNSPECIFIED, never silently', async () => {
+    const type = defineType(handlerReturning({ outcome: 'FAILED' }));
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(job.id)).reasonCode, 'UNSPECIFIED');
+  });
+
+  await t.test('the handler sees the job id, its stored input and phase, and setPhase is visible mid-run', async () => {
+    let seen: { jobId: string; input: unknown; phase: string | null; midRunPhase?: string | null } | undefined;
+    const type = defineType({
+      run: async (ctx) => {
+        await ctx.setPhase('scraping');
+        const [row] = await db.select().from(jobs).where(eq(jobs.id, ctx.jobId));
+        seen = { jobId: ctx.jobId, input: ctx.input, phase: null, midRunPhase: row.phase };
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type, { phase: null });
+    await runJobEngineJob(job.id, {});
+    assert.deepEqual(seen, { jobId: job.id, input: { hello: 'world' }, phase: null, midRunPhase: 'scraping' });
+    assert.equal((await readJob(job.id)).status, 'SUCCEEDED');
+  });
+
+  await t.test('a thrown error ends the job FAILED with the error message', async () => {
+    const type = defineType({
+      run: async () => {
+        throw new Error('vendor said no');
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'FAILED');
+    assert.equal(row.reasonCode, 'HANDLER_ERROR');
+    // Plain words only (PRD: vendor trouble is recorded, never raw): the raw text stays in the logs, never in the row.
+    assert.equal(row.errorMessage, 'The job failed with an internal error.');
+    assert.ok(!JSON.stringify(row).includes('vendor said no'));
+    assert.equal(row.workerClaimedAt, null);
+  });
+
+  await t.test('an unregistered handler ends the job FAILED naming the type', async () => {
+    const type = defineType(null);
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'FAILED');
+    assert.equal(row.reasonCode, 'HANDLER_NOT_REGISTERED');
+    assert.ok(row.errorMessage?.includes(type));
+  });
+});
+
+test('runJobEngineJob: the run budget and the job deadline', async (t) => {
+  await t.test('a handler that outlasts the attempt cap ends the job EXPIRED/TIMED_OUT and cannot overwrite it later', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '60';
+    let finished = false;
+    const type = defineType({
+      run: async () => {
+        await sleep(350);
+        finished = true;
+        return { outcome: 'SUCCEEDED', resultData: { late: true } };
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    let row = await readJob(job.id);
+    assert.equal(row.status, 'EXPIRED');
+    assert.equal(row.reasonCode, 'TIMED_OUT');
+    assert.equal(row.workerClaimedAt, null);
+    await sleep(500);
+    assert.equal(finished, true, 'the late handler did finish');
+    row = await readJob(job.id);
+    assert.equal(row.status, 'EXPIRED', 'a late result must not overwrite an ended job');
+    assert.equal(row.resultData, null);
+  });
+
+  await t.test('a job already past its deadline at claim time is EXPIRED without running the handler', async () => {
+    let ran = false;
+    const type = defineType({
+      run: async () => {
+        ran = true;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type, { deadlineAt: new Date(Date.now() - 1000) });
+    await runJobEngineJob(job.id, {});
+    assert.equal(ran, false);
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'EXPIRED');
+    assert.equal(row.reasonCode, 'TIMED_OUT');
+  });
+
+  await t.test('the run budget is the smallest of the cap, the time to the deadline and the Lambda\'s own clock', async () => {
+    const budgets: number[] = [];
+    const type = defineType({
+      run: async (ctx) => {
+        budgets.push(ctx.getRemainingTimeInMillis());
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const a = await insertJob(type);
+    await runJobEngineJob(a.id, { getRemainingTimeInMillis: () => 20_000 });
+    const b = await insertJob(type, { deadlineAt: new Date(Date.now() + 5_000) });
+    await runJobEngineJob(b.id, { getRemainingTimeInMillis: () => 200_000 });
+    const c = await insertJob(type);
+    await runJobEngineJob(c.id, {});
+    assert.ok(budgets[0] <= 20_000 && budgets[0] > 19_000, `lambda-bound budget ${budgets[0]}`);
+    assert.ok(budgets[1] <= 5_000 && budgets[1] > 4_000, `deadline-bound budget ${budgets[1]}`);
+    assert.ok(budgets[2] <= 150_000 && budgets[2] > 149_000, `cap-bound budget ${budgets[2]}`);
+  });
+});
+
+test('runJobEngineJob: the claim', async (t) => {
+  await t.test('a fresh claim by another worker means this invocation exits without running the handler', async () => {
+    let ran = false;
+    const type = defineType({
+      run: async () => {
+        ran = true;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type, { status: 'RUNNING', workerClaimedAt: new Date() });
+    await runJobEngineJob(job.id, {});
+    assert.equal(ran, false);
+    assert.equal((await readJob(job.id)).status, 'RUNNING');
+  });
+
+  await t.test('a claim older than the TTL is taken over', async () => {
+    const type = defineType(handlerReturning({ outcome: 'SUCCEEDED' }));
+    const job = await insertJob(type, { status: 'RUNNING', workerClaimedAt: new Date(Date.now() - 6 * 60_000) });
+    await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(job.id)).status, 'SUCCEEDED');
+  });
+
+  await t.test('a job that is not admitted yet is never claimed', async () => {
+    let ran = false;
+    const type = defineType({
+      run: async () => {
+        ran = true;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type, { admittedAt: null });
+    await runJobEngineJob(job.id, {});
+    assert.equal(ran, false);
+    assert.equal((await readJob(job.id)).status, 'QUEUED');
+  });
+
+  await t.test('an ended job is never run again', async () => {
+    let ran = false;
+    const type = defineType({
+      run: async () => {
+        ran = true;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type, { status: 'SUCCEEDED', finishedAt: new Date() });
+    await runJobEngineJob(job.id, {});
+    assert.equal(ran, false);
+  });
+
+  await t.test('an unknown job id is a quiet no-op', async () => {
+    await runJobEngineJob('00000000-0000-4000-8000-000000000000', {});
+  });
+});
+
+test('runJobEngineJob: WAITING (FR117, FR121)', async (t) => {
+  await t.test('a WAITING outcome writes status, phase, resume time and what it waits for, and releases the claim', async () => {
+    const resumeAt = new Date(Date.now() + 10 * 60_000);
+    const type = defineType(handlerReturning({ outcome: 'WAITING', phase: 'waiting-retry', waitingFor: 'retry of a post', resumeAt }));
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'WAITING');
+    assert.equal(row.phase, 'waiting-retry');
+    assert.equal(row.resumeAt?.getTime(), resumeAt.getTime());
+    assert.deepEqual(row.resultData, { waitingFor: 'retry of a post' });
+    assert.equal(row.workerClaimedAt, null);
+    assert.equal(row.finishedAt, null);
+  });
+
+  await t.test('a WAITING job whose resume time is in the future is not claimed by an early invoke', async () => {
+    let ran = false;
+    const type = defineType({
+      run: async () => {
+        ran = true;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type, { status: 'WAITING', resumeAt: new Date(Date.now() + 10 * 60_000) });
+    await runJobEngineJob(job.id, {});
+    assert.equal(ran, false);
+    assert.equal((await readJob(job.id)).status, 'WAITING');
+  });
+
+  await t.test('a WAITING job is never claimed directly, due or not: it must be re-admitted first (Story 10.3 AC5)', async () => {
+    let ran = false;
+    const type = defineType({
+      run: async () => {
+        ran = true;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const due = await insertJob(type, { status: 'WAITING', resumeAt: new Date(Date.now() - 1000) });
+    const byEvent = await insertJob(type, { status: 'WAITING', resumeAt: null });
+    await runJobEngineJob(due.id, {});
+    await runJobEngineJob(byEvent.id, {});
+    assert.equal(ran, false);
+    assert.equal((await readJob(due.id)).status, 'WAITING');
+    assert.equal((await readJob(byEvent.id)).status, 'WAITING');
+  });
+
+  await t.test('a QUEUED job that is not admitted is not claimed (it waits for a place)', async () => {
+    let ran = false;
+    const type = defineType({
+      run: async () => {
+        ran = true;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type, { status: 'QUEUED', admittedAt: null, queuedSince: new Date() });
+    await runJobEngineJob(job.id, {});
+    assert.equal(ran, false);
+    assert.equal((await readJob(job.id)).status, 'QUEUED');
+  });
+});
+
+test('runJobEngineJob: freeing a place and settling followers (Story 10.3 AC2, AC4)', async (t) => {
+  const originalFn = process.env.SCRAPER_FUNCTION_NAME;
+  const invoked: string[] = [];
+  t.beforeEach(() => {
+    invoked.length = 0;
+    process.env.SCRAPER_FUNCTION_NAME = 'test-scraper-fn';
+    setInvokeJobEngineWorker(async (_functionName, payload) => {
+      invoked.push((payload as { jobId: string }).jobId);
+    });
+  });
+  t.after(() => {
+    if (originalFn === undefined) delete process.env.SCRAPER_FUNCTION_NAME;
+    else process.env.SCRAPER_FUNCTION_NAME = originalFn;
+  });
+
+  async function queuedBehind(type: string, ownerUserId: string) {
+    const [job] = await db
+      .insert(jobs)
+      .values({
+        type,
+        ownerUserId,
+        trigger: 'USER',
+        inputKey: `k-${suffix}-${typeCounter++}`,
+        status: 'QUEUED',
+        admittedAt: null,
+        queuedSince: new Date(),
+        deadlineAt: new Date(Date.now() + 600_000),
+      })
+      .returning();
+    return job;
+  }
+
+  for (const [label, result] of [
+    ['SUCCEEDED', { outcome: 'SUCCEEDED' }],
+    ['FAILED', { outcome: 'FAILED', reasonCode: 'X' }],
+    ['WAITING', { outcome: 'WAITING', phase: 'p', waitingFor: 'w' }],
+  ] as const) {
+    await t.test(`a run that ends ${label} promotes the owner's oldest queued job and invokes it`, async () => {
+      const type = defineType(handlerReturning(result));
+      const job = await insertJob(type);
+      const waiting = await queuedBehind(type, job.ownerUserId!);
+      await runJobEngineJob(job.id, {});
+      const row = await readJob(waiting.id);
+      assert.ok(row.admittedAt instanceof Date, 'promoted');
+      assert.deepEqual(invoked, [waiting.id]);
+    });
+  }
+
+  await t.test('a terminal run settles its followers with the same ending', async () => {
+    const type = defineType(handlerReturning({ outcome: 'SUCCEEDED_WITH_LIMITS', reasonCode: 'STORED_IMAGES_USED', resultData: { n: 2 } }));
+    const leader = await insertJob(type);
+    const followerOwner = await makeUser();
+    const [follower] = await db
+      .insert(jobs)
+      .values({
+        type,
+        ownerUserId: followerOwner,
+        trigger: 'USER',
+        inputKey: leader.inputKey,
+        status: 'WAITING',
+        phase: 'following-leader',
+        leaderJobId: leader.id,
+        admittedAt: new Date(),
+        deadlineAt: new Date(Date.now() + 600_000),
+      })
+      .returning();
+    await runJobEngineJob(leader.id, {});
+    const row = await readJob(follower.id);
+    assert.equal(row.status, 'SUCCEEDED_WITH_LIMITS');
+    assert.equal(row.reasonCode, 'STORED_IMAGES_USED');
+    assert.deepEqual(row.resultData, { n: 2 });
+    assert.ok(row.finishedAt instanceof Date);
+  });
+
+  await t.test('a failing promotion never changes the job\'s own outcome', async () => {
+    setInvokeJobEngineWorker(async () => {
+      throw new Error('invoke refused');
+    });
+    const type = defineType(handlerReturning({ outcome: 'SUCCEEDED', resultData: { ok: 1 } }));
+    const job = await insertJob(type);
+    const waiting = await queuedBehind(type, job.ownerUserId!);
+    await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(job.id)).status, 'SUCCEEDED');
+    const promoted = await readJob(waiting.id);
+    assert.equal(promoted.status, 'FAILED');
+    assert.equal(promoted.reasonCode, 'START_FAILED');
+  });
+});
+
+test('runJobEngineJob: cross-Lambda hand-off (AC3)', async (t) => {
+  await t.test('handing off releases the claim, invokes the named function with only the job id, and leaves the job RUNNING', async () => {
+    const calls: Array<{ functionName: string; payload: unknown }> = [];
+    setInvokeJobEngineWorker(async (functionName, payload) => {
+      calls.push({ functionName, payload });
+    });
+    const type = defineType({
+      run: async (ctx) => {
+        await ctx.setPhase('extracting');
+        await ctx.handOffToLambda('ai-processor-fn');
+        return { outcome: 'HANDED_OFF' };
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'RUNNING');
+    assert.equal(row.phase, 'extracting');
+    assert.equal(row.workerClaimedAt, null, 'the claim must be released so the receiving Lambda can take it');
+    assert.deepEqual(calls, [{ functionName: 'ai-processor-fn', payload: { jobId: job.id } }]);
+  });
+
+  await t.test('a failed hand-off invoke ends the job FAILED', async () => {
+    setInvokeJobEngineWorker(async () => {
+      throw new Error('not accepted');
+    });
+    const type = defineType({
+      run: async (ctx) => {
+        await ctx.handOffToLambda('ai-processor-fn');
+        return { outcome: 'HANDED_OFF' };
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'FAILED');
+    assert.equal(row.errorMessage, 'The job failed with an internal error.');
+  });
+});
+
+test('runJobEngineJob: a type\'s own per-run cap (Story 10.6 review)', async (t) => {
+  /** Registers a type whose handler records the remaining time the engine gives it. */
+  function defineMeasuringType(attemptCapMs: number | undefined, seen: number[]): string {
+    const type = `fixture-run-cap-${suffix}-${typeCounter++}`;
+    registerJobTypeDefinition({ type, host: 'scraper', maxDurationMs: 600_000, ...(attemptCapMs !== undefined ? { attemptCapMs } : {}) });
+    registerJobHandler(type, {
+      run: async (ctx) => {
+        seen.push(ctx.getRemainingTimeInMillis());
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    return type;
+  }
+
+  await t.test('a type that declares a cap gets it (here larger than the environment default), still bounded by the Lambda\'s remaining time', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '1000';
+    const seen: number[] = [];
+    const type = defineMeasuringType(200_000, seen);
+    await runJobEngineJob((await insertJob(type)).id, {});
+    assert.ok(seen[0] > 150_000 && seen[0] <= 200_000, `the handler saw ${seen[0]} ms, the type's cap and not the 1 s default`);
+
+    const bounded: number[] = [];
+    const boundedType = defineMeasuringType(200_000, bounded);
+    await runJobEngineJob((await insertJob(boundedType)).id, { getRemainingTimeInMillis: () => 90_000 });
+    assert.ok(bounded[0] <= 90_000 && bounded[0] > 80_000, `the Lambda's own remaining time still wins (${bounded[0]} ms)`);
+  });
+
+  await t.test('a type that declares none keeps the environment default, and the type\'s cap is used when the default is smaller', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '150000';
+    const plain: number[] = [];
+    await runJobEngineJob((await insertJob(defineMeasuringType(undefined, plain))).id, {});
+    assert.ok(plain[0] <= 150_000 && plain[0] > 140_000, `default unchanged (${plain[0]} ms)`);
+
+    const small: number[] = [];
+    await runJobEngineJob((await insertJob(defineMeasuringType(30_000, small))).id, {});
+    assert.ok(small[0] <= 30_000 && small[0] > 25_000, `a type may also ask for LESS than the default (${small[0]} ms)`);
+  });
+
+  await t.test('the cap also bounds the run: a handler that outlasts its own type\'s cap ends EXPIRED / TIMED_OUT', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '60000';
+    const type = `fixture-run-cap-expire-${suffix}-${typeCounter++}`;
+    registerJobTypeDefinition({ type, host: 'scraper', maxDurationMs: 600_000, attemptCapMs: 60 });
+    registerJobHandler(type, { run: async () => { await sleep(300); return { outcome: 'SUCCEEDED' }; } });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.deepEqual([row.status, row.reasonCode], ['EXPIRED', 'TIMED_OUT']);
+    await sleep(350);
+  });
+});
+
+test('runJobEngineJob: review follow-ups (Story 10.1a code review)', async (t) => {
+  await t.test('the handler gets an abort signal that fires when the run budget is used up', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '60';
+    let signal: AbortSignal | undefined;
+    let sawAbortWhileRunning = false;
+    const type = defineType({
+      run: async (ctx) => {
+        signal = ctx.signal;
+        await new Promise<void>((resolve) => {
+          ctx.signal.addEventListener('abort', () => {
+            sawAbortWhileRunning = true;
+            resolve();
+          });
+          setTimeout(resolve, 400);
+        });
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(job.id)).status, 'EXPIRED');
+    assert.equal(signal?.aborted, true);
+    await sleep(100);
+    assert.equal(sawAbortWhileRunning, true, 'the handler was told to stop while it was still running');
+  });
+
+  await t.test('the signal stays quiet for a run that finishes in time', async () => {
+    let signal: AbortSignal | undefined;
+    const type = defineType({
+      run: async (ctx) => {
+        signal = ctx.signal;
+        return { outcome: 'SUCCEEDED' };
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    assert.equal(signal?.aborted, false);
+    assert.equal((await readJob(job.id)).status, 'SUCCEEDED');
+  });
+
+  await t.test('after a successful hand-off the sender\'s own timer cannot expire the job', async () => {
+    process.env.JOB_ATTEMPT_DEADLINE_MS = '60';
+    setInvokeJobEngineWorker(async () => {});
+    const type = defineType({
+      run: async (ctx) => {
+        await ctx.handOffToLambda('ai-processor-fn');
+        await sleep(300);
+        return { outcome: 'HANDED_OFF' };
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'RUNNING', 'the receiving Lambda owns the job now');
+    assert.equal(row.workerClaimedAt, null);
+  });
+
+  await t.test('after a successful hand-off an error in the sender cannot fail the job', async () => {
+    setInvokeJobEngineWorker(async () => {});
+    const type = defineType({
+      run: async (ctx) => {
+        await ctx.handOffToLambda('ai-processor-fn');
+        throw new Error('sender blew up after handing off');
+      },
+    });
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    assert.equal((await readJob(job.id)).status, 'RUNNING');
+  });
+
+  await t.test('HANDED_OFF without a hand-off ends the job FAILED with HANDOFF_MISSING, never stuck RUNNING', async () => {
+    const type = defineType(handlerReturning({ outcome: 'HANDED_OFF' }));
+    const job = await insertJob(type);
+    await runJobEngineJob(job.id, {});
+    const row = await readJob(job.id);
+    assert.equal(row.status, 'FAILED');
+    assert.equal(row.reasonCode, 'HANDOFF_MISSING');
+    assert.equal(row.workerClaimedAt, null);
+  });
+});
+

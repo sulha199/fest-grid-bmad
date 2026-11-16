@@ -10,7 +10,7 @@ Do the steps in order. Parts A and B are read-only checks. The only changes are 
 ## What changes, in plain words
 
 - **RLS.** Supabase exposes the `public` schema through an automatic REST API. The public *anon key* (it is in the web bundle) is enough to call it, and RLS decides which rows come back. FestGrid's web app never reads tables that way (it uses supabase-js for sign-in only; all data goes through the GraphQL backend). The migration turns RLS on everywhere, so by default nobody using the REST API sees any row. The backend connects as the table owner and is **not** filtered.
-- **Policies.** A signed-in user can read their own `users` row, `user_settings`, `user_locations`, `subscriptions` and `calendar_additions`, and read/write their own `favorites`. `api_keys`, `fcm_tokens`, `prompt_filter_rate_limits` and every scraper, moderation and catalog table have no policy and stay server-only.
+- **Policies.** A signed-in user can read their own `users` row, `user_settings`, `user_locations`, `subscriptions` and `calendar_additions`, and read/write their own `favorites`. `api_keys`, `fcm_tokens`, `prompt_filter_rate_limits`, `alert_email_rate_limits` and every scraper, moderation and catalog table have no policy and stay server-only.
 - **KMS.** Before, when KMS failed the code silently stored the key as base64 of the plaintext. Now encrypt throws, and decrypt throws unless `BYOK_ALLOW_LEGACY_BASE64_FALLBACK=true` (a temporary switch for old rows).
 
 ## Part A. Before merging (read-only checks, Supabase dashboard and SQL editor)

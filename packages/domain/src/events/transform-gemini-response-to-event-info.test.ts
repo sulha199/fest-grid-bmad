@@ -39,6 +39,77 @@ describe('transformGeminiResponseToEventInfo', () => {
     assert.strictEqual(result.schedules[0].title, 'Main Show');
   });
 
+  it('carries normalized locationKeywords on the event and on each schedule, and leaves the key out when there are none', () => {
+    const payload: GeminiEventPayload = {
+      eventName: 'Bus Samsat Keliling',
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [
+        { isMainSchedule: true, eventStartDate: '2026-11-02', location: 'Pasar Porosjayan', locationKeywords: [' Pasar Porosjayan ', 'Gamping', 'gamping', 'Sleman'] },
+        { isMainSchedule: false, eventStartDate: '2026-11-07', location: 'Kalurahan Caturtunggal', locationKeywords: ['Berbagai lokasi'] },
+        { isMainSchedule: false, eventStartDate: '2026-11-14', location: 'Kalurahan Wedomartani' },
+        { isMainSchedule: false, eventStartDate: '2026-11-21', locationKeywords: ['Gamping'] },
+        { isMainSchedule: false, eventStartDate: '2026-11-28', location: '   ', locationKeywords: ['Gamping'] }
+      ],
+      location: 'Kabupaten Sleman',
+      locationKeywords: ['Sleman', 'sleman'],
+      confidenceScore: 0.9
+    };
+
+    const result = transformGeminiResponseToEventInfo(payload, dummyContext);
+
+    assert.deepStrictEqual(result.locationKeywords, ['Sleman']);
+    assert.deepStrictEqual(result.schedules[0].locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+    assert.ok(!('locationKeywords' in result.schedules[1]), 'only generic keywords: key absent');
+    assert.ok(!('locationKeywords' in result.schedules[2]), 'no keywords: key absent');
+    assert.ok(!('locationKeywords' in result.schedules[3]), 'keywords without a schedule location are dropped (nothing for them to describe)');
+    assert.ok(!('locationKeywords' in result.schedules[4]), 'a blank location counts as none');
+  });
+
+  it('carries how each geocoded schedule was resolved, and leaves the key out for a schedule that was never looked up', () => {
+    const payload: GeminiEventPayload = {
+      eventName: 'Bus Samsat Keliling',
+      types: ['OTHER'],
+      categories: ['OTHER'],
+      schedules: [
+        { isMainSchedule: true, eventStartDate: '2026-11-02', location: 'Pasar Porosjayan' },
+        { isMainSchedule: false, eventStartDate: '2026-11-07', location: 'Kalurahan Caturtunggal' },
+        { isMainSchedule: false, eventStartDate: '2026-11-14' }
+      ],
+      confidenceScore: 0.9
+    };
+
+    const withResolutions = transformGeminiResponseToEventInfo(payload, {
+      ...dummyContext,
+      resolvedScheduleResolutions: new Map([[0, 'kw1' as const], [1, 'skipped' as const]])
+    });
+    assert.strictEqual(withResolutions.schedules[0].locationResolution, 'kw1');
+    assert.strictEqual(withResolutions.schedules[1].locationResolution, 'skipped');
+    assert.ok(!('locationResolution' in withResolutions.schedules[2]));
+
+    const without = transformGeminiResponseToEventInfo(payload, dummyContext);
+    assert.ok(!('locationResolution' in without.schedules[0]), 'no resolutions given: the message keeps its old shape');
+  });
+
+  it('drops event keywords when the event location is the account default (they would describe other text)', () => {
+    const payload: GeminiEventPayload = {
+      eventName: 'Open Mic',
+      types: ['PERFORMANCE'],
+      categories: ['MUSIC'],
+      schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-02' }],
+      locationKeywords: ['Sleman'],
+      confidenceScore: 0.9
+    };
+
+    const result = transformGeminiResponseToEventInfo(payload, {
+      ...dummyContext,
+      defaultLocation: { coordinates: { latitude: -7.7, longitude: 110.3 }, formattedAddress: 'Sleman, DIY' }
+    });
+
+    assert.strictEqual(result.location, 'Sleman, DIY');
+    assert.ok(!('locationKeywords' in result));
+  });
+
   it('should filter invalid enum values and fallback to OTHER if empty', () => {
     const payload: GeminiEventPayload = {
       eventName: 'Weird Festival',
@@ -488,6 +559,19 @@ describe('transformGeminiResponseToEventInfo', () => {
 
       assert.deepStrictEqual(result.schedules[0].performers, ['Aisyah', 'Budi']);
       assert.deepStrictEqual(result.schedules[1].performers, ['Citra']);
+    });
+
+    it('uses a precomputed childrensDataMatch verdict over sourcePostText, so a caller without the caption keeps the suppression (re-extract Apply)', () => {
+      const suppressed = transformGeminiResponseToEventInfo(multiScheduleMatchedPayload, { ...dummyContext, childrensDataMatch: true });
+      assert.strictEqual(suppressed.schedules[0].performers, undefined);
+      assert.strictEqual(suppressed.schedules[1].performers, undefined);
+
+      const kept = transformGeminiResponseToEventInfo(multiScheduleMatchedPayload, {
+        ...dummyContext,
+        childrensDataMatch: false,
+        sourcePostText: 'Ayo daftar Lomba Tari Anak Sanggar Melati untuk siswa SD!'
+      });
+      assert.deepStrictEqual(kept.schedules[0].performers, ['Aisyah', 'Budi'], 'an explicit false wins over a matching text');
     });
 
     it('behaves exactly as before (no suppression) when sourcePostText is absent, for backward compatibility', () => {

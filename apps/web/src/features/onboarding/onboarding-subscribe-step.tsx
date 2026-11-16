@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { BlockingLoader, useWizardStep } from '@festgrid/ui';
@@ -11,6 +11,9 @@ import { useGetMySubscriptionsQuery, useSubscribeToAccountMutation } from '@/gen
 import { graphqlClient } from '@/lib/graphql-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { ClientError } from 'graphql-request';
+import { useSubscriptionCapRefusal } from '@/features/subscriptions/use-subscription-cap-refusal';
+import { SubscriptionCapNoticeConnected } from '@/features/subscriptions/SubscriptionCapNoticeConnected';
+import { focusCapNotice } from '@/features/subscriptions/focus-cap-notice';
 
 export function OnboardingSubscribeStep() {
   const t = useTranslations('OnboardingWizard');
@@ -23,6 +26,8 @@ export function OnboardingSubscribeStep() {
 
   const [platform, setPlatform] = useState<string>(SUPPORTED_PLATFORMS[0]);
   const [handleInput, setHandleInput] = useState('');
+  const { state: capState, show: showCapRefusal, clear: clearCapRefusal } = useSubscriptionCapRefusal();
+  const capNoticeRef = useRef<HTMLDivElement>(null);
 
   const subscriptions = subscriptionsData?.mySubscriptions ?? [];
   const hasExistingSubscriptions = subscriptions.length > 0;
@@ -35,6 +40,12 @@ export function OnboardingSubscribeStep() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // While the refusal stands there is no add button: Enter does not submit, it takes the user to the notice.
+    // Editing the handle or the platform clears the refusal (the server re-checks anyway), which brings the button back.
+    if (capState) {
+      focusCapNotice(capNoticeRef.current);
+      return;
+    }
     const cleanHandle = parseSocialMediaAccountHandle(handleInput);
     if (!cleanHandle) {
       toast.error(t('invalidHandleError'));
@@ -63,6 +74,8 @@ export function OnboardingSubscribeStep() {
         toast.success(t('subscribeSuccessToast'));
       }
     } catch (err: any) {
+      // A cap refusal is the notice, never a generic toast, and never completes the step (the wizard's Continue and Skip are untouched, FR127).
+      if (showCapRefusal(err, { surface: 'onboarding_wizard', username: cleanHandle })) return;
       if (err instanceof ClientError) {
         const firstError = err.response?.errors?.[0];
         if (firstError?.extensions?.code === 'SCRAPER_CAPACITY_EXCEEDED') {
@@ -102,7 +115,10 @@ export function OnboardingSubscribeStep() {
           <select
             id="platform-select"
             value={platform}
-            onChange={(e) => setPlatform(e.target.value)}
+            onChange={(e) => {
+              setPlatform(e.target.value);
+              clearCapRefusal();
+            }}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {SUPPORTED_PLATFORMS.map((plat) => (
@@ -121,22 +137,31 @@ export function OnboardingSubscribeStep() {
             id="account-handle-input"
             type="text"
             value={handleInput}
-            onChange={(e) => setHandleInput(e.target.value)}
+            onChange={(e) => {
+              setHandleInput(e.target.value);
+              clearCapRefusal();
+            }}
             placeholder={t('accountPlaceholder')}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             required
           />
         </div>
 
-        <div className="flex justify-end pt-2">
-          <button
-            type="submit"
-            disabled={isSaving || !handleInput.trim()}
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-indigo-600 text-white hover:bg-indigo-700 h-10 px-4 py-2"
-          >
-            {t('subscribeSubmitLabel')}
-          </button>
-        </div>
+        {capState ? (
+          <div ref={capNoticeRef}>
+            <SubscriptionCapNoticeConnected state={capState} variant="inline" showBlockedNote />
+          </div>
+        ) : (
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={isSaving || !handleInput.trim()}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-indigo-600 text-white hover:bg-indigo-700 h-10 px-4 py-2"
+            >
+              {t('subscribeSubmitLabel')}
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

@@ -1,0 +1,20 @@
+/bmad-architecture
+
+Background: a production investigation on 2026-10-19 found that named programmes (for example Sleman City Hall "8th Anniversary: REBORN") are stored three inconsistent ways and cannot be grouped, and that the existing duplicate matcher has about 5% recall. This is a planning ritual in a three-step sequence (architecture, then epic formation, then PRD update); you are running one step of it.
+
+Read first, in this order:
+1. _bmad-output/planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md -- the evidence. Its section 7 (options A/B/C) is a proposal, NOT a decision.
+2. Backlog rows IDEA-084 (Event groups), IDEA-085 (Raise the duplicate matcher's recall), BUG-068 (location_details stored as a JSON string) and FIND-091 (production snapshot) in _bmad-output/implementation-artifacts/backlog.yaml. Related rows: BUG-066, BUG-063, BUG-064, IDEA-073, IDEA-081, IDEA-074.
+3. _bmad-output/project-context.md and the PRD (_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, section 3.7, especially the Multi-Event Posts bullet, FR113).
+
+Rules for this run:
+- Planning isolation: write only under _bmad-output/. Do not modify application source code, migrations or tests.
+- Do not connect to production or any database. Every number you need is in the write-up; if you need a fact it does not contain, mark it as unverified rather than guessing or querying. The mechanism behind BUG-068's double-encoding is an unverified hypothesis; treat it as a constraint to verify, not as a fact.
+- Do not commit or push. Leave the working tree for the user to review.
+- Real design decisions belong to the user: ask them with AskUserQuestion (batch related questions, give a recommendation first). Do not decide silently, and do not re-ask what the write-up or the existing spine already settles.
+- Pair every story, backlog or AD ID you write with a short title, because the user reads on mobile.
+
+Your step (1 of 3): produce the architecture decision for event groups as AD-36 (the next free number after AD-35) in _bmad-output/planning-artifacts/festgrid-architecture-spine.md, in the same style as AD-30.
+It must settle, or explicitly put to the user: the group model (a group entity with a nullable group on each event, versus reusing related events, versus a parent_event_id); whether a group may exist without an umbrella event (tournaments and festivals that only have children); cross-account members (the "8th Anniversary" keyword spans slemancityhall, tirta_lie and sarangbuah.id); where a group's anchor comes from (title "Umbrella - Child", keyword plus organizer, an extraction field, a moderator) and who confirms a suggestion; how a group interacts with event merges (event_merges, Stories 3.6v and 3.6w) so merging events inside a group stays correct; and how it interacts with the extraction grouping rules of Story 3.6s (program-lineup keeps lineups as schedules, which hides each programme from listing, filters and the calendar) and with AD-30.
+It must also record the sequencing constraints as architecture rules, not as a design: IDEA-085 (matcher recall) before IDEA-084 (groups), and BUG-068 (location_details) before any group-based location inheritance. Say what is measured and what is not (the write-up's section 9).
+Finish by listing the follow-ups this AD creates, so the next step (bmad-form-epics) can cluster them.

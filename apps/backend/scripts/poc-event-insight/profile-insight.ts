@@ -1,7 +1,7 @@
 /**
  * POC: what the INITIAL PROFILE SCRAPE can tell us about an account — which country it operates in and how
  * far its own audience reaches (local government vs national company) — so that
- *   - the geocoder can be given a country filter from the first call (BUG-066), and
+ *   - the geocoder can be given a country filter from the first call (BUG-261018-abg), and
  *   - an area-less post is not placed in a national organizer's head-office city (effectiveAudienceAreas).
  *
  * The input is exactly what the subscribe-time Apify profile scrape (`instagram-profile-scraper`, the actor

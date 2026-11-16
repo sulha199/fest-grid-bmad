@@ -153,8 +153,8 @@ The race is on 2026-10-31, after which the events leave the list. The ids still 
 ## Open questions
 
 1. Is "Erafone Run 2026" a series (Yogyakarta is one chapter, "Chapter Yogyakarta" in the legacy event) or only this one race? Only the Yogyakarta chapter is in the data, so no series can be formed yet; ask the owner or look for other chapters' accounts.
-2. Should curator reposts be linked to the organizer's event across accounts (IDEA-103, reposts)? 4 of the 12 events here are exactly that.
+2. Should curator reposts be linked to the organizer's event across accounts (IDEA-261026-l2j, reposts)? 4 of the 12 events here are exactly that.
 3. Do pre-event items (race pack collection) belong to the race's programme group or stay unrelated events?
 4. The unclear 2026-10-30 event: open the post and fix its role.
 
-Related: IDEA-106 (event report vs announcement), IDEA-103 (reposts), IDEA-105 (target area), the personalization plan Revisions 10 and 11 (tracks survive a merge; the per-field merge of an event's several posts, prototype `merge-event-insight.ts`), PRD 3.19 and 3.20.
+Related: IDEA-106 (event report vs announcement), IDEA-261026-l2j (reposts), IDEA-261027-ugg (target area), the personalization plan Revisions 10 and 11 (tracks survive a merge; the per-field merge of an event's several posts, prototype `merge-event-insight.ts`), PRD 3.19 and 3.20.

@@ -13,7 +13,7 @@ You are a Claude Code session running **on the product owner's own machine**, st
 ## 2. Context in ten lines
 
 * The repo is a BMad planning/POC effort for **personalized Discovery** (ranking events per user, area filtering, partial AI-filter matches, freshness, "already seen"). Read `_bmad-output/planning-artifacts/event-insight-poc/prod-findings-review-2026-10-19.md` first (10 minutes) — it is the cloud session's latest work.
-* On 2026-10-19 the owner ran queries on production with the existing `readonly_2` role (`results/prod-findings-and-event-groups-2026-10-19.md`): 1,394 events, 431 open, `jit` off, 1,460 pinned schedules of which **379 lie outside Indonesia** (BUG-066 seen live), matcher "recall" 23 of 446 (disputed, see below), `event_merges` empty, 147 duplicate candidates pending.
+* On 2026-10-19 the owner ran queries on production with the existing `readonly_2` role (`results/prod-findings-and-event-groups-2026-10-19.md`): 1,394 events, 431 open, `jit` off, 1,460 pinned schedules of which **379 lie outside Indonesia** (BUG-261018-abg seen live), matcher "recall" 23 of 446 (disputed, see below), `event_merges` empty, 147 duplicate candidates pending.
 * The cloud session then **reproduced BUG-068**: every `jsonb` column written through Drizzle 0.30.10 + postgres.js is stored as a JSON string (not the pooler). It also corrected the production pack and wrote `recall-classes.sql`. None of these corrections has run against production yet — **that is what you do now.**
 * The cloud session reviewed the owner's event-group plan (AD-36 in `_bmad-output/planning-artifacts/festgrid-architecture-spine.md`) and listed ten gaps. That review is not your task; it is why the numbers below matter.
 
@@ -58,7 +58,7 @@ Calls the owner's Geoapify account: 14 place descriptions × 3 request modes = 4
 npx tsx scripts/poc-event-insight/probe-geocode-country.ts --dry                       # shows the URLs with the key redacted: check it, then:
 npx tsx scripts/poc-event-insight/probe-geocode-country.ts --country id --md /tmp/geocode-probe.md
 ```
-Never print the key. Show the output and summarize, per description, the country answered under (a) no bias, (b) bias, (c) filter, and whether the confidence-only pick is outside Indonesia. This is the evidence for BUG-066 and for the unresolved confidence-floor value (the floor 0.5 in `location-policy.ts` is an uncalibrated placeholder): list the confidence of every wrong-country answer next to the confidence of the right one so the owner can see where a floor would separate them. Do not change any threshold.
+Never print the key. Show the output and summarize, per description, the country answered under (a) no bias, (b) bias, (c) filter, and whether the confidence-only pick is outside Indonesia. This is the evidence for BUG-261018-abg and for the unresolved confidence-floor value (the floor 0.5 in `location-policy.ts` is an uncalibrated placeholder): list the confidence of every wrong-country answer next to the confidence of the right one so the owner can see where a floor would separate them. Do not change any threshold.
 
 ## 5. Hand-back
 
@@ -69,7 +69,7 @@ Never print the key. Show the output and summarize, per description, the country
 
 ## 6. Out of scope here
 
-Fixing BUG-068 or BUG-066, editing AD-36 or the PRD, running the Gemini extraction probes, running the role create/drop scripts, building the matcher replay, and the target-area filtering/scoring discussion. If the owner asks for any of these, say it belongs in the cloud session or a separate story.
+Fixing BUG-068 or BUG-261018-abg, editing AD-36 or the PRD, running the Gemini extraction probes, running the role create/drop scripts, building the matcher replay, and the target-area filtering/scoring discussion. If the owner asks for any of these, say it belongs in the cloud session or a separate story.
 
 ## 7. Round 2 (added after the first results came back) — same rules as §1, same variables, same hand-back as §5
 

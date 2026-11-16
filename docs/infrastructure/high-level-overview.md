@@ -40,11 +40,23 @@ graph TD
         end
 
         S3_Backup["S3: nightly database dumps, 30-day retention"]
+        S3_Labelled["S3: private labelled posts for the extraction eval (planned, not created yet)"]
     end
 
     subgraph "GitHub Actions"
         GHA_Backup["Production DB Backup: nightly and manual pg_dump"]
         GHA_Restore["Production DB Restore Test: restores the newest dump after each backup"]
+        GHA_DedupExport["Dedup Review Export: manual, read-only evidence JSON for the AI reviewer"]
+        GHA_DedupApply["Dedup Review Apply: manual; validate read-only, apply needs the owner's approval"]
+        GHA_ExtractionEval["Extraction Accuracy Eval: non-blocking; replays a synthetic set, or scores a private labelled set live"]
+    end
+
+    subgraph "GitHub Issues"
+        GH_Issues["dedup-escalate issues and the dedup-insight log"]
+    end
+
+    subgraph "Claude cloud session"
+        AI_Skill["moderator-dedup-review skill: decides, escalates through GitHub issues, no production database credentials"]
     end
 
     subgraph External Services
@@ -66,9 +78,15 @@ graph TD
     EventBridge -- triggers --> L_Scrape
     L_Scrape -- triggers async job (webhooks param) --> Apify
     L_Scrape -- polls/recovers (sweep) --> Apify
+    EventBridge -- every 5 minutes: job sweep (expiry, queue promotion, re-admission, late Bright Data results, job-finished notices) --> L_Scrape
+    L_API -- admits or queues a job, then starts it (async invoke) --> L_Scrape
+    L_API -- subscription cap and job admission under a per-user row lock --> Supabase
+    L_Scrape -- job phase hand-off, e.g. re-extract refresh then preview (async invoke, job id only) --> L_AI
+    L_Scrape -- jobs, job attempts, queue promotion --> Supabase
     Apify -- webhook callback --> L_ApifyWebhook
     L_ApifyWebhook -- persists scraped posts to --> Supabase
     L_Scrape -- triggers async job (webhook endpoint) --> BrightData
+    L_Scrape -- fetches one post (post chain: Bright Data first, then Apify) --> BrightData
     BrightData -- webhook callback --> L_BDWebhook
     L_BDWebhook -- persists scraped posts to --> Supabase
     L_BDWebhook -- checks an empty result --> BrightData
@@ -90,6 +108,8 @@ graph TD
     L_API -- interacts with --> Supabase
     L_API -- sends to --> FCM
     L_API -- sends to --> SES
+    L_Scrape -- job-finished push (5-minute sweep) --> FCM
+    L_Scrape -- job-finished mail to a moderator owner --> SES
     L_Scrape -- provider and posts-saved metrics --> CW
     L_API -- resolves location via --> Geoapify
 
@@ -99,5 +119,12 @@ graph TD
     GHA_Backup -- uploads the dump --> S3_Backup
     S3_Backup -- newest dump --> GHA_Restore
     GHA_Restore -- read-only row and object counts --> Supabase
+    GHA_DedupExport -- read-only evidence queries, READ ONLY transaction --> Supabase
+    GHA_DedupApply -- validate: read-only; apply: guarded merges (rejects exist but are off until the owner switches them on), write role, approval --> Supabase
+    AI_Skill -- dispatches the export, reads its report from the job log --> GHA_DedupExport
+    GHA_ExtractionEval -. live path only, when the secrets are set: reads the labelled set .-> S3_Labelled
+    GHA_ExtractionEval -. live path only: paced extraction calls .-> Gemini
+    AI_Skill -- dispatches validate; apply only when the owner says so --> GHA_DedupApply
+    AI_Skill -- opens and closes labelled issues --> GH_Issues
 ```
 

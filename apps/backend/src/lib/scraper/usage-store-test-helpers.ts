@@ -12,3 +12,12 @@ export const APIFY_TEST_PROVIDER = 'apify';
 export async function clearApifyProviderUsage(): Promise<void> {
   await db.delete(scraperProviderUsage).where(eq(scraperProviderUsage.provider, APIFY_TEST_PROVIDER));
 }
+
+export const BRIGHTDATA_TEST_PROVIDER = 'brightdata';
+
+// Same contract as clearApifyProviderUsage, for a test file whose subtests reach the Bright Data capacity gate
+// and usage record (the Bright Data profile adapter). The backend's row-count ratchet fails a run that leaves a
+// scraper_provider_usage row behind.
+export async function clearBrightDataProviderUsage(): Promise<void> {
+  await db.delete(scraperProviderUsage).where(eq(scraperProviderUsage.provider, BRIGHTDATA_TEST_PROVIDER));
+}

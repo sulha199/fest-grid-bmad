@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { FIXTURE_JOB_IDS } from '../../../packages/database/seed';
 import { classifyPageHealth, describeOverflow, detectPageOverflow, isOverflowing, settleLayout } from '@festgrid/visual-audit/page-overflow';
 
 /**
@@ -109,14 +110,103 @@ test.describe('signed in', () => {
     '/en/settings/locations',
     '/en/settings/widgets',
     '/en/settings/ai-filters',
+    // Story 10.4: the Jobs page and a job's own page (an open job with the stepper, and a failed one).
+    '/en/jobs',
+    `/en/jobs/${FIXTURE_JOB_IDS.userRunning}`,
+    `/en/jobs/${FIXTURE_JOB_IDS.userFailed}`,
   ], { signedIn: true });
+
+  // Story 10.13 (notify when a job finishes): the profile menu open with the Jobs badge (count routed to 99: "9+" and the longest sentence).
+  test('user: the profile menu with a Jobs badge has no page-level horizontal overflow', async ({ page }) => {
+    const pageErrors = trackPageErrors(page);
+    await page.route('**/api/graphql', async (route) => {
+      const post = route.request().postDataJSON() as { operationName?: string } | null;
+      if (post?.operationName !== 'jobsFinishedSinceLastOpened') return route.fallback();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { jobsFinishedSinceLastOpened: 99 } }) });
+    });
+    await gotoRoute(page, '/en/feed');
+    await settleLayout(page);
+    await expectSignedIn(page);
+    const failures: string[] = [];
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: VIEWPORT_HEIGHT });
+      await settleLayout(page);
+      await page.locator('nav[aria-label="Main"] button[aria-expanded]:visible').last().click();
+      const jobs = page.getByTestId('user-menu').filter({ visible: true }).getByRole('link', { name: /^Jobs/ });
+      await expect(jobs).toHaveAccessibleName('Jobs 99 jobs finished since you last looked', { timeout: 30_000 });
+      const result = await detectPageOverflow(page);
+      if (isOverflowing(result)) failures.push(`profile menu @ ${width}px: ${describeOverflow(result)}`);
+      await page.keyboard.press('Escape');
+    }
+    await expectHealthyPage(page, pageErrors);
+    expect(failures, 'overflowing widths').toEqual([]);
+  });
+
+  // Story 10.3a (show the subscription cap refusal and the upgrade call to action): the Subscribe dialog open on Account Settings with the cap
+  // notice shown. The refusal is routed (a real fifth subscribe would start a scrape, a vendor call), so nothing reaches the server.
+  test('user: /en/settings/account with the Subscribe dialog refused by the cap has no page-level horizontal overflow', async ({ page }) => {
+    const pageErrors = trackPageErrors(page);
+    await page.route('**/api/graphql', async (route) => {
+      const post = route.request().postDataJSON() as { operationName?: string } | null;
+      if (post?.operationName !== 'SubscribeToAccount') return route.fallback();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: null, errors: [{ message: 'Subscription limit reached', extensions: { code: 'SUBSCRIPTION_CAP_REACHED', activeCount: 4, reservedCount: 1, cap: 5 } }] }),
+      });
+    });
+    await page.setViewportSize({ width: 1280, height: VIEWPORT_HEIGHT });
+    await page.goto('/en/settings/account?tab=subscriptions', { waitUntil: 'domcontentloaded' });
+    await settleLayout(page);
+    await expectSignedIn(page);
+    await page.getByRole('button', { name: 'Subscribe to an Account' }).first().click();
+    const dialog = page.getByRole('dialog');
+    const field = dialog.getByPlaceholder('e.g., jkt_festivals');
+    await field.fill('an_account_with_a_really_long_handle_name_for_wrapping_checks');
+    // Enter, not a click: the voted-account suggestion list under the field sits over the Subscribe button.
+    await field.press('Enter');
+    await expect(dialog.getByTestId('subscription-cap-notice')).toBeVisible();
+    await expectHealthyPage(page, pageErrors);
+    const failures = await overflowAtEveryWidth(page, '/en/settings/account (cap notice open)');
+    await expectHealthyPage(page, pageErrors);
+    expect(failures, 'overflowing widths').toEqual([]);
+  });
 });
 
 test.describe('moderator', () => {
   test.skip(!moderatorState, 'Set E2E_FAKE_AUTH=1 (or E2E_AUTH_MODERATOR_STORAGE_STATE) to run moderator routes.');
   if (moderatorState) test.use({ storageState: moderatorState });
 
-  describeRoutes('moderator', ['/en/moderator/items', EVENT_ROUTE], { signedIn: true });
+  // Story 10.6a (show the Re-extract progress, the missing-images banner and Retry): the moderator event pages whose source-post row is a chip (a finished
+  // preview, an over-the-cap carousel, a cooldown and a running job) and a Re-extract job's own page with "Open the preview". The Re-extract tab of Moderator Tools is measured by the every-tab test below.
+  describeRoutes(
+    'moderator',
+    [
+      '/en/moderator/items',
+      EVENT_ROUTE,
+      '/en/jobs',
+      '/en/events/cancellation-threshold-test-fixed',
+      '/en/events/upcoming-family-workshop-2027-fixed',
+      '/en/events/past-jazz-night-2025-fixed',
+      `/en/jobs/${FIXTURE_JOB_IDS.moderatorPreviewLimits}`,
+    ],
+    { signedIn: true }
+  );
+
+  test('moderator: a job detail with its technical details open has no page-level horizontal overflow', async ({ page }) => {
+    const pageErrors = trackPageErrors(page);
+    const route = `/en/jobs/${FIXTURE_JOB_IDS.moderatorFailedTimedOut}`;
+    await gotoRoute(page, route);
+    await settleLayout(page);
+    await expectSignedIn(page);
+    await expectHealthyPage(page, pageErrors);
+    // The attempts are a Table from md: up and a stacked list below it: measure both with the block open.
+    await page.getByText('Technical details (moderators)').click();
+    await expect(page.getByText('The job ran past its time limit.')).toBeVisible();
+    const failures = await overflowAtEveryWidth(page, `${route} [technical details open]`);
+    await expectHealthyPage(page, pageErrors);
+    expect(failures, 'overflowing widths').toEqual([]);
+  });
 
   test('moderator: every /en/moderator/tools tab has no page-level horizontal overflow', async ({ page }) => {
     const pageErrors = trackPageErrors(page);

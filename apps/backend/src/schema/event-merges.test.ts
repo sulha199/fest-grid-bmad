@@ -123,6 +123,78 @@ test('event-merges resolvers (Story 3.6w)', async (t) => {
     assert.ok(!nodes.some((n: any) => n.id === rejected.id), 'rejected suggestion must not appear in the pending list');
   });
 
+  await t.test('suggestedEventMatches - paging with after: endCursor shows every pending row once', async () => {
+    // The queue is global, so walk all of it and look for the three rows made here: a cursor that points
+    // at the last row of a page (instead of past it) repeats that row at the top of the next page.
+    const made: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const candidate = await makeEvent(`Page Candidate ${i} ${suffix}`);
+      const newEvent = await makeEvent(`Page New ${i} ${suffix}`);
+      made.push((await makeSuggestion(newEvent.id, candidate.id, 0.5)).id);
+    }
+
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const seen: string[] = [];
+    let after: string | null = null;
+    for (let i = 0; i < 200; i++) {
+      const result: any = await gqlCall(
+        `query ($after: String) {
+          suggestedEventMatches(first: 2, after: $after) {
+            edges { node { id } }
+            pageInfo { hasNextPage endCursor }
+          }
+        }`,
+        { after },
+      );
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const page = result.data.suggestedEventMatches;
+      seen.push(...page.edges.map((e: any) => e.node.id));
+      if (!page.pageInfo.hasNextPage) break;
+      after = page.pageInfo.endCursor;
+    }
+
+    assert.strictEqual(new Set(seen).size, seen.length, 'no suggestion may appear on two pages');
+    for (const id of made) assert.ok(seen.includes(id), `suggestion ${id} must be reachable by paging`);
+  });
+
+  await t.test('suggestedEventMatches - suggestions that tie on createdAt page in id order', async () => {
+    // Same instant for all three; without an `id` tiebreaker their order is physical order, not id order.
+    const made: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const candidate = await makeEvent(`Tie Candidate ${i} ${suffix}`);
+      const newEvent = await makeEvent(`Tie New ${i} ${suffix}`);
+      made.push((await makeSuggestion(newEvent.id, candidate.id, 0.5)).id);
+    }
+    await db.update(eventMatchCandidates).set({ createdAt: new Date('2000-01-01T00:00:00Z') }).where(inArray(eventMatchCandidates.id, made));
+
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const seen: string[] = [];
+    let after: string | null = null;
+    for (let i = 0; i < 200; i++) {
+      const result: any = await gqlCall(
+        `query ($after: String) {
+          suggestedEventMatches(first: 2, after: $after) {
+            edges { node { id } }
+            pageInfo { hasNextPage endCursor }
+          }
+        }`,
+        { after },
+      );
+      assert.ok(!result.errors, JSON.stringify(result.errors));
+      const page = result.data.suggestedEventMatches;
+      seen.push(...page.edges.map((e: any) => e.node.id));
+      if (!page.pageInfo.hasNextPage) break;
+      after = page.pageInfo.endCursor;
+    }
+
+    assert.strictEqual(new Set(seen).size, seen.length, 'no suggestion may appear on two pages');
+    assert.deepStrictEqual(
+      seen.filter((id) => made.includes(id)),
+      [...made].sort(),
+      'suggestions with the same createdAt come back in id order',
+    );
+  });
+
   await t.test('resolveSuggestedEventMatch - ACCEPT commits a merge, returns mergeId, flips status', async () => {
     const candidate = await makeEvent('Accept Candidate ' + suffix);
     const newEvent = await makeEvent('Accept New ' + suffix);
@@ -173,6 +245,178 @@ test('event-merges resolvers (Story 3.6w)', async (t) => {
     const [loserRow] = await db.select().from(events).where(eq(events.id, newEvent.id));
     assert.strictEqual(loserRow.deletedAt, null);
     assert.strictEqual(loserRow.mergedIntoEventId, null);
+  });
+
+  // Characterization tests for the paths the tests above never reach. They were written against the
+  // resolver before `resolveSuggestedMatch` was extracted (AD-30 Rule 9), and must keep passing
+  // unchanged after it.
+  const RESOLVE = `mutation Resolve($id: ID!, $action: SuggestedEventMatchAction!) { resolveSuggestedEventMatch(id: $id, action: $action) { mergeId suggestion { id status } } }`;
+
+  const RESOLVE_WITH_REASON = `mutation Resolve($id: ID!, $action: SuggestedEventMatchAction!, $clues: [String!], $note: String) { resolveSuggestedEventMatch(id: $id, action: $action, clues: $clues, note: $note) { mergeId suggestion { id status } } }`;
+  const suggestionOf = async (id: string) => (await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, id)))[0];
+
+  await t.test('resolveSuggestedEventMatch - clues and a note are stored with a REJECT and with an ACCEPT, and the answer never carries them back', async () => {
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const rejectPair = await makeSuggestion((await makeEvent('Clue Reject New ' + suffix)).id, (await makeEvent('Clue Reject Candidate ' + suffix)).id, 0.5);
+    const rejected = await gqlCall(RESOLVE_WITH_REASON, { id: rejectPair.id, action: 'REJECT', clues: ['different-category-or-tier', 'different-organizer'], note: ' kids run, not 10K ' });
+    assert.ok(!rejected.errors, JSON.stringify(rejected.errors));
+    const rejectRow = await suggestionOf(rejectPair.id);
+    assert.deepStrictEqual(rejectRow.resolutionClues, ['different-organizer', 'different-category-or-tier']);
+    assert.strictEqual(rejectRow.resolutionNote, 'kids run, not 10K');
+    assert.ok(!JSON.stringify(rejected.data).includes('kids run'), 'the note is not part of any answer');
+
+    const acceptPair = await makeSuggestion((await makeEvent('Clue Accept New ' + suffix)).id, (await makeEvent('Clue Accept Candidate ' + suffix)).id, 0.5);
+    const accepted = await gqlCall(RESOLVE_WITH_REASON, { id: acceptPair.id, action: 'ACCEPT', clues: ['same-venue'], note: null });
+    assert.ok(!accepted.errors, JSON.stringify(accepted.errors));
+    const acceptRow = await suggestionOf(acceptPair.id);
+    assert.strictEqual(acceptRow.status, 'accepted');
+    assert.deepStrictEqual(acceptRow.resolutionClues, ['same-venue']);
+    assert.strictEqual(acceptRow.resolutionNote, null);
+  });
+
+  await t.test('resolveSuggestedEventMatch - no clue and no note is what it always was: both columns NULL', async () => {
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const pair = await makeSuggestion((await makeEvent('No Clue New ' + suffix)).id, (await makeEvent('No Clue Candidate ' + suffix)).id, 0.5);
+    const result = await gqlCall(RESOLVE, { id: pair.id, action: 'REJECT' });
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    const row = await suggestionOf(pair.id);
+    assert.strictEqual(row.resolutionClues, null);
+    assert.strictEqual(row.resolutionNote, null);
+  });
+
+  await t.test('resolveSuggestedEventMatch - a bad clue list or note is BAD_REQUEST, nothing is resolved and the error does not echo the note', async () => {
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const pair = await makeSuggestion((await makeEvent('Bad Clue New ' + suffix)).id, (await makeEvent('Bad Clue Candidate ' + suffix)).id, 0.5);
+    const secret = 'SECRET-NOTE-' + 'x'.repeat(200);
+    for (const variables of [
+      { clues: ['nope'] },
+      { clues: ['same-venue', 'different-venue'] },
+      { clues: ['other', 'other'] },
+      { note: secret },
+    ]) {
+      const result = await gqlCall(RESOLVE_WITH_REASON, { id: pair.id, action: 'REJECT', ...variables });
+      assert.strictEqual(result.errors[0].extensions?.code, 'BAD_REQUEST', JSON.stringify(variables).slice(0, 60));
+      assert.ok(!JSON.stringify(result.errors).includes('SECRET-NOTE'), 'the error does not echo the note');
+    }
+    const row = await suggestionOf(pair.id);
+    assert.strictEqual(row.status, 'pending');
+    assert.strictEqual(row.resolutionClues, null);
+  });
+
+  await t.test('undoEventMerge - clears the clues and the note with the resolution', async () => {
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const pair = await makeSuggestion((await makeEvent('Undo Clue New ' + suffix)).id, (await makeEvent('Undo Clue Candidate ' + suffix)).id, 0.5);
+    const accepted = await gqlCall(RESOLVE_WITH_REASON, { id: pair.id, action: 'ACCEPT', clues: ['same-date'], note: 'will be withdrawn' });
+    assert.ok(!accepted.errors, JSON.stringify(accepted.errors));
+    const undone = await gqlCall(`mutation Undo($mergeId: ID!) { undoEventMerge(mergeId: $mergeId) { id } }`, { mergeId: accepted.data.resolveSuggestedEventMatch.mergeId });
+    assert.ok(!undone.errors, JSON.stringify(undone.errors));
+    const row = await suggestionOf(pair.id);
+    assert.strictEqual(row.status, 'pending');
+    assert.strictEqual(row.resolutionClues, null);
+    assert.strictEqual(row.resolutionNote, null);
+  });
+
+  await t.test('resolveSuggestedEventMatch - non-moderator rejected with FORBIDDEN, suggestion untouched', async () => {
+    const candidate = await makeEvent('Forbidden Candidate ' + suffix);
+    const newEvent = await makeEvent('Forbidden New ' + suffix);
+    const suggestion = await makeSuggestion(newEvent.id, candidate.id, 0.5);
+
+    mockUser = { userId: regularUser.id, role: regularUser.role };
+    const result = await gqlCall(RESOLVE, { id: suggestion.id, action: 'ACCEPT' });
+    assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
+
+    const [unchanged] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, suggestion.id));
+    assert.strictEqual(unchanged.status, 'pending');
+  });
+
+  await t.test('resolveSuggestedEventMatch - unknown id fails with NOT_FOUND', async () => {
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const result = await gqlCall(RESOLVE, { id: '00000000-0000-4000-8000-000000000000', action: 'ACCEPT' });
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'NOT_FOUND');
+  });
+
+  await t.test('resolveSuggestedEventMatch - an already-resolved suggestion fails with INVALID_STATE_TRANSITION and writes nothing', async () => {
+    const candidate = await makeEvent('Twice Candidate ' + suffix);
+    const newEvent = await makeEvent('Twice New ' + suffix);
+    const suggestion = await makeSuggestion(newEvent.id, candidate.id, 0.5);
+
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const first = await gqlCall(RESOLVE, { id: suggestion.id, action: 'REJECT' });
+    assert.ok(!first.errors, JSON.stringify(first.errors));
+    const [afterFirst] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, suggestion.id));
+
+    for (const action of ['ACCEPT', 'REJECT']) {
+      const again = await gqlCall(RESOLVE, { id: suggestion.id, action });
+      assert.ok(again.errors, `a second ${action} must fail`);
+      assert.strictEqual(again.errors[0].extensions?.code, 'INVALID_STATE_TRANSITION');
+    }
+
+    const [afterAgain] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, suggestion.id));
+    assert.strictEqual(afterAgain.status, 'rejected');
+    assert.strictEqual(afterAgain.resolvedAt?.getTime(), afterFirst.resolvedAt?.getTime());
+    const [loserRow] = await db.select().from(events).where(eq(events.id, newEvent.id));
+    assert.strictEqual(loserRow.deletedAt, null);
+  });
+
+  await t.test('resolveSuggestedEventMatch - a pair that can no longer merge fails with INVALID_STATE_TRANSITION and the suggestion stays pending', async () => {
+    const winnerOfFirst = await makeEvent('Chain Winner ' + suffix);
+    const mergedAway = await makeEvent('Chain Merged Away ' + suffix);
+    const later = await makeEvent('Chain Later ' + suffix);
+    const firstSuggestion = await makeSuggestion(mergedAway.id, winnerOfFirst.id, 0.6);
+    // `mergedAway` becomes the loser of the first merge, so it can no longer be a winner.
+    const staleSuggestion = await makeSuggestion(later.id, mergedAway.id, 0.6);
+
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const accepted = await gqlCall(RESOLVE, { id: firstSuggestion.id, action: 'ACCEPT' });
+    assert.ok(!accepted.errors, JSON.stringify(accepted.errors));
+
+    const result = await gqlCall(RESOLVE, { id: staleSuggestion.id, action: 'ACCEPT' });
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'INVALID_STATE_TRANSITION');
+
+    const [stillPending] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, staleSuggestion.id));
+    assert.strictEqual(stillPending.status, 'pending');
+    const [laterRow] = await db.select().from(events).where(eq(events.id, later.id));
+    assert.strictEqual(laterRow.deletedAt, null);
+    const journal = await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, staleSuggestion.id));
+    assert.strictEqual(journal.length, 0);
+  });
+
+  await t.test('resolveSuggestedEventMatch - REJECT records who and when, and writes no merge journal row', async () => {
+    const candidate = await makeEvent('Journal Candidate ' + suffix);
+    const newEvent = await makeEvent('Journal New ' + suffix);
+    const suggestion = await makeSuggestion(newEvent.id, candidate.id, 0.5);
+
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const result = await gqlCall(RESOLVE, { id: suggestion.id, action: 'REJECT' });
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+
+    const [row] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, suggestion.id));
+    assert.strictEqual(row.status, 'rejected');
+    assert.strictEqual(row.resolvedByModeratorId, moderator.id);
+    assert.ok(row.resolvedAt instanceof Date);
+    const journal = await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, suggestion.id));
+    assert.strictEqual(journal.length, 0);
+  });
+
+  await t.test('resolveSuggestedEventMatch - ACCEPT records the moderator on the suggestion and the merge journal', async () => {
+    const candidate = await makeEvent('Who Candidate ' + suffix);
+    const newEvent = await makeEvent('Who New ' + suffix);
+    const suggestion = await makeSuggestion(newEvent.id, candidate.id, 0.6);
+
+    mockUser = { userId: moderator.id, role: moderator.role };
+    const result = await gqlCall(RESOLVE, { id: suggestion.id, action: 'ACCEPT' });
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+
+    const [row] = await db.select().from(eventMatchCandidates).where(eq(eventMatchCandidates.id, suggestion.id));
+    assert.strictEqual(row.resolvedByModeratorId, moderator.id);
+    assert.ok(row.resolvedAt instanceof Date);
+    const [journal] = await db.select().from(eventMerges).where(eq(eventMerges.suggestionId, suggestion.id));
+    assert.strictEqual(journal.id, result.data.resolveSuggestedEventMatch.mergeId);
+    assert.strictEqual(journal.performedByModeratorId, moderator.id);
+    assert.strictEqual(journal.winnerEventId, candidate.id);
+    assert.strictEqual(journal.loserEventId, newEvent.id);
   });
 
   await t.test('undoEventMerge - restores the loser and flips the suggestion back to pending', async () => {

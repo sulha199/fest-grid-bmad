@@ -1,5 +1,5 @@
 -- AD-39 Rule 7, Round 4 ask 2: the legacy `location_source` fingerprint, counted on OPEN events (a schedule that has not ended) by account type.
--- Sizes how many curator events lose a pin when AD-39 Rule 3 applies (BUG-065) and become `unknown`, and how many events each fingerprint class holds before
+-- Sizes how many curator events lose a pin when AD-39 Rule 3 applies (BUG-261018-jwf) and become `unknown`, and how many events each fingerprint class holds before
 -- the derive job runs. Classes (the first that applies, on the event's main schedule):
 --   account_default     the schedule's location text is empty AND the pin equals the account's default location (same place id, or coordinates within 150 m)
 --   geocoded_from_text  the schedule has a location text

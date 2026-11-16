@@ -64,3 +64,5 @@ apps/backend/scripts/.poc-cache/
 
 # POC post downloads (third-party captions; never commit)
 apps/backend/scripts/poc-event-insight/local/
+# Raw model answers of a live extraction-accuracy eval run (real posts: never commit; docs/infrastructure/extraction-accuracy-eval.md)
+extraction-eval-recorded.json

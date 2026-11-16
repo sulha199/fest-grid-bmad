@@ -1,27 +1,24 @@
 import { db } from '../../db/client.js';
 import { posts } from '@festgrid/database';
-import { eq, desc, count } from 'drizzle-orm';
+import { HISTORY_SEED_LOOKBACK_DAYS } from '@festgrid/domain';
+import { eq, desc } from 'drizzle-orm';
+import { isHistorySeeded } from './history-seeded-store.js';
 
-const INITIAL_SCRAPE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const SEED_WINDOW_MS = HISTORY_SEED_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
 
 /**
- * Shared initial-vs-incremental scrape decision: an account with no posts yet gets the
- * subscribe-time cascade's 7-day initial window; an account with posts gets an incremental
- * scrape from its newest post onward. Extracted from `Mutation.triggerAccountScrape`
- * (`apps/backend/src/schema/resolvers.ts`) so the moderator-resolution scrape trigger (Part 3,
- * AD-34) shares the same decision instead of re-deriving it.
+ * Shared initial-vs-incremental scrape decision: an account whose history is not seeded yet (no scrape of its
+ * own has delivered a post) gets the seeding window -- the newest posts, none older than
+ * HISTORY_SEED_LOOKBACK_DAYS; a seeded account gets an incremental scrape from its newest post onward. Stored
+ * posts do not make an account seeded: one known only as a co-author holds a few posts that say nothing about
+ * its own timeline. Extracted from `Mutation.triggerAccountScrape` (`apps/backend/src/schema/resolvers.ts`) so
+ * the moderator-resolution scrape trigger (Part 3, AD-34) shares the same decision instead of re-deriving it.
  */
 export async function decideInitialOrIncrementalNewerThan(
   accountId: string
 ): Promise<{ isInitialScrape: boolean; newerThan: string }> {
-  const postCountRows = await db.select({ count: count() })
-    .from(posts)
-    .where(eq(posts.accountId, accountId));
-
-  const postCount = postCountRows[0]?.count ?? 0;
-
-  if (postCount === 0) {
-    return { isInitialScrape: true, newerThan: new Date(Date.now() - INITIAL_SCRAPE_WINDOW_MS).toISOString() };
+  if (!(await isHistorySeeded(accountId))) {
+    return { isInitialScrape: true, newerThan: new Date(Date.now() - SEED_WINDOW_MS).toISOString() };
   }
 
   const mostRecentRows = await db.select({ publishedAt: posts.publishedAt })
@@ -34,9 +31,7 @@ export async function decideInitialOrIncrementalNewerThan(
     return { isInitialScrape: false, newerThan: mostRecentRows[0].publishedAt.toISOString() };
   }
 
-  // Fallback (shouldn't happen -- count said >0 but the row vanished between queries). Matches
-  // the pre-extraction behavior in triggerAccountScrape exactly: the 7-day window is reused as a
-  // best-effort newerThan, but isInitialScrape stays false since this branch only runs when the
-  // account is known to have (or very recently had) posts.
-  return { isInitialScrape: false, newerThan: new Date(Date.now() - INITIAL_SCRAPE_WINDOW_MS).toISOString() };
+  // A seeded account that holds no post of its own (its delivered posts were all stored under another owner):
+  // the seeding window is the best-effort newerThan, and the scrape is still incremental.
+  return { isInitialScrape: false, newerThan: new Date(Date.now() - SEED_WINDOW_MS).toISOString() };
 }

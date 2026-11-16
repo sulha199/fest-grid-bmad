@@ -11,12 +11,22 @@ interface FilterPanelProps {
     sortOrder: "newest" | "oldest"
   }
   onFilterChange: (filters: Partial<{ source: string | null; createdAfter: string | null; createdBefore: string | null; sortOrder: "newest" | "oldest" }>) => void
+  /**
+   * What "Clear all" does. A list that pages needs more than resetting the filter values: with no filter set the
+   * paging controller's filter key does not change, so only the owner of the controller can return to page 1.
+   * Without it, Clear reports the cleared values through `onFilterChange`.
+   */
+  onClear?: () => void
 }
 
-export function FilterPanel({ filters, onFilterChange }: FilterPanelProps) {
+export function FilterPanel({ filters, onFilterChange, onClear }: FilterPanelProps) {
   const t = useTranslations("UnprocessedPayloadsPage")
 
   const handleClear = () => {
+    if (onClear) {
+      onClear()
+      return
+    }
     onFilterChange({
       source: null,
       createdAfter: null,

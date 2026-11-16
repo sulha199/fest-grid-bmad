@@ -281,6 +281,59 @@ test('processAiJob orchestrator tests', async (t) => {
     }
   });
 
+  await t.test('Case A-kw: the keywords call fills location keywords on the enqueued event; a failing one changes nothing', async () => {
+    const baseMessage = {
+      accountId: profile.id,
+      content: 'Pasar rakyat #sleman',
+      postUrl: 'https://test.com/p-kw',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const extraction = JSON.stringify({
+      isEvent: true,
+      events: [{
+        eventName: 'Pasar Rakyat',
+        types: ['FESTIVAL'],
+        categories: ['OTHER'],
+        location: 'Pasar Porosjayan, Gamping',
+        schedules: [{ isMainSchedule: true, eventStartDate: '2026-08-15', location: 'Pasar Porosjayan, Gamping' }],
+        confidenceScore: 0.95
+      }]
+    });
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setBackfillAccountProfileAndInferDefaultLocationSeam(async () => {});
+    // No real geocoder call from a unit test: the lookup is a best-effort miss (and no default-location side effects on the fixture account).
+    setResolveLocationSeam(async () => {
+      throw new Error('no geocoder in this test');
+    });
+
+    for (const keywordsCallFails of [false, true]) {
+      let call = 0;
+      let sqsBody: any = null;
+      setCallGeminiSeam(async () => {
+        call++;
+        if (call === 1) return { text: extraction };
+        if (keywordsCallFails) throw new Error('503 busy');
+        return { text: JSON.stringify([{ id: 's0', locationKeywords: ['Pasar Porosjayan', 'Gamping', 'Sleman'], countryCode: 'ID' }]) };
+      });
+      setSendSqsMessage(async (_queueUrl, body) => {
+        sqsBody = JSON.parse(body);
+      });
+
+      await processAiJob({ ...baseMessage, postId: keywordsCallFails ? '00000000-0000-4000-8000-0000000000a2' : '00000000-0000-4000-8000-0000000000a1' });
+
+      assert.strictEqual(call, 2, 'the extraction plus exactly one keywords call, however many schedules share the text');
+      assert.ok(sqsBody, 'the event is enqueued either way');
+      if (keywordsCallFails) {
+        assert.strictEqual(sqsBody.locationKeywords, undefined);
+        assert.strictEqual(sqsBody.schedules[0].locationKeywords, undefined);
+      } else {
+        assert.deepStrictEqual(sqsBody.locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+        assert.deepStrictEqual(sqsBody.schedules[0].locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+        assert.strictEqual(sqsBody.locationCountryCode, undefined);
+      }
+    }
+  });
+
   await t.test('Case B: isEvent: false path (marked, not enqueued)', async () => {
     const message: ProcessingJobMessage = {
       postId: '00000000-0000-4000-8000-000000000002',
@@ -388,6 +441,289 @@ test('processAiJob orchestrator tests', async (t) => {
 
     assert.ok(!sendSqsMessageCalled, 'Should NOT enqueue on parse fail');
     assert.ok(!markPostExtractedCalled, 'Should NOT mark post extracted on parse fail');
+  });
+
+  // AD-49 (cursor extraction, slice 1): the cause of an unparseable response is logged, not dumped raw.
+  await t.test('Case D2: an unparseable (cut-off) response logs finishReason, tokens and length, not the whole text', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000d2',
+      accountId: profile.id,
+      content: 'Cut off JSON',
+      postUrl: 'https://test.com/p-d2',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const longTail = 'x'.repeat(5000);
+    const warn = t.mock.method(console, 'warn', () => {});
+    const info = t.mock.method(console, 'info', () => {});
+    let markPostExtractedCalled = false;
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+    setCallGeminiSeam(async () => ({
+      text: '{"isEvent": true, "events": [{"eventName": "' + longTail,
+      finishReason: 'MAX_TOKENS',
+      usage: { promptTokens: 5200, outputTokens: 8192 },
+    }));
+
+    await processAiJob(message);
+
+    assert.ok(!markPostExtractedCalled, 'the post stays unextracted');
+    const unparseable = warn.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-response-unparseable]'));
+    assert.ok(unparseable, 'an unparseable-response warning is logged');
+    assert.ok(unparseable.includes(`post=${message.postId}`));
+    assert.ok(unparseable.includes('finishReason=MAX_TOKENS'));
+    assert.ok(unparseable.includes('outputTokens=8192'));
+    assert.ok(unparseable.includes('atRisk=max_tokens,output_near_limit'));
+    assert.ok(unparseable.includes(`length=${('{"isEvent": true, "events": [{"eventName": "' + longTail).length}`));
+    assert.ok(unparseable.length < 1000, 'the raw text is not dumped into the log');
+    const requestLine = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-extraction]'));
+    assert.ok(requestLine?.includes('atRisk=max_tokens,output_near_limit'), 'the per-request line flags the truncation too');
+    assert.ok(unparseable.includes('tail='), 'the tail of the response is logged');
+    const decisionLine = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.startsWith('[retry-decision]'));
+    assert.ok(decisionLine?.includes('situation=truncated') && decisionLine.includes('action=split_window'), 'the policy decision is logged');
+  });
+
+  await t.test('Case D3: an empty response (blocked) is logged with its finishReason and does not throw', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000d3',
+      accountId: profile.id,
+      content: 'Blocked',
+      postUrl: 'https://test.com/p-d3',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const warn = t.mock.method(console, 'warn', () => {});
+    const info = t.mock.method(console, 'info', () => {});
+    let markPostExtractedCalled = false;
+    setMarkPostExtractedSeam(async () => {
+      markPostExtractedCalled = true;
+      return {} as any;
+    });
+    setCallGeminiSeam(async () => ({ text: '', finishReason: 'SAFETY' }));
+
+    await processAiJob(message);
+
+    assert.ok(!markPostExtractedCalled);
+    const line = warn.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-response-unparseable]'));
+    assert.ok(line?.includes('finishReason=SAFETY'));
+    assert.ok(line?.includes('blockReason=none'));
+    const decisionLine = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.startsWith('[retry-decision]'));
+    assert.ok(decisionLine?.includes('situation=blocked') && decisionLine.includes('action=give_up'));
+    assert.ok(line?.includes('length=0'));
+    assert.ok(line?.includes('atRisk=none'));
+  });
+
+  await t.test('Case D5: a non-string text from the adapter is treated as an empty response (no throw inside the log path)', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000d5',
+      accountId: profile.id,
+      content: 'Undefined text',
+      postUrl: 'https://test.com/p-d5',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const warn = t.mock.method(console, 'warn', () => {});
+    t.mock.method(console, 'info', () => {});
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setCallGeminiSeam(async () => ({ text: undefined as any, finishReason: 'OTHER' }));
+
+    await processAiJob(message);
+
+    const line = warn.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-response-unparseable]'));
+    assert.ok(line?.includes('length=0'));
+    assert.ok(!line?.includes('\n'), 'the warning stays on one line');
+  });
+
+  // AD-52 (durable post retry): a failed Gemini stage or an unusable response is recorded on the post.
+  const makeLedgerPost = async (tag: string) => {
+    const [post] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: 'ledger ' + tag,
+        postUrl: `https://instagram.com/p/ledger_job_${tag}_${Date.now()}`,
+        publishedAt: new Date('2026-08-10T12:00:00Z'),
+        queuedForExtractionAt: new Date(),
+      })
+      .returning();
+    return post;
+  };
+  const messageFor = (post: { id: string; postUrl: string }): ProcessingJobMessage => ({
+    postId: post.id,
+    accountId: profile.id,
+    content: 'ledger',
+    postUrl: post.postUrl,
+    publishedAt: '2026-08-10T12:00:00Z',
+  });
+
+  await t.test('Case L1: an unparseable response on a real post is recorded (attempt 1, retry scheduled, claim released)', async (t) => {
+    t.mock.method(console, 'warn', () => {});
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('unparseable');
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => ({ text: '{"isEvent": tru', finishReason: 'STOP' }));
+    setMarkPostExtractedSeam(async () => ({}) as any);
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.extractionAttempts, 1);
+    assert.strictEqual(row.extractionFailureReason, 'unparseable');
+    assert.ok(row.extractionNextAttemptAt, 'a retry is scheduled');
+    assert.strictEqual(row.queuedForExtractionAt, null, 'the claim is released');
+    assert.strictEqual(row.isExtracted, false);
+  });
+
+  await t.test('Case L2: a blocked response is recorded as given up (no next attempt)', async (t) => {
+    t.mock.method(console, 'warn', () => {});
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('blocked');
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => ({ text: '', finishReason: 'SAFETY' }));
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.extractionFailureReason, 'blocked');
+    assert.strictEqual(row.extractionNextAttemptAt, null);
+  });
+
+  await t.test('Case L3: an AJV-invalid response on a real post is recorded as unparseable', async (t) => {
+    t.mock.method(console, 'error', () => {});
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('ajv');
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => ({ text: JSON.stringify({ not: 'the schema' }) }));
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.extractionFailureReason, 'unparseable');
+  });
+
+  await t.test('Case L4: a Gemini stage error on a real post is recorded and does not throw (the resume pass owns the retry)', async (t) => {
+    t.mock.method(console, 'warn', () => {});
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('gateway');
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => {
+      throw new AiGatewayExhaustedError('All candidate API keys are exhausted, rate-limited, or invalid.');
+    });
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.extractionFailureReason, 'rate_limited');
+    assert.strictEqual(row.extractionAttempts, 1);
+    assert.ok(row.extractionNextAttemptAt);
+  });
+
+  await t.test('Case L5: a successful non-event extraction clears an earlier failure on the same post', async (t) => {
+    t.mock.method(console, 'info', () => {});
+    const post = await makeLedgerPost('recovers');
+    await db
+      .update(posts)
+      .set({ extractionAttempts: 2, extractionFailureReason: 'unavailable', extractionFirstFailureAt: new Date() })
+      .where(eq(posts.id, post.id));
+    t.after(async () => {
+      await db.delete(posts).where(eq(posts.id, post.id));
+    });
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({ isEvent: false, events: [], groupingReason: 'single-event' }),
+      finishReason: 'STOP',
+    }));
+    setMarkPostExtractedSeam(originalMarkPostExtractedSeam);
+
+    await processAiJob(messageFor(post));
+
+    const [row] = await db.select().from(posts).where(eq(posts.id, post.id));
+    assert.strictEqual(row.isExtracted, true);
+    assert.deepStrictEqual(
+      [row.extractionAttempts, row.extractionFailureReason, row.extractionNextAttemptAt],
+      [0, null, null]
+    );
+  });
+
+  await t.test('AD-46 Rule 2: a response with a post plan logs one [post-plan] line and extracts as before', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000e1',
+      accountId: profile.id,
+      content: 'Roundup',
+      postUrl: 'https://test.com/p-plan',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const info = t.mock.method(console, 'info', () => {});
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({
+        isEvent: false,
+        events: [],
+        groupingReason: 'roundup',
+        claimedItemCount: 203,
+        slideRoles: ['intro', 'list', 'list'],
+        itemsPerListSlide: 12,
+        dateRangeCovered: '2027-01-01..2027-12-31',
+        moreItemsLikely: true,
+      }),
+      finishReason: 'STOP',
+    }));
+
+    await processAiJob(message);
+
+    const line = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.startsWith('[post-plan]'));
+    assert.ok(line, 'the plan is logged');
+    assert.ok(line.includes('claimedItemCount=203') && line.includes('slideRoles=intro,list,list'));
+    assert.ok(line.includes('itemsPerListSlide=12') && line.includes('dateRangeCovered=2027-01-01..2027-12-31') && line.includes('moreItemsLikely=true'));
+    assert.ok(line.includes('groupingReason=roundup'));
+  });
+
+  await t.test('AD-46 Rule 2: a response with no plan logs no [post-plan] line', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000e2',
+      accountId: profile.id,
+      content: 'Single',
+      postUrl: 'https://test.com/p-noplan',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const info = t.mock.method(console, 'info', () => {});
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setCallGeminiSeam(async () => ({ text: JSON.stringify({ isEvent: false, events: [], groupingReason: 'single-event' }), finishReason: 'STOP' }));
+
+    await processAiJob(message);
+
+    assert.ok(!info.mock.calls.some((c) => String(c.arguments[0]).startsWith('[post-plan]')));
+  });
+
+  await t.test('Case D4: a normal response logs one request line with tokens and no at-risk flag', async (t) => {
+    const message: ProcessingJobMessage = {
+      postId: '00000000-0000-4000-8000-0000000000d4',
+      accountId: profile.id,
+      content: 'Not an event',
+      postUrl: 'https://test.com/p-d4',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+    const info = t.mock.method(console, 'info', () => {});
+    setMarkPostExtractedSeam(async () => ({}) as any);
+    setCallGeminiSeam(async () => ({
+      text: JSON.stringify({ isEvent: false, events: [], groupingReason: 'single-event' }),
+      finishReason: 'STOP',
+      usage: { promptTokens: 5000, outputTokens: 40 },
+    }));
+
+    await processAiJob(message);
+
+    const line = info.mock.calls.map((c) => String(c.arguments[0])).find((l) => l.includes('[gemini-extraction]'));
+    assert.ok(line, 'one request line is logged');
+    assert.ok(line.includes('finishReason=STOP') && line.includes('promptTokens=5000') && line.includes('outputTokens=40'));
+    assert.ok(line.includes('atRisk=none'));
   });
 
   await t.test('Case E: AiGatewayExhaustedError propagation (throws, not marked, not enqueued)', async () => {

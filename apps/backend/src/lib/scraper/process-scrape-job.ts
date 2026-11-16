@@ -1,12 +1,14 @@
 import { db } from '../../db/client.js';
-import { posts, socialMediaAccountProfiles } from '@festgrid/database';
-import { getScraperAdapter, ScrapedPost } from '@festgrid/domain';
+import { socialMediaAccountProfiles } from '@festgrid/database';
+import { getScraperAdapter, HISTORY_SEED_LOOKBACK_DAYS, ScraperCapacityExceededError, ScrapedPost } from '@festgrid/domain';
 import { persistScrapedPost } from '../posts/persist-scraped-post.js';
 import { autoEnqueueNewPostForExtraction } from '../posts/auto-enqueue-new-post.js';
 import { loadBackendEnv } from '../../env.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
+import { getScrapeCursor } from './get-scrape-cursor.js';
+import { markHistorySeeded } from './history-seeded-store.js';
 import { ScrapeTarget } from './get-scrape-targets.js';
-import { setApifyAuditContext, clearApifyAuditContext, apifyAuditContext } from './instagram-adapter.js';
+import { setApifyAuditContext, clearApifyAuditContext, apifyAuditContext, ApifyMonthlyUsageLimitError } from './instagram-adapter.js';
 import { backfillAccountProfileAndInferDefaultLocation } from '../accounts/backfill-account-profile-and-infer-location.js';
 
 export let backfillAccountProfileAndInferDefaultLocationSeam = backfillAccountProfileAndInferDefaultLocation;
@@ -79,25 +81,15 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
   }
 
   try {
-    const [newestPost] = await db
-      .select({
-        publishedAt: posts.publishedAt,
-      })
-      .from(posts)
-      .where(eq(posts.accountId, job.profileId))
-      .orderBy(desc(posts.publishedAt))
-      .limit(1);
-
     const adapter = getScraperAdapter(job.platform);
 
     if (job.isInitialNewSubscription) {
       if (adapter.supportsNewerThanAndLimitFiltering) {
         // Actor filters by newerThan and result count server-side, so one call with the
-        // widest lookback window returns everything the retry loop would otherwise need
-        // multiple actor runs to accumulate.
-        const widestWindowDays = Math.max(...NEW_SUBSCRIBE_RETRY_WINDOWS_DAYS);
+        // seeding window (newest posts, none older than HISTORY_SEED_LOOKBACK_DAYS) returns everything the
+        // retry loop would otherwise need multiple actor runs to accumulate.
         const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - widestWindowDays);
+        cutoffDate.setDate(cutoffDate.getDate() - HISTORY_SEED_LOOKBACK_DAYS);
         const newerThan = cutoffDate.toISOString();
 
         setApifyAuditContext(job.profileId, 'SYNC', env.scrapeQueueApifyCallTimeoutMs);
@@ -156,14 +148,11 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
       return;
     }
 
-    let newerThan: string;
-    if (newestPost) {
-      newerThan = newestPost.publishedAt.toISOString();
-    } else {
-      const lookbackDate = new Date();
-      lookbackDate.setDate(lookbackDate.getDate() - env.scrapeInitialLookbackDays);
-      newerThan = lookbackDate.toISOString();
-    }
+    // Same cursor rule as the daily batch triggers (posts owned or associated, one second past the newest for
+    // Apify), so this path neither re-fetches a co-authored post nor the boundary post.
+    const lookbackDate = new Date();
+    lookbackDate.setDate(lookbackDate.getDate() - env.scrapeInitialLookbackDays);
+    const newerThan = await getScrapeCursor('APIFY', job.profileId, lookbackDate.toISOString());
 
     setApifyAuditContext(job.profileId, 'SYNC', env.scrapeQueueApifyCallTimeoutMs);
     try {
@@ -181,6 +170,14 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
     await runBackfill();
     completed = true;
   } catch (err) {
+    if (err instanceof ApifyMonthlyUsageLimitError || err instanceof ScraperCapacityExceededError) {
+      // Redelivery cannot help until Apify's usage cycle resets, and each one only fills the queue and the
+      // DLQ with the same refusal (2026-10-30: 105 of them). One line; the next daily batch tries again. Since Story 10.2 the
+      // refusal is also REMEMBERED for the rest of the cycle, after which every queued message meets the capacity gate
+      // (`ScraperCapacityExceededError`) before any call: the same "nothing started, redelivery cannot help" condition.
+      console.warn(`Skipping scrape of ${job.username} (${job.profileId}): ${err.message}`);
+      return;
+    }
     console.error(`Error processing scrape job for account ${job.username} (${job.profileId}):`, err);
     // AC7: catch and log, but do not rethrow to prevent failing other jobs in SQS batch -- unless the
     // caller redelivers (options.rethrowOnFailure).
@@ -199,6 +196,9 @@ export async function processScrapeJob(job: ScrapeTarget, options: ProcessScrape
           .where(eq(socialMediaAccountProfiles.id, job.profileId));
       } catch (updateErr) {
         console.error(`Failed to stamp lastScrapedAt for profile ${job.profileId}:`, updateErr);
+      }
+      if (allScrapedPostsThisJob.length > 0) {
+        await markHistorySeeded(job.profileId);
       }
     }
   }

@@ -13,6 +13,8 @@ import {
   decideMatchTier,
   normalizeEventNameForMatch,
   areNamesAutoLinkable,
+  namesContradict,
+  namesContradictForReview,
   hasVenueConflict,
   type MatchDecisionInput,
   MATCH_SCORE_WEIGHTS,
@@ -586,5 +588,120 @@ test('hasVenueConflict', async (t) => {
       hasVenueConflict([{ eventStartDate: '2026-10-11', location: 'Paris Van Java Mall' }], tourCandidate, WINDOW_DAYS),
       true
     );
+  });
+});
+
+// --- One venue spelled two ways (IDEA-110) -----------------------------------------------------------
+
+test('hasVenueConflict: one place spelled two ways is not a conflict (IDEA-110)', async (t) => {
+  const day = '2026-10-10';
+  await t.test('floor wording and an abbreviation do not make a second venue', () => {
+    assert.strictEqual(
+      hasVenueConflict(
+        [{ eventStartDate: day, location: 'Atrium Rama, Ground Floor, X City Hall' }],
+        [{ eventStartDate: day, location: 'Atrium Rama, Lantai GF, X City Hall' }],
+        WINDOW_DAYS
+      ),
+      false
+    );
+    assert.strictEqual(
+      hasVenueConflict(
+        [{ eventStartDate: day, location: 'Lapangan Danyang Purwodadi' }],
+        [{ eventStartDate: day, location: 'Lap. Danyang, Purwodadi' }],
+        WINDOW_DAYS
+      ),
+      false
+    );
+  });
+  await t.test('two places that merely share a building or a mall still conflict', () => {
+    assert.strictEqual(
+      hasVenueConflict(
+        [{ eventStartDate: day, location: 'Atrium Rama, X City Hall' }],
+        [{ eventStartDate: day, location: 'Ballroom, X City Hall' }],
+        WINDOW_DAYS
+      ),
+      true
+    );
+  });
+});
+
+test('decideMatchTier: a venue spelled two ways no longer blocks the promotion (IDEA-110)', async (t) => {
+  const day = '2026-10-10';
+  const spellings = {
+    newVenues: [{ eventStartDate: day, location: 'Atrium Rama, Ground Floor, X City Hall' }],
+    candidateVenues: [{ eventStartDate: day, location: 'Atrium Rama, Lantai GF, X City Hall' }],
+  };
+
+  await t.test('same account, day and name: mid is promoted to high', () => {
+    const result = decide(spellings);
+    // The texts differ, so no venue signal: organizer 0.40 + date/name 0.25 = 0.65, mid.
+    assert.strictEqual(result.scoredTier, 'mid');
+    assert.strictEqual(result.venueConflict, false);
+    assert.strictEqual(result.tier, 'high');
+    assert.strictEqual(result.promotionRule, 'mid-to-high');
+  });
+
+  await t.test('two different venues of one building stay mid for a moderator', () => {
+    const result = decide({
+      newVenues: [{ eventStartDate: day, location: 'Atrium Rama, X City Hall' }],
+      candidateVenues: [{ eventStartDate: day, location: 'Ballroom, X City Hall' }],
+    });
+    assert.strictEqual(result.venueConflict, true);
+    assert.strictEqual(result.tier, 'mid');
+    assert.strictEqual(result.promotedByRule, false);
+  });
+});
+
+test('namesContradictForReview', async (t) => {
+  const FULL = 'Global EduFair 2026 Pre-Event Webinar: Study Abroad 101';
+  const HEAD = 'Global EduFair 2026 Pre-Event Webinar';
+
+  await t.test('excuses a long incidental number in a subtitle the other name lacks (the 47369d02 pair), either way round', () => {
+    assert.strictEqual(namesContradict(HEAD, FULL), true, 'the ingestion rule is unchanged: digit tokens differ');
+    assert.strictEqual(namesContradictForReview(HEAD, FULL), false);
+    assert.strictEqual(namesContradictForReview(FULL, HEAD), false);
+  });
+
+  await t.test('excuses a spaced-dash subtitle the same way', () => {
+    assert.strictEqual(namesContradictForReview('Career Talk', 'Career Talk - Data Science 101'), false);
+    assert.strictEqual(namesContradictForReview('Career Talk', 'Career Talk – Data Science 101'), false);
+  });
+
+  await t.test('still refuses a sequence word before the number', () => {
+    assert.strictEqual(namesContradictForReview('32 Days of C&F Biggest Sale', '32 Days of C&F Biggest Sale - Day 12'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Part 2'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Day 100'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest - Hari ke 101'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Vol 101'), true);
+  });
+
+  await t.test('still refuses a number with letters attached (a category or an ordinal)', () => {
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: 10K'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest - 2nd Edition'), true);
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Run 101K'), true);
+  });
+
+  await t.test('still refuses a short number, and a number with no word before it', () => {
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: Study Abroad 12'), true, 'sequence numbers are small');
+    assert.strictEqual(namesContradictForReview('Fest', 'Fest: 101'), true);
+  });
+
+  await t.test('still refuses when the shorter name is not exactly the longer name before its subtitle', () => {
+    assert.strictEqual(namesContradictForReview('Global Fair', 'Global EduFair: Study Abroad 101'), true);
+    assert.strictEqual(namesContradictForReview('Wonderful Treat at Ghin Thai Kitchen', 'Festisale 270th Yogyakarta - Ghin Thai Wonderful Treat'), true, 'a campaign number with no shared head is left to a moderator');
+  });
+
+  await t.test('still refuses a number outside any subtitle, such as the 10K bracket and a numbered series', () => {
+    assert.strictEqual(namesContradictForReview('Erafone Run Series', 'Erafone Run Series (10K)'), true);
+    assert.strictEqual(namesContradictForReview('GembiRun Loka 2026 Part 1', 'GembiRun Loka 2026 Part 2'), true);
+  });
+
+  await t.test('still refuses contradicting qualifiers and names that normalize to nothing', () => {
+    assert.strictEqual(namesContradictForReview('Night Run (Morning): Study Abroad 101', 'Night Run (Evening)'), true);
+    assert.strictEqual(namesContradictForReview('2026', 'Fest'), true);
+  });
+
+  await t.test('never contradicts names that already agree', () => {
+    assert.strictEqual(namesContradictForReview('Jazz Night 2026', 'jazz night'), false);
   });
 });

@@ -1,0 +1,150 @@
+# Background vendor jobs: evidence, decisions and open questions
+
+**Status:** input to Epic 10, 2026-11-02. Not a PRD and not an architecture decision; the PRD amendment
+(`bmad-prd`) and the new AD (written in Story 10.1a) supersede this where they differ.
+**Backlog rows:** BUG-099 (re-extract drops carousel slides), IDEA-261031-nts (profile lookup background phase),
+IDEA-047 (re-scrape in AI correction), IDEA-008 (max 5 subscribed accounts), IDEA-009 (auto-extract on first
+subscribe), BUG-014 (payload reprocessing unbuilt), IDEA-261102-dkk, IDEA-261102-xrx, IDEA-261102-v9l and IDEA-261102-scl (created with the epic).
+**Why this file exists:** the investigation that produced the epic ran in a chat. This is what the stories need
+from it, with the queries and numbers that back each claim.
+
+## 1. The incident that started it (BUG-099 follow-up)
+
+A moderator opened Re-extract on event `20602ac39613` ("Kalender Event Lari di Jogja - September 2026") and the
+preview said "Only 0 of 1 images were read". Read-only prod evidence:
+
+| Fact | Evidence |
+|---|---|
+| The event has one post, `39f9168a-7390-4481-8f56-d1ab2b9bfc45` (`/p/DcntzF0mB7z/`), account `infoeventjogja` (CURATOR_GUIDE, CONFIRMED) | `events`, `event_posts`, `social_media_account_profiles` |
+| The post was stored 2026-08-30 18:13Z, before slide capture existed (Apify slides shipped 2026-09-12 in Story 3.3e, Bright Data slides 2026-09-18 in FIND-024; the first stored slide anywhere is 2026-09-19 03:15Z), so `additional_image_urls` is NULL | `posts`; 0 of 71 August Instagram posts have slides; 410 posts predate 2026-09-19 |
+| The stored cover link expired 2026-09-04 01:53:45Z (`oe`), so `postImagesNeedRefresh` returned true and a rescrape was attempted | `posts.image_url`, `image_url_expires_at`; cover returns 403 |
+| The rescrape threw `No scraper adapter registered for platform "instagram"` in the API Lambda at 2026-10-31 14:32:26Z, was recorded as a FAILED job (starting the 10-minute cooldown) and fell back silently to the expired links | API Lambda log; `manual_extraction_jobs` row `f14d807c`; `lambdas/api.ts` never imports `lib/scraper/register-adapters.js` (only `index.ts` and `lambdas/scraper.ts` do) |
+| Both previews then read 0 of 1 images (`imagesAvailable=1`, `imagesSent=0`): `Failed to fetch image: Status 403` on the cover | AI-processor log; jobs `6e64a903` (14:32:27, 0 events) and `6b7d2757` (14:32:47, 5 events, hit the cooldown) |
+| The post is a 5-image carousel | The 2026-11-02 spike: both vendors return 5 images and the same 798-character caption |
+
+A durable CloudFront copy of the cover exists and is alive (200, `image/jpeg`, 226 KB), but re-extract never uses it.
+All 37 posts with a `durable_image_url` belong to accounts with `is_image_storage_opted_in = false`, which AD-12 Rule 1
+says should hold none (logged in the tracker, not decided here).
+
+## 2. What the spike measured (2026-11-02, one single-post scrape per vendor, run directly against the vendor APIs)
+
+| | Apify (`apify~instagram-post-scraper`, `detailedData`, run-sync) | Bright Data (posts dataset `gd_lk5ns7kz21pck8jpis`, `POST /datasets/v3/scrape`, `[{url}]`) |
+|---|---|---|
+| Accepts one post URL | yes | **yes** (collect by URL; the existing client only did profile discovery) |
+| Result | `type: Sidecar`, `childPosts` = 5 | `content_type: Carousel`, `photos` = 5 |
+| Time (one sample) | 8.7 s | 27.6 s, answered synchronously (HTTP 200) |
+| Image resolution | no size token (`stp=dst-jpg_e35_tt6`) | **640x640** (`stp=dst-jpg_e35_s640x640_tt6`) |
+| Slide list vs cover | `childPosts[0]` **is the cover**, so the adapter's `additionalImageUrls` repeats it (354 of 354 stored Apify carousels; Bright Data 0 of 629); `build-gemini-request.ts` does not de-duplicate | `photos[0]` is the cover; the adapter slices it off correctly |
+
+Signed image links live about 4.5 days. All 1,371 stored Bright Data covers are `s640x640`. One sample each: do not quote
+the times as typical.
+
+Vendor run durations over the previous 14 days (`scraper_actor_runs`, profile runs, so only a proxy for single posts):
+
+| Vendor (async) | Runs | p50 | p90 | Tail |
+|---|---|---|---|---|
+| Apify | 21 | 31 s | 53 s | p99 120 s, max 134 s |
+| Bright Data, succeeded | 268 | 79 s | 235 s | max about 39 h (late deliveries and replays); 21 snapshots arrived 5 to 6 h late on 2026-10-29 |
+
+Apify `SYNC` rows record 0 s, so there is no timing for single-post calls beyond the spike sample.
+
+## 3. Where code can run
+
+| Lambda | Limit | Vendor tokens | Notes |
+|---|---|---|---|
+| API | hard 28 s | Apify and Bright Data tokens, but no `BRIGHTDATA_DATASET_ID` | registers no scraper adapters (BUG-261102-00r) |
+| AI processor | 300 s | none | bundles sharp and the face-api models |
+| Scraper | 300 s | both, plus `BRIGHTDATA_DATASET_ID` | SQS-driven; the natural worker host (AD-41) |
+
+## 4. Decisions taken (with the product owner, 2026-11-01 and 2026-11-02)
+
+1. Long vendor-backed work becomes a **job**: the request returns a job id at once, a worker finishes it, a **Jobs page**
+   and an inline progress component show it. It must never freeze the screen.
+2. One engine for every long process, starting with the re-extract rescrape and subscribe plus profile lookup, then the
+   other candidates (all in Epic 10, so they are tracked in one place).
+3. A job that fails on a vendor failure or vendor quota **switches to the next adapter** in a chain.
+4. The chain supports **both Apify and Bright Data**; default order `brightdata,apify` for posts (owner decision 2026-11-11, replacing the earlier `apify,brightdata`: profile lookup already prefers Apify, and this spares Apify's free plan; Bright Data images are 640 px).
+5. Rescrape trigger: the cover link has expired, **or** the cover is low resolution (`s640x640` or smaller in `stp`),
+   **or** slides are missing or unknown (null post type and null slide list).
+6. A rescrape that yields fresh links **saves them to `posts`** (cover link, slides, expiry, post type). Never the caption,
+   never an empty slide list over a non-empty one, never a 640 px cover over a full-size one. This amends AD-12
+   (`posts.imageUrl` is never overwritten) and AD-40 (preview is write-free).
+7. When the rescrape cannot finish in its budget (about 150 s inside the scraper Lambda's 300 s) the job continues on the
+   stored images with a banner naming what is missing and a Retry button.
+8. A vendor run that finishes after the deadline is still collected; for a rescrape its links are saved to `posts`.
+9. Starting the same work twice **re-attaches** to the running job; the same input from different users shares one vendor
+   call; a subscribe job **reserves a slot** against the subscription cap atomically; a per-user limit caps concurrent vendor
+   jobs (amended by decisions 13 and 14: a job over the limit waits, it is not refused).
+10. The 10-minute rescrape cooldown starts only when a vendor call actually ran.
+11. The new tables stay thin: a user-facing job record that references `apify_pending_jobs`, `brightdata_pending_jobs`,
+    `scraper_actor_runs` and `vendor_call_locks` (recommended; the alternative is generalising `manual_extraction_jobs`,
+    decided in Story 10.9).
+12. The profile chain (`ProfileScraperAdapter`, `runProfileScraperChain`, `PROFILE_SCRAPER_PROVIDER_ORDER`, the `minBudgetMs`
+    contract) is the model for the post chain.
+13. (2026-11-02, product owner) A job started over its limit is **queued, not refused**. Reason: the subscription cap is 5 and
+    the limit was 3, so a user adding five accounts in the onboarding wizard would have had two refused, which contradicts
+    FR127 ("the wizard never waits"). A queued job shows on the Jobs page with its position, starts by itself when a running
+    job of its kind ends, holds its subscription slot from acceptance, expires with a reason after
+    `JOB_QUEUE_MAX_WAIT_MINUTES` (30), and at most `MAX_QUEUED_JOBS_PER_USER` (10) may wait. Rejected: keep refusing (worst
+    for onboarding), exempt subscribe jobs (no pacing against add/remove loops).
+14. (2026-11-02, product owner; **superseded 2026-11-11**) The limit of 3 was to count only vendor jobs, with a separate
+    limit of 2 for jobs that never reach a vendor. On 2026-11-11, after master's stepped extraction (AD-51 Rule 4: a selected
+    post's extraction may re-scrape its images once their links expire), the product owner chose to **count manual post selection
+    as a vendor job**. Every job type now counts toward `MAX_CONCURRENT_JOBS_PER_USER` (3); the extraction lane
+    (`MAX_CONCURRENT_EXTRACTION_JOBS_PER_USER`) and the `usesVendor` registry flag are removed. Accepted consequence: a long
+    selection could have queued the user's subscribes; that consequence was removed the same day by decision 17.
+15. (2026-11-02, product owner; amended 2026-11-11) **Manual post selection becomes a job type** (Story 10.12a, FR129,
+    IDEA-261102-tov) because the product owner wants every long process in one place. One job per confirmed selection. Progress
+    and ending are read from the posts' own `extractionStatus`, which stays the single source of truth. Evidence traced
+    2026-11-02: `selectPostsForExtraction` checks the Gemini key quota and subscriptions, claims each post atomically
+    (`posts.queued_for_extraction_at`) and sends it to the AI queue. **2026-11-11:** master's AD-46 to AD-52 made multi-slide
+    posts extract in steps and made a failed attempt retry by itself for up to 24 hours (status `ATTEMPT_FAILED`). The product
+    owner chose to **keep the job open through those retries** (bound 26 hours) rather than end it when every post is settled
+    and let retries run on the post. Consequence: a post-to-job link that survives retries (looked up from the job's stored post
+    ids). Its place problem is closed by decision 17.
+16. (2026-11-11, product owner) **Every job's inline progress can be minimized and re-opened at its last progress**, on the
+    page where it was started or from the Jobs page, for every job type (re-extract first). State comes from the job on the
+    server, so it survives navigation, reload and another device. Written into FR123 and Stories 10.4 and 10.6.
+
+17. (2026-11-11, product owner) **A waiting or scheduled job holds no place.** Only a `RUNNING` job counts toward the limit of 3.
+    A `QUEUED` job (waiting for a place) and a new `WAITING` job (waiting for a later time or for a result from elsewhere: a
+    scheduled retry, a vendor run still in progress, posts still in the extraction queue) hold none. This closes the proposed
+    open item OI-5 (a selection job open through retries could have held a place for a day) and removes it from the PRD. A
+    manual-selection job takes a place only while it claims and queues its posts, then is `WAITING`. `WAITING` is a new status in
+    Story 10.1a's `job_status` enum (cheap before it is built, a migration after).
+18. (2026-11-11, product owner) **A job is a user job or a system job (data only).** The job record carries `trigger` (`USER` or
+    `SYSTEM`) and its owner is required for a user job only. Rules for places, queueing, reuse, finished-notifications and the
+    ordinary user's Jobs page apply to user jobs only; a system job would use the system vendor credential and be visible to
+    moderators behind a filter. No system job type is built: the daily scrape, automatic extraction and AD-52 retries stay outside
+    the engine. Reason: adding the field and a nullable owner later is a migration plus a re-check of every admission and
+    notification query. Rejected: no distinction (a later scheduled job needs a migration and a design pass); moving scheduled
+    batches into the engine now (largest scope, needs vendor budget rules for system work).
+19. (2026-11-11, product owner, when Story 10.3 was created) **The subscription cap refusal screen is its own story.** Story 10.3
+    builds the backend (admission, queue, same-user reuse, the cap with slot reservation, a typed refusal carrying the counts);
+    new Story 10.3a builds the screen, the upgrade "coming soon" button, the two PostHog events and the English and Indonesian copy,
+    through `bmad-ux`. Reason: the code has no cap today (IDEA-008 never landed), and the split gate says reusable or complex UI
+    deserves its own story. Until 10.3a ships a refused subscribe shows the generic error.
+20. (2026-11-11, product owner) **The cap applies to every non-moderator**, not only a `free_user` tier that does not exist in the
+    code. Existing subscriptions are never removed (a user above the cap keeps them and cannot add), and re-subscribing uses no
+    slot. Open risk: the number of production users already above 5 is unknown to the build session; check it before deploying.
+    A reserved slot is a non-terminal job of a type that reserves one (no new table); the check, the reservation and the
+    subscription insert share one row lock on the user.
+21. (2026-11-11, product owner) **Sharing one vendor call between users is built now, opt-in per job type.** A type declares
+    `sharedAcrossUsers` (default false, its `resultData` is then public by contract); a second user's job becomes a `WAITING`
+    follower of the first and ends with the leader's outcome. No type is flagged in Story 10.3 (fixtures prove it); 10.6 and 10.7
+    flip it. A place is held from admission, not from the worker's claim, and the claim no longer takes a `WAITING` row, so every
+    resume goes through re-admission.
+
+
+## 5. Open questions (tracked in `epic-formation/epic-10-outside-the-epic-2026-11-02.md`)
+
+- FIND-103: Apify is on the free plan ($5/month, cycle resets 2026-11-23). Upgrade, or Bright Data primary? This decides the
+  default chain order and interacts with decision 5 (Bright Data images are 640 px).
+- IDEA-261031-nts D1 to D4 (`planning-artifacts/profile-lookup-fallback-and-ux-2026-10-31.md` section 6).
+- Whether and how users are notified when a job finishes (IDEA-261102-scl): a PRD question for subscribers; moderators go through
+  Epic 0.i1's helper.
+- Story 3-4b (BYOK pooled scraper vendor keys): legally gated; its AC6 means chain credentials must depend on the job type.
+- CC-032: the cost model (platform-paid or user-paid).
+22. (2026-11-11, product owner, when Story 10.6 was planned) **Re-extract refreshes in the order Apify then Bright Data**, as a property of the job type (a moderator is waiting; Apify answers in seconds with full-size images; Bright Data needs 90 s and returns 640 px). The default post order stays `brightdata,apify` (decision of the same day, PRD OI-1).
+23. (2026-11-11, product owner) **Story 10.6 is split**: 10.6 is backend only; the moderator screen changes (banner, Retry, minimize and re-open) are Story 10.6a, after Story 10.4.
+24. (2026-11-11, product owner) **The Re-extract engine job runs both phases and owns the result** (refresh in the Scraper Lambda, preview in the AI-processor Lambda by hand-off, result on the job). This moves the re-extract PREVIEW onto the engine ahead of Story 10.9's decision on `manual_extraction_jobs` (PRD OI-4), which keeps serving the other callers meanwhile.

@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { events, eventPosts, eventSlugAliases, schedules, posts, corrections, calendarAdditions } from '@festgrid/database';
 import { db } from '../../db/client.js';
-import { isUnfilledValue, LOCATION_NOT_SPECIFIED } from '@festgrid/domain/events';
+import { isUnfilledValue, LOCATION_NOT_SPECIFIED, normalizeLocationText } from '@festgrid/domain/events';
 import type { EventInsertValues, ScheduleInsertValues, ProposedEventCorrection } from '@festgrid/domain/events';
 import { isOrganizerAuthoredPost } from '../posts/is-organizer-authored-post.js';
 import { activeOnly } from '@festgrid/graphql-select';
@@ -110,6 +110,37 @@ export async function setEventPrimaryPost(executor: DbExecutor, params: SetEvent
 }
 
 /**
+ * Parking ordinals for a re-numbering (the moderator re-extract Apply, AD-40). `events` has a CHECK
+ * (`events_post_id_extraction_ordinal_check`): a non-null `post_id` needs a non-null ordinal, so an
+ * event cannot be parked at `NULL`; it is parked at one of these instead. Far above any real ordinal
+ * (a post is capped at ~10 events) and inside `smallint`.
+ */
+export const PARKED_ORDINAL_BASE = 30_000;
+
+/**
+ * Moves one event's `(post, extraction_ordinal)` slot: the `event_posts` row and, when this post is
+ * the event's primary, `events.extraction_ordinal`, in one call, so the two tables stay consistent
+ * (the check below). Both are unique on `(post_id, extraction_ordinal)`, so a re-numbering that could
+ * collide with a sibling's slot first parks each moving event at a distinct `PARKED_ORDINAL_BASE + n`
+ * and then sets the real ordinals.
+ */
+export async function setEventPostOrdinal(
+  executor: DbExecutor,
+  params: { eventId: string; postId: string; extractionOrdinal: number }
+): Promise<void> {
+  await executor
+    .update(eventPosts)
+    .set({ extractionOrdinal: params.extractionOrdinal })
+    .where(and(eq(eventPosts.eventId, params.eventId), eq(eventPosts.postId, params.postId)));
+
+  // Only the primary post's ordinal lives on the event row itself.
+  await executor
+    .update(events)
+    .set({ extractionOrdinal: params.extractionOrdinal })
+    .where(and(eq(events.id, params.eventId), eq(events.postId, params.postId)));
+}
+
+/**
  * AD-30 Rule 2's consistency check: every non-null `events.postId` must have a matching
  * `event_posts` row with an equal `extractionOrdinal`. Returns the list of offending event ids
  * (empty when consistent) -- a direct query, not a DB-level constraint, since Drizzle cannot
@@ -152,6 +183,33 @@ const ENRICHABLE_EVENT_FIELDS = [
   'description',
   'links',
 ] as const satisfies readonly (keyof EventInsertValues)[];
+
+/**
+ * Location keywords belong to the location TEXT, so enrichment moves them with it. Returns the value to write, or `undefined` to
+ * leave the column alone:
+ * - the text is being replaced by a different one: the new extraction's keywords, or null (never the old ones next to new text);
+ * - the text stays (protected, additive, or the same string again): the new keywords are taken only when the new extraction
+ *   says the same text (they describe it), and a repeat that omits them (the model is not deterministic) keeps the old ones;
+ *   additive only fills keywords that are still empty.
+ */
+function resolveKeywordsPatch(args: {
+  currentText: string | null | undefined;
+  newText: string | null | undefined;
+  /** What the text column is being set to; undefined when it is not part of the patch. */
+  patchedText: string | null | undefined;
+  currentKeywords: string[] | null | undefined;
+  newKeywords: string[] | null | undefined;
+  additive: boolean;
+}): string[] | null | undefined {
+  // The same place respelled (case, spacing) is not a replaced text: its keywords still describe it.
+  const sameText = (a: string | null | undefined, b: string | null | undefined) => normalizeLocationText(a) === normalizeLocationText(b);
+  const textReplaced = args.patchedText !== undefined && !sameText(args.patchedText, args.currentText);
+  if (textReplaced) return args.newKeywords ?? null;
+  if (!sameText(args.newText, args.currentText)) return undefined;
+  if (!args.newKeywords) return undefined;
+  if (args.additive && args.currentKeywords && args.currentKeywords.length > 0) return undefined;
+  return args.newKeywords;
+}
 
 /** `events.location` is NOT NULL, so an unknown location is stored as this placeholder, not null. */
 const UNFILLED_PLACEHOLDERS: Partial<Record<(typeof ENRICHABLE_EVENT_FIELDS)[number], readonly string[]>> = {
@@ -318,6 +376,19 @@ async function mergeSchedules(
       if (additive && !isUnfilledValue((match as Record<string, unknown>)[field])) continue;
       (patch as Record<string, unknown>)[field] = value;
     }
+    // How the coordinates were found follows the coordinates: replaced together, left alone when `locationDetails` is protected or
+    // kept (a lookup that found nothing, or was skipped, leaves the stored details and their resolution as they are).
+    if ('locationDetails' in patch) patch.locationResolution = newSchedule.locationResolution ?? null;
+    // Same rule as the event-level keywords: they follow the schedule's location text, whichever way it went.
+    const scheduleKeywords = resolveKeywordsPatch({
+      currentText: match.location,
+      newText: newSchedule.location,
+      patchedText: 'location' in patch ? (patch.location as string | null) : undefined,
+      currentKeywords: match.locationKeywords,
+      newKeywords: newSchedule.locationKeywords,
+      additive,
+    });
+    if (scheduleKeywords !== undefined) patch.locationKeywords = scheduleKeywords;
     if (Object.keys(patch).length > 0) {
       await executor.update(schedules).set(patch).where(eq(schedules.id, match.id));
     }
@@ -444,6 +515,15 @@ export async function enrichAndPromoteEvent(
     }
     eventPatch[field] = value;
   }
+  const eventKeywords = resolveKeywordsPatch({
+    currentText: candidateEvent.location,
+    newText: newEvent.location,
+    patchedText: 'location' in eventPatch ? (eventPatch.location as string) : undefined,
+    currentKeywords: candidateEvent.locationKeywords,
+    newKeywords: newEvent.locationKeywords,
+    additive: !!additive,
+  });
+  if (eventKeywords !== undefined) eventPatch.locationKeywords = eventKeywords;
   if (Object.keys(eventPatch).length > 0) {
     await executor.update(events).set(eventPatch).where(eq(events.id, candidateEvent.id));
   }

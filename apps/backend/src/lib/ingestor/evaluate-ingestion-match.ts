@@ -23,6 +23,24 @@ export interface IngestionMatchEvaluation {
 }
 
 /**
+ * AD-30 Rule 10 / AD-31 Rule 3, in one place: a post's events are stubs when its grouping is a
+ * roundup or the post is curator-sourced (not organizer-authored). `evaluateIngestionMatch` and the
+ * moderator re-extract Apply (which must demote or create events with the same verdict) both call it;
+ * nothing else re-derives the rule. `skipCuratorCheck` is the preview-only "post not stored" case
+ * (authorship assumed to be the organizer's).
+ */
+export async function resolveStubSource(
+  tx: DbExecutor,
+  postId: string,
+  groupingReason: string | null,
+  skipCuratorCheck = false
+): Promise<{ isRoundupSourced: boolean; isCuratorSourced: boolean; isStub: boolean }> {
+  const isRoundupSourced = groupingReason === 'roundup';
+  const isCuratorSourced = skipCuratorCheck ? false : !(await isOrganizerAuthoredPost(postId, tx));
+  return { isRoundupSourced, isCuratorSourced, isStub: isRoundupSourced || isCuratorSourced };
+}
+
+/**
  * The single source of truth for "what does ingestion decide about this extracted item": the
  * stub rule (AD-30 Rule 10), the roundup/curator organizer discount (BUG-058, IDEA-068) and the
  * candidate search + scoring (`findMatchingEvent`). `processIngestionJob` acts on the result;
@@ -48,9 +66,12 @@ export async function evaluateIngestionMatch(
   // construction (AD-30 Rule 7 and Rule 10 share the same two boolean inputs) -- not computed
   // independently, so a future edit to one rule can't silently desync them.
   const groupingReason = options.groupingReason !== undefined ? options.groupingReason : (sourcePost?.groupingReason ?? null);
-  const isRoundupSourced = groupingReason === 'roundup';
-  const isCuratorSourced = sourcePost === null && options.matchWithoutSourcePost ? false : !(await isOrganizerAuthoredPost(message.postId, tx));
-  const isStub = isRoundupSourced || isCuratorSourced;
+  const { isRoundupSourced, isCuratorSourced, isStub } = await resolveStubSource(
+    tx,
+    message.postId,
+    groupingReason,
+    sourcePost === null && options.matchWithoutSourcePost === true
+  );
 
   const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null, isStub ? 'stub' : undefined);
 

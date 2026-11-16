@@ -4,6 +4,8 @@ import { db } from '../../db/client.js';
 import { users, scraperProviderHealth } from '@festgrid/database';
 import { inArray, eq } from 'drizzle-orm';
 import { sendScraperProviderDownAlerts, describeFailureReason } from './send-scraper-provider-down-alerts.js';
+import { deleteModeratorNotifyKeys } from '../test-support/moderator-notify-throttle-cleanup.js';
+import { buildModeratorNotifyThrottleKey } from './notify-all-moderators.js';
 
 test('sendScraperProviderDownAlerts tests', async (t) => {
   const testRunId = Date.now();
@@ -11,8 +13,15 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
   const provider2 = `test-provider2-${testRunId}`;
   const provider3 = `test-provider3-${testRunId}`;
   const createdUsers: any[] = [];
+  // The helper claims a throttle row per provider (Story 0.i1a); each sub-test reseeds the same provider, so the
+  // rows this file created are removed on every reseed and at the end.
+  // The helper's entity here is the provider name (unique to this run); delete exactly those keys.
+  const throttleKeys = [provider, provider2, provider3].map((name) =>
+    buildModeratorNotifyThrottleKey('SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT', name)
+  );
 
   t.after(async () => {
+    await deleteModeratorNotifyKeys(throttleKeys);
     if (createdUsers.length > 0) {
       await db.delete(users).where(inArray(users.id, createdUsers.map((u) => u.id)));
     }
@@ -32,6 +41,7 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
     lastAlertSentAt: Date | null = null,
     lastFailureReason: string | null = null
   ) => {
+    await deleteModeratorNotifyKeys(throttleKeys);
     await db.delete(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider));
     await db.insert(scraperProviderHealth).values({
       provider,
@@ -163,6 +173,48 @@ test('sendScraperProviderDownAlerts tests', async (t) => {
       .from(scraperProviderHealth)
       .where(eq(scraperProviderHealth.provider, provider));
     assert.ok(row.lastAlertSentAt, 'lastAlertSentAt should still be stamped since mod2 succeeded');
+  });
+
+  await t.test('every send failing: the alert is not marked sent and the next run retries (AC7, AC8)', async () => {
+    await seedHealthRow(5);
+
+    await sendScraperProviderDownAlerts({
+      sendTemplatedEmail: (async () => {
+        throw new Error('SES simulated delivery failure');
+      }) as any,
+    });
+    const [row] = await db.select().from(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider));
+    assert.strictEqual(row.lastAlertSentAt, null, 'not marked sent when no moderator was mailed');
+
+    const calls: any[] = [];
+    await sendScraperProviderDownAlerts({
+      sendTemplatedEmail: (async (templateKey: string, to: string, variables: any) => {
+        calls.push({ to, variables });
+        return 'mock-msg-id';
+      }) as any,
+    });
+    assert.ok(calls.filter((c) => c.variables?.provider === provider).length >= 2, 'the failed slot was released, so the retry mails');
+  });
+
+  await t.test('a second run inside the cooldown does not mail again and does not mark sent (AC3, AC8)', async () => {
+    await seedHealthRow(5);
+    const calls: any[] = [];
+    const deps = {
+      sendTemplatedEmail: (async (templateKey: string, to: string, variables: any) => {
+        calls.push({ to, variables });
+        return 'mock-msg-id';
+      }) as any,
+    };
+    await sendScraperProviderDownAlerts(deps);
+    const first = calls.filter((c) => c.variables?.provider === provider).length;
+    assert.ok(first >= 2);
+
+    // Put the health row back as never alerted: only the helper's own throttle can stop the second mail.
+    await db.update(scraperProviderHealth).set({ lastAlertSentAt: null }).where(eq(scraperProviderHealth.provider, provider));
+    await sendScraperProviderDownAlerts(deps);
+    assert.strictEqual(calls.filter((c) => c.variables?.provider === provider).length, first, 'throttled: no second mail');
+    const [row] = await db.select().from(scraperProviderHealth).where(eq(scraperProviderHealth.provider, provider));
+    assert.strictEqual(row.lastAlertSentAt, null, 'a throttled call is not "sent"');
   });
 
   await t.test('dual vendors past threshold: independent, non-masking dispatches with per-provider cooldown', async () => {

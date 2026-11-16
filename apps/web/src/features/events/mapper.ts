@@ -90,6 +90,7 @@ export function mapGraphQLEventToDetailViewProps(
       performers: s.performers?.join(', ') || null,
       location: s.location?.trim() ? s.location : null,
       ticketPrice: s.ticketPrice,
+      locationKeywords: s.locationKeywords ?? null,
       locationDetails: s.locationDetails ?? null,
       isAddedToCalendar: !!s.isAddedToCalendar,
     };
@@ -166,6 +167,7 @@ export function mapGraphQLEventToDetailViewProps(
     description: event.description,
     schedules: mappedSchedules,
     location: event.location || '',
+    locationKeywords: event.locationKeywords ?? null,
     types: mappedTypes,
     categories: mappedCategories,
     imageUrl: event.imageUrl,
@@ -205,6 +207,7 @@ export function mapGraphQLEventToDetailViewProps(
       }
       return {
         name,
+        city: defaultLocation.city ?? null,
         coordinates: defaultLocation.coordinates ?? null,
         confidence: defaultLocation.confidence ?? null,
         matchType: defaultLocation.matchType ?? null,

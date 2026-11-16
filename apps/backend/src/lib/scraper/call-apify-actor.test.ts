@@ -8,6 +8,7 @@ import { registerScraperAdapter } from '@festgrid/domain';
 import {
   APIFY_CALL_TIMEOUT_MS,
   ApifyMemoryLimitExhaustedError,
+  ApifyMonthlyUsageLimitError,
   callApifyActor,
   clearApifyAuditContext,
   getApifyCallTimeoutMs,
@@ -21,6 +22,13 @@ import {
 import { processScrapeJob } from './process-scrape-job.js';
 import { VendorCallTimeoutError } from '../vendor-gateway/guarded-call.js';
 import { clearApifyProviderUsage } from './usage-store-test-helpers.js';
+import { setRememberExhaustedCapacity } from './usage-store.js';
+// Story 10.2: this file provokes Apify's monthly-limit refusal; do not write the real `apify` usage row (parallel suites share it).
+const rememberedExhausted: string[] = [];
+setRememberExhaustedCapacity(async (provider) => {
+  rememberedExhausted.push(provider);
+});
+
 
 // The synchronous Apify call behind the scraper Lambda's queue fallback (2026-10-23: 11 profiles hit the
 // API Lambda's 26s bound inside a 300s Lambda, left no audit row, were stamped as scraped, and the Apify
@@ -210,6 +218,27 @@ test('callApifyActor: the queue path\'s budget, abort and audit trail', async (t
 
     assert.deepStrictEqual(sleeps, []);
     assert.strictEqual((await runs()).length, 0);
+  });
+
+  await t.test('a monthly usage hard limit (403 platform-feature-disabled) fails at once as ApifyMonthlyUsageLimitError, with no retry, wait or row', async () => {
+    const sleeps: number[] = [];
+    setSleepForApifyMemory(async (ms) => { sleeps.push(ms); });
+    let starts = 0;
+    setGetApifyClient(fakeClient({
+      start: async () => { starts += 1; throw apifyError(403, 'platform-feature-disabled', 'Monthly usage hard limit exceeded'); },
+    }));
+    setApifyAuditContext(profileId, 'SYNC', 120_000);
+
+    await quietly(() => assert.rejects(
+      () => callApifyActor('apify/instagram-post-scraper', { username: ['x'] } as never),
+      (err: unknown) => err instanceof ApifyMonthlyUsageLimitError && /Monthly usage hard limit exceeded/.test(err.message)
+    ));
+
+    assert.strictEqual(starts, 1);
+    assert.deepStrictEqual(sleeps, []);
+    assert.strictEqual((await runs()).length, 0, 'no FAILED row: it must not count against Apify provider health');
+    // Story 10.2 (IDEA-101): remembered for the rest of the usage cycle
+    assert.ok(rememberedExhausted.includes('apify'));
   });
 
   await t.test('other 402s and other start failures are not waited for and still leave a FAILED row', async () => {

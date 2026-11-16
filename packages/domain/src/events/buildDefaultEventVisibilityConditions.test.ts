@@ -19,7 +19,11 @@ test('buildDefaultEventVisibilityConditions', async (t) => {
     const cond = res[0] as TerminalCondition;
     assert.strictEqual(cond.field, 'scheduleDateRange');
     assert.strictEqual(cond.operator, 'overlaps');
-    assert.deepStrictEqual(cond.value, { from: '2026-08-15', to: null });
+    assert.deepStrictEqual(cond.value, {
+      from: '2026-08-15',
+      to: null,
+      pastCutoff: { instant: '2026-08-15T12:34:56.000Z', hidePastEventsAfterDays: 0 },
+    });
   });
 
   await t.test('uses custom N threshold math (e.g. N=14) against injected fixed now', () => {
@@ -31,7 +35,11 @@ test('buildDefaultEventVisibilityConditions', async (t) => {
 
     assert.strictEqual(res.length, 1);
     const cond = res[0] as TerminalCondition;
-    assert.deepStrictEqual(cond.value, { from: '2026-08-01', to: null });
+    assert.deepStrictEqual(cond.value, {
+      from: '2026-08-01',
+      to: null,
+      pastCutoff: { instant: '2026-08-15T00:00:00.000Z', hidePastEventsAfterDays: 14 },
+    });
   });
 
   await t.test('handles boundary N=0 correctly (threshold is UTC-today)', () => {
@@ -43,7 +51,22 @@ test('buildDefaultEventVisibilityConditions', async (t) => {
 
     assert.strictEqual(res.length, 1);
     const cond = res[0] as TerminalCondition;
-    assert.deepStrictEqual(cond.value, { from: '2026-08-15', to: null });
+    assert.deepStrictEqual(cond.value, {
+      from: '2026-08-15',
+      to: null,
+      pastCutoff: { instant: '2026-08-15T23:59:59.000Z', hidePastEventsAfterDays: 0 },
+    });
+  });
+
+  await t.test('BUG-096: pastCutoff carries the same instant the UTC `from` was computed from (one captured now)', () => {
+    // 17:30Z is already the next day in Asia/Jakarta (00:30 WIB): the UTC `from` stays on
+    // 2026-08-15, and the instant is what lets the SQL side move that to the 16th for a
+    // Jakarta schedule. The two must come from the same `now`.
+    const now = new Date(Date.UTC(2026, 7, 15, 17, 30, 0));
+    const [cond] = buildDefaultEventVisibilityConditions({ hidePastEventsAfterDays: 3, now }) as TerminalCondition[];
+    assert.strictEqual(cond.value.from, '2026-08-12');
+    assert.strictEqual(new Date(cond.value.pastCutoff.instant).getTime(), now.getTime());
+    assert.strictEqual(cond.value.pastCutoff.hidePastEventsAfterDays, 3);
   });
 
   await t.test('uses system current date if now is omitted', () => {
@@ -57,6 +80,7 @@ test('buildDefaultEventVisibilityConditions', async (t) => {
     assert.strictEqual(cond.value.to, null);
     assert.ok(typeof cond.value.from === 'string');
     assert.match(cond.value.from, /^\d{4}-\d{2}-\d{2}$/);
+    assert.ok(!Number.isNaN(new Date(cond.value.pastCutoff.instant).getTime()));
   });
 
   await t.test('returns 1 condition if userId is omitted or null', () => {

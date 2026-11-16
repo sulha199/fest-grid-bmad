@@ -289,4 +289,89 @@ describe('ModeratorAccountsContent', () => {
     });
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   });
+
+  // Story 0.i5c / AD-18: the page pages through the shared useListPaginationController, so it gains
+  // previous-page navigation and a page/total readout, and a filter change returns to page 1.
+  describe('pagination', () => {
+    // Three pages of 20 over 45 accounts: the cursor each page is fetched with picks the page.
+    const pages: Record<string, { name: string; hasNextPage: boolean; endCursor: string | null }> = {
+      first: { name: 'Account On Page One', hasNextPage: true, endCursor: 'c1' },
+      c1: { name: 'Account On Page Two', hasNextPage: true, endCursor: 'c2' },
+      c2: { name: 'Account On Page Three', hasNextPage: false, endCursor: null },
+    };
+
+    const queryWith = (filters: any, cursor: string | undefined) => {
+      const page = pages[cursor ?? 'first'];
+      return {
+        data: {
+          queryModeratorAccountProfiles: {
+            edges: [{ node: { id: page.name, accountId: page.name, platform: 'INSTAGRAM', username: 'u', displayName: page.name, isImageStorageOptedIn: false }, cursor: page.endCursor ?? 'last' }],
+            pageInfo: { hasNextPage: page.hasNextPage, endCursor: page.endCursor },
+            totalCount: 45,
+          },
+        },
+        isLoading: false, error: null, refetch: vi.fn(),
+      };
+    };
+
+    beforeEach(() => {
+      (useRequireModerator as any).mockReturnValue({ status: 'authorized' });
+      (useQueryModeratorAccountProfiles as any).mockImplementation(queryWith);
+    });
+
+    const lastCall = () => {
+      const calls = (useQueryModeratorAccountProfiles as any).mock.calls;
+      return calls[calls.length - 1] as [{ search?: string }, string | undefined, number, boolean];
+    };
+
+    it('shows the current page and the total, with Previous disabled on the first page', () => {
+      render(<ModeratorAccountsContent />, { wrapper: createWrapper() });
+      expect(screen.getByText('Account On Page One')).toBeInTheDocument();
+      expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+      expect(screen.getByText('45 total')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
+    });
+
+    it('goes forward and back, fetching each page with its own cursor', () => {
+      render(<ModeratorAccountsContent />, { wrapper: createWrapper() });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(lastCall()[1]).toBe('c1');
+      expect(screen.getByText('Account On Page Two')).toBeInTheDocument();
+      expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'false');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(lastCall()[1]).toBe('c2');
+      expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'true');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+      expect(lastCall()[1]).toBe('c1');
+      expect(screen.getByText('Account On Page Two')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+      expect(lastCall()[1]).toBeUndefined();
+      expect(screen.getByText('Account On Page One')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('returns to page 1 when the search changes (BUG-019: a filter change must not append to or stay on a later page)', () => {
+      render(<ModeratorAccountsContent />, { wrapper: createWrapper() });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+      expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByPlaceholderText('Search by display name, username, or platform...'), { target: { value: 'taylor' } });
+
+      const [filters, cursor] = lastCall();
+      expect(filters.search).toBe('taylor');
+      expect(cursor).toBeUndefined();
+      expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Previous' })).toHaveAttribute('aria-disabled', 'true');
+      // Next works again straight away: the reset did not leave the controller thinking there is nothing more.
+      expect(screen.getByRole('button', { name: 'Next' })).toHaveAttribute('aria-disabled', 'false');
+    });
+  });
 });

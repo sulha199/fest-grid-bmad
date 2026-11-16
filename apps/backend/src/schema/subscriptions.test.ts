@@ -457,6 +457,73 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
     assert.equal(restoredBody.data.mySubscriptions.length, 1);
   });
 
+  await t.test('9b. the subscription cap (Story 10.3): subscribeToAccount and RESTORE are refused with SUBSCRIPTION_CAP_REACHED and the three numbers', async () => {
+    // A dedicated plain user: the seeded users the other tests use are in no fixed order and one of them is a moderator,
+    // who is exempt from the cap.
+    const capSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const [capUser] = await db.insert(users).values({ email: `cap9b-${capSuffix}@example.test` }).returning();
+    mockUser = { userId: capUser.id, role: capUser.role };
+    const capProfileIds: string[] = [];
+    const makeProfile = async (n: number) => {
+      const [profile] = await db.insert(socialMediaAccountProfiles).values({
+        accountId: `cap9b-${capSuffix}-${n}`,
+        platform: 'instagram',
+        username: `cap9b-${capSuffix}-${n}`,
+        displayName: 'Cap 9b',
+        accountType: 'PERSONAL',
+        accountTypeStatus: 'CONFIRMED',
+      }).returning();
+      capProfileIds.push(profile.id);
+      return profile;
+    };
+    const gql = async (query: string, variables: Record<string, unknown>) => {
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables }),
+      });
+      return response.json();
+    };
+    try {
+      const inserted = [];
+      for (let i = 0; i < 5; i += 1) {
+        const profile = await makeProfile(i);
+        const [sub] = await db.insert(subscriptions).values({ userId: capUser.id, accountId: profile.id }).returning();
+        inserted.push(sub);
+      }
+      const sixth = await makeProfile(5);
+
+      const subscribe = await gql(
+        `mutation S($input: SubscribeToAccountInput!) { subscribeToAccount(input: $input) { alreadySubscribed } }`,
+        { input: { platform: 'instagram', accountId: sixth.accountId, username: sixth.username, displayName: 'Cap 9b' } }
+      );
+      assert.equal(subscribe.errors[0].extensions.code, 'SUBSCRIPTION_CAP_REACHED');
+      assert.equal(subscribe.errors[0].extensions.activeCount, 5);
+      assert.equal(subscribe.errors[0].extensions.reservedCount, 0);
+      assert.equal(subscribe.errors[0].extensions.cap, 5);
+
+      // soft-delete one, then a sixth fits again; restoring the deleted one would then exceed the cap
+      const remove = `mutation R($id: ID!, $action: SoftDeleteAction!) { removeSubscription(id: $id, action: $action) { id } }`;
+      assert.ok(!(await gql(remove, { id: inserted[0].id, action: 'DELETE' })).errors);
+      const subscribed = await gql(
+        `mutation S($input: SubscribeToAccountInput!) { subscribeToAccount(input: $input) { alreadySubscribed } }`,
+        { input: { platform: 'instagram', accountId: sixth.accountId, username: sixth.username, displayName: 'Cap 9b' } }
+      );
+      assert.ok(!subscribed.errors, JSON.stringify(subscribed.errors));
+      const restore = await gql(remove, { id: inserted[0].id, action: 'RESTORE' });
+      assert.equal(restore.errors[0].extensions.code, 'SUBSCRIPTION_CAP_REACHED');
+      assert.equal(restore.errors[0].extensions.activeCount, 5);
+      const [still] = await db.select().from(subscriptions).where(eq(subscriptions.id, inserted[0].id));
+      assert.notEqual(still.deletedAt, null, 'a refused restore leaves the subscription deleted');
+    } finally {
+      await db.delete(subscriptions).where(eq(subscriptions.userId, capUser.id));
+      if (capProfileIds.length > 0) {
+        await db.delete(socialMediaAccountProfiles).where(inArray(socialMediaAccountProfiles.id, capProfileIds));
+      }
+      await db.delete(users).where(eq(users.id, capUser.id));
+    }
+  });
+
   await t.test('10. removeSubscription on another user\'s subscription throws NOT_FOUND', async () => {
     // Authenticated as anotherUser
     mockUser = { userId: anotherUser.id, role: anotherUser.role };
@@ -1075,6 +1142,12 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
         .set({ scrapeTriggeredAt: null })
         .where(eq(socialMediaAccountProfiles.id, testProfile.id));
 
+      // A profile whose own timeline was scraped (history seeded) with a post is incremental; stored posts alone
+      // do not make it so (a co-author-only profile holds posts too), which the next test covers.
+      await db.update(socialMediaAccountProfiles)
+        .set({ historySeededAt: new Date() })
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+
       // Insert a post so it's not zero-posts
       const [post] = await db.insert(posts).values({
         accountId: testProfile.id,
@@ -1109,6 +1182,37 @@ test('Subscriptions and API Keys resolvers integration', async (t) => {
       assert.equal(body.data.triggerAccountScrape.isInitialScrape, false);
 
       // Clean up
+      await db.delete(posts).where(eq(posts.accountId, testProfile.id));
+    });
+
+    await t.test('triggerAccountScrape - an unseeded account is initial even when it holds a post (co-author only)', async () => {
+      mockUser = { userId: testUser.id, role: testUser.role };
+
+      await db.update(socialMediaAccountProfiles)
+        .set({ scrapeTriggeredAt: null, historySeededAt: null })
+        .where(eq(socialMediaAccountProfiles.id, testProfile.id));
+      await db.insert(posts).values({
+        accountId: testProfile.id,
+        platform: 'instagram',
+        postUrl: 'https://instagram.com/p/coauthored_post',
+        content: 'Co-authored Post',
+        isExtracted: false,
+        publishedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      });
+
+      const response = await yoga.fetch('http://yoga/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `mutation TriggerAccountScrape($accountId: ID!) { triggerAccountScrape(accountId: $accountId) { triggered isInitialScrape } }`,
+          variables: { accountId: testProfile.id }
+        })
+      });
+
+      const body = await response.json();
+      assert.ok(!body.errors, 'Should not have errors: ' + JSON.stringify(body.errors));
+      assert.equal(body.data.triggerAccountScrape.isInitialScrape, true);
+
       await db.delete(posts).where(eq(posts.accountId, testProfile.id));
     });
 

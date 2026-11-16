@@ -1,0 +1,20 @@
+/bmad-form-epics
+
+Background: a production investigation on 2026-10-19 found that named programmes (for example Sleman City Hall "8th Anniversary: REBORN") are stored three inconsistent ways and cannot be grouped, and that the existing duplicate matcher has about 5% recall. This is a planning ritual in a three-step sequence (architecture, then epic formation, then PRD update); you are running one step of it.
+
+Read first, in this order:
+1. _bmad-output/planning-artifacts/event-insight-poc/results/prod-findings-and-event-groups-2026-10-19.md -- the evidence. Its section 7 (options A/B/C) is a proposal, NOT a decision.
+2. Backlog rows IDEA-084 (Event groups), IDEA-085 (Raise the duplicate matcher's recall), BUG-068 (location_details stored as a JSON string) and FIND-091 (production snapshot) in _bmad-output/implementation-artifacts/backlog.yaml. Related rows: BUG-066, BUG-063, BUG-064, IDEA-073, IDEA-081, IDEA-074.
+3. _bmad-output/project-context.md and the PRD (_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md, section 3.7, especially the Multi-Event Posts bullet, FR113).
+
+Rules for this run:
+- Planning isolation: write only under _bmad-output/. Do not modify application source code, migrations or tests.
+- Do not connect to production or any database. Every number you need is in the write-up; if you need a fact it does not contain, mark it as unverified rather than guessing or querying. The mechanism behind BUG-068's double-encoding is an unverified hypothesis; treat it as a constraint to verify, not as a fact.
+- Do not commit or push. Leave the working tree for the user to review.
+- Real design decisions belong to the user: ask them with AskUserQuestion (batch related questions, give a recommendation first). Do not decide silently, and do not re-ask what the write-up or the existing spine already settles.
+- Pair every story, backlog or AD ID you write with a short title, because the user reads on mobile.
+
+Your step (2 of 3): run epic formation over the open backlog rows IDEA-084, IDEA-085, BUG-068 and FIND-091, plus any other open row that shares the same mechanism according to _bmad-output/planning-artifacts/epic-formation-gate.md (the write-up names BUG-066, BUG-063, BUG-064, IDEA-073, IDEA-081 as related; decide per the gate whether any of them truly cluster, and do not force a cluster). Use AD-36 from _bmad-output/planning-artifacts/festgrid-architecture-spine.md, which the previous step (bmad-architecture) wrote; if AD-36 is missing, stop and say so instead of inventing it.
+Do NOT run bmad-create-epics-and-stories and do not regenerate any existing epic. Follow the gate's own outputs and numbering exactly (formation document under _bmad-output/planning-artifacts/epic-formation/, epics.md and sprint-status.yaml as the gate prescribes). Run scripts/backlog-check.py afterwards; it has 69 known baseline failures and must show no new ones.
+
+Decisions the user has confirmed for AD-36 (do not re-ask; they are settled): group entity with a nullable events.group_id (Option A); anchor_event_id nullable; every tier applies immediately and moderators review afterwards without blocking anything; the program-lineup reshape is a PLAN now whose implementation is sequenced together with the personalization work in this branch (IDEA-074 and its dependencies). So do NOT make the program-lineup reshape a standalone epic: attach it to, or make it depend on, the personalization epic(s) the board already shows, and say plainly in the formation document how the two are sequenced. AD-36's "Follow-ups" list (7 items) is your starting inventory; two of them are prerequisites (IDEA-085 before IDEA-084 runs on the existing backlog, BUG-068 before location inheritance).

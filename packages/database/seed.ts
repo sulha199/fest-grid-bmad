@@ -17,6 +17,9 @@ import {
   scraperActorRuns,
   unprocessedScraperPayloads,
   parserVersionRegistry,
+  jobs,
+  jobAttempts,
+  userSettings,
 } from './schema';
 import { loadDatabaseEnv } from './env';
 import { getTablesInDeleteOrder } from './delete-order';
@@ -1235,6 +1238,319 @@ export const FIXTURE_REPORTS = [
   },
 ];
 
+// Story 10.4 Part C -- test-only job rows for the Jobs page e2e (`apps/web/e2e/jobs.spec.ts` and the two responsive specs). All local: the seed
+// refuses a non-local database, and it deletes every table first, so re-running it never doubles these rows. They hold no caption, no vendor URL
+// and no token (only a post id), and nothing here touches a shared usage or quota table. The times are relative to the moment the seed runs so
+// the finished rows stay inside the 30-day retention window and the open rows stay inside their deadline. Open jobs are never advanced by
+// anything locally (no sweep, no worker runs), which is what lets a spec assert on them.
+const seedNow = Date.now();
+const minutesAgo = (minutes: number): Date => new Date(seedNow - minutes * 60_000);
+const minutesFromNow = (minutes: number): Date => new Date(seedNow + minutes * 60_000);
+
+export const FIXTURE_JOB_IDS = {
+  userSucceeded: 'e1000000-0000-0000-0000-000000000001',
+  userFailed: 'e1000000-0000-0000-0000-000000000002',
+  userRunning: 'e1000000-0000-0000-0000-000000000003',
+  userQueued: 'e1000000-0000-0000-0000-000000000004',
+  moderatorFailedTimedOut: 'e1000000-0000-0000-0000-000000000005',
+  moderatorFailedCooldown: 'e1000000-0000-0000-0000-000000000006',
+  otherUserSucceeded: 'e1000000-0000-0000-0000-000000000007',
+  systemSucceeded: 'e1000000-0000-0000-0000-000000000008',
+  // Story 10.6a (show the Re-extract progress, the missing-images banner and Retry): the moderator's own Re-extract jobs for the source posts of four
+  // fixture events, so the screen can be checked without ever starting a re-extract (no vendor call, no Lambda).
+  moderatorPreviewLimits: 'e1000000-0000-0000-0000-000000000009',
+  moderatorPreviewOverCap: 'e1000000-0000-0000-0000-00000000000a',
+  moderatorPreviewCooldown: 'e1000000-0000-0000-0000-00000000000b',
+  moderatorRunning: 'e1000000-0000-0000-0000-00000000000c',
+} as const;
+
+const REEXTRACT_JOB_TYPE = 'reextract-post';
+
+/** Story 10.6a: a small preview a Re-extract job holds in `result_data`: no caption, no image link, no vendor name (the same shape the engine writes). */
+const seedPreviewResult = (
+  images: ReadonlyArray<{ position: number; role: 'COVER' | 'SLIDE'; state: 'READ' | 'NOT_READ_EXPIRED' | 'NOT_READ_UNAVAILABLE' | 'NOT_SENT_OVER_CAP' }>,
+  refresh: Record<string, unknown>
+) => ({
+  groupingReason: 'single-event',
+  postStored: true,
+  rescraped: false,
+  imagesAvailable: images.length,
+  imagesSent: images.filter((image) => image.state === 'READ').length,
+  images,
+  imageCap: 10,
+  events: [
+    {
+      extractionOrdinal: 0,
+      eventName: 'Seeded preview: Culture Fest',
+      alreadyRepresentedBySlug: null,
+      isStub: false,
+      links: [],
+      schedules: [{ title: 'Opening day', startDate: '2027-01-15', endDate: null, isMain: true }],
+      dedup: { tier: 'none', score: null, candidateSlug: null, candidateName: null },
+    },
+  ],
+  refresh,
+});
+
+const SEED_SLIDES = (count: number, state: 'READ' | 'NOT_READ_EXPIRED' = 'READ') =>
+  Array.from({ length: count }, (_, i) => ({ position: i + 1, role: 'SLIDE' as const, state }));
+
+export const FIXTURE_JOBS = [
+  {
+    // An ended job whose refresh step was not needed: "Took 1 min 20 s", refresh SKIPPED.
+    id: FIXTURE_JOB_IDS.userSucceeded,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[1].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-user-succeeded',
+    input: { postId: FIXTURE_POSTS[0].id },
+    status: 'SUCCEEDED' as const,
+    phase: 'preview',
+    resultData: { refresh: { outcome: 'NOT_NEEDED' } },
+    deadlineAt: minutesAgo(110),
+    admittedAt: minutesAgo(121),
+    finishedAt: new Date(minutesAgo(121).getTime() + 80_000),
+    createdAt: minutesAgo(122),
+  },
+  {
+    // An ordinary user's failure: no Retry for them (the re-extract start path is moderator only).
+    id: FIXTURE_JOB_IDS.userFailed,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[1].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-user-failed',
+    input: { postId: FIXTURE_POSTS[1].id },
+    status: 'FAILED' as const,
+    phase: 'refresh',
+    reasonCode: 'NO_PROVIDER_REACHABLE',
+    errorMessage: 'No provider could be reached for this post.',
+    deadlineAt: minutesAgo(50),
+    admittedAt: minutesAgo(61),
+    finishedAt: minutesAgo(60),
+    createdAt: minutesAgo(62),
+  },
+  {
+    // An open job: the page lists it under "In progress" and a chip/dialog can be opened for it.
+    id: FIXTURE_JOB_IDS.userRunning,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[1].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-user-running',
+    input: { postId: FIXTURE_POSTS[2].id },
+    status: 'RUNNING' as const,
+    phase: 'preview',
+    resultData: { refresh: { outcome: 'REFRESHED' } },
+    deadlineAt: minutesFromNow(60),
+    admittedAt: minutesAgo(2),
+    createdAt: minutesAgo(2),
+  },
+  {
+    // Waiting for a place (never admitted): "Next in line".
+    id: FIXTURE_JOB_IDS.userQueued,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[1].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-user-queued',
+    input: { postId: FIXTURE_POSTS[3].id },
+    status: 'QUEUED' as const,
+    deadlineAt: minutesFromNow(60),
+    queuedSince: minutesAgo(1),
+    createdAt: minutesAgo(1),
+  },
+  {
+    // The moderator's own failed job: Retry is offered; two provider attempts for the technical details.
+    id: FIXTURE_JOB_IDS.moderatorFailedTimedOut,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-failed',
+    input: { postId: FIXTURE_POSTS[1].id },
+    status: 'FAILED' as const,
+    phase: 'refresh',
+    reasonCode: 'TIMED_OUT',
+    errorMessage: 'The job ran past its time limit.',
+    deadlineAt: minutesAgo(30),
+    admittedAt: minutesAgo(41),
+    finishedAt: minutesAgo(40),
+    createdAt: minutesAgo(42),
+  },
+  {
+    // A cooldown ending: the button reads "Retry at {time}" and is not clickable until then.
+    id: FIXTURE_JOB_IDS.moderatorFailedCooldown,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-cooldown',
+    input: { postId: FIXTURE_POSTS[2].id },
+    status: 'FAILED' as const,
+    phase: 'refresh',
+    reasonCode: 'COOLDOWN',
+    errorMessage: 'This post was refreshed a moment ago.',
+    resultData: { refresh: { outcome: 'COOLDOWN', retryAfter: minutesFromNow(180).toISOString() } },
+    deadlineAt: minutesAgo(10),
+    admittedAt: minutesAgo(21),
+    finishedAt: minutesAgo(20),
+    createdAt: minutesAgo(22),
+  },
+  {
+    // Story 10.6a: the moderator's finished preview for the source post of the e2e event: five images, the cover and slides 3 to 5 not read (links
+    // expired, no provider reached). Retry is offered (never clicked); finished minutes ago so the 30-minute chip window and the Apply window are open.
+    id: FIXTURE_JOB_IDS.moderatorPreviewLimits,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-preview-limits',
+    input: { postId: FIXTURE_POSTS[1].id },
+    status: 'SUCCEEDED_WITH_LIMITS' as const,
+    phase: 'preview',
+    reasonCode: 'NO_PROVIDER_REACHABLE',
+    resultData: seedPreviewResult(
+      [
+        { position: 0, role: 'COVER', state: 'NOT_READ_EXPIRED' },
+        { position: 1, role: 'SLIDE', state: 'READ' },
+        { position: 2, role: 'SLIDE', state: 'READ' },
+        { position: 3, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+        { position: 4, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+        { position: 5, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+      ],
+      { outcome: 'NO_PROVIDER_REACHABLE', saved: false, lateResultPending: false, expiredLinks: 4 }
+    ),
+    deadlineAt: minutesFromNow(5),
+    admittedAt: minutesAgo(5),
+    finishedAt: minutesAgo(3),
+    createdAt: minutesAgo(5),
+  },
+  {
+    // Story 10.6a: a carousel of twelve slides; the two beyond the preview cap were never sent. Nothing failed: the banner is the one cap line.
+    id: FIXTURE_JOB_IDS.moderatorPreviewOverCap,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-preview-over-cap',
+    input: { postId: FIXTURE_POSTS[3].id },
+    status: 'SUCCEEDED' as const,
+    phase: 'preview',
+    resultData: seedPreviewResult(
+      [
+        { position: 0, role: 'COVER', state: 'READ' },
+        ...SEED_SLIDES(10),
+        { position: 11, role: 'SLIDE', state: 'NOT_SENT_OVER_CAP' },
+        { position: 12, role: 'SLIDE', state: 'NOT_SENT_OVER_CAP' },
+      ],
+      { outcome: 'NOT_NEEDED', saved: false, lateResultPending: false, expiredLinks: 0 }
+    ),
+    deadlineAt: minutesFromNow(5),
+    admittedAt: minutesAgo(4),
+    finishedAt: minutesAgo(3),
+    createdAt: minutesAgo(4),
+  },
+  {
+    // Story 10.6a: the refresh was not tried (cooldown) and links expired: Retry reads "Retry at {time}" and is not clickable until then.
+    id: FIXTURE_JOB_IDS.moderatorPreviewCooldown,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-preview-cooldown',
+    input: { postId: FIXTURE_POSTS[2].id },
+    status: 'SUCCEEDED_WITH_LIMITS' as const,
+    phase: 'preview',
+    reasonCode: 'COOLDOWN',
+    resultData: seedPreviewResult(
+      [
+        { position: 0, role: 'COVER', state: 'READ' },
+        { position: 1, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+        { position: 2, role: 'SLIDE', state: 'NOT_READ_EXPIRED' },
+      ],
+      { outcome: 'COOLDOWN', saved: false, lateResultPending: false, retryAfter: minutesFromNow(180).toISOString(), expiredLinks: 2 }
+    ),
+    deadlineAt: minutesFromNow(5),
+    admittedAt: minutesAgo(3),
+    finishedAt: minutesAgo(2),
+    createdAt: minutesAgo(3),
+  },
+  {
+    // Story 10.6a: an open Re-extract (refresh done, preview running): its row shows the chip "In progress: step 2 of 2" and the dialog opens on the stepper.
+    id: FIXTURE_JOB_IDS.moderatorRunning,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[0].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-moderator-running',
+    input: { postId: FIXTURE_POSTS[0].id },
+    status: 'RUNNING' as const,
+    phase: 'preview',
+    resultData: { refresh: { outcome: 'REFRESHED' } },
+    deadlineAt: minutesFromNow(60),
+    admittedAt: minutesAgo(1),
+    createdAt: minutesAgo(1),
+  },
+  {
+    // Another user's job: a moderator sees it only with "All users" ("Started by Alice Reporter").
+    id: FIXTURE_JOB_IDS.otherUserSucceeded,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: FIXTURE_USERS[2].id,
+    trigger: 'USER' as const,
+    inputKey: 'seed-jobs-other-user',
+    input: { postId: FIXTURE_POSTS[0].id },
+    status: 'SUCCEEDED' as const,
+    phase: 'preview',
+    resultData: { refresh: { outcome: 'REFRESHED' } },
+    deadlineAt: minutesAgo(20),
+    admittedAt: minutesAgo(31),
+    finishedAt: minutesAgo(30),
+    createdAt: minutesAgo(32),
+  },
+  {
+    // A SYSTEM job (no owner, FR130): a moderator sees it only with "Include system jobs" ("System job").
+    id: FIXTURE_JOB_IDS.systemSucceeded,
+    type: REEXTRACT_JOB_TYPE,
+    ownerUserId: null,
+    trigger: 'SYSTEM' as const,
+    inputKey: 'seed-jobs-system',
+    input: { postId: FIXTURE_POSTS[0].id },
+    status: 'SUCCEEDED' as const,
+    phase: 'preview',
+    resultData: { refresh: { outcome: 'REFRESHED' } },
+    deadlineAt: minutesAgo(40),
+    admittedAt: minutesAgo(51),
+    finishedAt: minutesAgo(50),
+    createdAt: minutesAgo(52),
+  },
+];
+
+// The provider attempts of the moderator's timed-out job: moderator-only data on the Jobs detail page.
+export const FIXTURE_JOB_ATTEMPTS = [
+  {
+    id: 'e2000000-0000-0000-0000-000000000001',
+    jobId: FIXTURE_JOB_IDS.moderatorFailedTimedOut,
+    provider: 'APIFY' as const,
+    outcome: 'TIMED_OUT' as const,
+    budgetMs: 20_000,
+    elapsedMs: 20_000,
+    reasonCode: 'TIMED_OUT',
+    createdAt: minutesAgo(41),
+  },
+  {
+    id: 'e2000000-0000-0000-0000-000000000002',
+    jobId: FIXTURE_JOB_IDS.moderatorFailedTimedOut,
+    provider: 'BRIGHTDATA' as const,
+    outcome: 'OVER_QUOTA' as const,
+    budgetMs: 20_000,
+    elapsedMs: 900,
+    reasonCode: 'PROVIDER_OVER_QUOTA',
+    createdAt: minutesAgo(40.5),
+  },
+];
+
+// Story 10.13 (notify when a job finishes): the ordinary user's "Jobs last opened" time is set before the fixture jobs ended
+// (the newest of the user's ended jobs finished 60 minutes ago), so the Jobs menu badge counts the two ended fixture jobs
+// (userSucceeded, userFailed) until the user opens the Jobs page. Without this row the watermark would be the user's creation time.
+export const FIXTURE_USER_SETTINGS = [
+  {
+    userId: FIXTURE_USERS[1].id,
+    jobsLastOpenedAt: minutesAgo(180),
+  },
+];
+
 export const FIXTURE_COUNTS = {
   users: FIXTURE_USERS.length,
   userLocations: FIXTURE_USER_LOCATIONS.length,
@@ -1249,6 +1565,9 @@ export const FIXTURE_COUNTS = {
   events: FIXTURE_EVENTS.length,
   schedules: FIXTURE_SCHEDULES.length,
   reports: FIXTURE_REPORTS.length,
+  jobs: FIXTURE_JOBS.length,
+  jobAttempts: FIXTURE_JOB_ATTEMPTS.length,
+  userSettings: FIXTURE_USER_SETTINGS.length,
 } as const;
 
 export const FIXTURE_USER_IDS = FIXTURE_USERS.map((user) => user.id).sort();
@@ -1380,6 +1699,9 @@ export async function seedDatabase(connectionString?: string): Promise<void> {
       await tx.insert(favorites).values([...FIXTURE_FAVORITES]);
       await tx.insert(accountTypeClassificationReviews).values([...FIXTURE_ACCOUNT_TYPE_CLASSIFICATION_REVIEWS]);
       await tx.insert(reports).values([...FIXTURE_REPORTS]);
+      await tx.insert(jobs).values([...FIXTURE_JOBS]);
+      await tx.insert(jobAttempts).values([...FIXTURE_JOB_ATTEMPTS]);
+      await tx.insert(userSettings).values([...FIXTURE_USER_SETTINGS]);
     });
   } finally {
     await sqlClient.end();

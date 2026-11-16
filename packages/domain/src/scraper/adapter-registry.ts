@@ -1,5 +1,5 @@
 import { ScrapablePlatform } from "../subscriptions/platforms.js";
-import { ScraperAdapter, AccountProfileLookupResult } from "./types.js";
+import { ScraperAdapter, AccountProfileLookupResult, ProfileScrapeOptions } from "./types.js";
 
 const adapters = new Map<ScrapablePlatform, ScraperAdapter>();
 
@@ -17,10 +17,11 @@ export function getScraperAdapter(platform: ScrapablePlatform): ScraperAdapter {
 
 export async function lookupAccountProfile(
   platform: ScrapablePlatform,
-  handleOrUrl: string
+  handleOrUrl: string,
+  options?: ProfileScrapeOptions
 ): Promise<AccountProfileLookupResult | null> {
   const adapter = getScraperAdapter(platform);
-  return adapter.lookupAccountProfile(handleOrUrl);
+  return adapter.lookupAccountProfile(handleOrUrl, options);
 }
 
 export function clearRegisteredAdapters(): void {

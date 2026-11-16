@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
 import { resolve } from 'path';
+import { REEXTRACT_MAX_CAROUSEL_IMAGES } from '@festgrid/domain/posts';
 
 export interface BackendEnv {
   port: number;
@@ -30,15 +31,32 @@ export interface BackendEnv {
   // 10-minute rolling-fixed window per user -- see that story's Dev Notes decision 3 for why.
   promptFilterRateLimitMaxRequests: number;
   promptFilterRateLimitWindowMinutes: number;
+  systemErrorAlertMaxEmails: number;
+  systemErrorAlertWindowMinutes: number;
+  // Story 0.i1a (AD-54): the cooldown of one moderator notification per template and entity, in minutes.
+  moderatorNotifyCooldownMinutes: number;
   webAppBaseUrl: string;
   // Batch cap for how many additional carousel (Sidecar) slide images are sent to Gemini in a
   // single extraction request, beyond the cover image (Story 3.6l). Keeps the AI Processor
   // Lambda inside its fixed 300s timeout (AD-13) and bounds per-request token usage.
   maxCarouselImages: number;
+  // Slides a moderator re-extract preview sends (AD-40 amendment, BUG-099). Separate from the
+  // ingestion cap above; default REEXTRACT_MAX_CAROUSEL_IMAGES (10).
+  maxReextractCarouselImages: number;
   // Story 3.6s (AD-30 Rule 5) — roundup per-post event cap, default 10, configurable. Used both
   // as the Gemini-facing schema's `events.maxItems` hint and as the code-level truncation
   // backstop in process-ai-job.ts (never a hard AJV cap -- see extracted-event.schema.ts).
   maxExtractedEventsPerPost: number;
+  // The platform's home country (ISO-2): the last-resort country hint for geocoding and the "most places are in ..." line of
+  // the location keywords prompt. `null` when set to an empty value (no assumption at all). Default "ID"; a new market sets it.
+  defaultCountryCode: string | null;
+  // Kill switch for keyword geocoding (slice 2a): on (the default) geocodes from the location keywords with a country hint and a
+  // ladder, and records `schedules.location_resolution`; only the value `false` turns it off, which restores the plain
+  // single-address lookup (no keywords, no country filter, no ladder, nothing recorded; the old soft country bias is gone for good).
+  keywordGeocodingEnabled: boolean;
+  // AD-51 Rule 2: the kill switch for stepped (cursor) extraction. Off (the default: it ships dark) means every post
+  // takes the one-request path; a chain in flight stops at its next step and the post is flagged partial.
+  cursorExtractionEnabled: boolean;
   // Story 3.6s (AC7) — an explicit response-size cap on the Gemini extraction call.
   geminiMaxOutputTokens: number;
   // Story 0.i2c — callVendor's (apps/backend/src/lib/vendor-gateway/guarded-call.ts)
@@ -63,6 +81,9 @@ export interface BackendEnv {
   aiProcessingQueueUrl?: string;
   // Story 4.2b -- AI Lambda function name the API Lambda async-invokes for manual extraction.
   aiProcessorFunctionName?: string;
+  // Story 10.1a -- the Scraper Lambda's function name, set on the API Lambda so startJob can invoke a job type whose
+  // `host` is 'scraper' (the API Lambda's mirror of aiProcessorFunctionName).
+  scraperFunctionName?: string;
   aiProcessingInlineFallbackEnabled: boolean;
   // Story 3.6z (AC3) — TTL (minutes) for enqueuePostForProcessing's atomic claim
   // (posts.queued_for_extraction_at). Default derivation: AIProcessingQueue's visibility
@@ -81,6 +102,11 @@ export interface BackendEnv {
   scrapeQueueApifyCallTimeoutMs: number;
   scrapeInitialLookbackDays: number;
   scrapeSkipRecentHours: number;
+  // Cadence backoff (IDEA-105): after a run that found no new post, a profile whose posting rhythm is known waits
+  // its typical gap (times the multiplier, rounded up) before the next scheduled scrape, never more than max days.
+  // SCRAPE_BACKOFF_MAX_DAYS=1 turns it off.
+  scrapeBackoffGapMultiplier: number;
+  scrapeBackoffMaxDays: number;
   scraperMonthlyBudgetUsd: number;
   scraperPricePerThousandItemsUsd: number;
   scraperCapacityThresholdRatio: number;
@@ -94,6 +120,13 @@ export interface BackendEnv {
   brightdataApiToken?: string;
   brightdataDatasetId?: string;
   brightdataWebhookBaseUrl?: string;
+  // Bright Data's Instagram Profiles dataset (the posts dataset is `brightdataDatasetId`).
+  brightdataProfileDatasetId?: string;
+  // POST_SCRAPER_PROVIDER_ORDER (Story 10.2), raw: parsed by parsePostScraperOrder in @festgrid/domain. Default `brightdata,apify`
+  // (owner decision 2026-11-11, PRD OI-1), unlike the profile order below.
+  postScraperProviderOrder?: string;
+  // PROFILE_SCRAPER_PROVIDER_ORDER, raw: parsed by parseProfileScraperOrder in @festgrid/domain.
+  profileScraperProviderOrder?: string;
   brightdataJobTimeoutMinutes?: number;
   brightdataPricePerThousandItemsUsd?: number;
   brightdataMonthlyBudgetUsd?: number;
@@ -121,13 +154,43 @@ export interface BackendEnv {
   // (social_media_account_profiles.classification_claimed_at). Same 30-minute default and
   // reclaim-after-TTL rationale as postExtractionClaimTtlMinutes (Story 3.6z) above.
   accountClassificationClaimTtlMinutes: number;
+  // Story 10.1a -- the job engine. One RUN of a job handler is capped at this many ms (inside the 300 s Lambda); the
+  // whole job's own bound is its type's maxDurationMs (jobs.deadline_at).
+  jobAttemptDeadlineMs: number;
+  // Story 10.1a -- TTL (minutes) of the worker's claim on a job (jobs.worker_claimed_at), after which a crashed worker's
+  // claim can be taken over. Mirrors accountClassificationClaimTtlMinutes (AD-41 Rule 3).
+  jobWorkerClaimTtlMinutes: number;
+  // Story 10.5 (IDEA-102) -- how long (minutes) the sweep waits for a Bright Data snapshot the vendor still reports as running
+  // before giving up (the daily batch falls back to Apify, a linked job snapshot is given up on). On 2026-10-29, 21 of 38
+  // snapshots took 5 to 6 hours; the default is an assumption to tune.
+  brightdataSnapshotMaxWaitMinutes: number;
+  // Story 10.6 -- the refresh phase of the moderator re-extract job: the time (ms) the post chain may use for one refresh. Apify is
+  // bounded at 20 s and Bright Data needs about 90 s, so the default leaves Bright Data its minimum after a failing Apify. Scraper Lambda only.
+  reextractRefreshBudgetMs: number;
+  // Story 10.3 -- admission (FR121). Places one user may hold at once (an admitted QUEUED or RUNNING job holds one).
+  maxConcurrentJobsPerUser: number;
+  // Story 10.3 -- jobs one user may have waiting for a place; a start beyond it is refused JOB_QUEUE_FULL.
+  maxQueuedJobsPerUser: number;
+  // Story 10.3 -- minutes a job may wait for a place (from queued_since) before the sweep ends it EXPIRED / WAITED_TOO_LONG.
+  jobQueueMaxWaitMinutes: number;
+  // Story 10.4 (FR123; owner override 2026-11-13: hide-only) -- days a finished job stays listed on the Jobs page and readable by id.
+  // Older finished jobs are hidden from the read API; nothing is deleted. API Lambda only.
+  jobsHistoryRetentionDays: number;
+  // Story 10.13 (notify when a job finishes) -- Scraper Lambda only (the 5-minute sweep step that announces ended jobs).
+  // One notice per owner per window (minutes); the grace (seconds) a just-ended job waits so a watching owner can acknowledge it;
+  // the age (minutes) past which an ended job is marked handled with no notice.
+  jobNotifyWindowMinutes: number;
+  jobNotifyGraceSeconds: number;
+  jobNotifyMaxAgeMinutes: number;
+  // Story 10.3 -- the subscription cap (FR122) for every user who is not a moderator.
+  maxSubscribedAccountsFreeUser: number;
   // Story 3.6n (AC5) — remaining-time floor (ms), read from the Lambda Context's
   // getRemainingTimeInMillis() before starting face detection. Below this floor, the stage is
   // skipped defensively rather than risking an AWS-enforced hard kill mid-stage. The 60000ms
   // (60s) default is a conservative placeholder -- Story 0.46's real measurement (worst-case
   // stage ~1.1s locally, ~277x headroom against the 300s Lambda timeout/queue visibility
   // timeout) found headroom is NOT thin, so this guard is a cheap safety check, not a design
-  // driver, and the placeholder default was kept as-is rather than tuned tighter.
+  // adapter, and the placeholder default was kept as-is rather than tuned tighter.
   faceBlurMinRemainingTimeMs: number;
   // Story 3.20 (AD-28 Rule 10) — default-ON gate for blurring every image (cover + carousel
   // slides) before it is sent to Gemini, unless the post's PUBLISHER account has opted in to
@@ -154,7 +217,10 @@ function parseNonNegativeInt(value: string | undefined, name: string, defaultVal
   return parsed;
 }
 
-function parsePositiveInt(value: string | undefined, name: string, defaultValue: number): number {
+/** The longest moderator-notification cooldown accepted (7 days); see alert-email-budget-store.ts pruning. */
+export const MODERATOR_NOTIFY_COOLDOWN_MAX_MINUTES = 10080;
+
+function parsePositiveInt(value: string | undefined, name: string, defaultValue: number, maxValue?: number): number {
   const text = (value || String(defaultValue)).trim();
   // `parseInt` alone would read "1e3" as 1 and "10abc" as 10: a typo must fail loudly, not quietly
   // become a different limit.
@@ -162,7 +228,21 @@ function parsePositiveInt(value: string | undefined, name: string, defaultValue:
   if (!Number.isSafeInteger(parsed) || parsed < 1) {
     throw new Error(`${name} must be a positive integer (>= 1).`);
   }
+  if (maxValue !== undefined && parsed > maxValue) {
+    throw new Error(`${name} must be at most ${maxValue}.`);
+  }
   return parsed;
+}
+
+/** An ISO-2 country code: unset -> the default, set but empty -> null (no assumption), anything else that is not two letters fails loudly. */
+function parseCountryCode(value: string | undefined, defaultValue: string): string | null {
+  if (value === undefined) return defaultValue;
+  const text = value.trim().toUpperCase();
+  if (text === '') return null;
+  if (!/^[A-Z]{2}$/.test(text)) {
+    throw new Error('DEFAULT_COUNTRY_CODE must be a two-letter ISO country code (or empty for none).');
+  }
+  return text;
 }
 
 // Story 3.20 (Task 1.1) -- unlike this file's other boolean env vars (all default OFF via a
@@ -270,6 +350,31 @@ export function loadBackendEnv(): BackendEnv {
       'PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES',
       10
     ),
+    // `Mutation.reportSystemError` is public: at most this many alert emails per window (default 10 per
+    // 10 minutes); further reports are logged, not emailed. See alert-email-budget-store.ts.
+    systemErrorAlertMaxEmails: parsePositiveInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.SYSTEM_ERROR_ALERT_MAX_EMAILS,
+      'SYSTEM_ERROR_ALERT_MAX_EMAILS',
+      10
+    ),
+    systemErrorAlertWindowMinutes: parsePositiveInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.SYSTEM_ERROR_ALERT_WINDOW_MINUTES,
+      'SYSTEM_ERROR_ALERT_WINDOW_MINUTES',
+      10
+    ),
+    // Story 0.i1a (AD-54): one moderator notification per template and entity per this many minutes
+    // (a fixed window in `alert_email_rate_limits`, see notify-all-moderators.ts). Default 60.
+    moderatorNotifyCooldownMinutes: parsePositiveInt(
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
+      process.env.MODERATOR_NOTIFY_COOLDOWN_MINUTES,
+      'MODERATOR_NOTIFY_COOLDOWN_MINUTES',
+      60,
+      // At most 7 days: the helper prunes throttle rows whose window opened over 30 days ago, so a longer
+      // cooldown could have a live window deleted.
+      MODERATOR_NOTIFY_COOLDOWN_MAX_MINUTES
+    ),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     webAppBaseUrl: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
@@ -280,6 +385,8 @@ export function loadBackendEnv(): BackendEnv {
     aiProcessingQueueUrl: process.env.AI_PROCESSING_QUEUE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessorFunctionName: process.env.AI_PROCESSOR_FUNCTION_NAME,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scraperFunctionName: process.env.SCRAPER_FUNCTION_NAME,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     aiProcessingInlineFallbackEnabled: process.env.AI_PROCESSING_INLINE_FALLBACK_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
@@ -298,8 +405,14 @@ export function loadBackendEnv(): BackendEnv {
     scrapeQueueApifyCallTimeoutMs: Math.max(1_000, parseInt(process.env.SCRAPE_QUEUE_APIFY_CALL_TIMEOUT_MS || '120000', 10) || 120_000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxCarouselImages: parseInt(process.env.MAX_CAROUSEL_IMAGES || '5', 10),
+    maxReextractCarouselImages: parsePositiveInt(process.env.MAX_REEXTRACT_CAROUSEL_IMAGES, 'MAX_REEXTRACT_CAROUSEL_IMAGES', REEXTRACT_MAX_CAROUSEL_IMAGES),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     maxExtractedEventsPerPost: parseInt(process.env.MAX_EXTRACTED_EVENTS_PER_POST || '10', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    defaultCountryCode: parseCountryCode(process.env.DEFAULT_COUNTRY_CODE, 'ID'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    keywordGeocodingEnabled: process.env.KEYWORD_GEOCODING_ENABLED !== 'false',
+    cursorExtractionEnabled: process.env.CURSOR_EXTRACTION_ENABLED === 'true',
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     geminiMaxOutputTokens: parseInt(process.env.GEMINI_MAX_OUTPUT_TOKENS || '8192', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
@@ -310,6 +423,10 @@ export function loadBackendEnv(): BackendEnv {
     scrapeInitialLookbackDays: parseInt(process.env.SCRAPE_INITIAL_LOOKBACK_DAYS || '7', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scrapeSkipRecentHours: parseInt(process.env.SCRAPE_SKIP_RECENT_HOURS || '12', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeBackoffGapMultiplier: parseFloat(process.env.SCRAPE_BACKOFF_GAP_MULTIPLIER || '1'),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    scrapeBackoffMaxDays: parseInt(process.env.SCRAPE_BACKOFF_MAX_DAYS || '3', 10),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     scraperMonthlyBudgetUsd: parseFloat(process.env.SCRAPER_MONTHLY_BUDGET_USD || '5.00'),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
@@ -334,6 +451,12 @@ export function loadBackendEnv(): BackendEnv {
     brightdataApiToken: process.env.BRIGHTDATA_API_TOKEN,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataDatasetId: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataProfileDatasetId: process.env.BRIGHTDATA_PROFILE_DATASET_ID || 'gd_l1vikfch901nx3by4',
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    postScraperProviderOrder: process.env.POST_SCRAPER_PROVIDER_ORDER,
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    profileScraperProviderOrder: process.env.PROFILE_SCRAPER_PROVIDER_ORDER,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     brightdataWebhookBaseUrl: process.env.BRIGHTDATA_WEBHOOK_BASE_URL,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
@@ -368,6 +491,30 @@ export function loadBackendEnv(): BackendEnv {
     postMediaDistributionId: process.env.POST_MEDIA_DISTRIBUTION_ID,
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     accountClassificationClaimTtlMinutes: parseInt(process.env.ACCOUNT_CLASSIFICATION_CLAIM_TTL_MINUTES || '30', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobAttemptDeadlineMs: parsePositiveInt(process.env.JOB_ATTEMPT_DEADLINE_MS, 'JOB_ATTEMPT_DEADLINE_MS', 150000),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobWorkerClaimTtlMinutes: parsePositiveInt(process.env.JOB_WORKER_CLAIM_TTL_MINUTES, 'JOB_WORKER_CLAIM_TTL_MINUTES', 5),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    brightdataSnapshotMaxWaitMinutes: parsePositiveInt(process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES, 'BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', 480),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    reextractRefreshBudgetMs: parsePositiveInt(process.env.REEXTRACT_REFRESH_BUDGET_MS, 'REEXTRACT_REFRESH_BUDGET_MS', 120000),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    maxConcurrentJobsPerUser: parsePositiveInt(process.env.MAX_CONCURRENT_JOBS_PER_USER, 'MAX_CONCURRENT_JOBS_PER_USER', 3),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    maxQueuedJobsPerUser: parsePositiveInt(process.env.MAX_QUEUED_JOBS_PER_USER, 'MAX_QUEUED_JOBS_PER_USER', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobQueueMaxWaitMinutes: parsePositiveInt(process.env.JOB_QUEUE_MAX_WAIT_MINUTES, 'JOB_QUEUE_MAX_WAIT_MINUTES', 30),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobsHistoryRetentionDays: parsePositiveInt(process.env.JOBS_HISTORY_RETENTION_DAYS, 'JOBS_HISTORY_RETENTION_DAYS', 30),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobNotifyWindowMinutes: parsePositiveInt(process.env.JOB_NOTIFY_WINDOW_MINUTES, 'JOB_NOTIFY_WINDOW_MINUTES', 10),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobNotifyGraceSeconds: parsePositiveInt(process.env.JOB_NOTIFY_GRACE_SECONDS, 'JOB_NOTIFY_GRACE_SECONDS', 45),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    jobNotifyMaxAgeMinutes: parsePositiveInt(process.env.JOB_NOTIFY_MAX_AGE_MINUTES, 'JOB_NOTIFY_MAX_AGE_MINUTES', 60),
+    // eslint-disable-next-line turbo/no-undeclared-env-vars
+    maxSubscribedAccountsFreeUser: parsePositiveInt(process.env.MAX_SUBSCRIBED_ACCOUNTS_FREE_USER, 'MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', 5),
     // eslint-disable-next-line turbo/no-undeclared-env-vars
     faceBlurMinRemainingTimeMs: parseNonNegativeInt(process.env.FACE_BLUR_MIN_REMAINING_TIME_MS, 'FACE_BLUR_MIN_REMAINING_TIME_MS', 60000),
     // eslint-disable-next-line turbo/no-undeclared-env-vars

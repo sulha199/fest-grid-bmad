@@ -243,7 +243,7 @@ Probe of the **unmodified** production prompt (`buildGeminiExtractionRequest`), 
 
 With an explicit location rule appended (probe only; product code untouched), 3 runs each: online → `location` absent **6/6**; hybrid → physical venue only **3/3**; festival → per-day venues correct **2/3**; two venues on one day **1/3** (the model collapses two venues on one date into one schedule).
 
-**What I did not verify:** what the pipeline then does with these strings. From reading `resolveAccountAndLocations` (`schedule.location` → event location → *account default location*), a `"Zoom"` string is geocoded as an address and a `null` falls back to the account's default location; no database or Geoapify key was available to reproduce either. Recorded as **BUG-064** with that caveat.
+**What I did not verify:** what the pipeline then does with these strings. From reading `resolveAccountAndLocations` (`schedule.location` → event location → *account default location*), a `"Zoom"` string is geocoded as an address and a `null` falls back to the account's default location; no database or Geoapify key was available to reproduce either. Recorded as **BUG-261018-nyt** with that caveat.
 
 ## B2. Venues, attendance mode and indoor/outdoor (live, `gemini-3.5-flash-lite`, 35 posts × 2 runs)
 
@@ -281,7 +281,7 @@ Changes from §A3 after the discussion: **removed** the `most-local-first` split
 * The venue labels were written before the run, but the 6 new posts and their labels are mine and are cleaner than real posters; text only; Jogja-heavy; one labeller.
 * The probe's "explicit location rule" and the ordering rules for online events were designed from the probe/discussion, then unit-tested — there is no out-of-sample test of either.
 * The earlier guarded numbers (§3) were re-verified unchanged after this round (`wrong-claims.ts` diff).
-* Backlog: BUG-063, BUG-064, IDEA-073 added (`backlog.yaml` + two tier-1 notes); the checker's count of pre-existing failures is unchanged (69) and none are on the new rows.
+* Backlog: BUG-261018-ij7, BUG-261018-nyt, IDEA-261018-iv7 added (`backlog.yaml` + two tier-1 notes); the checker's count of pre-existing failures is unchanged (69) and none are on the new rows.
 
 ---
 
@@ -324,14 +324,14 @@ So for a curator the "account location" is the venue of whichever post ran first
 
 ## C4. The wrong-country report: not reproduced
 
-I found six ways, by reading the code, for a geocode to land in the wrong place (no bias at all on the first-time geocode; bias is a preference, not a filter; best candidate by confidence alone with no floor; the stored default's country biases every later geocode; inference runs for curators; the gate is on Gemini's confidence not the geocoder's) and ruled one out (the cache key includes the bias). **I did not observe a wrong-country result.** There is no Geoapify key in this environment, and a keyless check against Nominatim returned HTTP 429 and was abandoned (its partial output was deleted and nothing from it is used). `probe-geocode-country.ts` and the SQL in BUG-066 are the first steps; the probe has been unit-tested for its URL building and selection logic only, never run against Geoapify.
+I found six ways, by reading the code, for a geocode to land in the wrong place (no bias at all on the first-time geocode; bias is a preference, not a filter; best candidate by confidence alone with no floor; the stored default's country biases every later geocode; inference runs for curators; the gate is on Gemini's confidence not the geocoder's) and ruled one out (the cache key includes the bias). **I did not observe a wrong-country result.** There is no Geoapify key in this environment, and a keyless check against Nominatim returned HTTP 429 and was abandoned (its partial output was deleted and nothing from it is used). `probe-geocode-country.ts` and the SQL in BUG-261018-abg are the first steps; the probe has been unit-tested for its URL building and selection logic only, never run against Geoapify.
 
 ## C5. Limits and changes after seeing results (this addendum)
 
 * The prompt v2 clarifications and the guard were written after reading v1's failures on the core posts; the 6-post holdout (labels written before v2 was run, never edited) is the only out-of-sample number, and it is small.
 * The account-type table, `ACCOUNTS` in `area-demo.ts`, and the persona areas are hand-made for the demo.
 * Earlier numbers (guarded wrong-claims, tracks, venues, rank-demo) were re-verified identical after this round: `wrong-claims.ts` diff and `rank-demo.ts` regeneration both produce byte-identical output.
-* Backlog: BUG-065, BUG-066, IDEA-074 added with tier-1 notes; the checker's count of pre-existing failures is unchanged (69) and none are on the new rows. No product code was changed.
+* Backlog: BUG-261018-jwf, BUG-261018-abg, IDEA-074 added with tier-1 notes; the checker's count of pre-existing failures is unchanged (69) and none are on the new rows. No product code was changed.
 
 ---
 
@@ -347,7 +347,7 @@ Questions answered here: *should an online event get the same weight as its audi
 
 > **Superseded by Addendum 6 on one point:** `mayUseAccountLocation(null, null)` is true again — never-classified accounts that already have a location are not changed.
 
-`accountTypeStatus IS NULL` = no classification recorded: accounts that existed before Story 3.4n (grandfathered on purpose, AC5), discovered profiles, and any null profile nobody has subscribed to since. `isScrapableAccountType(null, null)` is true, so they are scraped. For location they are now treated as **unknown, not organizer** (`mayUseAccountLocation(null, null)` is false; the test that pinned the opposite was rewritten). Side finding FIND-086: `isCuratorGuide` in `process-ai-job.ts` reads `accountType` alone, so a never-classified curator keeps its captions. **Neither the count of null accounts nor the existence of such a curator is known**; the SQL is in the notes.
+`accountTypeStatus IS NULL` = no classification recorded: accounts that existed before Story 3.4n (grandfathered on purpose, AC5), discovered profiles, and any null profile nobody has subscribed to since. `isScrapableAccountType(null, null)` is true, so they are scraped. For location they are now treated as **unknown, not organizer** (`mayUseAccountLocation(null, null)` is false; the test that pinned the opposite was rewritten). Side finding FIND-261018-p1z: `isCuratorGuide` in `process-ai-job.ts` reads `accountType` alone, so a never-classified curator keeps its captions. **Neither the count of null accounts nor the existence of such a curator is known**; the SQL is in the notes.
 
 ## D3. Country and reach from the initial profile scrape (live Gemini + offline signals, 16 profiles)
 
@@ -371,7 +371,7 @@ Corpus: 5 real (2 with a real profile payload from `apify-runs/`, 3 known only f
 * `country-signals.ts` was tightened three times while I wrote it, before any run, by reasoning rather than from results: the Indonesian landline pattern would also match Indian area codes (dropped), "Singapore" counted as both a place and a country name (now country name only), and the `.id` domain rule was over-complicated (now `.id` at the end of the host).
 * The synthetic corpus and its labels are mine; the real corpus is five accounts, all Indonesian.
 * Earlier numbers re-verified identical after this round: the guarded wrong-claim table (`wrong-claims.ts` diff). The ranking demo changed only in labels, not in tier counts.
-* Backlog: IDEA-075 and FIND-086 added with tier-1 notes; BUG-065, BUG-066 and IDEA-074 updated; the checker's pre-existing failure count is unchanged (69), none on the new rows. No product code was changed.
+* Backlog: IDEA-075 and FIND-261018-p1z added with tier-1 notes; BUG-261018-jwf, BUG-261018-abg and IDEA-074 updated; the checker's pre-existing failure count is unchanged (69), none on the new rows. No product code was changed.
 
 ---
 
@@ -409,7 +409,7 @@ Corpus: the 16 profiles of Addendum 4 plus two written for this question — a c
 
 * The bulk update and the history query are **unrun SQL**; column names were read from `packages/database/schema.ts`.
 * Earlier numbers re-verified identical after this round: the guarded wrong-claims table. Addendum 4's v1 results file (16 profiles) is untouched; the corpus now has 18.
-* Backlog: IDEA-075 widened (title and note) and its tier-1 note rewritten; BUG-065 and FIND-086 updated; checker failure count unchanged (69), none on the new rows. No product code was changed.
+* Backlog: IDEA-075 widened (title and note) and its tier-1 note rewritten; BUG-261018-jwf and FIND-261018-p1z updated; checker failure count unchanged (69), none on the new rows. No product code was changed.
 
 ---
 
@@ -431,13 +431,13 @@ A real PostgreSQL 16 server (the sandbox has the binaries) was started on a scra
 | abort: an account started classification in between | writes nothing |
 | abort: empty set | writes nothing |
 
-Also run: **every SQL block in the four backlog notes** (BUG-065, BUG-066, FIND-086, IDEA-075 — 7 blocks, 12 statements) was executed, rolled back, against the same schema: each parses and every table and column resolves. That removes the "column names were only read from the schema file" caveat from the earlier addenda; it does **not** make any result known, because no production data was involved.
+Also run: **every SQL block in the four backlog notes** (BUG-261018-jwf, BUG-261018-abg, FIND-261018-p1z, IDEA-075 — 7 blocks, 12 statements) was executed, rolled back, against the same schema: each parses and every table and column resolves. That removes the "column names were only read from the schema file" caveat from the earlier addenda; it does **not** make any result known, because no production data was involved.
 
 **What this does not show.** The seeded accounts are mine; "the set is all curators" is the product owner's statement and the first script exists precisely so it can be read before anything changes. The `\gset`/`\if` logic is psql 16 behaviour. The bulk update has **not** been run on production, and the sandbox cannot do that.
 
 ## F2. Never-classified accounts: three positions in one day
 
-Addendum 3 kept them lending their location, Addendum 4 made them lend nothing, and now (decision) the ones **with** a location are not changed and the ones **without** become curators. `mayUseAccountLocation(null, null)` is true again and the unit test that pinned the opposite was rewritten back. The reach gate still applies to them. What stays exposed: a curator among the never-classified accounts that has a location — it keeps an arbitrary stored location and still escapes the curator minimization (FIND-086). `04-after.sql` lists such accounts whose events are scattered over five or more distinct cities, which is a lead to read, not a finding.
+Addendum 3 kept them lending their location, Addendum 4 made them lend nothing, and now (decision) the ones **with** a location are not changed and the ones **without** become curators. `mayUseAccountLocation(null, null)` is true again and the unit test that pinned the opposite was rewritten back. The reach gate still applies to them. What stays exposed: a curator among the never-classified accounts that has a location — it keeps an arbitrary stored location and still escapes the curator minimization (FIND-261018-p1z). `04-after.sql` lists such accounts whose events are scattered over five or more distinct cities, which is a lead to read, not a finding.
 
 ## F3. An unresolved country: preference + floor
 
@@ -452,7 +452,7 @@ Addendum 3 kept them lending their location, Addendum 4 made them lend nothing, 
 * Policy reversals are mine to own: `mayUseAccountLocation(null, null)` changed twice and two commits carry the intermediate version.
 * The first version of the test script compared `psql`'s `t/f` output with the strings `true/false`; the run failed, and the script was fixed. The runbook SQL itself needed no change.
 * Re-verified identical after this round: the guarded wrong-claims table; the v2 profile re-score summary.
-* Backlog: IDEA-075, BUG-065, BUG-066 and FIND-086 updated to the decisions; checker failure count unchanged (69), none on the new rows. No product code was changed.
+* Backlog: IDEA-075, BUG-261018-jwf, BUG-261018-abg and FIND-261018-p1z updated to the decisions; checker failure count unchanged (69), none on the new rows. No product code was changed.
 
 ---
 
@@ -488,7 +488,7 @@ Bounded terms on top of the date (up to 7 days earlier for a fresh post, 14 late
 * The windowed (P3b) variant did not pay at 30k (no gain, worse at offset 200) — which is why the horizon variant (P3h) was added *after* seeing that result. It is therefore a post-hoc comparison, not a pre-registered one.
 * One of my own tests asserted an ordering that the weights do not produce (a date one day late and a missed `isFree` both cost 1/9). The test was rewritten to assert the equality as a tuning fact, and the proposal §3.2 says so.
 * **Not measured:** the write side of a maintained key, freshness through the `posts` join, the relaxed-candidate query for close matches, users with a hide-past grace above 0, any effect on user behaviour. The bounded lane as measured covers only the 300 soonest events (about 2–3 days on the seed), so its latency is real and its coverage is not the final design's.
-* Re-verified identical after this round: the guarded wrong-claims table. Backlog: **FIND-087, BUG-067, IDEA-076, IDEA-077, IDEA-078** added; checker failure count unchanged (69), none on the new rows. No product code was changed.
+* Re-verified identical after this round: the guarded wrong-claims table. Backlog: **FIND-261018-9y3, BUG-067, IDEA-076, IDEA-077, IDEA-078** added; checker failure count unchanged (69), none on the new rows. No product code was changed.
 
 ---
 
@@ -502,8 +502,8 @@ Questions: how PostHog should be used; how many events the forecast implies and 
 |---|---|
 | **history, not only visibility** | the same 22k open events: a page statement of 204 ms (anonymous) / 167 ms (signed in) at 30k total events becomes 545 / 581 ms at 300k (JIT off) |
 | **`totalCount`** | the shared `GetEvents` document selects it; Discovery never reads it; removing it saves 31–348 ms, 14–42% of a page's DB time (JIT off) |
-| **JIT is a cliff** (corrects FIND-087) | +700–840 ms when the plan's estimated cost exceeds 500k, ~50 ms below; anonymous and signed-in plans cross at different sizes |
-| **a write on the read path** | every signed-in `events` request runs `INSERT … ON CONFLICT DO UPDATE` on `user_settings` (FIND-089) |
+| **JIT is a cliff** (corrects FIND-261018-9y3) | +700–840 ms when the plan's estimated cost exceeds 500k, ~50 ms below; anonymous and signed-in plans cross at different sizes |
+| **a write on the read path** | every signed-in `events` request runs `INSERT … ON CONFLICT DO UPDATE` on `user_settings` (FIND-261019-s82) |
 | **per-user scoring** | ≈ 1.3–4 µs per scored candidate for a synthetic 12-term score; K ≤ 3,000 costs 5–40 ms; candidate generation can flip to a parallel seq scan (54 requests/s under 8 clients at 91k open) |
 | **ids then hydrate** | ids-only on today's query saves nothing (164–280 ms regardless of K); hydrating 10 ids 0.3–0.5 ms with code that exists (Favorites); 200 ranked ids 21–52 ms once; ranking without joins only 10–35% cheaper |
 | **foundation at "month 12"** (300k events, 22k open) | today 1,115 ms (JIT on) / 503 ms (off); maintained key + open-events index 0.5 ms; unpruned maintained key 1,926 ms |
@@ -511,12 +511,12 @@ Questions: how PostHog should be used; how many events the forecast implies and 
 
 ## H2. Limits and changes after seeing results (this addendum)
 
-* **My own earlier headline was too general.** "JIT is ~80% of the request" came from the anonymous plan; the signed-in plan at the same size paid 53 ms. Found by running the signed-in request through the harness for the first time. FIND-087 and the first-round documents carry the correction.
+* **My own earlier headline was too general.** "JIT is ~80% of the request" came from the anonymous plan; the signed-in plan at the same size paid 53 ms. Found by running the signed-in request through the harness for the first time. FIND-261018-9y3 and the first-round documents carry the correction.
 * **An arithmetic slip caught on re-check**: I first wrote the pipeline load as "17–25 posts per minute"; 24,403–35,949 posts a month is 0.6–0.8 per minute. The burst (a daily scrape landing ~800–1,200 posts within an hour, 13–20 per minute) is what matters, against the ~15 calls/min on which the POC's key was throttled.
 * **A bad YAML row**: bracketed paths (`[locale]`) inside a flow sequence broke the board parser; the checker failed with a parse error rather than a count. Quoted, re-run: 69 failures, none on the new rows.
 * The rebuilt scratch databases use different random draws, so a re-run moved some variants by up to ~50% and the windowed variant (P3b) by 5× (8.9 vs 43.5 ms). Differences below ~30% are not findings.
 * **Not measured**: the write cost of a maintained key and `content_version`; fixed per-call overhead (API Gateway, Lambda, JWT); scoring over JSON-stored features; production `jit`, pool size and storage limit. Events per post (1.0), lead time, daily-active share, session shape and the push-burst figure are my assumptions.
-* Re-verified identical after this round: the guarded wrong-claims table. Backlog: **FIND-088, FIND-089, IDEA-079, IDEA-080** added and FIND-087 corrected; checker count unchanged (69). No product code was changed.
+* Re-verified identical after this round: the guarded wrong-claims table. Backlog: **FIND-261019-whr, FIND-261019-s82, IDEA-079, IDEA-080** added and FIND-261018-9y3 corrected; checker count unchanged (69). No product code was changed.
 
 ---
 
@@ -544,7 +544,7 @@ Candidate generation by array overlap reads the whole candidate pool from K ≥ 
 * **A first run of the count series failed** (a missing FROM entry for the filter predicate) and was fixed before any figure was used.
 * The plan flip seen on an earlier build (a parallel sequential scan) did not recur on the rebuilt databases; only the whole-pool scan did. The finding is the fragility, not one plan.
 * **Not measured**: the write side of the junction table; the geocoder half of area resolution; a held-out gazetteer evaluation; statement-timeout and `SET LOCAL` behaviour behind Supabase's pooler.
-* Re-verified identical after this round: the guarded wrong-claims table. Backlog: **IDEA-081, IDEA-082** added; IDEA-079 `triaged`; FIND-088 re-analysed; decisions recorded on IDEA-075 and FIND-086; checker count unchanged (69). No product code was changed.
+* Re-verified identical after this round: the guarded wrong-claims table. Backlog: **IDEA-081, IDEA-082** added; IDEA-079 `triaged`; FIND-261019-whr re-analysed; decisions recorded on IDEA-075 and FIND-261018-p1z; checker count unchanged (69). No product code was changed.
 
 ---
 
@@ -584,7 +584,7 @@ The first version of the check took `DATABASE_URL` from `loadBackendEnv()`. That
 * Verified on a scratch PostgreSQL only. **Not verified**: Supabase row-level security on these tables, the pooler's handling of `SET LOCAL`, `pg_stat_statements` access, and that production's schema equals the repository's migrations.
 * The hand-back by git puts production aggregates into the repository history; the runbook says so and offers the chat as the alternative.
 * The statement policy is a keyword/function deny-list over single statements, backed by the read-only role and `BEGIN READ ONLY`; it is a belt-and-braces check, not a SQL parser.
-* No product code was changed; backlog IDEA-083 and FIND-090 as registered; checker count unchanged (69).
+* No product code was changed; backlog IDEA-083 and FIND-261019-yjt as registered; checker count unchanged (69).
 
 ---
 
@@ -595,7 +595,7 @@ Full review: [`prod-findings-review-2026-10-19.md`](./prod-findings-review-2026-
 ## L1. What the checks changed
 
 * **The double encoding is not the pooler** (and the repository already fixed it on three columns on 2026-08-29: see Addendum 14). Drizzle 0.30.10's `jsonb` stringifies and postgres.js 3.4.9 stringifies again; reproduced with `prepare` on and off, and cured by pass-through serializers for OIDs 114 and 3802 (what Drizzle ≥ 0.33.0 installs). It affects all 27 `jsonb` columns in every environment, not one column in production (BUG-068, note `backlog/BUG-068-…md`; probe output `results/jsonb-encoding-probe.generated.md`). The fix order (writer first, then rows) is rehearsed in the probe.
-* **The production-size numbers.** A scratch database with production's row count answers a Discovery page in about 8–10 ms (`results/perf-request-prodsize.generated.md`), production `jit` is off and production's open set is 431: the scale items (IDEA-076, IDEA-082, FIND-088) lose urgency; data quality (BUG-068, BUG-066, duplicates) gains it.
+* **The production-size numbers.** A scratch database with production's row count answers a Discovery page in about 8–10 ms (`results/perf-request-prodsize.generated.md`), production `jit` is off and production's open set is 431: the scale items (IDEA-076, IDEA-082, FIND-261019-whr) lose urgency; data quality (BUG-068, BUG-261018-abg, duplicates) gains it.
 * **The "5% recall" is not the matcher's recall.** It counts same-name pairs the matcher cannot reach by design (created before it ran, siblings of one post, dates more than two days apart). `results/prod-findings-review-2026-10-19-queries/recall-classes.sql` splits them; it is validated on a synthetic fixture only.
 * **AD-36 has ten gaps** (anchor not handled by a merge, per-event notifications multiplied by the reshape and contradicting a PRD rule, a weak dedup gate, an unworked moderator queue, Discovery flooding, an undefined Tier 2 anchor source, a venue test on broken location data, no index plan, a small Tier 1 sample, non-deterministic extraction).
 * The production pack was corrected (events per post, a JSON-encoding item, normalized location reads) and re-run as the least-privilege role on the scratch database.
@@ -615,7 +615,7 @@ Full analysis: [`prod-check-results-review-2026-10-19.md`](./prod-check-results-
 
 ## M1. What the results changed
 
-* **BUG-068 is confirmed on production** for all four columns the role can see: 2,231 of 2,231 non-null values are JSON strings, none an object or array. `with_admin_area` is 0 of 1,460 (BUG-063 confirmed); `with_venue_type` 37.
+* **BUG-068 is confirmed on production** for all four columns the role can see: 2,231 of 2,231 non-null values are JSON strings, none an object or array. `with_admin_area` is 0 of 1,460 (BUG-261018-ij7 confirmed); `with_venue_type` 37.
 * **A bug in my own query, found by the output.** `recall-classes.sql` dated a pair by the larger-id event instead of the newer one; two pairs in "created before the first candidate" had a candidate row, which cannot happen. Fixed, regression fixture added (`recall-classes.fixture.sql`); the production classes must be re-run. The bound that survives: recall on reachable pairs is at most 23 / 168 ≈ 14%.
 * **Hypothesis from the code, not yet measured:** a pair of duplicate roundup- or curator-sourced events can never reach the 'mid' threshold (0.25 + 0.15 = 0.40 < 0.45) because the organizer weight is discounted on purpose (BUG-058). `recall-class4-stubs.sql` tests it.
 * **Geocoding:** 7 of 14 probe descriptions got the wrong place, only 2 of 42 picks were outside Indonesia (so the bounding-box test undercounts), a country filter does not help, and the two wrong *area phrases* scored 0.66 and 0.50, above the placeholder floor of 0.5. 627 of 1,460 stored pins (43%) have confidence under 0.5; with the 265 unpinned schedules, about half of all schedules have no trustworthy pin.
@@ -636,9 +636,9 @@ Detail: [`prod-check-results-review-2026-10-19.md`](./prod-check-results-review-
 
 ## N1. What was decided, and what changed
 
-* The product owner accepted my recommendations: BUG-068 is fixed **ahead of the personalization work**; IDEA-085 covers a sweep of the legacy duplicate pairs, a stub-scoring fix and the moderator queue; the 11 curator default locations are cleared after the BUG-065 code gate; the filtering and scoring discussion for events with a target area and no usable pin follows Round 2.
+* The product owner accepted my recommendations: BUG-068 is fixed **ahead of the personalization work**; IDEA-085 covers a sweep of the legacy duplicate pairs, a stub-scoring fix and the moderator queue; the 11 curator default locations are cleared after the BUG-261018-jwf code gate; the filtering and scoring discussion for events with a target area and no usable pin follows Round 2.
 * **I changed the BUG-068 mechanism after the decision, and say so here.** My recommendation was a client-level pass-through serializer. Reading `deferred-work.md` afterwards showed the team had fixed the same bug on three columns on 2026-08-29 with an in-house `customJsonb` type (raw object to the driver, parse on read, a test, defensive reads, no data migration, "not schema-wide"); my probe shows the serializer route makes those three columns raise an error, and a Drizzle upgrade to 0.33 or later would too. `customJsonb` on the other 27 columns is migration-neutral (`drizzle-kit generate` on a temp copy: "No schema changes, nothing to migrate"; a swapped column stores an object and still reads a legacy string) and is proven on production for three columns. That earlier entry also explains the pooler hypothesis: it blamed `prepare: false`; the probe shows the cause is independent of it.
-* Delivered: the implementation spec (`backlog/BUG-068-jsonb-columns-double-encoded-by-drizzle.md`), a tested row-migration runbook (`backlog/BUG-068-jsonb-migration/`: look, apply, rollback; 10 checks on a scratch PostgreSQL built from the 80 migrations, **not run on production**), IDEA-085's scope note, and the BUG-065 decision. BUG-068 and IDEA-085 are `triaged`.
+* Delivered: the implementation spec (`backlog/BUG-068-jsonb-columns-double-encoded-by-drizzle.md`), a tested row-migration runbook (`backlog/BUG-068-jsonb-migration/`: look, apply, rollback; 10 checks on a scratch PostgreSQL built from the 80 migrations, **not run on production**), IDEA-085's scope note, and the BUG-261018-jwf decision. BUG-068 and IDEA-085 are `triaged`.
 
 ## N2. Limits (this addendum)
 
@@ -678,7 +678,7 @@ Detail: [`prod-check-results-review-2026-10-19.md`](./prod-check-results-review-
 
 * **Recall on reachable pairs is 12.9% (23 of 178).** The corrected query puts 160 pairs in the legacy class, 107 in the recurring class, 178 in the reachable class.
 * **The stub hypothesis is confirmed as the dominant gap** (0 of 122 stub pairs without a shared link are candidates, 79% of the uncovered reachable pairs) **and is not the whole story** (29 uncovered pairs of two full events remain unexplained; the replay decides).
-* **Confidence cannot fix BUG-066 alone:** the stored confidence of pins inside and outside the country box overlaps (129 of 343 outside pins ≥ 0.5, 413 of 959 inside pins < 0.5), and "Online" is answered with France at 1.00.
+* **Confidence cannot fix BUG-261018-abg alone:** the stored confidence of pins inside and outside the country box overlaps (129 of 343 outside pins ≥ 0.5, 413 of 959 inside pins < 0.5), and "Online" is answered with France at 1.00.
 * **The Sleman City Hall pins come from compound texts** ("Atrium & Plaza Rama, Sleman City Hall"): a sub-venue qualifier makes the geocoder match the generic word. The account-default bias is not the cause (64% of the sampled wrong pins come from accounts with no default; a US bias changes only answers that were already wrong).
 
 ## P2. Limits (this addendum)

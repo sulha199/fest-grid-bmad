@@ -4,7 +4,7 @@ import {
   getProvidersNeedingAlert,
   markProviderAlertSent,
 } from '../scraper/scraper-provider-health-store.js';
-import { getModeratorEmails } from './get-moderators.js';
+import { notifyAllModerators } from './notify-all-moderators.js';
 
 // Renders the stored failure reason (a flat enum string or null for pre-3.4r rows) into a
 // precomputed, fully-formed sentence for the email template -- the renderer does flat
@@ -40,40 +40,18 @@ export async function sendScraperProviderDownAlerts(
     return;
   }
 
-  const moderators = await getModeratorEmails();
-  if (moderators.length === 0) {
-    console.info('[Scraper Provider Down Alert] No moderators found to notify.');
-    return;
-  }
-
-  const moderatorReviewUrl = `${env.webAppBaseUrl}/moderator/tools`;
-
   for (const { provider, consecutiveFailureDays, lastFailureReason } of providersNeedingAlert) {
     const failureReasonSummary = describeFailureReason(lastFailureReason);
-    const results = await Promise.allSettled(
-      moderators.map((mod) =>
-        deps.sendTemplatedEmail('SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT', mod.email, {
-          provider,
-          consecutiveFailureDays,
-          moderatorReviewUrl,
-          failureReasonSummary,
-        })
-      )
+    // Lookup, fan-out, the review URL (/moderator/tools), escaping and the throttle are the helper's
+    // (Story 0.i1a, AD-54). The alert is marked sent only when at least one moderator was mailed.
+    const result = await notifyAllModerators(
+      'SCRAPER_PROVIDER_DOWN_MODERATOR_ALERT',
+      { provider, consecutiveFailureDays, failureReasonSummary },
+      { entityKey: provider },
+      { sendTemplatedEmail: deps.sendTemplatedEmail }
     );
 
-    let anySucceeded = false;
-    results.forEach((result, i) => {
-      if (result.status === 'rejected') {
-        console.error(
-          `[Scraper Provider Down Alert] Failed to notify moderator ${moderators[i].email} about ${provider}:`,
-          result.reason
-        );
-      } else {
-        anySucceeded = true;
-      }
-    });
-
-    if (anySucceeded) {
+    if (result.status === 'sent') {
       await markProviderAlertSent(provider);
     }
   }

@@ -254,6 +254,37 @@ test('processManualExtractionJob (Story 4.2b)', async (t) => {
     }
   });
 
+  await t.test('review of Story 10.1a: a job the stale sweep already failed is not overwritten by the late worker', async () => {
+    const id = await insertJob({ message: baseMessage() });
+    setCallGeminiForManualExtractionSeam(async () => {
+      // The 5-minute sweep ends the job while this worker is still inside Gemini.
+      await db
+        .update(manualExtractionJobs)
+        .set({ status: 'FAILED', errorCode: 'EXTRACTION_FAILED', errorMessage: 'The extraction timed out. Please try again.', completedAt: new Date() })
+        .where(eq(manualExtractionJobs.id, id));
+      return { text: JSON.stringify(GOOD_PAYLOAD) } as any;
+    });
+    await processManualExtractionJob(id);
+    const row = await readJob(id);
+    assert.strictEqual(row.status, 'FAILED', 'a late SUCCEEDED must not overwrite a job the sweep ended');
+    assert.strictEqual(row.resultData, null);
+  });
+
+  await t.test('review of Story 10.1a: a late failure does not overwrite a job that already finished either', async () => {
+    const id = await insertJob({ message: baseMessage() });
+    setCallGeminiForManualExtractionSeam(async () => {
+      await db
+        .update(manualExtractionJobs)
+        .set({ status: 'SUCCEEDED', resultData: { done: true }, completedAt: new Date() })
+        .where(eq(manualExtractionJobs.id, id));
+      throw new Error('late boom');
+    });
+    await processManualExtractionJob(id);
+    const row = await readJob(id);
+    assert.strictEqual(row.status, 'SUCCEEDED');
+    assert.deepStrictEqual(row.resultData, { done: true });
+  });
+
   await t.test('unexpected throw is recorded as FAILED/EXTRACTION_FAILED, never left PROCESSING', async () => {
     setCallGeminiForManualExtractionSeam(async () => {
       throw new Error('boom');

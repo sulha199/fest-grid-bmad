@@ -1,5 +1,14 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
-import { type ProcessingJobMessage, POST_GROUPING_REASONS, type AiImageInput } from '@festgrid/domain/posts';
+import {
+  type ProcessingJobMessage,
+  POST_GROUPING_REASONS,
+  POST_PLAN_SLIDE_ROLES,
+  type AiImageInput,
+  type ReextractFetchedImageState,
+  type ReextractImageOutcomes,
+  classifyUnreadImage,
+  dedupeImageUrlsByFileName,
+} from '@festgrid/domain/posts';
 import { DayOfWeek } from '@festgrid/domain/events';
 import { type GeminiCallRequest } from '../ai-gateway/gemini-client.js';
 import { renderEventCategoryGlossary } from '../ai-gateway/render-event-category-glossary.js';
@@ -139,7 +148,17 @@ export function buildGeminiExtractionResponseSchema() {
       // Advisory/best-effort count of distinct people visible across the provided image(s) — not
       // required to be exact, especially in dense/crowd scenes. Logging-only, same scope as
       // hasFaceImage above.
-      faceImageCount: { type: 'NUMBER' }
+      faceImageCount: { type: 'NUMBER' },
+      // AD-46 Rule 2 (cursor extraction, slice 4) -- an advisory post plan for multi-slide posts, flat at the root and
+      // all optional (never in `required`): the item count the post claims, the role of each provided image in order,
+      // the typical items per list slide, the date span covered and whether more items likely continue on slides not
+      // provided. Only informs the continue decision and the "known partial" note; nothing is persisted from it.
+      // Flat primitives on purpose: growing the item schema once made Gemini reject the whole request with a 400.
+      claimedItemCount: { type: 'NUMBER' },
+      slideRoles: { type: 'ARRAY', items: { type: 'STRING', enum: [...POST_PLAN_SLIDE_ROLES] } },
+      itemsPerListSlide: { type: 'NUMBER' },
+      dateRangeCovered: { type: 'STRING' },
+      moreItemsLikely: { type: 'BOOLEAN' }
     },
     // groupingReason is required here (model-facing schema only) since 2026-10-25: the live
     // CC-024 regression saw the model omit it in 2 of 12 runs (counts were right), and the
@@ -178,6 +197,18 @@ export interface BuildGeminiExtractionRequestResult {
   // detectAndBlurFacesSeam's own faceCount across every image actually sent (cover + every
   // surviving slide) -- never just the cover alone, and never 0 when detection didn't run.
   totalFaceDetectionCount?: number;
+  // AD-40 amendment (BUG-099) -- images the post lists (cover plus every slide, before the cap) and
+  // images actually inlined into the request, so a caller can report a shortfall instead of
+  // silently reading fewer images than the post has.
+  imagesAvailable: number;
+  imagesSent: number;
+  // AD-46: the slides this request did not read (those beyond the carousel cap, in slide order), and how many images
+  // (cover included) the first window covers. A stepped extraction continues from them (AD-47).
+  unreadImageUrls: string[];
+  firstWindowImageCount: number;
+  // Story 10.6a -- what became of each image, in order: the cover, the slides tried and the count of slides beyond the cap. No URL
+  // leaves this function (the unread links are classified inside it). Existing callers ignore it.
+  imageOutcomes: ReextractImageOutcomes;
 }
 
 export interface BuildGeminiExtractionRequestOptions {
@@ -195,6 +226,17 @@ export interface BuildGeminiExtractionRequestOptions {
     // is treated as unlimited remaining time (Infinity), never as "time's up".
     getRemainingTimeInMillis?: () => number;
   };
+  // AD-40 amendment (BUG-099) -- moderator re-extract only. Overrides env.maxCarouselImages (the
+  // ingestion cap) for this one request.
+  maxCarouselImages?: number;
+  // AD-40 amendment (BUG-099) -- moderator re-extract only. When the cover cannot be FETCHED (an
+  // expired hotlink), still try the carousel slides instead of going text-only. Off by default so
+  // ingestion's request shape, aiImageInput and thumbnail/blur bookkeeping stay exactly as before:
+  // a slides-only request would carry aiImageInput 'blurred' with no cover bytes for them to read.
+  slidesWhenCoverFails?: boolean;
+  // Story 10.6a -- moderator re-extract only. The stored post's `image_url_expires_at`: the cover's fallback expiry when its link has no `oe`
+  // parameter, so a failed cover reads as expired exactly when the refresh rule (`postImagesNeedRefresh`) calls it expired.
+  coverExpiresAt?: Date | null;
 }
 
 export async function buildGeminiExtractionRequest(
@@ -211,6 +253,7 @@ export async function buildGeminiExtractionRequest(
   const publishDate = message.publishedAt.substring(0, 10);
 
   const allowedGroupingReasons = POST_GROUPING_REASONS.join(', ');
+  const allowedSlideRoles = POST_PLAN_SLIDE_ROLES.join(', ');
   const allowedDaysOfWeek = Object.values(DayOfWeek).join(', ');
   const maxEvents = env.maxExtractedEventsPerPost;
 
@@ -218,6 +261,7 @@ export async function buildGeminiExtractionRequest(
 
 0. GROUPING DECISION (do this once per post, before extracting any individual event). Decide whether the post describes a single event or several distinct events, using these rules in order:
    a. Strong signals that the post covers SEPARATE events: different event names with no shared umbrella title, different venues/locations for items that are not stages of one program, explicitly distinct ticket/registration links per item, or -- the most common real-world case -- each item has its OWN independent registration/sign-up-to-outcome pipeline (its own registration window, its own technical meeting, its own match/final day), even when all items are marketed under one overarching tournament/brand name. For example, a tournament poster listing several separate competition categories (e.g. billiard, an esports title, futsal) where EACH category has its own full registration-through-match-day timeline is SEPARATE events (one per category), NOT one event with many schedules -- the shared brand name/poster is marketing packaging, not evidence of a single event. Contrast this with rule d below, which is reserved for a single category/discipline with exactly ONE registration-to-outcome pipeline.
+   a2. The same occasion held at several venues, cities or branches AT ONCE (for example one tournament or promotion running on the same date at a list of mall branches in different cities) is SEPARATE events, one per venue, each with its own location -- parallel venues are never the schedules of a single event. Schedules are for the dates of one event (rule c).
    b. Two or more weak signals together (e.g. different dates more than ~7 days apart AND different performers/lineups) also indicate SEPARATE events, even without a strong signal.
    c. Items within about 7 days of each other sharing one title/venue/umbrella program stay as ONE event with MULTIPLE schedules (groupingReason: "program-lineup"). This applies whenever the post lists two or more distinct sub-items (sub-performances, sub-activities, separately-dated components) under one umbrella title/venue, where those sub-items are facets of the SAME occasion rather than independent competitions each with their own pipeline (see rule a) -- e.g. a multi-day anniversary/festival program listing several named segments (a headline performance on one date, a show on another, a closing event on a third) is "program-lineup", NOT "single-event", precisely because it has more than one schedule entry under the shared umbrella.
    d. Dependent stages of ONE single process for ONE single discipline/category (e.g. one qualifying round then one final for the same competition, or one registration/sign-up window followed by that same event) stay as ONE event -- the registration or sign-up window becomes one of its schedules, not a separate event (groupingReason: "dependent-stages"). Do not use this rule when there are multiple parallel categories/disciplines each running their own such pipeline -- that is rule a (separate events), not this rule.
@@ -235,7 +279,9 @@ ${categoryGlossary}
 4. schedules: for each schedule, isMainSchedule (boolean) and eventStartDate (YYYY-MM-DD) are required. Extract title, eventEndDate (YYYY-MM-DD), eventStartTime (HH:MM:SS), eventEndTime (HH:MM:SS), performers (array), location, ticketPrice, and applicableDaysOfWeek if available.
    4a. Set a schedule's applicableDaysOfWeek only when the source text states that schedule recurs only on specific weekdays within a date span (e.g. "every Friday and Saturday, Oct 1-31") -- use values from this allowed list: ${allowedDaysOfWeek}. Leave it absent when the schedule is a single occurrence or the text does not state specific recurring weekdays.
    4b. When a schedule runs past midnight (e.g. "21:00 - 02:00", "until late" with a stated end time earlier than the start time), set eventEndDate to the NEXT calendar day after eventStartDate, not to eventStartDate, and keep eventEndTime as the stated time. Do not set eventEndDate at all when the text gives no end time or end date.
-5. location, organizerName, contactInfo, and description for this specific event, if present.
+   4c. When one row or line lists several explicit dates for one place or activity (e.g. "Senin, 2, 9, 16, 23, 30 Nov: Pasar X", "Rabu, 4 & 18 Nov"), emit one schedule per listed date with the same title and location, each with its own eventStartDate and no eventEndDate. Use a date range only when the text states a continuous period (e.g. "2-30 Nov", "daily", "every day"); never collapse a list of dates into a start-to-end range. Stated weekly recurrence stays with 4a.
+   4d. A schedule's location is the place of THAT date or session. When each row or date names its own place (for example a flyer listing "Senin: Pasar X", "Sabtu: Kalurahan Y"), put that place in the schedule's location -- not only in its title. Leave a schedule's location absent only when the source names no place for it.
+5. location, organizerName, contactInfo, and description for this specific event, if present. When the event's schedules take place at different places, the event-level location is the area they share (for example "Kabupaten Bantul", also when the post only states it in a headline), never a phrase such as "various locations" or "berbagai lokasi", and is left absent when they share no common area.
 5a. Classify any contact information found: if it is business/official (a role-based email such as info@venue.com, or an official venue/PT office phone number), populate contactInfo as normal. If it is private/individual (a personal phone number, a personal email address, or a wa.me/<number> WhatsApp link), do NOT populate contactInfo with it -- instead set hasPrivateContact to true and leave contactInfo absent/empty for that value. Treat a wa.me link exactly like a raw personal phone number for this classification -- never describe it merely as "a link" or minimize it, since it directly encodes a reachable personal phone number. If no contact information is present at all, leave both contactInfo and hasPrivateContact absent.
 5b. Extract any explicit additional links mentioned in the caption or visible in the image for this event under links (ticketing, RSVP, merch, linktree, or similar) as an array of {url, label}, where label is an optional short label taken directly from the source text when it names the link (e.g. "Tickets:", "RSVP here"). If no such links are present, leave links absent.
 6. confidenceScore between 0 and 1 indicating your confidence in this event's extraction.
@@ -251,6 +297,7 @@ Also report, once for the whole post (not per event):
 - groupingRationale: one sentence explaining your grouping decision, for debugging only.
 - minEventCount: your own best-effort count of distinct events you believe the content describes overall (mirrors minScheduleCount's self-report pattern, advisory only).
 - hasFaceImage: based on the same image(s) already provided above (the single image or, for a multi-slide carousel, across all provided slides), whether any provided image contains a visible person/people (e.g. a performer, a crowd, or any human figure) as opposed to a text-only flyer/graphic-design poster with no people. Set faceImageCount to your best-effort approximate count of distinct people visible across the provided image(s) -- advisory only, not required to be exact, especially in dense/crowd scenes.
+- Post plan (advisory, for a post with several images; omit any field you cannot judge): claimedItemCount is the total number of items the post claims to list when its text states one (for example "203 events in 2027" gives 203). slideRoles has one value per provided image, in order, from ${allowedSlideRoles} (intro: a title or cover; list: shows items; outro: closing text or credits; ad: a promotion; other: anything else). itemsPerListSlide is the typical number of items on a list slide. dateRangeCovered is the date span the items cover as "YYYY-MM-DD..YYYY-MM-DD". moreItemsLikely is true when the provided slides suggest that more items continue on slides you were not given.
 
 The social media post was published on ${publishDate}. Use this publish date as an explicit anchor for date and year inference, for every event:
 - When a schedule's date text (in the caption or image) does not state an explicit year, infer the year using this publish date as the anchor, assuming the event is happening at or after the publish date. Prefer the current or next real-world occurrence over defaulting to any other year, and never infer a year that would place the event further in the past than the publish date itself unless the source text explicitly states a past year.
@@ -262,6 +309,16 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
   const captionWithAccountContext = accountName
     ? `Account Name Metadata: "${accountName}"\nPost Content:\n"${message.content}"`
     : message.content;
+
+  // BUG-101 -- a stored post's slide list can repeat the cover (file name, not whole URL,
+  // matches a different signed query) when it was ingested by the pre-fix Apify adapter.
+  // De-duplicate cover + slides by file name here, at read time, so the already-stored rows are
+  // covered without a backfill: a repeated slide is never fetched, never spends one of the
+  // caller's MAX_REEXTRACT_CAROUSEL_IMAGES slots, and is never double-counted in imagesAvailable.
+  const dedupedImageUrls = dedupeImageUrlsByFileName([message.imageUrl, ...(message.additionalImageUrls ?? [])]);
+  const dedupedAdditionalImageUrls = message.imageUrl ? dedupedImageUrls.slice(1) : dedupedImageUrls;
+
+  const unreadImageUrls = dedupedAdditionalImageUrls.slice(options?.maxCarouselImages ?? env.maxCarouselImages);
 
   let contents: any = captionWithAccountContext;
   let imageBytes: Buffer | undefined;
@@ -310,6 +367,96 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     // one image at a time, cover first then each slide in order, never concurrently.
     const result = await detectAndBlurFacesSeam(imageBuffer, contentType);
     return { data: result.buffer.toString('base64'), blurred: result.buffer, faceCount: result.faceCount };
+  }
+
+  let slideFailedClosed = false;
+
+  // Story 10.6a -- one outcome per image. A slide that is never attempted (the cover failed and `slidesWhenCoverFails` is off, or the
+  // cover's blur failed closed so the request went text-only) counts as unavailable; a failed fetch or blur is classified by the
+  // image's own link expiry. The read outcomes are set only where an image is inlined, so their number equals `imagesSent`.
+  const coverUrl = message.imageUrl || undefined;
+  let coverOutcome: ReextractFetchedImageState | null = coverUrl ? 'NOT_READ_UNAVAILABLE' : null;
+  const slideOutcomes: ReextractFetchedImageState[] = dedupedAdditionalImageUrls
+    .slice(0, options?.maxCarouselImages ?? env.maxCarouselImages)
+    .map(() => 'NOT_READ_UNAVAILABLE');
+  const unreadOutcome = (url: string, storedExpiry: Date | null = null): ReextractFetchedImageState => classifyUnreadImage(url, new Date(), storedExpiry);
+
+  // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request,
+  // in slide order, stopping at the cap (MAX_CAROUSEL_IMAGES, or the caller's override). AD-13:
+  // batched not sequential -- a carousel post still costs exactly one Gemini call. Each slide is
+  // fetched inside its OWN try/catch so a single slide failure can never trigger the outer
+  // cover-failure fallback below (which would otherwise wipe out the already-succeeded cover image
+  // and switch to text-only). Extracted into a function (BUG-099) so the cover-fetch-failed path of
+  // a moderator re-extract can run the same loop; every line of the per-slide behavior is unchanged.
+  async function appendSlideImages(): Promise<void> {
+    if (!dedupedAdditionalImageUrls.length) return;
+    const slidesToFetch = dedupedAdditionalImageUrls.slice(0, options?.maxCarouselImages ?? env.maxCarouselImages);
+    for (const [slideIndex, slideUrl] of slidesToFetch.entries()) {
+      let blurAttempted = false;
+      try {
+        const slideResponse = await fetch(slideUrl);
+        if (!slideResponse.ok) {
+          console.error(`Carousel slide-fetch failed for post ${message.postId} (image index ${slideIndex + 1}, status ${slideResponse.status}); skipping slide`, slideUrl);
+          slideOutcomes[slideIndex] = unreadOutcome(slideUrl);
+          continue;
+        }
+        const slideContentType = slideResponse.headers.get('content-type') || 'image/jpeg';
+        if (!slideContentType.startsWith('image/')) {
+          console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId} (image index ${slideIndex + 1})`, slideUrl);
+          slideOutcomes[slideIndex] = unreadOutcome(slideUrl);
+          continue;
+        }
+        const slideArrayBuffer = await slideResponse.arrayBuffer();
+        const slideBuffer = Buffer.from(slideArrayBuffer);
+
+        // Story 3.20 (Task 3.3/7.2) -- blurImageForRequest's own time-budget check (above)
+        // throws BEFORE ever calling detectAndBlurFacesSeam when the floor isn't met, so the
+        // catch below drops this slide without having invoked the seam for it -- the same
+        // fail-closed outcome as the seam itself throwing, no separate pre-check needed.
+        let slideDataForRequest = slideBuffer.toString('base64');
+        if (shouldBlur) {
+          blurAttempted = true;
+          const blurResult = await blurImageForRequest(slideBuffer, slideContentType);
+          slideDataForRequest = blurResult.data;
+          // Story 3.21 (AC3, Task 2.3, AD-29 Rule 7) -- add this slide's own faceCount into
+          // the running total. On the normal path the cover already succeeded, so aiImageInput is
+          // already 'blurred' and the total already seeded; on the cover-fetch-failed path
+          // (BUG-099) this is the first image, so both are set here.
+          aiImageInput = 'blurred';
+          totalFaceDetectionCount = (totalFaceDetectionCount ?? 0) + blurResult.faceCount;
+        } else if (aiImageInput === 'no_image_sent') {
+          // Only reachable on the cover-fetch-failed path: no cover ever set the label.
+          aiImageInput = blurGate === undefined ? 'original_mode_off' : 'original_owner_opted_in';
+        }
+
+        contents.push({
+          inlineData: {
+            mimeType: slideContentType,
+            data: slideDataForRequest
+          }
+        });
+        slideOutcomes[slideIndex] = 'READ';
+      } catch (error) {
+        // Best-effort: skip only this slide (whether the failure was the fetch or the blur);
+        // the cover and all other successfully-processed slides remain in the request (AC2/AC3).
+        // Only a failed BLUR is fail-closed; a fetch error is just a missing slide.
+        if (blurAttempted) slideFailedClosed = true;
+        slideOutcomes[slideIndex] = unreadOutcome(slideUrl);
+        console.error(`Carousel slide-fetch/blur failed for post ${message.postId} (image index ${slideIndex + 1}); skipping slide`, slideUrl, error);
+      }
+    }
+  }
+
+  // BUG-099 (moderator re-extract only) -- no usable cover: try the slides alone. With none inlined
+  // the request stays text-only exactly as without this option.
+  async function sendSlidesWithoutCover(): Promise<void> {
+    if (!options?.slidesWhenCoverFails || !dedupedAdditionalImageUrls.length) return;
+    contents = [{ text: captionWithAccountContext }];
+    await appendSlideImages();
+    if (contents.length === 1) {
+      contents = captionWithAccountContext;
+      if (slideFailedClosed) aiImageInput = 'text_only_fail_closed';
+    }
   }
 
   if (message.imageUrl) {
@@ -364,64 +511,27 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
           }
         }
       ];
+      coverOutcome = 'READ';
 
-      // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request,
-      // in slide order, stopping at MAX_CAROUSEL_IMAGES. AD-13: batched not sequential — a carousel
-      // post still costs exactly one Gemini call. Each slide is fetched inside its OWN try/catch so
-      // a single slide failure can never trigger the outer cover-failure fallback below (which would
-      // otherwise wipe out the already-succeeded cover image and switch to text-only).
-      if (message.additionalImageUrls?.length) {
-        const slidesToFetch = message.additionalImageUrls.slice(0, env.maxCarouselImages);
-        for (const [slideIndex, slideUrl] of slidesToFetch.entries()) {
-          try {
-            const slideResponse = await fetch(slideUrl);
-            if (!slideResponse.ok) {
-              console.error(`Carousel slide-fetch failed for post ${message.postId} (image index ${slideIndex + 1}, status ${slideResponse.status}); skipping slide`, slideUrl);
-              continue;
-            }
-            const slideContentType = slideResponse.headers.get('content-type') || 'image/jpeg';
-            if (!slideContentType.startsWith('image/')) {
-              console.error(`Carousel slide content-type is not an image: ${slideContentType}; skipping slide for post ${message.postId} (image index ${slideIndex + 1})`, slideUrl);
-              continue;
-            }
-            const slideArrayBuffer = await slideResponse.arrayBuffer();
-            const slideBuffer = Buffer.from(slideArrayBuffer);
-
-            // Story 3.20 (Task 3.3/7.2) -- blurImageForRequest's own time-budget check (above)
-            // throws BEFORE ever calling detectAndBlurFacesSeam when the floor isn't met, so the
-            // catch below drops this slide without having invoked the seam for it -- the same
-            // fail-closed outcome as the seam itself throwing, no separate pre-check needed.
-            let slideDataForRequest = slideBuffer.toString('base64');
-            if (shouldBlur) {
-              const blurResult = await blurImageForRequest(slideBuffer, slideContentType);
-              slideDataForRequest = blurResult.data;
-              // Story 3.21 (AC3, Task 2.3, AD-29 Rule 7) -- add this slide's own faceCount into
-              // the running total. Reached only when the cover already succeeded (a cover
-              // failure jumps straight to the outer catch before this loop ever runs), so
-              // aiImageInput is already 'blurred' and totalFaceDetectionCount already seeded
-              // from the cover by this point.
-              totalFaceDetectionCount = (totalFaceDetectionCount ?? 0) + blurResult.faceCount;
-            }
-
-            contents.push({
-              inlineData: {
-                mimeType: slideContentType,
-                data: slideDataForRequest
-              }
-            });
-          } catch (error) {
-            // Best-effort: skip only this slide (whether the failure was the fetch or the blur);
-            // the cover and all other successfully-processed slides remain in the request (AC2/AC3).
-            console.error(`Carousel slide-fetch/blur failed for post ${message.postId} (image index ${slideIndex + 1}); skipping slide`, slideUrl, error);
-          }
-        }
-      }
+      // Story 3.6l: batch any additional carousel (Sidecar) slide images into the SAME request
+      // (see appendSlideImages above).
+      await appendSlideImages();
     } catch (error) {
       console.error(`Multimodal extraction image processing failed for post ${message.postId} (image index 0, cover):`, error);
+      coverOutcome = unreadOutcome(message.imageUrl!, options?.coverExpiresAt ?? null);
       // Fallback to text-only caption extraction. Never the original, unblurred cover bytes
       // (AC3) -- `contents` is reset to the caption text only.
       contents = captionWithAccountContext;
+
+      // BUG-099 (moderator re-extract only) -- an expired cover hotlink says nothing about the
+      // slides, which are separate URLs. `aiImageInput === 'no_image_sent'` identifies a cover
+      // FETCH failure (a blur failure is tagged 'text_only_fail_closed' before it throws and stays
+      // text-only, fail-closed).
+      if (aiImageInput === 'no_image_sent') await sendSlidesWithoutCover();
     }
+  } else {
+    // A post that lists slides but no cover (BUG-099, moderator re-extract only).
+    await sendSlidesWithoutCover();
   }
 
   const request: GeminiCallRequest = {
@@ -440,6 +550,12 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     blurredCoverImageBytes,
     coverFaceCount,
     aiImageInput,
-    totalFaceDetectionCount
+    totalFaceDetectionCount,
+    // BUG-101 -- counts the de-duplicated list (cover + distinct slides), never a repeated cover twice.
+    imagesAvailable: (message.imageUrl ? 1 : 0) + dedupedAdditionalImageUrls.length,
+    imagesSent: Array.isArray(contents) ? contents.length - 1 : 0,
+    unreadImageUrls,
+    firstWindowImageCount: dedupedImageUrls.length - unreadImageUrls.length,
+    imageOutcomes: { cover: coverOutcome, slides: slideOutcomes, overCapSlides: unreadImageUrls.length }
   };
 }

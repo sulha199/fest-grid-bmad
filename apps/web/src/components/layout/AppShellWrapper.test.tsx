@@ -30,6 +30,12 @@ vi.mock('@/generated/graphql', () => ({
   useModeratorPendingItemCountQuery: () => ({ data: undefined }),
 }));
 
+// Story 10.13: the Jobs menu badge count comes from its own hook (tested in use-jobs-notice.test.tsx).
+let mockJobsFinishedCount = 0;
+vi.mock('@/features/jobs/use-jobs-notice', () => ({
+  useJobsFinishedCount: () => mockJobsFinishedCount,
+}));
+
 vi.mock('@/features/onboarding/use-has-api-key', () => ({
   useHasApiKey: () => false,
 }));
@@ -93,6 +99,7 @@ function renderWrapper() {
 describe('AppShellWrapper (Story 0.42 AC14 + Story 0.39 Task 5.3 location participant)', () => {
   beforeEach(() => {
     mockCanShowAmbientAsk = false;
+    mockJobsFinishedCount = 0;
     useAmbientCapabilityAskSlotStore.setState({ dismissedThisSession: false });
   });
 
@@ -108,6 +115,16 @@ describe('AppShellWrapper (Story 0.42 AC14 + Story 0.39 Task 5.3 location partic
     expect(screen.getByTestId('app-shell-stub')).toBeInTheDocument();
     expect(screen.getByTestId('page-content')).toBeInTheDocument();
     expect(lastAppShellProps.ambientBanner).toBeUndefined();
+  });
+
+  it('passes the finished-jobs count and its sentence to AppShell for the Jobs menu badge (Story 10.13)', () => {
+    mockJobsFinishedCount = 3;
+    renderWrapper();
+
+    expect(lastAppShellProps.jobsBadgeCount).toBe(3);
+    // The translator is a stub here: it proves the key is asked for, with the count.
+    expect(lastAppShellProps.jobsBadgeLabel).toBe('UserMenu.jobsBadgeLabel');
+    expect(lastAppShellProps.userMenuLabels.jobs).toBe('UserMenu.jobs');
   });
 
   it('renders the AmbientLocationBanner when the location participant is eligible', () => {

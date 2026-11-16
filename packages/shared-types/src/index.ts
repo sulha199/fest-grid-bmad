@@ -65,6 +65,13 @@ export interface Coordinates {
 
 export type GeolocationProvider = 'GEOAPIFY';
 
+/**
+ * How a schedule's coordinates were found (slice 2a of the location keywords): `kw1`/`kw2` by the first/second step of the keywords
+ * ladder, `fb1`/`fb2` by the code-cleaned text ladder (a text without keywords), `none` when lookups ran and found nothing plausible,
+ * `skipped` when they could not run (request budget spent or a geocoder outage). Null in the database = never attempted.
+ */
+export type LocationResolution = 'kw1' | 'kw2' | 'fb1' | 'fb2' | 'none' | 'skipped';
+
 export interface LocationDetails {
   coordinates: Coordinates;
   placeName?: string;

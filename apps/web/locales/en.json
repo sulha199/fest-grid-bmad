@@ -54,7 +54,11 @@
     "manualPostSelectionTitle": "Extract Events | FestDaily",
     "manualPostSelectionDescription": "Select posts from your subscribed social media accounts to extract music festival events.",
     "moderatorToolsTitle": "Moderator Tools | FestDaily Moderator",
-    "moderatorToolsDescription": "Manage scraper operations, runs, and payloads"
+    "moderatorToolsDescription": "Manage scraper operations, runs, and payloads",
+    "jobsTitle": "Jobs | FestDaily",
+    "jobsDescription": "Follow the work running in the background on FestDaily.",
+    "jobDetailTitle": "Job details | FestDaily",
+    "jobDetailDescription": "See the progress and result of one job."
   },
   "ModeratorToolsPage": {
     "actorRunsTabLabel": "Actor Runs",
@@ -68,15 +72,39 @@
   "ReextractPreview": {
     "panelHeading": "Source posts (moderator)",
     "reextractButton": "Re-extract",
-    "dialogTitle": "Re-extract preview",
-    "dialogDescription": "Shows what the current extraction and duplicate-matching logic would do with this post. Nothing is saved.",
     "tabDescription": "Paste a post URL to preview how it would be extracted and matched. Use this for posts that have no event page. Nothing is saved.",
     "urlLabel": "Post URL",
     "urlPlaceholder": "https://www.instagram.com/p/...",
     "previewButton": "Preview",
-    "running": "Extracting. This can take up to a minute.",
     "retry": "Try again",
     "genericError": "The preview could not be completed. Please try again.",
+    "chipPreviewReady": "Preview ready",
+    "chipPreviewLimits": "Preview ready (some images missing)",
+    "bannerTitle": "{read} of {available} images were read",
+    "bannerMissing": "Not read: {list}.",
+    "imageCover": "the cover",
+    "imageSlideSingle": "slide {n}",
+    "imageSlideRange": "slides {from} to {to}",
+    "bannerOverCap": "Only the first {cap} slides are read in a preview.",
+    "causeExpiredRefreshFailed": "The image links have expired and refreshing them failed.",
+    "causeNotHealed": "A provider answered, but its images could not be used, so the stored links, which have expired, were used.",
+    "causeRefreshRunning": "The refresh is still running. If it finishes later, the fresh images are saved to the post.",
+    "causeCooldown": "The images were refreshed less than 10 minutes ago, so a new refresh was not tried. You can try again at {time}.",
+    "causeNotScraped": "This account is not scraped, so its images were not refreshed.",
+    "causePostGone": "The post is no longer available on the platform.",
+    "causeInFlight": "Another request is fetching this post right now.",
+    "causeTimedOut": "Refreshing the images took too long.",
+    "causeNoProvider": "No provider could be reached to refresh the images.",
+    "causeOverQuota": "Every provider has used up its quota, so the images were not refreshed.",
+    "causeImagesUnavailable": "Some images could not be loaded.",
+    "bannerApplyNote": "You can still apply this preview. Events shown only on unread images will be missing.",
+    "bannerRetry": "Retry",
+    "bannerRetryAt": "Retry at {time}",
+    "bannerRetryHint": "Retrying fetches the images again, then reads the post again.",
+    "attachTooOld": "This preview is too old to apply. Start a new one.",
+    "startNew": "Re-extract again",
+    "previewNotAvailable": "This preview is not available to you.",
+    "startRefused": "Re-extract could not be started. Try again in a moment.",
     "noEvents": "The post was not recognized as describing an event.",
     "groupingUnknown": "Grouping: not reported",
     "groupingSingleEvent": "Grouping: single event",
@@ -94,7 +122,23 @@
     "alreadyRepresented": "Ingestion would skip this: already represented by",
     "matchesCandidate": "Closest existing event:",
     "noDate": "no date",
-    "previewOnlyNote": "Preview only. Venue matching uses the location text only (no geocoding). Ingestion skips an item whose post and position already have an event, so a re-run does not change existing events."
+    "applyExplainer": "Apply makes the post's events match this preview: its existing events keep their link, favorites and calendar entries and take this preview's details, and the other items become new linked events. No event is deleted. A schedule this preview no longer lists is removed from a kept event unless someone's calendar uses it, and fields a moderator corrected are kept. An event whose first post is another post is left as it is and only gains this post's link.",
+    "applyButton": "Apply this preview",
+    "applyExplainerRoundup": "Apply makes the post look like this preview: its existing events keep their link, favorites and calendar entries, take this preview's details and show as roundup stubs, and the other items become new linked stub events. No event is deleted. A schedule this preview no longer lists is removed from a kept event unless someone's calendar uses it, and fields a moderator corrected are kept. An event whose first post is another post is left as it is and only gains this post's link.",
+    "applyButtonRoundup": "Apply as roundup",
+    "applyConfirmTitle": "Apply this preview?",
+    "applyConfirmDescription": "The post's grouping is rewritten and its events are updated to match this preview. No event is deleted and no one is notified, but this cannot be undone from here. Duplicate matching now also uses venue coordinates, so an item shown here as a new event may be merged into an existing one.",
+    "applyConfirmConfirm": "Apply",
+    "applyConfirmCancel": "Cancel",
+    "applyFailed": "The preview could not be applied, and nothing was changed. Please try again.",
+    "applySuccessTitle": "Applied",
+    "appliedReused": "{count, plural, one {# existing event kept (same link, favorites and calendar entries)} other {# existing events kept (same links, favorites and calendar entries)}}",
+    "appliedCreated": "{count, plural, one {# new event created} other {# new events created}}",
+    "appliedLinked": "{count, plural, one {# item merged into an existing event} other {# items merged into existing events}}",
+    "appliedQueued": "{count, plural, one {# possible duplicate queued for review} other {# possible duplicates queued for review}}",
+    "appliedSkippedDeleted": "{count, plural, one {# item skipped: its event was deleted by a moderator} other {# items skipped: their events were deleted by a moderator}}",
+    "appliedOrphans": "These events of the post matched nothing in this extraction and were left as they are:",
+    "previewOnlyNote": "Venue matching in this preview uses the location text only (no geocoding). Ingestion skips an item whose post and position already have an event, so a re-run does not change existing events; only Apply does."
   },
   "DuplicateEventsPage": {
     "pageDescription": "Review suggested duplicate events and merge them, keeping users' favorites and calendar entries and redirecting old links to the survivor.",
@@ -107,7 +151,6 @@
     "viewEventLabel": "View event",
     "acceptButton": "Accept",
     "rejectButton": "Reject",
-    "loadMoreButton": "Load more",
     "mergeConfirmTitle": "Merge these events?",
     "mergeConfirmDescription": "The new extraction will be merged into the existing event. Favorites, calendar entries, and reports move to the existing event, and old links will redirect to it. You can undo this for a short time after confirming.",
     "mergeConfirmConfirmLabel": "Merge",
@@ -118,7 +161,54 @@
     "undoSuccessToast": "Merge undone",
     "undoErrorToast": "Failed to undo this merge",
     "rejectSuccessToast": "Suggestion dismissed",
-    "rejectErrorToast": "Failed to dismiss this suggestion"
+    "rejectErrorToast": "Failed to dismiss this suggestion",
+    "clueHeading": "Why? (optional)",
+    "clueHint": "Tick what decided it. This helps us improve duplicate detection.",
+    "noteLabel": "Note (optional, private to moderators)",
+    "noteCounter": "{count}/{max}",
+    "rejectConfirmTitle": "Dismiss this suggestion?",
+    "rejectConfirmDescription": "The two events stay separate and this suggestion is closed. A dismissal cannot be undone in the app, so the reason you give here is the only record of why.",
+    "rejectConfirmConfirmLabel": "Dismiss",
+    "clues": {
+      "same-venue": "Same venue",
+      "different-venue": "Different venue",
+      "same-organizer": "Same organizer",
+      "different-organizer": "Different organizer",
+      "same-date": "Same date",
+      "date-drift": "Dates differ slightly (same event, moved or mistyped)",
+      "date-too-far": "Dates too far apart",
+      "shared-link": "Shared link",
+      "same-name-words": "Same distinctive name words",
+      "different-name-words": "Different distinctive name words",
+      "name-translation-or-abbreviation": "Same name in another language, or abbreviated",
+      "registration-vs-event-day": "Registration or deadline post vs the event day",
+      "different-category-or-tier": "Different category, distance, age group or ticket tier",
+      "part-of-larger-event-or-session": "Part of a larger event, or a different session or time",
+      "recurring-not-same-occurrence": "Recurring series, not the same occurrence",
+      "not-an-event": "Not an event, or a bad extraction",
+      "other": "Another reason"
+    },
+    "clueAspects": {
+      "venue": "Venue",
+      "organizer": "Organizer",
+      "date": "Date",
+      "name": "Name"
+    },
+    "clueShort": {
+      "same-venue": "Same",
+      "different-venue": "Different",
+      "same-organizer": "Same",
+      "different-organizer": "Different",
+      "same-date": "Same day",
+      "date-drift": "Slightly different",
+      "date-too-far": "Too far apart",
+      "same-name-words": "Same words",
+      "different-name-words": "Different words",
+      "name-translation-or-abbreviation": "Translated or abbreviated"
+    },
+    "clueValues": "Existing: {existing} · New: {incoming}",
+    "clueDayGap": "{days, plural, one {# day apart} other {# days apart}}",
+    "clueReasonsHeading": "Other reasons"
   },
   "ModeratorAccountsPage": {
     "pageHeading": "Accounts Management",
@@ -130,7 +220,6 @@
     "usernameLabel": "Username",
     "emptyHeadline": "No accounts found",
     "emptyMessage": "No social media accounts match your search filters.",
-    "loadMoreButton": "Load more accounts",
     "optInSuccessToast": "Successfully opted in {name} to durable image storage",
     "optOutSuccessToast": "Successfully opted out {name} from future durable image storage",
     "toggleErrorToast": "Failed to update image storage opt-in status for {name}",
@@ -245,6 +334,8 @@
     "sourcePostsPrimaryLabel": "Primary",
     "relatedEventsGroupLabel": "Events from {account}",
     "relatedEventsGroupTitleLabel": "Events from {title}",
+    "relatedEventsPartialNote": "This list may be incomplete: not every page of the original post could be read.",
+    "relatedEventsInProgressNote": "More events from this post are still being added.",
     "relatedEventsSeeAllLabel": "See all {count} events",
     "relatedEventsSectionAriaLabel": "Related events"
   },
@@ -407,9 +498,24 @@
     "extractionStatusPending": "Pending",
     "extractionStatusQueued": "Queued",
     "extractionStatusExtracting": "Extracting",
+    "extractionStatusAttemptFailed": "Attempt failed",
+    "extractionFailureReasonLine": "Reason: {reason}",
+    "extractionRetryAt": "Retrying automatically around {time}",
+    "extractionRetryGivenUp": "No further automatic retries; select it to try again",
+    "extractionFailureRateLimited": "AI service rate limited",
+    "extractionFailureQuota": "AI daily quota used up",
+    "extractionFailureUnavailable": "AI service unavailable",
+    "extractionFailureTimeout": "Timed out",
+    "extractionFailureTruncated": "Response cut off",
+    "extractionFailureUnparseable": "Response could not be read",
+    "extractionFailureBlocked": "Blocked by the AI provider",
+    "extractionFailureInvalidKey": "API key rejected",
+    "extractionFailureBadRequest": "Request rejected",
+    "extractionFailureImageExpired": "Image links expired",
+    "extractionFailureUnknown": "Unexpected error",
     "extractionStatusPromoted": "Promoted to event",
     "extractionStatusNotEvent": "Not an event",
-    "nonSelectableHint": "Only pending posts can be selected.",
+    "nonSelectableHint": "Only pending or failed posts can be selected.",
     "noPostsForStatuses": "No posts with the selected statuses.",
     "selectionPartiallyQueued": "{queued} of {total} posts were queued. The others are no longer pending.",
     "selectionNoLongerPending": "These posts are no longer pending. The list has been refreshed.",
@@ -726,7 +832,9 @@
     "moderatorItems": "Moderator Items",
     "moderatorTools": "Moderator Tools",
     "logout": "Log Out",
-    "close": "Close"
+    "close": "Close",
+    "jobs": "Jobs",
+    "jobsBadgeLabel": "{count, plural, one {# job finished since you last looked} other {# jobs finished since you last looked}}"
   },
   "MyAIFiltersPage": {
     "title": "My AI Filters",
@@ -876,7 +984,9 @@
     "errorNoApiKey": "No API key configured. Please set one in <link>API Keys settings</link>.",
     "errorScrapeFailed": "Failed to scrape the social media post. Please try again.",
     "errorExtractionFailed": "AI failed to extract any events from this post.",
-    "errorQuotaExhausted": "Your API key quota has been exhausted."
+    "errorQuotaExhausted": "Your API key quota has been exhausted.",
+    "errorAccountNotScrapable": "This post belongs to an account FestDaily does not scrape (a personal account, or one still waiting for a moderator to classify it), so it cannot be fetched.",
+    "errorScrapeInProgress": "This post is being fetched right now. Try again in a moment."
   },
   "DefaultLocationChangeStatus": {
     "PENDING_REVIEW": "Pending Review",
@@ -1018,8 +1128,259 @@
     "errorTryAgain": "Try again",
     "filterApplyButton": "Apply filters",
     "filterClearButton": "Clear all",
-    "loadMoreButton": "Load more",
     "loadingLabel": "Loading runs...",
     "replayingLabel": "Replaying..."
+  },
+  "Pagination": {
+    "navigation": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOfPages": "Page {page} of {pages}",
+    "page": "Page {page}",
+    "total": "{count, number} total",
+    "emptyPage": "Nothing is left on this page. Use Previous to go back."
+  },
+  "Jobs": {
+    "pageTitle": "Jobs",
+    "pageDescription": "Follow the work running in the background, like adding accounts and extracting posts.",
+    "backToJobs": "Jobs",
+    "activeHeading": "In progress",
+    "activeEmpty": "Nothing is running right now.",
+    "historyHeading": "Finished",
+    "emptyTitle": "No jobs yet",
+    "emptyBody": "When you add an account or extract posts, you can follow the work here.",
+    "filteredEmptyTitle": "No jobs match these filters",
+    "clearFilters": "Clear filters",
+    "loadError": "We could not load your jobs.",
+    "jobLoadError": "We could not load this job.",
+    "tryAgain": "Try again",
+    "reconnecting": "Reconnecting. Showing the last known progress.",
+    "notFound": "This job was not found.",
+    "filters": {
+      "scopeLabel": "Show",
+      "scopeMine": "My jobs",
+      "scopeAll": "All users",
+      "includeSystem": "Include system jobs"
+    },
+    "row": {
+      "openDetails": "Open details: {title}, {status}",
+      "startedAt": "Started {time}",
+      "runningFor": "Running for {duration}",
+      "tookDuration": "Took {duration}",
+      "queuePosition": "{position, plural, =1 {Next in line} other {Number # in line}}",
+      "nextTry": "Next try {time}",
+      "startedBy": "Started by {name}",
+      "systemJob": "System job"
+    },
+    "type": {
+      "SUBSCRIBE": "Adding an account",
+      "PROFILE_LOOKUP": "Looking up an account",
+      "ACCOUNT_REFRESH": "Checking an account for new posts",
+      "CORRECTION": "Correcting an event",
+      "EXTRACT_FROM_URL": "Extracting from a post link",
+      "EXTRACT_SELECTED_POSTS": "Extracting selected posts",
+      "REEXTRACT_REFRESH": "Re-extracting a post",
+      "ADMIN_OPERATION": "Moderator operation",
+      "OTHER": "Background job"
+    },
+    "subject": {
+      "account": "@{handle}",
+      "posts": "{count, plural, one {# post} other {# posts}}",
+      "post": "Post {code}",
+      "unknown": "Unknown"
+    },
+    "status": {
+      "QUEUED": "Waiting for a place",
+      "RUNNING": "In progress",
+      "WAITING": "Waiting",
+      "SUCCEEDED": "Done",
+      "SUCCEEDED_WITH_LIMITS": "Done, with limits",
+      "FAILED": "Failed",
+      "EXPIRED": "Expired",
+      "CANCELLED": "Cancelled"
+    },
+    "chip": {
+      "ariaLabel": "Show progress: {title}. {status}",
+      "queued": "Waiting for a place (#{position})",
+      "running": "In progress: step {current} of {total}",
+      "runningNoSteps": "In progress",
+      "waiting": "Waiting",
+      "waitingUntil": "Waiting until {time}",
+      "done": "Done",
+      "doneWithLimits": "Done, with limits",
+      "failed": "Failed",
+      "expired": "Expired",
+      "cancelled": "Cancelled"
+    },
+    "dialog": {
+      "description": "You can minimize this and keep using the app. The work continues in the background.",
+      "minimize": "Minimize",
+      "close": "Close",
+      "seeAllInJobs": "See all in Jobs",
+      "viewDetails": "View details",
+      "leavingNote": "Leaving this page does not stop it.",
+      "elapsed": "Running for {duration}",
+      "stepsLabel": "Steps",
+      "stepOf": "Step {current} of {total}",
+      "stepStateDone": "done",
+      "stepStateCurrent": "in progress",
+      "stepStatePending": "not started",
+      "stepStateSkipped": "skipped",
+      "countDetail": "{done} of {total} finished"
+    },
+    "queued": {
+      "title": "Waiting for a free place",
+      "body": "You can run {limit} jobs at once and all {limit} places are in use. This one will start by itself.",
+      "expires": "If it has not started by {time}, it will be dropped."
+    },
+    "waiting": {
+      "title": "Waiting",
+      "retryAt": "Waiting to try again at {time}.",
+      "result": "Waiting for the answer to arrive. This can take a few minutes.",
+      "extraction": "Waiting for the posts to finish extracting ({done} of {total} done).",
+      "extractionRetryAt": "Waiting to retry a post at {time}.",
+      "noPlaceHeld": "You can start other jobs in the meantime."
+    },
+    "outcome": {
+      "succeededTitle": "Done",
+      "limitsTitle": "Finished with what we had",
+      "failedTitle": "Could not finish",
+      "expiredTitle": "Stopped",
+      "cancelledTitle": "Cancelled",
+      "lateResult": "The answer arrived late but was still used.",
+      "openAccount": "Open the account",
+      "openPreview": "Open the preview",
+      "viewEvents": "See the events",
+      "eventsFromPosts": "{events, plural, one {# event} other {# events}} from {posts, plural, one {# post} other {# posts}}",
+      "took": "Took {duration}",
+      "started": "Started {time}",
+      "finished": "Finished {time}"
+    },
+    "reason": {
+      "ACCOUNT_NOT_FOUND": "We could not find this account. Check the spelling and try another handle.",
+      "ACCOUNT_PRIVATE": "This account is private, so its posts cannot be read.",
+      "NO_PROVIDER_REACHABLE": "We could not reach the platform right now. Try again in a few minutes.",
+      "PROVIDER_OVER_QUOTA": "The service is busy at the moment. Try again later.",
+      "ACCOUNT_TYPE_NOT_SCRAPED": "This type of account is not scraped, so nothing was fetched.",
+      "POST_UNAVAILABLE": "The post is no longer available on the platform.",
+      "COOLDOWN": "This was tried a moment ago. You can try again at {time}.",
+      "TIMED_OUT": "It took too long and was stopped. Try again.",
+      "CANCELLED": "It was cancelled.",
+      "WAITED_TOO_LONG": "It waited more than {minutes} minutes for a free place and was dropped. Try again when your other jobs have finished.",
+      "SOME_POSTS_NOT_EXTRACTED": "Some posts could not be extracted. You can retry them.",
+      "REFRESH_IN_PROGRESS": "Another request is fetching this post right now. Try again in a minute.",
+      "REFRESH_DID_NOT_HEAL_IMAGES": "A provider answered, but its images could not be used, so the stored images were used.",
+      "POST_NOT_FOUND": "The post was removed while this was waiting.",
+      "CHAIN_IN_FLIGHT": "This post is already being extracted. Try again when that finishes.",
+      "QUOTA_EXHAUSTED": "No AI key had quota left. Try again tomorrow.",
+      "EXTRACTION_FAILED": "We could not finish reading this post. Try again.",
+      "VENDOR_RUN_FAILED": "The platform did not return what we needed. Try again.",
+      "GENERIC": "Something went wrong on our side. Try again, and if it keeps happening, tell us.",
+      "COOLDOWN_NO_TIME": "This was tried a moment ago. You can try again in a little while."
+    },
+    "actions": {
+      "retry": "Retry",
+      "retryAt": "Retry at {time}",
+      "retryStarted": "Started again.",
+      "retryReused": "This is already running.",
+      "startQueueFull": "Too many jobs are waiting ({max}). Open Jobs to see them.",
+      "startQueueFullLink": "Open Jobs",
+      "startQueueFullNoCount": "Too many jobs are waiting. Open Jobs to see them."
+    },
+    "moderator": {
+      "detailsSummary": "Technical details (moderators)",
+      "attemptsHeading": "Provider attempts",
+      "noAttempts": "No provider was tried.",
+      "attemptProvider": "Provider",
+      "attemptOutcome": "Result",
+      "attemptBudget": "Time given",
+      "attemptElapsed": "Time used",
+      "attemptReason": "Reason",
+      "engineReason": "Engine reason code",
+      "engineMessage": "Engine message",
+      "jobId": "Job ID",
+      "trigger": "Started by",
+      "triggerUser": "A user",
+      "triggerSystem": "The system",
+      "provider": {
+        "APIFY": "Apify",
+        "BRIGHT_DATA": "Bright Data"
+      },
+      "outcome": {
+        "SUCCEEDED": "Succeeded",
+        "FAILED": "Failed",
+        "EMPTY": "Returned nothing",
+        "TIMED_OUT": "Ran out of time",
+        "OVER_QUOTA": "Over quota",
+        "SKIPPED": "Skipped"
+      }
+    },
+    "phase": {
+      "generic": {
+        "working": "Working on it"
+      },
+      "REEXTRACT_REFRESH": {
+        "refresh": "Fetching fresh images",
+        "preview": "Reading the post and finding events"
+      },
+      "SUBSCRIBE": {
+        "lookup": "Finding the account",
+        "classify": "Checking what kind of account it is",
+        "firstScrape": "Fetching its first posts"
+      },
+      "PROFILE_LOOKUP": {
+        "lookup": "Finding the account"
+      },
+      "ACCOUNT_REFRESH": {
+        "scrape": "Fetching new posts"
+      },
+      "EXTRACT_SELECTED_POSTS": {
+        "start": "Queueing the posts",
+        "extract": "Extracting events"
+      },
+      "EXTRACT_FROM_URL": {
+        "fetch": "Fetching the post",
+        "extract": "Extracting events"
+      },
+      "CORRECTION": {
+        "fetch": "Fetching the post",
+        "apply": "Preparing the correction"
+      },
+      "ADMIN_OPERATION": {
+        "dryRun": "Checking what would change",
+        "apply": "Applying the change"
+      }
+    },
+    "announce": {
+      "started": "{title} started.",
+      "queued": "{title} is waiting for a free place. {position}",
+      "running": "{title} is now in progress.",
+      "step": "{title}: step {current} of {total}, {step}.",
+      "waiting": "{title} is waiting. {reason}",
+      "succeeded": "{title} is done.",
+      "limits": "{title} finished with limits. {reason}",
+      "failed": "{title} failed. {reason}",
+      "expired": "{title} was stopped. {reason}",
+      "cancelled": "{title} was cancelled.",
+      "minimized": "Progress minimized. The job keeps running.",
+      "reopened": "Progress opened.",
+      "listUpdated": "{count, plural, one {# job updated} other {# jobs updated}}",
+      "reconnecting": "Reconnecting. Showing the last known progress."
+    }
+  },
+  "SubscriptionCap": {
+    "title": "You have reached your limit",
+    "body": "{reserved, plural, =0 {You have {active, plural, one {# account} other {# accounts}} added. The limit is {cap}.} one {You have {active, plural, one {# account} other {# accounts}} added and # more being added. The limit is {cap}.} other {You have {active, plural, one {# account} other {# accounts}} added and # more being added. The limit is {cap}.}}",
+    "hint": "Remove an account you no longer need to make room. If an account being added fails, its place is freed.",
+    "blockedNote": "Adding another account is paused until you are under the limit.",
+    "upgradeButton": "Upgrade",
+    "comingSoonBadge": "Coming soon",
+    "comingSoonNote": "Paid plans with a higher limit are not available yet.",
+    "afterClickNote": "Thanks for your interest. Paid plans are not available yet.",
+    "manageLink": "Manage subscribed accounts",
+    "dialogTitle": "You have reached your limit",
+    "closeButton": "Close",
+    "restoreFailedToast": "Could not restore the account. You have reached your limit of {cap}.",
+    "announce": "Limit reached. {body}"
   }
 }

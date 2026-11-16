@@ -22,6 +22,8 @@ export interface SubscribedAccountCardProps {
   className?: string;
   location?: {
     name: string;
+    /** Geocoded city; appended to the name for the map search link. */
+    city?: string | null;
     coordinates?: { lat: number; lng: number } | null;
     confidence?: number | null;
     matchType?: string | null;

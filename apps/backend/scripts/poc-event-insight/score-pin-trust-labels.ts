@@ -1,5 +1,5 @@
 /**
- * Calibration scorer for the pin-trust floor and the `full_match` clause (AD-14 Rule 4, BUG-066). Input: the CSV that
+ * Calibration scorer for the pin-trust floor and the `full_match` clause (AD-14 Rule 4, BUG-261018-abg). Input: the CSV that
  * `results/prod-findings-review-2026-10-19-queries/pin-trust-sample.sql` produced, with its `label` column filled by a person
  * (Y = the pin is the place the text means, C = right city or area but not the place, N = wrong, ? = cannot tell).
  *

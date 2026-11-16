@@ -4,7 +4,7 @@ type: planning-proposal
 date: 2026-10-19
 related: [prd Analytics, §3.2 Personalization, §3.16 Data Minimization; Architecture Spine AD-5 (analytics), AD-17, AD-18, AD-30; proposal-discovery-ranking-and-scale.md; fest-grid-monetization: cost-forecast-model-2026-09-26.md, insight-layer-premium-plan-2026-10-13.md]
 evidence: ./results/perf-request-*.generated.md · perf-features-*.generated.md · perf-scoring-*.generated.md · perf-pgbench-scoring.generated.md · perf-variants-300k-month12.generated.md
-backlog: [FIND-088, FIND-089, IDEA-079, IDEA-080; corrects FIND-087]
+backlog: [FIND-261019-whr, FIND-261019-s82, IDEA-079, IDEA-080; corrects FIND-261018-9y3]
 ---
 
 # From the pre-subscription forecast to `getEvents`: what scale asks of the list endpoint, and how to use PostHog to know
@@ -15,14 +15,14 @@ backlog: [FIND-088, FIND-089, IDEA-079, IDEA-080; corrects FIND-087]
 
 **1. Stub events from the bulk-updated accounts — is it about the curator's location change?** *Partly; there are two separate effects.*
 * A **stub** is `events.detail_level = 'stub'`: set when the event's primary post is a *roundup* or is *curator-sourced* (`process-ingestion-job.ts:76–85`; the type comment calls it "an event created from a roundup item with no readable date/location"). Stubs never trigger a new-event notification. The bulk update makes those accounts curators, so **their future events become stubs** — that is the stub effect.
-* The **location** effect is BUG-065: a curator's events stop falling back to the curator's account location, so a curator event that names no venue has **no location**.
+* The **location** effect is BUG-261018-jwf: a curator's events stop falling back to the curator's account location, so a curator event that names no venue has **no location**.
 * They stack: the legacy accounts' future events will often be stubs *and* placeless. **(Corrected 2026-10-19, `proposal-target-area-and-scan-safety.md` §2.1: the current prompt extracts a roundup item only when it has both a readable date and a readable location, so roundup stubs normally have both; and your reply puts the weight on the audience's target area, not the location.)** **The web app has no stub concept today** — `detailLevel` is not in the GraphQL schema or the client (searched `apps/web/src` and `apps/backend/src/schema`) — so Discovery would render them as ordinary cards, possibly sparse ones. The open design question is therefore: show, badge, rank lower, or hide stubs until enriched? PostHog can answer it with data (`event_card_opened` carries `detail_level`, §7).
 
 **2. The retry sweep — only for profile scraping?** *Yes, only for the one-time profile read at subscribe time* (account-type classification plus the country, reach and time-zone enrichment of IDEA-075). Today any failure of that call parks the account in `AWAITING_APPROVAL` and nothing retries it. The policy (`profile-retry.ts`, tested): retry transient failures at 15 min, 1 h, 6 h, 1 d, 3 d; never retry "profile not found / private"; when the scrape worked but showed no country, re-evaluate on the first scraped posts instead of re-scraping; then hand to a person. **Post scraping already has its own recovery** (the scraper poll-and-drain rule every 5 minutes). Because the first backoff is 15 minutes, the natural host is the existing **5-minute scraper poll-and-drain rule**; the daily batch would stretch it to a day.
 
-**3. The geocode confidence floor — what is the case?** Geoapify returns candidates for a place text, each with a confidence between 0 and 1. Today the highest-confidence candidate always wins and is stored as a map pin, **even at 0.2** — so a vague text like "DIY & Jawa Tengah" or "omah noto plankton" can become a confident-looking pin in the wrong city or country (BUG-066's "fatal" case). The **floor** is a minimum confidence below which we keep the text and store *no coordinates*. Calibration means choosing that number: **too low** and wrong pins get through; **too high** and legitimate but vague places lose their pin. I used 0.5 only because the repo already treats below 0.5 as untrustworthy for showing a map link; it has not been tested against Geoapify's real scores for Indonesian place names. To calibrate: run `probe-geocode-country.ts` (needs a Geoapify key) over 100–200 real stored place texts, label each result right or wrong by hand, and pick the floor where wrong pins are about zero at the smallest loss of right ones.
+**3. The geocode confidence floor — what is the case?** Geoapify returns candidates for a place text, each with a confidence between 0 and 1. Today the highest-confidence candidate always wins and is stored as a map pin, **even at 0.2** — so a vague text like "DIY & Jawa Tengah" or "omah noto plankton" can become a confident-looking pin in the wrong city or country (BUG-261018-abg's "fatal" case). The **floor** is a minimum confidence below which we keep the text and store *no coordinates*. Calibration means choosing that number: **too low** and wrong pins get through; **too high** and legitimate but vague places lose their pin. I used 0.5 only because the repo already treats below 0.5 as untrustworthy for showing a map link; it has not been tested against Geoapify's real scores for Indonesian place names. To calibrate: run `probe-geocode-country.ts` (needs a Geoapify key) over 100–200 real stored place texts, label each result right or wrong by hand, and pick the floor where wrong pins are about zero at the smallest loss of right ones.
 
-**4. Already-stored captions — what is my concern?** Your rule (clear a curator post's caption when it is re-extracted; re-scrape only when necessary) is right and cheap. The one gap is that **it fires on extraction, and the legacy posts were extracted long ago** — while the accounts were treated as organizers, so nothing cleared the caption (FIND-086). Unless someone re-extracts a given post, its caption simply stays, indefinitely, on exactly the accounts the minimization rule was written for. So the concern is not cost: by the cost model a re-scrape is about $0.003 a post (about IDR 54,000 per 1,000 posts at 18,000 IDR/USD). It is that the rule leaves a **stock of captions with no trigger to remove them**. FIND-086's SQL counts them. If the count is small, or you accept "cleared at next re-extraction", nothing more is needed; whether that is acceptable under PRD §3.16 is a question for counsel, not for me.
+**4. Already-stored captions — what is my concern?** Your rule (clear a curator post's caption when it is re-extracted; re-scrape only when necessary) is right and cheap. The one gap is that **it fires on extraction, and the legacy posts were extracted long ago** — while the accounts were treated as organizers, so nothing cleared the caption (FIND-261018-p1z). Unless someone re-extracts a given post, its caption simply stays, indefinitely, on exactly the accounts the minimization rule was written for. So the concern is not cost: by the cost model a re-scrape is about $0.003 a post (about IDR 54,000 per 1,000 posts at 18,000 IDR/USD). It is that the rule leaves a **stock of captions with no trigger to remove them**. FIND-261018-p1z's SQL counts them. If the count is small, or you accept "cleared at next re-extraction", nothing more is needed; whether that is acceptable under PRD §3.16 is a question for counsel, not for me.
 
 ## 1. Short answers
 
@@ -77,7 +77,7 @@ Steady load is tiny. **The realistic peak driver is a push notification** (the p
 
 * **History matters as much as visibility.** Rows 1 and 3 have the *same* 22k open events; the 300k catalogue takes 2.7–3.5× longer (page statement, JIT off) because the plan hash-joins every event, post and main schedule before discarding the ended ones.
 * **`totalCount` is pure overhead for Discovery**: `home-content.tsx` reads `hasMore` and never `totalCount`, but `GetEventsDocument` selects both, and the resolver runs the count whenever it is selected (Story 1.3j made it conditional, not absent). Archive and Favorites do use it. A Discovery-specific document without `totalCount` is a one-line change. After the maintained-key fix the page itself is 0.4 ms, so the count would become **the** dominant statement — it should go first.
-* **Correction to my earlier report (FIND-087).** I said JIT was ~80% of the request. That is true of the *anonymous* plan at 30k (700 of 904 ms). The real mechanism: every plan here exceeds `jit_above_cost` (100k), but Postgres pays the expensive part (inlining + optimisation, ~700–840 ms) only when the plan's estimated cost also exceeds `jit_inline_above_cost` / `jit_optimize_above_cost` (500k each). Measured estimated cost and penalty:
+* **Correction to my earlier report (FIND-261018-9y3).** I said JIT was ~80% of the request. That is true of the *anonymous* plan at 30k (700 of 904 ms). The real mechanism: every plan here exceeds `jit_above_cost` (100k), but Postgres pays the expensive part (inlining + optimisation, ~700–840 ms) only when the plan's estimated cost also exceeds `jit_inline_above_cost` / `jit_optimize_above_cost` (500k each). Measured estimated cost and penalty:
 
 | case | anonymous plan cost | JIT cost | signed-in plan cost | JIT cost |
 |---|--:|--:|--:|--:|
@@ -87,7 +87,7 @@ Steady load is tiny. **The realistic peak driver is a push notification** (the p
 | 120k, 91k open | 2.86M | 694 ms | 1.60M | 809 ms |
 
 So a request is either ~50 ms of JIT or ~800 ms, depending on which side of 500k its estimated cost falls — **a cliff, not a slope**, and the signed-in plan reached it at 300k. The first-round throughput numbers (4.4 vs 25 requests/s) were for the anonymous plan. The recommendation stands (turn JIT off for this role, or remove the cause), but the headline "80%" was too general. Settings must survive Supabase's transaction-mode pooler (a plain `SET` does not): use a role-level setting or `SET LOCAL`.
-* **Every signed-in `events` request also writes**: `getOrCreateUserSettings` is an `INSERT … ON CONFLICT DO UPDATE` (a no-op update that still creates a new row version) run only to read `hidePastEventsAfterDays`. It costs ~0.1 ms here, but it is a write on the most-used read path, and two concurrent requests from one user (prefetching pages) contend on the same row. A plain `SELECT` with the default (0) when no row exists removes it (FIND-089).
+* **Every signed-in `events` request also writes**: `getOrCreateUserSettings` is an `INSERT … ON CONFLICT DO UPDATE` (a no-op update that still creates a new row version) run only to read `hidePastEventsAfterDays`. It costs ~0.1 ms here, but it is a write on the most-used read path, and two concurrent requests from one user (prefetching pages) contend on the same row. A plain `SELECT` with the default (0) when no row exists removes it (FIND-261019-s82).
 * **Connection hold time** (arithmetic, not measured): busy connections ≈ requests/s × seconds per request. A 20 requests/s push burst at 0.9–1.5 s per page holds 18–30 connections; the pool in the 2026-08-27 incident was 15. At 60 ms (foundation + personalised horizon) the same burst holds ~1.2; at 0.5 ms, none. Check the current Supabase pool size.
 
 ## 4. Complex filters and per-user scores: where the limits are
@@ -184,13 +184,13 @@ The pattern **already exists in this codebase**: Favorites fetches a frozen id l
 
 ## 8. Proposed backlog and order of work
 
-* **FIND-088** — Discovery selects `totalCount` it never reads (first, one-line, free: 31–348 ms per page).
-* **FIND-089** — every signed-in `events` request upserts `user_settings` just to read one setting.
+* **FIND-261019-whr** — Discovery selects `totalCount` it never reads (first, one-line, free: 31–348 ms per page).
+* **FIND-261019-s82** — every signed-in `events` request upserts `user_settings` just to read one setting.
 * **IDEA-079** — PostHog: basics, Discovery measurement, cost-model calibration, experiments.
 * **IDEA-080** — ranked ids per session + hydrate by id (+ `content_version`), after IDEA-076.
-* **FIND-087 corrected**: the JIT penalty is a cliff set by estimated plan cost against 500k, not a constant 80%.
+* **FIND-261018-9y3 corrected**: the JIT penalty is a cliff set by estimated plan cost against 500k, not a constant 80%.
 
-Order: **FIND-088 → PostHog basics + Discovery measurement (so real numbers arrive while the rest is built) → JIT setting and tie-break (BUG-067) → IDEA-076 foundation → area tier with horizon (IDEA-074) → IDEA-080 → freshness / seen (IDEA-078) → close matches (IDEA-077).**
+Order: **FIND-261019-whr → PostHog basics + Discovery measurement (so real numbers arrive while the rest is built) → JIT setting and tie-break (BUG-067) → IDEA-076 foundation → area tier with horizon (IDEA-074) → IDEA-080 → freshness / seen (IDEA-078) → close matches (IDEA-077).**
 
 ## 9. Decisions needed from you
 
@@ -200,7 +200,7 @@ Order: **FIND-088 → PostHog basics + Discovery measurement (so real numbers ar
 1. Stubs: show as ordinary cards, badge them, rank them lower, or hide them until enriched?
 2. Retry sweep on the existing 5-minute scraper rule — agreed?
 3. Geocode floor: can I get a Geoapify key for the calibration probe, or will you run it?
-4. Captions: accept "cleared at next re-extraction", or purge the legacy stock once (FIND-086 counts it)?
+4. Captions: accept "cleared at next re-extraction", or purge the legacy stock once (FIND-261018-p1z counts it)?
 5. PostHog: approve the §7 order; decide consent / opt-out and the host region; allow a lint rule against direct `posthog.capture`?
 6. Remove `totalCount` from the Discovery document now?
 

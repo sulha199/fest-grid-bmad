@@ -336,6 +336,9 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok('organizerHandle' in eventItemSchema.properties);
     const scheduleItemSchema: any = eventItemSchema.properties.schedules.items;
     assert.ok('applicableDaysOfWeek' in scheduleItemSchema.properties);
+    // Location keywords come from the separate keywords call, never from this response schema.
+    assert.ok(!('locationKeywords' in scheduleItemSchema.properties));
+    assert.ok(!('locationKeywords' in eventItemSchema.properties));
   });
 
   await t.test('Case O (Story 3.6s, AC2): system prompt encodes the ordered grouping rules and roundup cap', async () => {
@@ -362,6 +365,48 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.ok(prompt.includes('do NOT fall back to the account that posted it'));
     assert.ok(!prompt.includes('the account that posted it, or an explicitly'));
     assert.ok(prompt.includes('applicableDaysOfWeek'));
+    // Multi-date rows: one schedule per listed date, never a collapsed range (4c); 4a/4b stay.
+    assert.ok(prompt.includes('4a. Set a schedule\'s applicableDaysOfWeek only when'));
+    assert.ok(prompt.includes('4b. When a schedule runs past midnight'));
+    assert.ok(prompt.includes('4c. When one row or line lists several explicit dates'));
+    assert.ok(prompt.includes('one schedule per listed date'));
+    assert.ok(prompt.includes('never collapse a list of dates into a start-to-end range'));
+    // Per-date places (4d) and the event-level common-area rule (5): the Samsat flyer case.
+    assert.ok(prompt.includes("4d. A schedule's location is the place of THAT date or session"));
+    // Parallel venues (one occasion at several branches at once) stay separate events: the live A/B showed the per-date rule alone collapsed them.
+    assert.ok(prompt.includes('a2. The same occasion held at several venues, cities or branches AT ONCE'));
+    assert.ok(prompt.includes('the event-level location is the area they share'));
+    assert.ok(prompt.includes('performers (array), location, ticketPrice'));
+    // Keywords are asked of the separate keywords call only: asking the main call collapsed multi-place posts.
+    assert.ok(!prompt.includes('locationKeywords'));
+  });
+
+  await t.test('AD-46 Rule 2 (cursor extraction): the post plan is optional flat root fields in the response schema and described once in the prompt', async () => {
+    const props: any = geminiExtractionResponseSchema.properties;
+    assert.strictEqual(props.claimedItemCount.type, 'NUMBER');
+    assert.strictEqual(props.slideRoles.type, 'ARRAY');
+    assert.deepStrictEqual(props.slideRoles.items.enum, ['intro', 'list', 'outro', 'ad', 'other']);
+    assert.strictEqual(props.itemsPerListSlide.type, 'NUMBER');
+    assert.strictEqual(props.dateRangeCovered.type, 'STRING');
+    assert.strictEqual(props.moreItemsLikely.type, 'BOOLEAN');
+    for (const field of ['claimedItemCount', 'slideRoles', 'itemsPerListSlide', 'dateRangeCovered', 'moreItemsLikely']) {
+      assert.ok(!geminiExtractionResponseSchema.required.includes(field), `${field} must stay optional`);
+    }
+    assert.deepStrictEqual(geminiExtractionResponseSchema.required, ['isEvent', 'events', 'groupingReason']);
+
+    const result = await buildGeminiExtractionRequest({
+      postId: 'post-plan',
+      accountId: 'account-plan',
+      content: 'Plan prompt check',
+      postUrl: 'https://test.com/post-plan',
+      publishedAt: '2026-08-10T12:00:00Z',
+    } as ProcessingJobMessage);
+    const prompt = result.request.systemInstruction ?? '';
+    assert.ok(prompt.includes('Post plan (advisory'));
+    assert.ok(prompt.includes('claimedItemCount'));
+    assert.ok(prompt.includes('slideRoles'));
+    assert.ok(prompt.includes('intro, list, outro, ad, other'));
+    assert.ok(prompt.includes('moreItemsLikely'));
   });
 
   await t.test('Case P (Story 3.6m, AC1/AC2): geminiExtractionResponseSchema declares hasFaceImage/faceImageCount at the root, optional, and the prompt self-reports both in the once-per-post block', async () => {
@@ -772,5 +817,335 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     // cover (3) + slide1 (2) = 5; slide2 dropped at fetch, contributes nothing.
     assert.strictEqual(result.totalFaceDetectionCount, 5);
     assert.strictEqual(result.coverFaceCount, 3);
+  });
+
+  // ── BUG-099: moderator re-extract reads every slide ─────────────────────────────────────────
+  await t.test('BUG-099 A: imagesAvailable counts cover + every listed slide before the cap, imagesSent counts what was inlined', async () => {
+    const originalMax = process.env.MAX_CAROUSEL_IMAGES;
+    process.env.MAX_CAROUSEL_IMAGES = '2';
+    try {
+      installOrderedFetchMock();
+      const result = await buildGeminiExtractionRequest(multiImageMessage([slide1Url, slide2Url, slide3Url, slide4Url]));
+      assert.strictEqual(result.imagesAvailable, 5);
+      assert.strictEqual(result.imagesSent, 3); // cover + 2 capped slides
+    } finally {
+      if (originalMax === undefined) delete process.env.MAX_CAROUSEL_IMAGES;
+      else process.env.MAX_CAROUSEL_IMAGES = originalMax;
+    }
+  });
+
+  await t.test('BUG-099 B: options.maxCarouselImages overrides the ingestion cap for one request', async () => {
+    const originalMax = process.env.MAX_CAROUSEL_IMAGES;
+    process.env.MAX_CAROUSEL_IMAGES = '2';
+    try {
+      installOrderedFetchMock();
+      const result = await buildGeminiExtractionRequest(multiImageMessage([slide1Url, slide2Url, slide3Url, slide4Url]), { maxCarouselImages: 10 });
+      assert.strictEqual(result.imagesSent, 5);
+      assert.strictEqual(result.imagesAvailable, 5);
+    } finally {
+      if (originalMax === undefined) delete process.env.MAX_CAROUSEL_IMAGES;
+      else process.env.MAX_CAROUSEL_IMAGES = originalMax;
+    }
+  });
+
+  await t.test('BUG-099 C: a dropped slide shows as a shortfall (imagesSent < imagesAvailable)', async () => {
+    installOrderedFetchMock({ failIndex: 2 });
+    const result = await buildGeminiExtractionRequest(multiImageMessage([slide1Url, slide2Url, slide3Url]));
+    assert.strictEqual(result.imagesAvailable, 4);
+    assert.strictEqual(result.imagesSent, 3);
+  });
+
+  await t.test('BUG-099 D: cover fetch fails, slidesWhenCoverFails off (ingestion) -> still text-only, slides never fetched', async () => {
+    const callCount = installOrderedFetchMock({ failIndex: 0 });
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    const result = await buildGeminiExtractionRequest(msg);
+    assert.strictEqual(result.request.contents, msg.content);
+    assert.strictEqual(result.aiImageInput, 'no_image_sent');
+    assert.strictEqual(callCount(), 1);
+    assert.strictEqual(result.imagesSent, 0);
+    assert.strictEqual(result.imagesAvailable, 3);
+  });
+
+  await t.test('BUG-099 E: cover fetch fails, slidesWhenCoverFails on -> the slides are sent, no cover bytes reported', async () => {
+    installOrderedFetchMock({ failIndex: 0 });
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    const result = await buildGeminiExtractionRequest(msg, { slidesWhenCoverFails: true });
+    assert.ok(Array.isArray(result.request.contents));
+    assert.strictEqual(result.request.contents.length, 3); // text + 2 slides
+    assert.strictEqual(result.request.contents[0].text, msg.content);
+    assert.strictEqual(result.request.contents[1].inlineData.data, Buffer.from('carousel-bytes-1').toString('base64'));
+    assert.strictEqual(result.imageBytes, undefined);
+    assert.strictEqual(result.aiImageInput, 'original_mode_off');
+    assert.strictEqual(result.imagesSent, 2);
+    assert.strictEqual(result.imagesAvailable, 3);
+  });
+
+  await t.test('BUG-099 F: cover fetch fails and every slide fails too -> text-only, as before', async () => {
+    globalThis.fetch = async () => ({ ok: false, status: 403 }) as any;
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    const result = await buildGeminiExtractionRequest(msg, { slidesWhenCoverFails: true });
+    assert.strictEqual(result.request.contents, msg.content);
+    assert.strictEqual(result.aiImageInput, 'no_image_sent');
+    assert.strictEqual(result.imagesSent, 0);
+  });
+
+  await t.test('BUG-099 G: cover fetch fails with blur on -> slides are blurred, label blurred, face counts sum the slides', async () => {
+    installOrderedFetchMock({ failIndex: 0 });
+    setDetectAndBlurFacesSeam(async (buffer: Buffer) => ({ buffer: Buffer.from(`blurred-${buffer.toString()}`), faceCount: 2 }));
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    const result = await buildGeminiExtractionRequest(msg, { blurFacesBeforeAi: { isOwnerOptedIn: false }, slidesWhenCoverFails: true });
+    assert.strictEqual(result.request.contents.length, 3);
+    assert.strictEqual(result.request.contents[1].inlineData.data, Buffer.from('blurred-carousel-bytes-1').toString('base64'));
+    assert.strictEqual(result.aiImageInput, 'blurred');
+    assert.strictEqual(result.totalFaceDetectionCount, 4);
+  });
+
+  await t.test('BUG-099 H: cover fetch fails, blur on, every slide blur fails -> text-only and fail-closed, never an unblurred slide', async () => {
+    installOrderedFetchMock({ failIndex: 0 });
+    setDetectAndBlurFacesSeam(async () => {
+      throw new Error('blur failed');
+    });
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    const result = await buildGeminiExtractionRequest(msg, { blurFacesBeforeAi: { isOwnerOptedIn: false }, slidesWhenCoverFails: true });
+    assert.strictEqual(result.request.contents, msg.content);
+    assert.strictEqual(result.aiImageInput, 'text_only_fail_closed');
+    assert.strictEqual(result.imagesSent, 0);
+  });
+
+  await t.test('BUG-099 I: cover BLUR failure stays text-only even with slidesWhenCoverFails (fail-closed is not a fetch failure)', async () => {
+    installOrderedFetchMock();
+    setDetectAndBlurFacesSeam(async () => {
+      throw new Error('blur failed');
+    });
+    const msg = multiImageMessage([slide1Url, slide2Url]);
+    const result = await buildGeminiExtractionRequest(msg, { blurFacesBeforeAi: { isOwnerOptedIn: false }, slidesWhenCoverFails: true });
+    assert.strictEqual(result.request.contents, msg.content);
+    assert.strictEqual(result.aiImageInput, 'text_only_fail_closed');
+  });
+
+  await t.test('BUG-099 J: a post with slides but no cover sends the slides when slidesWhenCoverFails is on, and stays text-only when it is off', async () => {
+    const noCover = (): ProcessingJobMessage => ({ ...multiImageMessage([slide1Url, slide2Url]), imageUrl: undefined });
+    installOrderedFetchMock();
+    const on = await buildGeminiExtractionRequest(noCover(), { slidesWhenCoverFails: true });
+    assert.ok(Array.isArray(on.request.contents));
+    assert.strictEqual(on.request.contents.length, 3);
+    assert.strictEqual(on.imagesSent, 2);
+    assert.strictEqual(on.imagesAvailable, 2);
+
+    const callCount = installOrderedFetchMock();
+    const msg = noCover();
+    const off = await buildGeminiExtractionRequest(msg);
+    assert.strictEqual(off.request.contents, msg.content);
+    assert.strictEqual(callCount(), 0);
+  });
+
+  await t.test('BUG-099 K: a thrown slide FETCH (not a blur) with blur on is not labelled fail-closed', async () => {
+    globalThis.fetch = async () => {
+      throw new Error('network down');
+    };
+    const msg = multiImageMessage([slide1Url]);
+    const result = await buildGeminiExtractionRequest(msg, { blurFacesBeforeAi: { isOwnerOptedIn: false }, slidesWhenCoverFails: true });
+    assert.strictEqual(result.request.contents, msg.content);
+    assert.strictEqual(result.aiImageInput, 'no_image_sent');
+  });
+
+  // ── BUG-101: the stored slide list's slide 0 can repeat the cover (same file name, different
+  // signed query, left over from the pre-fix Apify adapter) -- de-duplicate by file name at read
+  // time so the 354 already-stored Apify posts are covered without a backfill. ──────────────────
+  await t.test('BUG-101 A: a stored slide 0 repeating the cover by file name is de-duplicated before fetching, and never counted twice in imagesAvailable', async () => {
+    const coverFileName = coverUrl.split('?')[0].split('/').pop();
+    const repeatOfCover = `https://scontent-muc2-1.cdninstagram.com/v/t51.82787-15/${coverFileName}?oe=different&sig=zzz`;
+    const callCount = installOrderedFetchMock();
+    const msg = multiImageMessage([repeatOfCover, slide1Url, slide2Url]);
+    const result = await buildGeminiExtractionRequest(msg);
+
+    // text + cover + slide1 + slide2 (the repeated-cover entry is dropped, never fetched)
+    assert.strictEqual(result.request.contents.length, 4);
+    assert.strictEqual(result.request.contents[1].inlineData.data, Buffer.from('carousel-bytes-0').toString('base64'));
+    assert.strictEqual(result.request.contents[2].inlineData.data, Buffer.from('carousel-bytes-1').toString('base64'));
+    assert.strictEqual(result.request.contents[3].inlineData.data, Buffer.from('carousel-bytes-2').toString('base64'));
+    // 3 fetches total: cover, slide1, slide2 -- the repeat is never fetched.
+    assert.strictEqual(callCount(), 3);
+    // imagesAvailable counts the de-duplicated list (cover + 2 real slides), not 4.
+    assert.strictEqual(result.imagesAvailable, 3);
+    assert.strictEqual(result.imagesSent, 3);
+  });
+
+  await t.test('BUG-101 B: a repeat later in the slide list (not just index 0) is also de-duplicated', async () => {
+    const coverFileName = coverUrl.split('?')[0].split('/').pop();
+    const repeatOfCover = `https://scontent-muc2-1.cdninstagram.com/v/t51.82787-15/${coverFileName}?oe=different2&sig=yyy`;
+    installOrderedFetchMock();
+    const result = await buildGeminiExtractionRequest(multiImageMessage([slide1Url, repeatOfCover, slide2Url]));
+
+    assert.strictEqual(result.imagesAvailable, 3);
+    assert.strictEqual(result.request.contents.length, 4); // text + cover + slide1 + slide2
+  });
+
+  await t.test('BUG-101 C: two genuinely different slides that merely share a host are NOT merged (regression guard)', async () => {
+    installOrderedFetchMock();
+    // slide1Url/slide2Url already share a host and differ only in file name -- confirm imagesAvailable
+    // counts both rather than collapsing them.
+    const result = await buildGeminiExtractionRequest(multiImageMessage([slide1Url, slide2Url]));
+    assert.strictEqual(result.imagesAvailable, 3); // cover + 2 distinct slides
+    assert.strictEqual(result.request.contents.length, 4);
+  });
+});
+
+// Story 10.6a -- the per-image outcomes the builder returns beside the counts (no URL leaves the function).
+test('buildGeminiExtractionRequest imageOutcomes (Story 10.6a)', async (t) => {
+  const originalFetch = globalThis.fetch;
+  const originalDetectAndBlurFacesSeam = detectAndBlurFacesSeam;
+  t.afterEach(() => {
+    globalThis.fetch = originalFetch;
+    setDetectAndBlurFacesSeam(originalDetectAndBlurFacesSeam);
+  });
+
+  const hex = (ms: number) => Math.floor(ms / 1000).toString(16);
+  const FUTURE = hex(Date.now() + 30 * 86_400_000);
+  const PAST = hex(Date.now() - 30 * 86_400_000);
+  const img = (name: string, oe: string = FUTURE) => `https://cdn.example.com/v/${name}.jpg?oe=${oe}`;
+
+  const messageOf = (cover: string | undefined, slides: string[]): ProcessingJobMessage => ({
+    postId: 'post-outcomes',
+    accountId: 'account-outcomes',
+    content: 'caption',
+    imageUrl: cover,
+    postUrl: 'https://www.instagram.com/p/OUTCOMES/',
+    publishedAt: '2026-08-29T10:24:17Z',
+    additionalImageUrls: slides,
+  });
+
+  /** A fetch fake answering by file name: 'ok' (an image), 'status' (a 403), 'html' (not an image) or 'throw'. */
+  const installFetch = (behaviour: Record<string, 'ok' | 'status' | 'html' | 'throw'>) => {
+    globalThis.fetch = async (input: string | URL | Request) => {
+      const name = String(input).split('/').pop()!.split('.')[0];
+      const how = behaviour[name] ?? 'ok';
+      if (how === 'throw') throw new Error('network down');
+      if (how === 'status') return { ok: false, status: 403 } as any;
+      return {
+        ok: true,
+        headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? (how === 'html' ? 'text/html' : 'image/jpeg') : null) },
+        arrayBuffer: async () => Buffer.from(`bytes-${name}`),
+      } as any;
+    };
+  };
+  const readCount = (o: { cover: string | null; slides: string[] }) => (o.cover === 'READ' ? 1 : 0) + o.slides.filter((s) => s === 'READ').length;
+
+  await t.test('every image read: the cover and every slide are READ and the number of READ equals imagesSent', async () => {
+    installFetch({});
+    const result = await buildGeminiExtractionRequest(messageOf(img('c'), [img('s1'), img('s2')]), { maxCarouselImages: 10 });
+    assert.deepStrictEqual(result.imageOutcomes, { cover: 'READ', slides: ['READ', 'READ'], overCapSlides: 0 });
+    assert.strictEqual(readCount(result.imageOutcomes), result.imagesSent);
+  });
+
+  await t.test('a slide that answers non-OK is expired when its own link has expired, otherwise unavailable', async () => {
+    installFetch({ s1: 'status', s2: 'status' });
+    const result = await buildGeminiExtractionRequest(messageOf(img('c'), [img('s1', PAST), img('s2', FUTURE)]), { maxCarouselImages: 10 });
+    assert.deepStrictEqual(result.imageOutcomes.slides, ['NOT_READ_EXPIRED', 'NOT_READ_UNAVAILABLE']);
+    assert.strictEqual(result.imageOutcomes.cover, 'READ');
+    assert.strictEqual(readCount(result.imageOutcomes), result.imagesSent);
+  });
+
+  await t.test('a slide that is not an image, and a slide whose fetch throws, are unavailable', async () => {
+    installFetch({ s1: 'html', s2: 'throw' });
+    const result = await buildGeminiExtractionRequest(messageOf(img('c'), [img('s1'), img('s2')]), { maxCarouselImages: 10 });
+    assert.deepStrictEqual(result.imageOutcomes.slides, ['NOT_READ_UNAVAILABLE', 'NOT_READ_UNAVAILABLE']);
+  });
+
+  await t.test('slides beyond the cap are counted as over-cap and never fetched', async () => {
+    let calls = 0;
+    installFetch({});
+    const inner = globalThis.fetch;
+    globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
+      calls += 1;
+      return inner(...args);
+    }) as typeof fetch;
+    const result = await buildGeminiExtractionRequest(messageOf(img('c'), [img('s1'), img('s2'), img('s3'), img('s4')]), { maxCarouselImages: 2 });
+    assert.deepStrictEqual(result.imageOutcomes, { cover: 'READ', slides: ['READ', 'READ'], overCapSlides: 2 });
+    assert.strictEqual(calls, 3);
+    // The entry count (cover + tried + over cap) is imagesAvailable.
+    assert.strictEqual(1 + result.imageOutcomes.slides.length + result.imageOutcomes.overCapSlides, result.imagesAvailable);
+  });
+
+  await t.test('cover fetch failed, slidesWhenCoverFails on: the cover is classified, the slides are read', async () => {
+    installFetch({ c: 'status' });
+    const result = await buildGeminiExtractionRequest(messageOf(img('c', PAST), [img('s1'), img('s2')]), { maxCarouselImages: 10, slidesWhenCoverFails: true });
+    assert.deepStrictEqual(result.imageOutcomes, { cover: 'NOT_READ_EXPIRED', slides: ['READ', 'READ'], overCapSlides: 0 });
+    assert.strictEqual(readCount(result.imageOutcomes), result.imagesSent);
+  });
+
+  await t.test('a cover with no oe parameter reads as expired only when the stored expiry (posts.image_url_expires_at) has passed, like the refresh rule', async () => {
+    installFetch({ c: 'status' });
+    const bare = 'https://cdn.example.com/v/c.jpg';
+    const past = await buildGeminiExtractionRequest(messageOf(bare, []), { maxCarouselImages: 10, slidesWhenCoverFails: true, coverExpiresAt: new Date(Date.now() - 60_000) });
+    assert.strictEqual(past.imageOutcomes.cover, 'NOT_READ_EXPIRED');
+    const future = await buildGeminiExtractionRequest(messageOf(bare, []), { maxCarouselImages: 10, slidesWhenCoverFails: true, coverExpiresAt: new Date(Date.now() + 60_000) });
+    assert.strictEqual(future.imageOutcomes.cover, 'NOT_READ_UNAVAILABLE');
+    const none = await buildGeminiExtractionRequest(messageOf(bare, []), { maxCarouselImages: 10, slidesWhenCoverFails: true });
+    assert.strictEqual(none.imageOutcomes.cover, 'NOT_READ_UNAVAILABLE');
+  });
+
+  await t.test('a link expiring in 3 minutes whose fetch failed is unavailable (its own expiry has not passed: no safety margin in the banner)', async () => {
+    installFetch({ c: 'status', s1: 'status' });
+    const soon = hex(Date.now() + 3 * 60_000);
+    const result = await buildGeminiExtractionRequest(messageOf(img('c', soon), [img('s1', soon)]), { maxCarouselImages: 10, slidesWhenCoverFails: true });
+    assert.deepStrictEqual(result.imageOutcomes, { cover: 'NOT_READ_UNAVAILABLE', slides: ['NOT_READ_UNAVAILABLE'], overCapSlides: 0 });
+  });
+
+  await t.test('cover fetch failed, slidesWhenCoverFails off: the slides are never tried and read as unavailable', async () => {
+    installFetch({ c: 'status' });
+    const result = await buildGeminiExtractionRequest(messageOf(img('c'), [img('s1')]));
+    assert.deepStrictEqual(result.imageOutcomes, { cover: 'NOT_READ_UNAVAILABLE', slides: ['NOT_READ_UNAVAILABLE'], overCapSlides: 0 });
+    assert.strictEqual(result.imagesSent, 0);
+  });
+
+  await t.test('a cover whose blur failed closed is unavailable and the request is text-only, slides included', async () => {
+    installFetch({});
+    setDetectAndBlurFacesSeam(async () => {
+      throw new Error('blur failed');
+    });
+    const result = await buildGeminiExtractionRequest(messageOf(img('c'), [img('s1')]), {
+      blurFacesBeforeAi: { isOwnerOptedIn: false },
+      maxCarouselImages: 10,
+      slidesWhenCoverFails: true,
+    });
+    assert.deepStrictEqual(result.imageOutcomes, { cover: 'NOT_READ_UNAVAILABLE', slides: ['NOT_READ_UNAVAILABLE'], overCapSlides: 0 });
+    assert.strictEqual(result.imagesSent, 0);
+  });
+
+  await t.test('a slide whose blur had no time left is unavailable, the others stay read', async () => {
+    installFetch({});
+    setDetectAndBlurFacesSeam(async (buffer: Buffer) => ({ buffer, faceCount: 0 }));
+    let remaining = 1_000_000;
+    const result = await buildGeminiExtractionRequest(messageOf(img('c'), [img('s1'), img('s2')]), {
+      blurFacesBeforeAi: { isOwnerOptedIn: false, getRemainingTimeInMillis: () => (remaining -= 0) },
+      maxCarouselImages: 10,
+    });
+    assert.deepStrictEqual(result.imageOutcomes.slides, ['READ', 'READ']);
+    remaining = 0;
+    const short = await buildGeminiExtractionRequest(messageOf(img('c'), [img('s1')]), {
+      blurFacesBeforeAi: { isOwnerOptedIn: false, getRemainingTimeInMillis: () => remaining },
+      maxCarouselImages: 10,
+    });
+    assert.strictEqual(short.imageOutcomes.cover, 'NOT_READ_UNAVAILABLE');
+  });
+
+  await t.test('a post that lists slides and no cover has no cover outcome', async () => {
+    installFetch({});
+    const result = await buildGeminiExtractionRequest(messageOf(undefined, [img('s1'), img('s2')]), { maxCarouselImages: 10, slidesWhenCoverFails: true });
+    assert.deepStrictEqual(result.imageOutcomes, { cover: null, slides: ['READ', 'READ'], overCapSlides: 0 });
+    assert.strictEqual(readCount(result.imageOutcomes), result.imagesSent);
+  });
+
+  await t.test('a repeated cover or slide (same file name) is de-duplicated out of the outcomes too', async () => {
+    installFetch({});
+    const result = await buildGeminiExtractionRequest(messageOf(img('c'), [img('c', 'ffffffff'), img('s1'), img('s1', 'eeeeeeee')]), { maxCarouselImages: 10 });
+    assert.strictEqual(result.imagesAvailable, 2);
+    assert.deepStrictEqual(result.imageOutcomes, { cover: 'READ', slides: ['READ'], overCapSlides: 0 });
+  });
+
+  await t.test('a post with no images has no outcomes', async () => {
+    const result = await buildGeminiExtractionRequest(messageOf(undefined, []));
+    assert.deepStrictEqual(result.imageOutcomes, { cover: null, slides: [], overCapSlides: 0 });
   });
 });

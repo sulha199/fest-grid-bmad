@@ -2,9 +2,9 @@
 status: draft-for-review
 type: planning-proposal
 date: 2026-10-19
-related: [proposal-posthog-and-list-scale.md, proposal-discovery-ranking-and-scale.md, proposal-personalized-discovery.md §9–§10; prd §3.1, §4.3; Architecture Spine AD-17, AD-18, AD-30; backlog IDEA-073, IDEA-074, IDEA-076]
+related: [proposal-posthog-and-list-scale.md, proposal-discovery-ranking-and-scale.md, proposal-personalized-discovery.md §9–§10; prd §3.1, §4.3; Architecture Spine AD-17, AD-18, AD-30; backlog IDEA-261018-iv7, IDEA-074, IDEA-076]
 evidence: ./results/area-resolver-eval.generated.md · area-kinds-probe.generated.md · perf-candidates-*.generated.md · perf-pgbench-candidates.generated.md · plan-guard-month12.generated.txt · perf-count-and-ranking-*.generated.md
-backlog: [IDEA-081, IDEA-082, FIND-088 (re-analysed); decisions recorded on IDEA-075, IDEA-079, FIND-086]
+backlog: [IDEA-081, IDEA-082, FIND-261019-whr (re-analysed); decisions recorded on IDEA-075, IDEA-079, FIND-261018-p1z]
 ---
 
 # Target area, proactive scan prevention, and the total count — second pass
@@ -18,7 +18,7 @@ backlog: [IDEA-081, IDEA-082, FIND-088 (re-analysed); decisions recorded on IDEA
 | Stub events | The **audience's target area** is what matters, not the curator's location. Find the best way to define it and map it to the right area level; decide filtering/scoring for "target area but no recorded location" later. | §2 (design), IDEA-081 |
 | Retry sweep | **N-minute backoff and retry is enough** — the schedule in `profile-retry.ts` (15 min, 1 h, 6 h, 1 d, 3 d) on the existing 5-minute scraper rule. | IDEA-075 note |
 | Geoapify key | See §1: this is a cloud session; I cannot read your local `.env`. | §1 |
-| Stored captions | **Accept "cleared at next re-extraction".** No purge. | IDEA-075 / FIND-086 notes |
+| Stored captions | **Accept "cleared at next re-extraction".** No purge. | IDEA-075 / FIND-261018-p1z notes |
 | PostHog | **Approved** (plan, order and privacy posture of `proposal-posthog-and-list-scale.md` §7). | IDEA-079 → `triaged` |
 | Roundup heading as a stated area | **Yes** (reply 2): a place in a roundup's heading counts as a stated area for items that state none — with the guardrails of §2.6. | §2.6, IDEA-081 |
 | Slow table scans | **Prevent proactively.** | §3, IDEA-082 |
@@ -26,7 +26,7 @@ backlog: [IDEA-081, IDEA-082, FIND-088 (re-analysed); decisions recorded on IDEA
 
 ## 1. The Geoapify key
 
-This session runs in a cloud container (not on your machine): the repository was cloned from GitHub, so your local `.env` is not in it — only `.env.example` — and I have no way to read files on your computer. Nothing is blocked on the network: `api.geoapify.com` answers from here (HTTP 401 without a key). To give me the key without pasting it into chat, add `GEOAPIFY_API_KEY` to the cloud environment (environment menu in the session's title bar → Edit → a network secret / environment variable). A **new session** picks it up. **But read `prod-readonly/README.md` first for anything touching production**: do not copy the whole `.env` into the cloud environment (the cloud proxy cannot carry raw-TCP databases anyway); the key for this one HTTPS service is the only thing worth adding. With it I can run `probe-geocode-country.ts` (BUG-066) and calibrate the confidence floor, and test the geocoder side of §2. Until then I have not mocked or invented any geocoder result.
+This session runs in a cloud container (not on your machine): the repository was cloned from GitHub, so your local `.env` is not in it — only `.env.example` — and I have no way to read files on your computer. Nothing is blocked on the network: `api.geoapify.com` answers from here (HTTP 401 without a key). To give me the key without pasting it into chat, add `GEOAPIFY_API_KEY` to the cloud environment (environment menu in the session's title bar → Edit → a network secret / environment variable). A **new session** picks it up. **But read `prod-readonly/README.md` first for anything touching production**: do not copy the whole `.env` into the cloud environment (the cloud proxy cannot carry raw-TCP databases anyway); the key for this one HTTPS service is the only thing worth adding. With it I can run `probe-geocode-country.ts` (BUG-261018-abg) and calibrate the confidence floor, and test the geocoder side of §2. Until then I have not mocked or invented any geocoder result.
 
 **What this session does and does not have access to** (you asked, because it was not clear): I have **not** connected to your production database, and I have **not** read your local `.env` — I cannot. Everything I measured ran on a PostgreSQL I created inside this container with synthetic data (`seed:volume`), as each document says. The repositories were cloned from GitHub. The container does carry environment variables set on the cloud environment — I listed the *names* only: a Gemini key (`SYSTEM_GEMINI_API_KEY`, which the live extraction experiments and the probe in §2.9 used), plus an **Apify token and AWS credentials that I have not used**. I cannot tell what those two can reach; if they are not meant to be in a cloud environment, or are production-scoped, it is worth reviewing the environment's variable list and removing what the work does not need. I will not use them unless you ask. The statements that depend on real data (the legacy accounts being Indonesian curators, `SHOW jit`, real event counts) are still yours to confirm; the SQL for each is in the backlog notes.
 
@@ -69,7 +69,7 @@ Caveat that matters: the sample gazetteer was typed by me **after** reading thes
 6. **The key level for ordering is the regency/city**, the unit people name; localities and districts roll up to it, provinces and aggregates cover many.
 7. **Ordering tier from keys, not text** (`tierFor`): any rung on the user's ladder — same, inside, a containing area, or a sibling — is tier 0; a national audience is tier 1; elsewhere is tier 2. (A DIY event is tier 0 for a user in Sleman; "Jawa" is tier 0 because its members include the user's province; Jabodetabek and Bali are tier 2.)
 
-This also supplies the missing writer for BUG-063 (`adminArea` is never written) and is the resolver half of IDEA-073.
+This also supplies the missing writer for BUG-261018-ij7 (`adminArea` is never written) and is the resolver half of IDEA-261018-iv7.
 
 ### 2.5 Target area but no recorded location — options for the later decision
 
@@ -208,13 +208,13 @@ Searched `apps/web/src`: **nobody reads `totalCount` from the shared `getEvents`
 Remove `totalCount` from the shared `GetEvents` document (nothing reads it); keep the schema field, computed only when selected (already true). Add a ratchet so it does not creep back: a test that scans the web's `.graphql` documents and fails if a list document selects `totalCount` outside an allowlist (Archive, favorited ids). Optionally trim the count statement's unneeded `LEFT JOIN`s to `schedules` and `posts` for the remaining readers.
 
 ## 5. Backlog and next steps
-* **IDEA-081** — target-area resolver: gazetteer + aggregates + level from the gazetteer (supplies BUG-063's writer; half of IDEA-073). Needs the official data source and the Geoapify key.
+* **IDEA-081** — target-area resolver: gazetteer + aggregates + level from the gazetteer (supplies BUG-261018-ij7's writer; half of IDEA-261018-iv7). Needs the official data source and the Geoapify key.
 * **IDEA-082** — plan-regression guard + statement timeout + JIT off + junction candidate generation (the "prevent slow scans" epic seed; depends on IDEA-076).
-* **FIND-088** — re-analysed (§4): remove `totalCount` from the Discovery document; the case is stronger after the foundation.
+* **FIND-261019-whr** — re-analysed (§4): remove `totalCount` from the Discovery document; the case is stronger after the foundation.
 * **IDEA-079** — PostHog: approved, `triaged`.
-* **Decisions recorded** on IDEA-075 (retry schedule accepted; captions "cleared at next re-extraction") and FIND-086.
+* **Decisions recorded** on IDEA-075 (retry schedule accepted; captions "cleared at next re-extraction") and FIND-261018-p1z.
 
-Order: FIND-088 → PostHog basics → JIT off + statement timeout + tie-break → IDEA-076 foundation **with the plan guard in CI from its first story** → area resolver (IDEA-081) feeding the junction table → area tier with horizon → IDEA-080 → freshness/seen → close matches. When you want these as stories, `bmad-create-epics-and-stories` is the next step; I have not started it.
+Order: FIND-261019-whr → PostHog basics → JIT off + statement timeout + tie-break → IDEA-076 foundation **with the plan guard in CI from its first story** → area resolver (IDEA-081) feeding the junction table → area tier with horizon → IDEA-080 → freshness/seen → close matches. When you want these as stories, `bmad-create-epics-and-stories` is the next step; I have not started it.
 
 ## 6. Limits
 * **Synthetic data, database only, one sandbox**, medians of 5; build-to-build variation is real (the same junction-vs-overlap comparison flipped plan type between builds). Do not read differences below ~30% as findings.

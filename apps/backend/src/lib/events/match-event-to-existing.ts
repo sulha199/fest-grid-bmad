@@ -3,6 +3,8 @@ import { events, schedules, socialMediaAccountProfiles } from '@festgrid/databas
 import { activeOnly } from '@festgrid/graphql-select';
 import type { EventInsertValues, ScheduleInsertValues } from '@festgrid/domain/events';
 import {
+  DATE_WINDOW_DAYS,
+  SHARED_LINK_DATE_WINDOW_DAYS,
   decideMatchTier,
   hasSharedEventLink,
   minScheduleDayDifference,
@@ -22,15 +24,10 @@ type ScheduleRow = typeof schedules.$inferSelect;
 const CANDIDATE_LIMIT = 20;
 // AC1 -- do not rely on the mutable `pg_trgm.similarity_threshold` GUC; filter explicitly.
 const NAME_SIMILARITY_FLOOR = 0.3;
-// AC1 -- candidates are selected by schedule date-range overlap within +/-2 days of any of the
-// new item's schedules.
-export const DATE_WINDOW_DAYS = 2;
-// BUG-063 -- a candidate sharing a normalized event link with the new item is also admitted when
-// a schedule is within +/-90 days: a registration-deadline post and the race-day post of one
-// event sit weeks apart (GembiRun Loka 2026: 21 Oct vs 8 Nov), far outside +/-2 days. 90 days
-// covers a registration window; it stays well short of a yearly re-run of the same event. Such a
-// candidate is capped at `mid` (see `capTierWhenOutsideDateWindow`) -- it is never auto-linked.
-const SHARED_LINK_DATE_WINDOW_DAYS = 90;
+// AC1 / BUG-063 -- the date windows live in the domain (`DATE_WINDOW_DAYS`: candidates within +/-2 days
+// of a new schedule; `SHARED_LINK_DATE_WINDOW_DAYS`: +/-90 days when a normalized link is shared) so the
+// AI reviewer's floor reads the same numbers. Re-exported for the callers that import them from here.
+export { DATE_WINDOW_DAYS };
 const TIER_RANK: Record<MatchTier, number> = { low: 0, mid: 1, high: 2 };
 
 export interface MatchSourcePost {

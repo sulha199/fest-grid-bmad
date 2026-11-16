@@ -20,8 +20,8 @@ vi.mock('@/features/events/EventDetailWrapper', () => ({
   EventDetailWrapper: () => null,
 }));
 
-vi.mock('@festgrid/ui', () => ({
-  RouteLoader: () => null,
+vi.mock('@/features/events/EventDetailLoading', () => ({
+  EventDetailLoading: () => null,
 }));
 
 vi.mock('next-intl/server', () => ({

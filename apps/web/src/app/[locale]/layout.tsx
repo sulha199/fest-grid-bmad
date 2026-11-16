@@ -12,6 +12,7 @@ import { routing } from '../../i18n/routing';
 import { ScopedLocaleProvider, SoftDeleteToaster } from '@festgrid/ui';
 import { AppShellWrapper } from '@/components/layout/AppShellWrapper';
 import { buildPageMetadata } from '@/lib/metadata';
+import { JobAnnouncerProvider } from '@/features/jobs/job-announcer-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -97,10 +98,12 @@ export default async function RootLayout({
                       locale={localeIntlTagMap[locale] ?? locale}
                       timezone={timezoneIntlMap[locale]}
                     >
-                      <AppShellWrapper>
-                        {children}
-                        {modal}
-                      </AppShellWrapper>
+                      <JobAnnouncerProvider>
+                        <AppShellWrapper>
+                          {children}
+                          {modal}
+                        </AppShellWrapper>
+                      </JobAnnouncerProvider>
                       <SoftDeleteToaster />
                     </ScopedLocaleProvider>
                   </AuthSessionProvider>

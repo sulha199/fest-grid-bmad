@@ -20,12 +20,12 @@
 | events per event-post | **1.08** (1,286 posts hold the 1,394 events as primary post; 0 events without a post) | the forecast's 1.0 is 8% low; small |
 | jsonb encoding | `schedules.location_details` 1,460 of 1,460 **string**; `default_location` 28 of 28; `events.links` 247 of 247; `posts.additional_image_urls` 496 of 496; 0 objects or arrays | **BUG-068 confirmed**; the migration for these four columns is 2,231 rows |
 | schedules | 1,725 (1.24 per event); 265 with no location (15%); 1,460 pinned | |
-| `with_admin_area` | **0** of 1,460 | BUG-063 confirmed on production |
+| `with_admin_area` | **0** of 1,460 | BUG-261018-ij7 confirmed on production |
 | `with_venue_type` | 37 of 1,460 (2.5%) | `venueType` is too sparse to be a filter vocabulary today |
 | `low_confidence_pins` (stored confidence < 0.5) | **627** of 1,460 (43%) | see §3; pins with no stored confidence are not in this count |
 | pins outside Indonesia's box | 379 (26%) | a **floor** on wrong pins (§3) |
 | country mix (all 1,725 schedules) | id 933, (none) 425 = 160 pinned without a country code + 265 unpinned, us 104, fr 41, dk 27, my 24, in 23, es 19, eg 13, ca 11, br 10, lb 7, pk 6, et 6, mx 6 | |
-| accounts | 466 with no type and no status (463 without a default location); `CURATOR_GUIDE` 17 (**11 of them hold a default location**); `ORGANIZER_VENUE_EVENT` 16 (2 without); 1 awaiting approval | the IDEA-075 bulk update is 466 accounts; the 11 curator defaults are the BUG-065 leftovers |
+| accounts | 466 with no type and no status (463 without a default location); `CURATOR_GUIDE` 17 (**11 of them hold a default location**); `ORGANIZER_VENUE_EVENT` 16 (2 without); 1 awaiting approval | the IDEA-075 bulk update is 466 accounts; the 11 curator defaults are the BUG-261018-jwf leftovers |
 | indexes with 0 scans | `event_types_idx`, `event_name_idx`, `event_location_idx`, `schedule_location_idx`, `schedule_performers_idx`, `schedules_slug_unique`, `posts_platform_post_identity_idx` (160 kB, new to the list) | all under 250 kB; dropping them saves little and is not a priority. In use: `schedule_coordinates_idx` 523 scans, `idx_events_event_name_trgm` 286 (the matcher) |
 
 ## 2. Check 2 — the recall classes, and a bug in my query
@@ -64,7 +64,7 @@ What this says:
 * **A country filter does not fix it.** Under the filter, Auditorium and Montero stay wrong, now inside Indonesia. This agrees with the decision already taken (country as a *preference* plus a confidence floor, never a silent filter); the floor, not the country, is the protection.
 * **A confidence floor works on venue texts and fails on area phrases.** All five wrong venue answers are at or below 0.20; a floor of 0.5 rejects them all and rejects no right answer (the lowest right one is 0.67). The two wrong area phrases score **0.66 and 0.50**, so the placeholder floor of 0.5 (`>=`) *accepts both*. A floor of 0.67 would separate this sample perfectly but sits on a knife edge between 0.66 and 0.67 over 14 hand-picked texts: **do not calibrate to this sample.** The better fix for the area phrases is not a higher floor but not sending them to a place geocoder at all: they are areas, and resolving them is the gazetteer's job (IDEA-081, `area-resolver.ts`), yielding an area key, not a pin.
 * **Production's stored confidence says the problem is large:** 627 of 1,460 pins are under 0.5, and in the probe every venue answer under 0.5 was wrong. Together with the 265 unpinned schedules, **at least 892 of 1,725 schedules (about 52%) have no pin or an untrustworthy one** (a lower bound: pins with no stored confidence are not counted).
-* **The Sleman City Hall puzzle is still open.** The probe geocodes "Sleman City Hall" correctly (id, 1.00) in every mode, yet production stored 26 of its schedules in the US. So the stored query text or parameters differ from the probe's. Candidates: the account's stored default country used as the bias (BUG-066 mechanism 4; the probe used `--country id`, production would use whatever the account's default holds), a poisoned geocode-cache entry, or a pin that did not come from the geocoder. `confidence-by-country-box.sql` answers it with counts: the stored confidence, provider and match type of the 26, and the pin country against the account's default country. Probe variant 7 in the brief (`--country us`) tests the bias explanation directly.
+* **The Sleman City Hall puzzle is still open.** The probe geocodes "Sleman City Hall" correctly (id, 1.00) in every mode, yet production stored 26 of its schedules in the US. So the stored query text or parameters differ from the probe's. Candidates: the account's stored default country used as the bias (BUG-261018-abg mechanism 4; the probe used `--country id`, production would use whatever the account's default holds), a poisoned geocode-cache entry, or a pin that did not come from the geocoder. `confidence-by-country-box.sql` answers it with counts: the stored confidence, provider and match type of the 26, and the pin country against the account's default country. Probe variant 7 in the brief (`--country us`) tests the bias explanation directly.
 
 **Consequence for the conversation you want next.** Roughly half of all schedules lack a trustworthy location, and 18% of events are stubs. An event that has a target area but no usable pin is therefore not an edge case; it is **half the catalogue**. That supports your earlier position that the audience's target area matters more than the location, and it makes the filtering and scoring rule for such events the central design question, not a refinement.
 
@@ -73,12 +73,12 @@ What this says:
 | Item | Effect |
 |---|---|
 | BUG-068 | confirmed in production on four columns; the other 23 are inferred from the mechanism. Migration scope for the four visible columns is 2,231 rows. Decided 2026-10-19: fix first, ahead of IDEA-074; mechanism `customJsonb` on the 27 columns (not the serializer line: see §9) |
-| BUG-063 | confirmed: `adminArea` is written for 0 of 1,460 pins; `venueType` for 37 |
-| BUG-066 | now measured: 43% of pins are under 0.5; wrong pins inside Indonesia are invisible to the box test; the filter does not help; area phrases need routing, not a floor. The 0.5 floor stays a placeholder until `confidence-by-country-box.sql` gives the production distribution |
+| BUG-261018-ij7 | confirmed: `adminArea` is written for 0 of 1,460 pins; `venueType` for 37 |
+| BUG-261018-abg | now measured: 43% of pins are under 0.5; wrong pins inside Indonesia are invisible to the box test; the filter does not help; area phrases need routing, not a floor. The 0.5 floor stays a placeholder until `confidence-by-country-box.sql` gives the production distribution |
 | IDEA-085 | the "5%" is retired; scope becomes sweep + stub scoring + queue (§2). AD-36 Rule 10's gate should name class-4 recall and the sweep, not "above 5%" |
-| IDEA-075 | 466 legacy accounts confirmed; 11 of 17 curators hold a default location that BUG-065 says is arbitrary: a cleanup decision for you |
+| IDEA-075 | 466 legacy accounts confirmed; 11 of 17 curators hold a default location that BUG-261018-jwf says is arbitrary: a cleanup decision for you |
 | IDEA-081 / area ladder | the gazetteer is the right place for area phrases (probe: 2 of 14 descriptions were areas answered as businesses) |
-| FIND-087, IDEA-076/082, FIND-088 | unchanged: not urgent at this size |
+| FIND-261018-9y3, IDEA-076/082, FIND-261019-whr | unchanged: not urgent at this size |
 
 ## 5. Corrections to my earlier review (`prod-findings-review-2026-10-19.md`)
 
@@ -94,7 +94,7 @@ Four items, `readonly_2` only: the fixed `recall-classes.sql`, `recall-class4-st
 
 1. **BUG-068 (decided, see §9):** serializer line (my recommendation at the time) or Drizzle upgrade, and may it run ahead of the personalization work? The production check turns "may it" into "must it": every SQL-side location read is blind today.
 2. **IDEA-085 scope:** do you want the sweep of legacy duplicates and the stub scoring rule in it?
-3. **Curator defaults:** clear the 11 curator default locations (they are arbitrary by BUG-065), or leave them?
+3. **Curator defaults:** clear the 11 curator default locations (they are arbitrary by BUG-261018-jwf), or leave them?
 4. **Whether to proceed to the filtering and scoring discussion now** (events with a target area and no trustworthy pin), or after Round 2.
 
 ## 8. Not verified
@@ -110,7 +110,7 @@ Four items, `readonly_2` only: the fixed `recall-classes.sql`, `recall-class4-st
 |---|---|---|
 | BUG-068: which fix, and before the personalization work? | Fix first, **ahead of IDEA-074**. **Mechanism changed by me after the decision:** `customJsonb` on the 27 plain `jsonb()` columns + a ratchet test, then the row migration. Reason: reading `deferred-work.md` showed the team fixed the same bug on three columns on 2026-08-29 with exactly this type (proven on production, with a test); the serializer line would make those three columns raise an error (probe), a Drizzle upgrade likewise; the swap is migration-neutral (`drizzle-kit generate` on a copy: "No schema changes"). Say so if you prefer the serializer route. Status `triaged`, **not implemented** | `backlog/BUG-068-…md` (implementation spec), `backlog/BUG-068-jsonb-migration/` (tested runbook) |
 | IDEA-085 scope | sweep of the legacy pairs + stub scoring + moderator queue; AD-36 Rule 10's gate to be restated on class-4 recall. Status `triaged` | `backlog/IDEA-085-…md` |
-| Curator default locations (11 of 17) | clear them **after** the BUG-065 code gate ships, as a runbook step | `backlog/BUG-065-…md` |
+| Curator default locations (11 of 17) | clear them **after** the BUG-261018-jwf code gate ships, as a runbook step | `backlog/BUG-261018-jwf-…md` |
 | Filtering and scoring for events with a target area and no usable pin | **after Round 2** | this document §6 |
 
 Not done, on purpose: nothing was written to production, AD-36 was not edited. *Update, same day: the BUG-068 writer fix was then implemented at the product owner's request ("do it"), see Addendum 15; the "no product code was changed" statement above held until then.*
@@ -126,7 +126,7 @@ Files: `results/recall-classes-prod-2026-10-19-v2.txt`, `results/recall-class4-s
 * **It is not the whole story.** Pairs of two full events with no shared link: only 17 of 46 are candidates, so **29 uncovered pairs are unexplained by the stub rule.** From the code, the organizer weight (0.40) goes through `post_account_associations` on the posts linked by `event_posts` (not through `events.source_social_media_account_id`, which the report's pairs use), so a pair that looks same-account can still score without it; a path that does not run the matcher is also possible. Only a replay of `computeMatchScore` over the 178 pairs decides it.
 * Totals the sweep and the scoring fix would touch: 160 legacy + 155 uncovered reachable = 315 of 446 pairs; the 107 recurring pairs are mostly not duplicates.
 
-### 10.2 Pins, confidence and the wrong country (BUG-066)
+### 10.2 Pins, confidence and the wrong country (BUG-261018-abg)
 
 | | inside the box (1,081) | outside the box (379) |
 |---|--:|--:|
@@ -134,14 +134,14 @@ Files: `results/recall-classes-prod-2026-10-19-v2.txt`, `results/recall-class4-s
 | stored confidence ≥ 0.5 | 546 | 129 (83 at exactly 1.00) |
 | no confidence stored | 122 | 36 |
 
-* **The distributions overlap**, so a floor alone cannot fix BUG-066: a floor of 0.5 would drop 413 pins inside Indonesia (an unknown share of them right) and keep 129 outside.
-* **Why high confidence is not safe:** the outside pins at 1.00 are partly legitimate foreign events (Denmark Open 27, Egypt 13) and partly confident nonsense: **"Online" answered with Montpellier at 1.00** (BUG-064, not a geocoder fault), "Court 2" answered with Canada at 1.00.
+* **The distributions overlap**, so a floor alone cannot fix BUG-261018-abg: a floor of 0.5 would drop 413 pins inside Indonesia (an unknown share of them right) and keep 129 outside.
+* **Why high confidence is not safe:** the outside pins at 1.00 are partly legitimate foreign events (Denmark Open 27, Egypt 13) and partly confident nonsense: **"Online" answered with Montpellier at 1.00** (BUG-261018-nyt, not a geocoder fault), "Court 2" answered with Canada at 1.00.
 * **The failing texts have a shape.** The Sleman City Hall rows are compound texts, not the plain name the probe used: "Atrium & Plaza Rama, Sleman City Hall" (US, 0.00, 5 schedules), "Atrium Shinta, Ground Floor, Sleman City Hall, Jl. Magelang" (France, 0.00), "Customer Service, Ground Floor, Sleman City Hall" (US, 0.55). The same generic word recurs elsewhere: "Atrium Lower Ground, Galeria Mall" (US, 0.00, six schedules), "Grand Atrium Pakuwon Mall Jogja" (Pakistan, 0.00), "Sky Commons, Lantai 3A, Plaza Ambarrukmo" (Spain, 0.06), "TKP JOGJA Lantai 2, Pakuwon Mall Jogja" (Spain, 0.00), "Watsons, Ground Floor Galeria Mall" (Mexico, 0.70), "Convention Hall Lt.2" (Canada, 0.81). **A sub-venue qualifier (atrium, floor, hall, court, counter) in front of the venue name makes the geocoder match the generic word.** Most of these score 0.00–0.06, so a floor catches them; the 0.55–0.81 ones show it cannot catch all.
-* **The bias explanation is refuted for the plain text and mostly for the rest.** With `bias=us` 12 of 14 probe descriptions answer exactly as with `bias=id` (the two that moved were already wrong at 0.00), and plain "Sleman City Hall" stays correct. In production, of the first 333 outside pins, **214 (64%) come from accounts with no default location** (so no bias at all: BUG-066 mechanism 1) and the pin country equals the account's default country in only 15. The app sends only a soft `bias=countrycode:` and never a filter (`geoapify-client.ts:60`), and the probe shows that bias has little effect on a bad text, so "bias to Indonesia when there is no account default" (already decided) is necessary but would not have fixed these.
+* **The bias explanation is refuted for the plain text and mostly for the rest.** With `bias=us` 12 of 14 probe descriptions answer exactly as with `bias=id` (the two that moved were already wrong at 0.00), and plain "Sleman City Hall" stays correct. In production, of the first 333 outside pins, **214 (64%) come from accounts with no default location** (so no bias at all: BUG-261018-abg mechanism 1) and the pin country equals the account's default country in only 15. The app sends only a soft `bias=countrycode:` and never a filter (`geoapify-client.ts:60`), and the probe shows that bias has little effect on a bad text, so "bias to Indonesia when there is no account default" (already decided) is necessary but would not have fixed these.
 
-### 10.3 What this suggests for BUG-066's fix (for the decision, not decided)
+### 10.3 What this suggests for BUG-261018-abg's fix (for the decision, not decided)
 
-In order of evidence: (1) do not geocode "Online" and other non-places (BUG-064); (2) strip the sub-venue qualifier before geocoding, keep venue name plus city (a Round 3 probe on the production texts would test it); (3) keep the confidence floor as a cheap net for the 0.00–0.06 cases; (4) **validate the answer against the event's stated target area**: a pin in Mexico for an event whose post says Jogja is wrong whatever the confidence. (4) is the only check that catches the confident nonsense, and it needs the area ladder and the resolver (IDEA-073, IDEA-081): it is where this thread meets the filtering and scoring discussion you scheduled after Round 2.
+In order of evidence: (1) do not geocode "Online" and other non-places (BUG-261018-nyt); (2) strip the sub-venue qualifier before geocoding, keep venue name plus city (a Round 3 probe on the production texts would test it); (3) keep the confidence floor as a cheap net for the 0.00–0.06 cases; (4) **validate the answer against the event's stated target area**: a pin in Mexico for an event whose post says Jogja is wrong whatever the confidence. (4) is the only check that catches the confident nonsense, and it needs the area ladder and the resolver (IDEA-261018-iv7, IDEA-081): it is where this thread meets the filtering and scoring discussion you scheduled after Round 2.
 
 ### 10.4 Next, if you want it
 

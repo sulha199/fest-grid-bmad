@@ -107,3 +107,114 @@ test('loadBackendEnv rejects a prompt-filter rate-limit knob that is not a plain
     /PROMPT_FILTER_RATE_LIMIT_WINDOW_MINUTES must be a positive integer/
   );
 });
+
+// The alert-email budget for the public reportSystemError mutation: same rules as the knobs above.
+test('loadBackendEnv defaults the alert-email budget to 10 per 10 minutes and reads whole-number overrides', () => {
+  assert.strictEqual(withRateLimitEnv('SYSTEM_ERROR_ALERT_MAX_EMAILS', undefined, () => loadBackendEnv().systemErrorAlertMaxEmails), 10);
+  assert.strictEqual(withRateLimitEnv('SYSTEM_ERROR_ALERT_WINDOW_MINUTES', undefined, () => loadBackendEnv().systemErrorAlertWindowMinutes), 10);
+  assert.strictEqual(withRateLimitEnv('SYSTEM_ERROR_ALERT_MAX_EMAILS', ' 3 ', () => loadBackendEnv().systemErrorAlertMaxEmails), 3);
+  assert.strictEqual(withRateLimitEnv('SYSTEM_ERROR_ALERT_WINDOW_MINUTES', '30', () => loadBackendEnv().systemErrorAlertWindowMinutes), 30);
+});
+
+test('loadBackendEnv defaults the moderator-notification cooldown to 60 minutes, reads an override and rejects a bad value (Story 0.i1a)', () => {
+  assert.strictEqual(withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', undefined, () => loadBackendEnv().moderatorNotifyCooldownMinutes), 60);
+  assert.strictEqual(withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', ' 15 ', () => loadBackendEnv().moderatorNotifyCooldownMinutes), 15);
+  for (const bad of ['0', '-3', '1e3', '10abc', '1.5']) {
+    assert.throws(
+      () => withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', bad, () => loadBackendEnv()),
+      /MODERATOR_NOTIFY_COOLDOWN_MINUTES must be a positive integer/,
+      JSON.stringify(bad)
+    );
+  }
+  // The cap keeps the 30-day prune from deleting a live window (7 days is accepted, one minute more is not).
+  assert.strictEqual(withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', '10080', () => loadBackendEnv().moderatorNotifyCooldownMinutes), 10080);
+  assert.throws(
+    () => withRateLimitEnv('MODERATOR_NOTIFY_COOLDOWN_MINUTES', '10081', () => loadBackendEnv()),
+    /MODERATOR_NOTIFY_COOLDOWN_MINUTES must be at most 10080/
+  );
+});
+
+test('loadBackendEnv rejects an alert-email budget knob that is not a plain positive integer', () => {
+  for (const name of ['SYSTEM_ERROR_ALERT_MAX_EMAILS', 'SYSTEM_ERROR_ALERT_WINDOW_MINUTES']) {
+    for (const bad of ['0', '-3', '1e3', '10abc', '1.5']) {
+      assert.throws(
+        () => withRateLimitEnv(name, bad, () => loadBackendEnv()),
+        new RegExp(`${name} must be a positive integer`),
+        `${name}=${JSON.stringify(bad)}`
+      );
+    }
+  }
+});
+
+test('loadBackendEnv reads the job-engine settings and rejects anything that is not a plain positive integer (review of Story 10.1a)', () => {
+  assert.strictEqual(withRateLimitEnv('JOB_ATTEMPT_DEADLINE_MS', ' 90000 ', () => loadBackendEnv().jobAttemptDeadlineMs), 90000);
+  assert.strictEqual(withRateLimitEnv('JOB_WORKER_CLAIM_TTL_MINUTES', '7', () => loadBackendEnv().jobWorkerClaimTtlMinutes), 7);
+  // A typo must fail loudly: '150s' read as NaN expired every job at once, and a TTL of 0 made every claim stale, so a
+  // redelivered invoke ran the same job twice.
+  for (const bad of ['0', '-3', '150s', '1e3', '1.5', 'abc', ' ']) {
+    assert.throws(
+      () => withRateLimitEnv('JOB_ATTEMPT_DEADLINE_MS', bad, () => loadBackendEnv()),
+      /JOB_ATTEMPT_DEADLINE_MS must be a positive integer/,
+      JSON.stringify(bad)
+    );
+    assert.throws(
+      () => withRateLimitEnv('JOB_WORKER_CLAIM_TTL_MINUTES', bad, () => loadBackendEnv()),
+      /JOB_WORKER_CLAIM_TTL_MINUTES must be a positive integer/,
+      JSON.stringify(bad)
+    );
+  }
+});
+
+
+test('loadBackendEnv reads the admission and subscription-cap settings (Story 10.3) with their defaults and rejects a bad value', () => {
+  const settings = [
+    ['MAX_CONCURRENT_JOBS_PER_USER', 'maxConcurrentJobsPerUser', 3, '6'],
+    ['MAX_QUEUED_JOBS_PER_USER', 'maxQueuedJobsPerUser', 10, '12'],
+    ['JOB_QUEUE_MAX_WAIT_MINUTES', 'jobQueueMaxWaitMinutes', 30, '45'],
+    ['JOBS_HISTORY_RETENTION_DAYS', 'jobsHistoryRetentionDays', 30, '60'],
+    ['JOB_NOTIFY_WINDOW_MINUTES', 'jobNotifyWindowMinutes', 10, '20'],
+    ['JOB_NOTIFY_GRACE_SECONDS', 'jobNotifyGraceSeconds', 45, '30'],
+    ['JOB_NOTIFY_MAX_AGE_MINUTES', 'jobNotifyMaxAgeMinutes', 60, '90'],
+    ['MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', 'maxSubscribedAccountsFreeUser', 5, '8'],
+  ] as const;
+  for (const [name, key, fallback, custom] of settings) {
+    assert.strictEqual(withRateLimitEnv(name, undefined, () => loadBackendEnv()[key]), fallback, `${name} default`);
+    assert.strictEqual(withRateLimitEnv(name, custom, () => loadBackendEnv()[key]), Number(custom), `${name} custom`);
+    for (const bad of ['0', '-1', '3x', '1.5', ' ']) {
+      assert.throws(
+        () => withRateLimitEnv(name, bad, () => loadBackendEnv()),
+        new RegExp(`${name} must be a positive integer`),
+        `${name}=${JSON.stringify(bad)}`
+      );
+    }
+  }
+});
+
+test('loadBackendEnv reads POST_SCRAPER_PROVIDER_ORDER raw (parsed with its default by parsePostScraperOrder, Story 10.2)', () => {
+  assert.strictEqual(withRateLimitEnv('POST_SCRAPER_PROVIDER_ORDER', undefined, () => loadBackendEnv().postScraperProviderOrder), undefined);
+  assert.strictEqual(withRateLimitEnv('POST_SCRAPER_PROVIDER_ORDER', 'apify,brightdata', () => loadBackendEnv().postScraperProviderOrder), 'apify,brightdata');
+});
+
+test('loadBackendEnv reads REEXTRACT_REFRESH_BUDGET_MS (Story 10.6): default 120000, strict positive integer', () => {
+  assert.strictEqual(withRateLimitEnv('REEXTRACT_REFRESH_BUDGET_MS', undefined, () => loadBackendEnv().reextractRefreshBudgetMs), 120000);
+  assert.strictEqual(withRateLimitEnv('REEXTRACT_REFRESH_BUDGET_MS', ' 90000 ', () => loadBackendEnv().reextractRefreshBudgetMs), 90000);
+  for (const bad of ['0', '-1', '2m', '1.5', ' ']) {
+    assert.throws(
+      () => withRateLimitEnv('REEXTRACT_REFRESH_BUDGET_MS', bad, () => loadBackendEnv()),
+      /REEXTRACT_REFRESH_BUDGET_MS must be a positive integer/,
+      JSON.stringify(bad)
+    );
+  }
+});
+
+test('loadBackendEnv reads BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES (Story 10.5): default 480, strict positive integer', () => {
+  assert.strictEqual(withRateLimitEnv('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', undefined, () => loadBackendEnv().brightdataSnapshotMaxWaitMinutes), 480);
+  assert.strictEqual(withRateLimitEnv('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', ' 120 ', () => loadBackendEnv().brightdataSnapshotMaxWaitMinutes), 120);
+  for (const bad of ['0', '-1', '8h', '1.5', ' ']) {
+    assert.throws(
+      () => withRateLimitEnv('BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES', bad, () => loadBackendEnv()),
+      /BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES must be a positive integer/,
+      JSON.stringify(bad)
+    );
+  }
+});

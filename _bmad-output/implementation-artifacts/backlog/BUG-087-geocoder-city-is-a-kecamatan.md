@@ -36,4 +36,4 @@ The province appears as "Special Region of Yogyakarta" and as "Yogyakarta". `Loc
 
 Resolve the geocoder's `city` INSIDE its province through the gazetteer hierarchy (kecamatan, kabupaten, province), with the narrowest match, and normalise the province aliases. The POC has both pieces: `area-resolver.ts` (`resolveArea(..., within)`) and `venue-resolution.ts` (`resolveGeocoderArea`), tested with these cases. Blocker: the POC gazetteer is a hand-typed sample; the real one must come from the official administrative-code list (Kemendagri / BPS) after checking its licence and revision.
 
-Related: BUG-063 (admin area never written), IDEA-073 (canonical area ladder), IDEA-081 (target-area resolver), IDEA-105 (target area in production).
+Related: BUG-261018-ij7 (admin area never written), IDEA-261018-iv7 (canonical area ladder), IDEA-081 (target-area resolver), IDEA-261027-ugg (target area in production).

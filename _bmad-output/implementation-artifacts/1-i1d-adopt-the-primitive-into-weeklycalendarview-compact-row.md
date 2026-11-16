@@ -171,6 +171,10 @@ new grid-item card in IDEA-026 both drop it). Since this story already shipped t
 single-line-date-box/reserved-slot-fallback version, both corrections needed a follow-up
 amendment before this drifted further from spec.
 
+### Board note moved from IDEA-016 (backlog.yaml, 2026-11-02)
+
+Story 1.i1d delivered thumbnail+fallback+date box on CalendarCard variant='list'; badges carved to IDEA-025. AMENDED 2026-09-14: 3 prototyping corrections not yet folded into a story amendment. Full detail in Story 1.i1d's Dev Notes. STALE NOTE CORRECTED 2026-09-29 (double-check against EVENT-CARD-DESIGN.md/MASONRY-CARD-SESSION-CHANGES-2026-09-27.md as source of truth): the '3 prototyping corrections not yet folded in' are exactly the gap IDEA-046 audited and closed via Story 1.i1l (explicitly named in that story's own opening paragraph) -- now `review`, verified against commit c80cd9b. No remaining unaddressed corrections from this row.
+
 ## Global Rules References
 
 - [x] `_bmad-output/project-context.md` — UI Components & Scalability rule (Domain Features → `packages/ui/src/features/<domain>/`, unchanged placement); State Management rule (Server State via React Query — `useToggleFavoriteMutation` wiring, Task 4, is Server State, not new Client Global State); Locale-Sensitive Data Rendering rule (till/end times formatted via `Intl`/`formatEventTime`, never raw-interpolated).

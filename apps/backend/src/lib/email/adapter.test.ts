@@ -52,6 +52,35 @@ test('sendTemplatedEmail adapter tests', async (t) => {
     }
   });
 
+  await t.test('SES Html.Data is escaped and Text.Data is not for a script-bearing value (Story 0.i1a, AC2)', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+
+    try {
+      let sentCommand: any = null;
+      setSesClient({
+        send: async (command: any) => {
+          sentCommand = command;
+          return { MessageId: 'msg-escape' };
+        },
+      } as unknown as SESv2Client);
+
+      const payload = `<script>alert(1)</script>"'&`;
+      await sendTemplatedEmail('DANGEROUS_EVENT_MODERATOR_ALERT', 'mod@example.invalid', {
+        eventName: payload,
+        moderatorReviewUrl: 'https://festdaily.app/moderator/items',
+      });
+
+      const simple = sentCommand.input.Content.Simple;
+      assert.ok(!simple.Body.Html.Data.includes('<script'));
+      assert.ok(simple.Body.Html.Data.includes('&lt;script&gt;alert(1)&lt;/script&gt;&quot;&#39;&amp;'));
+      assert.ok(simple.Body.Text.Data.includes(payload));
+      assert.ok(!/[\r\n]/.test(simple.Subject.Data));
+    } finally {
+      process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
+
   await t.test('propagates SES send errors unmodified', async () => {
     const originalNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = 'development';

@@ -596,6 +596,146 @@
       "when": 1793176792043,
       "tag": "0084_enable_row_level_security",
       "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "6",
+      "when": 1793356685338,
+      "tag": "0085_idea_107_expired_suggestion_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "6",
+      "when": 1793387253246,
+      "tag": "0086_bug_095_reapply_skipped_0056_past_events_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "6",
+      "when": 1793436232552,
+      "tag": "0087_dedup_resolution_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "6",
+      "when": 1793447469897,
+      "tag": "0088_history_seeded_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "6",
+      "when": 1793447632701,
+      "tag": "0089_scraper_run_yield",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "6",
+      "when": 1793451484128,
+      "tag": "0090_bug_096_schedule_past_cutoff_date",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "6",
+      "when": 1793453060394,
+      "tag": "0091_profile_lookup_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "6",
+      "when": 1794020669273,
+      "tag": "0092_alert_email_rate_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "6",
+      "when": 1794243260917,
+      "tag": "0093_posts_extraction_attempt_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "6",
+      "when": 1794277457341,
+      "tag": "0094_posts_extraction_cursor_and_partial",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "6",
+      "when": 1794312439395,
+      "tag": "0095_location_keywords",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "6",
+      "when": 1794370854837,
+      "tag": "0096_job_engine_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "6",
+      "when": 1794370864746,
+      "tag": "0097_jobs_user_job_has_owner_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "6",
+      "when": 1794383270097,
+      "tag": "0098_location_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "6",
+      "when": 1794390754832,
+      "tag": "0099_jobs_admission_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "6",
+      "when": 1794390763489,
+      "tag": "0100_jobs_admission_partial_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "6",
+      "when": 1794406852544,
+      "tag": "0101_bizarre_kronos",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "6",
+      "when": 1794414506819,
+      "tag": "0102_scraper_provider_capacity_exhausted_until",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "6",
+      "when": 1794442721286,
+      "tag": "0103_job_vendor_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "6",
+      "when": 1794618577685,
+      "tag": "0104_job_finished_notice_state",
+      "breakpoints": true
     }
   ]
 }

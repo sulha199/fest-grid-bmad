@@ -1,0 +1,14 @@
+# Code that holds or gates a production write credential, and the skill that tells an AI session how to use it
+# (a session obeys that text with its token, so an unreviewed edit to it is an edit to what the session does).
+# The ruleset "protect-master" refuses a direct push to
+# master and asks a code owner to approve a pull request that changes these paths. The repository admin role
+# (the owner, and any session using the owner's token) bypasses that approval inside a pull request, and the
+# bypass is automatic: a plain `gh pr merge` goes through (tested 2026-11-03). So these paths are protected
+# from everyone else, not from the owner's token.
+/.github/workflows/                          @sulha199
+/.github/CODEOWNERS                          @sulha199
+/scripts/                                    @sulha199
+/apps/backend/src/dedup-review-*             @sulha199
+/apps/backend/src/lib/events/dedup-review-*  @sulha199
+/packages/domain/src/events/dedup-review-*   @sulha199
+/.claude/skills/moderator-dedup-review/      @sulha199

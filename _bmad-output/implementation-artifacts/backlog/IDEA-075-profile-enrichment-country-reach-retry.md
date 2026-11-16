@@ -10,9 +10,9 @@ captured: 2026-10-18
 
 ## Why
 
-* BUG-066 mechanism 1: the first geocode of an account has **no country** to filter or bias with.
-* BUG-065: whether an organizer's account location may stand in for an event's missing place depends on **how far the organizer reaches** — a local government's Zoom briefing is for its residents; a national company's webinar is for everyone and its head-office city is not an audience.
-* BUG-065 also removes a curator's account location, and with it the **time-zone tier** that location silently provided (see "Default time zone"). An account needs its own default zone.
+* BUG-261018-abg mechanism 1: the first geocode of an account has **no country** to filter or bias with.
+* BUG-261018-jwf: whether an organizer's account location may stand in for an event's missing place depends on **how far the organizer reaches** — a local government's Zoom briefing is for its residents; a national company's webinar is for everyone and its head-office city is not an audience.
+* BUG-261018-jwf also removes a curator's account location, and with it the **time-zone tier** that location silently provided (see "Default time zone"). An account needs its own default zone.
 * All three can be read from the profile scrape Story 3.4n already pays for at subscribe time.
 
 ## What the code does today (read, not run)
@@ -34,7 +34,7 @@ The product owner states that the never-classified accounts **that have no locat
 
 The runbook is in `IDEA-075-legacy-bulk-update/` — `01-look.sql` (read-only; read the list first), `02-apply.sql` (one all-or-nothing transaction with a snapshot table, a row ceiling and a changed-in-between check), `03-rollback.sql`, `04-after.sql` — with a README. It was **tested on a scratch PostgreSQL 16 built from the repository's 80 migrations** with seeded accounts: happy path, refused second run, rollback, and the three abort paths. **It has not been run on production data**, and that the set is all curators is the product owner's statement, not something I could check.
 
-What it changes for those accounts (from the code, not observed): scraping no; future captions cleared after extraction and images not re-hosted (3.4o); future events ingested as `stub` and no longer organizer-authored for the primary-post choice and the first-organizer notification — until now a null-typed curator counted as an organizer. I did not check how the UI renders a stub event. Captions already stored **stay**: deleting them is a separate decision (it would also remove the ability to re-extract those posts) and nobody asked for it. FIND-086 is resolved for this group.
+What it changes for those accounts (from the code, not observed): scraping no; future captions cleared after extraction and images not re-hosted (3.4o); future events ingested as `stub` and no longer organizer-authored for the primary-post choice and the first-organizer notification — until now a null-typed curator counted as an organizer. I did not check how the UI renders a stub event. Captions already stored **stay**: deleting them is a separate decision (it would also remove the ability to re-extract those posts) and nobody asked for it. FIND-261018-p1z is resolved for this group.
 
 **Left as they are, by decision:** never-classified accounts with a location keep today's behaviour, including lending their location (`mayUseAccountLocation(null, null)` is true). A curator among them would still carry an arbitrary stored location and still escape the minimization; `04-after.sql` lists the ones whose events are scattered over five or more cities, the shape a curator has. Once the `country_code` column of this idea exists, the same migration sets `country_code = 'ID'` for the bulk-set group.
 
@@ -85,7 +85,7 @@ GROUP BY 1, 2 ORDER BY 1, 3 DESC;
 
 ## Default time zone (decision 2026-10-18: infer it; the country cannot supply it)
 
-**Why it is needed.** Tier 2 of the schedule-timezone resolver is "the source account's timezone", which exists only as the timezone of the account's default location. BUG-065 takes the default location away from curators, so a curator's location-less events would fall to tier 3 (exactly one subscriber) or `NEEDS_CLARIFICATION`. It also exposes a latent flaw: today a curator with a *stored* default location (say Yogyakarta, WIB) gives every location-less event of that account WIB, including a Bali event that is WITA — a silent one-hour error in the displayed time.
+**Why it is needed.** Tier 2 of the schedule-timezone resolver is "the source account's timezone", which exists only as the timezone of the account's default location. BUG-261018-jwf takes the default location away from curators, so a curator's location-less events would fall to tier 3 (exactly one subscriber) or `NEEDS_CLARIFICATION`. It also exposes a latent flaw: today a curator with a *stored* default location (say Yogyakarta, WIB) gives every location-less event of that account WIB, including a Bali event that is WITA — a silent one-hour error in the displayed time.
 
 **Why not the country.** Indonesia has three zones (WIB `Asia/Jakarta`, WITA `Asia/Makassar`, WIT `Asia/Jayapura`), Australia several. The country is a shortcut only where all its zones share one UTC offset (Singapore, India, Malaysia — `COUNTRY_SINGLE_ZONE`); Indonesia and Australia are explicitly not.
 
@@ -148,4 +148,4 @@ SELECT failure_reason, count(*) FROM account_type_classification_reviews WHERE f
 
 The second query measures how much the missing retry costs today.
 
-Related: BUG-065, BUG-066, IDEA-074, FIND-086.
+Related: BUG-261018-jwf, BUG-261018-abg, IDEA-074, FIND-261018-p1z.

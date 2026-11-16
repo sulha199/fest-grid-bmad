@@ -49,6 +49,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
     types: ['FESTIVAL'],
     categories: ['MUSIC'],
     location: 'Central Park',
+    locationKeywords: null,
     organizerName: 'Organizer A',
     contactInfo: 'organizer@example.com',
     hasPrivateContact: false,
@@ -68,6 +69,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
     title: 'Day 1',
     performers: ['Band A', 'Artist B'],
     location: 'Main Stage',
+    locationKeywords: null,
     ticketPrice: '$50',
     locationDetails: {
       coordinates: {
@@ -76,6 +78,7 @@ test('buildEventInsertValues - maps fields correctly', () => {
       },
       placeName: 'Central Park Main Stage',
     },
+    locationResolution: null,
     latitude: 40.785091,
     longitude: -73.968285,
     timezone: 'America/New_York',
@@ -413,4 +416,66 @@ test('buildEventInsertValues - stores an overnight schedule with no end date as 
     schedules.map((s) => s.eventEndDate),
     ['2026-10-20', null, '2026-10-21']
   );
+});
+
+test('buildEventInsertValues - carries locationKeywords for the event and each schedule, null when absent', () => {
+  const message: ExtractedEventMessage = {
+    postId: 'post-kw',
+    sourceSocialMediaAccountId: 'account-kw',
+    eventName: 'Bus Samsat Keliling',
+    types: [EventType.OTHER],
+    categories: [EventCategory.OTHER],
+    confidenceScore: 0.9,
+    location: 'Kabupaten Sleman',
+    locationKeywords: ['Sleman'],
+    schedules: [
+      { isMainSchedule: true, eventStartDate: '2026-11-02', location: 'Pasar Porosjayan', locationKeywords: ['Pasar Porosjayan', 'Gamping', 'Sleman'] },
+      { isMainSchedule: false, eventStartDate: '2026-11-07', location: 'Kalurahan Caturtunggal' },
+    ],
+  };
+
+  const result = buildEventInsertValues(message, null);
+
+  assert.deepStrictEqual(result.event.locationKeywords, ['Sleman']);
+  assert.deepStrictEqual(result.schedules[0].locationKeywords, ['Pasar Porosjayan', 'Gamping', 'Sleman']);
+  assert.strictEqual(result.schedules[1].locationKeywords, null);
+});
+
+test('buildEventInsertValues - normalizes locationKeywords of a message no normalizer touched, one shape for none', () => {
+  const message: ExtractedEventMessage = {
+    postId: 'post-kw2',
+    sourceSocialMediaAccountId: 'account-kw2',
+    eventName: 'Raw Message',
+    types: [EventType.OTHER],
+    categories: [EventCategory.OTHER],
+    confidenceScore: 0.9,
+    location: 'Sleman',
+    locationKeywords: [' Sleman ', 'sleman', 'Berbagai lokasi'],
+    schedules: [
+      { isMainSchedule: true, eventStartDate: '2026-11-02', location: 'Hall', locationKeywords: [] },
+      { isMainSchedule: false, eventStartDate: '2026-11-03', location: 'Hall', locationKeywords: ['TBA'] },
+    ],
+  };
+  const result = buildEventInsertValues(message, null);
+  assert.deepStrictEqual(result.event.locationKeywords, ['Sleman']);
+  assert.strictEqual(result.schedules[0].locationKeywords, null, 'an empty array is stored as null');
+  assert.strictEqual(result.schedules[1].locationKeywords, null);
+});
+
+test('buildEventInsertValues - maps locationResolution onto the schedule, null when no lookup was attempted', () => {
+  const message = {
+    postId: 'post-1',
+    sourceSocialMediaAccountId: 'acc-1',
+    eventName: 'Resolution Event',
+    types: [],
+    categories: [],
+    confidenceScore: 0.9,
+    schedules: [
+      { isMainSchedule: true, eventStartDate: '2026-11-02', location: 'Hall A', locationResolution: 'kw2' as const },
+      { isMainSchedule: false, eventStartDate: '2026-11-03' },
+    ],
+  } as unknown as Parameters<typeof buildEventInsertValues>[0];
+  const { schedules } = buildEventInsertValues(message, null);
+  assert.strictEqual(schedules[0].locationResolution, 'kw2');
+  assert.strictEqual(schedules[1].locationResolution, null);
 });

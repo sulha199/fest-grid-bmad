@@ -392,3 +392,64 @@ test('widgets resolvers integration', async (t) => {
     });
   });
 });
+
+// `Query.widgetById` needs no session (Story 6.5a AC6: the embed page on a third-party site reads it), so its
+// return type must not name a user. It returns `PublicWidget`, which carries neither `ownerUserId` nor
+// `deletedAt`; the owner-facing `Widget` (myWidgets, createWidget, ...) keeps both.
+test('widgetById is public and exposes no owner', async (t) => {
+  let owner: { id: string; role: string };
+  let widgetId: string | undefined;
+
+  const gql = async (query: string) => {
+    const res = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    return res.json();
+  };
+
+  t.after(async () => {
+    mockUser = null;
+    if (widgetId) {
+      await db.delete(embedDomains).where(eq(embedDomains.widgetId, widgetId));
+      await db.delete(widgets).where(eq(widgets.id, widgetId));
+    }
+  });
+
+  const [seeded] = await db.select().from(users).limit(1);
+  assert.ok(seeded, 'Should have at least 1 user');
+  owner = seeded;
+
+  mockUser = { userId: owner.id, role: owner.role };
+  const created = await gql(`mutation { createWidget(input: { filters: { types: [FESTIVAL] }, displayMode: CARD, theme: DARK }) { id ownerUserId } }`);
+  assert.ok(!created.errors, JSON.stringify(created.errors));
+  widgetId = created.data.createWidget.id;
+  assert.strictEqual(created.data.createWidget.ownerUserId, owner.id, 'the owner-facing Widget still names its owner');
+
+  await t.test('an anonymous caller reads every public field', async () => {
+    mockUser = null;
+    const result = await gql(`{ widgetById(id: "${widgetId}") { id filters { types } expression { __typename } displayMode theme createdAt } }`);
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.widgetById.id, widgetId);
+    assert.strictEqual(result.data.widgetById.theme, 'DARK');
+  });
+
+  for (const hidden of ['ownerUserId', 'deletedAt']) {
+    await t.test(`${hidden} cannot be selected on the public type`, async () => {
+      mockUser = null;
+      const result = await gql(`{ widgetById(id: "${widgetId}") { id ${hidden} } }`);
+      assert.ok(result.errors, `${hidden} must not be part of PublicWidget`);
+      assert.match(result.errors[0].message, new RegExp(`Cannot query field "${hidden}" on type "PublicWidget"`));
+      assert.strictEqual(result.data, undefined);
+    });
+  }
+
+  await t.test('a removed widget is not served', async () => {
+    await db.update(widgets).set({ deletedAt: new Date() }).where(eq(widgets.id, widgetId!));
+    mockUser = null;
+    const result = await gql(`{ widgetById(id: "${widgetId}") { id } }`);
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.widgetById, null);
+  });
+});

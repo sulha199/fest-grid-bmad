@@ -1,4 +1,4 @@
-export function computeBackoffDelayMs(attempt: number, retryAfterSeconds?: number): number {
+export function computeBackoffDelayMs(attempt: number, retryAfterSeconds?: number, random: () => number = Math.random): number {
   if (retryAfterSeconds !== undefined && retryAfterSeconds !== null) {
     return retryAfterSeconds * 1000;
   }
@@ -7,7 +7,7 @@ export function computeBackoffDelayMs(attempt: number, retryAfterSeconds?: numbe
   // attempt 2 => 2000ms
   // attempt 3 => 4000ms
   const baseDelay = Math.min(1000 * Math.pow(2, attempt - 1), 30000);
-  const jitterPercent = (Math.random() * 0.4) - 0.2; // ±20% jitter
+  const jitterPercent = (random() * 0.4) - 0.2; // ±20% jitter
   const delay = baseDelay * (1 + jitterPercent);
   return Math.round(delay);
 }

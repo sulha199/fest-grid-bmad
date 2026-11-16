@@ -1,0 +1,33 @@
+{
+  "postId": "syn-single",
+  "caption": "[SYNTHETIC] Festival Lampu Contoh. Minggu 1 Maret 2026, 19.00-22.00 di Taman Contoh Jakarta. Tiket Rp 75.000. Tampil: Band Fiktif dan Duo Rekaan.",
+  "images": [
+    "cover.png",
+    "slide-2.png"
+  ],
+  "publishedAt": "2026-02-20T08:00:00Z",
+  "ownerUsername": "contoh_penyelenggara",
+  "groupingReason": "single-event",
+  "events": [
+    {
+      "eventName": "Festival Lampu Contoh",
+      "location": "Taman Contoh Jakarta",
+      "ticketPrice": "75000",
+      "categories": [
+        "MUSIC",
+        "FOOD_AND_DRINK"
+      ],
+      "performers": [
+        "Band Fiktif",
+        "Duo Rekaan"
+      ],
+      "schedules": [
+        {
+          "eventStartDate": "2026-03-01",
+          "eventStartTime": "19:00",
+          "eventEndTime": "22:00"
+        }
+      ]
+    }
+  ]
+}

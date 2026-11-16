@@ -29,7 +29,7 @@ export type AccountReach = 'local' | 'regional' | 'national' | 'international' |
 // NEVER-CLASSIFIED accounts (accountTypeStatus null) are treated as CURATORS until they are classified: they lend no location.
 // DECISION 2026-10-27 (target-area-spec section 6), reversing the 2026-10-18 one that let them lend the location they have. In prod on
 // 2026-10-26 336 accounts with posts were never classified and only 4 had a default location, so the old rule lent almost nothing anyway; the
-// risk it carried (a curator among them with an arbitrary stored location, FIND-086) is gone. Cost: about 25% of the last 30 days' posts come
+// risk it carried (a curator among them with an arbitrary stored location, FIND-261018-p1z) is gone. Cost: about 25% of the last 30 days' posts come
 // from such accounts and now get no account fallback unless the account's profile states an audience area (`audienceAreaKeys` in
 // `effectiveAudienceAreas`). This differs from PRD FR137 ("every other account lends at most the area of its default location"): a PRD delta.
 export function mayUseAccountLocation(accountType: AccountType, accountTypeStatus: AccountTypeStatus, reach: AccountReach = 'unknown'): boolean {

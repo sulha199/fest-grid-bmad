@@ -1,4 +1,4 @@
--- AD-14 Rule 4 / BUG-066: a stratified sample of stored pins for a PERSON to label, so the pin-trust floor and the `full_match` clause are calibrated
+-- AD-14 Rule 4 / BUG-261018-abg: a stratified sample of stored pins for a PERSON to label, so the pin-trust floor and the `full_match` clause are calibrated
 -- on judged pins instead of guessed. Round 2 already gave the confidence and match-type histograms (confidence-by-country-box.sql); what no query can
 -- give is whether a pin is RIGHT. Strata = inside/outside Indonesia's box x stored-confidence band x match class (full_match or other); up to 4 pins per
 -- stratum, chosen by a hash of the schedule id (the same rows on every run). Every row carries its stratum's population and sample size, so the scorer

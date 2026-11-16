@@ -6,6 +6,32 @@ import { scrapedPostSchema } from './scraped-post.schema';
 import { GeminiExtractionPayload, ScrapedPost } from '@festgrid/domain';
 
 describe('Runtime Schema Validation (AJV)', () => {
+  // AD-46 Rule 2: the advisory post plan is optional and mirrors the model-facing schema.
+  it('accepts a payload with the post plan, with each plan field alone, and with none', () => {
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    const base = { isEvent: false, events: [] };
+    const plan = {
+      claimedItemCount: 203,
+      slideRoles: ['intro', 'list', 'list', 'outro', 'ad', 'other'],
+      itemsPerListSlide: 12,
+      dateRangeCovered: '2027-01-01..2027-12-31',
+      moreItemsLikely: true,
+    };
+    assert.strictEqual(validate({ ...base, ...plan }), true, JSON.stringify(validate.errors));
+    for (const [key, value] of Object.entries(plan)) {
+      assert.strictEqual(validate({ ...base, [key]: value }), true, key);
+    }
+    assert.strictEqual(validate(base), true);
+    assert.strictEqual(validate({ ...base, claimedItemCount: null, slideRoles: null, moreItemsLikely: null }), true, 'nullable');
+  });
+
+  it('rejects a slide role outside the closed set and a wrongly typed plan field', () => {
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    assert.strictEqual(validate({ isEvent: false, events: [], slideRoles: ['cover'] }), false);
+    assert.strictEqual(validate({ isEvent: false, events: [], claimedItemCount: '203' }), false);
+    assert.strictEqual(validate({ isEvent: false, events: [], moreItemsLikely: 'yes' }), false);
+  });
+
   it('should pass validation for a valid payload', () => {
     const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
 
@@ -98,6 +124,36 @@ describe('Runtime Schema Validation (AJV)', () => {
   });
 
   // Story 3.6s, Task 3.4 — AJV schema restructure unit tests.
+  it('accepts locationKeywords on a schedule and on an event, and rejects a non-array or non-string items (the processor strips those first)', () => {
+    const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
+    const base = (event: Record<string, unknown>, schedule: Record<string, unknown>): GeminiExtractionPayload =>
+      ({
+        isEvent: true,
+        groupingReason: 'single-event',
+        events: [
+          {
+            eventName: 'Bus Samsat Keliling',
+            types: ['OTHER'],
+            categories: ['OTHER'],
+            confidenceScore: 0.9,
+            schedules: [{ isMainSchedule: true, eventStartDate: '2026-11-02', ...schedule }],
+            ...event,
+          },
+        ],
+      }) as GeminiExtractionPayload;
+
+    const good = base({ location: 'Kabupaten Sleman', locationKeywords: ['Sleman'] }, { location: 'Pasar Porosjayan', locationKeywords: ['Pasar Porosjayan', 'Gamping', 'Sleman'] });
+    assert.strictEqual(validate(good), true, JSON.stringify(validate.errors));
+    // Not an error: the model may omit it, or send null.
+    assert.strictEqual(validate(base({}, {})), true);
+    assert.strictEqual(validate(base({ locationKeywords: null }, { locationKeywords: null })), true, JSON.stringify(validate.errors));
+
+    assert.strictEqual(validate(base({ locationKeywords: 'Sleman' }, {})), false, 'an event-level string is not an array');
+    assert.strictEqual(validate(base({}, { locationKeywords: ['Sleman', 3] })), false, 'a non-string item is rejected');
+    // The field is declared, so the strict schema neither rejects nor strips it.
+    assert.deepStrictEqual(good.events[0].locationKeywords, ['Sleman']);
+  });
+
   it('passes a valid multi-event payload (AC1/AC6)', () => {
     const validate = compileValidator<GeminiExtractionPayload>(extractedEventSchema);
     const payload: GeminiExtractionPayload = {

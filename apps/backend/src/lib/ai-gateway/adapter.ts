@@ -1,4 +1,6 @@
 import { selectApiKey, determineSelectionTier, computeBackoffDelayMs } from '@festgrid/domain';
+import { decideRetry } from '@festgrid/domain/retry';
+import { classifyGeminiError } from './gemini-situation.js';
 import { loadBackendEnv } from '../../env.js';
 import { decryptApiKey, KmsDecryptionError } from './kms.js';
 import {
@@ -38,6 +40,9 @@ export class AiGatewayBusyError extends Error {
 
 // How many times callGemini waits (with backoff) for busy keys to free up before giving up.
 const MAX_BUSY_WAITS = 3;
+// The longest wait before moving to the next key after a rate limit: a different key is not subject to
+// the first key's limit, so an unreasonable server hint must not stall the call.
+const MAX_KEY_SWITCH_WAIT_MS = 60_000;
 
 // Test seam (same let + setter pattern as elsewhere in this codebase): lets unit tests skip the
 // real backoff sleeps.
@@ -97,7 +102,14 @@ export async function callGemini(
 
       // If we are retrying/backing off, wait
       if (attempt > 0) {
-        const delay = computeBackoffDelayMs(attempt, retryAfterSeconds);
+        // AD-52: the wait after a rate limit comes from the shared policy (the server hint plus a margin,
+        // else jittered backoff).
+        const delay = Math.min(
+          decideRetry('rate_limited', attempt, {
+            ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+          }).delayMs ?? 0,
+          MAX_KEY_SWITCH_WAIT_MS
+        );
         // Do not actually sleep in tests unless instructed, but standard is to sleep
         await sleep(delay);
       }
@@ -109,6 +121,11 @@ export async function callGemini(
         // Lambda's 300s limit with the default 120s per-attempt timeout.
         overallTimeoutMs: env.geminiExtractionTimeoutMs * 2,
         isTransient: isGeminiErrorTransient,
+        // AD-52: classification and the retry decision come from the shared policy; the key loop below still
+        // owns switching and excluding keys.
+        classify: classifyGeminiError,
+        hasAlternateCredential: () =>
+          selectApiKey(candidates, tier, new Set([...excludedKeys, ...busyKeys, candidate.id])) !== null,
         call: (signal) => callGeminiGenerateContent(plaintextKey, request, signal),
       });
 
@@ -117,8 +134,15 @@ export async function callGemini(
       return result;
     } catch (error: any) {
       if (error instanceof GeminiRateLimitedError) {
+        // A spent per-DAY quota cannot recover during this call: skip the key without the backoff a
+        // per-minute limit earns (AD-52 Rule 2).
+        if (classifyGeminiError(error).situation === 'quota_exhausted_daily') {
+          excludedKeys.add(candidate.id);
+          continue;
+        }
         attempt++;
-        retryAfterSeconds = error.retryAfterSeconds;
+        // The hint may live only in the message text ("Please retry in 42s"), which the classifier reads.
+        retryAfterSeconds = classifyGeminiError(error).retryAfterSeconds;
         // Skip/exclude this key for this orchestration cycle
         excludedKeys.add(candidate.id);
         continue;

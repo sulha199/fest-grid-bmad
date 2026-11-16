@@ -1,3 +1,8 @@
+import type { ExtractionCursor } from './extraction-cursor.js';
+import type { GeminiEventPayload } from '../events/types.js';
+import type { ReextractRefreshReport } from './reextract-image-refresh.js';
+import type { ReextractImageEntry } from './reextract-image-report.js';
+
 /**
  * Closed role vocabulary for `post_account_associations` rows (Story 3.15, PRD §4.7a,
  * Architecture Spine AD-25/AD-31). Declared once per AD-31 Rule 2.
@@ -12,6 +17,13 @@ export type PostAccountRole = (typeof POST_ACCOUNT_ROLES)[number];
  */
 export const POST_GROUPING_REASONS = ['single-event', 'program-lineup', 'dependent-stages', 'separate-events', 'roundup'] as const;
 export type PostGroupingReason = (typeof POST_GROUPING_REASONS)[number];
+
+/**
+ * AD-46 Rule 2: the role of one image of a multi-slide post in the model's advisory post plan (`slideRoles`, one per
+ * provided image, in order). Informs the continue decision only; never persisted.
+ */
+export const POST_PLAN_SLIDE_ROLES = ['intro', 'list', 'outro', 'ad', 'other'] as const;
+export type PostPlanSlideRole = (typeof POST_PLAN_SLIDE_ROLES)[number];
 
 export function isPostGroupingReason(value: string): value is PostGroupingReason {
   return (POST_GROUPING_REASONS as readonly string[]).includes(value);
@@ -97,16 +109,80 @@ export interface ReextractionPreviewEvent {
   };
 }
 
+/**
+ * AD-40 (Apply) -- what a preview job keeps so Apply needs neither a new Gemini call nor the caption
+ * (blanked once the job ends): the validated events (capped as ingestion caps them), the post-level
+ * grouping and title, and the children's-data keyword filter's verdict, which is the one thing the
+ * event builder derives from the caption. Never the caption itself.
+ */
+export interface ReextractionExtracted {
+  events: GeminiEventPayload[];
+  groupingReason: string | null;
+  postTitle: string | null;
+  childrensDataMatch: boolean;
+}
+
+export interface ApplyReextractionEventRef {
+  slug: string;
+  eventName: string;
+}
+
+/** AD-40 (Apply) -- what an apply did, kept on the job (so a second apply returns it) and shown to the moderator. */
+export interface ApplyReextractionSummary {
+  groupingReason: string | null;
+  /** Events the post already had, now continuing an extracted item (still the same id and slug). */
+  reused: Array<ApplyReextractionEventRef & { ordinal: number }>;
+  /** New stub events linked to the post. */
+  created: Array<ApplyReextractionEventRef & { ordinal: number }>;
+  /** Items a high-confidence dedup match folded into an event of another post. */
+  linkedToExisting: ApplyReextractionEventRef[];
+  /** New events whose mid-confidence match is queued for a moderator. */
+  queuedForReview: number;
+  /** Items that matched an event a moderator had deleted: not recreated (PRD 3.7). */
+  skippedDeleted: number;
+  /** Live events of the post that no item matched: untouched. */
+  orphans: ApplyReextractionEventRef[];
+}
+
 /** AD-40 -- stored in `manual_extraction_jobs.result_data` for a `REEXTRACT_PREVIEW` job. */
 export interface ReextractionPreviewResult {
   groupingReason: string | null;
   postStored: boolean;
   rescraped: boolean;
+  /** BUG-099 -- images the post lists (cover + slides) and images actually read by the extraction. */
+  imagesAvailable: number;
+  imagesSent: number;
+  /**
+   * Story 10.6a -- one entry per image the post lists (cover first, position 0; slides from 1), what became of it, and the slide cap the request
+   * used. No URL. Absent on a preview finished before Story 10.6a.
+   */
+  images?: ReextractImageEntry[];
+  imageCap?: number;
   events: ReextractionPreviewEvent[];
+  /** AD-40 (Apply) -- kept for Apply; nulled once applied. Absent on jobs finished before Apply existed. */
+  extracted?: ReextractionExtracted | null;
+  /** AD-40 (Apply) -- set once, when a moderator applies this preview. */
+  appliedAt?: string | null;
+  applied?: ApplyReextractionSummary | null;
+  /**
+   * Story 10.6 -- what the image-refresh phase of an engine re-extract job did (FR125). Absent on a preview of the manual job
+   * (a caption-less post, a URL not in the database) and on one finished before Story 10.6.
+   */
+  refresh?: ReextractRefreshReport;
 }
+
+/** AD-40 (Apply) -- a preview can be applied this long after it finished. */
+export const REEXTRACT_APPLY_WINDOW_MS = 30 * 60 * 1000;
 
 /** AD-40 -- the rescrape of a post URL is rate-limited per URL (scraper credit). */
 export const REEXTRACT_RESCRAPE_COOLDOWN_MS = 10 * 60 * 1000;
+
+/**
+ * BUG-099 -- slides (beyond the cover) a moderator re-extract sends to Gemini. Ingestion keeps its
+ * own `MAX_CAROUSEL_IMAGES`; this one is higher because a roundup spreads its events across slides
+ * and a moderator preview is a manual, on-demand call.
+ */
+export const REEXTRACT_MAX_CAROUSEL_IMAGES = 10;
 
 /**
  * GraphQL-safe representation of `PostGroupingReason` (Story 3.6u, AD-30 Rule 11). The DB enum's
@@ -144,6 +220,11 @@ export interface ProcessingJobMessage {
    * Gemini request.
    */
   additionalImageUrls?: string[];
+  /**
+   * AD-47 Rule 1: present only on a step message of a stepped extraction. The step reads its images from the cursor,
+   * and the caption from `posts.content` in memory (the message never carries it, AD-40), so `content` is empty here.
+   */
+  cursor?: ExtractionCursor;
 }
 
 export class PostNotFoundError extends Error {

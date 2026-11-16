@@ -11,6 +11,7 @@ export const EXTRACTION_STATUS_ORDER = [
   "PENDING",
   "QUEUED",
   "EXTRACTING",
+  "ATTEMPT_FAILED",
   "PROMOTED",
   "NOT_EVENT",
 ] as const satisfies readonly PostExtractionStatus[]

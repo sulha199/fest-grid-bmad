@@ -2,12 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { db } from '../../db/client.js';
-import { socialMediaAccountProfiles, apifyPendingJobs, posts, unprocessedScraperPayloads } from '@festgrid/database';
+import { socialMediaAccountProfiles, apifyPendingJobs, posts, scraperActorRuns, unprocessedScraperPayloads } from '@festgrid/database';
 import { eq, inArray } from 'drizzle-orm';
 import { processApifyAsyncResult } from './process-apify-async-result.js';
 import { createPendingJob } from './apify-pending-jobs-store.js';
 import { seedSubscriberWithGeminiKey, captureAiQueueSends } from '../posts/auto-enqueue-test-helpers.js';
 import { setSendSqsMessage } from '../aws/send-sqs-message.js';
+import { recordActorRunStart } from './record-actor-run.js';
 
 test('process-apify-async-result tests', async (t) => {
   let testProfileId: string;
@@ -450,6 +451,54 @@ test('process-apify-async-result tests', async (t) => {
       sends.restore();
       await db.delete(posts).where(eq(posts.accountId, testProfileId));
       await cleanupSeed();
+    }
+  });
+
+  await t.test('marks the history seeded when items are delivered, not when none are', async () => {
+    const makeJob = async (runId: string) => {
+      const { id, webhookToken } = await createPendingJob({ profileId: testProfileId, runId, webhookToken: randomBytes(24).toString('hex') });
+      return { id, profileId: testProfileId, runId, webhookToken, status: 'PENDING' as const, expiresAt: new Date(Date.now() + 3600000), createdAt: new Date(), updatedAt: new Date() };
+    };
+    const seededAt = async () => (await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, testProfileId)))[0].historySeededAt;
+
+    await processApifyAsyncResult(await makeJob('run-seed-empty-' + Date.now()), []);
+    assert.strictEqual(await seededAt(), null);
+
+    await processApifyAsyncResult(await makeJob('run-seed-full-' + Date.now()), [
+      { url: 'https://www.instagram.com/p/seed1/', caption: 'Seed post', timestamp: '2026-10-20T00:00:00Z', displayUrl: 'https://example.com/s.jpg' },
+    ]);
+    assert.ok(await seededAt());
+  });
+
+  await t.test('counts only genuinely new posts on the run row; a re-delivery counts none', async () => {
+    const runIds: string[] = [];
+    try {
+      const deliver = async (label: string) => {
+        const runId = `run-newposts-${label}-${Date.now()}`;
+        const auditRunId = await recordActorRunStart({ vendor: 'APIFY', triggerMode: 'ASYNC', profileId: testProfileId, runId, rawInput: {}, status: 'PENDING' });
+        assert.ok(auditRunId);
+        runIds.push(auditRunId);
+        const { id, webhookToken } = await createPendingJob({ profileId: testProfileId, runId, webhookToken: randomBytes(24).toString('hex') });
+        const job = { id, profileId: testProfileId, runId, webhookToken, status: 'PENDING' as const, expiresAt: new Date(Date.now() + 3600000), createdAt: new Date(), updatedAt: new Date() };
+        const result = await processApifyAsyncResult(job, [
+          { url: 'https://www.instagram.com/p/np1/', caption: 'One', timestamp: '2026-10-20T00:00:00Z', displayUrl: 'https://example.com/1.jpg' },
+          { url: 'https://www.instagram.com/p/np2/', caption: 'Two', timestamp: '2026-10-21T00:00:00Z', displayUrl: 'https://example.com/2.jpg' },
+        ], auditRunId);
+        const [run] = await db.select().from(scraperActorRuns).where(eq(scraperActorRuns.id, auditRunId));
+        return { result, run };
+      };
+
+      const first = await deliver('first');
+      assert.strictEqual(first.result.newPosts, 2);
+      assert.strictEqual(first.run.newPosts, 2);
+
+      const second = await deliver('second');
+      assert.strictEqual(second.result.newPosts, 0);
+      assert.strictEqual(second.run.newPosts, 0);
+    } finally {
+      // The posts reference their run, so they go first.
+      await db.delete(posts).where(inArray(posts.postUrl, ['https://www.instagram.com/p/np1/', 'https://www.instagram.com/p/np2/']));
+      if (runIds.length > 0) await db.delete(scraperActorRuns).where(inArray(scraperActorRuns.id, runIds));
     }
   });
 });

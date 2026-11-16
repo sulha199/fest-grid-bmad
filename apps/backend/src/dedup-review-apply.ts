@@ -1,0 +1,204 @@
+#!/usr/bin/env tsx
+/**
+ * AI-assisted dedup review, apply side (`_bmad-output/specs/ai-dedup-review/DESIGN.md`, Piece B2b-1):
+ * applies the reviewer's decisions that still hold (an accept merges; an `accept-override` merges with no floor
+ * and a reject records a dismissal, each off unless its flag `--allow-floor-override` or `--allow-rejects` and,
+ * in `apply`, the owner's switch) and prints one JSON line between
+ * `DEDUP_REVIEW_APPLY_BEGIN` and `DEDUP_REVIEW_APPLY_END`.
+ *
+ *   tsx src/dedup-review-apply.ts --mode <validate|apply> --decisions-file <path> [--live] [--run-tag <tag>] [--allow-rejects] [--allow-floor-override]
+ *
+ * Environment: `DATABASE_URL`; `DEDUP_REVIEW_INVOKER_HASH` (SHA-256 hex of the lowercased, trimmed
+ * Claude account email, matched to exactly one active moderator; never an argument, so it does not
+ * sit in a process list); `DEDUP_REVIEW_APPLY_DISABLED` (`1` or `true` is the kill switch);
+ * `DEDUP_REVIEW_REJECT_ENABLED` (`true` or `1` switches rejects on for `apply`; read in `apply` mode only,
+ * because `validate` runs where the owner's variable is not visible); `DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED` (the same
+ * rule for `--allow-floor-override`, FIND-124); `DEDUP_REVIEW_PER_RUN_CAP`, `DEDUP_REVIEW_PER_DAY_CAP` and
+ * `DEDUP_REVIEW_PER_DAY_REJECT_CAP` (optional positive whole numbers up to the code's ceilings, FIND-126; unset keeps
+ * the defaults of 10, 25 and 10; a malformed or too large one fails the run before any database work).
+ *
+ * - `validate` runs every check in a read-only snapshot and merges nothing; use a read-only role that
+ *   bypasses row level security.
+ * - `apply` runs the real merges and rolls them back unless `--live` is passed; it needs a role that
+ *   can write.
+ *
+ * The kill switch is checked before anything else: before arguments, the decisions file and the
+ * database client. Everything else is validated before the client is imported, so a bad value fails
+ * without a connection.
+ *
+ * The workflow's log is public, so nothing here prints event text, a reason, the invoker hash or an
+ * email, and an unexpected error prints only its class, its code and a fixed hint.
+ */
+import { readFileSync, statSync } from 'node:fs';
+import {
+  DEDUP_REVIEW_MAX_DECISIONS_BYTES,
+  DEDUP_REVIEW_CAP_DEFAULTS,
+  DEDUP_REVIEW_APPLY_SCHEMA_VERSION,
+  DedupReviewApplyInputError,
+  assertDedupReviewFloorOverrideAllowed,
+  assertDedupReviewRejectsAllowed,
+  formatDedupReviewApplyReport,
+  isDedupReviewApplyDisabled,
+  isDedupReviewFloorOverrideEnabled,
+  isDedupReviewRejectEnabled,
+  parseDedupReviewApplyOptions,
+  parseDedupReviewDecisions,
+  parseDedupReviewInvokerHash,
+  resolveDedupReviewCaps,
+  type DedupReviewApplyOptions,
+  type DedupReviewApplyReport,
+} from '@festgrid/domain/events';
+import {
+  DedupReviewFloorOverrideDisabledError,
+  DedupReviewInvokerError,
+  DedupReviewRejectsDisabledError,
+  DedupReviewReportLostError,
+  DedupReviewRoleError,
+  FLOOR_OVERRIDE_DISABLED_MESSAGE,
+  REJECTS_DISABLED_MESSAGE,
+} from './lib/events/dedup-review-errors.js';
+import { describeUnexpectedFailure } from './lib/events/dedup-review-failure.js';
+
+export interface DedupReviewApplyCliArgs {
+  options: DedupReviewApplyOptions;
+  decisionsFile: string;
+}
+
+export function parseCliArgs(argv: string[]): DedupReviewApplyCliArgs {
+  const raw: { mode?: string; runTag?: string; decisionsFile?: string; live?: boolean; allowRejects?: boolean; allowFloorOverride?: boolean } = {};
+  const seen = new Set<string>();
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    // A repeated flag would let the last one win silently (`--mode validate --mode apply`).
+    if (seen.has(arg)) {
+      throw new DedupReviewApplyInputError(`${arg} was given more than once`);
+    }
+    seen.add(arg);
+    if (arg === '--live') {
+      raw.live = true;
+      continue;
+    }
+    if (arg === '--allow-rejects') {
+      raw.allowRejects = true;
+      continue;
+    }
+    if (arg === '--allow-floor-override') {
+      raw.allowFloorOverride = true;
+      continue;
+    }
+    if (arg !== '--mode' && arg !== '--run-tag' && arg !== '--decisions-file') {
+      throw new DedupReviewApplyInputError('Unknown argument. Usage: --mode <validate|apply> --decisions-file <path> [--live] [--run-tag <tag>] [--allow-rejects] [--allow-floor-override]');
+    }
+    const value = argv[++i];
+    if (value === undefined) {
+      throw new DedupReviewApplyInputError(`${arg} needs a value`);
+    }
+    if (arg === '--mode') raw.mode = value;
+    else if (arg === '--run-tag') raw.runTag = value;
+    else raw.decisionsFile = value;
+  }
+  const options = parseDedupReviewApplyOptions(raw);
+  if (!raw.decisionsFile) {
+    throw new DedupReviewApplyInputError('--decisions-file is required');
+  }
+  return { options, decisionsFile: raw.decisionsFile };
+}
+
+/** What to print when apply fails: the typed errors' fixed messages, and for anything else only the class, the code and a fixed hint for that code. */
+export function describeFailure(err: unknown): string {
+  if (err instanceof DedupReviewApplyInputError) return `Invalid input: ${err.message}`;
+  if (err instanceof DedupReviewRoleError || err instanceof DedupReviewInvokerError || err instanceof DedupReviewRejectsDisabledError || err instanceof DedupReviewFloorOverrideDisabledError) return `Apply refused: ${err.message}`;
+  if (err instanceof DedupReviewReportLostError) return err.message;
+  return describeUnexpectedFailure(err, 'Apply');
+}
+
+function readDecisionsFile(path: string): string {
+  try {
+    // Checked before reading, so a huge file or a device never gets buffered.
+    const stats = statSync(path);
+    if (!stats.isFile() || stats.size > DEDUP_REVIEW_MAX_DECISIONS_BYTES * 4) {
+      throw new Error('not a readable decisions file');
+    }
+    return readFileSync(path, 'utf8');
+  } catch {
+    // The path and the system's message are not echoed.
+    throw new DedupReviewApplyInputError('the decisions file could not be read');
+  }
+}
+
+/** One write, and wait for it: exiting right after a large write to a pipe can cut the line short. */
+function print(report: DedupReviewApplyReport): Promise<void> {
+  const output = formatDedupReviewApplyReport(report).join('\n') + '\n';
+  return new Promise<void>((resolve, reject) => process.stdout.write(output, (err) => (err ? reject(err) : resolve())));
+}
+
+async function main(): Promise<void> {
+  if (isDedupReviewApplyDisabled(process.env.DEDUP_REVIEW_APPLY_DISABLED)) {
+    await print({
+      schemaVersion: DEDUP_REVIEW_APPLY_SCHEMA_VERSION,
+      generatedAt: new Date().toISOString(),
+      runTag: null,
+      mode: 'disabled',
+      killSwitch: true,
+      usedLast24h: null,
+      caps: { ...DEDUP_REVIEW_CAP_DEFAULTS },
+      counts: { eligible: 0, merged: 0, rejected: 0, skipped: 0 },
+      results: [],
+    });
+    return;
+  }
+
+  const { options, decisionsFile } = parseCliArgs(process.argv.slice(2));
+  const decisions = parseDedupReviewDecisions(readDecisionsFile(decisionsFile));
+  const invokerHash = parseDedupReviewInvokerHash(process.env.DEDUP_REVIEW_INVOKER_HASH);
+  // The flag and switch checks fail before the database client is imported, like every other bad value.
+  assertDedupReviewRejectsAllowed(decisions, options.allowRejects);
+  assertDedupReviewFloorOverrideAllowed(decisions, options.allowFloorOverride);
+  // The owner's cap variables (FIND-126): a bad one fails here, before the database client is imported. Unset keeps the default.
+  const caps = resolveDedupReviewCaps({
+    perRun: process.env.DEDUP_REVIEW_PER_RUN_CAP,
+    perDay: process.env.DEDUP_REVIEW_PER_DAY_CAP,
+    perDayRejects: process.env.DEDUP_REVIEW_PER_DAY_REJECT_CAP,
+  });
+  // Read only for `apply`: `validate` cannot see the owner's variables and checks the flags alone.
+  const rejectsEnabled = options.mode === 'apply' && isDedupReviewRejectEnabled(process.env.DEDUP_REVIEW_REJECT_ENABLED);
+  if (options.mode === 'apply' && options.allowRejects && !rejectsEnabled) {
+    throw new DedupReviewRejectsDisabledError(REJECTS_DISABLED_MESSAGE);
+  }
+  const floorOverrideEnabled = options.mode === 'apply' && isDedupReviewFloorOverrideEnabled(process.env.DEDUP_REVIEW_FLOOR_OVERRIDE_ENABLED);
+  if (options.mode === 'apply' && options.allowFloorOverride && !floorOverrideEnabled) {
+    throw new DedupReviewFloorOverrideDisabledError(FLOOR_OVERRIDE_DISABLED_MESSAGE);
+  }
+
+  const { db } = await import('./db/client.js');
+  const { runDedupReviewApply } = await import('./lib/events/dedup-review-apply.js');
+  const report = await runDedupReviewApply(db, {
+    decisions,
+    invokerHash,
+    runTag: options.runTag,
+    mode: options.mode,
+    live: options.live,
+    allowRejects: options.allowRejects,
+    rejectsEnabled,
+    allowFloorOverride: options.allowFloorOverride,
+    floorOverrideEnabled,
+    caps,
+  });
+  try {
+    await print(report);
+  } catch {
+    // A failed write after a live commit must not read as "nothing happened": the merges and rejects are in.
+    if (report.counts.merged > 0 || report.counts.rejected > 0) throw new DedupReviewReportLostError(report.counts.merged, report.counts.rejected);
+    throw new Error('the report could not be written');
+  }
+}
+
+if (process.argv[1] && /dedup-review-apply\.[tj]s$/.test(process.argv[1])) {
+  main().then(
+    () => process.exit(0),
+    (err) => {
+      console.error(describeFailure(err));
+      process.exit(1);
+    }
+  );
+}

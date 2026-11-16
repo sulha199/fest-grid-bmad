@@ -10,7 +10,7 @@ Source: the five read-only queries of `prod-readonly/local-session-brief-2026-10
 | 2 | **Stub weight: 0.10, not 0.20.** 114 of the 134 stub pairs are exact repeats the exact-repeat rule handles; the weight only decides the other 20. At 0.20, six pairs with a shared link reach `high` and merge through the matcher, bypassing the exact-repeat preconditions | AD-30 Rule 7: stub signal 0.10 `[PROPOSED]`; the "ceiling 0.60, never high" sentence was wrong when a shared link is present (0.80) and is corrected |
 | 3 | **The exact-repeat sizing query over-counted "same place"**; fixed and re-run: **38 groups, 107 events, 69 soft deletes** (28 groups without a start time) | AD-30 Rule 7 figures replaced (section 3) |
 | 4 | **The push pipeline cannot send today**: the Lambdas that send pushes (Ingestor, AIProcessor) hold no Firebase credentials and no alert address; SES is in the sandbox with no verified identity | New BUG-073; BUG-069 and IDEA-090 gain a prerequisite; the grouped-notification work sits behind it |
-| 5 | **Only 3 open curator events lose a pin** to the place model (AD-39 Rule 3), not dozens | BUG-065's open-event effect is small; the derive job still has to classify 61 curator events with an unknown pin source |
+| 5 | **Only 3 open curator events lose a pin** to the place model (AD-39 Rule 3), not dozens | BUG-261018-jwf's open-event effect is small; the derive job still has to classify 61 curator events with an unknown pin source |
 
 ## 1. Usage counts (`usage-counts-prod-2026-10-21.txt`)
 
@@ -72,7 +72,7 @@ Two facts that stand regardless. (1) 32 of the 40 groups have no start time, so 
 | Organizer / venue | 23 | 145 | 36 | 204 | 155 |
 | Unclassified | 0 | 73 | 30 | 103 | 88 |
 
-* **Only 3 open curator events carry the account default as their pin.** That is the whole open-event effect of removing the curator fallback (BUG-065); the 2026-10-18 reading ("11 of 17 curators hold a default") described accounts, not open events.
+* **Only 3 open curator events carry the account default as their pin.** That is the whole open-event effect of removing the curator fallback (BUG-261018-jwf); the 2026-10-18 reading ("11 of 17 curators hold a default") described accounts, not open events.
 * 61 curator and 30 unclassified events are `legacy_unknown`: a pin with no schedule text, or nothing. Their pin source cannot be told apart; the derive job must classify them, and `legacy_unknown` readers never give them `EXACT` on a non-venue account (AD-39 Rule 7).
 * 23 organizer events are `account_default`: they keep a trusted pin only when AD-39 Rule 3's venue conditions hold (confirmed `ORGANIZER_VENUE_EVENT`, local or regional reach, organizer-authored).
 * 103 open events (22%) come from unclassified accounts; the legacy bulk update (IDEA-075) decides how many of them become curators.

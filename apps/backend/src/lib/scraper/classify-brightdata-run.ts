@@ -14,7 +14,7 @@ export interface BrightDataRunClassification {
  */
 export const PROGRESS_LOOKUP_TIMEOUT_MS = 8_000;
 
-async function lookUpProgress(snapshotId: string, timeoutMs: number): Promise<BrightDataProgressResponse | null> {
+export async function lookUpBrightDataProgress(snapshotId: string, timeoutMs: number): Promise<BrightDataProgressResponse | null> {
   let timer: NodeJS.Timeout | undefined;
   try {
     // Promise.race subscribes to both promises, so a lookup that loses the race and fails later is
@@ -55,7 +55,7 @@ export async function classifyBrightDataRun(
   const progress =
     options.progress !== undefined
       ? options.progress
-      : await lookUpProgress(snapshotId, options.lookupTimeoutMs ?? PROGRESS_LOOKUP_TIMEOUT_MS);
+      : await lookUpBrightDataProgress(snapshotId, options.lookupTimeoutMs ?? PROGRESS_LOOKUP_TIMEOUT_MS);
 
   if ((progress?.records ?? 0) > 0) {
     console.error(

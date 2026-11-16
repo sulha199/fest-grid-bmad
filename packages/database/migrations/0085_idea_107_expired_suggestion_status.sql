@@ -1,0 +1,1 @@
+ALTER TYPE "suggested_event_match_status" ADD VALUE 'expired';

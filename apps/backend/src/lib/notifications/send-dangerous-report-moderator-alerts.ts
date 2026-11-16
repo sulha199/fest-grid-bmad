@@ -1,34 +1,19 @@
-import { loadBackendEnv } from '../../env.js';
-import { db } from '../../db/client.js';
-import { users } from '@festgrid/database';
-import { eq } from 'drizzle-orm';
 import * as emailAdapter from '../email/adapter.js';
+import { notifyAllModerators } from './notify-all-moderators.js';
 
+// Moderator lookup, fan-out, the review URL, escaping and the throttle all live in `notifyAllModerators`
+// (Story 0.i1a, AD-54). The throttle entity is the event id, so repeated "dangerous" reports of one event in
+// the cooldown send one mail and a different event sends its own; without an id it falls back to the event name.
+// The helper never throws, so a mail failure can never change the report resolver's result.
 export async function sendDangerousReportModeratorAlerts(
   eventName: string,
+  eventId?: string,
   deps = { sendTemplatedEmail: emailAdapter.sendTemplatedEmail }
 ): Promise<void> {
-  try {
-    const moderators = await db.select().from(users).where(eq(users.role, 'moderator'));
-    if (moderators.length === 0) {
-      console.info('[Dangerous Report Alert] No moderators found to notify.');
-      return;
-    }
-    const moderatorReviewUrl = `${loadBackendEnv().webAppBaseUrl}/moderator/items`;
-    const results = await Promise.allSettled(
-      moderators.map((mod) =>
-        deps.sendTemplatedEmail('DANGEROUS_EVENT_MODERATOR_ALERT', mod.email, {
-          eventName,
-          moderatorReviewUrl,
-        })
-      )
-    );
-    results.forEach((result, i) => {
-      if (result.status === 'rejected') {
-        console.error(`[Dangerous Report Alert] Failed to notify moderator ${moderators[i].email}:`, result.reason);
-      }
-    });
-  } catch (err) {
-    console.error('[Dangerous Report Alert] Failed loading moderators or dispatching alerts:', err);
-  }
+  await notifyAllModerators(
+    'DANGEROUS_EVENT_MODERATOR_ALERT',
+    { eventName },
+    eventId === undefined ? {} : { entityKey: eventId },
+    { sendTemplatedEmail: deps.sendTemplatedEmail }
+  );
 }

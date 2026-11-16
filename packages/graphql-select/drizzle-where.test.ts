@@ -18,6 +18,8 @@ const scheduleTestTable = pgTable('schedule_test_table', {
   latitude: doublePrecision('latitude'),
   longitude: doublePrecision('longitude'),
   applicableDaysOfWeek: text('applicable_days_of_week').array(),
+  timezone: text('timezone'),
+  timezoneStatus: text('timezone_status'),
 });
 
 const fieldMap = {
@@ -33,6 +35,9 @@ const fieldMap = {
     // Story 3.6y: mirrors the real fieldMap's own shape (resolvers.ts's `scheduleDateRange`
     // entry) so this field's tests exercise the production descriptor shape.
     applicableDaysOfWeekCol: scheduleTestTable.applicableDaysOfWeek,
+    // BUG-096: the timezone columns a `pastCutoff` reads, mirroring the production descriptor.
+    timezoneCol: scheduleTestTable.timezone,
+    timezoneStatusCol: scheduleTestTable.timezoneStatus,
   },
   // Story 3.6y: a legacy-shaped descriptor (same keys as scheduleDateRange above, minus
   // applicableDaysOfWeekCol) proving a caller that never adds the new column sees
@@ -43,6 +48,17 @@ const fieldMap = {
     correlateCol: testTable.id,
     startCol: scheduleTestTable.eventStartDate,
     endCol: scheduleTestTable.eventEndDate,
+  },
+  // BUG-096: the zoned descriptor without the weekday column, so a test can read the bare
+  // daterange predicate.
+  scheduleDateRangeLegacyZoned: {
+    table: scheduleTestTable,
+    eventIdCol: scheduleTestTable.eventId,
+    correlateCol: testTable.id,
+    startCol: scheduleTestTable.eventStartDate,
+    endCol: scheduleTestTable.eventEndDate,
+    timezoneCol: scheduleTestTable.timezone,
+    timezoneStatusCol: scheduleTestTable.timezoneStatus,
   },
   // Story 0.i5d (AD-20 Rule 2/4) -- the TODAY temporal-filter bucket's `!ended` boundary.
   scheduleEndedBoundary: {
@@ -301,6 +317,78 @@ test('buildDrizzleWhere', async (t) => {
     assert.doesNotMatch(query.sql, /unnest/);
     assert.doesNotMatch(query.sql, /EXTRACT\(DOW/);
     assert.doesNotMatch(query.sql, /applicable_days_of_week/);
+  });
+
+  await t.test('BUG-096: overlaps with pastCutoff takes its lower bound from schedule_past_cutoff_date per row, not the fixed `from`', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleDateRangeLegacyZoned',
+      operator: 'overlaps',
+      value: { from: '2026-08-15', to: null, pastCutoff: { instant: '2026-08-15T17:30:00.000Z', hidePastEventsAfterDays: 3 } },
+    };
+    const res = buildDrizzleWhere(condition, fieldMap);
+    assert.ok(res !== undefined);
+    const query = new PgDialect().sqlToQuery(res!);
+    assert.match(query.sql, /&& daterange\(schedule_past_cutoff_date\(\$\d+::timestamptz, "schedule_test_table"\."timezone", "schedule_test_table"\."timezone_status"::text, \$\d+::integer\), NULL, '\[\]'\)/);
+    assert.ok(query.params.includes('2026-08-15T17:30:00.000Z'));
+    assert.ok(query.params.includes(3));
+    // the fixed UTC `from` is not bound at all: the per-row bound replaces it
+    assert.ok(!query.params.includes('2026-08-15'));
+    assert.doesNotMatch(query.sql, /::date/);
+  });
+
+  await t.test('BUG-096: with the weekday guard present, the same per-row cutoff is used in every place the bound appears', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleDateRange',
+      operator: 'overlaps',
+      value: { from: '2026-08-15', to: null, pastCutoff: { instant: '2026-08-15T17:30:00.000Z', hidePastEventsAfterDays: 0 } },
+    };
+    const query = new PgDialect().sqlToQuery(buildDrizzleWhere(condition, fieldMap)!);
+    // the daterange itself, plus the guard's weekday offset and its day count
+    assert.strictEqual(query.sql.match(/schedule_past_cutoff_date\(/g)?.length, 3);
+    assert.match(query.sql, /unnest/);
+  });
+
+  await t.test('BUG-096: a user window (no pastCutoff) keeps the fixed from/to dates exactly as before', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleDateRange',
+      operator: 'overlaps',
+      value: { from: '2026-08-01', to: '2026-08-07' },
+    };
+    const query = new PgDialect().sqlToQuery(buildDrizzleWhere(condition, fieldMap)!);
+    assert.doesNotMatch(query.sql, /schedule_past_cutoff_date/);
+    assert.ok(query.params.includes('2026-08-01'));
+    assert.ok(query.params.includes('2026-08-07'));
+  });
+
+  await t.test('BUG-096: a descriptor without the timezone columns ignores pastCutoff and uses `from`', () => {
+    const condition: QueryCondition = {
+      field: 'scheduleDateRangeLegacy',
+      operator: 'overlaps',
+      value: { from: '2026-08-15', to: null, pastCutoff: { instant: '2026-08-15T17:30:00.000Z', hidePastEventsAfterDays: 0 } },
+    };
+    const query = new PgDialect().sqlToQuery(buildDrizzleWhere(condition, fieldMap)!);
+    assert.doesNotMatch(query.sql, /schedule_past_cutoff_date/);
+    assert.ok(query.params.includes('2026-08-15'));
+  });
+
+  await t.test('BUG-096: a malformed pastCutoff from a client is ignored, never cast', () => {
+    for (const bad of [
+      'not-an-object',
+      null,
+      { instant: 'not a date', hidePastEventsAfterDays: 0 },
+      { instant: '2026-08-15T00:00:00Z', hidePastEventsAfterDays: '0; DROP TABLE x' },
+      { instant: '2026-08-15T00:00:00Z', hidePastEventsAfterDays: 1.5 },
+      { instant: 5, hidePastEventsAfterDays: 0 },
+    ]) {
+      const condition: QueryCondition = {
+        field: 'scheduleDateRange',
+        operator: 'overlaps',
+        value: { from: '2026-08-15', to: null, pastCutoff: bad },
+      };
+      const query = new PgDialect().sqlToQuery(buildDrizzleWhere(condition, fieldMap)!);
+      assert.doesNotMatch(query.sql, /schedule_past_cutoff_date/, JSON.stringify(bad));
+      assert.ok(query.params.includes('2026-08-15'), JSON.stringify(bad));
+    }
   });
 
   await t.test('handles notEnded operator on scheduleEndedBoundary field', () => {

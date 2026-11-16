@@ -5,6 +5,8 @@
 // candidate row(s) and resolving the organizer-match boolean before calling in here; this file
 // never queries anything itself.
 
+import { venueTextsSamePlace } from './venue-text-match.js';
+
 export type MatchTier = 'high' | 'mid' | 'low';
 
 // Story 3.6v Dev Notes "Design decision 3" -- these are initial, documented *defaults*, not an
@@ -197,6 +199,20 @@ export function capTierWhenOutsideDateWindow(tier: MatchTier, minDayDiff: number
 export const MID_PROMOTION_NAME_SIMILARITY = 0.85;
 
 /**
+ * AC1 -- ingestion admits a candidate whose schedule is within this many days of one of the new
+ * item's schedules. Shared by ingestion, the drain script and the AI reviewer's floor.
+ */
+export const DATE_WINDOW_DAYS = 2;
+
+/**
+ * BUG-063 -- a candidate that shares a normalized event link with the new item is also admitted when
+ * a schedule is within +/-90 days: a registration-deadline post and the race-day post of one event
+ * sit weeks apart. It stays well short of a yearly re-run of the same event. Such a candidate is
+ * capped at `mid` (see `capTierWhenOutsideDateWindow`), never auto-linked.
+ */
+export const SHARED_LINK_DATE_WINDOW_DAYS = 90;
+
+/**
  * Largest day gap between the nearest schedules of two events for the promotion: 0, so the two must
  * share a start date. A pair a day or two apart is far more often the next instance of a recurring
  * event (a weekly show, a numbered league night, consecutive pop-up days) than a repost, and an
@@ -271,15 +287,75 @@ function qualifiersContradict(a: Set<string>, b: Set<string>): boolean {
  * otherwise link whatever the trigram score (found in the 2026-10-27 review of this rule).
  */
 export function areNamesAutoLinkable(newName: string, candidateName: string, nameSimilarity: number): boolean {
-  const a = normalizeEventNameForMatch(newName);
-  const b = normalizeEventNameForMatch(candidateName);
-  if (a === '' || b === '') return false;
-  if (qualifiersContradict(bracketedQualifiers(newName), bracketedQualifiers(candidateName))) return false;
+  if (namesContradict(newName, candidateName)) return false;
+  if (normalizeEventNameForMatch(newName) === normalizeEventNameForMatch(candidateName)) return true;
+  return nameSimilarity >= MID_PROMOTION_NAME_SIMILARITY;
+}
+
+/**
+ * True when two names cannot be one event: either normalizes to nothing, the bracketed qualifiers
+ * contradict ("(Morning)" vs "(Evening)"), or the digit tokens differ ("Part 1" vs "Part 2"). This is
+ * the contradiction half of `areNamesAutoLinkable`, without its similarity requirement, so the AI
+ * reviewer's floor can accept names a trigram cannot match (bilingual, abbreviated) while still
+ * refusing a numbered series ("Part 1" vs "Part 2") or a bracketed category ("(5K)" vs "(10K)"). It does
+ * NOT catch a differing word ("Half Marathon" vs "Marathon", "Kids Run" vs "Adult Run"): that is left
+ * to the reviewer. The floor itself reads names with `namesContradictForReview` (below); this function stays
+ * the ingestion rule.
+ */
+export function namesContradict(newName: string, candidateName: string): boolean {
+  if (normalizeEventNameForMatch(newName) === '' || normalizeEventNameForMatch(candidateName) === '') return true;
+  if (qualifiersContradict(bracketedQualifiers(newName), bracketedQualifiers(candidateName))) return true;
   const digitsA = digitTokens(normalizeEventNameStrict(newName));
   const digitsB = digitTokens(normalizeEventNameStrict(candidateName));
-  if (digitsA.length !== digitsB.length || !digitsA.every((token, i) => token === digitsB[i])) return false;
-  if (a === b) return true;
-  return nameSimilarity >= MID_PROMOTION_NAME_SIMILARITY;
+  return digitsA.length !== digitsB.length || !digitsA.every((token, i) => token === digitsB[i]);
+}
+
+// A subtitle starts at the first ": " or spaced dash. "Webinar: Study Abroad 101" has the head "Webinar".
+const SUBTITLE_SEPARATOR = /\s*:\s+|\s+[-–—]\s+/;
+// Words that make the number after them a position in a series or a split of an event, in English and Indonesian.
+const SEQUENCE_WORDS = new Set(['day', 'days', 'hari', 'ke', 'part', 'bagian', 'vol', 'volume', 'ep', 'episode', 'session', 'sesi', 'round', 'babak', 'week', 'minggu', 'batch', 'gelombang', 'stage', 'tahap', 'edition', 'edisi', 'series', 'seri', 'no', 'number', 'nomor']);
+// A sequence number is small ("Day 12", "Part 2"); a course or product code is not ("Study Abroad 101").
+const MIN_INCIDENTAL_NUMBER_DIGITS = 3;
+
+function splitSubtitle(name: string): { head: string; tail: string } | null {
+  const unbracketed = name.replace(BRACKETED_GROUP, ' ');
+  const match = SUBTITLE_SEPARATOR.exec(unbracketed);
+  if (match === null || match.index === 0) return null;
+  return { head: unbracketed.slice(0, match.index), tail: unbracketed.slice(match.index + match[0].length) };
+}
+
+/**
+ * True when every number in a subtitle is bare, at least `MIN_INCIDENTAL_NUMBER_DIGITS` digits long and
+ * follows a word that is not a sequence word: "Study Abroad 101" qualifies, "Day 12", "Part 2", "10K",
+ * "2nd Edition" and a number that opens the subtitle do not.
+ */
+function subtitleNumbersAreIncidental(tail: string): boolean {
+  let previous = '';
+  for (const token of normalizeEventNameStrict(tail).split(' ').filter((word) => word !== '')) {
+    if (/\d/.test(token) && (!/^\d+$/.test(token) || token.length < MIN_INCIDENTAL_NUMBER_DIGITS || previous === '' || SEQUENCE_WORDS.has(previous))) return false;
+    previous = token;
+  }
+  return true;
+}
+
+/** `shorter` is exactly `longer` before its subtitle, and the subtitle's numbers are incidental. */
+function isTitleOfSubtitledName(shorter: string, longer: string): boolean {
+  const parts = splitSubtitle(longer);
+  return parts !== null && normalizeEventNameStrict(shorter) === normalizeEventNameStrict(parts.head) && subtitleNumbersAreIncidental(parts.tail);
+}
+
+/**
+ * `namesContradict` for the AI reviewer's floor only. It forgives one case the digit rule cannot tell from
+ * a numbered series: a name against the same name plus a subtitle whose only numbers are incidental
+ * ("Global EduFair 2026 Pre-Event Webinar" against "...: Study Abroad 101"). Empty names and bracketed
+ * qualifiers that contradict still refuse, and so does every number outside such a subtitle. Ingestion's
+ * auto-link keeps using `namesContradict` unchanged.
+ */
+export function namesContradictForReview(newName: string, candidateName: string): boolean {
+  if (!namesContradict(newName, candidateName)) return false;
+  if (normalizeEventNameForMatch(newName) === '' || normalizeEventNameForMatch(candidateName) === '') return true;
+  if (qualifiersContradict(bracketedQualifiers(newName), bracketedQualifiers(candidateName))) return true;
+  return !(isTitleOfSubtitledName(newName, candidateName) || isTitleOfSubtitledName(candidateName, newName));
 }
 
 function normalizeVenueText(location: string | null | undefined): string {
@@ -313,6 +389,8 @@ function venuePairCompatible(a: MatchVenueLike, b: MatchVenueLike): boolean {
   if (!bothHaveText && !bothHaveCoordinates) return true;
 
   if (bothHaveText && venueTextsOverlap(textA, textB)) return true;
+  // One place spelled two ways ("Ground Floor" / "Lantai GF", "Lap." / "Lapangan"): IDEA-110.
+  if (bothHaveText && venueTextsSamePlace(a.location, b.location)) return true;
   if (
     bothHaveCoordinates &&
     haversineDistanceMeters(a.latitude, a.longitude, b.latitude, b.longitude) <= VENUE_COMPATIBLE_METERS
@@ -395,11 +473,12 @@ function hasAnyVenueInfo(v: MatchVenueLike): boolean {
   return normalizeVenueText(v.location) !== '' || hasCoordinates(v);
 }
 
-// "match" is the same test as the score's venue signal (equal trimmed, lowercased text, or
-// coordinates within 150 m). "differs" needs both sides to state a comparable venue (text against
-// text, or coordinates against coordinates) and disagree; anything else cannot be compared.
+// "match" is the score's venue signal (equal trimmed, lowercased text, or coordinates within 150 m)
+// or the same place spelled two ways (`venueTextsSamePlace`, IDEA-110). "differs" needs both sides to
+// state a comparable venue (text against text, or coordinates against coordinates) and disagree;
+// anything else cannot be compared.
 function pairVenueState(a: MatchVenueLike, b: MatchVenueLike): PairVenueState {
-  if (hasVenueMatch([a], [b])) return 'match';
+  if (hasVenueMatch([a], [b]) || venueTextsSamePlace(a.location, b.location)) return 'match';
   const bothHaveText = normalizeVenueText(a.location) !== '' && normalizeVenueText(b.location) !== '';
   if (bothHaveText || (hasCoordinates(a) && hasCoordinates(b))) return 'differs';
   return hasAnyVenueInfo(a) || hasAnyVenueInfo(b) ? 'unknown-one-side' : 'unknown-both';

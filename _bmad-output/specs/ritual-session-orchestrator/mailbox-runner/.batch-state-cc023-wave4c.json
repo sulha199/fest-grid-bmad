@@ -1,0 +1,41 @@
+{
+  "createdAt": "2026-10-03T07:37:35.275716Z",
+  "mode": "stories",
+  "modeValue": [
+    "3.6m",
+    "3.6p",
+    "0.46"
+  ],
+  "epicsFile": "C:/projects/portfolio/festgrid/bmad/_bmad-output/planning-artifacts/epics.md",
+  "implementationArtifacts": "C:/projects/portfolio/festgrid/bmad/_bmad-output/implementation-artifacts",
+  "order": [
+    "3.6m",
+    "3.6p",
+    "0.46"
+  ],
+  "context": {
+    "3.6m": {
+      "bmad-create-story": "Part of the CC-023 tail, folded into CC-024's Wave 4C (_bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md). A story file for 3.6m ALREADY EXISTS (status ready-for-dev) but it was drafted BEFORE Story 3.6s restructured the Gemini response to events[]. REFRESH it in place; do not draft from scratch. The batch readiness sweep already ran Gate 1 and Gate 3: read _bmad-output/planning-artifacts/epic-readiness/batch-cc-023-face-blur-audit-readiness.md and cite it instead of re-running them; run Gate 2 only (this story has no frontend scope). That report's section '3.6m story file \u2014 what is stale' lists exactly what is wrong: Task 4 anchors on 'existing step 5.5 (Story 3.6l's incomplete-extraction warning)' and proposes a new step 5.6, but in the as-built apps/backend/src/lib/ai-processor/process-ai-job.ts step 5.5 is now the zero-events guard, step 5.6 is the maxExtractedEventsPerPost truncation (a number collision), and 3.6l's completeness check now lives inside the per-event loop (event.minScheduleCount); Task 3 places hasFaceImage/faceImageCount 'beside the existing minScheduleCount on GeminiExtractionPayload', but minScheduleCount/expectedScheduleNames moved onto GeminiEventPayload in 3.6s, while hasFaceImage/faceImageCount belong at the payload ROOT (3.6s reserved them there; 3.6s's AC1 and Dev Notes say so). Re-anchor every task and file reference to the as-built code (verify against source, not against the old story file). The 3.6m ACs in epics.md need no change. This story stays log-only: persistence is Story 3.6p. Create only, no dev. Track nothing in the wave plan file; the orchestrator updates it."
+    },
+    "3.6p": {
+      "bmad-create-story": "Part of the CC-023 tail, folded into CC-024's Wave 4C (_bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md). The batch readiness sweep already ran Gate 1 and Gate 3: read _bmad-output/planning-artifacts/epic-readiness/batch-cc-023-face-blur-audit-readiness.md and cite it; run Gate 2 only (no frontend scope). The sweep applied CORRECTIONS to this story in epics.md (see the 'Corrections (2026-10-03...)' block under Story 3.6p): add minEventCount (AD-29 Rule 6), add 3.6s and 3.6r to Depends on, per-event completeness can no longer use scalar minScheduleCount/expectedScheduleNames columns, and actualScheduleCount has no write point in the AI Processor (schedules are persisted per event by the ingestor Lambda, asynchronously). Story 3.6m's story file was refreshed just before this one: read it for the as-built payload shape. TWO DESIGN DECISIONS ARE THE USER'S, NOT YOURS: (1) the per-event audit-row shape (e.g. one jsonb array entry per event vs one audit row per event; AD-29 Rule 6 leaves it to this story) and (2) where actualScheduleCount is written (extraction-time counts in the audit row vs an ingestor back-fill of the persisted count, which would also depend on Story 3.6t). Lay out each option with its real cost and trade-offs and ask via AskUserQuestion; do not pick a default silently. Also check how 3.6n/3.6o later back-fill actualFaceDetectionCount and faceDetectionSkippedReason on the same row so the chosen shape supports it. Create only, no dev."
+    },
+    "0.46": {
+      "bmad-create-story": "Found by the CC-023 batch readiness sweep (Gate 1): read _bmad-output/planning-artifacts/epic-readiness/batch-cc-023-face-blur-audit-readiness.md and cite it instead of re-running Gates 1/3 (this story IS the Gate 1 finding); run Gate 2 only (infra story, no UI). The story section already exists in epics.md as Story 0.46 with 7 ACs and sprint-status key 0-46-provision-the-ai-processor-lambdas-image-processing-runtime (backlog); draft the story file from it, verifying every fact in AC1-AC6 against source (apps/infrastructure/lib/festgrid-backend-stack.ts AIProcessorLambda ~line 337, apps/backend/package.json, the published @vladmandic/face-api@1.7.15 package). THE TENSORFLOW.JS BACKEND CHOICE (AC4: pure-JS CPU vs WASM vs native tfjs-node, and whether AD-28 Rule 3 must be amended) IS THE USER'S DECISION: lay out the options with real costs (latency, Lambda memory, bundle size, native-binary bundling, AD-28 amendment needed or not) and ask via AskUserQuestion; do not pick silently. This story provisions the runtime only and wires nothing into process-ai-job.ts. It is a hard prerequisite for Story 3.6n only. Create only, no dev."
+    }
+  },
+  "progress": {
+    "3.6m": {
+      "bmad-create-story": "done (6620a9dc, refreshed in place vs 3.6s shape; status ready-for-dev; no questions raised; final-result text empty but commit verified)"
+    },
+    "3.6p": {
+      "bmad-create-story": "done (18e997ee, ready-for-dev). User chose: one row per attempt + jsonb eventsCompleteness array; extraction-time actualScheduleCount (same Lambda). Child also found confidenceScore is per-event too."
+    },
+    "0.46": {
+      "bmad-create-story": "done (b722e177, ready-for-dev). User chose WASM backend (tfjs-backend-wasm)."
+    }
+  },
+  "config": "all-claude-medium",
+  "note": "Hand-written, NOT produced by resolve-targets.ts: its parser reads the 'Story 3.6p' in 3.6m's Depends-on parenthetical ('3.6p depends on this story, not the reverse') as a dependency and reports a false cycle (known limitation, bmad-artifacts.ts). Real order: 3.6m -> 3.6p (depends on 3.6m) -> 0.46 (independent). Fully sequential per user (2026-10-03). Create-story only, no dev. 3.6p and 0.46 each have a USER decision the child must relay (audit-row shape + actualScheduleCount write point; TensorFlow.js backend).",
+  "gate": "BATCH COMPLETE 2026-10-03 (create-story only; no code changed, so no Step 4.5 checks owed). Follow-up edits to epics.md, AD-28 Rule 3, AD-29 Rule 2 and the wave plan committed after."
+}

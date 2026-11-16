@@ -95,7 +95,7 @@ ratchet; the infrastructure stack tests.
 |---|---|
 | 1. Cursor from the newest stored post | **Done.** `getScrapeCursor` (backend) over `resolveScrapeCursor` (domain): Bright Data = newest `posts.published_at` minus one day, Apify = exact, a future-dated post clamped to now, no stored post = the caller's window. Both triggers use it; no run-based cursor lookup remains. |
 | 2. `posts_to_not_include` | **Not built, on purpose.** The id format is unverified and a wrong value could fail every request. De-duplication by post URL already protects `posts`. Carried by **IDEA-099**. |
-| 3. Classify every Bright Data result | **Done, with one deviation.** `classifyBrightDataResult` (domain) reads `progress`: records > 0 is `ok`; `dead_page` is `empty`; otherwise `vendor_failure`, stored **FAILED**, pending job expired, profile re-queued through the AD-34 gate. Inconclusive input (lookup failed or timed out, a status that is not `ready`/`failed`, records the vendor reports that never arrived) is `empty`, never an outage. The webhook and the stale-job sweep share it. **Deviation:** the class is *derived* (`FAILED`, or `SUCCEEDED` with 0 items), not stored on `scraper_actor_runs`; that needs a migration and is carried by **IDEA-098**. |
+| 3. Classify every Bright Data result | **Done, with one deviation.** `classifyBrightDataResult` (domain) reads `progress`: records > 0 is `ok`; `dead_page` is `empty`; otherwise `vendor_failure`, stored **FAILED**, pending job expired, profile re-queued through the AD-34 gate. Inconclusive input (lookup failed or timed out, a status that is not `ready`/`failed`, records the vendor reports that never arrived) is `empty`, never an outage. The webhook and the stale-job sweep share it. **Deviation:** the class is *derived* (`FAILED`, or `SUCCEEDED` with 0 items), not stored on `scraper_actor_runs`; that needs a migration and is carried by **IDEA-261022-sdx**. |
 | 4. Fleet alert | **Partly done.** A provider whose newest finished runs mostly failed (>= 80 %) or all returned no posts is degraded; the daily batch records it as a failure day in `scraper_provider_health`, so the existing provider-down e-mail fires after `SCRAPER_PROVIDER_ALERT_THRESHOLD_DAYS` (default 2) days. The measure is a sliding sample, not "a day". The switch and the recovery are logged. **No notification reaches a human in production** until SES works (BUG-073): carried by **IDEA-096**. |
 | 5. Recover the gap | **Automatic, with a limit.** The cursor never moved past 2026-10-20, so the first healthy run per profile requests from there. A profile whose gap exceeds the per-run limit (`SCRAPE_RESULTS_LIMIT`, default 30) is truncated: re-run a manual scrape for it. |
 | 6. Tests | **Done** except the `posts_to_not_include` id list (item 2). The "all-zero day raises the alert" case is covered up to the failure-day row and the alert text; no test sends mail (SES). |
@@ -121,13 +121,13 @@ ratchet; the infrastructure stack tests.
    0 items, which is `ALL_EMPTY`. Bright Data gets only its probes and the fleet goes to Apify. Confirm the Apify plan and its
    $5 FREE cap first (with the post cursor, spend is roughly new posts x $0.0023, not the full-window estimate).
 2. Read-only checks (the owner's role): posts whose `published_at` is within about 2 minutes of `created_at` with a non-null
-   `scraper_actor_run_id` are synthesized dates (BUG-076); if any exist, treat BUG-076 as a blocker.
+   `scraper_actor_run_id` are synthesized dates (BUG-261022-3vh); if any exist, treat BUG-261022-3vh as a blocker.
 3. The production deploy runs the infrastructure change too (the webhook Lambda's environment and grants).
 
 ### Known limits, carried as rows
 
-BUG-076 (the cursor can run ahead of what a profile's own scrape captured), BUG-077 (caption-less posts pin the cursor),
-BUG-078 (failed-run handling differs per vendor and is not atomic), BUG-079 (the budget gate counts triggers, not items),
-IDEA-096 (alerting without SES), IDEA-097 (persisted health, DB-lease probe, one route resolver, owner override),
-IDEA-098 (store the classification evidence, an `inconclusive` class, webhook acknowledges only), IDEA-099
+BUG-261022-3vh (the cursor can run ahead of what a profile's own scrape captured), BUG-261022-7aw (caption-less posts pin the cursor),
+BUG-261022-a2z (failed-run handling differs per vendor and is not atomic), BUG-079 (the budget gate counts triggers, not items),
+IDEA-096 (alerting without SES), IDEA-261022-iyj (persisted health, DB-lease probe, one route resolver, owner override),
+IDEA-261022-sdx (store the classification evidence, an `inconclusive` class, webhook acknowledges only), IDEA-099
 (`posts_to_not_include`), FIND-095 (smaller review deferrals).

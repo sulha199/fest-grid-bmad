@@ -84,8 +84,8 @@ venue category. A venue with no category falls back to the default. `neighbourho
 - A curator **never lends a location** and its address is **never inferred from a post** (PRD FR137). A curator's *post* may still name
   a venue; that is the venue signal.
 - A curator's **audience area stated in its bio counts** (owner decision, 2026-10-27). It is the last resort and is tagged `account-bio`.
-- Attribution is a precondition: the rules depend on the post's publisher being the right profile. BUG-081 (profile backfill overwrote
-  usernames) was fixed and 22 rows were repaired on 2026-10-26/27; repost handling beyond that is deferred (IDEA-103, read the audience
+- Attribution is a precondition: the rules depend on the post's publisher being the right profile. BUG-065 (profile backfill overwrote
+  usernames) was fixed and 22 rows were repaired on 2026-10-26/27; repost handling beyond that is deferred (IDEA-261026-l2j, read the audience
   area from the original account).
 - **Unclassified accounts are treated as curators until classified** (owner decision, 2026-10-27): they lend no location and supply an
   audience area only if their bio states one. This differs from today's code (`mayUseAccountLocation`) and from PRD FR137, where a
@@ -210,4 +210,4 @@ kecamatan/kabupaten/provinsi/nasional" 5; "dan sekitarnya" 21; two or more citie
 
 ## 12. Out of scope
 
-Reading the original account for reposts (IDEA-103); OCR of posters in the POC; the full numeric account-identity unification (BUG-059).
+Reading the original account for reposts (IDEA-261026-l2j); OCR of posters in the POC; the full numeric account-identity unification (BUG-059).

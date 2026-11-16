@@ -140,6 +140,64 @@ test('callGeminiGenerateContent: signal forwarding and maxOutputTokens', async (
 
     assert.strictEqual(capturedConfig.maxOutputTokens, undefined);
   });
+
+  // AD-49 Rule 1 (cursor extraction, slice 1): finishReason and usage, additive.
+  await t.test('returns finishReason and token usage when the SDK reports them (MAX_TOKENS)', async () => {
+    setGenerateContentSeam(async () => ({
+      text: '{"isEvent":',
+      candidates: [{ finishReason: 'MAX_TOKENS' }],
+      usageMetadata: { promptTokenCount: 5200, candidatesTokenCount: 8192 },
+    }));
+
+    const result = await callGeminiGenerateContent('test-key', { contents: 'hello' });
+
+    assert.strictEqual(result.text, '{"isEvent":');
+    assert.strictEqual(result.finishReason, 'MAX_TOKENS');
+    assert.deepStrictEqual(result.usage, { promptTokens: 5200, outputTokens: 8192 });
+  });
+
+  await t.test('returns STOP and usage for a normal response', async () => {
+    setGenerateContentSeam(async () => ({
+      text: '{}',
+      candidates: [{ finishReason: 'STOP' }],
+      usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 20 },
+    }));
+
+    const result = await callGeminiGenerateContent('test-key', { contents: 'hello' });
+
+    assert.strictEqual(result.finishReason, 'STOP');
+    assert.deepStrictEqual(result.usage, { promptTokens: 100, outputTokens: 20 });
+  });
+
+  await t.test('with no usageMetadata and no candidates the result is just text (no throw, no fields)', async () => {
+    setGenerateContentSeam(async () => ({ text: 'plain' }));
+
+    const result = await callGeminiGenerateContent('test-key', { contents: 'hello' });
+
+    assert.deepStrictEqual(result, { text: 'plain' });
+  });
+
+  await t.test('returns thinking tokens and the prompt block reason when reported', async () => {
+    setGenerateContentSeam(async () => ({
+      text: '',
+      usageMetadata: { promptTokenCount: 50, thoughtsTokenCount: 1200 },
+      promptFeedback: { blockReason: 'PROHIBITED_CONTENT' },
+    }));
+
+    const result = await callGeminiGenerateContent('test-key', { contents: 'hello' });
+
+    assert.strictEqual(result.blockReason, 'PROHIBITED_CONTENT');
+    assert.strictEqual(result.finishReason, undefined);
+    assert.deepStrictEqual(result.usage, { promptTokens: 50, thinkingTokens: 1200 });
+  });
+
+  await t.test('partial usageMetadata keeps only the numbers that exist', async () => {
+    setGenerateContentSeam(async () => ({ text: 'x', usageMetadata: { candidatesTokenCount: 7 } }));
+
+    const result = await callGeminiGenerateContent('test-key', { contents: 'hello' });
+
+    assert.deepStrictEqual(result.usage, { outputTokens: 7 });
+  });
 });
 
 // Story 0.i2c (AC7) — isGeminiErrorTransient's classification contract.

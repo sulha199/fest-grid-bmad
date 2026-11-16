@@ -1,4 +1,5 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+import { activeOnly } from '@festgrid/graphql-select';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, subscriptions } from '@festgrid/database';
 
@@ -38,7 +39,7 @@ export async function resolveFilterAccountId(
     .where(
       and(
         eq(subscriptions.userId, userId),
-        isNull(subscriptions.deletedAt),
+        activeOnly(subscriptions),
         sql`(lower(${socialMediaAccountProfiles.username}) = ${needle} OR lower(${socialMediaAccountProfiles.displayName}) = ${needle})`
       )
     )

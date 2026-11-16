@@ -3,6 +3,7 @@ import { socialMediaAccountProfiles, subscriptions, brightdataPendingJobs, posts
 import { activeOnly } from '@festgrid/graphql-select';
 import { ScrapablePlatform, isAdapterRegistered, resolveScrapeDueCutoff, resolveScrapeHandle, type ScrapeDueCutoff } from '@festgrid/domain';
 import { loadBackendEnv } from '../../env.js';
+import { findProfilesDeferredByBackoff } from './scrape-backoff.js';
 import { and, eq, isNull, lt, or, inArray, sql, type SQL } from 'drizzle-orm';
 
 export interface ScrapeTarget {
@@ -60,6 +61,7 @@ export async function getBatchScrapeTargets(options: BatchScrapeTargetOptions = 
     platform: socialMediaAccountProfiles.platform,
     accountId: socialMediaAccountProfiles.accountId,
     username: socialMediaAccountProfiles.username,
+    lastScrapedAt: socialMediaAccountProfiles.lastScrapedAt,
   })
     .from(socialMediaAccountProfiles)
     .innerJoin(subscriptions, eq(subscriptions.accountId, socialMediaAccountProfiles.id))
@@ -81,7 +83,21 @@ export async function getBatchScrapeTargets(options: BatchScrapeTargetOptions = 
   const pendingSet = new Set(pendingRows.map(p => p.profileId));
 
   // TypeScript deduplication by profileId and filter pending
-  const distinctRows = Array.from(new Map(rows.map(r => [r.profileId, r])).values()).filter(r => !pendingSet.has(r.profileId));
+  let distinctRows = Array.from(new Map(rows.map(r => [r.profileId, r])).values()).filter(r => !pendingSet.has(r.profileId));
+
+  // IDEA-105: a profile whose last run found no new post and whose posting rhythm is known waits its typical gap
+  // (capped, never switched off). Scheduled cycles only: a manual invoke keeps its rolling window and scrapes what it is
+  // asked to.
+  if (options.scheduledTime !== undefined) {
+    const deferred = await findProfilesDeferredByBackoff(
+      distinctRows.map(r => ({ profileId: r.profileId, lastScrapedAt: r.lastScrapedAt })),
+      { cutoff: cutoffDate, now: new Date() }
+    );
+    if (deferred.size > 0) {
+      console.log(`Scrape backoff defers ${deferred.size} profile(s) after an empty run: ${[...deferred].map(([id, days]) => `${id} (${days}d)`).join(', ')}`);
+      distinctRows = distinctRows.filter(r => !deferred.has(r.profileId));
+    }
+  }
 
   // Batch-fetch each target's newest post date in one grouped query (FIND-035) -- never
   // per-target inside the loop below -- so the daily batch cron can scrape incrementally

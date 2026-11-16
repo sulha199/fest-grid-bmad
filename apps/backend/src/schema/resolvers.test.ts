@@ -2825,6 +2825,29 @@ test('events resolver integration via Yoga', async (t) => {
       assert.deepStrictEqual([...groups[0].eventIds].sort(), [liveEvent.id, mergeTargetEvent.id].sort());
     });
 
+    await t.test('AD-50: reports whether the posts list may be incomplete (COMPLETE, PARTIAL, IN_PROGRESS) without touching the events list', async () => {
+      const progress = async () => {
+        const response = await yoga.fetch('http://yoga/graphql', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: `query GetRelatedEventIdsByPost($postId: ID!) { relatedEventIds(postId: $postId) { postId extractionProgress } }`,
+            variables: { postId: sharedPost.id },
+          }),
+        });
+        const result = await response.json();
+        assert.ok(!result.errors, JSON.stringify(result.errors));
+        return result.data.relatedEventIds[0].extractionProgress;
+      };
+      assert.strictEqual(await progress(), 'COMPLETE');
+      await db.update(posts).set({ extractionPartial: true }).where(eq(posts.id, sharedPost.id));
+      assert.strictEqual(await progress(), 'PARTIAL');
+      await db.update(posts).set({ extractionCursor: { version: 1, placeholder: 'only its presence matters here' } }).where(eq(posts.id, sharedPost.id));
+      assert.strictEqual(await progress(), 'IN_PROGRESS', 'a chain still running outranks the partial flag');
+      await db.update(posts).set({ extractionPartial: false, extractionCursor: null }).where(eq(posts.id, sharedPost.id));
+      assert.strictEqual(await progress(), 'COMPLETE');
+    });
+
     await t.test('returns [] for a post with no linked events', async () => {
       const response = await yoga.fetch('http://yoga/graphql', {
         method: 'POST',
@@ -4779,6 +4802,35 @@ test('setImageStorageOptIn and queryModeratorAccountProfiles integration tests',
     const result = await response.json();
     assert.ok(result.errors);
     assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
+  });
+
+  await t.test('applyPostReextraction mutation - FORBIDDEN for non-moderator (AD-40 Apply)', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'user' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { applyPostReextraction(jobId: "00000000-0000-4000-8000-0000000000dd") { errorCode errorMessage summary { queuedForReview } } }`
+      })
+    });
+    const result = await response.json();
+    assert.ok(result.errors);
+    assert.strictEqual(result.errors[0].extensions?.code, 'FORBIDDEN');
+  });
+
+  await t.test('applyPostReextraction mutation - a moderator\'s unknown job id is a typed NOT_FOUND, not a thrown error (AD-40 Apply)', async () => {
+    mockUser = { userId: '00000000-0000-0000-0000-000000000003', role: 'moderator' };
+    const response = await yoga.fetch('http://yoga/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `mutation { applyPostReextraction(jobId: "00000000-0000-4000-8000-0000000000dd") { errorCode errorMessage summary { queuedForReview } } }`
+      })
+    });
+    const result = await response.json();
+    assert.ok(!result.errors, JSON.stringify(result.errors));
+    assert.strictEqual(result.data.applyPostReextraction.errorCode, 'NOT_FOUND');
+    assert.strictEqual(result.data.applyPostReextraction.summary, null);
   });
 
   await t.test('previewPostReextraction mutation - BAD_REQUEST unless exactly one of postId/url (AD-40)', async () => {

@@ -1,0 +1,13 @@
+# Story 10.13 (notify when a job finishes): the Jobs menu badge count, the "I opened the Jobs page" clear, and the
+# "I saw this job end" acknowledgement. All three are for the signed-in caller only.
+query jobsFinishedSinceLastOpened {
+  jobsFinishedSinceLastOpened
+}
+
+mutation markJobsOpened {
+  markJobsOpened
+}
+
+mutation acknowledgeJobEnded($jobId: ID!) {
+  acknowledgeJobEnded(jobId: $jobId)
+}

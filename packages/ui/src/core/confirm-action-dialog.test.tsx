@@ -352,4 +352,27 @@ describe('ConfirmActionDialog (Story 0.47)', () => {
     const confirmButton = screen.getByRole('button', { name: 'Confirm' });
     expect(confirmButton.className).toContain('bg-destructive');
   });
+
+  it('renders optional children between the description and the buttons, and omits them when absent', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <ConfirmActionDialog open title="Why?" description="Pick one." confirmLabel="Go" cancelLabel="Stop" onConfirm={() => {}} onCancel={() => {}}>
+        <label>
+          Reason <input type="checkbox" />
+        </label>
+      </ConfirmActionDialog>
+    );
+    const dialog = await screen.findByRole('alertdialog');
+    const box = screen.getByLabelText('Reason');
+    expect(dialog).toContainElement(box);
+    await user.click(box);
+    expect(box).toBeChecked();
+    // Order in the DOM: description, then the children, then the buttons.
+    const order = Array.from(dialog.querySelectorAll('p, input, button')).map((el) => el.tagName);
+    expect(order.indexOf('P')).toBeLessThan(order.indexOf('INPUT'));
+    expect(order.indexOf('INPUT')).toBeLessThan(order.indexOf('BUTTON'));
+
+    rerender(<ConfirmActionDialog open title="Why?" description="Pick one." confirmLabel="Go" cancelLabel="Stop" onConfirm={() => {}} onCancel={() => {}} />);
+    expect(screen.queryByLabelText('Reason')).not.toBeInTheDocument();
+  });
 });

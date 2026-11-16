@@ -297,8 +297,15 @@ export class FestgridBackendStack extends cdk.Stack {
     // Api Lambda held the Firebase variables: every initialisation in the Ingestor failed (about 40 a
     // day in production, 2026-10-07 to 10-16) and every alert fell back to a log line.
     //
+    // Story 10.13 (notify when a job finishes): the Scraper Lambda also sends push and mail now: the
+    // 5-minute job sweep ends with one step (`announceEndedJobs`) that pushes the job-finished notice
+    // and mails a moderator owner, so it holds `firebaseEnv` and the Firebase secret read (owner
+    // approved 2026-11-14); its mail variables and the SES grant already existed. It does not hold
+    // `systemAlertEnv`: a failed send there is logged only.
+    //
     // Least privilege: on this code the AI processor never reaches the push or the mail path (it only
-    // imports a type from the module that holds them), so it gets none of this. If a later change makes
+    // imports a type from the module that holds them), so it gets none of this; the jobs it ends are
+    // announced by the next sweep tick on the Scraper Lambda. If a later change makes
     // it call `notifyNewEvent` or send mail, give it `firebaseEnv`, `mailEnv`, `systemAlertEnv`,
     // `grantSesSend` and the Firebase secret read in the same change: the walkers in
     // festgrid-backend-stack.test.ts fail for an env var wired without its grant.
@@ -400,6 +407,8 @@ export class FestgridBackendStack extends cdk.Stack {
         SCRAPE_RESULTS_LIMIT: process.env.SCRAPE_RESULTS_LIMIT,
         SCRAPE_INITIAL_LOOKBACK_DAYS: process.env.SCRAPE_INITIAL_LOOKBACK_DAYS,
         SCRAPE_SKIP_RECENT_HOURS: process.env.SCRAPE_SKIP_RECENT_HOURS,
+        SCRAPE_BACKOFF_GAP_MULTIPLIER: process.env.SCRAPE_BACKOFF_GAP_MULTIPLIER,
+        SCRAPE_BACKOFF_MAX_DAYS: process.env.SCRAPE_BACKOFF_MAX_DAYS,
         SCRAPER_MONTHLY_BUDGET_USD: process.env.SCRAPER_MONTHLY_BUDGET_USD,
         SCRAPER_PRICE_PER_1000_ITEMS_USD: process.env.SCRAPER_PRICE_PER_1000_ITEMS_USD,
         SCRAPER_CAPACITY_THRESHOLD_RATIO: process.env.SCRAPER_CAPACITY_THRESHOLD_RATIO,
@@ -408,6 +417,8 @@ export class FestgridBackendStack extends cdk.Stack {
         QUEUE_NOTIFICATION_COOLDOWN_DAYS: process.env.QUEUE_NOTIFICATION_COOLDOWN_DAYS,
         BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID,
+        BRIGHTDATA_PROFILE_DATASET_ID: process.env.BRIGHTDATA_PROFILE_DATASET_ID,
+        PROFILE_SCRAPER_PROVIDER_ORDER: process.env.PROFILE_SCRAPER_PROVIDER_ORDER,
         BRIGHTDATA_WEBHOOK_SECRET: brightdataWebhookSecretSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_JOB_TIMEOUT_MINUTES: process.env.BRIGHTDATA_JOB_TIMEOUT_MINUTES,
         BRIGHTDATA_PRICE_PER_1000_ITEMS_USD: process.env.BRIGHTDATA_PRICE_PER_1000_ITEMS_USD,
@@ -440,11 +451,22 @@ export class FestgridBackendStack extends cdk.Stack {
         APIFY_API_TOKEN: apifyApiTokenSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_API_TOKEN: brightdataApiTokenSecret.secretValue.unsafeUnwrap(),
         BRIGHTDATA_DATASET_ID: process.env.BRIGHTDATA_DATASET_ID || 'gd_lk5ns7kz21pck8jpis',
+        BRIGHTDATA_PROFILE_DATASET_ID: process.env.BRIGHTDATA_PROFILE_DATASET_ID,
+        PROFILE_SCRAPER_PROVIDER_ORDER: process.env.PROFILE_SCRAPER_PROVIDER_ORDER,
+        // Story 10.2: the post-scraper provider order (default brightdata,apify, owner decision 2026-11-11, PRD OI-1). The chain
+        // runs in the Scraper Lambda, which holds both vendor tokens.
+        POST_SCRAPER_PROVIDER_ORDER: process.env.POST_SCRAPER_PROVIDER_ORDER,
+        // Story 10.5: how long the sweep waits for a Bright Data snapshot still running (default 480 minutes in env.ts).
+        BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES: process.env.BRIGHTDATA_SNAPSHOT_MAX_WAIT_MINUTES,
+        // Story 10.6: the time the moderator re-extract job's image refresh may use (default 120000 ms in env.ts).
+        REEXTRACT_REFRESH_BUDGET_MS: process.env.REEXTRACT_REFRESH_BUDGET_MS,
         BYOK_KMS_KEY_ID: kmsKey.keyId,
         GEOAPIFY_API_KEY: geoapifyApiKeySecret.secretValue.unsafeUnwrap(),
         SYSTEM_GEMINI_API_KEY: systemGeminiApiKeySecret.secretValue.unsafeUnwrap(),
         SES_FROM_EMAIL_ADDRESS: process.env.SES_FROM_EMAIL_ADDRESS || '',
         WEB_APP_BASE_URL: process.env.WEB_APP_BASE_URL || 'http://localhost:3000',
+        // Story 10.13: the job-finished push leaves from the 5-minute sweep (the same Firebase variables as the Ingestor).
+        ...firebaseEnv,
         SCRAPE_SKIP_RECENT_HOURS: process.env.SCRAPE_SKIP_RECENT_HOURS || '12',
         // Posts fetched per account per run (Apify resultsLimit / Bright Data numOfPosts).
         // Kept above the ~1/day posting cadence most accounts see so a missed or delayed
@@ -587,6 +609,12 @@ export class FestgridBackendStack extends cdk.Stack {
         // environment block gets it: it's the only caller of buildGeminiExtractionRequest with
         // the image-processing runtime (sharp/WASM/model weights) needed to run the blur.
         BLUR_FACES_BEFORE_AI: process.env.BLUR_FACES_BEFORE_AI || 'true',
+        // AD-51 Rule 2 -- stepped (cursor) extraction of multi-slide posts (AD-46..AD-51), switched ON on 2026-11-10 after
+        // the live replay of a roundup (26 events in 2 requests). This Lambda is the only reader. It is also the kill switch:
+        // set the repository variable CURSOR_EXTRACTION_ENABLED to "false" and redeploy (or edit this Lambda's environment
+        // in the console for an immediate effect): new posts then take the one-request path, and chains in flight stop at
+        // their next step and are flagged partial.
+        CURSOR_EXTRACTION_ENABLED: process.env.CURSOR_EXTRACTION_ENABLED || 'true',
       },
     });
 
@@ -727,6 +755,9 @@ export class FestgridBackendStack extends cdk.Stack {
     // already covers the same actions.
     scrapingQueue.grantConsumeMessages(scraperLambda);
     aiProcessingQueue.grantConsumeMessages(aiProcessorLambda);
+    // AD-52 Rule 5: the resume pass at the start of each 5-minute tick re-enqueues posts whose failed extraction has a
+    // retry due (through enqueuePostForProcessing), so the AI Lambda also sends to its own input queue.
+    aiProcessingQueue.grantSendMessages(aiProcessorLambda);
     dataIngestionQueue.grantConsumeMessages(ingestorLambda);
     // Scraper needs to enqueue onto ScrapingQueue (self-enqueue) & API needs to enqueue for on-demand scrape
     scrapingQueue.grantSendMessages(scraperLambda);
@@ -750,6 +781,59 @@ export class FestgridBackendStack extends cdk.Stack {
     // No automatic retry: processManualExtractionJob claims the job row atomically, and a retry
     // after a mid-run failure would otherwise spend a second Gemini key call for the same job.
     aiProcessorLambda.configureAsyncInvoke({ retryAttempts: 0 });
+
+    // Story 10.1a (AD-53) -- the background-job engine. Every start and hand-off is an async invoke of a host Lambda that
+    // carries only `{ jobId }`; the receiving Lambda reloads the job row (AD-41 Rule 2). Names are attached with
+    // addEnvironment so no Lambda's construct props change. No new Lambda, queue or secret.
+    //  * API -> Scraper: startJob for a job type hosted on the Scraper. (The API's invoke of the AI-processor for a type
+    //    hosted there is the Story 4.2b grant above; no further grant is needed.)
+    //  * Scraper -> AI-processor: the cross-Lambda phase hand-off of a scrape-then-extract job. No reverse grant: no known
+    //    job type needs AI-processor -> Scraper, so the first story that does adds it.
+    scraperLambda.grantInvoke(apiLambda);
+    apiLambda.addEnvironment('SCRAPER_FUNCTION_NAME', scraperLambda.functionName);
+    aiProcessorLambda.grantInvoke(scraperLambda);
+    scraperLambda.addEnvironment('AI_PROCESSOR_FUNCTION_NAME', aiProcessorLambda.functionName);
+    // Both worker Lambdas run `job-engine-run`, so both need the run budget and the claim TTL (the API Lambda only starts
+    // jobs and reads neither).
+    for (const worker of [scraperLambda, aiProcessorLambda]) {
+      worker.addEnvironment('JOB_ATTEMPT_DEADLINE_MS', process.env.JOB_ATTEMPT_DEADLINE_MS || '150000');
+      worker.addEnvironment('JOB_WORKER_CLAIM_TTL_MINUTES', process.env.JOB_WORKER_CLAIM_TTL_MINUTES || '5');
+    }
+    // Story 10.3 -- a worker that ends a run (or the sweep) promotes the owner's queued jobs and so must be able to start a
+    // job hosted on ITSELF. A Ref to its own name or ARN in its own environment or role policy would be a cycle, so: the
+    // name comes at runtime from AWS_LAMBDA_FUNCTION_NAME (JOB_HOST_SELF says which host this Lambda is), and the permission
+    // is a resource policy on the function (a separate AWS::Lambda::Permission, which depends on the function, not the
+    // reverse). The AI-processor has no name for the Scraper (the two names would reference each other), so it cannot start
+    // a Scraper-hosted job: the promotion puts that job back in the queue and the 5-minute sweep, which runs on the Scraper,
+    // starts it.
+    scraperLambda.addEnvironment('JOB_HOST_SELF', 'scraper');
+    // Story 10.13 -- the announcer step of the 5-minute sweep (Scraper Lambda only). One notice per owner per window; a just-ended job waits
+    // the grace so a watching owner can acknowledge it; a job older than the max age is marked handled with no notice.
+    scraperLambda.addEnvironment('JOB_NOTIFY_WINDOW_MINUTES', process.env.JOB_NOTIFY_WINDOW_MINUTES || '10');
+    scraperLambda.addEnvironment('JOB_NOTIFY_GRACE_SECONDS', process.env.JOB_NOTIFY_GRACE_SECONDS || '45');
+    scraperLambda.addEnvironment('JOB_NOTIFY_MAX_AGE_MINUTES', process.env.JOB_NOTIFY_MAX_AGE_MINUTES || '60');
+    aiProcessorLambda.addEnvironment('JOB_HOST_SELF', 'ai-processor');
+    scraperLambda.addPermission('SelfInvoke', {
+      principal: new iam.ArnPrincipal(scraperLambda.role!.roleArn),
+      action: 'lambda:InvokeFunction',
+    });
+    aiProcessorLambda.addPermission('SelfInvoke', {
+      principal: new iam.ArnPrincipal(aiProcessorLambda.role!.roleArn),
+      action: 'lambda:InvokeFunction',
+    });
+
+    // Story 10.3 -- admission and the subscription cap. Admission runs in the API Lambda (startJob, subscribeToAccount),
+    // promotion runs in both workers (at the end of a run) and in the sweep (Scraper), so all three carry the same four
+    // settings and the same defaults as env.ts.
+    for (const fn of [apiLambda, scraperLambda, aiProcessorLambda]) {
+      fn.addEnvironment('MAX_CONCURRENT_JOBS_PER_USER', process.env.MAX_CONCURRENT_JOBS_PER_USER || '3');
+      fn.addEnvironment('MAX_QUEUED_JOBS_PER_USER', process.env.MAX_QUEUED_JOBS_PER_USER || '10');
+      fn.addEnvironment('JOB_QUEUE_MAX_WAIT_MINUTES', process.env.JOB_QUEUE_MAX_WAIT_MINUTES || '30');
+      fn.addEnvironment('MAX_SUBSCRIBED_ACCOUNTS_FREE_USER', process.env.MAX_SUBSCRIBED_ACCOUNTS_FREE_USER || '5');
+    }
+    // Story 10.4 (FR123) -- how long a finished job stays listed. Only the API Lambda reads jobs for a client, and the rule is hide-only
+    // (nothing is deleted; a physical delete is a follow-up for the owner), so no worker carries it.
+    apiLambda.addEnvironment('JOBS_HISTORY_RETENTION_DAYS', process.env.JOBS_HISTORY_RETENTION_DAYS || '30');
 
     // Scraper needs to enqueue onto AIProcessingQueue too (Story 3.6z, automatic extraction
     // on scrape) -- same prod-incident lesson as above: a queue-URL env var with no matching
@@ -797,6 +881,8 @@ export class FestgridBackendStack extends cdk.Stack {
     firebasePrivateKeySecret.grantRead(apiLambda);
     // BUG-073: notifyNewEvent runs in the Ingestor, not in the Api Lambda.
     firebasePrivateKeySecret.grantRead(ingestorLambda);
+    // Story 10.13: the job-finished push is sent from the Scraper Lambda's 5-minute sweep (same pattern as the Ingestor's BUG-073 line).
+    firebasePrivateKeySecret.grantRead(scraperLambda);
 
     apifyApiTokenSecret.grantRead(apiLambda);
     apifyApiTokenSecret.grantRead(scraperLambda);
@@ -964,6 +1050,17 @@ export class FestgridBackendStack extends cdk.Stack {
     });
     staleJobSweepRule.addTarget(new targets.LambdaFunction(scraperLambda, {
       event: events.RuleTargetInput.fromObject({ jobType: 'stale-job-sweep' }),
+    }));
+
+    // Story 10.1a (AD-53) -- the job engine's sweep, every 5 minutes in every stage. Database only (it makes no vendor or
+    // AWS call), which is why it is a separate rule from the hourly vendor sweep above: that one also makes Bright Data and
+    // Apify progress calls and must not run more often. It ends admitted jobs past their deadline and enforces
+    // manual-extraction caption/preview retention.
+    const jobEngineSweepRule = new events.Rule(this, `ScraperJobEngineSweepRule-${stageName}`, {
+      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+    });
+    jobEngineSweepRule.addTarget(new targets.LambdaFunction(scraperLambda, {
+      event: events.RuleTargetInput.fromObject({ jobType: 'job-engine-sweep' }),
     }));
 
     // IDEA-096: the alert path that does not depend on SES (BUG-073). The Lambdas write CloudWatch

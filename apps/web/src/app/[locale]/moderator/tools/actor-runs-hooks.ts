@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueryActorRunsQuery, useReplayActorRunMutation as useGeneratedReplayActorRunMutation } from '@/generated/graphql';
+import { keepPreviousData } from '@tanstack/react-query';
 import { graphqlClient } from '@/lib/graphql-client';
 import type { ActorRunFilters } from '@/gql/graphql';
 
@@ -13,7 +14,7 @@ export function useQueryActorRuns(
   return useQueryActorRunsQuery(
     graphqlClient,
     { filters: filters || {}, first: pageSize, after: cursor },
-    { enabled, staleTime: 0, gcTime: 1000 * 60 * 5 }
+    { enabled, staleTime: 0, gcTime: 1000 * 60 * 5, placeholderData: keepPreviousData }
   );
 }
 

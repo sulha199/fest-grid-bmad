@@ -1,0 +1,78 @@
+{
+  "model": "synthetic-recording",
+  "promptHash": "synthetic0000",
+  "recordedAt": "2026-11-11T00:00:00Z",
+  "runs": [
+    {
+      "postId": "syn-single",
+      "runIndex": 0,
+      "text": "{\"isEvent\": true, \"groupingReason\": \"single-event\", \"events\": [{\"eventName\": \"Festival Lampu Contoh\", \"types\": [\"OTHER\"], \"categories\": [\"MUSIC\", \"FOOD_AND_DRINK\"], \"location\": \"Taman Contoh Jakarta\", \"confidenceScore\": 0.9, \"schedules\": [{\"isMainSchedule\": true, \"eventStartDate\": \"2026-03-01\", \"eventStartTime\": \"19:00:00\", \"eventEndTime\": \"22:00:00\", \"ticketPrice\": \"Rp 75.000\", \"performers\": [\"Band Fiktif\", \"Duo Rekaan\"]}]}]}",
+      "finishReason": "STOP"
+    },
+    {
+      "postId": "syn-single",
+      "runIndex": 1,
+      "text": "{\"isEvent\": true, \"groupingReason\": \"single-event\", \"events\": [{\"eventName\": \"Festival Lampu Contoh\", \"types\": [\"OTHER\"], \"categories\": [\"MUSIC\", \"FOOD_AND_DRINK\"], \"location\": \"Jakarta\", \"confidenceScore\": 0.9, \"schedules\": [{\"isMainSchedule\": true, \"eventStartDate\": \"2026-03-01\", \"eventStartTime\": \"19:00:00\", \"eventEndTime\": \"22:00:00\", \"ticketPrice\": \"Rp 75.000\", \"performers\": [\"Band Fiktif\"]}]}]}",
+      "finishReason": "STOP"
+    },
+    {
+      "postId": "syn-single",
+      "runIndex": 2,
+      "text": "{\"isEvent\":true,\"groupingReason\":\"single-event\",\"events\":[{\"eventName\":\"Festival Lamp",
+      "finishReason": "MAX_TOKENS"
+    },
+    {
+      "postId": "syn-three-branches",
+      "runIndex": 0,
+      "text": "{\"isEvent\": true, \"groupingReason\": \"separate-events\", \"events\": [{\"eventName\": \"Lomba Contoh Cabang Utara\", \"types\": [\"OTHER\"], \"categories\": [\"SPORTS_AND_FITNESS\"], \"location\": \"Mall Contoh Utara\", \"confidenceScore\": 0.9, \"schedules\": [{\"isMainSchedule\": true, \"eventStartDate\": \"2026-05-10\"}]}, {\"eventName\": \"Lomba Contoh Cabang Selatan\", \"types\": [\"OTHER\"], \"categories\": [\"SPORTS_AND_FITNESS\"], \"location\": \"Mall Contoh Selatan\", \"confidenceScore\": 0.9, \"schedules\": [{\"isMainSchedule\": true, \"eventStartDate\": \"2026-05-10\"}]}, {\"eventName\": \"Lomba Contoh Cabang Timur\", \"types\": [\"OTHER\"], \"categories\": [\"SPORTS_AND_FITNESS\"], \"location\": \"Mall Contoh Timur\", \"confidenceScore\": 0.9, \"schedules\": [{\"isMainSchedule\": true, \"eventStartDate\": \"2026-05-10\"}]}]}",
+      "finishReason": "STOP"
+    },
+    {
+      "postId": "syn-three-branches",
+      "runIndex": 1,
+      "text": "{\"isEvent\": true, \"groupingReason\": \"single-event\", \"events\": [{\"eventName\": \"Lomba Contoh\", \"types\": [\"OTHER\"], \"categories\": [\"SPORTS_AND_FITNESS\"], \"location\": \"Indonesia\", \"confidenceScore\": 0.9, \"schedules\": [{\"isMainSchedule\": true, \"eventStartDate\": \"2026-05-10\"}, {\"isMainSchedule\": false, \"eventStartDate\": \"2026-05-10\"}, {\"isMainSchedule\": false, \"eventStartDate\": \"2026-05-10\"}]}]}",
+      "finishReason": "STOP"
+    },
+    {
+      "postId": "syn-three-branches",
+      "runIndex": 2,
+      "unavailable": true
+    },
+    {
+      "postId": "syn-multi-date",
+      "runIndex": 0,
+      "text": "{\"isEvent\": true, \"groupingReason\": \"program-lineup\", \"events\": [{\"eventName\": \"Pasar Malam Contoh\", \"types\": [\"OTHER\"], \"categories\": [\"FOOD_AND_DRINK\"], \"location\": \"Lapangan Contoh Bandung\", \"confidenceScore\": 0.9, \"schedules\": [{\"isMainSchedule\": true, \"eventStartDate\": \"2026-06-05\"}, {\"isMainSchedule\": false, \"eventStartDate\": \"2026-06-07\"}, {\"isMainSchedule\": false, \"eventStartDate\": \"2026-06-11\"}]}]}",
+      "finishReason": "STOP"
+    },
+    {
+      "postId": "syn-multi-date",
+      "runIndex": 1,
+      "text": "{\"isEvent\": true, \"groupingReason\": \"program-lineup\", \"events\": [{\"eventName\": \"Pasar Malam Contoh\", \"types\": [\"OTHER\"], \"categories\": [\"FOOD_AND_DRINK\"], \"location\": \"Lapangan Contoh Bandung\", \"confidenceScore\": 0.9, \"schedules\": [{\"isMainSchedule\": true, \"eventStartDate\": \"2026-06-05\"}, {\"isMainSchedule\": false, \"eventStartDate\": \"2026-06-07\"}, {\"isMainSchedule\": false, \"eventStartDate\": \"2026-06-11\"}]}]}",
+      "finishReason": "STOP"
+    },
+    {
+      "postId": "syn-multi-date",
+      "runIndex": 2,
+      "text": "{\"isEvent\": true, \"groupingReason\": \"program-lineup\", \"events\": [{\"eventName\": \"Pasar Malam Contoh\", \"types\": [\"OTHER\"], \"categories\": [\"FOOD_AND_DRINK\"], \"location\": \"Lapangan Contoh Bandung\", \"confidenceScore\": 0.9, \"schedules\": [{\"isMainSchedule\": true, \"eventStartDate\": \"2026-06-05\", \"ticketPrice\": \"Rp 10.000\"}, {\"isMainSchedule\": false, \"eventStartDate\": \"2026-06-07\", \"ticketPrice\": \"Rp 10.000\"}, {\"isMainSchedule\": false, \"eventStartDate\": \"2026-06-11\", \"ticketPrice\": \"Rp 10.000\"}]}]}",
+      "finishReason": "STOP"
+    },
+    {
+      "postId": "syn-not-event",
+      "runIndex": 0,
+      "text": "{\"isEvent\": false, \"groupingReason\": \"single-event\", \"events\": []}",
+      "finishReason": "STOP"
+    },
+    {
+      "postId": "syn-not-event",
+      "runIndex": 1,
+      "text": "{\"isEvent\": false, \"groupingReason\": \"single-event\", \"events\": []}",
+      "finishReason": "STOP"
+    },
+    {
+      "postId": "syn-not-event",
+      "runIndex": 2,
+      "text": "{\"isEvent\": false, \"groupingReason\": \"single-event\", \"events\": []}",
+      "finishReason": "STOP"
+    }
+  ]
+}

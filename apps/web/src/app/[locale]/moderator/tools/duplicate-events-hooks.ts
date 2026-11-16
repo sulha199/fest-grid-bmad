@@ -6,10 +6,11 @@ import {
   useUndoEventMergeMutation as useGeneratedUndoEventMergeMutation,
   SuggestedEventMatchAction,
 } from '@/generated/graphql';
+import { keepPreviousData } from '@tanstack/react-query';
 import { graphqlClient } from '@/lib/graphql-client';
 
 export function useQuerySuggestedEventMatches(first: number, after: string | undefined, enabled: boolean) {
-  return useQuerySuggestedEventMatchesQuery(graphqlClient, { first, after }, { enabled, staleTime: 0, gcTime: 1000 * 60 * 5 });
+  return useQuerySuggestedEventMatchesQuery(graphqlClient, { first, after }, { enabled, staleTime: 0, gcTime: 1000 * 60 * 5, placeholderData: keepPreviousData });
 }
 
 export function useResolveSuggestedEventMatchMutation() {

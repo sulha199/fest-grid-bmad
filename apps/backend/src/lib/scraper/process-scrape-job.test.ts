@@ -3,9 +3,18 @@ import assert from 'node:assert';
 import { db } from '../../db/client.js';
 import { socialMediaAccountProfiles, posts, users, apiKeys, subscriptions, vendorCallLocks } from '@festgrid/database';
 import { registerScraperAdapter, ScraperAdapter, ScraperAccountRef, ScrapedPost, AccountProfileLookupResult } from '@festgrid/domain';
+import { ApifyMonthlyUsageLimitError } from './instagram-adapter.js';
+import { ScraperCapacityExceededError } from '@festgrid/domain';
 import { processScrapeJob } from './process-scrape-job.js';
 import { eq, inArray } from 'drizzle-orm';
 import { setSendSqsMessage, sendSqsMessage } from '../aws/send-sqs-message.js';
+import { setRememberExhaustedCapacity } from './usage-store.js';
+// Story 10.2: this file provokes Apify's monthly-limit refusal; do not write the real `apify` usage row (parallel suites share it).
+const rememberedExhausted: string[] = [];
+setRememberExhaustedCapacity(async (provider) => {
+  rememberedExhausted.push(provider);
+});
+
 
 test('process-scrape-job integration tests', async (t) => {
   let testUser: any;
@@ -74,7 +83,7 @@ test('process-scrape-job integration tests', async (t) => {
     }
   });
 
-  await t.test('processes scrape job correctly, computes lookback default, persists posts and stamps lastScrapedAt', async () => {
+  await t.test('processes scrape job correctly, uses the 30-day seeding window for an unseeded profile, persists posts and stamps lastScrapedAt', async () => {
     // Register a mock platform for the test
     const mockPlatform = 'test-fake-platform' as any;
     const uniqueUrlBase = `https://fake.com/${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -124,12 +133,12 @@ test('process-scrape-job integration tests', async (t) => {
     // Run the job
     await processScrapeJob(job);
 
-    // 1. Assert computedNewerThan is lookback default (approx 7 days ago)
+    // 1. Assert computedNewerThan is the seeding window (30 days ago) -- the profile's history is not seeded yet
     assert.ok(computedNewerThan);
     const newerThanDate = new Date(computedNewerThan);
     const now = new Date();
     const diffDays = (now.getTime() - newerThanDate.getTime()) / (1000 * 60 * 60 * 24);
-    assert.ok(diffDays >= 6.9 && diffDays <= 7.1, 'newerThan should default to ~7 days ago');
+    assert.ok(diffDays >= 29.9 && diffDays <= 30.1, 'newerThan should be the 30-day seeding window');
 
     // 2. Assert post persisted
     const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
@@ -172,6 +181,8 @@ test('process-scrape-job integration tests', async (t) => {
       platform: mockPlatform,
       displayName: 'Fake Account 2',
       username: 'fake_acc_2',
+      // Only a seeded profile's cursor follows its stored posts (an unseeded one starts 30 days back).
+      historySeededAt: new Date(),
     }).returning();
     createdProfiles.push(profile.id);
 
@@ -199,7 +210,12 @@ test('process-scrape-job integration tests', async (t) => {
     await processScrapeJob(job);
 
     assert.ok(computedNewerThan);
-    assert.strictEqual(new Date(computedNewerThan).toISOString(), publishedAt.toISOString(), 'newerThan should equal existing post publishedAt');
+    // One second past the post: Apify's `onlyPostsNewerThan` includes the boundary (APIFY_CURSOR_ADVANCE_MS).
+    assert.strictEqual(
+      new Date(computedNewerThan).toISOString(),
+      new Date(publishedAt.getTime() + 1000).toISOString(),
+      'newerThan should be one second after the existing post publishedAt'
+    );
   });
 
   await t.test('retries with wider windows for a brand-new subscription when the adapter cannot filter by newerThan+limit in one call', async () => {
@@ -381,6 +397,74 @@ test('process-scrape-job integration tests', async (t) => {
     await assert.rejects(() => processScrapeJob(job, { rethrowOnFailure: true }), /Fake adapter failure/);
     const [afterRethrow] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     assert.strictEqual(afterRethrow.lastScrapedAt, null);
+  });
+
+  await t.test('an exhausted Apify monthly limit is not rethrown for redelivery and does not stamp lastScrapedAt', async () => {
+    const mockPlatform = 'test-fake-platform-monthly-limit' as any;
+    registerScraperAdapter(mockPlatform, {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        throw new ApifyMonthlyUsageLimitError('Monthly usage hard limit exceeded');
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    });
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-monthly-limit-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Monthly Limit',
+      username: 'fake_monthly_limit',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const job = { profileId: profile.id, platform: mockPlatform, accountId: profile.accountId, username: profile.username };
+
+    // Redelivery cannot help until Apify's usage cycle resets, so the queue worker must not retry it.
+    await assert.doesNotReject(() => processScrapeJob(job, { rethrowOnFailure: true }));
+    const [after] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    assert.strictEqual(after.lastScrapedAt, null, 'not a completed scrape: the next batch must still pick the profile up');
+  });
+
+  await t.test('a REMEMBERED exhausted cap (the capacity gate ScraperCapacityExceededError) is not rethrown for redelivery either (Story 10.2 review)', async () => {
+    const mockPlatform = 'test-fake-platform-remembered-cap' as any;
+    registerScraperAdapter(mockPlatform, {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        throw new ScraperCapacityExceededError('Apify capacity exceeded for account fake_remembered_cap');
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    });
+
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-remembered-cap-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Remembered Cap',
+      username: 'fake_remembered_cap',
+    }).returning();
+    createdProfiles.push(profile.id);
+
+    const job = { profileId: profile.id, platform: mockPlatform, accountId: profile.accountId, username: profile.username };
+
+    // Redelivery cannot help until Apify's usage cycle resets, so the queue worker must not retry it.
+    await assert.doesNotReject(() => processScrapeJob(job, { rethrowOnFailure: true }));
+    const [after] = await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
+    assert.strictEqual(after.lastScrapedAt, null, 'not a completed scrape: the next batch must still pick the profile up');
   });
 
   await t.test('a completed scrape stamps lastScrapedAt even when it found nothing new', async () => {
@@ -959,5 +1043,43 @@ test('process-scrape-job integration tests', async (t) => {
     createdPosts.push(...dbPosts.map((p) => p.id));
 
     assert.strictEqual(sendCallCount, 2, 'auto-enqueue should still be attempted for the second post after the first one threw');
+  });
+
+  await t.test('a completed scrape seeds the history only when it stored a post', async () => {
+    const mockPlatform = 'test-fake-platform-seed' as any;
+    let posted: ScrapedPost[] = [];
+    registerScraperAdapter(mockPlatform, {
+      supportsNewerThanAndLimitFiltering: true,
+      async getNewestPosts(): Promise<ScrapedPost[]> {
+        return posted;
+      },
+      async lookupAccountProfile(): Promise<AccountProfileLookupResult | null> {
+        return null;
+      },
+      async getAccountClassificationProfile(): Promise<any> {
+        return null;
+      },
+      async getPostByUrl(): Promise<ScrapedPost | null> {
+        return null;
+      },
+    });
+    const [profile] = await db.insert(socialMediaAccountProfiles).values({
+      accountId: 'fake-acc-seed-' + Date.now(),
+      platform: mockPlatform,
+      displayName: 'Fake Account Seed',
+      username: 'fake_acc_seed',
+    }).returning();
+    createdProfiles.push(profile.id);
+    const job = { profileId: profile.id, platform: mockPlatform, accountId: profile.accountId, username: profile.username };
+    const seededAt = async () => (await db.select().from(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id)))[0].historySeededAt;
+
+    await processScrapeJob(job, { rethrowOnFailure: true });
+    assert.strictEqual(await seededAt(), null);
+
+    posted = [{ content: 'Seed post', postUrl: `https://fake.com/seed-${Date.now()}/p1`, publishedAt: new Date(Date.now() - 3600_000).toISOString() }];
+    await processScrapeJob(job, { rethrowOnFailure: true });
+    assert.ok(await seededAt());
+    const dbPosts = await db.select().from(posts).where(eq(posts.accountId, profile.id));
+    createdPosts.push(...dbPosts.map((post) => post.id));
   });
 });

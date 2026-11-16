@@ -15,6 +15,8 @@ FestDaily helps city residents and families cut through disorganized event info 
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![pnpm](https://img.shields.io/badge/pnpm-workspaces-F69220?logo=pnpm&logoColor=white)
 
+[![Visitors by country (Live Flag Counter)](https://liveflagcounter.com/c/onz4Rovx.svg)](https://liveflagcounter.com/stats/onz4Rovx)
+
 ---
 
 ## Screenshots

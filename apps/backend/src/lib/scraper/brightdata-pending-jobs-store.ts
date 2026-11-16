@@ -73,6 +73,14 @@ export async function markPendingJobExpired(id: string): Promise<void> {
     .where(eq(brightdataPendingJobs.id, id));
 }
 
+/** Story 10.5: leaves a still-running snapshot's job PENDING and pushes its expiry to the next sweep (no failed run, no fallback). */
+export async function extendPendingJobExpiry(id: string, until: Date): Promise<void> {
+  await db
+    .update(brightdataPendingJobs)
+    .set({ expiresAt: until })
+    .where(and(eq(brightdataPendingJobs.id, id), eq(brightdataPendingJobs.status, 'PENDING')));
+}
+
 export async function findExpiredPendingJobs(): Promise<BrightdataPendingJob[]> {
   const now = new Date();
   return db

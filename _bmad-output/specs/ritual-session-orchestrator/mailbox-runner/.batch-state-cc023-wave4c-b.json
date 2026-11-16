@@ -1,0 +1,31 @@
+{
+  "createdAt": "2026-10-03T09:09:57.652Z",
+  "mode": "stories",
+  "modeValue": [
+    "3.6n",
+    "3.6o"
+  ],
+  "epicsFile": "C:\\projects\\portfolio\\festgrid\\bmad\\_bmad-output\\planning-artifacts\\epics.md",
+  "implementationArtifacts": "C:\\projects\\portfolio\\festgrid\\bmad\\_bmad-output\\implementation-artifacts",
+  "order": [
+    "3.6n",
+    "3.6o"
+  ],
+  "context": {
+    "3.6n": {
+      "bmad-create-story": "Part of the CC-023 tail, folded into CC-024's Wave 4C (_bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md). The batch readiness sweep already ran Gate 1 and Gate 3: read _bmad-output/planning-artifacts/epic-readiness/batch-cc-023-face-blur-audit-readiness.md and cite it instead of re-running them; run Gate 2 fresh (this story has frontend scope: the prominentPoster trigger and the EventCard read path). The sweep applied four corrections to this story in epics.md (see the 'Amendment (2026-10-03...)' block under Story 3.6n): the stage runs once per post in the post-level region of process-ai-job.ts before the per-event fan-out; the durableThumbnailUrl read path (events.graphql types, every resolvers.ts select that projects posts.durableImageUrl, the Event field resolver, apps/web mapper, codegen, EventCard types) is part of this story; the served-URL precedence must be stated and tested by extending resolveServedImageUrl (packages/domain/src/events/resolveServedImageUrl.ts); and a timeout guard per Story 0.46 AC5. Prerequisite Story 0.46 now has a story file (status ready-for-dev) and its TensorFlow.js backend is DECIDED: WASM (tfjs-backend-wasm); read its story file instead of re-deriving. Story 3.6p's story file records the audit-row shape (one row per extraction attempt, jsonb eventsCompleteness array) that this story back-fills actualFaceDetectionCount/faceDetectionSkippedReason into; Story 3.6m's refreshed story file has the as-built payload shape. Migrations are at 0066 after 3.6z; do not hard-code the next number. USER DECISION THAT IS NOT YOURS: the served-URL precedence, specifically whether a non-opted-in account is served the blurred durableThumbnailUrl while the unblurred original (imageUrl) is still valid (today resolveServedImageUrl returns the original while imageUrlExpiresAt is in the future, and null for a non-opted-in account once it expires). It is a privacy trade-off: lay out each option with its real cost and ask via AskUserQuestion; do not pick silently. This story is large (DB column + migration, pipeline stage, GraphQL read path, mapper, codegen, UI): apply the story-split gate's size judgment, and if you think it should be split (pipeline stage vs read path/UI), present that as a question to the user rather than deciding. Create only, no dev."
+    },
+    "3.6o": {
+      "bmad-create-story": "Part of the CC-023 tail, folded into CC-024's Wave 4C (_bmad-output/planning-artifacts/cc-024-multi-event-wave-plan.md). The batch readiness sweep already ran Gate 1 and Gate 3: read _bmad-output/planning-artifacts/epic-readiness/batch-cc-023-face-blur-audit-readiness.md and cite it; run Gate 2 only (no frontend scope). Read Story 3.6n's story file (just created; this story layers on it and depends on it) and Story 3.6p's story file (the audit row where faceDetectionSkippedReason = 'event_relevance_gate' is recorded). epics.md carries a 2026-10-03 clarification under Story 3.6o: 'all events' means the events kept after process-ai-job.ts's maxExtractedEventsPerPost truncation, and process-ai-job.ts does not load posts.imageUrlExpiresAt today, so this story adds that one-row read. Verify those facts against source. Create only, no dev."
+    }
+  },
+  "progress": {
+    "3.6n": {
+      "bmad-create-story": "done (538ff194, ready-for-dev, PIPELINE ONLY). User chose: thumbnail fills the gap only (original served while valid; thumbnail after expiry for non-opted-in) and split the read path into new story 3.6n2 (backlog). Child key 3.6n2 was not parseable by the tooling; regexes extended to accept a trailing digit."
+    },
+    "3.6o": {
+      "bmad-create-story": "done (5660fdc7, ready-for-dev). Monitor killed the first run at 30 min mid-work; resumed via --resume-label and finished. User chose: each story writes its own AD-29 outcome (3.6n: no_face_reported + real count; 3.6o: event_relevance_gate); 3.6n/3.6p story files and epics.md amended in the same commit."
+    }
+  },
+  "gate": "BATCH COMPLETE 2026-10-03 (create-story only; no code changed, so no Step 4.5 checks owed)."
+}
