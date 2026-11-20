@@ -30,8 +30,9 @@ planning. The POC lives under `_bmad-output/poc/registration-extraction/` for th
 8. The register button is the call to action: put CTA-related actions in the bottom bar. Is a bottom
    bar right on desktop? List the possible CTAs.
 
-Mock files (owner's local uploads, not in the repo): `layout_grid_event_minimalis.html`,
-`minimalist_event_detail_timeline_1.html`. Key traits: 2-col grid card with status badge, favorite,
+Mock files (static Tailwind-CDN prototypes, design reference only, not app code), in
+`design-artifacts/UX-festgrid-run-1/prototypes/registration-cta-mocks/`: `event-list-grid-minimalist.html`,
+`event-detail-timeline-minimalist.html`. Key traits: 2-col grid card with status badge, favorite,
 title, location, footer = one highlight + `s/d <end date>` pill; detail page with fixed top header
 (back, prev/next, share, heart, kebab: Correct data / Report), title + status chip, organizer row with
 follow, description, "Informasi & Berkas" tiles (contact, guide, floor plan, brochure), vertical
