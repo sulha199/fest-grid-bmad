@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-11-11"
+last_updated: "2026-11-21"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -3132,3 +3132,12 @@ items:
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-location-keywords-extraction.md],
      touches: [app:backend, cross:ai-extraction],
      note: "Deferred from: bmad-quick-dev review of spec-location-keywords-extraction (separate keywords call) (2026-11-11). 6 findings: unabortable 10 s timeout, no salvage of a cut-off answer, replayed step repeats the call, correction clearing, location guard, rule 5 fallback."}
+
+
+  IDEA-261121-tvh:
+    {type: idea, status: backlog, created: 2026-11-21,
+     impact: user-visible, effort: s,
+     title: "Do not auto-promote a repost that matches an event from a multi-event post unless the strict names are equal",
+     ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md, apps/backend/src/lib/events/match-event-to-existing.ts, packages/domain/src/events/match-scoring.ts],
+     touches: [app:backend, pkg:domain, web:events],
+     note: "Raised 2026-11-21 from the Kopi Kenangan post (4 sibling events, slugs ~1..~3). The same-post guard stops siblings merging with each other, but a later single-event repost with a generic title ('Kopi Kenangan Payday Promo') scores 0.86 trigram similarity against the BCA sibling, above the 0.85 auto-link floor. With a matching organizer or shared link and the same start date it is promoted to the high tier and merges into BCA. Proposal: when the candidate event belongs to a post with grouping_reason SEPARATE_EVENTS, skip the mid-to-high promotion unless the strict normalised names are equal, so it stays a moderator suggestion. Similarity numbers are pg_trgm emulations, not prod measurements: check against prod before building. Detail: handoff section 10."}

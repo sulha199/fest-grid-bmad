@@ -231,19 +231,23 @@ if they contain real numbers; commit only redacted fixtures.
 
 ## 8. Checklists
 
+POC outcome (2026-11-20): see `_bmad-output/poc/registration-extraction/findings.md`. Owner decisions 2026-11-20: (1) caption `posts.content` is blanked 30 days after the event expires, for all accounts (curator accounts already are), which amends D2 to two clocks (structured phone: event end + 1 day; raw caption: expiry + 30 days); (2) business, venue and shopper numbers DO get a CTA, with a role-based label (not a person's name), which refines D8. See findings section 7 for consequences. Still open: review of the draft labels.
+
+Prototypes (2026-11-20, from the owner mocks, real tokens and real widths): `design-artifacts/UX-festgrid-run-1/prototypes/registration-cta/` (`event-card/card-states.html`, `event-list/list-real-widths.html`, `event-detail/bar-states.html`, `registration-sheets.html`, `detail-mobile-page.html`, `detail-desktop-tablet-modal.html`). Owner decisions taken for them: the mock card replaces the masonry date-box card; distance chip on the image bottom-left; emerald "Now" / amber urgent / neutral rest. Open design calls are listed at the bottom of each file.
+
 **A. Evidence (local session)**
-- [ ] Section 7A counts collected and recorded
-- [ ] 50-100 caption sample labelled
-- [ ] AD-29 audit log / job / log retention verified (section 6)
-- [ ] Share/prev-next/modal behaviours verified (section 6)
+- [x] Section 7A counts collected and recorded (`_bmad-output/poc/registration-extraction/out/7a-counts.txt`, summary in findings.md section 2)
+- [~] 50-100 caption sample labelled: 95 real + 5 synthetic captions, **draft labels by Claude, owner review pending** (private/labels-for-review.md)
+- [x] AD-29 audit log / job / log retention verified (findings.md 3.1); gaps found: `posts.content` keeps captions, `UNPROCESSED_PAYLOAD_RETENTION_DAYS` never read
+- [x] Share/prev-next/modal behaviours verified (findings.md 3.2): no Share; detail sits inside an Embla carousel in the modal
 
 **B. POC (local session)**
-- [ ] Phone detector P/R measured
-- [ ] Scrub function verified on free-text fields
-- [ ] Highlight + registrations extraction prompt trialled, grounding rate measured
-- [ ] Template extraction trialled, preview/length/abuse cases listed
-- [ ] D4 multi-event attribution measured
-- [ ] Findings report written
+- [x] Phone detector P/R measured (dev 100%/100% tuned; fresh held-out about 92-94% / 97-99%)
+- [x] Scrub function verified on free-text fields (20/20 synthetic, 0 leaks over 2,992 captions)
+- [x] Highlight + registrations extraction prompt trialled, grounding rate measured (numbers 100% grounded; eligibility/instruction never filled; slice 3 not ready)
+- [x] Template extraction trialled, preview/length/abuse cases listed (0.17% prevalence; hostile templates copied through; guards listed in findings.md 5.4)
+- [x] D4 multi-event attribution measured (model ties inconsistently; 3.4% of phone captions; keep the simple rule)
+- [x] Findings report written (`_bmad-output/poc/registration-extraction/findings.md`)
 
 **C. Planning path (after the POC)**
 - [ ] `bmad-correct-course`: change proposal covering this handoff
@@ -261,3 +265,37 @@ if they contain real numbers; commit only redacted fixtures.
 - [ ] Dedup scoring and merge/undo handle registrations
 - [ ] EN + ID labels, locale parity ratchet green; tokens only, no raw z-index (AD-33 ratchets green)
 - [ ] Extraction eval extended with the new fields and a baseline
+
+## 9. Owner design decisions, 2026-11-21 (event list and card)
+
+Prototypes: `design-artifacts/UX-festgrid-run-1/prototypes/registration-cta/` (`event-card/grid-card-owner-layout.html`, `event-card/card-states.html`, `event-list/list-real-widths.html`, `event-list/filter-header.html`; checks: `event-card/check-grid-card.cjs`, `event-list/check-filter-header.cjs`). Owner mock files: `Layout_Grid_Event_Minimalis_1.html` (card) and `layout_grid_event_minimalis (1).html` (filter header). No application code was changed.
+
+- **Grid card:** the owner's mock replaces the masonry card. Status and date are ONE badge in the thumbnail (emerald "s/d 12 Des" while running; amber for urgent: "hari terakhir" / "Last day", "Dalam 3 jam", "s/d 18.00"; neutral for "besok", weekday, date). Footer: left slot = distance (< `nearbyBadgeThreshold`, 8 km), else "Gratis", else start time, else "+N jadwal", else empty; right slot = event type; green area = performers (Pertunjukan, Festival) or highlight (others), 2 lines max. Gap 1em between left and right slot, left slot never wraps, right slot truncates.
+- **Text size:** badge and footer 10px only when the card is narrower than 145px (about 320px screens), 12px otherwise (container query on the card). English copy for the same slots verified; EN "+N more" replaces "+N schedules".
+- **New labels (next-intl EN + ID, locale parity ratchet):** "hari terakhir" / "Last day". Existing `statusEndsToday` stays "Berakhir Hari Ini" / "Ends Today" unless the owner wants it replaced.
+- **List grid:** CSS grid with equal row height, `gap-3.5` (14px) and page padding 14px on phone (live: 8px gap, 16px padding). Needs the list query to include `schedules.performers` for the green area.
+- **Filter header:** the Today | Upcoming | All segmented toggle becomes a dropdown **Anytime | This week | Today** (ID: Kapan saja | Minggu ini | Hari ini), placed first and inline with the Type and Category dropdowns. **Behaviour change to decide in correct-course:** "This week" replaces "Upcoming" (all future events), so `TemporalFilterValue`, the list query condition, `?temporal=` and `TemporalFilterToggle` change; the AI filter already has a THIS_WEEK anchor.
+- **Shared dropdown trigger:** every dropdown trigger (time, type, category, nearby) has a chevron-down icon. Today there is no shared dropdown component and no chevron anywhere in `packages/ui`: the facet triggers in `FilterHub.tsx` are `Button variant="outline"` inside `Popover`. Implementation needs one shared trigger (spec in `filter-header.html` section 4: 28px visible, 44px touch target, indigo active state, count badge for multi-select, chevron rotates when open). The per-facet X button inside the trigger is dropped (count badge + "Semua" pill + "Hapus filter" replace it).
+- **Collapse on scroll:** keep the shipped `useCollapseHeaderOnScroll` rules (collapse past header height, min 80px; floating panel on pill tap; deferred while a dropdown is open); add the owner's active-filter dot on the "Tampilkan filter" pill. The owner's in-flow expand (max-height animation) is not adopted because it moves content under the reader.
+
+---
+
+## 10. Two real events, 2026-11-21 (multi-event post and QR registration link)
+
+Source: public pages `ig_p_De5_lHHk3Ux~2` (Kopi Kenangan BRI QRIS) and `ig_p_Df7A2ZYRjSm` (Dolan Fest 2). Prototypes: `design-artifacts/UX-festgrid-run-1/prototypes/registration-cta/event-list/real-events-list.html`, `event-detail/real-events-detail.html`.
+
+- **Multi-event post:** one post (`SEPARATE_EVENTS`, 4 events: BCA, BRI Debit, BRI QRIS, CIMB Niaga; slugs base, `~1`, `~2`, `~3`). Siblings never merge with each other: `match-event-to-existing.ts` excludes any candidate already linked to the same post (line ~191). Even without that guard their trigram name similarity is 0.54-0.72, below the 0.85 auto-link floor.
+- **Residual dedup risk (not fixed):** a later single-event repost with a generic title ("Kopi Kenangan Payday Promo") scores 0.86 against the BCA event and, if the posting account or a link matches and the start date is shared, would be promoted to `high` and merged into BCA. `namesContradict` does not catch a differing word. Proposal for the correct-course: do not auto-promote a candidate that belongs to a multi-event post unless the strict names are equal.
+- **List display:** keep four separate cards; the green highlight line (the schedule title, verbatim) is what tells them apart because they share one thumbnail. A grouped "4 promo" card was sketched and rejected (ambiguous favorite, different end dates, filters work per event, needs a new list kind).
+- **QR registration link:** the Dolan Fest flyer's QR decodes with OpenCV on the first try (960x1280 original) to a live Google Form short link. Today nothing reads QR codes (no QR code in `apps/backend/src`; `registrationUrl` is null; registration is stored as a "Timeline Pendaftaran" schedule row). Proposal: deterministic QR scan of each post image at extraction, URL-only, through `sanitize-event-links`, stored as a LINK registration option with source "qr"; UI always shows the destination host; payment QR (QRIS) is never a Register button; the shared form link becomes a dedup signal (`sharedLink`, weight 0.2, 90-day window). Measured on one poster only.
+- **Data defects seen:** both events carry wrong coordinates (Kopi Kenangan pinned near Muara Bungo, Jambi, not Yogyakarta; Dolan Fest pinned in Purbalingga, not Semarang). This blanks the distance slot and would send "Petunjuk arah" to the wrong place.
+
+---
+
+## 11. Owner decisions and filter-header changes, 2026-11-21 (later)
+
+- **Routing of the section 10 findings:** QR registration-link scan (D4 context: a QR-derived link is a LINK option with source "qr", host always shown, payment QR never a Register button) and the wrong-coordinates defect on both events go into the **current correct-course** scope. The dedup guard (do not auto-promote a repost that matches an event from a multi-event post unless the strict names are equal) is filed on the backlog as `IDEA-261121-tvh` (Do not auto-promote a repost that matches an event from a multi-event post), not part of the course.
+- **Filter header, padding fix:** `event-list/filter-header.html` section 1 had lost the 14px horizontal padding on the filter container while at the top of the page (the collapse script toggled the floating-panel class list, which contained `px-3.5`, off when the header was expanded), so search, dropdown row and the Kartu/Kalender tab row touched the frame edge. Padding now lives on a layer the script never touches; search, dropdown row, tab row and cards all start at the same x (checked in all four live frames).
+- **Filter header, full row (owner decision 2026-11-21, supersedes the Nearby text/icon question):** the AI filter button sits on the SEARCH row, to the right of the search input (34px, same height as the input, 46px touch target; the app today puts it last in the dropdown row at 40px). The dropdown row (Anytime | Type | Category | Nearby) is ONE line that scrolls horizontally: it bleeds to the screen edge (`-mx-3.5 px-3.5`) so a clipped chip hints at more, chips are `shrink-0`, and 8px vertical padding inside the scroll port keeps the 46px touch target from being clipped by `overflow-x`. Nearby is an ICON trigger (owner, same day): the arrow icon also used for the distance on cards; idle = icon + chevron (46px wide, "Nearby" only as aria-label), active = icon + "5 km" + chevron (aria-label "Nearby: 5 km", the saved-location name is not shown on the trigger); logged-in users only. "Clear filters" is an icon button (funnel with a cross, 30px, 46px touch target, aria-label and tooltip) right of the scrolling row, not inside it, shown only while a filter is active, so it never overlaps a chip. With the icon the full row (390px) now fits without scrolling at 390px when nothing is selected; it still scrolls at narrower widths and with filters selected. Cost: icon-only controls (AI, Nearby, clear) are less discoverable than text and rely on aria-labels and tooltips; mouse users need shift + wheel to scroll the row (no impact on touch). The shipped `FilterHub.tsx` is a wrapping flex row, so the app change is: move the AI button out of `FilterHub` into the search row, and make the facet row `flex-nowrap overflow-x-auto`.
+- **Collapse and expand motion:** now the owner's transition from `layout_grid_event_minimalis (1).html`: panel `max-height` to 0 over 0.28s `cubic-bezier(0.4, 0, 0.2, 1)` and opacity over 0.22s; the "Tampilkan filter" pill fades in at the same time (the owner's file shows it instantly). The floating panel (pill tap) uses the same transition and does not change the document height. Closed content is `inert` and `visibility: hidden` after the fade; `prefers-reduced-motion` turns the transition off. Checked in a headless browser: transition values read back from computed style, and an in-between frame sampled at about 100ms in both directions and for the floating panel.
+- **Not done:** the shipped hook animates nothing today; implementing this needs the hook to set an explicit pixel max-height before collapsing and to release it to `none` after expanding, so an open drawer can still grow.
