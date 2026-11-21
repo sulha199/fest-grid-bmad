@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event list at real widths</title>
+<!--
+Event list with the final grid card and the owner's filter header (dropdown time filter first, chevron triggers) at the three real layouts: 390 / 820 / 1440px.
+Rail widths from AppShell.tsx (w-16 / xl:w-56, main md:ps-16 xl:ps-56); phone tab bar h-14 z-chrome. Static, no JS.
+-->
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  // Mirrors apps/web/tailwind.config.ts + src/app/globals.css (real semantic tokens, AD-33 z tiers).
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: {
+      zIndex: { chrome: '40', 'overlay-sticky': '45', 'overlay-modal': '50', 'overlay-blocking': '60' },
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      colors: {
+        border: 'hsl(var(--border))', input: 'hsl(var(--input))', ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))', foreground: 'hsl(var(--foreground))',
+        primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+        secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+        destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+        success: { DEFAULT: 'hsl(var(--success))', foreground: 'hsl(var(--success-foreground))' },
+        muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+        accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+        popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+        card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+        'nav-active-indicator': 'hsl(var(--nav-active-indicator))',
+      },
+      borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+    } },
+  };
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style type="text/tailwindcss">
+  @layer base {
+    :root {
+      --background: 210 20% 98%; --foreground: 221 39% 11%; --card: 0 0% 100%; --card-foreground: 221 39% 11%;
+      --popover: 0 0% 100%; --popover-foreground: 221 39% 11%; --primary: 217 33% 17%; --primary-foreground: 210 40% 98%;
+      --secondary: 238 82% 67%; --secondary-foreground: 210 40% 98%; --accent: 358 100% 68%; --accent-foreground: 210 40% 98%;
+      --success: 160 84% 39%; --success-foreground: 210 40% 98%; --destructive: 0 84% 60%; --destructive-foreground: 210 40% 98%;
+      --muted: 210 40% 96.1%; --muted-foreground: 215.4 16.3% 46.9%; --border: 214.3 31.8% 91.4%; --input: 214.3 31.8% 91.4%;
+      --ring: 221.2 83.2% 53.3%; --nav-active-indicator: 358 72% 57%; --radius: 0.5rem;
+    }
+    .dark {
+      --background: 222.2 84% 4.9%; --foreground: 210 40% 98%; --card: 222.2 84% 4.9%; --card-foreground: 210 40% 98%;
+      --popover: 222.2 84% 4.9%; --popover-foreground: 210 40% 98%; --primary: 210 40% 98%; --primary-foreground: 222.2 47.4% 11.2%;
+      --secondary: 217.2 32.6% 17.5%; --secondary-foreground: 210 40% 98%; --accent: 217.2 32.6% 17.5%; --accent-foreground: 210 40% 98%;
+      --success: 160 84% 39%; --success-foreground: 210 40% 98%; --destructive: 0 62.8% 30.6%; --destructive-foreground: 210 40% 98%;
+      --muted: 217.2 32.6% 17.5%; --muted-foreground: 215 20.2% 65.1%; --border: 217.2 32.6% 17.5%; --input: 217.2 32.6% 17.5%;
+      --ring: 212.7 26.8% 83.9%; --nav-active-indicator: 358 72% 57%;
+    }
+    * { @apply border-border; }
+    body { @apply bg-slate-200 text-foreground font-sans antialiased; }
+  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  /* frames create a containing block so "fixed" chrome stays inside the demo viewport */
+  .frame { transform: translateZ(0); box-sizing: content-box; }
+</style>
+</head>
+<body class="min-w-[1500px]">
+<div class="p-6 flex flex-col gap-10">
+<header><h1 class="text-lg font-bold text-slate-900">Daftar event: kartu final + header filter baru, lebar nyata</h1>
+<p class="text-sm text-slate-700 mt-1 max-w-3xl">Grid CSS dengan tinggi baris sama (menggantikan masonry), <span class="font-mono text-xs">gap-3.5</span> (14px) di semua lebar, padding halaman 14px di HP dan <span class="font-mono text-xs">p-8</span> mulai 640px. Header filter dari file Anda: dropdown Kapan saja / Minggu ini / Hari ini di kiri, sebaris dengan Tipe dan Kategori. Perilaku collapse-saat-scroll ada di halaman <span class="font-mono text-xs">filter-header.html</span>.</p></header>
+
+<section><div class="mb-3"><h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">HP 390px: konten 362px, 2 kolom, kartu 174px</h2></div>
+<div class="frame relative w-[390px] h-[820px] overflow-hidden rounded-[28px] border-4 border-slate-800 bg-background"><div class="h-full overflow-y-auto pb-14"><div class="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border"><div class="px-3.5 pt-3"><div class="relative mb-2.5">
+    <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="text" data-search placeholder="Cari berdasarkan nama, pengisi acara, atau lokasi.." class="w-full pl-9 pr-3 py-2 bg-card border border-input rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10">
+  </div>
+  <div data-row class="flex flex-wrap items-center gap-2 mb-2.5">
+    <button type="button" data-dd="time" aria-haspopup="listbox" aria-expanded="false" class="relative flex items-center gap-1.5 px-3.5 py-1.5 border rounded-lg text-xs font-medium whitespace-nowrap transition after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] border-border bg-card text-foreground hover:border-muted-foreground/40"><span data-label>Kapan saja</span><svg class="w-2.5 h-2.5 text-muted-foreground shrink-0 transition-transform " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    <button type="button" data-dd="type" aria-haspopup="listbox" aria-expanded="false" class="relative flex items-center gap-1.5 px-3.5 py-1.5 border rounded-lg text-xs font-medium whitespace-nowrap transition after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] border-border bg-card text-foreground hover:border-muted-foreground/40"><span data-label>Tipe</span><svg class="w-2.5 h-2.5 text-muted-foreground shrink-0 transition-transform " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    <button type="button" data-dd="cat" aria-haspopup="listbox" aria-expanded="false" class="relative flex items-center gap-1.5 px-3.5 py-1.5 border rounded-lg text-xs font-medium whitespace-nowrap transition after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] border-border bg-card text-foreground hover:border-muted-foreground/40"><span data-label>Kategori</span><svg class="w-2.5 h-2.5 text-muted-foreground shrink-0 transition-transform " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    
+    <button type="button" data-reset class="hidden ml-auto text-[11px] font-medium text-indigo-600 dark:text-indigo-400 whitespace-nowrap">Hapus filter</button>
+  </div>
+  <div data-drawer="time" class="hidden flex-wrap gap-1.5 pb-2.5 "><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-600 text-white ">Kapan saja</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Minggu ini</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Hari ini</button></div>
+  <div data-drawer="type" class="hidden flex-wrap gap-1.5 pb-2.5 "><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-600 text-white ">Semua tipe</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pameran</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Kompetisi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Festival</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pertunjukan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Workshop</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Seminar</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pasar</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Gathering</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Promosi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Penggalangan Dana</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Kemasyarakatan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Lainnya</button></div>
+  <div data-drawer="cat" class="hidden flex-wrap gap-1.5 pb-2.5 max-h-40 overflow-y-auto"><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-600 text-white ">Semua kategori</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Musik</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Seni & Budaya</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Makanan & Minuman</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Olahraga & Kebugaran</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Keluarga & Anak-anak</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Hobi & Minat</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Bisnis & Jaringan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Kesehatan & Kebugaran</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Hari Libur</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Amal & Kepedulian</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Sipil & Komunitas</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Agama & Spiritualitas</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Teknologi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Wisata & Pariwisata</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pendidikan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Karier</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Otomotif</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Rumah Tangga & Interior</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Fashion & Gaya</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Keuangan & Investasi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Gadget & Perangkat</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Sains & Teknik</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Lainnya</button></div>
+  <div class="flex items-center gap-6 border-t border-border pt-1">
+    <button type="button" class="flex items-center gap-1.5 py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg><span>Kartu</span></button>
+    <button type="button" class="flex items-center gap-1.5 py-2 text-xs font-medium text-muted-foreground border-b-2 border-transparent"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>Kalender</span></button>
+  </div></div></div><div class="px-3.5 pt-4 pb-6"><div class="grid grid-cols-2 gap-3.5 items-stretch"><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231e293b'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Styles Prizeventure 2026" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 12 Des</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Styles Prizeventure 2026</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Lippo Plaza Jogja</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Menangkan motor Italjet + logam mulia</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>4 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Promosi</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c2d12'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Jogja Music & Art Showcase" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-amber-700 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">hari terakhir</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Jogja Music & Art Showcase</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Taman Budaya Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Hindia, .Feast, Lomba Sihir, Kunto Aji</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded font-semibold">Gratis</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pertunjukan</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23064e3b'/%3E%3Cstop offset='1' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Kejuaraan Bulutangkis Tegal Challenge" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-background/95 text-foreground border border-border/80 backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">besok</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Kejuaraan Bulutangkis Tegal Challenge</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">GOR Purna Bharatangkas</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Hadiah Rp 33.000.000 + piala</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-foreground/80"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>08.00</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Kompetisi</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234c1d95'/%3E%3Cstop offset='1' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Beyond Gold & Jewelry Promo" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 3 Nov</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-white text-rose-500 backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Beyond Gold & Jewelry Promo</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Wahyu Redjo Beyond</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Gratis cuci perhiasan + diskon member</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>1.2 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pameran</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%230c4a6e'/%3E%3Cstop offset='1' stop-color='%2338bdf8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Festival Kuliner Nusantara" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-background/95 text-foreground border border-border/80 backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">Sabtu</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Festival Kuliner Nusantara</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Pantai Parangtritis, Bantul</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Dewa 19, Sheila on 7, Nadin Amizah</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-foreground/80"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>+2 jadwal</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Festival</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23831843'/%3E%3Cstop offset='1' stop-color='%23fb7185'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Seminar Literasi Digital untuk UMKM" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-background/95 text-foreground border border-border/80 backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">5 Des</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Seminar Literasi Digital untuk UMKM</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Gedung Pusat Layanan Koperasi</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Seminar</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231e293b'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Workshop Fotografi Jalanan" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-amber-700 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">Dalam 3 jam</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Workshop Fotografi Jalanan</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Taman Pintar Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Gratis sertifikat peserta</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-foreground/80"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>14.00</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Workshop</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c2d12'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Bazar Buku Murah" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-amber-700 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 18.00</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Bazar Buku Murah</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Perpustakaan Kota</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Diskon hingga 70%</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>6 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pasar</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23064e3b'/%3E%3Cstop offset='1' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Festival Dagelan Mataram Milenial 2026 - Dagelan Cilik Jogja-Jateng" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 31 Des</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Festival Dagelan Mataram Milenial 2026 - Dagelan Cilik Jogja-Jateng</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Ramayana Ballet Purawisata Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Gratis tiket masuk untuk 100 pendaftar pertama</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Festival</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <div class="absolute inset-0 flex items-center justify-center text-muted-foreground/40"><svg class="w-10 h-10"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg></div>
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 24 Nov</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Pameran Batik Nusantara</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Taman Budaya Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Bintang tamu: Didi Kempot Tribute</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>3 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pameran</span>
+      </div>
+    </div>
+  </div>
+</article></div></div></div><nav aria-label="Main" class="absolute inset-x-0 bottom-0 z-chrome flex items-center justify-around border-t bg-background h-14 py-1"><a href="#" class="relative flex h-full w-full flex-col items-center justify-center gap-0.5 text-foreground font-semibold"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span class="text-[10px] leading-none">Jelajah</span><span class="absolute top-0 h-0.5 w-8 rounded-full bg-nav-active-indicator"></span></a><a href="#" class="relative flex h-full w-full flex-col items-center justify-center gap-0.5 text-muted-foreground"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg><span class="text-[10px] leading-none">Feed</span></a><a href="#" class="relative flex h-full w-full flex-col items-center justify-center gap-0.5 text-muted-foreground"><svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span class="text-[10px] leading-none">Favorit</span></a><a href="#" class="relative flex h-full w-full flex-col items-center justify-center gap-0.5 text-muted-foreground"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg><span class="text-[10px] leading-none">Jadwal</span></a><a href="#" class="relative flex h-full w-full flex-col items-center justify-center gap-0.5 text-muted-foreground"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="text-[10px] leading-none">Akun</span></a></nav></div></section>
+
+<section><div class="mb-3"><h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Tablet 820px: rail 64px, konten 692px, 3 kolom, kartu 221px</h2></div>
+<div class="frame relative w-[820px] h-[820px] overflow-hidden rounded-xl border-4 border-slate-800 bg-background"><nav aria-label="Main" class="absolute inset-y-0 start-0 z-chrome flex flex-col items-center w-16 border-e bg-background py-4 gap-6">
+    <div class="flex h-12 items-center justify-center"><span class="font-bold tracking-tight text-lg">FG</span></div>
+    <div class="flex flex-col items-center gap-1"><a href="#" class="flex items-center gap-3 justify-center h-11 rounded-md text-foreground font-semibold bg-muted"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg></a><a href="#" class="flex items-center gap-3 justify-center h-11 rounded-md text-muted-foreground"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg></a><a href="#" class="flex items-center gap-3 justify-center h-11 rounded-md text-muted-foreground"><svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></a><a href="#" class="flex items-center gap-3 justify-center h-11 rounded-md text-muted-foreground"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></a><a href="#" class="flex items-center gap-3 justify-center h-11 rounded-md text-muted-foreground"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a></div></nav><div class="h-full overflow-y-auto ps-16"><div class="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border"><div class="px-8 pt-3"><div class="relative mb-2.5">
+    <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="text" data-search placeholder="Cari berdasarkan nama, pengisi acara, atau lokasi.." class="w-full pl-9 pr-3 py-2 bg-card border border-input rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10">
+  </div>
+  <div data-row class="flex flex-wrap items-center gap-2 mb-2.5">
+    <button type="button" data-dd="time" aria-haspopup="listbox" aria-expanded="false" class="relative flex items-center gap-1.5 px-3.5 py-1.5 border rounded-lg text-xs font-medium whitespace-nowrap transition after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] border-border bg-card text-foreground hover:border-muted-foreground/40"><span data-label>Kapan saja</span><svg class="w-2.5 h-2.5 text-muted-foreground shrink-0 transition-transform " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    <button type="button" data-dd="type" aria-haspopup="listbox" aria-expanded="false" class="relative flex items-center gap-1.5 px-3.5 py-1.5 border rounded-lg text-xs font-medium whitespace-nowrap transition after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] border-border bg-card text-foreground hover:border-muted-foreground/40"><span data-label>Tipe</span><svg class="w-2.5 h-2.5 text-muted-foreground shrink-0 transition-transform " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    <button type="button" data-dd="cat" aria-haspopup="listbox" aria-expanded="false" class="relative flex items-center gap-1.5 px-3.5 py-1.5 border rounded-lg text-xs font-medium whitespace-nowrap transition after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] border-border bg-card text-foreground hover:border-muted-foreground/40"><span data-label>Kategori</span><svg class="w-2.5 h-2.5 text-muted-foreground shrink-0 transition-transform " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    
+    <button type="button" data-reset class="hidden ml-auto text-[11px] font-medium text-indigo-600 dark:text-indigo-400 whitespace-nowrap">Hapus filter</button>
+  </div>
+  <div data-drawer="time" class="hidden flex-wrap gap-1.5 pb-2.5 "><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-600 text-white ">Kapan saja</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Minggu ini</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Hari ini</button></div>
+  <div data-drawer="type" class="hidden flex-wrap gap-1.5 pb-2.5 "><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-600 text-white ">Semua tipe</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pameran</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Kompetisi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Festival</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pertunjukan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Workshop</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Seminar</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pasar</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Gathering</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Promosi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Penggalangan Dana</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Kemasyarakatan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Lainnya</button></div>
+  <div data-drawer="cat" class="hidden flex-wrap gap-1.5 pb-2.5 max-h-40 overflow-y-auto"><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-600 text-white ">Semua kategori</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Musik</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Seni & Budaya</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Makanan & Minuman</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Olahraga & Kebugaran</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Keluarga & Anak-anak</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Hobi & Minat</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Bisnis & Jaringan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Kesehatan & Kebugaran</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Hari Libur</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Amal & Kepedulian</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Sipil & Komunitas</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Agama & Spiritualitas</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Teknologi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Wisata & Pariwisata</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pendidikan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Karier</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Otomotif</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Rumah Tangga & Interior</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Fashion & Gaya</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Keuangan & Investasi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Gadget & Perangkat</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Sains & Teknik</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Lainnya</button></div>
+  <div class="flex items-center gap-6 border-t border-border pt-1">
+    <button type="button" class="flex items-center gap-1.5 py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg><span>Kartu</span></button>
+    <button type="button" class="flex items-center gap-1.5 py-2 text-xs font-medium text-muted-foreground border-b-2 border-transparent"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>Kalender</span></button>
+  </div></div></div><div class="p-8"><div class="grid grid-cols-3 gap-3.5 items-stretch"><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231e293b'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Styles Prizeventure 2026" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 12 Des</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Styles Prizeventure 2026</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Lippo Plaza Jogja</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Menangkan motor Italjet + logam mulia</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>4 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Promosi</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c2d12'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Jogja Music & Art Showcase" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-amber-700 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">hari terakhir</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Jogja Music & Art Showcase</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Taman Budaya Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Hindia, .Feast, Lomba Sihir, Kunto Aji</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded font-semibold">Gratis</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pertunjukan</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23064e3b'/%3E%3Cstop offset='1' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Kejuaraan Bulutangkis Tegal Challenge" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-background/95 text-foreground border border-border/80 backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">besok</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Kejuaraan Bulutangkis Tegal Challenge</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">GOR Purna Bharatangkas</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Hadiah Rp 33.000.000 + piala</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-foreground/80"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>08.00</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Kompetisi</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234c1d95'/%3E%3Cstop offset='1' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Beyond Gold & Jewelry Promo" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 3 Nov</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-white text-rose-500 backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Beyond Gold & Jewelry Promo</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Wahyu Redjo Beyond</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Gratis cuci perhiasan + diskon member</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>1.2 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pameran</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%230c4a6e'/%3E%3Cstop offset='1' stop-color='%2338bdf8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Festival Kuliner Nusantara" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-background/95 text-foreground border border-border/80 backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">Sabtu</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Festival Kuliner Nusantara</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Pantai Parangtritis, Bantul</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Dewa 19, Sheila on 7, Nadin Amizah</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-foreground/80"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>+2 jadwal</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Festival</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23831843'/%3E%3Cstop offset='1' stop-color='%23fb7185'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Seminar Literasi Digital untuk UMKM" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-background/95 text-foreground border border-border/80 backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">5 Des</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Seminar Literasi Digital untuk UMKM</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Gedung Pusat Layanan Koperasi</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Seminar</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231e293b'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Workshop Fotografi Jalanan" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-amber-700 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">Dalam 3 jam</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Workshop Fotografi Jalanan</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Taman Pintar Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Gratis sertifikat peserta</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-foreground/80"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>14.00</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Workshop</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c2d12'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Bazar Buku Murah" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-amber-700 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 18.00</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Bazar Buku Murah</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Perpustakaan Kota</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Diskon hingga 70%</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>6 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pasar</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23064e3b'/%3E%3Cstop offset='1' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Festival Dagelan Mataram Milenial 2026 - Dagelan Cilik Jogja-Jateng" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 31 Des</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Festival Dagelan Mataram Milenial 2026 - Dagelan Cilik Jogja-Jateng</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Ramayana Ballet Purawisata Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Gratis tiket masuk untuk 100 pendaftar pertama</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Festival</span>
+      </div>
+    </div>
+  </div>
+</article></div></div></div></div></section>
+
+<section><div class="mb-3"><h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Desktop 1440px: rail 224px, konten 1152px, 5 kolom, kartu 219px</h2></div>
+<div class="frame relative w-[1440px] h-[860px] overflow-hidden rounded-xl border-4 border-slate-800 bg-background"><nav aria-label="Main" class="absolute inset-y-0 start-0 z-chrome flex flex-col items-stretch w-56 border-e bg-background py-4 gap-6">
+    <div class="flex h-12 items-center justify-start px-4"><span class="font-bold tracking-tight text-lg">FestGrid</span></div>
+    <div class="flex flex-col items-stretch gap-1"><a href="#" class="flex items-center gap-3 px-4 h-11 rounded-md text-foreground font-semibold bg-muted"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span class="text-sm">Jelajah</span></a><a href="#" class="flex items-center gap-3 px-4 h-11 rounded-md text-muted-foreground"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg><span class="text-sm">Feed</span></a><a href="#" class="flex items-center gap-3 px-4 h-11 rounded-md text-muted-foreground"><svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg><span class="text-sm">Favorit</span></a><a href="#" class="flex items-center gap-3 px-4 h-11 rounded-md text-muted-foreground"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg><span class="text-sm">Jadwal</span></a><a href="#" class="flex items-center gap-3 px-4 h-11 rounded-md text-muted-foreground"><svg class="h-5 w-5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="text-sm">Akun</span></a></div></nav><div class="h-full overflow-y-auto ps-56"><div class="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border"><div class="px-8 pt-3"><div class="relative mb-2.5">
+    <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <input type="text" data-search placeholder="Cari berdasarkan nama, pengisi acara, atau lokasi.." class="w-full pl-9 pr-3 py-2 bg-card border border-input rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10">
+  </div>
+  <div data-row class="flex flex-wrap items-center gap-2 mb-2.5">
+    <button type="button" data-dd="time" aria-haspopup="listbox" aria-expanded="false" class="relative flex items-center gap-1.5 px-3.5 py-1.5 border rounded-lg text-xs font-medium whitespace-nowrap transition after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] border-border bg-card text-foreground hover:border-muted-foreground/40"><span data-label>Kapan saja</span><svg class="w-2.5 h-2.5 text-muted-foreground shrink-0 transition-transform " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    <button type="button" data-dd="type" aria-haspopup="listbox" aria-expanded="false" class="relative flex items-center gap-1.5 px-3.5 py-1.5 border rounded-lg text-xs font-medium whitespace-nowrap transition after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] border-border bg-card text-foreground hover:border-muted-foreground/40"><span data-label>Tipe</span><svg class="w-2.5 h-2.5 text-muted-foreground shrink-0 transition-transform " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    <button type="button" data-dd="cat" aria-haspopup="listbox" aria-expanded="false" class="relative flex items-center gap-1.5 px-3.5 py-1.5 border rounded-lg text-xs font-medium whitespace-nowrap transition after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] border-border bg-card text-foreground hover:border-muted-foreground/40"><span data-label>Kategori</span><svg class="w-2.5 h-2.5 text-muted-foreground shrink-0 transition-transform " xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    
+    <button type="button" data-reset class="hidden ml-auto text-[11px] font-medium text-indigo-600 dark:text-indigo-400 whitespace-nowrap">Hapus filter</button>
+  </div>
+  <div data-drawer="time" class="hidden flex-wrap gap-1.5 pb-2.5 "><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-600 text-white ">Kapan saja</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Minggu ini</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Hari ini</button></div>
+  <div data-drawer="type" class="hidden flex-wrap gap-1.5 pb-2.5 "><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-600 text-white ">Semua tipe</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pameran</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Kompetisi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Festival</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pertunjukan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Workshop</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Seminar</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pasar</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Gathering</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Promosi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Penggalangan Dana</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Kemasyarakatan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Lainnya</button></div>
+  <div data-drawer="cat" class="hidden flex-wrap gap-1.5 pb-2.5 max-h-40 overflow-y-auto"><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-indigo-600 text-white ">Semua kategori</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Musik</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Seni & Budaya</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Makanan & Minuman</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Olahraga & Kebugaran</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Keluarga & Anak-anak</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Hobi & Minat</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Bisnis & Jaringan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Kesehatan & Kebugaran</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Hari Libur</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Amal & Kepedulian</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Sipil & Komunitas</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Agama & Spiritualitas</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Teknologi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Wisata & Pariwisata</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Pendidikan</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Karier</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Otomotif</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Rumah Tangga & Interior</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Fashion & Gaya</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Keuangan & Investasi</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Gadget & Perangkat</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Sains & Teknik</button><button type="button" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-muted text-muted-foreground hover:bg-muted/70 ">Lainnya</button></div>
+  <div class="flex items-center gap-6 border-t border-border pt-1">
+    <button type="button" class="flex items-center gap-1.5 py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg><span>Kartu</span></button>
+    <button type="button" class="flex items-center gap-1.5 py-2 text-xs font-medium text-muted-foreground border-b-2 border-transparent"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg><span>Kalender</span></button>
+  </div></div></div><div class="p-8"><div class="grid grid-cols-5 gap-3.5 items-stretch"><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231e293b'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Styles Prizeventure 2026" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 12 Des</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Styles Prizeventure 2026</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Lippo Plaza Jogja</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Menangkan motor Italjet + logam mulia</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>4 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Promosi</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c2d12'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Jogja Music & Art Showcase" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-amber-700 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">hari terakhir</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Jogja Music & Art Showcase</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Taman Budaya Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Hindia, .Feast, Lomba Sihir, Kunto Aji</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded font-semibold">Gratis</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pertunjukan</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23064e3b'/%3E%3Cstop offset='1' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Kejuaraan Bulutangkis Tegal Challenge" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-background/95 text-foreground border border-border/80 backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">besok</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Kejuaraan Bulutangkis Tegal Challenge</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">GOR Purna Bharatangkas</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Hadiah Rp 33.000.000 + piala</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-foreground/80"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>08.00</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Kompetisi</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234c1d95'/%3E%3Cstop offset='1' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Beyond Gold & Jewelry Promo" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 3 Nov</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-white text-rose-500 backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Beyond Gold & Jewelry Promo</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Wahyu Redjo Beyond</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Gratis cuci perhiasan + diskon member</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>1.2 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pameran</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%230c4a6e'/%3E%3Cstop offset='1' stop-color='%2338bdf8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Festival Kuliner Nusantara" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-background/95 text-foreground border border-border/80 backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">Sabtu</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Festival Kuliner Nusantara</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Pantai Parangtritis, Bantul</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Dewa 19, Sheila on 7, Nadin Amizah</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-foreground/80"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>+2 jadwal</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Festival</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23831843'/%3E%3Cstop offset='1' stop-color='%23fb7185'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Seminar Literasi Digital untuk UMKM" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-background/95 text-foreground border border-border/80 backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">5 Des</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Seminar Literasi Digital untuk UMKM</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Gedung Pusat Layanan Koperasi</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Seminar</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231e293b'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Workshop Fotografi Jalanan" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-amber-700 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">Dalam 3 jam</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Workshop Fotografi Jalanan</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Taman Pintar Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Gratis sertifikat peserta</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-foreground/80"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5 text-muted-foreground"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>14.00</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Workshop</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c2d12'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Bazar Buku Murah" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-amber-700 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 18.00</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Bazar Buku Murah</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Perpustakaan Kota</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Diskon hingga 70%</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>6 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pasar</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='375'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23064e3b'/%3E%3Cstop offset='1' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='42' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Festival Dagelan Mataram Milenial 2026 - Dagelan Cilik Jogja-Jateng" class="w-full h-full object-cover">
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 31 Des</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Festival Dagelan Mataram Milenial 2026 - Dagelan Cilik Jogja-Jateng</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Ramayana Ballet Purawisata Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Gratis tiket masuk untuk 100 pendaftar pertama</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Festival</span>
+      </div>
+    </div>
+  </div>
+</article><article data-card class="[container-type:inline-size] bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <div class="absolute inset-0 flex items-center justify-center text-muted-foreground/40"><svg class="w-10 h-10"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg></div>
+    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+      <span data-badge class="bg-emerald-600 text-white backdrop-blur-sm text-[10px] [@container(min-width:145px)]:text-xs font-semibold px-2.5 py-0.5 rounded-md shadow-sm">s/d 24 Nov</span>
+      <!-- 28px disc as in the mock; the 44px hit target is the ::after -->
+      <button data-heart type="button" aria-label="Favorit" class="relative pointer-events-auto w-7 h-7 bg-black/30 text-white backdrop-blur-md rounded-full flex items-center justify-center after:absolute after:-inset-2 after:content-['']"><svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="p-3 flex-1 flex flex-col justify-between">
+    <div>
+      <h2 data-title class="text-xs [@container(min-width:200px)]:text-sm font-semibold text-foreground line-clamp-2 leading-snug">Pameran Batik Nusantara</h2>
+      <p class="text-[11px] text-muted-foreground mt-1 flex items-center gap-1"><svg class="w-2.5 h-2.5 shrink-0 text-muted-foreground/70"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span data-loc class="truncate">Taman Budaya Yogyakarta</span></p>
+    </div>
+    <div data-foot class="mt-2.5 pt-2 border-t border-border flex flex-col gap-1.5 text-[10px] [@container(min-width:145px)]:text-xs">
+      <div data-green class="text-emerald-700 dark:text-emerald-400 font-semibold leading-tight line-clamp-2">Bintang tamu: Didi Kempot Tribute</div>
+      <div data-row class="flex items-center justify-between gap-[1em] text-muted-foreground font-medium">
+        <span data-left class="whitespace-nowrap shrink-0"><span class="text-indigo-600 dark:text-indigo-400 font-semibold"><svg class="w-2.5 h-2.5 [@container(min-width:145px)]:w-3 [@container(min-width:145px)]:h-3 shrink-0 inline-block align-[-1px] mr-0.5"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>3 km</span></span>
+        <span data-type class="text-muted-foreground/80 truncate max-w-[95px]">Pameran</span>
+      </div>
+    </div>
+  </div>
+</article></div></div></div></div></section>
+</div>
+</body>
+</html>

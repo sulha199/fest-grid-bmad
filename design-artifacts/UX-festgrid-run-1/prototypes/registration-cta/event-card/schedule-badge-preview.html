@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kartu event: pill jadwal di thumbnail</title>
+<!--
+Preview revisi 2 (2026-11-20): pill jadwal satu warna di thumbnail kiri atas; status kiri bawah gambar; footer tanpa latar berwarna berisi highlight (kiri) + chip jarak (kanan). Teks contoh fiktif. Token nyata, lebar nyata 175/224px.
+-->
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  // Mirrors apps/web/tailwind.config.ts + src/app/globals.css (real semantic tokens, AD-33 z tiers).
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: {
+      zIndex: { chrome: '40', 'overlay-sticky': '45', 'overlay-modal': '50', 'overlay-blocking': '60' },
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      colors: {
+        border: 'hsl(var(--border))', input: 'hsl(var(--input))', ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))', foreground: 'hsl(var(--foreground))',
+        primary: { DEFAULT: 'hsl(var(--primary))', foreground: 'hsl(var(--primary-foreground))' },
+        secondary: { DEFAULT: 'hsl(var(--secondary))', foreground: 'hsl(var(--secondary-foreground))' },
+        destructive: { DEFAULT: 'hsl(var(--destructive))', foreground: 'hsl(var(--destructive-foreground))' },
+        success: { DEFAULT: 'hsl(var(--success))', foreground: 'hsl(var(--success-foreground))' },
+        muted: { DEFAULT: 'hsl(var(--muted))', foreground: 'hsl(var(--muted-foreground))' },
+        accent: { DEFAULT: 'hsl(var(--accent))', foreground: 'hsl(var(--accent-foreground))' },
+        popover: { DEFAULT: 'hsl(var(--popover))', foreground: 'hsl(var(--popover-foreground))' },
+        card: { DEFAULT: 'hsl(var(--card))', foreground: 'hsl(var(--card-foreground))' },
+        'nav-active-indicator': 'hsl(var(--nav-active-indicator))',
+      },
+      borderRadius: { lg: 'var(--radius)', md: 'calc(var(--radius) - 2px)', sm: 'calc(var(--radius) - 4px)' },
+    } },
+  };
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style type="text/tailwindcss">
+  @layer base {
+    :root {
+      --background: 210 20% 98%; --foreground: 221 39% 11%; --card: 0 0% 100%; --card-foreground: 221 39% 11%;
+      --popover: 0 0% 100%; --popover-foreground: 221 39% 11%; --primary: 217 33% 17%; --primary-foreground: 210 40% 98%;
+      --secondary: 238 82% 67%; --secondary-foreground: 210 40% 98%; --accent: 358 100% 68%; --accent-foreground: 210 40% 98%;
+      --success: 160 84% 39%; --success-foreground: 210 40% 98%; --destructive: 0 84% 60%; --destructive-foreground: 210 40% 98%;
+      --muted: 210 40% 96.1%; --muted-foreground: 215.4 16.3% 46.9%; --border: 214.3 31.8% 91.4%; --input: 214.3 31.8% 91.4%;
+      --ring: 221.2 83.2% 53.3%; --nav-active-indicator: 358 72% 57%; --radius: 0.5rem;
+    }
+    .dark {
+      --background: 222.2 84% 4.9%; --foreground: 210 40% 98%; --card: 222.2 84% 4.9%; --card-foreground: 210 40% 98%;
+      --popover: 222.2 84% 4.9%; --popover-foreground: 210 40% 98%; --primary: 210 40% 98%; --primary-foreground: 222.2 47.4% 11.2%;
+      --secondary: 217.2 32.6% 17.5%; --secondary-foreground: 210 40% 98%; --accent: 217.2 32.6% 17.5%; --accent-foreground: 210 40% 98%;
+      --success: 160 84% 39%; --success-foreground: 210 40% 98%; --destructive: 0 62.8% 30.6%; --destructive-foreground: 210 40% 98%;
+      --muted: 217.2 32.6% 17.5%; --muted-foreground: 215 20.2% 65.1%; --border: 217.2 32.6% 17.5%; --input: 217.2 32.6% 17.5%;
+      --ring: 212.7 26.8% 83.9%; --nav-active-indicator: 358 72% 57%;
+    }
+    * { @apply border-border; }
+    body { @apply bg-slate-200 text-foreground font-sans antialiased; }
+  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  /* frames create a containing block so "fixed" chrome stays inside the demo viewport */
+  .frame { transform: translateZ(0); }
+</style>
+</head>
+<body class="">
+<div class="p-6 flex flex-col gap-10 max-w-[1100px]">
+<div>
+  <h1 class="text-lg font-bold text-slate-900">Kartu event grid, revisi 2: pill jadwal satu warna, jarak di footer kanan</h1>
+  <p class="text-sm text-slate-700 mt-1 max-w-3xl">Perubahan dari preview pertama: (1) pill jadwal di thumbnail satu latar saja, "s/d" hanya bagian dari teks; (2) jarak pindah ke kanan bawah kartu, sebaris dengan teks highlight, tanpa latar berwarna di footer; status tinggal sendiri di kiri bawah gambar. Ukuran sebenarnya: kolom 175px (HP 390px) dan 224px (desktop 1440px).</p>
+</div>
+
+<section>
+<div class="mb-3"><h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">1. Kolom 175px (HP, 2 kolom)</h2><p class="text-xs text-slate-600 mt-1 max-w-3xl">Lebar sebenarnya.</p></div>
+<div class="flex flex-wrap items-start gap-x-4 gap-y-6"><div class="w-[175px]"><div class="text-xs font-mono text-slate-600 mb-2">A. Berlangsung, highlight + jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c2d12'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Beyond Gold & Jewelry Promo" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">s/d 12 Des</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-emerald-600 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Berlangsung</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Beyond Gold & Jewelry Promo</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Wahyu Redjo Beyond</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Diskon 50% semua perhiasan</p>
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>2,3 km</span>
+    </div></div>
+  </div>
+</article><p class="text-[11px] text-slate-600 mt-1.5 leading-snug">pill "s/d 12 Des", satu warna; jarak turun karena tidak muat sebaris</p></div><div class="w-[175px]"><div class="text-xs font-mono text-slate-600 mb-2">G. Highlight pendek + jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234c1d95'/%3E%3Cstop offset='1' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Pameran Otomotif Jogja Raya" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">s/d 20 Des</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-emerald-600 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Berlangsung</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Pameran Otomotif Jogja Raya</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">JEC Yogyakarta</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Diskon 50%</p>
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>3 km</span>
+    </div></div>
+  </div>
+</article><p class="text-[11px] text-slate-600 mt-1.5 leading-snug">cukup lebar: sebaris, jarak di kanan</p></div><div class="w-[175px]"><div class="text-xs font-mono text-slate-600 mb-2">B. Belum mulai, hanya jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231e293b'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Styles Prizeventure 2026" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">5 Des</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-background/90 text-foreground text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Dalam 5 hari</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Styles Prizeventure 2026</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Lippo Plaza Jogja</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>4 km</span>
+    </div></div>
+  </div>
+</article><p class="text-[11px] text-slate-600 mt-1.5 leading-snug">jarak sendirian di kanan bawah</p></div><div class="w-[175px]"><div class="text-xs font-mono text-slate-600 mb-2">C. Highlight panjang + jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23064e3b'/%3E%3Cstop offset='1' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Kejuaraan Bulutangkis Tegal Challenge" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">3 Nov</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-amber-700 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Berakhir hari ini</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Kejuaraan Bulutangkis Tegal Challenge</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">GOR Purna Bharatangkas</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Total hadiah 33 juta rupiah + trofi bergilir</p>
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>4 km</span>
+    </div></div>
+  </div>
+</article><p class="text-[11px] text-slate-600 mt-1.5 leading-snug">highlight 2 baris, jarak turun ke bawah kanan</p></div><div class="w-[175px]"><div class="text-xs font-mono text-slate-600 mb-2">D. Tanpa highlight, tanpa jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234c1d95'/%3E%3Cstop offset='1' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Pasar Malam Lampion Kota Tua" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">3 Nov</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-white text-red-600"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-amber-700 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Dalam 3 jam</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Pasar Malam Lampion Kota Tua</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Jl. Malioboro, Yogyakarta</span></p>
+    <div class="mt-auto"></div>
+  </div>
+</article><p class="text-[11px] text-slate-600 mt-1.5 leading-snug">kartu selesai setelah lokasi</p></div><div class="w-[175px]"><div class="text-xs font-mono text-slate-600 mb-2">E. Highlight tanpa jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%230c4a6e'/%3E%3Cstop offset='1' stop-color='%2338bdf8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Festival Kuliner Nusantara dan Musik Akustik Pantai" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">s/d 30 Nov</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-emerald-600 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Berlangsung</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Festival Kuliner Nusantara dan Musik Akustik Pantai</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Pantai Parangtritis, Bantul</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Gratis masuk, parkir gratis</p>
+      
+    </div></div>
+  </div>
+</article><p class="text-[11px] text-slate-600 mt-1.5 leading-snug">highlight memakai lebar penuh</p></div><div class="w-[175px]"><div class="text-xs font-mono text-slate-600 mb-2">F. Selesai (abu-abu)</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col opacity-50 grayscale">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23831843'/%3E%3Cstop offset='1' stop-color='%23fb7185'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Konser Amal Jogja Berdoa" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">28 Okt</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-background/90 text-foreground text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Selesai</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Konser Amal Jogja Berdoa</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Stadion Mandala Krida</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Donasi tiket Rp25 ribu</p>
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>8 km</span>
+    </div></div>
+  </div>
+</article></div></div>
+</section>
+
+<section>
+<div class="mb-3"><h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">2. Kolom 224px (desktop 5 kolom)</h2><p class="text-xs text-slate-600 mt-1 max-w-3xl">Teks naik satu langkah (container query 200px); highlight sebaris dengan jarak bila muat.</p></div>
+<div class="flex flex-wrap items-start gap-x-4 gap-y-6"><div class="w-[224px]"><div class="text-xs font-mono text-slate-600 mb-2">A. Berlangsung, highlight + jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c2d12'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Beyond Gold & Jewelry Promo" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">s/d 12 Des</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-emerald-600 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Berlangsung</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Beyond Gold & Jewelry Promo</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Wahyu Redjo Beyond</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Diskon 50% semua perhiasan</p>
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>2,3 km</span>
+    </div></div>
+  </div>
+</article></div><div class="w-[224px]"><div class="text-xs font-mono text-slate-600 mb-2">B. Belum mulai, hanya jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231e293b'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Styles Prizeventure 2026" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">5 Des</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-background/90 text-foreground text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Dalam 5 hari</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Styles Prizeventure 2026</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Lippo Plaza Jogja</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>4 km</span>
+    </div></div>
+  </div>
+</article></div><div class="w-[224px]"><div class="text-xs font-mono text-slate-600 mb-2">G. Highlight pendek + jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234c1d95'/%3E%3Cstop offset='1' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Pameran Otomotif Jogja Raya" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">s/d 20 Des</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-emerald-600 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Berlangsung</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Pameran Otomotif Jogja Raya</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">JEC Yogyakarta</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Diskon 50%</p>
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>3 km</span>
+    </div></div>
+  </div>
+</article></div><div class="w-[224px]"><div class="text-xs font-mono text-slate-600 mb-2">C. Highlight panjang + jarak</div><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23064e3b'/%3E%3Cstop offset='1' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Kejuaraan Bulutangkis Tegal Challenge" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">3 Nov</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-amber-700 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Berakhir hari ini</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Kejuaraan Bulutangkis Tegal Challenge</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">GOR Purna Bharatangkas</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Total hadiah 33 juta rupiah + trofi bergilir</p>
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>4 km</span>
+    </div></div>
+  </div>
+</article></div></div>
+</section>
+
+<section class="dark rounded-xl bg-slate-950 p-4">
+<div class="mb-3"><h2 class="text-sm font-bold text-white uppercase tracking-wider">3. Mode gelap</h2></div>
+<div class="flex flex-wrap gap-x-4 gap-y-6 dark text-foreground items-start">
+  <div class="w-[175px]"><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c2d12'/%3E%3Cstop offset='1' stop-color='%23f59e0b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Beyond Gold & Jewelry Promo" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">s/d 12 Des</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-emerald-600 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Berlangsung</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Beyond Gold & Jewelry Promo</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Wahyu Redjo Beyond</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Diskon 50% semua perhiasan</p>
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>2,3 km</span>
+    </div></div>
+  </div>
+</article></div><div class="w-[175px]"><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231e293b'/%3E%3Cstop offset='1' stop-color='%236366f1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Styles Prizeventure 2026" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">5 Des</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-background/90 text-foreground text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Dalam 5 hari</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Styles Prizeventure 2026</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">Lippo Plaza Jogja</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>4 km</span>
+    </div></div>
+  </div>
+</article></div><div class="w-[175px]"><article class="[container-type:inline-size] w-full bg-card text-card-foreground rounded-2xl overflow-hidden shadow-sm border border-border flex flex-col ">
+  <div class="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+    <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234c1d95'/%3E%3Cstop offset='1' stop-color='%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%' height='100%' fill='url(%23g)'/%3E%3Ctext x='50%' y='52%' fill='white' fill-opacity='.85' font-family='Inter,sans-serif' font-weight='700' font-size='67' text-anchor='middle'%3E%3C/text%3E%3C/svg%3E" alt="Pameran Otomotif Jogja Raya" class="w-full h-full object-cover">
+    <span class="absolute top-2 left-2 z-10 text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-full bg-background/85 backdrop-blur-sm text-foreground shadow-sm whitespace-nowrap">s/d 20 Des</span>
+    <button type="button" aria-label="Favorit" class="absolute top-0.5 right-0.5 w-11 h-11 flex items-center justify-center">
+      <span class="w-7 h-7 rounded-full backdrop-blur-md flex items-center justify-center bg-black/30 text-white"><svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
+    </button>
+    <span class="absolute bottom-2 left-2 bg-emerald-600 text-white text-xs [@container(min-width:200px)]:text-sm font-semibold leading-none px-2 py-1 rounded-md shadow-sm backdrop-blur-sm">Berlangsung</span>
+  </div>
+  <div class="p-3 flex-1 flex flex-col">
+    <h2 class="text-sm [@container(min-width:200px)]:text-base font-semibold leading-tight tracking-tight line-clamp-2">Pameran Otomotif Jogja Raya</h2>
+    <p class="text-xs [@container(min-width:200px)]:text-sm text-muted-foreground mt-1 flex items-center gap-1 min-w-0"><svg class="w-3 h-3 shrink-0"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span class="truncate">JEC Yogyakarta</span></p>
+    <div class="mt-auto"><div class="mt-2.5 pt-2 border-t border-border flex flex-wrap items-end gap-x-2 gap-y-1.5">
+      <p class="min-w-0 max-w-full text-xs [@container(min-width:200px)]:text-sm font-semibold leading-snug text-emerald-700 dark:text-emerald-400 line-clamp-2">Diskon 50%</p>
+      <span class="shrink-0 ml-auto inline-flex items-center gap-1 bg-secondary text-secondary-foreground text-xs [@container(min-width:200px)]:text-sm font-medium leading-none px-1.5 py-1 rounded"><svg class="w-3 h-3"  xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>3 km</span>
+    </div></div>
+  </div>
+</article></div>
+</div>
+</section>
+
+<section class="max-w-3xl text-sm text-slate-800 flex flex-col gap-2">
+<h2 class="text-sm font-bold uppercase tracking-wider text-slate-900">Catatan</h2>
+<ul class="list-disc ps-5 flex flex-col gap-1.5">
+<li><b>Pill jadwal:</b> satu latar (bg-background/85 + blur) untuk semua state. Teks: "5 Des" (belum mulai), "s/d 12 Des" (sedang berjalan dan berakhir setelah hari ini), "3 Nov" (hari terakhir). Tidak ada lagi warna amber di pill.</li>
+<li><b>Footer:</b> tidak ada latar berwarna. Highlight (teks hijau, maksimal 2 baris, tanpa ikon) dan chip jarak (kanan) dalam satu baris flex yang membungkus: kalau highlight muat berdampingan dengan chip, keduanya sebaris; kalau tidak, chip turun ke baris bawah, tetap rata kanan. Garis tipis di atas footer dipertahankan sebagai pemisah. Tanpa highlight tapi ada jarak: chip sendirian di kanan. Tanpa keduanya: tidak ada footer.</li>
+<li><b>Yang saya temukan:</b> versi sebaris-paksa (highlight di kiri, chip di kanan) menyisakan sekitar 60-90px untuk teks highlight di kolom 175px, sehingga "Diskon 50% semua perhiasan" terpotong jadi "Diskon / 50% / semua...". Karena itu footer ini membungkus. Di 175px hampir semua highlight lebih dari 2-3 kata akan membuat chip turun; di 224px lebih sering sebaris.</li>
+<li><b>Chip jarak</b> memakai warna secondary yang sama dengan badge jarak kartu live (di mode gelap berubah abu-abu gelap).</li>
+</ul>
+</section>
+</div>
+</body>
+</html>
