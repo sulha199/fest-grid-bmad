@@ -139,3 +139,86 @@ Still open:
 
 ## 8. Reproduction
 `run-7a.sh`, `sample-captions.sql`, `all-captions.sql` (read-only SQL); `detect-phones.ts`, `scrub-contact-data.ts`, `eval-detector.ts`, `run-corpus.ts`, `heldout2.ts`, `option-mix.ts`, `scrub-tests.ts`, `scrub-corpus.ts`; `gemini-trial.ts`, `analyze-gemini.ts`; synthetic fixtures in `fixtures/`. Aggregate outputs in `out/`. Install once with `npm install` in this folder (isolated from the pnpm workspace).
+
+## 9. Follow-up POC, 2026-11-21: registration window, multi-event A/B with images, QR decoding
+
+Written for: the planning agents who run `bmad-correct-course` and `bmad-architecture` next. Same guardrails as the first POC (read-only prod DB, nothing under `apps/` or `packages/` changed, real data only in `private/`). New material: 548 posts whose signed image links were still valid on 2026-11-21 (1,170 images downloaded), the production request builder with real images, and three Node QR libraries plus OpenCV. All figures are over this sample; where the sample is too small to separate a difference from noise, that is said.
+
+### 9.1 Registration windows: do not ask the model for them
+
+**Production already emits the window, as a schedule.** Rule 0d of the production prompt says the registration or sign-up window "becomes one of its schedules", and rule 0a uses "its own registration window" as evidence of a separate pipeline. So the grouping logic depends on the window being visible to the model.
+
+**Prod (read-only, active events, title match with exclusions, `reg-window-titles.sql`):** 257 of 5,683 schedules (4.5%) are registration or ticket-sale windows. 228 events carry at least one. In 166 of them the window sits next to the real event day (clean to move out). **62 events consist only of window schedules** (no event day is stored). In **36 events the window is marked as the main schedule** although another schedule exists, which is what moved the card badge in the Dolan Fest 2 case. Titles are regular ("pendaftaran", "registration deadline", "periode pendaftaran", "early bird registration", "presale 1"). False-positive classes found by reading the titles: on-site re-registration and check-in on the event day ("registrasi ulang", "daftar ulang"), ticket redemption and gate-open rows, promo or flash-sale discounts, and long "Day N ..." titles; the SQL excludes them. Precision was judged by eye, not against labels.
+
+**Model arms (12 posts picked by a caption regex, 3 runs each; arm A = production, B = highlight and registrations, C = B plus an event-level `registrationWindow`, with rule 0d reworded so the window is not a schedule):**
+
+| | A | B | C |
+|---|---|---|---|
+| Runs with a registration-like schedule | 6 of 35 | 3 of 36 | 1 of 36 |
+| Runs with `registrationWindow` filled | n/a | n/a | 6 of 36 |
+| Runs with both window dates | 0 | 0 | **0** |
+| `opensOn`/`closesOn` filled on a registration option | 0 | 0 | 0 |
+
+Only 2 of the 12 posts state a real window, so the set is weak (the caption regex also matched "Registration Fee"). On the clearest case (caption "Pendaftaran : 14-22 November 2026") arm A emitted a schedule titled "Pendaftaran Tenant" with both dates, and arm C returned only `opensOn`; on another post C returned a malformed value (`2026-10-20-2026-10-20`). So the lite model fills a dedicated window field badly even when it is stated, while it already gets both dates right inside a schedule.
+
+**Recommendation:** keep the production prompt for windows (grouping stays as measured), and move a window out of `schedules` in code, by title (the regex above), keeping the model's start and end dates. Needs a decision for the 62 window-only events (keep the window as the only schedule, or mark the date unknown) and a main-flag reassignment for 36 events; backfill is 228 events.
+
+### 9.2 Multi-event A/B with real images (11 multi-event posts x 6 runs, 8 single-event controls x 2, interleaved, arm order rotated per run)
+
+| | A (production) | B (+highlight, registrations) | C (+window field, rule 0d reworded) |
+|---|---|---|---|
+| Multi-event runs with fewer events than A's usual count | 5 of 66 | 8 of 66 | 0 of 66 |
+| ... with more events | 1 | 2 | 6 |
+| Runs that returned exactly one event | 17 | 19 | 12 |
+| Posts whose event count changes between runs (of 19) | 2 | 5 | 2 |
+| Mean prompt tokens / output tokens / ms per call | 7,956 / 924 / 3.5 s | 8,669 / 1,069 / 4.3 s | 8,811 / 982 / 4.1 s |
+
+- **The production prompt is itself unstable** on two posts (a dance showcase poster with four programs: 3,3,4,1,3,1 events; another: 1,1,2,2,1,2). The stored count for the first is 2, and a reader could defend 1, 3 or 4, so "baseline = truth" does not hold; the table compares each arm with arm A's usual answer, not with a right answer.
+- **B shows slightly more collapse** than A (8 vs 5 runs, 5 vs 2 unstable posts, one run with zero events on a 3-event post). With 66 runs per arm this is a signal worth another run, not a result. **C shows none** and answered more consistently on both unstable posts (4 events on the dance poster in 5 of 6 runs).
+- Controls: A and B agree on all 16 runs; C changed one post, a results-announcement poster (podium, no event), from one event to none in both runs. That is arguably the right answer; production calls it an event.
+- Cost: prompt +9% (B) and +11% (C), output +16% (B) and +6% (C). No truncated or unparsable answers in 353 calls (one call failed on a transient 503).
+- **Reading:** nothing here shows that the registration or highlight addendum, or taking the window out of the schedules, produces the Samsat-style collapse; B is the one to watch. It does not clear the change either: 11 posts, one cover image each, and the first POC's own warning (event counts shifted in 32% of runs) still stands. The only way to be sure remains the interleaved replay per prompt change; `ab-multi-event.ts` is that harness.
+
+### 9.3 QR codes in post images
+
+**Prevalence.** 90 of 1,170 images decode (7.7%); **81 of 548 posts (14.8%)** carry a decodable QR. 51 are on the cover and **39 on later slides**, so scanning only the cover would find 57% of them. Several posters hold two or more different codes (5 images where the libraries returned different codes). The earlier figure from captions only ("50 QR-only captions") understated this.
+
+**What the codes are.** 82 images decode to a URL, 3 to a payment code (EMV prefix `000201`, a donation poster posted twice), 5 to other text. Of the URL hosts, 56 of 82 (68%) are redirectors, shorteners or QR-generator services (`q.me-qr.com` 30, `bit.ly` 13, `canvaqr.com` 5, `linktr.ee` 4, `get-qr.com` 2, `qrfy.io` 2); direct hosts are rare (`forms.gle` 4, `goers.co` 6, `docs.google.com` 2, `maps.app.goo.gl` 2). **For two thirds of the codes the host says nothing about the destination, and dynamic QR services let the owner change the destination later.** 10 payloads repeat across 23 posts (standing account codes: maps, link-in-bio).
+
+**Libraries** (share of the 90 images found by any method; true QR count unknown, so this is relative recall and a floor):
+
+| Library | Full (2,000 px cap) | 1,024 px | Median / p95 per image |
+|---|---|---|---|
+| zxing-wasm 3.1.7 | **85 (94%)** | 82 (91%) | **5 ms** / 34 ms |
+| jsQR 1.4.0 (pure JS) | 78 (87%) | 74 (82%) | 179 ms / 1,122 ms |
+| ZBar (wasm) 0.11.0 | 74 (82%) | 69 (77%) | 40 ms / 237 ms |
+| OpenCV (QR detector, 3-stage, reference) | 67 (74%) | | |
+
+zxing-wasm missed 5 of the 90. The corpus is low resolution (short side median 516 px, minimum 360); decoded images had a short side of at least 480 px, so nothing here says what happens below that. OpenCV's "QR box found but not decoded" count (263) is noise and is not used.
+
+**Does it fit our Lambda?** The AI-processor Lambda is x86_64, 2,048 MB, CJS esbuild bundle, and already runs `sharp` and a WASM runtime. A bundle with all three libraries is about 2 MB, and decoding works from that single CJS file with `fetch` disabled, with two fixes: (1) **zxing-wasm downloads its `.wasm` from jsDelivr at runtime by default**; embed it with esbuild's `binary` loader and `prepareZXingModule({ overrides: { wasmBinary } })`. (2) ZBar needs the `zbar-inlined` condition plus an `import.meta.url` shim in CJS. jsQR needs nothing but is the slowest. Not tested: cold start and memory on the real Lambda, and AWS Rekognition or Textract (to my knowledge neither decodes QR codes; not verified here).
+
+**Purpose of a code (manual look at 12 posters):** 7 registration or ticket, 1 participant support, 2 the same donation poster, 1 a map, 1 a link-in-bio.
+
+### 9.4 QR purpose: what the model does with the poster text
+
+Gemini arm B (`registrations[]` with channel QR), on those 12 posters:
+- On the 7 registration or ticket posters the model emitted a QR or link option in **19 of 21 runs** (the other 2 gave a LINK option with no URL). It never saw the code's content.
+- On the 5 other posters it still emitted a QR option in **12 of 15 runs**: the support code as "Pusat Bantuan Peserta" (3 of 3), the donation code as "Donasi" (6 of 6), the link-in-bio code (3 of 3). The map code was left out (0 of 3). One run labelled a donation QR "Pendaftaran". A donation poster also produced WhatsApp options labelled "Tunai" for the cash-donation contact.
+- Posters with two codes ("Pendaftaran" and "Temukan Kami") got one option; the model cannot say which decoded URL belongs to the label.
+- So the label usually tells the purpose, but a channel of QR does not mean "register". Rules that follow: a payment payload (EMV `000201`) is never a Register button whatever the label; an option needs a decoded payload to become a button; with two or more decoded payloads on one image the pairing needs more than the model's label (a position-aware decode, or show the host and let the user choose).
+
+### 9.5 What this changes in the recommendations
+
+| Topic | Before | Now |
+|---|---|---|
+| Registration window | Model field `opensOn`/`closesOn` per option | Do not ask for it. Keep the schedule the model already emits and reclassify it by title in code; handle 62 window-only events and 36 main-flag cases; backfill 228 events |
+| Prompt addendum risk | Unknown | No collapse shown in 11 posts x 6 runs; arm B slightly worse than A, arm C not; production is unstable on its own on 2 of 11 posts. Re-run the replay (more posts, more runs, flyers without captions) before any schema change ships |
+| QR | Proposed from one poster | Measured: 14.8% of posts, 43% of codes on later slides, 68% behind redirectors, 94% relative recall with zxing-wasm at 5 ms. Needs an architecture decision on redirectors and on pairing a code with its label |
+| Price tiers | Not ready | Per-tier prices stay not ready for free text, but a stored "NAME: Rp..." price string splits deterministically (the Kids Fun Family Run page shows 3 of 3) |
+
+### 9.6 Not measured
+
+A non-lite model; captionless flyers against a labelled window truth (only 2 real windows in the set); QR below a 480 px short side; cold start and memory of the WASM libraries on the real Lambda; where a code sits on the image; whether dynamic-QR destinations change over time. Draft labels from the first POC are still not reviewed by the owner.
+
+Reproduction: `ab-multi-event.ts`, `ab-analyze.mjs`, `arms.ts` (A/B); `live-posts.sql`, `download-live-images.mjs`, `qr-bench.mjs`, `qr-opencv.py`, `qr-analyze.mjs`, `qr-pick.mjs`, `bundle-entry2.mjs` (QR); `reg-window-titles.sql` (windows). Aggregates are written to `out/ab-summary.json` and `out/qr-summary.json` (the `out/` folder is gitignored; rerun the analysis scripts to regenerate).

@@ -1,24 +1,25 @@
-# Registration extraction POC: checkpoint (2026-11-20)
+# Registration extraction POC: status (updated 2026-11-21)
 
-Session paused mid-way. Nothing under apps/ or packages/ was touched; no DB writes; `private/` is gitignored (real captions, numbers, labels).
+Nothing under `apps/` or `packages/` was touched; no DB writes (the prod connection is the read-only role). `private/` is gitignored and holds real captions, numbers, decoded QR text, downloaded post images and model output.
+
+## Where the results are
+- **`findings.md`**: the report. Sections 1-8 are the first POC (2026-11-20: phone detector, scrubber, Gemini trial on caption text). Section 9 is the follow-up (2026-11-21: registration window, multi-event A/B with real images, QR decoding libraries).
+- `out/` (gitignored, regenerate with the analysis scripts): aggregates only (`7a-counts.txt`, `detector-results.json`, `gemini-summary.json`, `qr-summary.json`, `ab-summary.json`).
+- Handoff checklists: `_bmad-output/planning-artifacts/event-registration-cta-handoff-2026-11-20.md` sections 8 and 11.
 
 ## Done
-- 7A counts: `out/7a-counts.txt` (aggregates only; Q1-Q15). Rerun: `bash run-7a.sh`.
-- Section 6 verifications (code reads), findings are NOT yet written into findings.md (see "Findings so far").
-- Sample of 95 real captions + 5 synthetic abuse cases (`fixtures/synthetic-abuse-captions.json`); draft labels by Claude in `private/make-labels.cjs`, review sheet `private/labels-for-review.md` (owner review still pending).
-- `detect-phones.ts`, `scrub-contact-data.ts` (+ `scrub-tests.ts`, 20/20), `eval-detector.ts`, `run-corpus.ts`, `heldout2.ts`.
-- Gemini trial script `gemini-trial.ts` (wraps the production request builder; extended prompt+schema in memory). Runs resume safely: `npx tsx gemini-trial.ts --ids <list> --arms base,ext --runs 3`. About 118 of 128 calls were done at the pause; finish by rerunning the same command (see git history / this file for the id list: S01,S03,S04,S05,S06,S08,S10,S17,S23,S25,S27,S29,S32,S34,S26,S31,S45,S52,S61,S63,S66,S70,S71,S73,S78,S87,S89,S92,S93,S94,S79,S84), then the 5 synthetic cases: `--ids X1,X2,X3,X4,X5 --runs 2`.
-- `analyze-gemini.ts` scores the runs (writes `out/gemini-summary.json`).
+- First POC (findings 1-8). Superseded note: the earlier version of this file said the Gemini trial was unfinished; it was finished and written up.
+- Follow-up POC (findings 9): prod registration-schedule titles (read-only), A/B replay of three prompt arms on 31 real posts with images, QR decoding on 1,170 real post images with three Node libraries plus OpenCV, esbuild/CJS packaging probe.
 
-## Not done
-- Finish trial + X1-X5 abuse runs, run `analyze-gemini.ts`.
-- Write `findings.md`; update handoff section 8 checklists; recommendation on bmad-correct-course.
-- Owner: review draft labels; answer policy questions (business/venue lines and shopper lines as WhatsApp CTA?).
+## Not done / open
+- The 95 draft caption labels (`private/labels-for-review.md`) are still not reviewed by the owner; every precision/recall figure is against those drafts.
+- Not measured anywhere: a non-lite Gemini model; flyer-only registration windows against a labelled truth; QR purpose classification (register vs follow vs map vs pay) beyond a manual look at a few posters; destination of dynamic QR redirectors; Lambda cold start with the WASM libraries on the real stack.
+- `bmad-correct-course` has not started. Backlog row `IDEA-261121-tvh` (dedup guard) is filed.
 
-## Findings so far (aggregates, no real data)
-- Active events 4,017; `has_private_contact` 927 (23%). 4,585 posts keep a caption (non-curator accounts); `Post.content` is readable by subscribers via `postsByAccount`. So "raw contact never stored" is already false at post level, and D2's "delete at event end" would not cover captions.
-- Detector over 2,801 distinct captions: 382 (13.6%) have a number; 310 phone-only, 72 phone+link; 147 link-only; 50 QR-only. 104 of 382 have 2+ numbers; 13 are in multi-event posts. Only ~20% of numbers sit next to an explicit registration word; rest are generic contact numbers.
-- Detector P/R: dev sample 58/58 (tuned on it, optimistic); fresh held-out about 92-94% precision, about 97-99% recall (donation/sponsor lines are the false positives).
-- Scrubber: 0 leaks over 2,992 captions, 0 prices/times mangled.
-- Gemini lite, extended schema: prompt tokens +12.9%, output +36%; highlights 100% number-grounded; never emitted evidence/eligibility/instruction; put wa.me URLs in `url` and person names in labels (21%); messageTemplate verbatim when present (template prevalence only 5/2,992 captions).
-- Existing gap: `UNPROCESSED_PAYLOAD_RETENTION_DAYS` is never read; 107 raw payloads since 2026-09-04 remain.
+## How to reproduce the follow-up (needs `private/`, the local `.env`, the prod read-only URL in `.env.local`)
+```
+psql "$PROD_READONLY_DATABASE_URL" -f live-posts.sql   # posts whose signed image links are still valid -> private/live-posts.jsonl
+node download-live-images.mjs                           # images -> private/img (they expire about 5 days after the scrape)
+node qr-bench.mjs && python -I qr-opencv.py && node qr-analyze.mjs
+npx tsx ab-multi-event.ts --set multi:6,control:2,window:3 && node ab-analyze.mjs --detail
+```
