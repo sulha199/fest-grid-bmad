@@ -1,4 +1,4 @@
-# POC autostart: runs the pending Gemini replays in priority order, a daily budget at a time, until they are all done (resumable across days).
+﻿# POC autostart: runs the pending Gemini replays in priority order, a daily budget at a time, until they are all done (resumable across days).
 # Started by the Windows scheduled task "festgrid-poc-autostart" at the free-tier reset (Pacific midnight = 15:00 WIB in winter); also safe to start by hand.
 # Only the POC scripts in this folder run. It never commits, pushes, or touches apps/ or packages/. Log: private/autostart.log (no keys, no captions).
 # Remove: Unregister-ScheduledTask -TaskName festgrid-poc-autostart -Confirm:$false      Stop a running chain: kill the powershell and node processes.
@@ -35,11 +35,10 @@ try {
     return [int][Math]::Max(60, ($nextUtc - [DateTime]::UtcNow).TotalSeconds)
   }
   $steps = @(
-    @{ name = 'stage classification call, run 1'; args = @('classify-titles-call.ts', '--runs', '1'); after = @('classify-call-analyze.mjs') },
-    @{ name = 'highlight arms F and G on captions, 3 runs'; args = @('ab-highlight.ts', '--mode', 'captions', '--runs', '3'); after = @('ab-highlight-analyze.mjs') },
-    @{ name = 'highlight arms A, F, G on live posts, 3 runs'; args = @('ab-highlight.ts', '--mode', 'live', '--runs', '3'); after = @('ab-highlight-analyze.mjs') },
-    @{ name = 'stage and tiers replay, finish the third pass'; args = @('ab-stage.ts', '--runs', '3'); after = @('ab-stage-analyze.mjs') },
-    @{ name = 'stage classification call, run 2 (stability, lowest priority)'; args = @('classify-titles-call.ts', '--runs', '2'); after = @('classify-call-analyze.mjs') }
+    # Trimmed 2026-11-21 (owner question: are hundreds of calls needed?): one screening run each, paired by post; extend with --runs 3 only if a result is ambiguous.
+    @{ name = 'highlight arms F-end and F-inline on captions, 1 run'; args = @('ab-highlight.ts', '--mode', 'captions', '--runs', '1'); after = @('ab-highlight-analyze.mjs') },
+    @{ name = 'highlight arms A, G-end, G-inline on live posts, 1 run'; args = @('ab-highlight.ts', '--mode', 'live', '--runs', '1'); after = @('ab-highlight-analyze.mjs') },
+    @{ name = 'stage classification call, run 2 on the first 60 events (stability)'; args = @('classify-titles-call.ts', '--runs', '2', '--limit', '60'); after = @('classify-call-analyze.mjs') }
   )
   foreach ($s in $steps) {
     Log "START $($s.name)"

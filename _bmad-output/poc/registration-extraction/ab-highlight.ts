@@ -36,6 +36,25 @@ if (mode === 'captions') {
     return { id: p.pid, input: { postId: `ab-${p.pid}`, accountId: 'poc', content: p.content ?? '', imageUrl: p.image, additionalImageUrls: extra, postUrl: p.url ?? '', publishedAt: p.published, ownerDisplayName: p.owner } };
   });
 }
+// Signed Instagram image links expire about five days after the scrape; the images were downloaded earlier (download-live-images.mjs, private/img).
+// In live mode the builder's own fetch is answered from that local copy when the URL is known, so a replay does not depend on the link still being valid.
+if (mode === 'live') {
+  const all2: any[] = readFileSync('private/live-posts.jsonl', 'utf8').trim().split(String.fromCharCode(10)).map((l) => JSON.parse(l));
+  const byUrl = new Map<string, string>();
+  for (const p of all2) {
+    let extra: string[] = []; try { extra = typeof p.addl === 'string' ? JSON.parse(p.addl) : Array.isArray(p.addl) ? p.addl : []; } catch { extra = []; }
+    [p.image, ...(p.n >= 2 || extra.length ? extra : [])].filter(Boolean).slice(0, 10).forEach((u: string, i: number) => { const f = `private/img/${p.pid}-${i}.jpg`; if (existsSync(f)) byUrl.set(u, f); });
+  }
+  const sniff = (b: Buffer) => (b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP' ? 'image/webp' : b[0] === 0x89 && b[1] === 0x50 ? 'image/png' : 'image/jpeg');
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: any, init?: any) => {
+    const u = typeof input === 'string' ? input : input?.url ?? String(input);
+    const f = byUrl.get(u);
+    if (f) { const b = readFileSync(f); return new Response(b, { status: 200, headers: { 'content-type': sniff(b) } }); }
+    return realFetch(input, init);
+  }) as typeof fetch;
+  console.log(`local image copies known for ${byUrl.size} urls`);
+}
 if (limit) items = items.slice(0, limit);
 console.log(`mode ${mode}: ${items.length} posts, arms ${ARMS.join('')}, runs ${runs}`);
 
@@ -45,7 +64,9 @@ for (let run = 1; run <= runs; run++) {
   for (const it of items) {
     const order = ARMS.slice(run % ARMS.length).concat(ARMS.slice(0, run % ARMS.length));
     if (order.every((arm) => done.has(`${it.id}|${arm}|${run}`))) continue;
-    const built = await buildGeminiExtractionRequest(it.input as any);
+    let built: Awaited<ReturnType<typeof buildGeminiExtractionRequest>>;
+    try { built = await buildGeminiExtractionRequest(it.input as any); }
+    catch (e: any) { appendFileSync(OUT, JSON.stringify({ ok: false, mode, id: it.id, run, buildError: String(e?.message ?? e).slice(0, 200) }) + String.fromCharCode(10)); console.log(`${it.id} build failed, skipped: ${String(e?.message ?? e).slice(0, 100)}`); continue; }
     for (const arm of order) {
       if (done.has(`${it.id}|${arm}|${run}`)) continue;
       let attempt = 0;
