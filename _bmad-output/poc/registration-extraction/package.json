@@ -1,0 +1,10 @@
+{
+  "name": "registration-extraction-poc",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway POC (handoff 2026-11-20). Not part of the pnpm workspace.",
+  "dependencies": {
+    "libphonenumber-js": "^1.13.17",
+    "tsx": "^4.23.15"
+  }
+}
