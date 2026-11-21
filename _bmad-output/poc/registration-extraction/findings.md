@@ -222,3 +222,36 @@ Gemini arm B (`registrations[]` with channel QR), on those 12 posters:
 A non-lite model; captionless flyers against a labelled window truth (only 2 real windows in the set); QR below a 480 px short side; cold start and memory of the WASM libraries on the real Lambda; where a code sits on the image; whether dynamic-QR destinations change over time. Draft labels from the first POC are still not reviewed by the owner.
 
 Reproduction: `ab-multi-event.ts`, `ab-analyze.mjs`, `arms.ts` (A/B); `live-posts.sql`, `download-live-images.mjs`, `qr-bench.mjs`, `qr-opencv.py`, `qr-analyze.mjs`, `qr-pick.mjs`, `bundle-entry2.mjs` (QR); `reg-window-titles.sql` (windows). Aggregates are written to `out/ab-summary.json` and `out/qr-summary.json` (the `out/` folder is gitignored; rerun the analysis scripts to regenerate).
+
+## 10. Stage enum and price tiers in extraction, 2026-11-21
+
+Written for: the planning agents who run `bmad-architecture` and `bmad-correct-course` next. Question: can the model emit a schedule `stage` (event, qualification, supporting, registration, submission, announcement, preparation, other) and event-level price `tiers[]` in the same extraction call, without disturbing grouping? Same guardrails as before (read-only prod DB, nothing under `apps/` or `packages/` changed, real data only in `private/`).
+
+**Setup.** 53 posts with captions and still-valid images (21 stage-type, 24 price-type, 8 controls), the production request builder with real images, three arms interleaved per post: A production; D = A + `stage` required on every schedule (window stays a schedule, rule 0d untouched); E = D + `tiers[]` (label, kind CATEGORY / TIME_WINDOW / OTHER, price as written, sales dates, evidence). 418 successful calls, 2 to 4 samples per post and arm. Two replay processes wrote to the same file for part of the run (an orphan of a job I had stopped), so the sample count per post is uneven and the run labels were renumbered; every row is still an independent sample. The daily quota ran out before the third pass. Scripts: `arms-stage.ts`, `ab-stage.ts`, `select-stage-posts.mjs`, `ab-stage-analyze.mjs`, `stage-classifier.mjs`, `classify-prod.mjs`, `prod-schedule-titles.sql`. Aggregates: `out/stage-summary.json`, `out/stage-classify-prod.json`.
+
+### 10.1 Stage
+- **It works as a label.** 466 of 551 schedule rows (85%) carry a valid stage. 85 rows lacked it although the schema marks it required (28 of 259 runs had at least one such row); when the field was not required the model dropped it on a whole post in the smoke run, so it must be required and still guarded in code.
+- **Agreement with the title rule: 417 of 466 (89%).** Reading the 49 disagreements, most are faults of the title rule, not of the model: "Promo Early Bird Hampers Natal" (a promo), "Webinar ... Batch 2" and "Talkshow ..." (events), "Podium ... Results" (announcement). Real model faults seen: "Batas Pendaftaran" and "Registration Deadline for Exhibitors" tagged submission instead of registration, mixed titles such as "Pengumuman & Pembagian Hadiah" tagged event. Judged by eye, not against labels.
+- **Stability: 29 of 322 schedule keys (9%)** got a different stage in different samples of the same post.
+- **The main-flag instruction is not obeyed.** 39 of 368 main-flag rows (11%) sit on a registration (12), announcement (24) or preparation (3) row. In 17 of 266 events no schedule is marked main at all (arm A: 0 of 141). So `isMainSchedule` must be derived or repaired in code from the stage, never trusted from the model.
+- **43 events consist only of non-counting rows** (results announcements, registration-only posts), the same 62-window-only problem from section 9.1 in a different place; the date policy for them needs a decision.
+- **Grouping.** Zero-event runs (parsed answers only): A 6 of 139, D 8 of 136, E 6 of 137, no difference. Event-count changes against A's usual answer: 1 run in D and 0 in E on the 21 stage posts; on the 24 price posts D 6 vs A 2 and E 4 vs A 2. Almost all of that is one post (three Bath & Body Works promos): A returned 3 events (separate-events) in 2 of 2 samples, D and E returned 1 in 2 of 2. It is a consistent change from one added instruction, not noise, though the old answer is arguable. One post is not a rate; this does not show a Samsat-style collapse and does not rule one out.
+- **Runaway generation.** 6 of 279 D and E calls (2.2%) ran to the output cap (8,175 tokens, unparsable JSON, small posts) against 0 of 139 for A. In production that is a failed call, not a silent loss, but it needs retry and fallback handling and a watch on the rate.
+- **Cost (parsed runs).** Prompt tokens +4% (D) and +9% (E); output tokens +7% (D) and +23% (E) against A (7,185 / 419).
+- **Title rule on prod (5,683 stored schedules, 4,183 events).** Classified: event 5,071; registration 251; preparation 135; supporting 68; announcement 64; qualification 59; submission 35. 306 events have at least one non-counting row, 101 have only such rows, and in 36 the main flag sits on one while a counting row exists. Precision is not measured; the samples show faults on mixed titles ("Technical Meeting & Match Day" as preparation, "Acara Puncak & Pengumuman" as announcement).
+
+### 10.2 Tiers (arm E)
+- **Where it is right:** 33 of 36 priced tiers on the price posts have their digits in the caption; evidence quotes are verbatim in 10 of 12 cases. Good outputs include Single / Couple, "Early Bird" with its price, TREAT 1 to 3, and per-category fees for a school competition. Kids Fun Family Run was not in this set.
+- **Where it is wrong:** a single price made into a tier ("Pendaftaran Rp 100.000", "Gratis"), promos and discounts as tiers (the Bath & Body Works promos, "Student Discount" and "Umum GRATIS" on two controls: 3 of 16 control runs), a car-financing ad ("Cicilan"), tiers without a price. The "never invent a tier from one price" rule is not reliably followed by the lite model.
+- **Time-based tiers are weak:** 14 TIME_WINDOW tiers in total, only 3 with sales dates. 17 of 50 priced tiers on the stage posts have digits that are not in the caption (possibly read from the image; not verified).
+- **Stable?** Tier count varies between samples on 5 of 24 price posts and 7 of 21 stage posts.
+
+### 10.3 What this changes
+| Topic | Recommendation |
+|---|---|
+| Stage field | Feasible, but not as a freebie in the extraction call: required in schema plus code guard for missing values; main flag derived in code; runaway handling; replay gate again (the 3-to-1 post). |
+| Alternative to test next (not run) | A separate text-only classification call over schedule titles and dates (cheap, leaves the extraction prompt and grouping untouched). The model beat the title rule on ambiguous titles, so it should also beat it as a standalone call; untested. |
+| Backfill | Title rule is a weak first pass for 5,683 rows; mixed titles need the model or a moderator queue. |
+| Tiers | Not ready for the extraction call. Keep the deterministic "NAME: Rp..." split for the backfill; do model tiers only after a stricter rule (at least two distinct prices) and a replay, or as a second call. |
+
+Not measured: captionless flyers; stage labels from an independent reader; the separate classification call; a non-lite model; sales dates on a real batch-pricing post set.
