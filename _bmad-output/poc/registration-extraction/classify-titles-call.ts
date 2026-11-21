@@ -5,6 +5,7 @@
 import { readFileSync, appendFileSync, existsSync } from 'node:fs';
 import { callGeminiGenerateContent } from '../../../apps/backend/src/lib/ai-gateway/gemini-client.ts';
 import { loadBackendEnv } from '../../../apps/backend/src/env.ts';
+import { claimCall } from './quota-budget.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce<string[][]>((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const runs = Number(args.runs ?? 2), spacing = Number(args.spacing ?? 1500), limit = Number(args.limit ?? 0);
@@ -48,7 +49,8 @@ for (let run = 1; run <= runs; run++) {
       attempt++;
       try {
         const t0 = Date.now();
-        const res = await callGeminiGenerateContent(key, { contents: body, systemInstruction: SYSTEM, responseSchema: SCHEMA, responseMimeType: 'application/json' } as any);
+        if (!claimCall().ok) { console.log('stopping: daily budget'); process.exit(3); }
+          const res = await callGeminiGenerateContent(key, { contents: body, systemInstruction: SYSTEM, responseSchema: SCHEMA, responseMimeType: 'application/json' } as any);
         let parsed: any = null; try { parsed = JSON.parse(res.text as string); } catch { /* bad json */ }
         appendFileSync(OUT, JSON.stringify({ ok: true, e, run, ms: Date.now() - t0, usage: res.usage, finish: res.finishReason, parsedOk: !!parsed,
           rows: rows.map((r, i) => ({ en: r.en, t: r.t, s: r.s, stage: parsed?.rows?.find((x: any) => x.index === i)?.stage ?? null })) }) + '\n');
@@ -58,7 +60,7 @@ for (let run = 1; run <= runs; run++) {
         const msg = String(err?.message ?? err);
         const daily = /per ?day|PerDay|daily|exceeded your current quota/i.test(msg);
         if (/503|UNAVAILABLE|high demand|overloaded|fetch failed|ECONNRESET|ETIMEDOUT|429|Rate/i.test(msg) && !daily && attempt <= 5) { await sleep((Number(/retry in ([\d.]+)s/i.exec(msg)?.[1]) || 20 * attempt) * 1000 + 2000); continue; }
-        appendFileSync(OUT, JSON.stringify({ ok: false, e, run, error: msg.slice(0, 200), daily }) + '\n');
+        appendFileSync(OUT, JSON.stringify({ ok: false, e, run, error: msg.slice(0, 1500), daily }) + '\n');
         console.log(`${e.slice(0, 8)} FAILED ${msg.slice(0, 120)}`);
         if (daily) { console.log('stopping: quota'); process.exit(3); }
         break;

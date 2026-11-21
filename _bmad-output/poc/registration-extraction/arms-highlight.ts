@@ -1,3 +1,4 @@
+// SUPERSEDED by arms-placement.ts (2026-11-21): same facts addendum, but with the placement as a factor and tidy numbering. Kept for history; ab-highlight.ts no longer imports it.
 // POC arms for composing the highlight in code from typed fields (throwaway; nothing under apps/ or packages/ is modified).
 //   A  production prompt and schema, unchanged (control).
 //   F  facts : A + event-level prizes[], promos[], inclusions[], isFree. No highlight text is requested; performers already exist on schedules.

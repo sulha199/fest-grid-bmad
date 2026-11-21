@@ -19,7 +19,7 @@ const KIND_MAP = { PRIZE: ['prize'], DISCOUNT: ['discount'], FREE: ['free'], BEN
 // runs that hit the output cap are reported on their own and left out of the other metrics
 const ok = all.filter((r) => r.ok);
 const bad = (r) => !r.parsedOk || r.finish !== 'STOP';
-out.runaway = {}; for (const arm of ['A', 'F', 'G']) { const rs = ok.filter((r) => r.arm === arm); if (rs.length) out.runaway[arm] = { calls: rs.length, outputCapHits: rs.filter(bad).length }; }
+out.runaway = {}; for (const arm of [...new Set(ok.map((r) => r.arm))].sort()) { const rs = ok.filter((r) => r.arm === arm); if (rs.length) out.runaway[arm] = { calls: rs.length, outputCapHits: rs.filter(bad).length }; }
 const good = ok.filter((r) => !bad(r));
 
 // ---- captions mode
@@ -27,7 +27,7 @@ const cap = good.filter((r) => r.mode === 'captions');
 if (cap.length) {
   const sample = new Map(readFileSync('private/sample.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l)).map((r) => [r.sampleId, r]));
   const labels = JSON.parse(readFileSync('private/labels.json', 'utf8'));
-  for (const arm of ['F', 'G']) {
+  for (const arm of [...new Set(cap.map((r) => r.arm))].sort()) {
     const rs = cap.filter((r) => r.arm === arm); if (!rs.length) continue;
     let tp = 0, fp = 0, fn = 0, tn = 0, withHl = 0, events = 0, grounded = 0, verbatim = 0, kindBoth = 0, kindAgree = 0; const src = {}, perId = new Map(); const fpEx = [], fnEx = [];
     for (const r of rs) {
@@ -57,7 +57,7 @@ if (cap.length) {
 const live = good.filter((r) => r.mode === 'live');
 if (live.length) {
   const ref = {}; for (const id of new Set(live.map((r) => r.id))) { const a = live.filter((r) => r.id === id && r.arm === 'A'); if (a.length) ref[id] = { ev: mode_(a.map((r) => r.events)), sc: mode_(a.map((r) => sum(r.ev.map((e) => e.schedules.length)))) }; }
-  for (const arm of ['A', 'F', 'G']) {
+  for (const arm of [...new Set(live.map((r) => r.arm))].sort()) {
     const rs = live.filter((r) => r.arm === arm); if (!rs.length) continue;
     const cmp = rs.filter((r) => ref[r.id]);
     const evs = rs.flatMap((r) => r.ev); const comps = evs.map((e) => composeHighlight(e)).filter(Boolean);
@@ -68,7 +68,7 @@ if (live.length) {
       eventsWithPrizes: evs.filter((e) => (e.prizes ?? []).length).length, eventsWithPromos: evs.filter((e) => (e.promos ?? []).length).length, eventsWithInclusions: evs.filter((e) => (e.inclusions ?? []).length).length, eventsFlaggedFree: evs.filter((e) => e.isFree === true).length,
       tokens: { promptAvg: Math.round(sum(rs.map((r) => r.usage?.promptTokens ?? 0)) / rs.length), outputAvg: Math.round(sum(rs.map((r) => r.usage?.outputTokens ?? 0)) / rs.length) } };
   }
-  const g = live.filter((r) => r.arm === 'G').flatMap((r) => r.ev.flatMap((e) => e.schedules));
+  const g = live.filter((r) => r.arm.startsWith('G')).flatMap((r) => r.ev.flatMap((e) => e.schedules));
   out.live.stageOnG = { rows: g.length, withStage: g.filter((s) => s.stage).length };
 }
 mkdirSync('out', { recursive: true }); writeFileSync('out/highlight-summary.json', JSON.stringify(out, null, 1));

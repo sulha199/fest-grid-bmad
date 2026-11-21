@@ -6,6 +6,7 @@ import { readFileSync, appendFileSync, existsSync } from 'node:fs';
 import { buildGeminiExtractionRequest } from '../../../apps/backend/src/lib/ai-processor/build-gemini-request.ts';
 import { callGeminiGenerateContent } from '../../../apps/backend/src/lib/ai-gateway/gemini-client.ts';
 import { loadBackendEnv } from '../../../apps/backend/src/env.ts';
+import { claimCall } from './quota-budget.mjs';
 import { stageArmRequest, type StageArm } from './arms-stage.ts';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce<string[][]>((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
@@ -44,6 +45,7 @@ for (let run = 1; run <= runs; run++) {
         attempt++;
         try {
           const t0 = Date.now();
+          if (!claimCall().ok) { console.log('stopping: daily budget'); process.exit(3); }
           const res = await callGeminiGenerateContent(key, stageArmRequest(arm, b.request) as any);
           let parsed: any = null; try { parsed = JSON.parse(res.text as string); } catch { /* truncated */ }
           const evs: any[] = parsed ? (parsed.isEvent === false ? [] : parsed.events ?? []) : [];

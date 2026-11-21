@@ -1,7 +1,7 @@
 // POC replay for highlight composed in code (live Gemini, no DB writes, nothing under apps/ or packages/ changed).
-//   --mode captions : the 37 captions of the first POC (text only, like findings section 5), arms F and G, so the composed highlight can be scored
+//   --mode captions : the 37 captions of the first POC (text only, like findings section 5), arms F-end and F-inline (the same facts, new instructions at the end of the prompt vs inline in the per-event section), so the composed highlight can be scored
 //                     against the hand labels in private/labels.json and set beside the free-text highlight of section 5.1 (precision 75%, recall 98%).
-//   --mode live     : the 53 live posts of the stage replay (real images), arms A, F, G, for cost, runaway output and grouping changes.
+//   --mode live     : the 53 live posts of the stage replay (real images), arms A, G-end, G-inline (facts + stage, both placements), for cost, runaway output and grouping changes.
 // Arms are interleaved per post and run, the arm order rotating per run. Request built once per post. Output: private/ab-highlight-runs.jsonl (gitignored).
 //   npx tsx ab-highlight.ts --mode captions --runs 3 [--spacing 3500]   |   npx tsx ab-highlight.ts --mode live --runs 3
 // Run ONE replay process at a time (a stopped job can leave its node child running and double-writing the output file).
@@ -9,7 +9,8 @@ import { readFileSync, appendFileSync, existsSync } from 'node:fs';
 import { buildGeminiExtractionRequest } from '../../../apps/backend/src/lib/ai-processor/build-gemini-request.ts';
 import { callGeminiGenerateContent } from '../../../apps/backend/src/lib/ai-gateway/gemini-client.ts';
 import { loadBackendEnv } from '../../../apps/backend/src/env.ts';
-import { highlightArmRequest, type HighlightArm } from './arms-highlight.ts';
+import { claimCall } from './quota-budget.mjs';
+import { armRequest } from './arms-placement.ts';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce<string[][]>((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const mode = args.mode ?? 'captions';
@@ -17,7 +18,8 @@ const runs = Number(args.runs ?? 3), spacing = Number(args.spacing ?? 3500), lim
 const OUT = args.out ?? 'private/ab-highlight-runs.jsonl';
 const key = loadBackendEnv().systemGeminiApiKey;
 if (!key) { console.error('no SYSTEM_GEMINI_API_KEY in .env'); process.exit(2); }
-const ARMS: HighlightArm[] = mode === 'live' ? ['A', 'F', 'G'] : ['F', 'G'];
+// Arm names are defined in arms-placement.ts: F = facts, G = facts + stage; the suffix is where the new instructions sit (end of the prompt vs inline in the per-event section).
+const ARMS: string[] = args.arms ? args.arms.split(',') : mode === 'live' ? ['A', 'G-end', 'G-inline'] : ['F-end', 'F-inline'];
 
 type Item = { id: string; input: any };
 let items: Item[] = [];
@@ -51,7 +53,8 @@ for (let run = 1; run <= runs; run++) {
         attempt++;
         try {
           const t0 = Date.now();
-          const res = await callGeminiGenerateContent(key, highlightArmRequest(arm, built.request) as any);
+          if (!claimCall().ok) { console.log('stopping: daily budget'); process.exit(3); }
+          const res = await callGeminiGenerateContent(key, armRequest(arm, built.request) as any);
           let parsed: any = null; try { parsed = JSON.parse(res.text as string); } catch { /* truncated */ }
           const evs: any[] = parsed ? (parsed.isEvent === false ? [] : parsed.events ?? []) : [];
           appendFileSync(OUT, JSON.stringify({
