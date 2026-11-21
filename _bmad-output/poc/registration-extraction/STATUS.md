@@ -11,6 +11,7 @@ Nothing under `apps/` or `packages/` was touched; no DB writes (the prod connect
 - First POC (findings 1-8). Superseded note: the earlier version of this file said the Gemini trial was unfinished; it was finished and written up.
 - Follow-up POC (findings 9): prod registration-schedule titles (read-only), A/B replay of three prompt arms on 31 real posts with images, QR decoding on 1,170 real post images with three Node libraries plus OpenCV, esbuild/CJS packaging probe.
 - Stage and tiers POC (findings 10): 53 posts x arms A/D/E, 418 calls (daily quota ended the third pass), title classifier over 5,683 stored prod schedules. Offline follow-up (findings 10.4): 260 hand-labelled titles, rule v2, pool re-weighting; separate text-only stage call written but NOT run (Gemini daily quota still exhausted on 2026-11-21).
+- Per-type highlight rules (handoff 13 F): `compose-highlight.mjs` has a rule row per event type (ladder, wording, allowed prize kinds, type precedence); 18 offline tests pass; the analyzer reports composed share per rule type.
 - Placement factor (handoff 13 D): `arms-placement.ts` puts the new instructions either at the end of the prompt or inline (4e and items 12 to 15); `ab-highlight.ts` now runs F-end vs F-inline on captions and A vs G-end vs G-inline on live posts. Numbering fixed. Earlier stage/tier results are end-placement.
 - Highlight composed from typed fields (handoff section 13 C): arms F and G, composer with offline tests, replay and analysis scripts written, NOT run (needs quota).
 

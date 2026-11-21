@@ -3,7 +3,7 @@
 //   captions mode: composed highlight vs the hand labels (caption-level presence, same definition as findings 5.1) and groundedness, stability, kind agreement.
 //   live mode    : A / F / G on real posts with images: runaway output, event and schedule count changes, tokens, composed share.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { composeHighlight } from './compose-highlight.mjs';
+import { composeHighlight, ruleTypeOf } from './compose-highlight.mjs';
 
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 ? process.argv[i + 1] : d; };
 const detail = process.argv.includes('--detail');
@@ -29,13 +29,14 @@ if (cap.length) {
   const labels = JSON.parse(readFileSync('private/labels.json', 'utf8'));
   for (const arm of [...new Set(cap.map((r) => r.arm))].sort()) {
     const rs = cap.filter((r) => r.arm === arm); if (!rs.length) continue;
-    let tp = 0, fp = 0, fn = 0, tn = 0, withHl = 0, events = 0, grounded = 0, verbatim = 0, kindBoth = 0, kindAgree = 0; const src = {}, perId = new Map(); const fpEx = [], fnEx = [];
+    let tp = 0, fp = 0, fn = 0, tn = 0, withHl = 0, events = 0, grounded = 0, verbatim = 0, kindBoth = 0, kindAgree = 0; const src = {}, typ = {}, evByType = {}, perId = new Map(); const fpEx = [], fnEx = [];
     for (const r of rs) {
       const c = sample.get(r.id)?.caption ?? ''; const L = labels[r.id] ?? {}; const capD = digitsOf(c), capF = flat(c);
       const comps = r.ev.map((e) => composeHighlight(e)).filter(Boolean);
       events += r.ev.length; withHl += comps.length;
+      for (const e of r.ev) { const ty = ruleTypeOf(e.types); evByType[ty] = (evByType[ty] ?? 0) + 1; }
       for (const h of comps) {
-        src[h.source] = (src[h.source] ?? 0) + 1;
+        src[h.source] = (src[h.source] ?? 0) + 1; typ[h.type] = (typ[h.type] ?? 0) + 1;
         if (numTokens(h.text).every((t) => capD.includes(t))) grounded++;
         const valuePart = h.text.replace(/^(Total hadiah|Hadiah|Beasiswa|Doorprize|Diskon|Potongan|Gratis|Cashback|Paket|Termasuk|Penampil:)\s*/i, '');
         if (valuePart.split(/,\s*/).every((p) => capF.includes(flat(p.replace(/\s\+\d+$/, ''))))) verbatim++;
@@ -47,7 +48,7 @@ if (cap.length) {
     }
     const stable = [...perId.values()].filter((v) => v.length > 1 && new Set(v).size === 1).length;
     out.captions[arm] = { runs: rs.length, captions: perId.size, events, composedHighlights: withHl, precision: +(tp / Math.max(1, tp + fp)).toFixed(3), recall: +(tp / Math.max(1, tp + fn)).toFixed(3), tp, fp, fn, tn,
-      numbersGroundedInCaption: `${grounded}/${withHl}`, valueVerbatimInCaption: `${verbatim}/${withHl}`, kindAgreesWithLabel: `${kindAgree}/${kindBoth}`, identicalAcrossRuns: `${stable}/${[...perId.values()].filter((v) => v.length > 1).length}`, bySource: src,
+      numbersGroundedInCaption: `${grounded}/${withHl}`, valueVerbatimInCaption: `${verbatim}/${withHl}`, kindAgreesWithLabel: `${kindAgree}/${kindBoth}`, identicalAcrossRuns: `${stable}/${[...perId.values()].filter((v) => v.length > 1).length}`, bySource: src, byRuleType: Object.fromEntries(Object.keys(evByType).sort().map((k) => [k, `${typ[k] ?? 0}/${evByType[k]}`])),
       tokens: { promptAvg: Math.round(sum(rs.map((r) => r.usage?.promptTokens ?? 0)) / rs.length), outputAvg: Math.round(sum(rs.map((r) => r.usage?.outputTokens ?? 0)) / rs.length) } };
     if (detail) { console.log(arm, 'false positives:', fpEx); console.log(arm, 'misses:', fnEx); }
   }
@@ -64,7 +65,7 @@ if (live.length) {
     const unstable = [...new Set(rs.map((r) => r.id))].filter((id) => new Set(rs.filter((r) => r.id === id).map((r) => r.events)).size > 1).length;
     out.live[arm] = { runs: rs.length, zeroEventRuns: rs.filter((r) => r.events === 0).length, fewerEventsThanA: cmp.filter((r) => r.events < ref[r.id].ev).length, moreEventsThanA: cmp.filter((r) => r.events > ref[r.id].ev).length,
       fewerSchedulesThanA: cmp.filter((r) => sum(r.ev.map((e) => e.schedules.length)) < ref[r.id].sc).length, postsWithUnstableEventCount: unstable,
-      eventsWithComposedHighlight: `${comps.length}/${evs.length}`, bySource: comps.reduce((a, h) => ((a[h.source] = (a[h.source] ?? 0) + 1), a), {}),
+      eventsWithComposedHighlight: `${comps.length}/${evs.length}`, bySource: comps.reduce((a, h) => ((a[h.source] = (a[h.source] ?? 0) + 1), a), {}), byRuleType: Object.fromEntries([...new Set(evs.map((e) => ruleTypeOf(e.types)))].sort().map((k) => [k, `${comps.filter((h) => h.type === k).length}/${evs.filter((e) => ruleTypeOf(e.types) === k).length}`])),
       eventsWithPrizes: evs.filter((e) => (e.prizes ?? []).length).length, eventsWithPromos: evs.filter((e) => (e.promos ?? []).length).length, eventsWithInclusions: evs.filter((e) => (e.inclusions ?? []).length).length, eventsFlaggedFree: evs.filter((e) => e.isFree === true).length,
       tokens: { promptAvg: Math.round(sum(rs.map((r) => r.usage?.promptTokens ?? 0)) / rs.length), outputAvg: Math.round(sum(rs.map((r) => r.usage?.outputTokens ?? 0)) / rs.length) } };
   }

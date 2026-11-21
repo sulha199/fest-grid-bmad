@@ -337,3 +337,22 @@ Reports: `_bmad-output/poc/registration-extraction/findings.md` section 10 (stag
 - Prod: first keywords on 2026-10-15; in the last 7 days 749 of 764 schedules with location text have keywords (98%). Of 5,036 active schedules with coordinates, 3,703 were never attempted (no resolution step) and 992 of them sit outside Indonesia (27%); the kw1 and kw2 rows are 20 of 1,295 outside Indonesia (1.5%).
 - The three defects: Kids Fun Family Run rows made 2026-10-31 and 11-06 have text "Kids Fun Parc Yogyakarta", no keywords and no resolution step, pinned at 51.58, 45.96 (Saratov); the same venue made 11-14 resolved by kw1 at the right place in Yogyakarta, so those are legacy rows, not a current-path error. Kopi Kenangan: a schedule with no location text takes the curator account's default location, which is wrong (Jambi). Dolan Fest 2: keywords {Grand Maerakaca, Semarang, Jawa Tengah} resolved kw1 to a point about 120 km from Semarang (country right, city wrong): the keywords path can still pick a wrong match inside the right country; whether `select-best-candidate` or the trust check should have caught it is not verified here.
 - For the correct-course: backfill (or at least flag) the 3,703 never-attempted schedules; do not let a schedule without its own location inherit an account default silently; add a check that the geocoded place matches the city and province keywords.
+
+**F. Highlight rule per event type (owner direction 2026-11-21; composer implemented, offline tests pass, replay pending).** The card highlight is composed in code from the typed fields, and each event type has its own ladder and wording (`compose-highlight.mjs`, `TYPE_RULES`; an event with several types takes the first of PROMOTION, COMPETITION, PERFORMANCE, SEMINAR, WORKSHOP, FUNDRAISER, FESTIVAL, EXHIBITION, MARKET, CIVIC, GATHERING, OTHER). The first candidate that exists and fits 40 characters wins; one that does not fit is skipped, never cut.
+
+| Type | Ladder (first that exists) | Wording notes |
+|---|---|---|
+| PROMOTION | discount, prize, inclusions, free | performers never headline a promotion |
+| COMPETITION | prize, free, inclusions, discount | "Total hadiah ...", "Pendaftaran gratis", "Peserta dapat ..."; a doorprize or certificate alone is not a headline |
+| PERFORMANCE | performers, discount, free, prize, inclusions | "Penampil: A, B +N" |
+| SEMINAR | speakers, inclusions, free, discount, prize | "Pembicara: ...", certificate as "Dapat e-sertifikat" |
+| WORKSHOP | inclusions, instructor, free, discount, prize | "Sudah termasuk bahan, sertifikat" leads: what you take home |
+| FUNDRAISER | performers, prize, inclusions, discount, free | auction items count as ITEM prizes |
+| FESTIVAL | lineup, free, discount, prize, inclusions | "Lineup: A, B +N"; free entry beats a promo |
+| EXHIBITION | free, artists, discount, inclusions, prize | "Gratis masuk", "Seniman: ..." |
+| MARKET | free, discount, prize, entertainment, inclusions | a doorprize ranks first among prizes |
+| GATHERING | free, performers, prize, discount, inclusions | doorprize ranks first among prizes |
+| CIVIC | free, speakers, inclusions | "Narasumber: ..." |
+| OTHER / none | prize, discount, performers, free, inclusions | the default |
+
+Shared guards: a vague prize ("hadiah menarik", "jutaan") has no slot; "free" is dropped when a ticket price is stated on any schedule; performers need no new field (they already sit on schedules and are read as speakers, instructors or artists by type). Possible later fields per type, deliberately NOT in arm F because they are hard to verify or not yet shown to work: tenant or participant scale (market, festival), a headliner flag (performance), the cause and target amount (fundraiser), the topic (seminar). The replay report now shows, per rule type, how many events got a composed highlight.
