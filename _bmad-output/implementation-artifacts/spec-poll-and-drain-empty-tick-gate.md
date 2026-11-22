@@ -2,7 +2,7 @@
 title: 'Cheap empty ticks for poll-and-drain (queue-depth gate)'
 type: 'bugfix'
 created: '2026-11-22'
-status: 'in-review'
+status: 'done'
 baseline_commit: '252f4c96ee9a1fea2701cc59c67061369d4e3d6e'
 review_loop_iteration: 0
 context:
@@ -78,7 +78,7 @@ context:
 
 ## Design Notes
 
-Idle cost per tick is 1 short receive + 1 `GetQueueAttributes`: about 1,730 SQS requests/day across the 3 queues, about 5% of the 1M/month SQS free tier. Counts are eventually consistent, so a just-sent message can wait one extra 5-minute tick, including posts the AI processor's resume passes enqueue just before the drain (delay, never loss). The expected idle Lambda cost falls from about 15,100 to roughly 1k GB-s/day; the AI tick still runs its DB resume passes first, so the real figure is to be confirmed from CloudWatch `REPORT` lines. Fallback if the gate proves flaky: `WaitTimeSeconds: 1` with no depth call (a long poll, no sampling miss, about 3-4x the cost, does not fix the 10 s chain delay).
+Idle cost per tick is 1 short receive + 1 `GetQueueAttributes`: about 1,730 SQS requests/day across the 3 queues, about 5% of the 1M/month SQS free tier. Counts are eventually consistent, so a just-sent message can wait one extra 5-minute tick, including posts the AI processor's resume passes enqueue just before the drain (delay, never loss). The expected idle Lambda cost falls from about 15,100 to roughly 1k GB-s/day; the AI tick still runs its DB resume passes first, so the real figure is to be confirmed from CloudWatch `REPORT` lines. Messages still in flight (a failed handler, a poison message cycling to the DLQ, or one just deleted whose count has not caught up) make the next tick's gate long-poll and miss, so the saving holds for quiet queues, not around failures. Fallback if the gate proves flaky: `WaitTimeSeconds: 1` with no depth call (a long poll, no sampling miss, about 3-4x the cost, does not fix the 10 s chain delay).
 
 ## Verification
 
@@ -91,3 +91,52 @@ Idle cost per tick is 1 short receive + 1 `GetQueueAttributes`: about 1,730 SQS 
 
 **Manual checks (after the next backend deploy):**
 - CloudWatch `REPORT` lines of an idle scraper, AI processor and ingestor tick show well under 1 s billed duration; the outcome log shows `gated-empty` dominating.
+
+## Suggested Review Order
+
+**The gate (design entry point)**
+
+- Short poll first; only an empty result consults the depth, and only a clean 0 returns.
+  [`poll-and-drain-queue.ts:193`](../../apps/backend/src/lib/aws/poll-and-drain-queue.ts#L193)
+
+- Depth error or `NaN` fails open to the long poll, so a missing permission never stops consumption.
+  [`poll-and-drain-queue.ts:198`](../../apps/backend/src/lib/aws/poll-and-drain-queue.ts#L198)
+
+- Guard rechecked before the 20 s wait; outcome log names `depth-failed` for thrown and unreadable depth alike.
+  [`poll-and-drain-queue.ts:210`](../../apps/backend/src/lib/aws/poll-and-drain-queue.ts#L210)
+
+**Seams and SQS calls**
+
+- One `GetQueueAttributes` call sums visible, delayed and in-flight counts so AD-47's 10 s steps stay in-tick.
+  [`poll-and-drain-queue.ts:51`](../../apps/backend/src/lib/aws/poll-and-drain-queue.ts#L51)
+
+- Receive takes an optional wait (default 20, clamped 0-20), so existing call shapes keep working.
+  [`poll-and-drain-queue.ts:18`](../../apps/backend/src/lib/aws/poll-and-drain-queue.ts#L18)
+
+- New `setGetQueueDepth` seam, same style as the receive and delete seams.
+  [`poll-and-drain-queue.ts:68`](../../apps/backend/src/lib/aws/poll-and-drain-queue.ts#L68)
+
+**Call-site comment and docs**
+
+- Comment-only: resumed posts may now wait one tick.
+  [`ai-processor.ts:82`](../../apps/backend/src/lambdas/ai-processor.ts#L82)
+
+- Docs sentence on why the gate exists and what it supersedes.
+  [`2-backend.md:19`](../../docs/infrastructure/2-backend.md#L19)
+
+- Backlog row for this finding.
+  [`backlog.yaml:3137`](./backlog.yaml#L3137)
+
+**Tests**
+
+- Gate suite: every I/O row, receive args, depth call counts.
+  [`poll-and-drain-queue.test.ts:436`](../../apps/backend/src/lib/aws/poll-and-drain-queue.test.ts#L436)
+
+- Guard recheck after the depth call.
+  [`poll-and-drain-queue.test.ts:621`](../../apps/backend/src/lib/aws/poll-and-drain-queue.test.ts#L621)
+
+- Real default implementations via a mocked `SQSClient.send`.
+  [`poll-and-drain-queue.test.ts:638`](../../apps/backend/src/lib/aws/poll-and-drain-queue.test.ts#L638)
+
+- Depth stub so the lambda suites never reach the real SQS client.
+  [`scraper.test.ts:54`](../../apps/backend/src/lambdas/scraper.test.ts#L54)

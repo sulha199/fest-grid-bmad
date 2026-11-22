@@ -536,18 +536,6 @@ test('poll-and-drain-queue empty-tick gate', async (t) => {
     assert.strictEqual(depthCalls, 1);
   });
 
-  await t.test('delayed or in-flight messages count as work (the depth is the sum, so the long poll runs)', async () => {
-    const calls = scriptReceives([[], batch('later')]);
-    // Visible 0, delayed 1: the sum is what getQueueDepth returns.
-    setGetQueueDepth(async () => 0 + 1 + 0);
-
-    const handled: string[] = [];
-    await pollAndDrainQueue('https://queue', async (body) => { handled.push(body); });
-
-    assert.deepStrictEqual(handled, ['later']);
-    assert.strictEqual(calls[1][1], 20);
-  });
-
   await t.test('a thrown depth call is logged and falls back to the long poll, without rejecting', async () => {
     const calls = scriptReceives([[], batch('a'), []]);
     let depthCalls = 0;
@@ -576,6 +564,33 @@ test('poll-and-drain-queue empty-tick gate', async (t) => {
 
     assert.deepStrictEqual(handled, ['a']);
     assert.strictEqual(calls[1][1], 20);
+    assert.match(logs.join('\n'), /outcome=depth-failed depth=unknown/);
+  });
+
+  await t.test('anything but a clean 0 long-polls (a negative or infinite depth is not "drained")', async () => {
+    for (const odd of [-1, Number.POSITIVE_INFINITY]) {
+      const calls = scriptReceives([[]]);
+      setGetQueueDepth(async () => odd);
+      await pollAndDrainQueue('https://queue', async () => {});
+      assert.deepStrictEqual(calls.map(([, wait]) => wait), [0, 20], `depth ${odd}`);
+    }
+  });
+
+  await t.test('a depth error followed by a tripped remaining-time guard never starts the long poll', async () => {
+    let remaining = 200_000;
+    const calls = scriptReceives([[]]);
+    setGetQueueDepth(async () => {
+      remaining = 50_000;
+      throw new Error('GetQueueAttributes denied');
+    });
+
+    await assert.doesNotReject(pollAndDrainQueue('https://queue', async () => {}, {
+      minRemainingMs: 100_000,
+      getRemainingTimeInMillis: () => remaining,
+    }));
+
+    assert.deepStrictEqual(calls, [[undefined, 0]]);
+    assert.ok(errors.some((e) => e.includes('getQueueDepth failed')));
   });
 
   await t.test('a thrown long poll is logged and stops the cycle like a failed receive', async () => {
@@ -590,7 +605,7 @@ test('poll-and-drain-queue empty-tick gate', async (t) => {
     await assert.doesNotReject(pollAndDrainQueue('https://queue', async () => {}));
 
     assert.strictEqual(receives, 2);
-    assert.ok(errors.some((e) => e.includes('receiveSqsMessages failed')));
+    assert.ok(errors.some((e) => e.includes('receiveSqsMessages failed (long poll)')));
   });
 
   await t.test('both polls ask for the same number of messages (perMessageBudgetMs fit)', async () => {
@@ -645,11 +660,11 @@ test('poll-and-drain-queue default SQS calls', async (t) => {
 
   await t.test('receiveSqsMessages clamps the wait to an integer 0-20', async () => {
     const send = stubSend({ Messages: [] });
-    for (const wait of [-5, 1.9, 99, Number.NaN]) {
+    for (const wait of [-5, 1.9, 99, Number.NaN, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY]) {
       await originalReceiveSqsMessages('https://queue', 1, wait);
     }
     const waits = send.mock.calls.map((c) => (c.arguments[0] as unknown as { input: { WaitTimeSeconds: number } }).input.WaitTimeSeconds);
-    assert.deepStrictEqual(waits, [0, 1, 20, 20]);
+    assert.deepStrictEqual(waits, [0, 1, 20, 20, 0, 20]);
   });
 
   await t.test('getQueueDepth asks for the three counts in one call and sums them', async () => {
