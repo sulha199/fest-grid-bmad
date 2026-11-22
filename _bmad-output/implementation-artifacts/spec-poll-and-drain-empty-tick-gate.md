@@ -76,6 +76,17 @@ context:
 - Given the depth call throws, when the tick runs, then it logs and long-polls instead of stopping.
 - Given the stack test, when synthesized, then each consumer Lambda still holds `sqs:GetQueueAttributes` on its queue.
 
+## Spec Change Log
+
+- 2026-11-22, owner-renegotiated after the review of sulha199/fest-grid-bmad#262 (AD-47 Rule 5 chain steps, AD-52 Rule 5 resume pass).
+  Finding: the gate re-opens the in-tick assumption of both rules (a step is enqueued with a 10 s delay, a resume pass enqueues
+  just before the drain), and the queue counts may lag, so each such message can lose a 5-minute tick. Amended: the frozen
+  Never line "add logic to the three Lambda handlers' call sites" no longer holds for the AI processor, which now passes a
+  `longPollHint` (`drain-long-poll-hint.ts`) so the receive after an enqueued step or resumed retry is a long poll. The frozen
+  block itself is unchanged. Known-bad state avoided: a broad "gate only until a message is handled", which gives back up to 20 s
+  per busy tick on the 2 GB Lambda. KEEP: the gate on every other receive, the depth sum (visible + delayed + in flight),
+  fail-open on a depth error, and the scraper and ingestor call sites untouched.
+
 ## Design Notes
 
 Idle cost per tick is 1 short receive + 1 `GetQueueAttributes`: about 1,730 SQS requests/day across the 3 queues, about 5% of the 1M/month SQS free tier. Counts are eventually consistent, so a just-sent message can wait one extra 5-minute tick, including posts the AI processor's resume passes enqueue just before the drain (delay, never loss). The expected idle Lambda cost falls from about 15,100 to roughly 1k GB-s/day; the AI tick still runs its DB resume passes first, so the real figure is to be confirmed from CloudWatch `REPORT` lines. Messages still in flight (a failed handler, a poison message cycling to the DLQ, or one just deleted whose count has not caught up) make the next tick's gate long-poll and miss, so the saving holds for quiet queues, not around failures. Fallback if the gate proves flaky: `WaitTimeSeconds: 1` with no depth call (a long poll, no sampling miss, about 3-4x the cost, does not fix the 10 s chain delay).
