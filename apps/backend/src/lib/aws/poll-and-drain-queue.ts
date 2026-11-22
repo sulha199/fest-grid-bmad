@@ -10,6 +10,11 @@ import {
 // spent once the queue-depth gate in pollAndDrainQueue says there is work.
 const LONG_POLL_WAIT_SECONDS = 20;
 
+// One client for every SQS call in this module (created on first use, reused across ticks while the Lambda
+// environment stays warm), so an idle tick does not pay a client construction and TLS handshake per call.
+let sqsClient: SQSClient | undefined;
+const getSqsClient = (): SQSClient => (sqsClient ??= new SQSClient({}));
+
 // Follows the exact same reassignable-function/setter test-seam convention already
 // established by send-sqs-message.ts's sendSqsMessage/setSendSqsMessage.
 // `waitTimeSeconds` 0 is a short poll (returns at once, but samples only a subset of SQS servers, so it can
@@ -20,8 +25,7 @@ export let receiveSqsMessages = async (
   maxMessages = 10,
   waitTimeSeconds = LONG_POLL_WAIT_SECONDS
 ): Promise<Message[]> => {
-  const client = new SQSClient({});
-  const result = await client.send(new ReceiveMessageCommand({
+  const result = await getSqsClient().send(new ReceiveMessageCommand({
     QueueUrl: queueUrl,
     MaxNumberOfMessages: Math.min(10, Math.max(1, Math.floor(maxMessages))),
     WaitTimeSeconds: Number.isNaN(waitTimeSeconds)
@@ -49,8 +53,7 @@ const QUEUE_DEPTH_ATTRIBUTES = [
  * caller treats as "there may be work" (fail open): the gate only ever skips the long poll on a clean 0.
  */
 export let getQueueDepth = async (queueUrl: string): Promise<number> => {
-  const client = new SQSClient({});
-  const result = await client.send(new GetQueueAttributesCommand({
+  const result = await getSqsClient().send(new GetQueueAttributesCommand({
     QueueUrl: queueUrl,
     AttributeNames: [...QUEUE_DEPTH_ATTRIBUTES],
   }));
@@ -70,8 +73,7 @@ export function setGetQueueDepth(fn: typeof getQueueDepth) {
 }
 
 export let deleteSqsMessage = async (queueUrl: string, receiptHandle: string): Promise<void> => {
-  const client = new SQSClient({});
-  await client.send(new DeleteMessageCommand({
+  await getSqsClient().send(new DeleteMessageCommand({
     QueueUrl: queueUrl,
     ReceiptHandle: receiptHandle,
   }));

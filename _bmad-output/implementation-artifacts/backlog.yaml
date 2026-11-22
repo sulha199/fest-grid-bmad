@@ -3140,4 +3140,4 @@ items:
      title: "Empty poll-and-drain ticks block 20 s of billed Lambda time, running the Lambda free tier out around day 24",
      ref: [implementation-artifacts/spec-poll-and-drain-empty-tick-gate.md, apps/backend/src/lib/aws/poll-and-drain-queue.ts],
      touches: [app:backend, app:infrastructure, cross:architecture],
-     note: "Same class as FIND-034. Fix: each receive short-polls first and long-polls only when GetQueueAttributes (visible + delayed + in-flight) is above 0. Takes effect after the next backend deploy; confirm idle ticks in CloudWatch REPORT lines afterwards."}
+     note: "Same class as FIND-034 (Lambda SQS pollers run 24/7 on idle queues). Fix: short-poll first, long-poll only if queue depth > 0. Live after next backend deploy; confirm in CloudWatch REPORT."}

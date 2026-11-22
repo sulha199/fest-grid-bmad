@@ -58,7 +58,7 @@ context:
 - `apps/infrastructure/lib/festgrid-backend-stack.ts` (~L749-761) and its test (~L703-740) -- consume grants, already include `sqs:GetQueueAttributes`.
 - `docs/infrastructure/2-backend.md` -- Queuing System section.
 - Story 0.40 AC9 (`0-40-...md`) says `WaitTimeSeconds: 20`; superseded by this change, pointed to from the docs sentence (the story file is not edited).
-- `_bmad-output/implementation-artifacts/backlog.yaml` -- new row `FIND-261122-q5w`.
+- `_bmad-output/implementation-artifacts/backlog.yaml` -- new row `FIND-261122-q5w` (empty poll-and-drain ticks block 20 s of billed Lambda time).
 
 ## Tasks & Acceptance
 
@@ -68,7 +68,7 @@ context:
 - [x] `apps/backend/src/lambdas/{scraper,ai-processor,ingestor}.test.ts` -- install the depth stub at suite start, restore in `t.after`
 - [x] `apps/backend/src/lambdas/ai-processor.ts` -- comment-only fix at L80-82 (resumed posts may now wait one tick)
 - [x] `docs/infrastructure/2-backend.md` -- 1-2 sentences on the gate and why
-- [x] `_bmad-output/implementation-artifacts/backlog.yaml` -- add `FIND-261122-q5w` (finding, `app:backend`, `app:infrastructure`; ref this spec)
+- [x] `_bmad-output/implementation-artifacts/backlog.yaml` -- add `FIND-261122-q5w` (empty-tick free-tier finding, `app:backend`, `app:infrastructure`; ref this spec)
 
 **Acceptance Criteria:**
 - Given an empty queue, when a tick runs, then it makes one `WaitTimeSeconds: 0` receive and one depth call and no 20 s receive.
