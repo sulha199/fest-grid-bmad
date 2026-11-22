@@ -94,4 +94,29 @@ t('the result says which rule row produced it', () => {
   const h = composeHighlight(ev({ types: ['SEMINAR'], schedules: [{ performers: ['Dr. Rina'] }] }));
   assert.deepEqual([h.kind, h.source, h.type], ['PERFORMERS', 'schedules.performers', 'SEMINAR']);
 });
+
+// ---- promo guard and free-entry routing (findings 11.3)
+t('a bare price is not a promo: batch fee, category fee, group fee', () => {
+  assert.equal(txt(ev({ types: ['COMPETITION'], promos: [{ kind: 'AMOUNT_OFF', value: 'Rp55.000,00', evidence: 'Umum (Batch 2): Rp55.000,00' }] })), null);
+  assert.equal(txt(ev({ types: ['COMPETITION'], promos: [{ kind: 'OTHER', value: 'Rp160.000', evidence: '5K - Rp160.000' }] })), null);
+  assert.equal(txt(ev({ types: ['PERFORMANCE'], promos: [{ kind: 'OTHER', value: 'IDR 35K / GROUP', evidence: 'SHOWCASE REGISTRATION: ONLY IDR 35K / GROUP' }] })), null);
+});
+t('a real offer keeps its cue: percent, potongan, buy-get, free item', () => {
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'PERCENT_OFF', value: '50%' }] })), 'Diskon 50%');
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'AMOUNT_OFF', value: 'Rp 25.000', evidence: 'Potongan Rp 25.000 untuk pembelian pertama' }] })), 'Potongan Rp 25.000');
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'BUY_GET', value: 'Beli 1 Gratis 1' }] })), 'Beli 1 Gratis 1');
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'FREE_ITEM', value: 'Tumbler' }] })), 'Gratis Tumbler');
+});
+t('free entry delivered as a promo becomes the free fact, with the type wording', () => {
+  assert.equal(txt(ev({ types: ['MARKET'], promos: [{ kind: 'OTHER', value: 'FREE ENTRY for Audience!' }] })), 'Gratis masuk');
+  assert.equal(txt(ev({ types: ['EXHIBITION'], promos: [{ kind: 'OTHER', value: 'Masuk gratis' }] })), 'Gratis masuk');
+  assert.equal(txt(ev({ types: ['PERFORMANCE'], isFree: false, promos: [{ kind: 'OTHER', value: 'Free entry' }] })), null);
+});
+t('routed free entry still yields to a stated ticket price', () => {
+  assert.equal(txt(ev({ types: ['MARKET'], promos: [{ kind: 'OTHER', value: 'FREE ENTRY' }], schedules: [{ ticketPrice: 'IDR 35K' }] })), null);
+});
+t('early-bird and limited-quota wording counts as an offer cue', () => {
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'OTHER', value: 'EARLY BIRD IDR 99,999', evidence: 'EARLY BIRD IDR 99,999 nett/pax' }] })), 'EARLY BIRD IDR 99,999');
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'AMOUNT_OFF', value: 'HTM 98K', evidence: 'HTM spesial 98K untuk 10 pendaftar pertama' }] })), 'Potongan HTM 98K');
+});
 console.log('all passed');

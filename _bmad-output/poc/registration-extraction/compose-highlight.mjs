@@ -46,6 +46,17 @@ export const TYPE_RULES = {
 export const TYPE_PRECEDENCE = ['PROMOTION', 'COMPETITION', 'PERFORMANCE', 'SEMINAR', 'WORKSHOP', 'FUNDRAISER', 'FESTIVAL', 'EXHIBITION', 'MARKET', 'CIVIC', 'GATHERING', 'OTHER'];
 export const ruleTypeOf = (types) => TYPE_PRECEDENCE.find((t) => (types ?? []).includes(t)) ?? 'OTHER';
 
+// A promo needs a discount cue somewhere in its own text. A bare amount is a price (a batch fee, a category fee, a group fee), not an offer:
+// "Umum Batch 2: Rp55.000" and "IDR 35K / GROUP" came back as promos in the first replay (findings 11.3).
+const DISCOUNT_CUE = /(%|persen|diskon|disc\b|discount|potongan|potong\b|hemat|\boff\b|cashback|cash back|promo|voucher|bonus|\bbeli\b|\bbuy\b|\bbogo\b|\bgratis\b|\bfree\b|\bdapat\b|\bget\b|spesial|special|early ?bird|pre-?sale|flash sale|pendaftar pertama|first \d+|terbatas)/i;
+// "FREE ENTRY for Audience!" or "Masuk gratis" delivered as a promo is the isFree fact, not a discount.
+const FREE_ENTRY = /^\s*(free|gratis)\s*(entry|entrance|admission|masuk|tiket|ticket|registration|pendaftaran)\b|\b(masuk|entry|entrance|admission)\s+(gratis|free)\b/i;
+const promoText = (p) => `${p?.value ?? ''} ${p?.conditions ?? ''} ${p?.evidence ?? ''}`;
+const isFreeEntryPromo = (p) => FREE_ENTRY.test(clean(p?.value));
+const realPromo = (p) => p?.value && hasAmountOrName(clean(p.value)) && !isFreeEntryPromo(p) && (p.kind === 'BUY_GET' || p.kind === 'FREE_ITEM' || DISCOUNT_CUE.test(promoText(p)));
+/** The event as the composer reads it: free-entry promos become the isFree fact (unless the model said it is not free). */
+const normalise = (e) => (e.promos ?? []).some(isFreeEntryPromo) && e.isFree == null ? { ...e, isFree: true } : e;
+
 const candidates = {
   prize: (e, R) => {
     const ps = (e.prizes ?? []).filter((p) => p?.value && hasAmountOrName(clean(p.value)) && !VAGUE.test(clean(p.value)) && (R.prizeRank[p.kind] ?? 0) > 0);
@@ -69,7 +80,7 @@ const candidates = {
     return null;
   },
   promo: (e) => {
-    const ps = (e.promos ?? []).filter((p) => p?.value && hasAmountOrName(clean(p.value)));
+    const ps = (e.promos ?? []).filter(realPromo);
     if (!ps.length) return null;
     const rank = (p) => ({ PERCENT_OFF: 5, BUY_GET: 4, AMOUNT_OFF: 3, FREE_ITEM: 3, BUNDLE: 2, CASHBACK: 2, OTHER: 1 }[p.kind] ?? 0);
     const best = [...ps].sort((a, b) => rank(b) - rank(a) || (parseFloat(String(b.value).replace(/\D/g, '')) || 0) - (parseFloat(String(a.value).replace(/\D/g, '')) || 0))[0];
@@ -91,7 +102,8 @@ const candidates = {
   },
 };
 
-export function composeHighlight(e) {
+export function composeHighlight(raw) {
+  const e = normalise(raw);
   const type = ruleTypeOf(e.types);
   const R = TYPE_RULES[type];
   for (const name of R.ladder) {
