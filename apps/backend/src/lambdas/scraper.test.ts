@@ -7,6 +7,8 @@ import {
   setReceiveSqsMessages,
   deleteSqsMessage,
   setDeleteSqsMessage,
+  getQueueDepth,
+  setGetQueueDepth,
 } from '../lib/aws/poll-and-drain-queue.js';
 import {
   attemptBrightDataTrigger,
@@ -46,13 +48,17 @@ async function deleteProviderHealthCreatedSince(before: Set<string>): Promise<vo
 test('scraper lambda poll-and-drain branch', async (t) => {
   const originalReceiveSqsMessages = receiveSqsMessages;
   const originalDeleteSqsMessage = deleteSqsMessage;
+  const originalGetQueueDepth = getQueueDepth;
   const originalQueueUrl = process.env.SCRAPING_QUEUE_URL;
+  // An empty receive consults the queue depth: stub it as drained so no test reaches the real SQS client.
+  setGetQueueDepth(async () => 0);
   const providerHealthBefore = await snapshotProviderHealthIds();
 
   t.after(async () => {
     await deleteProviderHealthCreatedSince(providerHealthBefore);
     setReceiveSqsMessages(originalReceiveSqsMessages);
     setDeleteSqsMessage(originalDeleteSqsMessage);
+    setGetQueueDepth(originalGetQueueDepth);
     process.env.SCRAPING_QUEUE_URL = originalQueueUrl;
   });
 

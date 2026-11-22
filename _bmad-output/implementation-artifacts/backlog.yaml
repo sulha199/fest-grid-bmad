@@ -3132,3 +3132,12 @@ items:
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-location-keywords-extraction.md],
      touches: [app:backend, cross:ai-extraction],
      note: "Deferred from: bmad-quick-dev review of spec-location-keywords-extraction (separate keywords call) (2026-11-11). 6 findings: unabortable 10 s timeout, no salvage of a cut-off answer, replayed step repeats the call, correction clearing, location guard, rule 5 fallback."}
+
+  # ── 2026-11-22 ──────────────────────────────────────────────────────────────
+  FIND-261122-q5w:
+    {type: finding, status: triaged, created: 2026-11-22,
+     impact: internal, effort: s,
+     title: "Empty poll-and-drain ticks block 20 s of billed Lambda time, running the Lambda free tier out around day 24",
+     ref: [implementation-artifacts/spec-poll-and-drain-empty-tick-gate.md, apps/backend/src/lib/aws/poll-and-drain-queue.ts],
+     touches: [app:backend, app:infrastructure, cross:architecture],
+     note: "Same class as FIND-034 (Lambda SQS pollers run 24/7 on idle queues). Fix: short-poll first, long-poll only if queue depth > 0. Live after next backend deploy; confirm in CloudWatch REPORT."}

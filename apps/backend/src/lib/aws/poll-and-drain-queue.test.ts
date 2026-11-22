@@ -1,21 +1,30 @@
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert';
+import { SQSClient } from '@aws-sdk/client-sqs';
 import {
   pollAndDrainQueue,
   receiveSqsMessages,
   setReceiveSqsMessages,
   deleteSqsMessage,
   setDeleteSqsMessage,
+  getQueueDepth,
+  setGetQueueDepth,
   hasJobType,
 } from './poll-and-drain-queue.js';
 
 test('poll-and-drain-queue tests', async (t) => {
   const originalReceiveSqsMessages = receiveSqsMessages;
   const originalDeleteSqsMessage = deleteSqsMessage;
+  const originalGetQueueDepth = getQueueDepth;
 
+  // An empty receive now consults the queue depth: stub it as "drained" so no test reaches the real SQS client.
+  t.beforeEach(() => {
+    setGetQueueDepth(async () => 0);
+  });
   t.afterEach(() => {
     setReceiveSqsMessages(originalReceiveSqsMessages);
     setDeleteSqsMessage(originalDeleteSqsMessage);
+    setGetQueueDepth(originalGetQueueDepth);
   });
 
   await t.test('(a) loops across multiple receive calls until one returns empty', async () => {
@@ -227,9 +236,14 @@ test('poll-and-drain-queue tests', async (t) => {
 test('poll-and-drain-queue per-message budget', async (t) => {
   const originalReceiveSqsMessages = receiveSqsMessages;
   const originalDeleteSqsMessage = deleteSqsMessage;
+  const originalGetQueueDepth = getQueueDepth;
+  t.beforeEach(() => {
+    setGetQueueDepth(async () => 0);
+  });
   t.afterEach(() => {
     setReceiveSqsMessages(originalReceiveSqsMessages);
     setDeleteSqsMessage(originalDeleteSqsMessage);
+    setGetQueueDepth(originalGetQueueDepth);
   });
 
   await t.test('asks for only as many messages as fit in the time budget, so none is received and left unhandled', async () => {
@@ -272,9 +286,11 @@ test('poll-and-drain-queue per-message budget', async (t) => {
 test('poll-and-drain-queue remaining-time guard', async (t) => {
   const originalReceiveSqsMessages = receiveSqsMessages;
   const originalDeleteSqsMessage = deleteSqsMessage;
+  const originalGetQueueDepth = getQueueDepth;
   const originalConsoleWarn = console.warn;
   let warnings: string[] = [];
   t.beforeEach(() => {
+    setGetQueueDepth(async () => 0);
     warnings = [];
     console.warn = (...args: unknown[]) => {
       warnings.push(args.map(String).join(' '));
@@ -283,6 +299,7 @@ test('poll-and-drain-queue remaining-time guard', async (t) => {
   t.afterEach(() => {
     setReceiveSqsMessages(originalReceiveSqsMessages);
     setDeleteSqsMessage(originalDeleteSqsMessage);
+    setGetQueueDepth(originalGetQueueDepth);
     console.warn = originalConsoleWarn;
   });
 
@@ -338,7 +355,7 @@ test('poll-and-drain-queue remaining-time guard', async (t) => {
     assert.match(warnings[0], /leftInFlight=2/);
   });
 
-  await t.test('does not handle even the first message of a batch when the time is already short (long-poll ate it)', async () => {
+  await t.test('does not handle even the first message of a batch when the time is already short (the receive ate it)', async () => {
     // Plenty of time until the receive returns; the receive itself is what uses it up.
     let remaining = 200_000;
     setReceiveSqsMessages(async () => {
@@ -413,6 +430,269 @@ test('poll-and-drain-queue remaining-time guard', async (t) => {
       assert.deepStrictEqual(handled, ['a']);
     }
     assert.deepStrictEqual(warnings, []);
+  });
+});
+
+test('poll-and-drain-queue empty-tick gate', async (t) => {
+  const originalReceiveSqsMessages = receiveSqsMessages;
+  const originalDeleteSqsMessage = deleteSqsMessage;
+  const originalGetQueueDepth = getQueueDepth;
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+  const originalConsoleLog = console.log;
+  let errors: string[] = [];
+  let logs: string[] = [];
+  t.beforeEach(() => {
+    errors = [];
+    logs = [];
+    console.error = (...args: unknown[]) => { errors.push(args.map(String).join(' ')); };
+    console.warn = () => {};
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(' ')); };
+    setDeleteSqsMessage(async () => {});
+  });
+  t.afterEach(() => {
+    setReceiveSqsMessages(originalReceiveSqsMessages);
+    setDeleteSqsMessage(originalDeleteSqsMessage);
+    setGetQueueDepth(originalGetQueueDepth);
+    console.error = originalConsoleError;
+    console.warn = originalConsoleWarn;
+    console.log = originalConsoleLog;
+  });
+
+  const batch = (...names: string[]) => names.map((n) => ({ Body: n, ReceiptHandle: `rh-${n}` }));
+  // Records every receive as [maxMessages, waitTimeSeconds] and answers from a scripted list (then empty).
+  const scriptReceives = (answers: Array<ReturnType<typeof batch>>) => {
+    const calls: Array<[number | undefined, number | undefined]> = [];
+    setReceiveSqsMessages(async (_queueUrl, maxMessages, waitTimeSeconds) => {
+      calls.push([maxMessages, waitTimeSeconds]);
+      return answers[calls.length - 1] ?? [];
+    });
+    return calls;
+  };
+
+  await t.test('empty short poll then depth 0: returns with no long poll', async () => {
+    const calls = scriptReceives([[]]);
+    let depthCalls = 0;
+    setGetQueueDepth(async () => { depthCalls += 1; return 0; });
+
+    await pollAndDrainQueue('https://queue', async () => {});
+
+    assert.deepStrictEqual(calls, [[undefined, 0]]);
+    assert.strictEqual(depthCalls, 1);
+    assert.match(logs.join('\n'), /outcome=gated-empty/);
+  });
+
+  await t.test('empty short poll then depth above 0: the long poll runs and its messages are handled', async () => {
+    const calls = scriptReceives([[], batch('a', 'b'), []]);
+    const depths = [3, 0];
+    setGetQueueDepth(async () => depths.shift()!);
+    const deleted: string[] = [];
+    setDeleteSqsMessage(async (_q, rh) => { deleted.push(rh); });
+
+    const handled: string[] = [];
+    await pollAndDrainQueue('https://queue', async (body) => { handled.push(body); });
+
+    assert.deepStrictEqual(handled, ['a', 'b']);
+    assert.deepStrictEqual(deleted, ['rh-a', 'rh-b']);
+    // short (empty) -> long (messages) -> short (empty, depth 0) -> return
+    assert.deepStrictEqual(calls, [[undefined, 0], [undefined, 20], [undefined, 0]]);
+    assert.match(logs.join('\n'), /outcome=long-poll-hit depth=3 messages=2/);
+  });
+
+  await t.test('a long poll that comes back empty ends the cycle (no loop on a depth that stays above 0)', async () => {
+    const calls = scriptReceives([[], []]);
+    let depthCalls = 0;
+    setGetQueueDepth(async () => { depthCalls += 1; return 5; });
+
+    await pollAndDrainQueue('https://queue', async () => {});
+
+    assert.deepStrictEqual(calls, [[undefined, 0], [undefined, 20]]);
+    assert.strictEqual(depthCalls, 1);
+    assert.match(logs.join('\n'), /outcome=long-poll-miss/);
+  });
+
+  await t.test('a non-empty short poll is handled as before, with no depth call', async () => {
+    const calls = scriptReceives([batch('a')]);
+    let depthCalls = 0;
+    setGetQueueDepth(async () => { depthCalls += 1; return 0; });
+
+    const handled: string[] = [];
+    await pollAndDrainQueue('https://queue', async (body) => { handled.push(body); });
+
+    assert.deepStrictEqual(handled, ['a']);
+    // The second receive (empty, depth 0) is the drain end; only that one asks for the depth.
+    assert.deepStrictEqual(calls, [[undefined, 0], [undefined, 0]]);
+    assert.strictEqual(depthCalls, 1);
+  });
+
+  await t.test('the final receive after a drain is cheap: one short poll and one depth call, no long poll', async () => {
+    const calls = scriptReceives([batch('a'), batch('b'), []]);
+    let depthCalls = 0;
+    setGetQueueDepth(async () => { depthCalls += 1; return 0; });
+
+    await pollAndDrainQueue('https://queue', async () => {});
+
+    assert.deepStrictEqual(calls.map(([, wait]) => wait), [0, 0, 0]);
+    assert.strictEqual(depthCalls, 1);
+  });
+
+  await t.test('a thrown depth call is logged and falls back to the long poll, without rejecting', async () => {
+    const calls = scriptReceives([[], batch('a'), []]);
+    let depthCalls = 0;
+    setGetQueueDepth(async () => {
+      depthCalls += 1;
+      if (depthCalls === 1) throw new Error('GetQueueAttributes denied');
+      return 0;
+    });
+
+    const handled: string[] = [];
+    await assert.doesNotReject(pollAndDrainQueue('https://queue', async (body) => { handled.push(body); }));
+
+    assert.deepStrictEqual(handled, ['a']);
+    assert.strictEqual(calls[1][1], 20);
+    assert.ok(errors.some((e) => e.includes('getQueueDepth failed')), 'expected the depth error to be logged');
+    assert.match(logs.join('\n'), /outcome=depth-failed depth=unknown messages=1/);
+  });
+
+  await t.test('an unreadable depth (NaN) fails open and long-polls', async () => {
+    const calls = scriptReceives([[], batch('a'), []]);
+    const depths = [Number.NaN, 0];
+    setGetQueueDepth(async () => depths.shift()!);
+
+    const handled: string[] = [];
+    await pollAndDrainQueue('https://queue', async (body) => { handled.push(body); });
+
+    assert.deepStrictEqual(handled, ['a']);
+    assert.strictEqual(calls[1][1], 20);
+    assert.match(logs.join('\n'), /outcome=depth-failed depth=unknown/);
+  });
+
+  await t.test('anything but a clean 0 long-polls (a negative or infinite depth is not "drained")', async () => {
+    for (const odd of [-1, Number.POSITIVE_INFINITY]) {
+      const calls = scriptReceives([[]]);
+      setGetQueueDepth(async () => odd);
+      await pollAndDrainQueue('https://queue', async () => {});
+      assert.deepStrictEqual(calls.map(([, wait]) => wait), [0, 20], `depth ${odd}`);
+    }
+  });
+
+  await t.test('a depth error followed by a tripped remaining-time guard never starts the long poll', async () => {
+    let remaining = 200_000;
+    const calls = scriptReceives([[]]);
+    setGetQueueDepth(async () => {
+      remaining = 50_000;
+      throw new Error('GetQueueAttributes denied');
+    });
+
+    await assert.doesNotReject(pollAndDrainQueue('https://queue', async () => {}, {
+      minRemainingMs: 100_000,
+      getRemainingTimeInMillis: () => remaining,
+    }));
+
+    assert.deepStrictEqual(calls, [[undefined, 0]]);
+    assert.ok(errors.some((e) => e.includes('getQueueDepth failed')));
+  });
+
+  await t.test('a thrown long poll is logged and stops the cycle like a failed receive', async () => {
+    let receives = 0;
+    setReceiveSqsMessages(async () => {
+      receives += 1;
+      if (receives === 2) throw new Error('ReceiveMessage throttled');
+      return [];
+    });
+    setGetQueueDepth(async () => 2);
+
+    await assert.doesNotReject(pollAndDrainQueue('https://queue', async () => {}));
+
+    assert.strictEqual(receives, 2);
+    assert.ok(errors.some((e) => e.includes('receiveSqsMessages failed (long poll)')));
+  });
+
+  await t.test('both polls ask for the same number of messages (perMessageBudgetMs fit)', async () => {
+    const calls = scriptReceives([[]]);
+    setGetQueueDepth(async () => 1);
+
+    // 270s budget / 135s per message = 2 messages per receive, on the short poll and on the long poll.
+    await pollAndDrainQueue('https://queue', async () => {}, { timeBudgetMs: 270_000, perMessageBudgetMs: 135_000 });
+
+    assert.deepStrictEqual(calls, [[2, 0], [2, 20]]);
+  });
+
+  await t.test('the remaining-time guard is rechecked after the depth call, so a short budget never starts the long poll', async () => {
+    let remaining = 200_000;
+    const calls = scriptReceives([[]]);
+    setGetQueueDepth(async () => {
+      remaining = 50_000; // the depth call itself ran past the floor
+      return 4;
+    });
+
+    await pollAndDrainQueue('https://queue', async () => {}, {
+      minRemainingMs: 100_000,
+      getRemainingTimeInMillis: () => remaining,
+    });
+
+    assert.deepStrictEqual(calls, [[undefined, 0]]);
+  });
+});
+
+test('poll-and-drain-queue default SQS calls', async (t) => {
+  const originalReceiveSqsMessages = receiveSqsMessages;
+  const originalGetQueueDepth = getQueueDepth;
+  t.afterEach(() => {
+    mock.restoreAll();
+    setReceiveSqsMessages(originalReceiveSqsMessages);
+    setGetQueueDepth(originalGetQueueDepth);
+  });
+
+  const stubSend = (response: unknown) =>
+    mock.method(SQSClient.prototype, 'send', async () => response as never);
+
+  await t.test('receiveSqsMessages defaults to the 20 s long poll and passes a short poll through', async () => {
+    const send = stubSend({ Messages: [] });
+    await originalReceiveSqsMessages('https://queue');
+    await originalReceiveSqsMessages('https://queue', 3, 0);
+    const input = (n: number) => (send.mock.calls[n].arguments[0] as unknown as { input: Record<string, unknown> }).input;
+    assert.strictEqual(input(0).WaitTimeSeconds, 20);
+    assert.strictEqual(input(0).MaxNumberOfMessages, 10);
+    assert.strictEqual(input(1).WaitTimeSeconds, 0);
+    assert.strictEqual(input(1).MaxNumberOfMessages, 3);
+  });
+
+  await t.test('receiveSqsMessages clamps the wait to an integer 0-20', async () => {
+    const send = stubSend({ Messages: [] });
+    for (const wait of [-5, 1.9, 99, Number.NaN, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY]) {
+      await originalReceiveSqsMessages('https://queue', 1, wait);
+    }
+    const waits = send.mock.calls.map((c) => (c.arguments[0] as unknown as { input: { WaitTimeSeconds: number } }).input.WaitTimeSeconds);
+    assert.deepStrictEqual(waits, [0, 1, 20, 20, 0, 20]);
+  });
+
+  await t.test('getQueueDepth asks for the three counts in one call and sums them', async () => {
+    const send = stubSend({
+      Attributes: {
+        ApproximateNumberOfMessages: '2',
+        ApproximateNumberOfMessagesDelayed: '1',
+        ApproximateNumberOfMessagesNotVisible: '4',
+      },
+    });
+    const depth = await originalGetQueueDepth('https://queue');
+    assert.strictEqual(depth, 7);
+    assert.strictEqual(send.mock.callCount(), 1);
+    const input = (send.mock.calls[0].arguments[0] as unknown as { input: { QueueUrl: string; AttributeNames: string[] } }).input;
+    assert.strictEqual(input.QueueUrl, 'https://queue');
+    assert.deepStrictEqual(input.AttributeNames, [
+      'ApproximateNumberOfMessages',
+      'ApproximateNumberOfMessagesDelayed',
+      'ApproximateNumberOfMessagesNotVisible',
+    ]);
+  });
+
+  await t.test('getQueueDepth returns NaN (fail open) when an attribute is missing or unparsable', async () => {
+    stubSend({ Attributes: { ApproximateNumberOfMessages: '0', ApproximateNumberOfMessagesDelayed: '0' } });
+    assert.ok(Number.isNaN(await originalGetQueueDepth('https://queue')));
+    mock.restoreAll();
+    stubSend({});
+    assert.ok(Number.isNaN(await originalGetQueueDepth('https://queue')));
   });
 });
 
