@@ -78,7 +78,9 @@ export const handler = async (
   if (hasJobType(event, 'poll-and-drain')) {
     console.log('Running poll-and-drain for AI processing queue');
     // AD-52 Rule 5: re-enqueue posts whose failed extraction has a retry due, before draining, so they are
-    // picked up in this same tick. Never lets a problem here stop the drain.
+    // normally picked up in this same tick. The drain's queue-depth gate (poll-and-drain-queue.ts) reads
+    // approximate, eventually consistent counts, so a post enqueued just now can wait one 5-minute tick
+    // instead (a delay, never a loss). Never lets a problem here stop the drain.
     try {
       await resumeDueExtractions();
     } catch (error) {

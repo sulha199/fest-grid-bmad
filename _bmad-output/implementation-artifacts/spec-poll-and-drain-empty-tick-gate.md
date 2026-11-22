@@ -2,7 +2,8 @@
 title: 'Cheap empty ticks for poll-and-drain (queue-depth gate)'
 type: 'bugfix'
 created: '2026-11-22'
-status: 'draft'
+status: 'in-review'
+baseline_commit: '252f4c96ee9a1fea2701cc59c67061369d4e3d6e'
 review_loop_iteration: 0
 context:
   - '{project-root}/_bmad-output/project-context.md'
@@ -62,12 +63,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `apps/backend/src/lib/aws/poll-and-drain-queue.ts` -- `receiveSqsMessages` gets optional `waitTimeSeconds` (default 20, clamped to an integer 0-20; call stays `receiveSqsMessages(queueUrl, undefined, 0)` with no per-message budget); add `getQueueDepth` + `setGetQueueDepth`; gate each loop receive as above -- cuts the idle 20 s block
-- [ ] `apps/backend/src/lib/aws/poll-and-drain-queue.test.ts` -- install a depth-0 stub at the start of every suite and restore it in `afterEach`; rename the guard test titled "long-poll ate it"; add tests for every I/O row, asserting receive args (`0` then `20`, same `maxMessages` on both) and depth call counts; cover both default implementations with `mock.method(SQSClient.prototype, 'send')` (command inputs, attribute parsing, `NaN` fallback)
-- [ ] `apps/backend/src/lambdas/{scraper,ai-processor,ingestor}.test.ts` -- install the depth stub at suite start, restore in `t.after`
-- [ ] `apps/backend/src/lambdas/ai-processor.ts` -- comment-only fix at L80-82 (resumed posts may now wait one tick)
-- [ ] `docs/infrastructure/2-backend.md` -- 1-2 sentences on the gate and why
-- [ ] `_bmad-output/implementation-artifacts/backlog.yaml` -- add `FIND-261122-q5w` (finding, `app:backend`, `app:infrastructure`; ref this spec)
+- [x] `apps/backend/src/lib/aws/poll-and-drain-queue.ts` -- `receiveSqsMessages` gets optional `waitTimeSeconds` (default 20, clamped to an integer 0-20; call stays `receiveSqsMessages(queueUrl, undefined, 0)` with no per-message budget); add `getQueueDepth` + `setGetQueueDepth`; gate each loop receive as above -- cuts the idle 20 s block
+- [x] `apps/backend/src/lib/aws/poll-and-drain-queue.test.ts` -- install a depth-0 stub at the start of every suite and restore it in `afterEach`; rename the guard test titled "long-poll ate it"; add tests for every I/O row, asserting receive args (`0` then `20`, same `maxMessages` on both) and depth call counts; cover both default implementations with `mock.method(SQSClient.prototype, 'send')` (command inputs, attribute parsing, `NaN` fallback)
+- [x] `apps/backend/src/lambdas/{scraper,ai-processor,ingestor}.test.ts` -- install the depth stub at suite start, restore in `t.after`
+- [x] `apps/backend/src/lambdas/ai-processor.ts` -- comment-only fix at L80-82 (resumed posts may now wait one tick)
+- [x] `docs/infrastructure/2-backend.md` -- 1-2 sentences on the gate and why
+- [x] `_bmad-output/implementation-artifacts/backlog.yaml` -- add `FIND-261122-q5w` (finding, `app:backend`, `app:infrastructure`; ref this spec)
 
 **Acceptance Criteria:**
 - Given an empty queue, when a tick runs, then it makes one `WaitTimeSeconds: 0` receive and one depth call and no 20 s receive.

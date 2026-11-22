@@ -1,19 +1,71 @@
-import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand, type Message } from '@aws-sdk/client-sqs';
+import {
+  SQSClient,
+  ReceiveMessageCommand,
+  DeleteMessageCommand,
+  GetQueueAttributesCommand,
+  type Message,
+} from '@aws-sdk/client-sqs';
+
+// SQS long poll: the receive waits up to this long for a message. Billed Lambda time, so it is only
+// spent once the queue-depth gate in pollAndDrainQueue says there is work.
+const LONG_POLL_WAIT_SECONDS = 20;
 
 // Follows the exact same reassignable-function/setter test-seam convention already
 // established by send-sqs-message.ts's sendSqsMessage/setSendSqsMessage.
-export let receiveSqsMessages = async (queueUrl: string, maxMessages = 10): Promise<Message[]> => {
+// `waitTimeSeconds` 0 is a short poll (returns at once, but samples only a subset of SQS servers, so it can
+// come back empty while messages exist); the default is the 20 s long poll. Clamped to an integer 0-20.
+export let receiveSqsMessages = async (
+  queueUrl: string,
+  maxMessages = 10,
+  waitTimeSeconds = LONG_POLL_WAIT_SECONDS
+): Promise<Message[]> => {
   const client = new SQSClient({});
   const result = await client.send(new ReceiveMessageCommand({
     QueueUrl: queueUrl,
     MaxNumberOfMessages: Math.min(10, Math.max(1, Math.floor(maxMessages))),
-    WaitTimeSeconds: 20,
+    WaitTimeSeconds: Number.isFinite(waitTimeSeconds)
+      ? Math.min(LONG_POLL_WAIT_SECONDS, Math.max(0, Math.floor(waitTimeSeconds)))
+      : LONG_POLL_WAIT_SECONDS,
   }));
   return result.Messages ?? [];
 };
 
 export function setReceiveSqsMessages(fn: typeof receiveSqsMessages) {
   receiveSqsMessages = fn;
+}
+
+const QUEUE_DEPTH_ATTRIBUTES = [
+  'ApproximateNumberOfMessages',
+  'ApproximateNumberOfMessagesDelayed',
+  'ApproximateNumberOfMessagesNotVisible',
+] as const;
+
+/**
+ * How many messages the queue holds in any state: visible + delayed + in flight (one API call). Delayed
+ * and in-flight ones count as work because a step enqueued with a short DelaySeconds (AD-47's 10 s) shows up
+ * inside the long poll, and a failed message is invisible until its visibility timeout ends. The counts are
+ * approximate and eventually consistent. Returns NaN when an attribute is missing or unparsable, which the
+ * caller treats as "there may be work" (fail open): the gate only ever skips the long poll on a clean 0.
+ */
+export let getQueueDepth = async (queueUrl: string): Promise<number> => {
+  const client = new SQSClient({});
+  const result = await client.send(new GetQueueAttributesCommand({
+    QueueUrl: queueUrl,
+    AttributeNames: [...QUEUE_DEPTH_ATTRIBUTES],
+  }));
+  let total = 0;
+  for (const name of QUEUE_DEPTH_ATTRIBUTES) {
+    const count = Number.parseInt(result.Attributes?.[name] ?? '', 10);
+    if (Number.isNaN(count)) {
+      return Number.NaN;
+    }
+    total += count;
+  }
+  return total;
+};
+
+export function setGetQueueDepth(fn: typeof getQueueDepth) {
+  getQueueDepth = fn;
 }
 
 export let deleteSqsMessage = async (queueUrl: string, receiptHandle: string): Promise<void> => {
@@ -71,7 +123,13 @@ export interface PollAndDrainQueueOptions {
 /**
  * Repeatedly receives and processes messages from an SQS queue until either a receive
  * call returns zero messages (queue drained) or the time budget is reached, rather than
- * processing a single fixed batch per invocation. A message is only deleted after
+ * processing a single fixed batch per invocation.
+ *
+ * Every receive is gated so an idle tick costs milliseconds, not the 20 s long poll (billed Lambda time, three
+ * Lambdas x 288 ticks/day: the free tier ran out around day 24). The receive first short-polls; only when that
+ * is empty does `getQueueDepth` decide: 0 means drained (return), anything else (including an unreadable or
+ * failed depth call) earns the 20 s long poll, whose empty result also ends the cycle. A short poll alone cannot
+ * be trusted, since it samples a subset of servers and can miss messages that exist. A message is only deleted after
  * `handleMessage` resolves without throwing -- a thrown error is logged and the message is
  * left undeleted so the queue's own maxReceiveCount redrive-to-DLQ policy still applies.
  */
@@ -126,10 +184,37 @@ export async function pollAndDrainQueue(
       maxMessages = Math.max(1, fits);
     }
     firstReceive = false;
+    // `maxMessages` is computed once above and used by both polls, so the per-message budget holds for either.
+    const receive = (waitTimeSeconds: number) =>
+      receiveSqsMessages(queueUrl, maxMessages, waitTimeSeconds);
     try {
-      messages = maxMessages === undefined
-        ? await receiveSqsMessages(queueUrl)
-        : await receiveSqsMessages(queueUrl, maxMessages);
+      messages = await receive(0);
+      if (messages.length === 0) {
+        let depth = Number.NaN;
+        let depthFailed = false;
+        try {
+          depth = await getQueueDepth(queueUrl);
+        } catch (error) {
+          // Unlike a failed receive, a failed depth read says nothing about the queue itself, so stopping would
+          // starve consumption for as long as it fails (e.g. a missing permission): long-poll instead.
+          depthFailed = true;
+          console.error('pollAndDrainQueue: getQueueDepth failed, falling back to the long poll', error);
+        }
+        if (depth === 0) {
+          console.log('pollAndDrainQueue: outcome=gated-empty depth=0');
+          return;
+        }
+        // The depth call took a moment of its own; the long poll below can take up to 20 s.
+        if (guardTripped(0)) {
+          return;
+        }
+        messages = await receive(LONG_POLL_WAIT_SECONDS);
+        const outcome = depthFailed ? 'depth-failed' : messages.length > 0 ? 'long-poll-hit' : 'long-poll-miss';
+        console.log(
+          `pollAndDrainQueue: outcome=${outcome} depth=${depthFailed || Number.isNaN(depth) ? 'unknown' : depth} ` +
+            `messages=${messages.length}`
+        );
+      }
     } catch (error) {
       // A transient SQS error (throttling, network) should not fail the whole invocation --
       // log and stop this cycle; the next 5-minute-scheduled tick will retry.

@@ -15,6 +15,8 @@ import {
   setReceiveSqsMessages,
   deleteSqsMessage,
   setDeleteSqsMessage,
+  getQueueDepth,
+  setGetQueueDepth,
 } from '../lib/aws/poll-and-drain-queue.js';
 import { setCallGeminiSeam, callGeminiSeam, setMarkPostExtractedSeam, markPostExtractedSeam } from '../lib/ai-processor/process-ai-job.js';
 
@@ -27,13 +29,17 @@ import { setCallGeminiSeam, callGeminiSeam, setMarkPostExtractedSeam, markPostEx
 test('ai-processor lambda poll-and-drain branch', async (t) => {
   const originalReceiveSqsMessages = receiveSqsMessages;
   const originalDeleteSqsMessage = deleteSqsMessage;
+  const originalGetQueueDepth = getQueueDepth;
   const originalCallGeminiSeam = callGeminiSeam;
   const originalMarkPostExtractedSeam = markPostExtractedSeam;
   const originalQueueUrl = process.env.AI_PROCESSING_QUEUE_URL;
+  // An empty receive consults the queue depth: stub it as drained so no test reaches the real SQS client.
+  setGetQueueDepth(async () => 0);
 
   t.after(() => {
     setReceiveSqsMessages(originalReceiveSqsMessages);
     setDeleteSqsMessage(originalDeleteSqsMessage);
+    setGetQueueDepth(originalGetQueueDepth);
     setCallGeminiSeam(originalCallGeminiSeam);
     setMarkPostExtractedSeam(originalMarkPostExtractedSeam);
     process.env.AI_PROCESSING_QUEUE_URL = originalQueueUrl;

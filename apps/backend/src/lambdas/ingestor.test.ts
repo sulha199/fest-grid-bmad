@@ -9,6 +9,8 @@ import {
   setReceiveSqsMessages,
   deleteSqsMessage,
   setDeleteSqsMessage,
+  getQueueDepth,
+  setGetQueueDepth,
 } from '../lib/aws/poll-and-drain-queue.js';
 
 // Covers AC13: proves ingestor.ts's new `{ jobType: 'poll-and-drain' }` branch (AC6) calls
@@ -23,7 +25,10 @@ import {
 test('ingestor lambda poll-and-drain branch', async (t) => {
   const originalReceiveSqsMessages = receiveSqsMessages;
   const originalDeleteSqsMessage = deleteSqsMessage;
+  const originalGetQueueDepth = getQueueDepth;
   const originalQueueUrl = process.env.DATA_INGESTION_QUEUE_URL;
+  // An empty receive consults the queue depth: stub it as drained so no test reaches the real SQS client.
+  setGetQueueDepth(async () => 0);
 
   const testAccountId = 'platform-acc-ingestor-poll-drain-' + Date.now();
   const [profile] = await db
@@ -53,6 +58,7 @@ test('ingestor lambda poll-and-drain branch', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profile.id));
     setReceiveSqsMessages(originalReceiveSqsMessages);
     setDeleteSqsMessage(originalDeleteSqsMessage);
+    setGetQueueDepth(originalGetQueueDepth);
     process.env.DATA_INGESTION_QUEUE_URL = originalQueueUrl;
   });
 
