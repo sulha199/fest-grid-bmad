@@ -13,6 +13,17 @@ export const OpsMetric = {
   ProviderDegraded: 'ProviderDegraded',
   /** A scraper provider left the degraded state. */
   ProviderRecovered: 'ProviderRecovered',
+  // The poll-and-drain queue-depth gate (`pollAndDrainQueue`), one per gated empty short poll, from any of the three
+  // consuming Lambdas (pooled into one series: a metric has no dimensions here). No alarm is wired to these yet, so
+  // the infra stack does not pin the names.
+  /** The short poll was empty and the queue held nothing: the tick ended without a long poll. */
+  PollDrainGatedEmpty: 'PollDrainGatedEmpty',
+  /** The short poll was empty, the depth said work, and the long poll found messages. */
+  PollDrainLongPollHit: 'PollDrainLongPollHit',
+  /** The short poll was empty, the depth said work, and the long poll found nothing (the gate paid 20 s for nothing). */
+  PollDrainLongPollMiss: 'PollDrainLongPollMiss',
+  /** The depth call failed or was unreadable, so the gate fell back to the long poll (a lost permission looks like this). */
+  PollDrainDepthFailed: 'PollDrainDepthFailed',
 } as const;
 
 export type OpsMetricName = (typeof OpsMetric)[keyof typeof OpsMetric];

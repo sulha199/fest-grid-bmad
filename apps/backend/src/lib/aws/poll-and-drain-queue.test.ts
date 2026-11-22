@@ -633,6 +633,124 @@ test('poll-and-drain-queue empty-tick gate', async (t) => {
 
     assert.deepStrictEqual(calls, [[undefined, 0]]);
   });
+
+  await t.test('a hint that returns true skips the gate: the receive is a long poll and the depth is never read', async () => {
+    const calls = scriptReceives([batch('a')]);
+    let depthCalls = 0;
+    setGetQueueDepth(async () => { depthCalls += 1; return 0; });
+    const answers = [true, false];
+
+    const handled: string[] = [];
+    await pollAndDrainQueue('https://queue', async (body) => { handled.push(body); }, {
+      longPollHint: () => answers.shift() ?? false,
+    });
+
+    assert.deepStrictEqual(handled, ['a']);
+    // hinted -> long poll (messages); then not hinted -> short poll (empty) -> depth 0 -> return
+    assert.deepStrictEqual(calls, [[undefined, 20], [undefined, 0]]);
+    assert.strictEqual(depthCalls, 1);
+    assert.match(logs.join('\n'), /outcome=hinted-long-poll messages=1/);
+  });
+
+  await t.test('the hint is asked before every receive, so only the receive after an enqueue long-polls', async () => {
+    const calls = scriptReceives([batch('a'), batch('b'), []]);
+    setGetQueueDepth(async () => 0);
+    let asked = 0;
+
+    await pollAndDrainQueue('https://queue', async () => {}, {
+      // Only the second receive follows an enqueue.
+      longPollHint: () => { asked += 1; return asked === 2; },
+    });
+
+    assert.strictEqual(asked, 3);
+    assert.deepStrictEqual(calls.map(([, wait]) => wait), [0, 20, 0]);
+  });
+
+  await t.test('a hinted long poll that comes back empty ends the cycle, with no depth read', async () => {
+    const calls = scriptReceives([[]]);
+    let depthCalls = 0;
+    setGetQueueDepth(async () => { depthCalls += 1; return 9; });
+
+    await pollAndDrainQueue('https://queue', async () => {}, { longPollHint: () => true });
+
+    assert.deepStrictEqual(calls, [[undefined, 20]]);
+    assert.strictEqual(depthCalls, 0);
+  });
+
+  await t.test('a hint that throws counts as true and is logged', async () => {
+    const calls = scriptReceives([[]]);
+    let depthCalls = 0;
+    setGetQueueDepth(async () => { depthCalls += 1; return 0; });
+
+    await assert.doesNotReject(pollAndDrainQueue('https://queue', async () => {}, {
+      longPollHint: () => { throw new Error('hint broke'); },
+    }));
+
+    assert.deepStrictEqual(calls, [[undefined, 20]]);
+    assert.strictEqual(depthCalls, 0);
+    assert.ok(errors.some((e) => e.includes('longPollHint threw')));
+  });
+
+  await t.test('a thrown hinted long poll is logged as a long poll failure', async () => {
+    setReceiveSqsMessages(async () => { throw new Error('ReceiveMessage throttled'); });
+
+    await assert.doesNotReject(pollAndDrainQueue('https://queue', async () => {}, { longPollHint: () => true }));
+
+    assert.ok(errors.some((e) => e.includes('receiveSqsMessages failed (long poll)')));
+  });
+
+  await t.test('the guard tripping after the depth call logs outcome=guard-stopped', async () => {
+    let remaining = 200_000;
+    scriptReceives([[]]);
+    setGetQueueDepth(async () => {
+      remaining = 50_000;
+      return 4;
+    });
+
+    await pollAndDrainQueue('https://queue', async () => {}, {
+      minRemainingMs: 100_000,
+      getRemainingTimeInMillis: () => remaining,
+    });
+
+    assert.match(logs.join('\n'), /outcome=guard-stopped depth=4/);
+  });
+
+  await t.test('each gated outcome emits its metric when running inside a Lambda', async () => {
+    const originalFunctionName = process.env.AWS_LAMBDA_FUNCTION_NAME;
+    process.env.AWS_LAMBDA_FUNCTION_NAME = 'test-fn';
+    const emitted = () =>
+      logs
+        .filter((line) => line.startsWith('{'))
+        .flatMap((line) => Object.keys(JSON.parse(line)).filter((key) => key.startsWith('PollDrain')));
+    try {
+      scriptReceives([[]]);
+      setGetQueueDepth(async () => 0);
+      await pollAndDrainQueue('https://queue', async () => {});
+      assert.deepStrictEqual(emitted(), ['PollDrainGatedEmpty']);
+
+      logs = [];
+      scriptReceives([[], batch('a'), []]);
+      const hit = [2, 0];
+      setGetQueueDepth(async () => hit.shift()!);
+      await pollAndDrainQueue('https://queue', async () => {});
+      assert.deepStrictEqual(emitted(), ['PollDrainLongPollHit', 'PollDrainGatedEmpty']);
+
+      logs = [];
+      scriptReceives([[], []]);
+      setGetQueueDepth(async () => 3);
+      await pollAndDrainQueue('https://queue', async () => {});
+      assert.deepStrictEqual(emitted(), ['PollDrainLongPollMiss']);
+
+      logs = [];
+      scriptReceives([[], []]);
+      setGetQueueDepth(async () => { throw new Error('denied'); });
+      await pollAndDrainQueue('https://queue', async () => {});
+      assert.deepStrictEqual(emitted(), ['PollDrainDepthFailed']);
+    } finally {
+      if (originalFunctionName === undefined) delete process.env.AWS_LAMBDA_FUNCTION_NAME;
+      else process.env.AWS_LAMBDA_FUNCTION_NAME = originalFunctionName;
+    }
+  });
 });
 
 test('poll-and-drain-queue default SQS calls', async (t) => {

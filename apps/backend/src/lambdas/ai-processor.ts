@@ -5,6 +5,8 @@ import { runJobEngineJob } from '../lib/job-engine/run-job.js';
 import { registerAiProcessorJobHandlers } from '../lib/job-engine/register-ai-processor-job-handlers.js';
 import { type ProcessingJobMessage, type ManualExtractionInvokePayload } from '@festgrid/domain/posts';
 import { pollAndDrainQueue, hasJobType, type PollAndDrainQueueOptions } from '../lib/aws/poll-and-drain-queue.js';
+import { consumeEnqueuedStepCount } from '../lib/ai-processor/extraction-chain.js';
+import { buildDrainLongPollHint } from '../lib/ai-processor/drain-long-poll-hint.js';
 import { loadBackendEnv } from '../env.js';
 import { resumeDueExtractions } from '../lib/posts/resume-due-extractions.js';
 import { resumeStalledChains } from '../lib/ai-processor/resume-stalled-chains.js';
@@ -77,13 +79,20 @@ export const handler = async (
 
   if (hasJobType(event, 'poll-and-drain')) {
     console.log('Running poll-and-drain for AI processing queue');
-    // AD-52 Rule 5: re-enqueue posts whose failed extraction has a retry due, before draining, so they can
-    // be picked up in this same tick. The drain's queue-depth gate (poll-and-drain-queue.ts) reads
-    // approximate, eventually consistent counts, so a post enqueued just now often waits one 5-minute tick
-    // instead (a delay, never a loss). Never lets a problem here stop the drain.
+    // Drop any step count a previous invocation of this warm environment left behind; the resume passes below and
+    // the drain's own handlers count from here (drain-long-poll-hint.ts).
+    consumeEnqueuedStepCount();
+    // AD-52 Rule 5: re-enqueue posts whose failed extraction has a retry due, before draining, so they are
+    // picked up in this same tick. The drain's queue-depth gate (poll-and-drain-queue.ts) reads approximate,
+    // eventually consistent counts, so when this pass enqueued anything the first receive long-polls instead
+    // (the hint below); a pass that threw may have enqueued some, so it counts too. Never lets a problem here
+    // stop the drain.
+    let resumeMayHaveEnqueued = false;
     try {
-      await resumeDueExtractions();
+      const resumed = await resumeDueExtractions();
+      resumeMayHaveEnqueued = resumed.enqueued > 0;
     } catch (error) {
+      resumeMayHaveEnqueued = true;
       console.error('[ai-processor] resume pass failed; continuing with the drain:', error);
     }
     // AD-47 Rules 5-6: stalled stepped extractions are resumed (after one re-scrape when their images expired).
@@ -103,7 +112,9 @@ export const handler = async (
           getRemainingTimeInMillis: context.getRemainingTimeInMillis?.bind(context),
         });
       },
-      buildDrainBudget(context)
+      // AD-47 Rule 5: the chain steps (and the resume passes' re-enqueues) are sent seconds before a receive, so
+      // the receive after one long-polls instead of trusting the gate's approximate counts.
+      { ...buildDrainBudget(context), longPollHint: buildDrainLongPollHint(resumeMayHaveEnqueued) }
     );
     return;
   }

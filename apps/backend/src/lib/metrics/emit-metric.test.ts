@@ -57,12 +57,38 @@ test('emitOpsMetric', async (t) => {
   });
 
   await t.test('pins the metric names the infrastructure stack alarms on', () => {
-    assert.deepStrictEqual(OpsMetric, {
-      PostsSaved: 'PostsSaved',
-      ProviderDegraded: 'ProviderDegraded',
-      ProviderRecovered: 'ProviderRecovered',
-    });
+    assert.deepStrictEqual(
+      {
+        PostsSaved: OpsMetric.PostsSaved,
+        ProviderDegraded: OpsMetric.ProviderDegraded,
+        ProviderRecovered: OpsMetric.ProviderRecovered,
+      },
+      {
+        PostsSaved: 'PostsSaved',
+        ProviderDegraded: 'ProviderDegraded',
+        ProviderRecovered: 'ProviderRecovered',
+      }
+    );
     assert.strictEqual(OPS_METRICS_NAMESPACE, 'FestGrid/Backend');
+  });
+
+  // The poll-and-drain gate's outcome counters have no alarm yet (a backlog follow-up wires one), so the infra stack
+  // does not pin these; they are pinned here so a rename is a deliberate change.
+  await t.test('pins the poll-and-drain gate metric names', () => {
+    assert.deepStrictEqual(
+      {
+        PollDrainGatedEmpty: OpsMetric.PollDrainGatedEmpty,
+        PollDrainLongPollHit: OpsMetric.PollDrainLongPollHit,
+        PollDrainLongPollMiss: OpsMetric.PollDrainLongPollMiss,
+        PollDrainDepthFailed: OpsMetric.PollDrainDepthFailed,
+      },
+      {
+        PollDrainGatedEmpty: 'PollDrainGatedEmpty',
+        PollDrainLongPollHit: 'PollDrainLongPollHit',
+        PollDrainLongPollMiss: 'PollDrainLongPollMiss',
+        PollDrainDepthFailed: 'PollDrainDepthFailed',
+      }
+    );
   });
 
   await t.test('never throws when the line cannot be written', () => {

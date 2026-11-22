@@ -5,13 +5,15 @@ import {
   GetQueueAttributesCommand,
   type Message,
 } from '@aws-sdk/client-sqs';
+import { emitOpsMetric, OpsMetric } from '../metrics/emit-metric.js';
 
 // SQS long poll: the receive waits up to this long for a message. Billed Lambda time, so it is only
 // spent once the queue-depth gate in pollAndDrainQueue says there is work.
 const LONG_POLL_WAIT_SECONDS = 20;
 
-// One client for every SQS call in this module (created on first use, reused across ticks while the Lambda
-// environment stays warm), so an idle tick does not pay a client construction and TLS handshake per call.
+// One client for every SQS call in this module (created on first use), so the two or three calls of one tick share
+// a client and a connection. A warm Lambda environment may keep it across ticks five minutes apart; a socket the
+// server closed in between is a connection error that the SDK's default retry covers.
 let sqsClient: SQSClient | undefined;
 const getSqsClient = (): SQSClient => (sqsClient ??= new SQSClient({}));
 
@@ -121,6 +123,14 @@ export interface PollAndDrainQueueOptions {
    */
   minRemainingMs?: number;
   getRemainingTimeInMillis?: () => number;
+  /**
+   * Asked before every receive. When it returns true that receive skips the queue-depth gate and is the plain 20 s
+   * long poll, which asks every SQS server and does not depend on the approximate counts. Use it when this Lambda
+   * has just put a message on its own queue (a delayed next step of a chain, a resumed retry) that the short poll
+   * and the counts may not show yet; the gate would read an idle queue and end the tick, costing that message a
+   * whole tick. A hint that throws counts as true. Without it every receive is gated.
+   */
+  longPollHint?: () => boolean;
 }
 
 /**
@@ -132,7 +142,8 @@ export interface PollAndDrainQueueOptions {
  * Lambdas x 288 ticks/day: the free tier ran out around day 24). The receive first short-polls; only when that
  * is empty does `getQueueDepth` decide: 0 means drained (return), anything else (including an unreadable or
  * failed depth call) earns the 20 s long poll, whose empty result also ends the cycle. A short poll alone cannot
- * be trusted, since it samples a subset of servers and can miss messages that exist. A message is only deleted after
+ * be trusted, since it samples a subset of servers and can miss messages that exist. `longPollHint` lets a caller
+ * that has just enqueued onto its own queue skip the gate for a receive. A message is only deleted after
  * `handleMessage` resolves without throwing -- a thrown error is logged and the message is
  * left undeleted so the queue's own maxReceiveCount redrive-to-DLQ policy still applies.
  */
@@ -190,10 +201,25 @@ export async function pollAndDrainQueue(
     // `maxMessages` is computed once above and used by both polls, so the per-message budget holds for either.
     const receive = (waitTimeSeconds: number) =>
       receiveSqsMessages(queueUrl, maxMessages, waitTimeSeconds);
-    let poll = 'short poll';
+    let hinted = false;
+    if (opts.longPollHint) {
+      try {
+        hinted = opts.longPollHint();
+      } catch (error) {
+        // Never a reason to skip a poll: fail toward the long poll, which costs 20 s at worst.
+        hinted = true;
+        console.error('pollAndDrainQueue: longPollHint threw, long-polling this receive', error);
+      }
+    }
+    let poll = hinted ? 'long poll' : 'short poll';
     try {
-      messages = await receive(0);
-      if (messages.length === 0) {
+      if (hinted) {
+        messages = await receive(LONG_POLL_WAIT_SECONDS);
+        console.log(`pollAndDrainQueue: outcome=hinted-long-poll messages=${messages.length}`);
+      } else {
+        messages = await receive(0);
+      }
+      if (!hinted && messages.length === 0) {
         let depth = Number.NaN;
         let depthFailed = false;
         try {
@@ -204,22 +230,31 @@ export async function pollAndDrainQueue(
           depthFailed = true;
           console.error('pollAndDrainQueue: getQueueDepth failed, falling back to the long poll', error);
         }
+        // A depth that threw or was unreadable (NaN) is one outcome, so a permission regression on
+        // GetQueueAttributes shows up as `depth-failed` whatever the long poll then returns.
+        const depthUnknown = depthFailed || Number.isNaN(depth);
         if (depth === 0) {
           console.log('pollAndDrainQueue: outcome=gated-empty depth=0');
+          emitOpsMetric(OpsMetric.PollDrainGatedEmpty);
           return;
         }
         // The depth call took a moment of its own; the long poll below can take up to 20 s.
         if (guardTripped(0)) {
+          console.log(`pollAndDrainQueue: outcome=guard-stopped depth=${depthUnknown ? 'unknown' : depth}`);
           return;
         }
         poll = 'long poll';
         messages = await receive(LONG_POLL_WAIT_SECONDS);
-        // A depth that threw or was unreadable (NaN) is one outcome, so a permission regression on
-        // GetQueueAttributes shows up as `depth-failed` whatever the long poll then returned.
-        const depthUnknown = depthFailed || Number.isNaN(depth);
         const outcome = depthUnknown ? 'depth-failed' : messages.length > 0 ? 'long-poll-hit' : 'long-poll-miss';
         console.log(
           `pollAndDrainQueue: outcome=${outcome} depth=${depthUnknown ? 'unknown' : depth} messages=${messages.length}`
+        );
+        emitOpsMetric(
+          depthUnknown
+            ? OpsMetric.PollDrainDepthFailed
+            : messages.length > 0
+              ? OpsMetric.PollDrainLongPollHit
+              : OpsMetric.PollDrainLongPollMiss
         );
       }
     } catch (error) {
@@ -243,8 +278,8 @@ export async function pollAndDrainQueue(
       if (i > 0 && Date.now() >= deadline) {
         return;
       }
-      // Every message, a batch's first included: the receive above can long-poll for up to 20s, and an
-      // earlier message in the batch may have run past its budget.
+      // Every message, a batch's first included: a gated or hinted long poll above can take up to 20 s (a short
+      // poll returns at once), and an earlier message in the batch may have run past its budget.
       if (guardTripped(messages.length - i)) {
         return;
       }
