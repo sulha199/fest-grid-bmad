@@ -24,6 +24,10 @@ export const OpsMetric = {
   PollDrainLongPollMiss: 'PollDrainLongPollMiss',
   /** The depth call failed or was unreadable, so the gate fell back to the long poll (a lost permission looks like this). */
   PollDrainDepthFailed: 'PollDrainDepthFailed',
+  /** A `longPollHint` receive (the AI Lambda just enqueued a step or a resumed retry) found messages: the hint was right. */
+  PollDrainHintedLongPollHit: 'PollDrainHintedLongPollHit',
+  /** A `longPollHint` receive found nothing: a billed 20 s the hint did not need (a wrong hint, or a message that never landed). */
+  PollDrainHintedLongPollMiss: 'PollDrainHintedLongPollMiss',
 } as const;
 
 export type OpsMetricName = (typeof OpsMetric)[keyof typeof OpsMetric];

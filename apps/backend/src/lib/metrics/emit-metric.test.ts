@@ -81,12 +81,16 @@ test('emitOpsMetric', async (t) => {
         PollDrainLongPollHit: OpsMetric.PollDrainLongPollHit,
         PollDrainLongPollMiss: OpsMetric.PollDrainLongPollMiss,
         PollDrainDepthFailed: OpsMetric.PollDrainDepthFailed,
+        PollDrainHintedLongPollHit: OpsMetric.PollDrainHintedLongPollHit,
+        PollDrainHintedLongPollMiss: OpsMetric.PollDrainHintedLongPollMiss,
       },
       {
         PollDrainGatedEmpty: 'PollDrainGatedEmpty',
         PollDrainLongPollHit: 'PollDrainLongPollHit',
         PollDrainLongPollMiss: 'PollDrainLongPollMiss',
         PollDrainDepthFailed: 'PollDrainDepthFailed',
+        PollDrainHintedLongPollHit: 'PollDrainHintedLongPollHit',
+        PollDrainHintedLongPollMiss: 'PollDrainHintedLongPollMiss',
       }
     );
   });

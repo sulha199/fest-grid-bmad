@@ -3145,7 +3145,7 @@ items:
   FIND-261122-lbv:
     {type: finding, status: backlog, created: 2026-11-22,
      impact: internal, effort: s,
-     title: "Alarm on poll-and-drain depth-failed and a sustained long-poll-miss rate",
+     title: "Alarm on poll-and-drain depth-failed and sustained long-poll-miss rates (gated and hinted)",
      ref: [implementation-artifacts/spec-poll-and-drain-empty-tick-gate.md, apps/backend/src/lib/metrics/emit-metric.ts],
      touches: [app:infrastructure, app:backend],
-     note: "Follow-up to FIND-261122-q5w (empty poll-and-drain ticks block 20 s of billed Lambda time). The PollDrain* metrics exist; no alarm is wired, so a lost sqs:GetQueueAttributes grant would silently restore the 20 s cost."}
+     note: "Follow-up to FIND-261122-q5w (empty poll-and-drain ticks block 20 s of billed Lambda time). The PollDrain* metrics exist (9 custom metrics in total, 10 are free); no alarm yet, so a lost sqs:GetQueueAttributes grant or a wrong hint costs 20 s unseen."}

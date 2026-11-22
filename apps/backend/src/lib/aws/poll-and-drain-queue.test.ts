@@ -746,6 +746,19 @@ test('poll-and-drain-queue empty-tick gate', async (t) => {
       setGetQueueDepth(async () => { throw new Error('denied'); });
       await pollAndDrainQueue('https://queue', async () => {});
       assert.deepStrictEqual(emitted(), ['PollDrainDepthFailed']);
+
+      // A hinted receive skips the gate, so it has its own pair: found messages (the hint was right) or nothing.
+      logs = [];
+      scriptReceives([batch('a'), []]);
+      const hints = [true, false];
+      setGetQueueDepth(async () => 0);
+      await pollAndDrainQueue('https://queue', async () => {}, { longPollHint: () => hints.shift() ?? false });
+      assert.deepStrictEqual(emitted(), ['PollDrainHintedLongPollHit', 'PollDrainGatedEmpty']);
+
+      logs = [];
+      scriptReceives([[]]);
+      await pollAndDrainQueue('https://queue', async () => {}, { longPollHint: () => true });
+      assert.deepStrictEqual(emitted(), ['PollDrainHintedLongPollMiss']);
     } finally {
       if (originalFunctionName === undefined) delete process.env.AWS_LAMBDA_FUNCTION_NAME;
       else process.env.AWS_LAMBDA_FUNCTION_NAME = originalFunctionName;

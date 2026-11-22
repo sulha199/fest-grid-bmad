@@ -216,6 +216,7 @@ export async function pollAndDrainQueue(
       if (hinted) {
         messages = await receive(LONG_POLL_WAIT_SECONDS);
         console.log(`pollAndDrainQueue: outcome=hinted-long-poll messages=${messages.length}`);
+        emitOpsMetric(messages.length > 0 ? OpsMetric.PollDrainHintedLongPollHit : OpsMetric.PollDrainHintedLongPollMiss);
       } else {
         messages = await receive(0);
       }

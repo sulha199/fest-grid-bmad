@@ -85,14 +85,15 @@ export const handler = async (
     // AD-52 Rule 5: re-enqueue posts whose failed extraction has a retry due, before draining, so they are
     // picked up in this same tick. The drain's queue-depth gate (poll-and-drain-queue.ts) reads approximate,
     // eventually consistent counts, so when this pass enqueued anything the first receive long-polls instead
-    // (the hint below); a pass that threw may have enqueued some, so it counts too. Never lets a problem here
-    // stop the drain.
+    // (the hint below). The pass catches every per-post failure itself and keeps its partial `enqueued` count, so a
+    // throw out of it (the settings read or the due-posts query) happened before anything was enqueued and sets no
+    // hint: a pass that failed on every tick would otherwise cost a 20 s poll on every tick. Never lets a problem
+    // here stop the drain.
     let resumeMayHaveEnqueued = false;
     try {
       const resumed = await resumeDueExtractions();
       resumeMayHaveEnqueued = resumed.enqueued > 0;
     } catch (error) {
-      resumeMayHaveEnqueued = true;
       console.error('[ai-processor] resume pass failed; continuing with the drain:', error);
     }
     // AD-47 Rules 5-6: stalled stepped extractions are resumed (after one re-scrape when their images expired).
