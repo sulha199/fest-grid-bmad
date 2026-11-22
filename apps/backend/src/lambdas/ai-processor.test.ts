@@ -19,6 +19,8 @@ import {
   setGetQueueDepth,
 } from '../lib/aws/poll-and-drain-queue.js';
 import { setCallGeminiSeam, callGeminiSeam, setMarkPostExtractedSeam, markPostExtractedSeam } from '../lib/ai-processor/process-ai-job.js';
+import { enqueueStepMessage } from '../lib/ai-processor/extraction-chain.js';
+import { sendSqsMessage, setSendSqsMessage } from '../lib/aws/send-sqs-message.js';
 
 // Covers AC13: proves ai-processor.ts's new `{ jobType: 'poll-and-drain' }` branch (AC6) calls
 // pollAndDrainQueue with the queue URL sourced from AI_PROCESSING_QUEUE_URL (AC7 -- new to this
@@ -123,6 +125,50 @@ test('ai-processor lambda poll-and-drain branch', async (t) => {
     const result = await handler({ jobType: 'poll-and-drain' } as any, {} as any);
 
     assert.strictEqual(result, undefined);
+  });
+
+  // AD-47 Rule 5 / AD-52 Rule 5: a chain step is enqueued seconds before the next receive, so that receive must not trust
+  // the queue-depth gate's approximate counts. The real step counter is bumped by the real enqueue helper here.
+  await t.test('the receive after a handled message that enqueued a chain step is a long poll with no depth read', async () => {
+    process.env.AI_PROCESSING_QUEUE_URL = 'https://sqs.mock-ai-processing-queue';
+    const originalSendSqsMessage = sendSqsMessage;
+    setSendSqsMessage(async () => {});
+    try {
+      const waits: Array<number | undefined> = [];
+      let depthCalls = 0;
+      setGetQueueDepth(async () => { depthCalls += 1; return 0; });
+      let call = 0;
+      setReceiveSqsMessages(async (_queueUrl, _maxMessages, waitTimeSeconds) => {
+        waits.push(waitTimeSeconds);
+        call += 1;
+        return call === 1
+          ? [{
+              Body: JSON.stringify({
+                postId: 'post-chain-hint-test',
+                accountId: randomUUID(),
+                content: 'Some post content',
+                postUrl: 'https://test.com/p-chain-hint',
+                publishedAt: '2026-08-10T12:00:00Z',
+              }),
+              ReceiptHandle: 'rh-chain-hint',
+            }]
+          : [];
+      });
+      // The handled message "put the next step on the queue": the delete stub runs right after the handler.
+      setDeleteSqsMessage(async () => { await enqueueStepMessage({ postId: 'post-chain-hint-test' } as never); });
+      setCallGeminiSeam(async () => ({ text: JSON.stringify({ isEvent: false, events: [] }) }));
+      setMarkPostExtractedSeam(async () => ({} as any));
+
+      await handler({ jobType: 'poll-and-drain' } as any, {} as any);
+
+      assert.strictEqual(waits.length, 2);
+      // The first receive depends on what the resume passes did against the test database; the second is the one
+      // after the enqueue, and must be the plain long poll that never asks for the depth.
+      assert.strictEqual(waits[1], 20);
+      assert.strictEqual(depthCalls, 0);
+    } finally {
+      setSendSqsMessage(originalSendSqsMessage);
+    }
   });
 
   // The drain budget derives from the face-blur floor, so the expected values below do too (rather than
