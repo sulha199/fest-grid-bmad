@@ -264,3 +264,50 @@ Sample: 260 of the 3,404 unique stored schedule titles, drawn in three buckets (
 - **Rule v2** (5 outputs: event, registration, submission, announcement, preparation; a main-day override first, announcement before registration, "batch" alone no longer means registration, "collection" and "check sound" added to preparation) was tuned by reading the errors on the odd-numbered titles only. Held-out even-numbered titles: 128 of 130 exact, 119 of 119 on confident labels; the two misses are labelled "?" (mixed titles). On all 260: 254 exact, 235 of 235 on confident labels (the odd half was used for tuning, so only the even half is a fair number, and even that is not clean: I had already seen every title while labelling, and "check sound" in the rule came from an even-numbered title).
 - **Do not read that as production accuracy.** The sample is enriched for non-event titles on purpose. Re-weighted to the pool, the estimate for v2's non-counting flag is precision about 1.0 and recall about 1.0 on confident labels (v1: 0.975 and 0.92), but the 2,404 plain-event titles (no keyword at all) were sampled at 40 and only one of the 40 was non-counting (an unclear acronym, labelled "?"); by the rule of three, up to about 7.5% of that bucket (roughly 180 titles) could still hide a non-counting row. Mixed titles are the real limit: 25 of 260 (10%) are ones I could not label with confidence, and no rule resolves those ("Registrasi Ulang & Otter Show", "Registration and Fun Run").
 - **Reading for the architecture:** a title rule is good enough as the backfill's first pass and as the fallback when the model's stage is missing (11% of rows), and it should flag the mixed-title class for the model or a moderator instead of deciding it. The separate classification call is prepared (`classify-titles-call.ts`, `classify-call-analyze.mjs`) and scored against the same labels, but **not run**: the Gemini daily quota was still exhausted when I tried.
+
+## 11. Highlight from typed fields, placement of new instructions, separate stage call, 2026-11-22
+
+Run on the new key (500 requests per day, paced 4.2 s): 213 calls, 0 failures. Scripts: `ab-highlight.ts`, `ab-highlight-analyze.mjs`, `classify-titles-call.ts`, `classify-call-analyze.mjs`, `dump-prompts.ts` (writes the exact assembled prompts to `private/prompts/`). One run per cell, so everything below is a screening result, not a measured rate.
+
+### 11.1 Live posts with images (53 posts, 1 run, arms A, G-end, G-inline)
+| | A (production) | G-end | G-inline |
+|---|---|---|---|
+| Prompt tokens, average | 7,183 | 7,956 (+11%) | 7,902 (+10%) |
+| Output tokens, average | 397 | 473 (+19%) | 471 (+19%) |
+| Output cap hit (runaway) | 0 | 0 | 0 |
+| Events with a composed highlight | 4/53 | 33/52 | 30/50 |
+| `stage` filled (required in schema) | n/a | 191/191 | 191/191 |
+
+- **Stage was filled on every row** once required, and no run hit the output cap (earlier replay: 85% filled, 6 of 279 runs truncated). Still one run per cell.
+- **The main flag still lands on non-counting rows:** 4 of 191 (G-end) and 6 of 191 (G-inline) rows are main with a registration, announcement or preparation stage; 3 and 2 events have no main row. The code guard that derives `isMainSchedule` from the stage stays necessary.
+- **Grouping effect is small but real:** against A, G-end has fewer events on 1 post and more on 1; G-inline fewer on 2. One post went 3 events to 1 under both G arms (the same post as in 10.1). One post that A called a non-event, G-end read as an event.
+- **Composed highlight reaches 63% of events (33/52) with end and 60% (30/50) inline**, from prizes 13, promos 9, free 4, inclusions 4, performers 3 (end). Performers alone reach 4/53 events under A, so the typed fields roughly add six times the coverage.
+
+### 11.2 Placement: end versus inline
+- Per post, the end placement never extracted fewer promos than the inline one: 7 posts differ, all 7 in favour of end, 0 the other way. Prizes differ on 7 posts, inclusions on 9, the free flag on 3 (inline flagged more events free, 10 against 7). Captions mode is mixed: promos 11 and 11, but prizes 12 (end) against 18 (inline) and inclusions 9 against 11, and inline found 67 events where end found 60.
+- Reading: **the owner's concern (a rule at the bottom carries less weight) is not supported by this run.** On live posts the bottom placement extracts as much or more (promos clearly more); on captions inline extracts more prizes. So there is no consistent penalty for the bottom. More is not better by itself: the end placement may also over-extract (prices read as promos), and without labels for the live posts this cannot be separated. The caption-mode precision is the same for both (0.69 against 0.69; recall 0.95 against 1.0).
+- Output cap on captions: 1 of 41 runs for end, 0 of 41 for inline.
+- **Working answer to "add or rewrite":** adding the new items at the end was enough here; there is no sign that the per-event section has to be rewritten around them. One run, 53 posts, one model: confirm with two more runs on the posts where the two placements differ (about 60 calls) before relying on it.
+
+### 11.3 Composer quality on captions (37 captions, F-end and F-inline)
+- Presence of a highlight against the draft labels: precision 0.69 (F-end) and 0.69 (F-inline), recall 0.95 and 1.0. The free-text highlight of 5.1 had precision 0.75 and recall 0.98, so composing from fields **has not improved precision**; its gain is control (every number is traceable to a field) and the per-type wording, not accuracy.
+- Numbers grounded in the caption: 36/36 and 44/45. The value is verbatim in the caption in 23/36 and 30/45 cases; the rest are normalised wording.
+- Known composer faults, not yet fixed: a price read as a promo ("IDR 35K / GROUP"), "FREE ENTRY" delivered as a promo instead of `isFree`, and a wrong event type (workshop instead of performance) picking the wrong ladder. These are the cause of most of the 8 to 9 false positives, so they are the next thing to fix offline (no model call).
+- Same labels as before: the author's drafts, not reviewed by the owner.
+
+### 11.4 Separate stage call (text only, run 2 on 60 events, 295 calls in total)
+- Exact on 254 of 260 rows, 232 of 235 on confident labels, counting boundary right on 254 of 260; identical to run 1 except for 1 row that changed between runs. Rule v2 gets the same 254 of 260 (235 of 235 on confident labels).
+- Non-counting rows: 87 found, 4 false alarms, 2 missed. Cost: 373 prompt and 65 output tokens per event.
+- The 6 errors: 4 "event" read as registration (the promotion period of a promotion event, where the period is the event), 1 announcement read as event, 1 preparation read as event. A one-sentence prompt rule for promotion periods is the candidate fix; untested.
+- Reading: the call is as good as the title rule on this sample and not better, at the price of a model call. Its use is for the mixed titles the rule cannot decide, not as a replacement.
+
+### 11.5 What this changes
+| Topic | Recommendation |
+|---|---|
+| Stage in the extraction call | Feasible as a required field with the main flag derived in code; the one grouping regression (3 events to 1) remains, so keep the replay gate. |
+| Placement of new instructions | Adding at the end worked at least as well as inline; do not rewrite the per-event section for these fields. Confirm with 2 more runs. |
+| Highlight from fields | Reaches 63% of events at an output cost of about +19% tokens; precision is not better than the free-text highlight; fix the three composer faults, then decide. |
+| Separate stage call | Equal to the rule (254/260 each); use for mixed titles only. |
+| Cost to carry | About +770 prompt and +76 output tokens per post for facts plus stage. |
+
+Not measured: a non-lite model; stability of the placement result over more runs; precision of the live-post facts against labels (no labels exist for the 53 posts); the effect of the promotion-period sentence.

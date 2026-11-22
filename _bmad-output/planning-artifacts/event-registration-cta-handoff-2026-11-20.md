@@ -310,7 +310,7 @@ Report: `_bmad-output/poc/registration-extraction/findings.md` section 9. Conseq
 
 ## 13. Stage enum, price tiers and highlight composed from fields, 2026-11-21 (owner proposals and POC)
 
-Reports: `_bmad-output/poc/registration-extraction/findings.md` section 10 (stage and tiers replay, title rule against hand labels). The highlight proposal below is **not yet measured**; the replay scripts are ready and wait for Gemini quota.
+Reports: `_bmad-output/poc/registration-extraction/findings.md` section 10 (stage and tiers replay, title rule against hand labels). Results of the highlight, placement and separate stage-call replays (run 2026-11-22) are in findings section 11; the text below keeps the proposals and adds the outcome under each.
 
 **A. Schedule stage (owner proposal, tested).** A `stage` on each schedule decides what is an event day and what is only a timeline row (registration, submission, announcement, preparation). Why it matters: `selectDisplaySchedule` (packages/domain/src/events/selectDisplaySchedule.ts, mirrored by the backend `Query.events` ORDER BY subquery) takes the earliest upcoming schedule with no regard to its kind, so a registration window that precedes the event day wins the card date.
 - Enum for the date logic: `event`, `registration`, `submission`, `announcement`, `preparation`, `other`. `qualification` and `supporting` are not needed for dates: both count as event days and the title rule cannot tell them from `event` (29 of 48 v1 errors); keep them only if the UI needs them.
@@ -356,3 +356,10 @@ Reports: `_bmad-output/poc/registration-extraction/findings.md` section 10 (stag
 | OTHER / none | prize, discount, performers, free, inclusions | the default |
 
 Shared guards: a vague prize ("hadiah menarik", "jutaan") has no slot; "free" is dropped when a ticket price is stated on any schedule; performers need no new field (they already sit on schedules and are read as speakers, instructors or artists by type). Possible later fields per type, deliberately NOT in arm F because they are hard to verify or not yet shown to work: tenant or participant scale (market, festival), a headliner flag (performance), the cause and target amount (fundraiser), the topic (seminar). The replay report now shows, per rule type, how many events got a composed highlight.
+
+**G. Replay outcome, 2026-11-22 (findings section 11; one run per cell, screening only).**
+- Stage + facts in the one extraction call: stage filled on 191/191 rows when required, no output-cap hits in 53 posts x 2 placements; cost about +770 prompt and +76 output tokens per post (+11% and +19%). The main flag still sits on a non-counting row in 4 to 6 of 191 rows and 2 to 3 events lack a main row, so derive `isMainSchedule` from the stage in code. One post still collapses 3 events to 1 (same as before): keep the replay gate.
+- Placement (D): adding the new items at the END of the prompt was as good as inline or better on live posts (promos: end more on all 7 differing posts), mixed on captions (prizes more with inline). No evidence that the per-event section must be rewritten; confirm with 2 more runs on the posts where they differ.
+- Highlight from fields (C, F): a composed highlight on 63% of events (33/52) against 4/53 from performers alone; caption precision 0.69 and recall 0.95 to 1.0, so not better than the free-text highlight (0.75 and 0.98). Fix three composer faults first (a price read as a promo, "free entry" given as a promo, wrong event type) and re-score offline.
+- Separate stage call (A): 254/260 on both runs, equal to rule v2, 373 prompt tokens per event; use it for the mixed titles the rule cannot decide. Remaining errors are mostly promotion periods read as registration (candidate prompt sentence, untested).
+- Not measured: stability of the placement result, live-post facts against labels, a non-lite model.
