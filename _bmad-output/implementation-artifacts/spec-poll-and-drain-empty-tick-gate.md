@@ -13,63 +13,71 @@ context:
 
 ## Intent
 
-**Problem:** In prod, the scraper, AI processor and ingestor Lambdas run `pollAndDrainQueue` every 5 minutes (288/day each). Every receive long-polls for 20 s, so an empty tick, and the final empty receive after every drain, is billed for 20 s. Idle polling is about 15,100 GB-s/day, roughly 92% of the 400,000 GB-s/month Lambda free tier, which runs out around day 24 (same class as FIND-034).
+**Problem:** In prod, the scraper, AI processor and ingestor Lambdas run `pollAndDrainQueue` every 5 minutes (288/day each). Every receive long-polls 20 s, so an empty tick, and the final empty receive after every drain, is billed for 20 s. Idle polling is about 15,100 GB-s/day, about 92% of the ~16,500 GB-s/day the account uses, so the 400,000 GB-s/month Lambda free tier runs out around day 24 (same class as FIND-034).
 
-**Approach:** Gate every receive on "is there work?". Short-poll first (`WaitTimeSeconds: 0`); if that is empty, ask `GetQueueAttributes` for `ApproximateNumberOfMessages`; only a depth above 0 earns the existing 20 s long poll. Short polling alone is not enough: it samples a subset of servers and can return empty while messages exist.
+**Approach:** Gate every receive on "is there work?". Short-poll first (`WaitTimeSeconds: 0`); if that is empty, one `GetQueueAttributes` call reads `ApproximateNumberOfMessages`, `ApproximateNumberOfMessagesDelayed` and `ApproximateNumberOfMessagesNotVisible`; only a total above 0 earns the existing 20 s long poll. Short polling alone can return empty while messages exist.
 
 ## Boundaries & Constraints
 
 **Always:**
 - The gate applies to every receive in the loop, so the final receive after a drain is cheap too.
-- `pollAndDrainQueue`'s signature, options (`timeBudgetMs`, `perMessageBudgetMs`, `minRemainingMs`, `getRemainingTimeInMillis`) and behavior stay as they are. The long poll stays bounded by the same time budget and remaining-time guard.
-- `setReceiveSqsMessages` and `setDeleteSqsMessage` keep working. The depth call is a new seam in the same style (`getQueueDepth` / `setGetQueueDepth`).
-- A `GetQueueAttributes` error follows the existing receive-error path: `console.error`, return, next 5-minute tick retries. Never throw out of the handler.
-- A long poll that comes back empty ends the cycle (no loop on a depth that stays above 0).
-- An unreadable depth attribute fails open (treated as work, so it long-polls) so a message is never skipped.
+- `pollAndDrainQueue`'s signature, options (`timeBudgetMs`, `perMessageBudgetMs`, `minRemainingMs`, `getRemainingTimeInMillis`) and behavior stay as they are. `maxMessages` is computed once per iteration and passed to both polls. The guard is rechecked after the depth call, before the long poll.
+- `setReceiveSqsMessages` and `setDeleteSqsMessage` keep working. The depth call is a new seam in the same style (`getQueueDepth` / `setGetQueueDepth`) and returns one number: the sum of the three counts.
+- Delayed and not-visible messages count as work: AD-47 steps are enqueued with a 10 s delay (shorter than the long poll, so the chain continues in-tick), and a failed message is invisible until its 300 s visibility timeout ends.
+- A long poll that comes back empty ends the cycle. A long-poll error takes the existing receive-error path.
+- Fail open: the gate returns only when depth `=== 0`. A missing or unparsable attribute counts as work (`NaN` must long-poll).
+- A depth error is logged with a distinct `console.error` message and falls back to the long poll; it never throws out of the handler and never stops consumption.
+- One log line when a short poll was empty, naming the outcome: `gated-empty`, `long-poll-hit`, `long-poll-miss` or `depth-failed`.
 
-**Ask First:** Any change to IAM, schedules, memory sizes or timeouts. (IAM was checked: `grantConsumeMessages` already grants `sqs:GetQueueAttributes` on all 3 queues and `festgrid-backend-stack.test.ts` asserts it, so none is planned.)
+**Ask First:** Any change to IAM, schedules, memory sizes or timeouts. (IAM was checked: `grantConsumeMessages` already grants `sqs:GetQueueAttributes` on all 3 queues, asserted in `festgrid-backend-stack.test.ts`, so none is planned.)
 
-**Never:** Touch the dev/staging `SqsEventSource` path, cost alarms, or the three Lambda handlers' call sites. No deploy, no prod DB access. Do not rely on short polling alone.
+**Never:** Touch the dev/staging `SqsEventSource` path, cost alarms, or add logic to the three Lambda handlers' call sites. No deploy, no prod DB access. Do not rely on short polling alone.
 
 ## I/O & Edge-Case Matrix
 
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
-| Empty queue | short poll empty, depth 0 | return; no long poll; one receive + one depth call | N/A |
-| Short poll misses | short poll empty, depth > 0 | long poll (20 s) runs; its messages handled; loop continues | long poll empty: return |
+| Empty queue | short poll empty, depth 0 | return; no long poll; 1 receive + 1 depth call | N/A |
+| Short poll misses | short poll empty, depth > 0 | long poll (20 s) runs; messages handled; loop continues | long poll empty: return |
+| Delayed or in-flight only | short poll empty, visible 0, delayed or not-visible > 0 | long poll runs | N/A |
 | Messages present | short poll non-empty | handled as today; no depth call | N/A |
-| Depth fails | short poll empty, depth throws | log with `console.error`, return | does not reject |
-| Drain finishes | batch handled, next short poll empty, depth 0 | return cheaply | N/A |
-| Guard / budget | remaining-time or `perMessageBudgetMs` limits hit | same behavior as before the gate | N/A |
+| Depth fails | short poll empty, depth throws | log distinct error, then long poll | does not reject |
+| Depth unreadable | depth `NaN` | long poll | N/A |
+| Drain finishes | batch handled, next short poll empty, depth 0 | return cheaply, 1 depth call | N/A |
+| Guard / budget | remaining-time or `perMessageBudgetMs` limit hit | same behavior as before the gate | N/A |
 
 </frozen-after-approval>
 
 ## Code Map
 
-- `apps/backend/src/lib/aws/poll-and-drain-queue.ts` -- receive seam (`WaitTimeSeconds: 20` today), loop, error path.
-- `apps/backend/src/lib/aws/poll-and-drain-queue.test.ts` -- existing seam-based tests (node:test).
-- `apps/backend/src/lambdas/{scraper,ai-processor,ingestor}.test.ts` -- mock receive with empty queues, so they would reach the real depth call; they need the new seam stubbed.
+- `apps/backend/src/lib/aws/poll-and-drain-queue.ts` -- receive seam (`WaitTimeSeconds: 20`), loop, error path.
+- `apps/backend/src/lib/aws/poll-and-drain-queue.test.ts` -- 3 suites, each with its own `afterEach` restore.
+- `apps/backend/src/lambdas/{scraper,ai-processor,ingestor}.test.ts` -- mock empty receives, so they would reach the real depth call.
+- `apps/backend/src/lambdas/ai-processor.ts` (L80-82) -- comment says resumed posts are "picked up in this same tick"; becomes stale.
 - `apps/infrastructure/lib/festgrid-backend-stack.ts` (~L749-761) and its test (~L703-740) -- consume grants, already include `sqs:GetQueueAttributes`.
 - `docs/infrastructure/2-backend.md` -- Queuing System section.
-- `_bmad-output/implementation-artifacts/backlog.yaml` -- new row `FIND-261122-q5w` (minted with `scripts/backlog-new-id.py`).
+- Story 0.40 AC9 (`0-40-...md`) says `WaitTimeSeconds: 20`; superseded by this change, pointed to from the docs sentence (the story file is not edited).
+- `_bmad-output/implementation-artifacts/backlog.yaml` -- new row `FIND-261122-q5w`.
 
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `apps/backend/src/lib/aws/poll-and-drain-queue.ts` -- add optional `waitTimeSeconds` (default 20) to `receiveSqsMessages`; add `getQueueDepth` + `setGetQueueDepth`; gate each loop receive (short, then depth, then long) with errors on either call caught on the existing path -- cuts the idle 20 s block
-- [ ] `apps/backend/src/lib/aws/poll-and-drain-queue.test.ts` -- stub depth (0) in existing suites; add gate tests for the I/O matrix rows; confirm guard and `perMessageBudgetMs` tests still pass unmodified in intent
-- [ ] `apps/backend/src/lambdas/{scraper,ai-processor,ingestor}.test.ts` -- stub and restore `setGetQueueDepth` in each poll-and-drain suite's setup/teardown
+- [ ] `apps/backend/src/lib/aws/poll-and-drain-queue.ts` -- `receiveSqsMessages` gets optional `waitTimeSeconds` (default 20, clamped to an integer 0-20; call stays `receiveSqsMessages(queueUrl, undefined, 0)` with no per-message budget); add `getQueueDepth` + `setGetQueueDepth`; gate each loop receive as above -- cuts the idle 20 s block
+- [ ] `apps/backend/src/lib/aws/poll-and-drain-queue.test.ts` -- install a depth-0 stub at the start of every suite and restore it in `afterEach`; rename the guard test titled "long-poll ate it"; add tests for every I/O row, asserting receive args (`0` then `20`, same `maxMessages` on both) and depth call counts; cover both default implementations with `mock.method(SQSClient.prototype, 'send')` (command inputs, attribute parsing, `NaN` fallback)
+- [ ] `apps/backend/src/lambdas/{scraper,ai-processor,ingestor}.test.ts` -- install the depth stub at suite start, restore in `t.after`
+- [ ] `apps/backend/src/lambdas/ai-processor.ts` -- comment-only fix at L80-82 (resumed posts may now wait one tick)
 - [ ] `docs/infrastructure/2-backend.md` -- 1-2 sentences on the gate and why
 - [ ] `_bmad-output/implementation-artifacts/backlog.yaml` -- add `FIND-261122-q5w` (finding, `app:backend`, `app:infrastructure`; ref this spec)
 
 **Acceptance Criteria:**
-- Given an empty queue, when a tick runs, then it makes one `WaitTimeSeconds: 0` receive and one depth call and returns without any 20 s receive.
-- Given a short poll that missed messages (depth > 0), when the tick runs, then the long poll runs and its messages are handled and deleted.
-- Given the stack test, when synthesized, then each consumer Lambda still holds `sqs:GetQueueAttributes` on its queue (no IAM change).
+- Given an empty queue, when a tick runs, then it makes one `WaitTimeSeconds: 0` receive and one depth call and no 20 s receive.
+- Given a short poll that missed messages, or only delayed or in-flight messages, when the tick runs, then the long poll runs and its messages are handled and deleted.
+- Given the depth call throws, when the tick runs, then it logs and long-polls instead of stopping.
+- Given the stack test, when synthesized, then each consumer Lambda still holds `sqs:GetQueueAttributes` on its queue.
 
 ## Design Notes
 
-Idle cost is 1 short receive + 1 `GetQueueAttributes` per tick: about 1,730 SQS requests/day across the 3 queues, well inside the 1M/month SQS free tier. `ApproximateNumberOfMessages` is eventually consistent, so a just-sent message can wait one extra 5-minute tick. It counts visible messages only; delayed and in-flight ones are picked up on later ticks, as today.
+Idle cost per tick is 1 short receive + 1 `GetQueueAttributes`: about 1,730 SQS requests/day across the 3 queues, about 5% of the 1M/month SQS free tier. Counts are eventually consistent, so a just-sent message can wait one extra 5-minute tick, including posts the AI processor's resume passes enqueue just before the drain (delay, never loss). The expected idle Lambda cost falls from about 15,100 to roughly 1k GB-s/day; the AI tick still runs its DB resume passes first, so the real figure is to be confirmed from CloudWatch `REPORT` lines. Fallback if the gate proves flaky: `WaitTimeSeconds: 1` with no depth call (a long poll, no sampling miss, about 3-4x the cost, does not fix the 10 s chain delay).
 
 ## Verification
 
@@ -79,3 +87,6 @@ Idle cost is 1 short receive + 1 `GetQueueAttributes` per tick: about 1,730 SQS 
 - `cd apps/backend && npx tsc --noEmit` and `cd apps/infrastructure && npx tsc --noEmit` -- expected: clean
 - `cd apps/infrastructure && pnpm run test` (stack test) -- expected: pass
 - `uv run --python 3.11 --with pyyaml scripts/backlog-check.py` -- expected: no failure naming `FIND-261122-q5w`
+
+**Manual checks (after the next backend deploy):**
+- CloudWatch `REPORT` lines of an idle scraper, AI processor and ingestor tick show well under 1 s billed duration; the outcome log shows `gated-empty` dominating.
