@@ -28,7 +28,7 @@ t('type precedence: promotion beats competition beats performance; unknown goes 
 // ---- per type
 t('COMPETITION: total prize pool first; doorprize alone does not headline it', () => {
   assert.equal(txt(ev({ types: ['COMPETITION'], prizes: [{ kind: 'MONEY', value: 'Rp 10.000.000', isTotal: true }, { kind: 'ITEM', value: 'Trofi' }], promos: [{ kind: 'PERCENT_OFF', value: '10%' }] })), 'Total hadiah Rp 10.000.000');
-  assert.equal(txt(ev({ types: ['COMPETITION'], prizes: [{ kind: 'DOORPRIZE', value: 'Sepeda' }], inclusions: ['Jersey', 'Medali'] })), 'Peserta dapat Jersey, Medali');
+  assert.equal(txt(ev({ types: ['COMPETITION'], prizes: [{ kind: 'DOORPRIZE', value: 'Sepeda' }], inclusions: ['Jersey', 'Medali', 'Voucher kuliner'] })), 'Peserta dapat Voucher kuliner');
 });
 t('COMPETITION: free registration wording, and it beats inclusions', () => {
   assert.equal(txt(ev({ types: ['COMPETITION'], isFree: true, inclusions: ['Jersey'] })), 'Pendaftaran gratis');
@@ -118,5 +118,30 @@ t('routed free entry still yields to a stated ticket price', () => {
 t('early-bird and limited-quota wording counts as an offer cue', () => {
   assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'OTHER', value: 'EARLY BIRD IDR 99,999', evidence: 'EARLY BIRD IDR 99,999 nett/pax' }] })), 'EARLY BIRD IDR 99,999');
   assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'AMOUNT_OFF', value: 'HTM 98K', evidence: 'HTM spesial 98K untuk 10 pendaftar pertama' }] })), 'Potongan HTM 98K');
+});
+t('COMPETITION: what every participant gets (jersey, medal, snack) is not a highlight, but a workshop keeps its take-home items', () => {
+  assert.equal(txt(ev({ types: ['COMPETITION'], inclusions: ['Jersey', 'Medali', 'Snack'] })), null);
+  assert.equal(txt(ev({ types: ['WORKSHOP'], inclusions: ['Snack', 'Sertifikat'] })), 'Sudah termasuk Snack, Sertifikat');
+});
+t('a price-style promo with an early-bird cue in the ticket price is worded as early bird, not as a deduction', () => {
+  const e = ev({ types: ['PROMOTION'], schedules: [{ ticketPrice: 'IDR 99,999 nett/pax (Early Bird)' }], promos: [{ kind: 'AMOUNT_OFF', value: 'IDR 99,999 nett/pax', conditions: 'Now to December 15th', evidence: 'Only IDR 99,999 nett/pax' }] });
+  assert.equal(txt(e), 'Early bird IDR 99,999 nett/pax');
+});
+t('a PROMOTION-typed post with a stated window and a price-style promo shows it as a promo', () => {
+  const e = ev({ types: ['PROMOTION'], promos: [{ kind: 'AMOUNT_OFF', value: 'IDR 99,999 nett/pax', conditions: 'Now to December 15th', evidence: 'Only IDR 99,999 nett/pax' }] });
+  assert.equal(txt(e), 'Promo IDR 99,999 nett/pax');
+});
+t('a bare amount on a non-promotion post is still a price, not an offer', () => {
+  assert.equal(txt(ev({ types: ['COMPETITION'], promos: [{ kind: 'AMOUNT_OFF', value: 'Rp175.000', conditions: 'Regular Sale', evidence: 'Rp175.000 untuk kategori 3K' }] })), null);
+});
+t('isFree from the model needs a free word in the caption when the caption is known', () => {
+  const e = ev({ types: ['EXHIBITION'], isFree: true });
+  assert.equal(composeHighlight(e, { caption: 'Registration link: https://example.org/register' }), null);
+  assert.equal(composeHighlight(e, { caption: 'Masuk gratis untuk umum' })?.text, 'Gratis masuk');
+  assert.equal(composeHighlight(e)?.text, 'Gratis masuk'); // no caption passed: behaves as before
+});
+t('a free-entry promo is its own evidence even when the caption has no free word', () => {
+  const e = ev({ types: ['EXHIBITION'], promos: [{ kind: 'OTHER', value: 'Free entry for audience' }] });
+  assert.equal(composeHighlight(e, { caption: 'FREE ENTRY' })?.text, 'Gratis masuk');
 });
 console.log('all passed');

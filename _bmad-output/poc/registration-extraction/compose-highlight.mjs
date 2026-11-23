@@ -30,7 +30,7 @@ export function parseAmount(text) {
  */
 export const TYPE_RULES = {
   PROMOTION:   { ladder: ['promo', 'prize', 'inclusions', 'free'],                    people: 'Bintang tamu', free: 'Gratis',             includes: 'Gratis',         prizeRank: { ITEM: 3, MONEY: 2, DOORPRIZE: 3 } },
-  COMPETITION: { ladder: ['prize', 'free', 'inclusions', 'promo'],                    people: 'Juri',         free: 'Pendaftaran gratis', includes: 'Peserta dapat',  prizeRank: { MONEY: 4, ITEM: 3, SCHOLARSHIP: 3 } }, // a doorprize or a certificate alone is a side perk, not the headline
+  COMPETITION: { ladder: ['prize', 'free', 'inclusions', 'promo'],                    people: 'Juri',         free: 'Pendaftaran gratis', includes: 'Peserta dapat',  skipCommonPerks: true, prizeRank: { MONEY: 4, ITEM: 3, SCHOLARSHIP: 3 } }, // a doorprize or a certificate alone is a side perk, not the headline
   PERFORMANCE: { ladder: ['performers', 'promo', 'free', 'prize', 'inclusions'],       people: 'Penampil',     free: 'Gratis masuk',       includes: 'Termasuk',       prizeRank: { MONEY: 2, ITEM: 2, DOORPRIZE: 3 } },
   SEMINAR:     { ladder: ['performers', 'inclusions', 'free', 'promo', 'prize'],       people: 'Pembicara',    free: 'Gratis',             includes: 'Dapat',          prizeRank: { CERTIFICATE: 3, SCHOLARSHIP: 3, ITEM: 2, DOORPRIZE: 2, MONEY: 1 } },
   WORKSHOP:    { ladder: ['inclusions', 'performers', 'free', 'promo', 'prize'],       people: 'Instruktur',   free: 'Gratis',             includes: 'Sudah termasuk', prizeRank: { CERTIFICATE: 3, ITEM: 2, DOORPRIZE: 2 } },
@@ -53,9 +53,22 @@ const DISCOUNT_CUE = /(%|persen|diskon|disc\b|discount|potongan|potong\b|hemat|\
 const FREE_ENTRY = /^\s*(free|gratis)\s*(entry|entrance|admission|masuk|tiket|ticket|registration|pendaftaran)\b|\b(masuk|entry|entrance|admission)\s+(gratis|free)\b/i;
 const promoText = (p) => `${p?.value ?? ''} ${p?.conditions ?? ''} ${p?.evidence ?? ''}`;
 const isFreeEntryPromo = (p) => FREE_ENTRY.test(clean(p?.value));
-const realPromo = (p) => p?.value && hasAmountOrName(clean(p.value)) && !isFreeEntryPromo(p) && (p.kind === 'BUY_GET' || p.kind === 'FREE_ITEM' || DISCOUNT_CUE.test(promoText(p)));
+// An early-bird or presale price is an offer even when the promo's own text carries no discount word ("Only IDR 99,999 nett/pax"): the cue may sit in
+// the ticket price of the same event ("IDR 99,999 nett/pax (Early Bird)"), or the post is typed PROMOTION and the offer has a stated condition (a window).
+const EARLY = /(early ?bird|pre-?sale|pre-?order|flash sale|super ?early)/i;
+const digitsOnly = (s) => String(s ?? '').replace(/\D/g, '');
+const ticketCue = (p, e) => (e?.schedules ?? []).some((s) => s?.ticketPrice && EARLY.test(String(s.ticketPrice)) && digitsOnly(s.ticketPrice).includes(digitsOnly(p?.value)) && digitsOnly(p?.value).length >= 3);
+const promotionWindow = (p, e) => (e?.types ?? []).includes('PROMOTION') && !!clean(p?.conditions);
+const realPromo = (p, e) => p?.value && hasAmountOrName(clean(p.value)) && !isFreeEntryPromo(p) && (p.kind === 'BUY_GET' || p.kind === 'FREE_ITEM' || DISCOUNT_CUE.test(promoText(p)) || ticketCue(p, e) || promotionWindow(p, e));
+// A promo whose value is a price ("Only IDR 99,999") is a special price, not an amount taken off.
+const PRICE_STYLE = /(\bonly\b|\bhanya\b|\bcuma\b|seharga|\bjadi\b|menjadi|\bprice\b|\bharga\b|early ?bird|pre-?sale)/i;
+const priceStyle = (p, e) => /^\s*(rp|idr)/i.test(clean(p?.value)) && (PRICE_STYLE.test(promoText(p)) || ticketCue(p, e));
+// What a participant gets in every race or contest is not what makes this one stand out. Applied to COMPETITION only: for a workshop the take-home items ARE the point.
+const COMMON_PERK = /^(jersey|kaos|t-?shirt|tshirt|medali|medal|bib|nomor dada|race ?kit|racepack|snack|konsumsi|minum|air mineral|sertifikat|e-?sertifikat|certificate|e-?certificate|goodie ?bag|totebag|tote bag)\b/i;
+// "free" claimed by the model's flag must be backed by the post's own words when the caption is known (the flag has no evidence field).
+const FREE_CUE = /(gratis|\bfree\b|tanpa biaya|tidak dipungut|bebas biaya|cuma-cuma|no fee|rp\.?\s?0\b)/i;
 /** The event as the composer reads it: free-entry promos become the isFree fact (unless the model said it is not free). */
-const normalise = (e) => (e.promos ?? []).some(isFreeEntryPromo) && e.isFree == null ? { ...e, isFree: true } : e;
+const normalise = (e) => (e.promos ?? []).some(isFreeEntryPromo) && e.isFree == null ? { ...e, isFree: true, freeFromPromo: true } : e;
 
 const candidates = {
   prize: (e, R) => {
@@ -80,34 +93,37 @@ const candidates = {
     return null;
   },
   promo: (e) => {
-    const ps = (e.promos ?? []).filter(realPromo);
+    const ps = (e.promos ?? []).filter((p) => realPromo(p, e));
     if (!ps.length) return null;
     const rank = (p) => ({ PERCENT_OFF: 5, BUY_GET: 4, AMOUNT_OFF: 3, FREE_ITEM: 3, BUNDLE: 2, CASHBACK: 2, OTHER: 1 }[p.kind] ?? 0);
     const best = [...ps].sort((a, b) => rank(b) - rank(a) || (parseFloat(String(b.value).replace(/\D/g, '')) || 0) - (parseFloat(String(a.value).replace(/\D/g, '')) || 0))[0];
     const v = clean(best.value);
     const withWord = (w) => (new RegExp(`^${w}`, 'i').test(v) ? v : `${w} ${v}`);
+    if (priceStyle(best, e)) { const t = cut(`${EARLY.test(promoText(best)) || ticketCue(best, e) ? 'Early bird' : 'Promo'} ${v}`); return t ? { text: t, kind: 'DISCOUNT', source: 'promos' } : null; }
     const text = cut(best.kind === 'PERCENT_OFF' ? withWord('Diskon') : best.kind === 'AMOUNT_OFF' ? withWord('Potongan') : best.kind === 'FREE_ITEM' ? withWord('Gratis') : best.kind === 'CASHBACK' ? withWord('Cashback') : best.kind === 'BUNDLE' ? withWord('Paket') : v);
     return text ? { text, kind: 'DISCOUNT', source: 'promos' } : null;
   },
-  free: (e, R) => {
+  free: (e, R, ctx) => {
     if (e.isFree !== true) return null;
+    if (ctx?.caption != null && !e.freeFromPromo && !FREE_CUE.test(ctx.caption)) return null; // the flag alone is not evidence
     const priced = (e.schedules ?? []).some((s) => s.ticketPrice && !/^\s*(gratis|free|0|rp\.?\s*0)\b/i.test(String(s.ticketPrice))); // a stated price elsewhere contradicts "free"
     return priced ? null : { text: R.free, kind: 'FREE', source: 'isFree' };
   },
   inclusions: (e, R) => {
-    const xs = (e.inclusions ?? []).map(clean).filter((x) => x && !VAGUE.test(x));
+    const xs = (e.inclusions ?? []).map(clean).filter((x) => x && !VAGUE.test(x) && !(R.skipCommonPerks && COMMON_PERK.test(x)));
     if (!xs.length) return null;
     for (const n of [3, 2, 1]) { const t = cut(`${R.includes} ${xs.slice(0, n).join(', ')}`); if (t) return { text: t, kind: 'BENEFIT', source: 'inclusions' }; }
     return null;
   },
 };
 
-export function composeHighlight(raw) {
+/** ctx.caption (optional): the post's text, used to check claims the model made without evidence (isFree). */
+export function composeHighlight(raw, ctx) {
   const e = normalise(raw);
   const type = ruleTypeOf(e.types);
   const R = TYPE_RULES[type];
   for (const name of R.ladder) {
-    const hit = candidates[name](e, R);
+    const hit = candidates[name](e, R, ctx);
     if (hit) return { ...hit, type };
   }
   return null;

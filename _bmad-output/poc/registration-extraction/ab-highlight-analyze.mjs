@@ -32,7 +32,7 @@ if (cap.length) {
     let tp = 0, fp = 0, fn = 0, tn = 0, withHl = 0, events = 0, grounded = 0, verbatim = 0, kindBoth = 0, kindAgree = 0; const src = {}, typ = {}, evByType = {}, perId = new Map(); const fpEx = [], fnEx = [];
     for (const r of rs) {
       const c = sample.get(r.id)?.caption ?? ''; const L = labels[r.id] ?? {}; const capD = digitsOf(c), capF = flat(c);
-      const comps = r.ev.map((e) => composeHighlight(e)).filter(Boolean);
+      const comps = r.ev.map((e) => composeHighlight(e, { caption: c })).filter(Boolean);
       events += r.ev.length; withHl += comps.length;
       for (const e of r.ev) { const ty = ruleTypeOf(e.types); evByType[ty] = (evByType[ty] ?? 0) + 1; }
       for (const h of comps) {
