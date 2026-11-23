@@ -1530,6 +1530,10 @@ This document defines the core architectural invariants for the FestDaily applic
         boxes in the coordinate space of whatever image it was given; pre-resizing ourselves would
         only risk shrinking small/distant faces below a recoverable resolution and would force an
         extra coordinate-remapping step before Rule 4's blur, for no compute or accuracy benefit.
+        **Amended 2026-11-23 (prod `Runtime.OutOfMemory`):** detection now runs on a copy whose longest edge
+        is capped at 1024 px (`FACE_DETECTION_MAX_EDGE`, never enlarged), with the boxes mapped back to the
+        original; blur is still applied at original resolution (Rule 4). SSD MobileNetV1 resizes any input to a fixed
+        512 px network input, and decoding a 12 MP raster pinned ~0.9 GB of never-shrinking WASM memory.
         Runs in the same AI Processor Lambda that already holds the fetched image bytes — no
         second fetch.
     4.  **Processing order (correctness-critical):** detect faces and apply the Gaussian blur at

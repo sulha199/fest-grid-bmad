@@ -23,6 +23,7 @@ import * as tf from '@tensorflow/tfjs';
 // Side-effect import: registers the WASM backend with tf.
 import '@tensorflow/tfjs-backend-wasm';
 import path from 'node:path';
+import { logFaceBlurMem } from './face-blur-mem-log.js';
 
 // No official TypeScript types ship for the `dist/face-api.node-wasm.js` subpath entry (only
 // the package's root `types/face-api.d.ts` is published, matching the browser/ESM build) --
@@ -40,6 +41,20 @@ let modelLoadedPromise: Promise<void> | null = null;
 
 /** Gaussian-blur sigma applied over each detected face's bounding box (AD-28 Rule 4). */
 const FACE_BLUR_SIGMA = 15;
+
+/**
+ * Longest edge (px) of the copy the detector sees. Detection only -- the blur composite and the
+ * returned buffer stay at the original resolution (AD-28 Rule 4).
+ *
+ * Why this is safe for recall (verified in node_modules/@vladmandic/face-api, 2026-11-23):
+ * `SsdMobilenetv1.forwardInput` calls `input.toBatchTensor(512, false)`, which pads the tensor to
+ * a square and `resizeBilinear`s it to a FIXED 512x512 network input, whatever size we pass. A
+ * 1024 px copy is therefore still downsampled 2x by the network, so it sees the same 512 px
+ * input as a full-size image does (and sharp's resize prefilters, where a 4000 px -> 512 px
+ * bilinear resize does not). The point of the cap: the WASM linear memory grows to the largest
+ * decoded raster and never shrinks, so a 12 MP decode pinned ~0.9 GB RSS per warm environment.
+ */
+export const FACE_DETECTION_MAX_EDGE = 1024;
 
 function resolveModelDir(): string {
   // Lambda runtime (AWS sets LAMBDA_TASK_ROOT automatically): the model weights are copied by
@@ -98,7 +113,23 @@ export async function detectAndBlurFaces(
 ): Promise<DetectAndBlurFacesResult> {
   await ensureBackendAndModelReady();
 
-  const { data, info } = await sharp(imageBytes).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  // Header-only read (no raster decode): the ORIGINAL dimensions, to map detection boxes back.
+  const originalMeta = await sharp(imageBytes).metadata();
+  const originalWidth = originalMeta.width;
+  const originalHeight = originalMeta.height;
+
+  // Detection input only: capped at FACE_DETECTION_MAX_EDGE, never enlarged, so an image that is
+  // already <= the cap takes exactly the pre-existing path (no resize, scale factors 1).
+  // No `.rotate()`, matching the behaviour before this change.
+  const { data, info } = await sharp(imageBytes)
+    .removeAlpha()
+    .resize({ width: FACE_DETECTION_MAX_EDGE, height: FACE_DETECTION_MAX_EDGE, fit: 'inside', withoutEnlargement: true })
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const imageWidth = originalWidth ?? info.width;
+  const imageHeight = originalHeight ?? info.height;
+  const scaleX = imageWidth / info.width;
+  const scaleY = imageHeight / info.height;
   const tensor = tf.tensor3d(new Uint8Array(data), [info.height, info.width, info.channels]);
   let detections;
   try {
@@ -115,6 +146,15 @@ export async function detectAndBlurFaces(
   }
 
   const faceCount = detections.length;
+  const sourceFields = {
+    sourceWidth: imageWidth,
+    sourceHeight: imageHeight,
+    sourceMegapixels: Math.round((imageWidth * imageHeight) / 1e4) / 100,
+    detectionWidth: info.width,
+    detectionHeight: info.height,
+    faceCount,
+  };
+  logFaceBlurMem('detect', sourceFields);
   if (faceCount === 0) {
     // Nothing to blur -- return the original bytes unchanged rather than an unnecessary
     // decode/re-encode round trip through sharp.
@@ -124,10 +164,12 @@ export async function detectAndBlurFaces(
   const composites: { input: Buffer; top: number; left: number }[] = [];
   for (const detection of detections) {
     const box = detection.box;
-    const left = Math.max(0, Math.round(box.x));
-    const top = Math.max(0, Math.round(box.y));
-    const width = Math.min(info.width - left, Math.round(box.width));
-    const height = Math.min(info.height - top, Math.round(box.height));
+    // Boxes are in detection-image coordinates: scale to the original (x and y separately),
+    // round, then clamp against the ORIGINAL dimensions.
+    const left = Math.max(0, Math.round(box.x * scaleX));
+    const top = Math.max(0, Math.round(box.y * scaleY));
+    const width = Math.min(imageWidth - left, Math.round(box.width * scaleX));
+    const height = Math.min(imageHeight - top, Math.round(box.height * scaleY));
     if (width <= 0 || height <= 0) continue; // degenerate/out-of-bounds box, skip defensively
 
     const blurredRegion = await sharp(imageBytes)
@@ -143,6 +185,7 @@ export async function detectAndBlurFaces(
   }
 
   const buffer = await sharp(imageBytes).composite(composites).toBuffer();
+  logFaceBlurMem('composite', sourceFields);
   return { buffer, faceCount };
 }
 

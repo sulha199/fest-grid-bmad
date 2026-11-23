@@ -1,4 +1,5 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
+import { logFaceBlurMem } from './face-blur-mem-log.js';
 import {
   type ProcessingJobMessage,
   POST_GROUPING_REASONS,
@@ -542,6 +543,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     // Story 3.6s (AC3) — explicit response-size cap.
     maxOutputTokens: env.geminiMaxOutputTokens,
   };
+
+  logFaceBlurMem('gemini-request-built', { postId: message.postId, imagesSent: Array.isArray(contents) ? contents.length - 1 : 0 });
 
   return {
     request,

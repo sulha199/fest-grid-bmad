@@ -59,6 +59,7 @@ import { logExtractionScheduleCounts, logEnqueueScheduleCounts, logEnqueueTotals
 // bundling regression there from a loud cold-start crash into a silently-caught error inside the
 // try/catch below -- caught during this fix's own review (Edge Case Hunter + Blind Hunter).
 import { detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
+import { logFaceBlurMem } from './face-blur-mem-log.js';
 import { uploadFaceBlurThumbnailSeam } from './upload-face-blur-thumbnail.js';
 import { backfillFaceDetectionAuditResultSeam } from './backfill-face-detection-audit-result.js';
 import { resolvePostPublisherOptIn } from '../posts/resolve-post-publisher-opt-in.js';
@@ -728,6 +729,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         // then fails -- only a failure inside detection itself leaves both audit columns null
         // (the documented, accepted gap).
         let detectionResult: { buffer: Buffer; faceCount: number } | null = null;
+        logFaceBlurMem('thumbnail-build-before', { postId: message.postId });
         try {
           detectionResult = await detectAndBlurFacesSeam(imageBytes, imageContentType);
         } catch (detectError) {
@@ -754,6 +756,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
             logFaceBlurThumbnailOutcome(message.postId, 'upload_failed');
           }
         }
+        logFaceBlurMem('thumbnail-build-after', { postId: message.postId });
       }
     }
   } else {
