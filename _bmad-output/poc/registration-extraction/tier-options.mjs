@@ -43,3 +43,19 @@ export function decideTiers(options) {
     freePublic: publicAmounts.includes(0),
   };
 }
+
+export const GENERAL = 'GENERAL';
+
+/**
+ * Tiers are decided inside ONE event. options carry `event` (an event name given to the model, or GENERAL when the price applies to the whole post).
+ * A GENERAL option counts for every event. Returns one entry per event name: {event, emit, tiers, amounts, fromPrice, freePublic}.
+ * An option whose `event` is not in the list is treated as GENERAL (the model is told to choose from the list; this keeps a stray value from vanishing).
+ */
+export function decideTiersPerEvent(options, eventNames) {
+  const names = eventNames ?? [];
+  const general = (options ?? []).filter((o) => !names.includes(o.event) || o.event === GENERAL);
+  return names.map((name) => {
+    const own = (options ?? []).filter((o) => o.event === name);
+    return { event: name, ...decideTiers([...own, ...general]) };
+  });
+}

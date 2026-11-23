@@ -1,6 +1,6 @@
 // POC: offline checks for tier-options.mjs (node tier-options.test.mjs). No model, no network.
 import assert from 'node:assert/strict';
-import { amountOf, decideTiers } from './tier-options.mjs';
+import { amountOf, decideTiers, decideTiersPerEvent } from './tier-options.mjs';
 
 const t = (name, fn) => { fn(); console.log('ok', name); };
 const o = (price, audience = 'PUBLIC', extra = {}) => ({ label: 'x', kind: 'CATEGORY', audience, price, ...extra });
@@ -55,5 +55,24 @@ t('a price string that runs on into other text still gives its leading amount', 
   assert.equal(amountOf('Rp30.000kids'), 30000);
   assert.equal(amountOf('1,5 juta'), 1500000);
   assert.equal(amountOf(50000), 50000);
+});
+t('per event: prices of different events are not tiers of one event', () => {
+  const opts = [o('Rp 60.000', 'PUBLIC', { event: 'Singing' }), o('Rp 20.000', 'PUBLIC', { event: 'Try Out' }), o('Gratis', 'PUBLIC', { event: 'Parenting' })];
+  assert.equal(decideTiers(opts).emit, true); // the post-level rule would emit tiers here
+  const r = decideTiersPerEvent(opts, ['Singing', 'Try Out', 'Parenting', 'Mini Expo']);
+  assert.deepEqual(r.map((x) => x.emit), [false, false, false, false]);
+  assert.deepEqual(r.map((x) => x.fromPrice), [60000, 20000, null, null]);
+});
+t('per event: two prices of one event make tiers, and a GENERAL price counts for every event', () => {
+  const opts = [o('Rp 75.000', 'PUBLIC', { event: 'A' }), o('Rp 100.000', 'STUDENT', { event: 'A' }), o('Rp 50.000', 'PUBLIC', { event: 'GENERAL' })];
+  const r = decideTiersPerEvent(opts, ['A', 'B']);
+  assert.equal(r[0].emit, true);
+  assert.deepEqual(r[0].amounts, [50000, 75000, 100000]);
+  assert.equal(r[1].emit, false);
+  assert.equal(r[1].fromPrice, 50000);
+});
+t('per event: an unknown event value is treated as GENERAL', () => {
+  const r = decideTiersPerEvent([o('Rp 10.000', 'PUBLIC', { event: 'Typo' })], ['A']);
+  assert.equal(r[0].fromPrice, 10000);
 });
 console.log('all passed');
