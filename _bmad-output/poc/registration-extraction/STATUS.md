@@ -21,7 +21,7 @@ Nothing under `apps/` or `packages/` was touched; no DB writes (the prod connect
 
 ## Not done / open
 - Variant C finished on all 60 captions (2026-11-23): emit decision 10 right, 0 wrong, 1 missed; amounts 50/51; 58/58 prices written in caption; 49 of 60 calls without option or tiers; 0 output-cap hits. Next: one stability run of variant C (about 47 calls).
-- Next: held-out captions for the composer, one stability run of variant C (about 47 calls), then 2 more runs (about 60 calls) on the live posts where end and inline differ; then bmad-correct-course.
+- Next: tier call per event (event field as an enum, findings 11.10), held-out captions for the composer, then 2 more runs (about 60 calls) on the live posts where end and inline differ; then bmad-correct-course.
 - The 95 draft caption labels (`private/labels-for-review.md`) are still not reviewed by the owner; every precision/recall figure is against those drafts.
 - Not measured anywhere: a non-lite Gemini model; flyer-only registration windows against a labelled truth; QR purpose classification (register vs follow vs map vs pay) beyond a manual look at a few posters; destination of dynamic QR redirectors; Lambda cold start with the WASM libraries on the real stack.
 - `bmad-correct-course` has not started. Backlog row `IDEA-261121-tvh` (dedup guard) is filed.
