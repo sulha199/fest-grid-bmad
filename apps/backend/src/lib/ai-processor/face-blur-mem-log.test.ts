@@ -21,6 +21,7 @@ test('face-blur-mem logging helper', async (t) => {
     assert.strictEqual(payload.faceCount, 2);
     assert.ok(Number.isInteger(payload.rssMb) && payload.rssMb > 0);
     assert.ok(Number.isInteger(payload.externalMb) && payload.externalMb >= 0);
+    assert.ok(Number.isInteger(payload.maxRssMb) && payload.maxRssMb >= payload.rssMb - 1, 'maxRssMb is the high-water mark');
   });
 
   await t.test('never throws when console.log or process.memoryUsage fails', () => {

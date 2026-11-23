@@ -2,6 +2,8 @@ import test from 'node:test';
 import * as assert from 'node:assert';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const faceapiModule = require('@vladmandic/face-api/dist/face-api.node-wasm.js');
 import sharp from 'sharp';
 import { detectAndBlurFaces, FACE_DETECTION_MAX_EDGE } from './detect-and-blur-faces.js';
 
@@ -117,4 +119,64 @@ test('detectAndBlurFaces', async (t) => {
     // Far corner of the canvas (no face) is untouched.
     assert.ok(minX > 200 && minY > 200, 'blur stays near the face, not the whole image');
   });
+  // Box-mapping maths, independent of detector recall: stub the detector's boxes (in detection
+  // coordinates) and assert exactly which region of the ORIGINAL image gets blurred.
+  async function blurredBounds(width: number, height: number, box: { x: number; y: number; width: number; height: number }) {
+    // `detectAllFaces` is a non-configurable export, so stub the net it delegates to.
+    const net = faceapiModule.nets.ssdMobilenetv1;
+    const original = net.locateFaces;
+    net.locateFaces = async () => [{ box }];
+    try {
+      const png = await sharp({ create: { width, height, channels: 3, background: { r: 0, g: 0, b: 0 } } })
+        .composite([{ input: Buffer.from(Array.from({ length: 64 * 64 * 3 }, (_, i) => (i * 37) % 256)), raw: { width: 64, height: 64, channels: 3 }, tile: true }])
+        .png()
+        .toBuffer();
+      const result = await detectAndBlurFaces(png, 'image/png');
+      const meta = await sharp(result.buffer).metadata();
+      assert.strictEqual(meta.width, width);
+      assert.strictEqual(meta.height, height);
+      const a = await sharp(png).removeAlpha().raw().toBuffer();
+      const b = await sharp(result.buffer).removeAlpha().raw().toBuffer();
+      let minX = width, minY = height, maxX = -1, maxY = -1;
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 3;
+          if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) {
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+          }
+        }
+      }
+      return { faceCount: result.faceCount, minX, minY, maxX, maxY };
+    } finally {
+      net.locateFaces = original;
+    }
+  }
+
+  await t.test('non-uniform scale: 3001x1999 maps x and y with separate factors, growing outward', async () => {
+    // detection copy is 1024x682 (scaleX 3001/1024=2.9307, scaleY 1999/682=2.9311).
+    // box x 100..200, y 50..150 -> left floor(293.07)=293, right ceil(586.1)=587; top floor(146.6)=146, bottom ceil(439.7)=440.
+    const r = await blurredBounds(3001, 1999, { x: 100, y: 50, width: 100, height: 100 });
+    assert.strictEqual(r.faceCount, 1);
+    assert.ok(r.minX >= 293 && r.minX <= 300, `minX ${r.minX}`);
+    assert.ok(r.maxX <= 586 && r.maxX >= 580, `maxX ${r.maxX}`);
+    assert.ok(r.minY >= 146 && r.minY <= 153, `minY ${r.minY}`);
+    assert.ok(r.maxY <= 439 && r.maxY >= 433, `maxY ${r.maxY}`);
+  });
+
+  await t.test('a portrait 2160x3840 canvas maps a box past the detection edge inside the original bounds', async () => {
+    // detection copy is 576x1024 (scale 3.75 both): a box overhanging the bottom/right is clamped to the original.
+    const r = await blurredBounds(2160, 3840, { x: 500, y: 950, width: 200, height: 200 });
+    assert.ok(r.maxX <= 2159 && r.maxY <= 3839);
+    assert.ok(r.maxX >= 2150 && r.maxY >= 3830, 'blur reaches the original right/bottom edge');
+    assert.ok(r.minX >= 1875 && r.minX <= 1885, `minX ${r.minX}`);
+    assert.ok(r.minY >= 3562 && r.minY <= 3572, `minY ${r.minY}`);
+  });
+
+  await t.test('an image exactly at the cap is not resized (scale 1, box used as is)', async () => {
+    const r = await blurredBounds(FACE_DETECTION_MAX_EDGE, 600, { x: 100, y: 100, width: 50, height: 40 });
+    assert.ok(r.minX >= 100 && r.minX <= 107 && r.maxX <= 149 && r.maxX >= 142, `x ${r.minX}-${r.maxX}`);
+    assert.ok(r.minY >= 100 && r.minY <= 107 && r.maxY <= 139 && r.maxY >= 132, `y ${r.minY}-${r.maxY}`);
+  });
+
 });

@@ -676,6 +676,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     if (isStillRelevant && blurredCoverImageBytes) {
       // Reuse the ALREADY-BLURRED cover bytes (Story 3.20) for the thumbnail -- never call
       // detectAndBlurFacesSeam again (AC1: one detection pass per image, not two).
+      logFaceBlurMem('thumbnail-upload-before', { postId: message.postId });
       try {
         const storedUrl = await uploadFaceBlurThumbnailSeam(message.postId, blurredCoverImageBytes, env);
         logFaceBlurThumbnailOutcome(message.postId, storedUrl ? 'stored' : 'upload_failed');
@@ -683,6 +684,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         console.error(`Face-blur thumbnail upload failed for post ${message.postId}:`, uploadError);
         logFaceBlurThumbnailOutcome(message.postId, 'upload_failed');
       }
+      logFaceBlurMem('thumbnail-upload-after', { postId: message.postId });
     } else {
       logFaceBlurThumbnailOutcome(message.postId, isStillRelevant ? 'not_attempted' : 'relevance_gated');
     }

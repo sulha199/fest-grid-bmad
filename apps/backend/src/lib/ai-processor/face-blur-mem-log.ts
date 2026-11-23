@@ -10,6 +10,8 @@ const BYTES_PER_MB = 1024 * 1024;
 export interface MemorySnapshot {
   rssMb: number;
   externalMb: number;
+  /** Process high-water RSS (what Lambda reports as Max Memory Used), so a transient peak inside a stage still shows. */
+  maxRssMb: number;
 }
 
 export function memorySnapshot(): MemorySnapshot {
@@ -17,6 +19,7 @@ export function memorySnapshot(): MemorySnapshot {
   return {
     rssMb: Math.round(usage.rss / BYTES_PER_MB),
     externalMb: Math.round(usage.external / BYTES_PER_MB),
+    maxRssMb: Math.round(process.resourceUsage().maxRSS / 1024), // kilobytes on Linux
   };
 }
 

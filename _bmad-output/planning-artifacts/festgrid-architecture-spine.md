@@ -1533,7 +1533,8 @@ This document defines the core architectural invariants for the FestDaily applic
         **Amended 2026-11-23 (prod `Runtime.OutOfMemory`):** detection now runs on a copy whose longest edge
         is capped at 1024 px (`FACE_DETECTION_MAX_EDGE`, never enlarged), with the boxes mapped back to the
         original; blur is still applied at original resolution (Rule 4). SSD MobileNetV1 resizes any input to a fixed
-        512 px network input, and decoding a 12 MP raster pinned ~0.9 GB of never-shrinking WASM memory.
+        512 px network input. Measured locally (2026-11-23, synthetic 12 MP images): ~0.9 GB RSS plateau without
+        the cap vs ~0.35 GB with it; this is a measurement, not a proven cause of the prod OOM (`face-blur-mem` logs pending).
         Runs in the same AI Processor Lambda that already holds the fetched image bytes — no
         second fetch.
     4.  **Processing order (correctness-critical):** detect faces and apply the Gaussian blur at

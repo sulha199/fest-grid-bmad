@@ -115,8 +115,13 @@ export async function detectAndBlurFaces(
 
   // Header-only read (no raster decode): the ORIGINAL dimensions, to map detection boxes back.
   const originalMeta = await sharp(imageBytes).metadata();
-  const originalWidth = originalMeta.width;
-  const originalHeight = originalMeta.height;
+  // Fail closed: without the original size the boxes cannot be mapped back, and callers rely on a
+  // throw to never upload an unblurred image.
+  const imageWidth = originalMeta.width;
+  const imageHeight = originalMeta.height;
+  if (!imageWidth || !imageHeight) {
+    throw new Error('detectAndBlurFaces: image dimensions unavailable');
+  }
 
   // Detection input only: capped at FACE_DETECTION_MAX_EDGE, never enlarged, so an image that is
   // already <= the cap takes exactly the pre-existing path (no resize, scale factors 1).
@@ -126,8 +131,6 @@ export async function detectAndBlurFaces(
     .resize({ width: FACE_DETECTION_MAX_EDGE, height: FACE_DETECTION_MAX_EDGE, fit: 'inside', withoutEnlargement: true })
     .raw()
     .toBuffer({ resolveWithObject: true });
-  const imageWidth = originalWidth ?? info.width;
-  const imageHeight = originalHeight ?? info.height;
   const scaleX = imageWidth / info.width;
   const scaleY = imageHeight / info.height;
   const tensor = tf.tensor3d(new Uint8Array(data), [info.height, info.width, info.channels]);
@@ -164,12 +167,16 @@ export async function detectAndBlurFaces(
   const composites: { input: Buffer; top: number; left: number }[] = [];
   for (const detection of detections) {
     const box = detection.box;
-    // Boxes are in detection-image coordinates: scale to the original (x and y separately),
-    // round, then clamp against the ORIGINAL dimensions.
-    const left = Math.max(0, Math.round(box.x * scaleX));
-    const top = Math.max(0, Math.round(box.y * scaleY));
-    const width = Math.min(imageWidth - left, Math.round(box.width * scaleX));
-    const height = Math.min(imageHeight - top, Math.round(box.height * scaleY));
+    // Boxes are in detection-image coordinates: scale to the original (x and y separately), then
+    // grow outward (floor the near edge, ceil the far edge) so a ~4 px detection pixel never
+    // shaves face off the blur, and clamp against the ORIGINAL dimensions. At scale 1 this
+    // differs from the old `round` only by the sub-pixel fraction of the box.
+    const left = Math.max(0, Math.floor(box.x * scaleX));
+    const top = Math.max(0, Math.floor(box.y * scaleY));
+    const right = Math.min(imageWidth, Math.ceil((box.x + box.width) * scaleX));
+    const bottom = Math.min(imageHeight, Math.ceil((box.y + box.height) * scaleY));
+    const width = right - left;
+    const height = bottom - top;
     if (width <= 0 || height <= 0) continue; // degenerate/out-of-bounds box, skip defensively
 
     const blurredRegion = await sharp(imageBytes)
