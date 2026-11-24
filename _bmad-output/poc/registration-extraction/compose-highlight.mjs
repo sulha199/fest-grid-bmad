@@ -64,7 +64,7 @@ const realPromo = (p, e) => p?.value && hasAmountOrName(clean(p.value)) && !isFr
 const PRICE_STYLE = /(\bonly\b|\bhanya\b|\bcuma\b|seharga|\bjadi\b|menjadi|\bprice\b|\bharga\b|early ?bird|pre-?sale)/i;
 const priceStyle = (p, e) => /^\s*(rp|idr)/i.test(clean(p?.value)) && (PRICE_STYLE.test(promoText(p)) || ticketCue(p, e));
 // What a participant gets in every race or contest is not what makes this one stand out. Applied to COMPETITION only: for a workshop the take-home items ARE the point.
-const COMMON_PERK = /^(jersey|kaos|t-?shirt|tshirt|medali|medal|bib|nomor dada|race ?kit|racepack|snack|konsumsi|minum|air mineral|sertifikat|e-?sertifikat|certificate|e-?certificate|goodie ?bag|totebag|tote bag)\b/i;
+const COMMON_PERK = /\b(jersey|kaos|t-?shirt|tshirt|medali|medal|bib|nomor dada|race ?kit|racepack|snack|konsumsi|minum|air mineral|sertifikat|e-?sertifikat|certificate|e-?certificate|goodie ?bag|totebag|tote bag)\b/i;
 // "free" claimed by the model's flag must be backed by the post's own words when the caption is known (the flag has no evidence field).
 const FREE_CUE = /(gratis|\bfree\b|tanpa biaya|tidak dipungut|bebas biaya|cuma-cuma|no fee|rp\.?\s?0\b)/i;
 /** The event as the composer reads it: free-entry promos become the isFree fact (unless the model said it is not free). */
