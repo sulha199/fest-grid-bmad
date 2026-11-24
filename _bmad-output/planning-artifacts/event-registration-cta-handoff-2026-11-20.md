@@ -51,7 +51,7 @@ fixed bottom bar (registration status left, one CTA right).
 | D3 | Slicing: **slice 1** = registration separated + bottom bar/side card + multi-option sheet + links + highlight; **slice 2** = phone, WhatsApp, message template; **slice 3** = price and eligibility per option. |
 | D4 | Multi-event posts: attach a detected number only when the post yields exactly one event, or the AI explicitly ties the option to an event. Otherwise keep today's "see the original post" message. |
 | D5 | Per-option price replaces `ticketPrice` for new events; legacy schedule price kept until backfill. |
-| D6 | Existing registration schedules: dry-run-first backfill script, then delete legacy rows (expand then contract). Dual-read in the UI meanwhile. |
+| D6 | ~~Existing registration schedules: dry-run-first backfill script, then delete legacy rows (expand then contract). Dual-read in the UI meanwhile.~~ **Withdrawn 2026-11-24** (owner, Open decision 8 of `sprint-change-proposal-2026-11-24-registration-extraction.md`): registration windows stay schedule rows with `stage = registration`; only links, phones and prices move to registration options; no legacy rows are deleted. |
 | D7 | Flyer-only posts cannot be string-checked: accept with a low-confidence mark, model returns the quoted evidence, measured in the extraction eval. |
 | D8 | CTA label per event type: extractor supplies a short label, fallback "Register". |
 | D9 | In scope: Share (cheap). prev/next buttons: separate story. "Remind me" reminder: its own epic (needs a scheduling backend; push infra exists). |
@@ -143,7 +143,7 @@ Primary by state, first match wins: (1) registration open -> Register, or WhatsA
 ## 5. Code pointers already found
 
 - `packages/database/schema.ts`: `events` (line ~483, `contactInfo` 505, `hasPrivateContact` 506), `schedules` (~755, `ticketPrice` ~771), `posts` (~309, caption is `posts.content`).
-- PRD (`_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md`): 4.1 EventInfo (contact/private-contact fields ~line 455-470), 4.4 Schedule (~623), 3.16 minimization, 5 Security (personal data, ~1799), multi-event rule ~line 93 ("Registration and sign-up windows are schedules of the event they belong to": **to be overturned**).
+- PRD (`_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md`): 4.1 EventInfo (contact/private-contact fields ~line 455-470), 4.4 Schedule (~623), 3.16 minimization, 5 Security (personal data, ~1799), multi-event rule ~line 93 ("Registration and sign-up windows are schedules of the event they belong to": ~~to be overturned~~ **stays; overturn withdrawn 2026-11-24**, see D6).
 - Extraction: `apps/backend/src/lib/ai-processor/build-gemini-request.ts` (prompt rule 5a private contact ~285, performer contact rule ~289), `packages/domain/src/events/transform-gemini-response-to-event-info.ts` (discard-at-classification), `apps/backend/src/validation/extracted-event.schema.ts`, `sanitize-event-links.ts` (story 0.37, `events.links` jsonb).
 - UI: `packages/ui/src/features/events/EventDetailView.tsx` (contact block ~425, links ~460, schedules ~478), `packages/ui/src/core/app-shell/AppShell.tsx` (mobile tab bar line ~134, rail ~169), `packages/ui/src/features/events/EventCard.tsx` (ignores `priceFrom`), `apps/web/src/features/events/EventDetailWrapper.tsx`.
 - Dedup/merge: `packages/domain/src/events/match-scoring.ts`, `dedup-decision-clues.ts`, `apps/backend/src/lib/events/merge-events.ts`.
@@ -251,7 +251,7 @@ Prototypes (2026-11-20, from the owner mocks, real tokens and real widths): `des
 
 **C. Planning path (after the POC)**
 - [ ] `bmad-correct-course`: change proposal covering this handoff
-- [ ] `bmad-prd` (update): privacy amendment (4.1, 5, 3.16), new `RegistrationOption` entity, overturn the "registration windows are schedules" rule, highlight, CTA bar
+- [ ] `bmad-prd` (update): privacy amendment (4.1, 5, 3.16), new `RegistrationOption` entity, ~~overturn the "registration windows are schedules" rule~~ (**withdrawn 2026-11-24**, see D6), highlight, CTA bar
 - [ ] `bmad-ux`: bottom bar, side card, sheet, card footer highlight, state table; reconcile with `EVENT-CARD-DESIGN.md`
 - [ ] `bmad-architecture`: AD-55, AD-56, retention sweep, cache split, bottom-bar slot
 - [ ] `bmad-create-epics-and-stories`: slice 1 / 2 / 3 as in D3, card redesign as its own story, reminder epic separate
@@ -303,7 +303,7 @@ Source: public pages `ig_p_De5_lHHk3Ux~2` (Kopi Kenangan BRI QRIS) and `ig_p_Df7
 ## 12. Follow-up POC, 2026-11-21 (registration window, multi-event A/B, QR)
 
 Report: `_bmad-output/poc/registration-extraction/findings.md` section 9. Consequences for the planning path:
-- **Registration window:** do not ask the model for a window field (it returned both dates in 0 of 36 runs). Keep the production prompt, and move windows out of `schedules` in code by title: 257 of 5,683 stored schedules (228 events); 62 events have only window schedules; 36 have the window marked main. Backfill needed.
+- **Registration window:** do not ask the model for a window field (it returned both dates in 0 of 36 runs). Keep the production prompt, and ~~move windows out of `schedules`~~ classify windows in code by title (**2026-11-24**: they stay schedule rows with `stage = registration`, see D6): 257 of 5,683 stored schedules (228 events); 62 events have only window schedules; 36 have the window marked main. Backfill needed.
 - **Prompt change risk:** the A/B replay on 11 multi-event posts (real images, 6 runs each) showed no collapse for the extended prompts, with arm B slightly worse and the production prompt unstable on its own for 2 posts. Re-run with more posts before any schema change ships.
 - **QR:** 14.8% of posts carry a decodable QR, 43% of codes are on later slides, 68% of URL codes sit behind redirectors or QR-generator hosts. zxing-wasm decodes 94% of the found set at 5 ms median and fits the AI-processor Lambda bundle (about 2 MB) once its WASM is embedded (it downloads it from a CDN by default). A QR channel from the model does not mean "register" (support, donation and link-in-bio codes were emitted as options in 12 of 15 runs).
 - **Architecture review:** needed before stories (`bmad-architecture`, section 8 C already lists AD-55, AD-56). Scope in the findings reply: QR step placement and contract, redirector and trust policy, pairing a code with its label, the `RegistrationOption` model with the window reclassification and backfill, caption retention, and the replay harness as a gate for prompt changes. Update `docs/infrastructure/architecture-diagram.md` when the QR library lands.

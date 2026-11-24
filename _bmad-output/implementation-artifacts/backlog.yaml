@@ -3149,7 +3149,7 @@ items:
      title: "Registration options, CTA bar, composed highlight, honest dates and the extraction update",
      ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, cross:prd, cross:architecture, web:events, pkg:domain, pkg:database, pkg:ui, app:backend],
-     note: "Proposed, not approved (unattended run). Ten open decisions in section 6 of the proposal; new Epic 11 proposed."}
+     note: "Proposed, not approved. Revision 2 (2026-11-24): split into Epic 11 (Extraction and honest dates) and Epic 12 (Registration, CTA bar and prices); stage rollout gate, /go/ link endpoint; Open decision 8 decided."}
 
   IDEA-261124-8jo:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
