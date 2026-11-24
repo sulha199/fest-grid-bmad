@@ -51,7 +51,7 @@ Open: stored as a column or composed at read time (architecture decision); the s
 **C5. One post-extraction text call (location keywords and tiers).** Today a post costs 2 requests (extraction and location keywords); this keeps it at 2 for a post with one event by merging the tier call into the location call (same input kind, both best-effort, parts validated separately, output cap = the sum).
 Tier decisions are made in code from the model's list of every priced option (label, kind, audience, conditions, price, optional dates): tiers only when two distinct amounts exist **inside one event**; `fromPrice` = the lowest positive PUBLIC amount; audience enum PUBLIC, STUDENT, CHILD, MEMBER, LOCAL_RESIDENT, GROUP, OTHER.
 For a post with two or more events the call needs the event list (it runs after extraction) and each option names its event; in the merged form it broke once in 7 posts (prices on the wrong events), so keep a **separate per-event tier call** there, or add a code check (identical options on one event, or an event without an option while others have one).
-A multi-event carousel can add a slide map in the same family of calls (C8). Not valid on the stepped (cursor) extraction path, where location runs per step and tiers need all events; that path is off by default.
+Requests per post under this plan: one event = 2 (extraction, one post-extraction call); several events = 3 (extraction, location, per-event tier; about 3% of posts); a multi-event carousel that adopts C8 = 4 (plus the slide map, about 1% of posts). Merging the slide map into the per-event tier call (both need the event list and, for the map, the images) would give 3 but is **not tested**; until it is, the slide map is its own call. Not valid on the stepped (cursor) extraction path, where location runs per step and tiers need all events; that path is off by default.
 Measured: tier decision equal to the separate call on 58 of 59 posts; location differs only in style (same most specific keyword on 87% of strings, same country on all except online strings).
 
 **C6. Dates for events without an event-day row.** Title rule v2 (`stage-classifier-v2.mjs`) is the first pass for old rows and a fallback (128 of 130 on held-out hand labels; 10% of titles are mixed). Fixes needed: a ticket-sale row with one date ("Presale 2", "Normal Ticket Sale") is the **event day** (sales stay open until the event starts); "collection" and "launch" in a product post are events, not preparation; titles that mix an announcement with a presentation or a prize-giving are the final day of the event (the rule checks "announcement" first and is wrong on them).
@@ -82,6 +82,7 @@ online locations are not geocoded; submission row is the event date of a competi
 | 4 | Own cover per event on carousels | Optional story, after the extraction finds the right events |
 | 5 | Wording of the dummy-date label on the card | "Pendaftaran sampai <date>" |
 | 6 | Whether the cursor path gets the post-extraction call | Keep it off; document that C5 does not apply there |
+| 7 | Merge the slide map into the per-event tier call for multi-event carousels | Untested; measure it only if C8 is adopted, otherwise keep a separate call |
 
 ## 5. Not recommended (measured or judged)
 
