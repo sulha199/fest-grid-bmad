@@ -30,7 +30,7 @@ if (mode === 'captions') {
 } else {
   const all: any[] = readFileSync('private/live-posts.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l));
   const byPid = new Map(all.map((r) => [r.pid, r]));
-  const sel: { pid: string }[] = JSON.parse(readFileSync('private/stage-posts.json', 'utf8'));
+  const sel: { pid: string }[] = JSON.parse(readFileSync(args.stage ?? 'private/stage-posts.json', 'utf8'));
   items = sel.map((s) => byPid.get(s.pid)).filter(Boolean).map((p: any) => {
     let extra: string[] = []; try { extra = typeof p.addl === 'string' ? JSON.parse(p.addl) : Array.isArray(p.addl) ? p.addl : []; } catch { extra = []; }
     return { id: p.pid, input: { postId: `ab-${p.pid}`, accountId: 'poc', content: p.content ?? '', imageUrl: p.image, additionalImageUrls: extra, postUrl: p.url ?? '', publishedAt: p.published, ownerDisplayName: p.owner } };

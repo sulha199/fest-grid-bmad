@@ -9,7 +9,7 @@ import { claimCall } from './quota-budget.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce<string[][]>((a, x, i, all) => (x.startsWith('--') ? [...a, [x.slice(2), all[i + 1]]] : a), []));
 const runs = Number(args.runs ?? 2), spacing = Number(args.spacing ?? 4200), maxImages = Number(args.maxImages ?? 10);
-const OUT = args.out ?? 'private/slide-map-runs.jsonl', NAMES = 'private/slide-map-names.json';
+const OUT = args.out ?? 'private/slide-map-runs.jsonl', NAMES = args.names ?? 'private/slide-map-names.json';
 const key = loadBackendEnv().systemGeminiApiKey;
 if (!key) { console.error('no SYSTEM_GEMINI_API_KEY in .env'); process.exit(2); }
 const NL = String.fromCharCode(10);
