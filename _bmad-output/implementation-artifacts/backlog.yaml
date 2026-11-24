@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-11-21"
+last_updated: "2026-11-24"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -3141,3 +3141,74 @@ items:
      ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md, apps/backend/src/lib/events/match-event-to-existing.ts, packages/domain/src/events/match-scoring.ts],
      touches: [app:backend, pkg:domain, web:events],
      note: "Raised 2026-11-21 from the Kopi Kenangan post (4 sibling events, slugs ~1..~3). The same-post guard stops siblings merging with each other, but a later single-event repost with a generic title ('Kopi Kenangan Payday Promo') scores 0.86 trigram similarity against the BCA sibling, above the 0.85 auto-link floor. With a matching organizer or shared link and the same start date it is promoted to the high tier and merges into BCA. Proposal: when the candidate event belongs to a post with grouping_reason SEPARATE_EVENTS, skip the mid-to-high promotion unless the strict normalised names are equal, so it stays a moderator suggestion. Similarity numbers are pg_trgm emulations, not prod measurements: check against prod before building. Detail: handoff section 10."}
+
+  # ── 2026-11-24 (bmad-correct-course: registration, highlight and extraction update) ──
+  CC-261124-vjh:
+    {type: proposal, status: triaged, created: 2026-11-24,
+     impact: user-visible, effort: l,
+     title: "Registration options, CTA bar, composed highlight, honest dates and the extraction update",
+     ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, cross:prd, cross:architecture, web:events, pkg:domain, pkg:database, pkg:ui, app:backend],
+     note: "Proposed, not approved (unattended run). Ten open decisions in section 6 of the proposal; new Epic 11 proposed."}
+
+  IDEA-261124-8jo:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: cosmetic, effort: s,
+     title: "Give each event its own cover slide on multi-event carousels",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, app:backend, web:events],
+     note: "C8 of the proposal; optional, about 1 post in 100; waits for owner open decision 4 and correct event extraction."}
+
+  IDEA-261124-f6n:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: internal, effort: s,
+     title: "Merge the slide map into the per-event tier call to keep multi-event carousels at 3 requests",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Untested; measure only if C8 is adopted (open decision 7)."}
+
+  IDEA-261124-wk6:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: latent, effort: s,
+     title: "Decide whether the stepped (cursor) extraction path gets the post-extraction call",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Open decision 6; path is off by default and location runs per step there, so C5 does not apply as designed."}
+
+  IDEA-261124-15a:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: user-visible, effort: m,
+     title: "Filter header: time dropdown with This week, one scrolling facet row, AI button on the search row",
+     ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [web:events, pkg:ui, cross:ux-tokens, cross:i18n],
+     note: "Handoff sections 9 and 11; outside C1-C10 of the input, so not planned in this course (assumption A8)."}
+
+  IDEA-261124-nta:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: user-visible, effort: l,
+     title: "Remind me before a registration deadline or event start (own epic)",
+     ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md],
+     touches: [web:events, app:backend, cross:notifications],
+     note: "Owner decision D9: its own epic, needs a scheduling backend; kept out of the CTA bar scope."}
+
+  FIND-261124-axb:
+    {type: finding, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: user-visible, effort: m,
+     title: "Remaining geocoding gaps: never-attempted schedules, silent account-default fallback, city check",
+     ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
+     touches: [web:locations, app:backend, pkg:domain],
+     note: "Handoff 13E: 3,703 schedules never attempted (27% outside Indonesia); C7 covers online-only text only (assumption A9)."}
+
+  IDEA-261124-5yi:
+    {type: idea, status: skipped, created: 2026-11-24, parent: CC-261124-vjh,
+     title: "Ask the model for registration windows or trust its main-schedule flag",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction],
+     note: "value: dropped on POC evidence: windows returned in 0 of 36 runs; main flag wrong on 11% of main rows. Stage per row plus code instead."}
+
+  IDEA-261124-ibh:
+    {type: idea, status: skipped, created: 2026-11-24, parent: CC-261124-vjh,
+     title: "Required evidence copy field on free-text extraction fields",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction],
+     note: "value: dropped on POC evidence: caused runaway output on 2.2% of calls and glued-on text; bounded shapes and an output cap instead."}
