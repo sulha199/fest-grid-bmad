@@ -1530,6 +1530,11 @@ This document defines the core architectural invariants for the FestDaily applic
         boxes in the coordinate space of whatever image it was given; pre-resizing ourselves would
         only risk shrinking small/distant faces below a recoverable resolution and would force an
         extra coordinate-remapping step before Rule 4's blur, for no compute or accuracy benefit.
+        **Amended 2026-11-23 (prod `Runtime.OutOfMemory`):** detection now runs on a copy whose longest edge
+        is capped at 1024 px (`FACE_DETECTION_MAX_EDGE`, never enlarged), with the boxes mapped back to the
+        original; blur is still applied at original resolution (Rule 4). SSD MobileNetV1 resizes any input to a fixed
+        512 px network input. Measured locally (2026-11-23, synthetic 12 MP images): ~0.9 GB RSS plateau without
+        the cap vs ~0.35 GB with it; this is a measurement, not a proven cause of the prod OOM (`face-blur-mem` logs pending).
         Runs in the same AI Processor Lambda that already holds the fetched image bytes — no
         second fetch.
     4.  **Processing order (correctness-critical):** detect faces and apply the Gaussian blur at
@@ -3365,7 +3370,9 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **Resume is automatic.** The tick begins with a resume pass: a post with a cursor, a claim older than the
         claim TTL, valid images and attempts left (counted in the cursor and never reset, growing delay, starting value
         6) has its next step re-enqueued from the persisted cursor. The pass reads the kill switch first (AD-51 Rule 2).
-        No human step. The claim TTL must exceed the longest step-message delay. A dead-lettered copy is harmless
+        No human step. The claim TTL must exceed one tick plus the longest step-message delay: a step that misses the
+        in-tick receive waits for the next tick (the drain long-polls the receive after it enqueues a step, bypassing the
+        queue-depth gate, so that is the exception). A dead-lettered copy is harmless
         because steps are idempotent (Rule 4, AD-48).
     5a. **A non-null cursor is a claim of any age.** `enqueuePostForProcessing` and the PENDING status derivation treat
         `extraction_cursor IS NOT NULL` as in progress regardless of `queued_for_extraction_at`; only the resume pass may
@@ -3563,7 +3570,8 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **One resume pass.** The resume pass at the start of the AI Lambda's tick (AD-47 Rule 5) also enqueues posts whose
         `extraction_next_attempt_at` is due, not extracted, with attempts left, through the same atomic claim as
         `enqueuePostForProcessing`. A post with a cursor (AD-47) is governed by its cursor counters and ends partial
-        (AD-50), not ATTEMPT_FAILED; the ledger governs every other post.
+        (AD-50), not ATTEMPT_FAILED; the ledger governs every other post. When this pass enqueues anything, the
+        drain's first receive long-polls instead of trusting the queue-depth gate's approximate counts.
     6.  **`ATTEMPT_FAILED` is derived.** Not extracted, `extraction_failure_reason` not null and no live claim. It means
         "retry pending" while `extraction_next_attempt_at` is set and "given up" when it is null. The domain rule, its SQL
         twin, the GraphQL enum and the moderator filter change together (the existing lockstep test checks every status

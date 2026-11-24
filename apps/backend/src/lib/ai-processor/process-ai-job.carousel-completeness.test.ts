@@ -111,6 +111,8 @@ test('processAiJob carousel completeness logging tests', async (t) => {
   const captureLog = (t: any) => {
     const logCalls: any[][] = [];
     const logMock = t.mock.method(console, 'log', (...args: any[]) => {
+      // `face-blur-mem` memory-measurement lines are unrelated to the face-signal line under test.
+      if (typeof args[0] === 'string' && args[0].startsWith('face-blur-mem ')) return;
       logCalls.push(args);
     });
     return { logCalls, logMock };

@@ -1,4 +1,5 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
+import { logFaceBlurMem } from './face-blur-mem-log.js';
 import {
   type ProcessingJobMessage,
   POST_GROUPING_REASONS,
@@ -365,6 +366,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     const { detectAndBlurFacesSeam } = await import('./detect-and-blur-faces.js');
     // Sequential by construction (AD-28 Rule 10, Task 3.3) -- every call site below awaits this
     // one image at a time, cover first then each slide in order, never concurrently.
+    logFaceBlurMem('pre-ai-blur-before', { postId: message.postId });
     const result = await detectAndBlurFacesSeam(imageBuffer, contentType);
     return { data: result.buffer.toString('base64'), blurred: result.buffer, faceCount: result.faceCount };
   }
@@ -542,6 +544,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     // Story 3.6s (AC3) — explicit response-size cap.
     maxOutputTokens: env.geminiMaxOutputTokens,
   };
+
+  logFaceBlurMem('gemini-request-built', { postId: message.postId, imagesSent: Array.isArray(contents) ? contents.length - 1 : 0 });
 
   return {
     request,
