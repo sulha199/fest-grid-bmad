@@ -7,7 +7,7 @@ const MAX = 40;
 const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
 const cut = (s) => (s.length <= MAX ? s : null);
 const hasAmountOrName = (v) => /\d/.test(v) || /[A-Za-z]{3,}/.test(v);
-const VAGUE = /(menarik|melimpah|banyak|jutaan|ribuan|berhadiah|surprise|mystery)/i;
+const VAGUE = /(menarik|melimpah|banyak|jutaan|ribuan|berhadiah|surprise|mystery|^\s*(hadiah|doorprize|prize|reward)s?\s+(eksklusif|exclusive)\s*$)/i;
 
 export function parseAmount(text) {
   // "Rp 50.000.000", "50 juta", "10jt", "100rb", "Rp1,5 juta"; a number of rupiah or null
@@ -29,7 +29,7 @@ export function parseAmount(text) {
  * kinds may headline this type (higher first; absent = not allowed). The type precedence below picks the row for an event with several types.
  */
 export const TYPE_RULES = {
-  PROMOTION:   { ladder: ['promo', 'priceHook', 'prize', 'inclusions', 'free'],                    people: 'Bintang tamu', free: 'Gratis',             includes: 'Gratis',         prizeRank: { ITEM: 3, MONEY: 2, DOORPRIZE: 3 } },
+  PROMOTION:   { ladder: ['promo', 'priceHook', 'prize', 'inclusions', 'free', 'performers'],                    people: 'Bintang tamu', free: 'Gratis',             includes: 'Gratis',         prizeRank: { ITEM: 3, MONEY: 2, DOORPRIZE: 3 } },
   COMPETITION: { ladder: ['prize', 'free', 'inclusions', 'promo'],                    people: 'Juri',         free: 'Pendaftaran gratis', includes: 'Peserta dapat',  skipCommonPerks: true, prizeRank: { MONEY: 4, ITEM: 3, SCHOLARSHIP: 3 } }, // a doorprize or a certificate alone is a side perk, not the headline
   PERFORMANCE: { ladder: ['performers', 'promo', 'free', 'prize', 'inclusions'],       people: 'Penampil',     free: 'Gratis masuk',       includes: 'Termasuk',       prizeRank: { MONEY: 2, ITEM: 2, DOORPRIZE: 3 } },
   SEMINAR:     { ladder: ['performers', 'inclusions', 'free', 'promo', 'prize'],       people: 'Pembicara',    free: 'Gratis',             includes: 'Dapat',          prizeRank: { CERTIFICATE: 3, SCHOLARSHIP: 3, ITEM: 2, DOORPRIZE: 2, MONEY: 1 } },
@@ -71,7 +71,9 @@ const PRICE_HOOK = /(mulai dari|\bmulai\b|starting (at|from)|starts? from|\bfrom
 const ONLY_WORD = /(\bcuma\b|\bhanya\b|\bonly\b|\bcukup\b)/i;
 const AMOUNT_TOKEN = /((?:rp|idr)\s*\.?\s*\d[\d.,]*(?:\s*(?:k|rb|ribu|jt|juta)\b)?|\d[\d.,]*\s*(?:k|rb|ribu|jt|juta)\b)/i;
 // What a participant gets in every race or contest is not what makes this one stand out. Applied to COMPETITION only: for a workshop the take-home items ARE the point.
-const COMMON_PERK = /\b(jersey|kaos|t-?shirt|tshirt|medali|medal|bib|nomor dada|race ?kit|racepack|snack|konsumsi|minum|air mineral|sertifikat|e-?sertifikat|certificate|e-?certificate|goodie ?bag|totebag|tote bag)\b/i;
+const COMMON_PERK = /\b(jersey|kaos|t-?shirt|tshirt|medali|medal|bib|nomor dada|race ?kit|racepack|snack|refreshment|makanan ringan|makan ringan|konsumsi|minuman|minum|air mineral|sertifikat|e-?sertifikat|certificate|e-?certificate|goodie ?bag|totebag|tote bag)\b/i;
+// "Dr. H. Faisal Pratama, S.Ag., M.Ag." -> "Dr. H. Faisal Pratama": what follows the first comma is dropped when it looks like degrees (letters, dots, commas, at most 32 characters, at least one dot).
+const stripDegrees = (n) => { const i = n.indexOf(','); if (i < 3) return n; const rest = n.slice(i + 1); return /^[\sA-Za-z.,]{1,32}$/.test(rest) && rest.includes('.') ? n.slice(0, i).trim() : n; };
 // "free" claimed by the model's flag must be backed by the post's own words when the caption is known (the flag has no evidence field).
 const FREE_CUE = /(gratis|\bfree\b|tanpa biaya|tidak dipungut|bebas biaya|cuma-cuma|no fee|rp\.?\s?0\b)/i;
 /** The event as the composer reads it: free-entry promos become the isFree fact (unless the model said it is not free). */
@@ -85,17 +87,20 @@ const candidates = {
     const v = clean(best.value);
     if (best.kind === 'CERTIFICATE') { const t = cut(/sertifikat|certificate/i.test(v) ? `Dapat ${v}` : `Dapat sertifikat ${v}`); return t ? { text: t, kind: 'BENEFIT', source: 'prizes' } : null; }
     const label = best.kind === 'MONEY' ? (best.isTotal ? 'Total hadiah' : 'Hadiah') : best.kind === 'SCHOLARSHIP' ? 'Beasiswa' : best.kind === 'DOORPRIZE' ? 'Doorprize' : 'Hadiah';
-    const text = cut(`${label} ${v}`);
+    const text = cut(new RegExp(`^${label}\\b`, 'i').test(v) ? v : `${label} ${v}`); // "Hadiah" is not written twice for a value that already starts with it
     return text ? { text, kind: 'PRIZE', source: 'prizes' } : null;
   },
   performers: (e, R) => {
     const names = [...new Set((e.schedules ?? []).flatMap((s) => (s.performers ?? []).map(clean)).filter(Boolean))];
     if (!names.length) return null;
     const lead = `${R.people}: `;
-    for (const shown of [2, 1]) {
-      const rest = names.length - shown;
-      const text = cut(`${lead}${names.slice(0, shown).join(', ')}${rest > 0 ? ` +${rest}` : ''}`);
-      if (text) return { text, kind: 'PERFORMERS', source: 'schedules.performers' };
+    // A name with its degrees ("Ust. Budi Santoso, M.Ag., Ph.D.") often does not fit the limit; the second pass drops the degrees (the limit skips, it never cuts).
+    for (const list of [names, [...new Set(names.map(stripDegrees))]]) {
+      for (const shown of [2, 1]) {
+        const rest = list.length - shown;
+        const text = cut(`${lead}${list.slice(0, shown).join(', ')}${rest > 0 ? ` +${rest}` : ''}`);
+        if (text) return { text, kind: 'PERFORMERS', source: 'schedules.performers' };
+      }
     }
     return null;
   },
@@ -104,7 +109,9 @@ const candidates = {
     if (!ps.length) return null;
     const rank = (p) => ({ PERCENT_OFF: 5, BUY_GET: 4, AMOUNT_OFF: 3, FREE_ITEM: 3, BUNDLE: 2, CASHBACK: 2, OTHER: 1 }[p.kind] ?? 0);
     const best = [...ps].sort((a, b) => rank(b) - rank(a) || (parseFloat(String(b.value).replace(/\D/g, '')) || 0) - (parseFloat(String(a.value).replace(/\D/g, '')) || 0))[0];
-    const v = clean(best.value);
+    // A long value ("FREE 1 Floral Milk Tea with every purchase of 1 drink with topping") is cut at its first condition word when it does not fit as written.
+    const whole = clean(best.value);
+    const v = cut(whole) ? whole : (whole.split(/\s+(?:with|dengan|setiap|every|untuk|for|when|jika|bila)\s/i)[0] || whole);
     const withWord = (w) => (new RegExp(`^${w}`, 'i').test(v) ? v : `${w} ${v}`);
     if (priceStyle(best, e)) { const t = cut(`${EARLY.test(promoText(best)) || ticketCue(best, e) ? 'Early bird' : 'Promo'} ${v}`); return t ? { text: t, kind: 'DISCOUNT', source: 'promos' } : null; }
     const text = cut(best.kind === 'PERCENT_OFF' ? withWord('Diskon') : best.kind === 'AMOUNT_OFF' ? withWord('Potongan') : best.kind === 'FREE_ITEM' ? withWord('Gratis') : best.kind === 'CASHBACK' ? withWord('Cashback') : best.kind === 'BUNDLE' ? withWord('Paket') : v);

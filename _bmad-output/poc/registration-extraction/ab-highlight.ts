@@ -24,10 +24,11 @@ const ARMS: string[] = args.arms ? args.arms.split(',') : mode === 'live' ? ['A'
 type Item = { id: string; input: any };
 let items: Item[] = [];
 if (mode === 'captions') {
-  const sample = new Map(readFileSync('private/sample.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l)).map((r) => [r.sampleId, r]));
+  // --sample file: another caption file with the same fields (private/sample2.jsonl, a fresh set); every caption of it is used
+  const sample = new Map(readFileSync(args.sample ?? 'private/sample.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l)).map((r) => [r.sampleId, r]));
   const usedIds = new Set(readFileSync('private/gemini-runs.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l).id));
   // --heldout true: the sample captions the composer rules were NOT fitted on (everything but the 37 above, no synthetic captions)
-  const ids = args.heldout ? [...sample.keys()].filter((id) => !usedIds.has(id) && !String(sample.get(id).post_id).startsWith('synthetic')) : [...usedIds];
+  const ids = args.sample ? [...sample.keys()] : args.heldout ? [...sample.keys()].filter((id) => !usedIds.has(id) && !String(sample.get(id).post_id).startsWith('synthetic')) : [...usedIds];
   items = ids.filter((id) => sample.has(id)).map((id) => { const r = sample.get(id); return { id, input: { postId: r.post_id, accountId: 'poc', content: r.caption, postUrl: '', publishedAt: r.published_at ?? new Date().toISOString() } }; });
 } else {
   const all: any[] = readFileSync('private/live-posts.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l));

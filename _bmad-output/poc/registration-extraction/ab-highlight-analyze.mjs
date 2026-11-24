@@ -1,5 +1,5 @@
 // POC: scores private/ab-highlight-runs.jsonl. Writes out/highlight-summary.json (aggregates only: no captions, names or post ids).
-//   node ab-highlight-analyze.mjs [--in private/ab-highlight-runs.jsonl] [--labels private/labels.json] [--detail]
+//   node ab-highlight-analyze.mjs [--in private/ab-highlight-runs.jsonl] [--labels private/labels.json] [--sample private/sample.jsonl] [--detail]
 //   captions mode: composed highlight vs the hand labels (caption-level presence, same definition as findings 5.1) and groundedness, stability, kind agreement.
 //   live mode    : A / F / G on real posts with images: runaway output, event and schedule count changes, tokens, composed share.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -25,7 +25,7 @@ const good = ok.filter((r) => !bad(r));
 // ---- captions mode
 const cap = good.filter((r) => r.mode === 'captions');
 if (cap.length) {
-  const sample = new Map(readFileSync('private/sample.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l)).map((r) => [r.sampleId, r]));
+  const sample = new Map(readFileSync(arg('sample', 'private/sample.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)).map((r) => [r.sampleId, r]));
   const labels = JSON.parse(readFileSync(arg('labels', 'private/labels.json'), 'utf8'));
   for (const arm of [...new Set(cap.map((r) => r.arm))].sort()) {
     const rs = cap.filter((r) => r.arm === arm); if (!rs.length) continue;

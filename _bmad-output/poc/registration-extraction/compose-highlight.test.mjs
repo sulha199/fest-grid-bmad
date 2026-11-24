@@ -56,8 +56,9 @@ t('PROMOTION: discount first, keeps the written offer, no doubled word', () => {
   assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'BUY_GET', value: 'Beli 1 Gratis 1' }] })), 'Beli 1 Gratis 1');
   assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'AMOUNT_OFF', value: 'Rp 25.000' }, { kind: 'PERCENT_OFF', value: '20%' }] })), 'Diskon 20%');
 });
-t('PROMOTION: performers never headline a promotion', () => {
-  assert.equal(txt(ev({ types: ['PROMOTION'], schedules: [{ performers: ['DJ X'] }] })), null);
+t('PROMOTION: a performer is the last resort, after promo, price, prize, take-home items and free entry (owner, 2026-11-24)', () => {
+  assert.equal(txt(ev({ types: ['PROMOTION'], schedules: [{ performers: ['DJ X'] }] })), 'Bintang tamu: DJ X');
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'PERCENT_OFF', value: '20%' }], schedules: [{ performers: ['DJ X'] }] })), 'Diskon 20%');
 });
 t('MARKET: free entry first, then promo, then a doorprize', () => {
   assert.equal(txt(ev({ types: ['MARKET'], isFree: true, prizes: [{ kind: 'DOORPRIZE', value: 'Sepeda' }] })), 'Gratis masuk');
@@ -157,5 +158,19 @@ t('a bare price is not a hook, and the hook is only for PROMOTION events', () =>
 t('a real discount still wins over a price hook', () => {
   const e = ev({ types: ['PROMOTION'], promos: [{ kind: 'PERCENT_OFF', value: '50%' }], schedules: [{ ticketPrice: 'Mulai dari 22K' }] });
   assert.equal(txt(e), 'Diskon 50%');
+});
+t('a speaker name with degrees that does not fit is shown without the degrees', () => {
+  const e = ev({ types: ['SEMINAR'], schedules: [{ performers: ['Ust. Budi Santoso, M.Ag., Ph.D.'] }] });
+  assert.equal(txt(e), 'Pembicara: Ust. Budi Santoso');
+  const two = ev({ types: ['SEMINAR'], schedules: [{ performers: ['Dr. H. Faisal Pratama, S.Ag., M.Ag.', 'Sunaryo', 'Hasan Wijaya'] }] });
+  assert.equal(txt(two), 'Pembicara: Dr. H. Faisal Pratama +2'); // two names with the title would be 44 characters: one name and the count
+  assert.equal(txt(ev({ types: ['SEMINAR'], schedules: [{ performers: ['Siti Rahmah, S.Psi'] }] })), 'Pembicara: Siti Rahmah, S.Psi'); // fits: kept as written
+});
+t('refreshment and drinks are common perks of a competition, a long buy-get value is cut at its condition, a prize is not worded twice', () => {
+  assert.equal(txt(ev({ types: ['COMPETITION'], inclusions: ['medali', 'refreshment'] })), null);
+  assert.equal(txt(ev({ types: ['COMPETITION'], inclusions: ['minuman'] })), null);
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'BUY_GET', value: 'FREE 1 Floral Milk Tea with every purchase of 1 drink with topping' }] })), 'FREE 1 Floral Milk Tea');
+  assert.equal(txt(ev({ types: ['COMPETITION'], prizes: [{ kind: 'ITEM', value: 'Hadiah sepeda motor' }] })), 'Hadiah sepeda motor');
+  assert.equal(txt(ev({ types: ['COMPETITION'], prizes: [{ kind: 'ITEM', value: 'hadiah eksklusif' }] })), null);
 });
 console.log('all passed');
