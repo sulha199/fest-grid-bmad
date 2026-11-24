@@ -3212,3 +3212,20 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction],
      note: "value: dropped on POC evidence: caused runaway output on 2.2% of calls and glued-on text; bounded shapes and an output cap instead."}
+
+  # ── 2026-11-22 ──────────────────────────────────────────────────────────────
+  FIND-261122-q5w:
+    {type: finding, status: triaged, created: 2026-11-22,
+     impact: internal, effort: s,
+     title: "Empty poll-and-drain ticks block 20 s of billed Lambda time, running the Lambda free tier out around day 24",
+     ref: [implementation-artifacts/spec-poll-and-drain-empty-tick-gate.md, apps/backend/src/lib/aws/poll-and-drain-queue.ts],
+     touches: [app:backend, app:infrastructure, cross:architecture],
+     note: "Same class as FIND-034 (Lambda SQS pollers run 24/7 on idle queues). Fix: short-poll first, long-poll only if queue depth > 0. Live after next backend deploy; confirm in CloudWatch REPORT."}
+
+  FIND-261122-lbv:
+    {type: finding, status: backlog, created: 2026-11-22,
+     impact: internal, effort: s,
+     title: "Alarm on poll-and-drain depth-failed and sustained long-poll-miss rates (gated and hinted)",
+     ref: [implementation-artifacts/spec-poll-and-drain-empty-tick-gate.md, apps/backend/src/lib/metrics/emit-metric.ts],
+     touches: [app:infrastructure, app:backend],
+     note: "Follow-up to FIND-261122-q5w (empty poll-and-drain ticks block 20 s of billed Lambda time). The PollDrain* metrics exist (9 custom metrics in total, 10 are free); no alarm yet, so a lost sqs:GetQueueAttributes grant or a wrong hint costs 20 s unseen."}

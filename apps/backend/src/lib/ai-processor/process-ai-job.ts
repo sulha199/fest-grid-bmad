@@ -59,6 +59,7 @@ import { logExtractionScheduleCounts, logEnqueueScheduleCounts, logEnqueueTotals
 // bundling regression there from a loud cold-start crash into a silently-caught error inside the
 // try/catch below -- caught during this fix's own review (Edge Case Hunter + Blind Hunter).
 import { detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
+import { logFaceBlurMem } from './face-blur-mem-log.js';
 import { uploadFaceBlurThumbnailSeam } from './upload-face-blur-thumbnail.js';
 import { backfillFaceDetectionAuditResultSeam } from './backfill-face-detection-audit-result.js';
 import { resolvePostPublisherOptIn } from '../posts/resolve-post-publisher-opt-in.js';
@@ -186,7 +187,18 @@ async function decideAndStartChain(input: FirstRequestChainInput): Promise<First
   return { started: false, partial: false };
 }
 
+// Brackets every exit path (return or throw) with `post-start` / `post-end` memory lines so the next prod logs show
+// which post grows the process and whether the growth is retained (measurement only; no flow change).
 export async function processAiJob(message: ProcessingJobMessage, deps?: ProcessAiJobDeps): Promise<void> {
+  logFaceBlurMem('post-start', { postId: message.postId });
+  try {
+    await processAiJobUnbracketed(message, deps);
+  } finally {
+    logFaceBlurMem('post-end', { postId: message.postId });
+  }
+}
+
+async function processAiJobUnbracketed(message: ProcessingJobMessage, deps?: ProcessAiJobDeps): Promise<void> {
   const env = loadBackendEnv();
 
   // AD-47: a step message of a stepped extraction carries the cursor; it reads its slides from there and runs on its own.
@@ -675,6 +687,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
     if (isStillRelevant && blurredCoverImageBytes) {
       // Reuse the ALREADY-BLURRED cover bytes (Story 3.20) for the thumbnail -- never call
       // detectAndBlurFacesSeam again (AC1: one detection pass per image, not two).
+      logFaceBlurMem('thumbnail-upload-before', { postId: message.postId });
       try {
         const storedUrl = await uploadFaceBlurThumbnailSeam(message.postId, blurredCoverImageBytes, env);
         logFaceBlurThumbnailOutcome(message.postId, storedUrl ? 'stored' : 'upload_failed');
@@ -682,6 +695,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         console.error(`Face-blur thumbnail upload failed for post ${message.postId}:`, uploadError);
         logFaceBlurThumbnailOutcome(message.postId, 'upload_failed');
       }
+      logFaceBlurMem('thumbnail-upload-after', { postId: message.postId });
     } else {
       logFaceBlurThumbnailOutcome(message.postId, isStillRelevant ? 'not_attempted' : 'relevance_gated');
     }
@@ -728,6 +742,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
         // then fails -- only a failure inside detection itself leaves both audit columns null
         // (the documented, accepted gap).
         let detectionResult: { buffer: Buffer; faceCount: number } | null = null;
+        logFaceBlurMem('thumbnail-build-before', { postId: message.postId });
         try {
           detectionResult = await detectAndBlurFacesSeam(imageBytes, imageContentType);
         } catch (detectError) {
@@ -754,6 +769,7 @@ export async function processAiJob(message: ProcessingJobMessage, deps?: Process
             logFaceBlurThumbnailOutcome(message.postId, 'upload_failed');
           }
         }
+        logFaceBlurMem('thumbnail-build-after', { postId: message.postId });
       }
     }
   } else {
