@@ -5,9 +5,38 @@ trigger_story: none (POC-driven owner request; change trigger = planning-artifac
 scope: Major
 mode: Batch (unattended scheduled run; nobody could answer questions)
 status: proposed (awaiting owner approval; NOT approved)
+revision: 2 (2026-11-24, after the owner's review of PR #265; input section 7)
 ---
 
 # Sprint Change Proposal: registration, CTA bar, highlight, honest dates and the extraction update
+
+## Revision 2 (2026-11-24): what changed and why
+
+Source: the owner's answers in section 7 of the input file (binding) and the review findings of PR #265.
+Status stays **proposed, not approved**. One line per change:
+
+1. **Stage rollout rule** (finding 1, owner idea): three steps, write `stage` first, backfill, then enable the
+   readers behind a check (section 3.5); new Story 11.12 (Stage gate check); 11.13 and 11.14 wait for it.
+2. **Title rule v2 story** (finding 2): new Story 11.5 (Port title rule v2 with its three fixes); the layer-1
+   backfill 11.11 depends on it.
+3. **New race-pack posts** (finding 3, owner: follow the reviewer): new Story 11.10 (Match new race-pack posts
+   into the main event) and a matching rule (section 3.1 C6); note on Story 3.6v.
+4. **QR scope** is now Open decision 11 (proposal: adopt the decoder), with its cost; QR moved to its own Story
+   12.2.
+5. **Story 0.35** is not in `epics.md`: referenced by its sprint-status key and spec; the epics.md note dropped.
+6. **Sixth stage `other`**: decided (kept). Counting rule proposed as Open decision 12 (owner to confirm).
+7. **Gate threshold**: the absolute "precision at least 0.86" is replaced by a relative per-release criterion
+   (assumption A4, C9, section 8).
+8. **Open decision 8 decided** ("tetap"): windows stay schedule rows with `stage = registration`; D6 deletion
+   withdrawn; I1 resolved; PRD 3.7 edit and handoff updated (handoff D6, section 2 PRD line, 8C line).
+9. **Epic 11 split in two**: Epic 11 "Extraction and honest dates", Epic 12 "Registration, CTA bar and prices";
+   stories renumbered (old-to-new map in section 5.3), order redrawn (section 8).
+10. **New owner rule for the event detail**: organizer or scraped destinations go through a first-party link
+    endpoint; amendments to proposed AD-55 and AD-57 (section 4.3) and new Story 12.4 (Add the first-party link
+    endpoint) plus ratchet 12.z.
+11. **Process rule**: every working branch and every planning run starts by merging `master` (section 8).
+
+Also corrected: the average requests per post was "about 2.03"; re-computed it is about 2.04 (section 3.4).
 
 Produced by `bmad-correct-course` in an unattended cloud session. Planning only: nothing under `apps/` or
 `packages/` changed, `sprint-status.yaml` and `epics.md` were not edited. Every edit below is a **proposal**
@@ -356,35 +385,95 @@ Infra docs: `docs/infrastructure/architecture-diagram.md` and `high-level-overvi
 
 ## 5. Stories
 
-### 5.1 Proposed Epic 11: "Registration, CTA bar, highlight and honest dates"
+Revision 2 splits the work into two epics (owner, finding 9). Both numbers are free: `epics.md` ends at Epic 10
+and `sprint-status.yaml` has no `epic-11` or `epic-12` key (checked 2026-11-24 after merging `master`). Proposed
+sprint-status keys follow the usual slug form; nothing was added to `sprint-status.yaml`.
 
-Proposed sprint-status keys follow the usual slug form; nothing was added to `sprint-status.yaml`.
+### 5.1 Proposed Epic 11: "Extraction and honest dates"
 
 | Id | Short title | Change | Depends on |
 |---|---|---|---|
 | 11.1 | Add a prompt seam to the extraction request builder | C9, C3 | AD-61 |
 | 11.2 | Build the replay release gate with a fresh caption set per release | C9 | 11.1 |
-| 11.3 | Add stage, fact, tier and price columns | C2, C3, C5 | AD-58, AD-59, AD-60 |
-| 11.4 | Require a stage per schedule row and derive the main flag in code | C2 | 11.2, 11.3 |
-| 11.5 | Extract prizes, promos, inclusions, free flag and speaker performers | C3 | 11.2, 11.3 |
-| 11.6 | Port the highlight composer to the domain package | C4 | 11.5 |
-| 11.7 | Merge location keywords and tiers into one post-extraction call | C5 | 11.2, 11.3 |
-| 11.8 | Pick the card date from counting rows, with labelled dummy dates | C6 | 11.4 |
+| 11.3 | Add stage (default `event`), stage source, fact, tier and price columns | C2, C3, C5 | AD-58, AD-59, AD-60 |
+| 11.4 | Require a stage per schedule row and derive the main flag in code (write only, nothing reads `stage`) | C2 | 11.2, 11.3 |
+| 11.5 | Port title rule v2 with its three fixes to the domain package | C6, C10 | AD-58 |
+| 11.6 | Extract prizes, promos, inclusions, free flag and speaker performers | C3 | 11.2, 11.3 |
+| 11.7 | Port the highlight composer to the domain package | C4 | 11.6 |
+| 11.8 | Merge location keywords and tiers into one post-extraction call | C5 | 11.2, 11.3 |
 | 11.9 | Skip geocoding for online-only locations | C7 | none |
-| 11.10 | Store registration links in their own table, with QR-decoded links | C1 (slice 1) | AD-55, AD-57 |
-| 11.11 | Read registration options through a separate uncached query | C1 (slice 1) | 11.10 |
-| 11.12 | Show the event action bar on phones and the side card on desktop | C1 (slice 1) | 11.11, UX |
-| 11.13 | Open a sheet when an event has several registration options | C1 (slice 1) | 11.12 |
-| 11.14 | Redesign the grid card with one badge, highlight and footer slots | C4, C6 | 11.6, 11.8, UX |
-| 11.15 | Show per-option prices and the "from" price | C5 (slice 3) | 11.7, 11.13 |
-| 11.16 | Detect registration phones deterministically and scrub free text | C1 (slice 2) | AD-56, 11.10 |
-| 11.17 | Delete registration phones after the event ends | C1 (slice 2) | 11.16 |
-| 11.18 | Add WhatsApp and phone actions with a message preview | C1 (slice 2) | 11.16, 11.12 |
-| 11.19 | Give each event its own cover slide on multi-event carousels (optional) | C8 | Open decisions 4, 7 |
-| 11.20 | Backfill old events from stored data (layer 1) | C10 | 11.3-11.9 shipped |
-| 11.21 | Backfill old events by re-reading captions in a local session (layer 2) | C10 | 11.20 |
-| 11.22 | Clear the wrong pins of existing online locations | C7, C10 | 11.9, Open decision 1 |
-| 11.z | Ratchet: highlight, main flag and display date come only from their domain functions | C2, C4, C6 | 11.4, 11.6, 11.8 |
+| 11.10 | Match new race-pack posts into the main event through the dedup scoring | C6 (c) | 11.4, 11.5 |
+| 11.11 | Backfill old events from stored data (layer 1) | C10 | 11.3, 11.4, 11.5, 11.7, 11.8, 11.9 shipped; race-pack step after 11.10 |
+| 11.12 | Stage gate check: no schedule row left without a real stage | C2, C10 | 11.11 |
+| 11.13 | Pick the card date from counting rows, with labelled dummy dates (reader enabled after the gate) | C6 | 11.4, 11.5, **11.12 gate green** |
+| 11.14 | Redesign the grid card with one badge, highlight and footer slots | C4, C6 | 11.7, 11.13, UX |
+| 11.15 | Backfill old events by re-reading captions in a local session (layer 2) | C10 | 11.11 |
+| 11.16 | Clear the wrong pins of existing online locations | C7, C10 | 11.9, Open decision 1 |
+| 11.17 | Give each event its own cover slide on multi-event carousels (optional) | C8 | Open decisions 4, 7 |
+| 11.z | Ratchet: highlight, main flag and display date come only from their domain functions | C2, C4, C6 | 11.4, 11.7, 11.13 |
+
+Story notes (acceptance criteria to carry into `bmad-create-story`):
+- **11.3 (Columns):** `schedules.stage` is NOT NULL with default `event`, plus a `stage_source` value
+  (`default | model | rule_v2 | moderator`, default `default`) so the gate of 11.12 can tell a real stage from the
+  column default (assumption A10). The default `event` keeps today's behaviour for any row written before the
+  readers are enabled, so no fallback code is needed.
+- **11.4 (Stage on write):** extraction writes `stage` and `stage_source = model`; every other insert path
+  (manual correction form, merge) writes its own source; nothing in the UI or `Query.events` reads `stage` yet.
+- **11.5 (Title rule v2):** ports `poc/registration-extraction/stage-classifier-v2.mjs` to `packages/domain` with
+  the three fixes: (1) a ticket-sale row with one date is the event day; (2) "collection" or "launch" in a
+  product post is an event, not a phase; (3) a title that mixes an announcement with a presentation or a
+  prize-giving is the final day (counts). 100% unit tested, with the POC's cases as fixtures (sample ids only).
+- **11.10 (New race-pack posts):** a new post whose event is a race-pack collection typed COMPETITION is first
+  matched against the main event through the AD-30 Rule 7 dedup scoring (never a name key); high tier merges,
+  mid tier queues a suggestion; if no main event exists the event is shown as it is, with the dummy date
+  (end of registration, else the pickup date) and its label once 11.13 is enabled. The candidate window of Rule 7
+  (schedule dates within 2 days) may miss a pickup several days before the race: the story measures it and
+  proposes a wider window for race-pack candidates only (AD-30 Rule 7 amendment, section 4.3).
+- **11.11 (Layer-1 backfill):** sets `stage` by title rule v2 (11.5) with `stage_source = rule_v2` on every row
+  whose source is still `default`; moderator edits never overwritten; `--dry-run`, `--apply`, rollback copy;
+  apply only with the owner's go-ahead and the writer credential. Its race-pack step feeds the 17 stored
+  race-pack events through the 11.10 matcher (suggestions for the moderator queue unless high tier); that step
+  is not part of the 11.12 gate.
+- **11.12 (Stage gate check):** a read-only check (script or SQL, run by the owner or the CI bridge read path)
+  counts schedule rows with `stage_source = default`. The readers of 11.13 and 11.14 are enabled (deployed or
+  switched on) only when it returns 0; it runs again right before the switch, and a row written in between by an
+  insert path that forgot its source fails the gate (a useful catch, fixed in that path, not by re-running the
+  backfill blindly).
+- **11.13 (Display date):** applies the counting rule of Open decision 12 for `other`.
+
+### 5.2 Proposed Epic 12: "Registration, CTA bar and prices"
+
+| Id | Short title | Change | Depends on |
+|---|---|---|---|
+| 12.1 | Store registration links in their own table | C1 (slice 1) | AD-55 |
+| 12.2 | Decode QR codes into registration links (if Open decision 11 adopts the decoder) | C1 (slice 1) | AD-57, 12.1, Open decision 11 |
+| 12.3 | Read registration options through a separate uncached query that returns safe descriptors only | C1 (slice 1) | 12.1 |
+| 12.4 | Add the first-party link endpoint `/go/{opaqueOptionId}` with allow-list, blocklist and kill switch | C1, owner rule | AD-55, AD-57, 12.1 |
+| 12.5 | Show the event action bar on phones and the side card on desktop | C1 (slice 1) | 12.3, 12.4, UX |
+| 12.6 | Open a sheet when an event has several registration options | C1 (slice 1) | 12.5 |
+| 12.7 | Show per-option prices and the "from" price | C5 (slice 3) | 11.8, 12.6 |
+| 12.8 | Detect registration phones deterministically and scrub free text | C1 (slice 2) | AD-56, 12.1 |
+| 12.9 | Delete registration phones after the event ends (retention sweep) | C1 (slice 2) | 12.8 |
+| 12.10 | Add WhatsApp and phone actions with a message preview, revealed on action | C1 (slice 2) | 12.4, 12.5, 12.8 |
+| 12.z | Ratchet: the event detail renders organizer or scraped destinations only as `/go/` links | C1, owner rule | 12.4, 12.5 |
+
+Story notes:
+- **12.4 (Link endpoint):** shape in section 4.3 (AD-55 and AD-57 amendments). The descriptor read of 12.3 never
+  carries a full URL or a phone number; the endpoint takes only an opaque option id, never a URL.
+- **12.10 (Phone actions):** the number is returned only when the user acts (POST, per-IP rate limit, declared
+  public under AD-7); "Copy number" on desktop, `tel:` on touch; WhatsApp goes through `/go/`.
+- **12.z (Ratchet):** a source scan fails when an event-detail component puts a URL from an option, a QR, a
+  contact or a brochure into `href`, `window.open` or `location` other than a `/go/` link; first-party
+  navigation (calendar, share, map link) is exempt by name.
+
+### 5.3 Old-to-new id map (revision 1 -> revision 2)
+
+11.1->11.1, 11.2->11.2, 11.3->11.3, 11.4->11.4, 11.5 (Facts)->11.6, 11.6 (Composer)->11.7, 11.7 (Post-extraction
+call)->11.8, 11.8 (Display dates)->11.13, 11.9->11.9, 11.10 (Registration table + QR)->12.1 and 12.2, 11.11 (Uncached
+read)->12.3, 11.12 (Action bar)->12.5, 11.13 (Sheet)->12.6, 11.14->11.14, 11.15 (Prices)->12.7, 11.16 (Phones)->12.8,
+11.17 (Retention)->12.9, 11.18 (WhatsApp)->12.10, 11.19 (Own cover)->11.17, 11.20 (Layer 1)->11.11, 11.21 (Layer
+2)->11.15, 11.22 (Online pins)->11.16, 11.z->11.z. New: 11.5 (Title rule v2), 11.10 (Race-pack posts), 11.12 (Stage
+gate check), 12.4 (Link endpoint), 12.z (Link ratchet).
 
 Carved out (backlog children of `CC-261124-vjh`, section 10): own cover per event (C8 idea), slide map merged
 into the tier call, post-extraction call on the stepped path, filter header changes (handoff 9/11), the "Remind
