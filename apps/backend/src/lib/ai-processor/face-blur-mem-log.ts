@@ -21,17 +21,21 @@ export interface MemorySnapshot {
   arrayBuffersMb: number;
   /** sharp/libvips own accounting; omitted when sharp cannot be queried. */
   sharpCacheMb?: number;
+  sharpCacheHighMb?: number;
   sharpCacheItems?: number;
   sharpQueue?: number;
   sharpProcess?: number;
 }
 
-function sharpSnapshot(): Pick<MemorySnapshot, 'sharpCacheMb' | 'sharpCacheItems' | 'sharpQueue' | 'sharpProcess'> {
+function sharpSnapshot(): Pick<MemorySnapshot, 'sharpCacheMb' | 'sharpCacheHighMb' | 'sharpCacheItems' | 'sharpQueue' | 'sharpProcess'> {
   try {
     const cache = sharp.cache();
     const counters = sharp.counters();
     return {
-      sharpCacheMb: Math.round(cache.memory.current / BYTES_PER_MB), // sharp reports cache memory in MB already
+      // sharp reports cache memory in MB already (default max 50), so no division. `current` is only non-zero while an
+      // operation runs; `high` (high-water mark) and `items.current` show what libvips retains between samples.
+      sharpCacheMb: Math.round(cache.memory.current),
+      sharpCacheHighMb: Math.round(cache.memory.high),
       sharpCacheItems: Math.round(cache.items.current),
       sharpQueue: Math.round(counters.queue),
       sharpProcess: Math.round(counters.process),
