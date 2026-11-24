@@ -5,6 +5,8 @@
 // No PII: only a stage name, an optional post id, image dimensions and process memory figures.
 // Must never throw -- a logging failure may not fail a blur or an extraction.
 
+import sharp from 'sharp';
+
 const BYTES_PER_MB = 1024 * 1024;
 
 export interface MemorySnapshot {
@@ -12,6 +14,35 @@ export interface MemorySnapshot {
   externalMb: number;
   /** Process high-water RSS (what Lambda reports as Max Memory Used), so a transient peak inside a stage still shows. */
   maxRssMb: number;
+  /** V8 JS heap in use / reserved: if heapUsedMb tracks rssMb the growth is JS heap (e.g. base64 strings). */
+  heapUsedMb: number;
+  heapTotalMb: number;
+  /** ArrayBuffers (Buffers, WASM heap); a subset of externalMb. */
+  arrayBuffersMb: number;
+  /** sharp/libvips own accounting; omitted when sharp cannot be queried. */
+  sharpCacheMb?: number;
+  sharpCacheHighMb?: number;
+  sharpCacheItems?: number;
+  sharpQueue?: number;
+  sharpProcess?: number;
+}
+
+function sharpSnapshot(): Pick<MemorySnapshot, 'sharpCacheMb' | 'sharpCacheHighMb' | 'sharpCacheItems' | 'sharpQueue' | 'sharpProcess'> {
+  try {
+    const cache = sharp.cache();
+    const counters = sharp.counters();
+    return {
+      // sharp reports cache memory in MB already (default max 50), so no division. `current` is only non-zero while an
+      // operation runs; `high` (high-water mark) and `items.current` show what libvips retains between samples.
+      sharpCacheMb: Math.round(cache.memory.current),
+      sharpCacheHighMb: Math.round(cache.memory.high),
+      sharpCacheItems: Math.round(cache.items.current),
+      sharpQueue: Math.round(counters.queue),
+      sharpProcess: Math.round(counters.process),
+    };
+  } catch {
+    return {}; // sharp unavailable: keep the process figures
+  }
 }
 
 export function memorySnapshot(): MemorySnapshot {
@@ -20,6 +51,10 @@ export function memorySnapshot(): MemorySnapshot {
     rssMb: Math.round(usage.rss / BYTES_PER_MB),
     externalMb: Math.round(usage.external / BYTES_PER_MB),
     maxRssMb: Math.round(process.resourceUsage().maxRSS / 1024), // kilobytes on Linux
+    heapUsedMb: Math.round(usage.heapUsed / BYTES_PER_MB),
+    heapTotalMb: Math.round(usage.heapTotal / BYTES_PER_MB),
+    arrayBuffersMb: Math.round(usage.arrayBuffers / BYTES_PER_MB),
+    ...sharpSnapshot(),
   };
 }
 

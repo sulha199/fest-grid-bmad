@@ -10,6 +10,7 @@ import { buildDrainLongPollHint } from '../lib/ai-processor/drain-long-poll-hint
 import { loadBackendEnv } from '../env.js';
 import { resumeDueExtractions } from '../lib/posts/resume-due-extractions.js';
 import { resumeStalledChains } from '../lib/ai-processor/resume-stalled-chains.js';
+import { logFaceBlurMem } from '../lib/ai-processor/face-blur-mem-log.js';
 
 // Story 10.6: this Lambda's half of each job type that has one (the moderator re-extract's preview phase).
 registerAiProcessorJobHandlers();
@@ -53,6 +54,21 @@ export const handler = async (
   event: SQSEvent | PollAndDrainEvent | ManualExtractionInvokePayload | JobEngineRunEvent,
   context: Context
 ): Promise<SQSBatchResponse | void> => {
+  // Memory measurement only (face-blur-mem lines): invocation-end of one run vs invocation-start of the next in a
+  // warm environment shows cross-invocation retention; idle ticks give the baseline.
+  const jobType = (event as { jobType?: string } | undefined)?.jobType ?? 'sqs-batch';
+  logFaceBlurMem('invocation-start', { jobType });
+  try {
+    return await handleEvent(event, context);
+  } finally {
+    logFaceBlurMem('invocation-end', { jobType });
+  }
+};
+
+async function handleEvent(
+  event: SQSEvent | PollAndDrainEvent | ManualExtractionInvokePayload | JobEngineRunEvent,
+  context: Context
+): Promise<SQSBatchResponse | void> {
   // Prod-only (AC3): the EventBridge-scheduled poll-and-drain trigger, replacing the
   // continuous SqsEventSource poller. This event shape has no `Records` field, so it must
   // be checked before the pre-existing SQS-batch branch below (used only when dev/staging's
@@ -141,4 +157,4 @@ export const handler = async (
   }
 
   return { batchItemFailures };
-};
+}
