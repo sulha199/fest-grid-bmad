@@ -187,7 +187,18 @@ async function decideAndStartChain(input: FirstRequestChainInput): Promise<First
   return { started: false, partial: false };
 }
 
+// Brackets every exit path (return or throw) with `post-start` / `post-end` memory lines so the next prod logs show
+// which post grows the process and whether the growth is retained (measurement only; no flow change).
 export async function processAiJob(message: ProcessingJobMessage, deps?: ProcessAiJobDeps): Promise<void> {
+  logFaceBlurMem('post-start', { postId: message.postId });
+  try {
+    await processAiJobUnbracketed(message, deps);
+  } finally {
+    logFaceBlurMem('post-end', { postId: message.postId });
+  }
+}
+
+async function processAiJobUnbracketed(message: ProcessingJobMessage, deps?: ProcessAiJobDeps): Promise<void> {
   const env = loadBackendEnv();
 
   // AD-47: a step message of a stepped extraction carries the cursor; it reads its slides from there and runs on its own.
