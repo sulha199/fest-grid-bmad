@@ -95,3 +95,16 @@ a QR channel taken from the model without a decoded payload; geocoding any locat
 - `poc/registration-extraction/findings.md`: sections 9 to 11.17 (QR, stage, tiers, composer, merged call, cover slides, poster timeline, fresh-set results); `STATUS.md`: what was done and what is left.
 - `poc/registration-extraction/`: `compose-highlight.mjs` and its tests, `tier-options.mjs`, `slide-cover.mjs`, `stage-classifier-v2.mjs`, `online-locations-review.sql`, `merge-call.ts`, `slide-map.ts`, `ab-highlight.ts` (replay), `quota-budget.mjs` (POC only).
 - Real captions, labels and post URLs stay in the gitignored `poc/registration-extraction/private/`; nothing real was committed.
+
+## 7. Owner answers after the review of PR #265 (2026-11-24)
+
+The numbers are those of the review findings of the Sprint Change Proposal (PR #265). Use them in the revision round.
+
+- **Finding 1 (old events have no stage, so no date rule):** the owner proposes to avoid the problem by rollout order: the UI that reads `stage` is deployed (or enabled) only after the layer-1 backfill has run. Assessed as feasible with a gate; the revision writes it as a rollout rule: (a) deploy the migration (column with default `event`) and the extraction that writes `stage`, with nothing reading it; (b) run the layer-1 backfill; (c) enable the readers (display date, card) when a check finds no schedule row without a real stage. The default `event` keeps today's behaviour for any row created in between, so the rule needs no extra fallback code.
+- **Finding 3 (a new race-pack post must merge into the main event first):** follow the reviewer's suggestion: add the matching rule for new posts (note on Story 3.6v plus a story in the new epic), not only in the backfill.
+- **Finding 6 (sixth stage `other`):** yes, `other` stays as a sixth stage value. Open sub-question for the revision: does a row with stage `other` count as an event day (suggestion: no, but an event whose rows are all `other` is treated as `event`, so no event is hidden).
+- **Finding 8 (Open decision 8):** decided: registration windows **stay schedule rows** with `stage = registration`; only links, phones and prices move to registration options. The D6 deletion of legacy registration schedule rows is withdrawn; update the PRD and the handoff so they no longer say "overturn the registration-windows-are-schedules rule".
+- **Finding 9 (size of Epic 11):** agreed: split it into two epics, one for extraction and dates, one for registration and CTA, at the epic readiness check.
+- **Finding 10 (stale base):** process rule: always pull `master` into the working branch before pushing, before opening a PR and before a planning run (cloud routine prompts start with a fetch of `master`).
+- Findings 2, 4, 5 and 7 (a story for title rule v2, QR scope as a decision, Story 0.35 reference, the gate threshold) were not answered; the revision includes them as proposals.
+- **New rule proposed by the owner (event detail):** links and call-to-action targets that come from organizer or scraped data are not put in the page; the page asks an endpoint and follows its answer (opens a new tab or a phone or WhatsApp action). Under assessment: see the analysis in the review thread; the revision decides its shape (AD-55 and AD-57).
