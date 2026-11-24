@@ -144,4 +144,18 @@ t('a free-entry promo is its own evidence even when the caption has no free word
   const e = ev({ types: ['EXHIBITION'], promos: [{ kind: 'OTHER', value: 'Free entry for audience' }] });
   assert.equal(composeHighlight(e, { caption: 'FREE ENTRY' })?.text, 'Gratis masuk');
 });
+t('a price hook of a PROMOTION event becomes the highlight', () => {
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'OTHER', value: 'Mulai dari 22K' }] })), 'Mulai dari 22K');
+  assert.equal(txt(ev({ types: ['PROMOTION'], schedules: [{ ticketPrice: 'Cuma Rp11.000' }] })), 'Hanya Rp11.000');
+  assert.equal(txt(ev({ types: ['PROMOTION'], promos: [{ kind: 'OTHER', value: 'Rp10.000', evidence: '10K ALL DAY, every weekday' }] })), 'Mulai dari Rp10.000');
+});
+t('a bare price is not a hook, and the hook is only for PROMOTION events', () => {
+  assert.equal(txt(ev({ types: ['PROMOTION'], schedules: [{ ticketPrice: 'Rp 50.000' }] })), null);
+  assert.equal(txt(ev({ types: ['SEMINAR'], schedules: [{ ticketPrice: 'Mulai dari Rp 50.000' }] })), null);
+  assert.equal(txt(ev({ types: ['PROMOTION'], schedules: [{ ticketPrice: 'Mulai dari Gratis' }] })), null);
+});
+t('a real discount still wins over a price hook', () => {
+  const e = ev({ types: ['PROMOTION'], promos: [{ kind: 'PERCENT_OFF', value: '50%' }], schedules: [{ ticketPrice: 'Mulai dari 22K' }] });
+  assert.equal(txt(e), 'Diskon 50%');
+});
 console.log('all passed');

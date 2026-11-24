@@ -29,7 +29,7 @@ export function parseAmount(text) {
  * kinds may headline this type (higher first; absent = not allowed). The type precedence below picks the row for an event with several types.
  */
 export const TYPE_RULES = {
-  PROMOTION:   { ladder: ['promo', 'prize', 'inclusions', 'free'],                    people: 'Bintang tamu', free: 'Gratis',             includes: 'Gratis',         prizeRank: { ITEM: 3, MONEY: 2, DOORPRIZE: 3 } },
+  PROMOTION:   { ladder: ['promo', 'priceHook', 'prize', 'inclusions', 'free'],                    people: 'Bintang tamu', free: 'Gratis',             includes: 'Gratis',         prizeRank: { ITEM: 3, MONEY: 2, DOORPRIZE: 3 } },
   COMPETITION: { ladder: ['prize', 'free', 'inclusions', 'promo'],                    people: 'Juri',         free: 'Pendaftaran gratis', includes: 'Peserta dapat',  skipCommonPerks: true, prizeRank: { MONEY: 4, ITEM: 3, SCHOLARSHIP: 3 } }, // a doorprize or a certificate alone is a side perk, not the headline
   PERFORMANCE: { ladder: ['performers', 'promo', 'free', 'prize', 'inclusions'],       people: 'Penampil',     free: 'Gratis masuk',       includes: 'Termasuk',       prizeRank: { MONEY: 2, ITEM: 2, DOORPRIZE: 3 } },
   SEMINAR:     { ladder: ['performers', 'inclusions', 'free', 'promo', 'prize'],       people: 'Pembicara',    free: 'Gratis',             includes: 'Dapat',          prizeRank: { CERTIFICATE: 3, SCHOLARSHIP: 3, ITEM: 2, DOORPRIZE: 2, MONEY: 1 } },
@@ -59,10 +59,17 @@ const EARLY = /(early ?bird|pre-?sale|pre-?order|flash sale|super ?early)/i;
 const digitsOnly = (s) => String(s ?? '').replace(/\D/g, '');
 const ticketCue = (p, e) => (e?.schedules ?? []).some((s) => s?.ticketPrice && EARLY.test(String(s.ticketPrice)) && digitsOnly(s.ticketPrice).includes(digitsOnly(p?.value)) && digitsOnly(p?.value).length >= 3);
 const promotionWindow = (p, e) => (e?.types ?? []).includes('PROMOTION') && !!clean(p?.conditions);
-const realPromo = (p, e) => p?.value && hasAmountOrName(clean(p.value)) && !isFreeEntryPromo(p) && (p.kind === 'BUY_GET' || p.kind === 'FREE_ITEM' || DISCOUNT_CUE.test(promoText(p)) || ticketCue(p, e) || promotionWindow(p, e));
+// A promo with no figure in it ("diskon buku") is a mention, not an offer, unless it names a free item, a buy-get or a bundle (owner review of a recap post, 2026-11-24).
+const hasFigureOrItem = (p) => /\d/.test(String(p?.value ?? '')) || ['BUY_GET', 'FREE_ITEM', 'BUNDLE'].includes(p?.kind);
+const realPromo = (p, e) => p?.value && hasAmountOrName(clean(p.value)) && hasFigureOrItem(p) && !isFreeEntryPromo(p) && (p.kind === 'BUY_GET' || p.kind === 'FREE_ITEM' || DISCOUNT_CUE.test(promoText(p)) || ticketCue(p, e) || promotionWindow(p, e));
 // A promo whose value is a price ("Only IDR 99,999") is a special price, not an amount taken off.
 const PRICE_STYLE = /(\bonly\b|\bhanya\b|\bcuma\b|seharga|\bjadi\b|menjadi|\bprice\b|\bharga\b|early ?bird|pre-?sale)/i;
 const priceStyle = (p, e) => /^\s*(rp|idr)/i.test(clean(p?.value)) && (PRICE_STYLE.test(promoText(p)) || ticketCue(p, e));
+// A price that is the hook of a promotion post: "Mulai dari 22K udah dapet ayam", "10K ALL DAY", "makan kenyang cuma Rp11.000". Only for PROMOTION events, and only
+// when the price text itself carries a hook word (a bare price stays a price). The amount is copied as written.
+const PRICE_HOOK = /(mulai dari|\bmulai\b|starting (at|from)|starts? from|\bfrom\b|\bcuma\b|\bhanya\b|\bonly\b|\bcukup\b|all day)/i;
+const ONLY_WORD = /(\bcuma\b|\bhanya\b|\bonly\b|\bcukup\b)/i;
+const AMOUNT_TOKEN = /((?:rp|idr)\s*\.?\s*\d[\d.,]*(?:\s*(?:k|rb|ribu|jt|juta)\b)?|\d[\d.,]*\s*(?:k|rb|ribu|jt|juta)\b)/i;
 // What a participant gets in every race or contest is not what makes this one stand out. Applied to COMPETITION only: for a workshop the take-home items ARE the point.
 const COMMON_PERK = /\b(jersey|kaos|t-?shirt|tshirt|medali|medal|bib|nomor dada|race ?kit|racepack|snack|konsumsi|minum|air mineral|sertifikat|e-?sertifikat|certificate|e-?certificate|goodie ?bag|totebag|tote bag)\b/i;
 // "free" claimed by the model's flag must be backed by the post's own words when the caption is known (the flag has no evidence field).
@@ -108,6 +115,19 @@ const candidates = {
     if (ctx?.caption != null && !e.freeFromPromo && !FREE_CUE.test(ctx.caption)) return null; // the flag alone is not evidence
     const priced = (e.schedules ?? []).some((s) => s.ticketPrice && !/^\s*(gratis|free|0|rp\.?\s*0)\b/i.test(String(s.ticketPrice))); // a stated price elsewhere contradicts "free"
     return priced ? null : { text: R.free, kind: 'FREE', source: 'isFree' };
+  },
+  priceHook: (e) => {
+    const sources = [
+      ...(e.promos ?? []).map((p) => ({ value: clean(p?.value), text: promoText(p) })),
+      ...(e.schedules ?? []).map((s) => ({ value: clean(s?.ticketPrice), text: clean(s?.ticketPrice) })),
+    ];
+    for (const s of sources) {
+      const amount = AMOUNT_TOKEN.exec(s.value)?.[0];
+      if (!amount || !PRICE_HOOK.test(s.text)) continue;
+      const t = cut(`${ONLY_WORD.test(s.text) ? 'Hanya' : 'Mulai dari'} ${amount.trim()}`);
+      if (t) return { text: t, kind: 'DISCOUNT', source: 'priceHook' };
+    }
+    return null;
   },
   inclusions: (e, R) => {
     const xs = (e.inclusions ?? []).map(clean).filter((x) => x && !VAGUE.test(x) && !(R.skipCommonPerks && COMMON_PERK.test(x)));
