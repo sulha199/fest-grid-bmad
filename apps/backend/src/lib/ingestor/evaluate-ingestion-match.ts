@@ -2,6 +2,7 @@ import type { EventInsertValues, ExtractedEventMessage, ScheduleInsertValues } f
 import { buildEventInsertValues } from '@festgrid/domain/events';
 import { findMatchingEvent, type MatchResult } from '../events/match-event-to-existing.js';
 import type { DbExecutor } from '../events/set-event-primary-post.js';
+import { warnDroppedScheduleTimes } from '../events/warn-dropped-schedule-times.js';
 import { isOrganizerAuthoredPost } from '../posts/is-organizer-authored-post.js';
 
 export interface IngestionSourcePost {
@@ -74,6 +75,7 @@ export async function evaluateIngestionMatch(
   );
 
   const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null, isStub ? 'stub' : undefined);
+  warnDroppedScheduleTimes(message);
 
   // Story 3.6v (AC1, Amendment) -- organizerHandle used to default to the *posting* account for a
   // roundup/curator-sourced item (Story 3.6s's extraction prompt; IDEA-068 now asks for an
