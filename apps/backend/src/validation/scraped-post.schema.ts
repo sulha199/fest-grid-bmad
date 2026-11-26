@@ -4,7 +4,8 @@ import { ScrapedPost } from '@festgrid/domain';
 export const scrapedPostSchema: JSONSchemaType<ScrapedPost> = {
   type: 'object',
   properties: {
-    content: { type: 'string', minLength: 1 },
+    // An empty caption is valid: a flyer-only post has none and its event is in the image (the owner chose to store it).
+    content: { type: 'string' },
     imageUrl: { type: 'string', nullable: true },
     videoUrl: { type: 'string', nullable: true },
     postUrl: { type: 'string' },

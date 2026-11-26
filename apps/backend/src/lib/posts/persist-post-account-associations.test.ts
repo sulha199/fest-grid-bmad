@@ -129,7 +129,7 @@ test('persistPostAccountAssociations integration tests', async (t) => {
     assert.strictEqual(rows.length, 2);
   });
 
-  await t.test('(e) a second call with a different scrapingAccountId does not throw and does not replace the first SCRAPING_SOURCE row', async () => {
+  await t.test('(e) a second account whose scrape returned the post gets its own SCRAPING_SOURCE row (AD-25 Rule 2, 2026-11-26)', async () => {
     const firstScrapingProfile = await makeProfile('e-scraping1');
     const secondScrapingProfile = await makeProfile('e-scraping2');
     const post = await makePost(firstScrapingProfile.id, 'e');
@@ -145,14 +145,20 @@ test('persistPostAccountAssociations integration tests', async (t) => {
         scrapingAccountId: secondScrapingProfile.id,
       })
     );
+    // A repeat by either account stays idempotent.
+    await persistPostAccountAssociations({ postId: post.id, scrapingAccountId: secondScrapingProfile.id });
+    await persistPostAccountAssociations({ postId: post.id, scrapingAccountId: firstScrapingProfile.id });
 
     const rows = await db
       .select()
       .from(postAccountAssociations)
       .where(eq(postAccountAssociations.postId, post.id));
     const scrapingRows = rows.filter((r) => r.role === 'SCRAPING_SOURCE');
-    assert.strictEqual(scrapingRows.length, 1, 'exactly one SCRAPING_SOURCE row for this post');
-    assert.strictEqual(scrapingRows[0].accountId, firstScrapingProfile.id, 'first SCRAPING_SOURCE row must not be replaced');
+    assert.deepStrictEqual(
+      scrapingRows.map((r) => r.accountId).sort(),
+      [firstScrapingProfile.id, secondScrapingProfile.id].sort(),
+      'one SCRAPING_SOURCE row per account whose scrape returned the post'
+    );
   });
 
   await t.test('(f) same as (e) but for a conflicting publisherAccountId', async () => {

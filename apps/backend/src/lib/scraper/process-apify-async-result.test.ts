@@ -225,9 +225,10 @@ test('process-apify-async-result tests', async (t) => {
         displayUrl: 'https://example.com/img1.jpg',
       },
       {
-        // This item will fail AJV validation: missing 'content' (required)
+        // This item will fail AJV validation: publishedAt is a number, not a string
         url: 'https://www.instagram.com/p/invalid_no_caption/',
-        timestamp: '2026-08-09T00:00:00Z',
+        caption: 'Invalid post',
+        timestamp: 12345,
       },
       {
         url: 'https://www.instagram.com/p/valid2/',

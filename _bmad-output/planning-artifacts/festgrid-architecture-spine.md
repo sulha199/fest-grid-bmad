@@ -1301,8 +1301,18 @@ This document defines the core architectural invariants for the FestDaily applic
         cover this, since it keys on `account_id` too:
         - `UNIQUE(post_id) WHERE role IN ('PUBLISHER', 'PUBLISHER_UNKNOWN')` — exactly one
           publisher-or-unknown row per post.
-        - `UNIQUE(post_id) WHERE role = 'SCRAPING_SOURCE'` — exactly one scraping-source row per
-          post.
+        - ~~`UNIQUE(post_id) WHERE role = 'SCRAPING_SOURCE'` — exactly one scraping-source row per
+          post.~~ **Amended 2026-11-26 (owner decision, migration 0105):** this index is dropped.
+          A post has one `SCRAPING_SOURCE` row **per account whose scrape returned it**; the base
+          `UNIQUE(post_id, account_id, role)` of Rule 1 still makes a repeat by the same account a
+          no-op. Evidence: when a second account's scrape returned an already stored post, nothing
+          linked the post to that account (the index made `persistPostAccountAssociations` swallow
+          the insert), so its scrape cursor (`get-scrape-cursor.ts`) never advanced and its
+          subscribers never saw the post: 214 of 3,797 delivered post-and-account pairs in
+          November 2026. The owner accepts that the second account's followers now see these posts
+          and are notified. The one-publisher index above is unchanged. Readers must therefore
+          never assume one `SCRAPING_SOURCE` row per post (an `EXISTS` or `IN` subquery, or a
+          per-post `Set`, is safe; a join that multiplies rows is not).
         Direct precedent already in this schema: `schedules.oneMainPerEventIdx`
         (`idx_schedules_one_main_per_event`, `UNIQUE(event_id) WHERE is_main_schedule = true`) is
         the identical "exactly one X per parent" shape. The same build-time gotcha applies and must

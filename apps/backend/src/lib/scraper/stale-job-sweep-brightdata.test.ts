@@ -82,7 +82,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
   });
 
-  async function sweepOneExpiredJob(opts: { ageMs?: number } = {}) {
+  async function sweepOneExpiredJob(opts: { ageMs?: number; excludedPostCount?: number } = {}) {
     const snapshotId = `sd_sweep_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
     const auditRunId = await recordActorRunStart({
       vendor: 'BRIGHTDATA',
@@ -90,6 +90,7 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
       profileId,
       runId: snapshotId,
       rawInput: {},
+      excludedPostCount: opts.excludedPostCount,
       status: 'PENDING',
     });
     const { id } = await createPendingJob({
@@ -116,6 +117,27 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
       .where(eq(socialMediaAccountProfiles.id, profileId));
     return { run, job, lastScrapedAt: profile.lastScrapedAt };
   }
+
+  await t.test('a ready, empty snapshot of a request that excluded every stored post (dead_page) is a quiet day: SUCCEEDED, nothing re-queued', async () => {
+    progress = { status: 'ready', records: 0, errors: 1, errorCodes: { dead_page: 1 } };
+
+    const { run, job, lastScrapedAt } = await sweepOneExpiredJob({ excludedPostCount: 3 });
+
+    assert.strictEqual(run.status, 'SUCCEEDED');
+    assert.strictEqual(run.itemCount, 0);
+    assert.strictEqual(job.status, 'COMPLETED');
+    assert.ok(lastScrapedAt);
+    assert.deepStrictEqual(sqsBodies, []);
+  });
+
+  await t.test('a ready, empty snapshot with no error is a vendor failure even when posts were excluded', async () => {
+    progress = { status: 'ready', records: 0, errors: 0 };
+
+    const { run, job } = await sweepOneExpiredJob({ excludedPostCount: 3 });
+
+    assert.strictEqual(run.status, 'FAILED');
+    assert.strictEqual(job.status, 'EXPIRED');
+  });
 
   await t.test('a ready snapshot with records is a SUCCEEDED run', async () => {
     progress = { status: 'ready', records: 1, errors: 0 };
