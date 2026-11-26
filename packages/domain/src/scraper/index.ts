@@ -20,3 +20,4 @@ export * from "./apify-memory-limit-wait.js";
 export * from "./post-scraper-adapter.js";
 export * from "./merge-post-image-urls.js";
 export * from "./transient-vendor-failure.js";
+export * from "./instagram-post-id.js";

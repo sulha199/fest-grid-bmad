@@ -10,6 +10,8 @@ export type RecordActorRunStartInput = {
   runId: string;
   rawInput: unknown;
   pendingJobId?: string;
+  /** Post ids the request excluded (Bright Data `posts_to_not_include`). */
+  excludedPostCount?: number;
   status?: 'PENDING' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'ABORTED';
 };
 
@@ -38,6 +40,7 @@ export async function recordActorRunStart(input: RecordActorRunStartInput): Prom
         runId: input.runId,
         rawInput: input.rawInput,
         pendingJobId: input.pendingJobId,
+        excludedPostCount: input.excludedPostCount,
         status: (input.status || 'PENDING') as any,
       })
       .returning({ id: scraperActorRuns.id });

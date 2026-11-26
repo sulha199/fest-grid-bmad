@@ -3166,3 +3166,36 @@ items:
      ref: [packages/domain/src/events/normalize-extracted-time.ts, packages/domain/src/events/build-event-insert-values.ts, apps/backend/src/lib/events/warn-dropped-schedule-times.ts],
      touches: [pkg:domain, app:backend, cross:ai-extraction],
      note: "Prod ingestor errors 2026-11-12..25 (about 7 messages): invalid input syntax for type time \"20.00:00\" / \"20.10:00\". Fixed: normalizeExtractedTime turns the string into HH:MM:SS or null before the overnight rule; a dropped value logs one console.warn. Gemini prompt and schema untouched. After deploy the owner redrives festgrid-data-ingestion-queue-dlq-prod."}
+
+  # ── 2026-11-26 (review of the Bright Data re-delivery fix, PR #269) ──
+  FIND-261126-lhp:
+    {type: finding, status: backlog, created: 2026-11-26,
+     impact: user-visible, effort: s,
+     title: "A caption-less post whose cover cannot be read can be marked extracted with no events",
+     ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Since empty captions are accepted, the text-only fallback after an image read failure sends only '(no caption)'. Not a regression: such posts were rejected before."}
+
+  FIND-261126-9do:
+    {type: finding, status: backlog, created: 2026-11-26,
+     impact: user-visible, effort: s,
+     title: "Backfill the missing SCRAPING_SOURCE links of past posts for accounts whose scrape returned them",
+     ref: [apps/backend/src/lib/posts/persist-post-account-associations.ts],
+     touches: [app:backend, pkg:database],
+     note: "214 of 3,797 delivered post-and-account pairs in November 2026 had no link (migration 0105 drops the index that caused it). Source: scraper_actor_runs.raw_output. Needs a production write, so the owner approves it."}
+
+  FIND-261126-5sb:
+    {type: finding, status: backlog, created: 2026-11-26,
+     impact: internal, effort: xs,
+     title: "Excluded posts are never re-delivered: no media backfill for them, and billing of the dead_page record is unchecked",
+     ref: [apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/scraper/get-posts-to-not-include.ts],
+     touches: [app:backend],
+     note: "persistScrapedPost filled a missing imageUrl or videoUrl on re-delivery. Also compare Bright Data's billed records with delivered records after deploy: an all-excluded run reports records 0 and errors 1 (dead_page)."}
+
+  FIND-261126-lxi:
+    {type: finding, status: backlog, created: 2026-11-26,
+     impact: internal, effort: s,
+     title: "Node 26 on new GitHub runner images breaks apps/web tests; engines '>=22.0.0' lets workflows drift",
+     ref: [.github/workflows/ci.yml, package.json],
+     touches: [app:infrastructure, web:system],
+     note: "ci.yml pinned to Node 24. Other workflows still read package.json and may get Node 26. Lambda runs Node 22. Decide one pinned version."}
