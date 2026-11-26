@@ -78,3 +78,9 @@ test("progress that reports zero records, or none, still decides on the dead_pag
   assert.equal(classifyBrightDataResult({ recordCount: 0, progress: { status: "ready", records: null, errors: 0 } }), "vendor_failure");
   assert.equal(classifyBrightDataResult({ recordCount: 0, progress: { status: "ready" } }), "vendor_failure");
 });
+
+test("a run in which every post was excluded reports dead_page (live test 2026-11-26): empty; with no error it is still a vendor failure", () => {
+  // `posts_to_not_include` needs no rule of its own: the all-excluded snapshot carries the dead_page error.
+  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: legitimatelyEmpty }), "empty");
+  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: vendorFailure }), "vendor_failure");
+});

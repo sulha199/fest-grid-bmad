@@ -46,7 +46,7 @@ test('provider-run-health-store', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
   });
 
-  type Kind = 'ok' | 'empty' | 'failed' | 'pending';
+  type Kind = 'ok' | 'empty' | 'failed' | 'pending' | 'excluded';
 
   /**
    * Inserts one run per entry of `kinds`, newest first, finishing one second apart from `from` seconds
@@ -65,6 +65,8 @@ test('provider-run-health-store', async (t) => {
           rawInput: {},
           status: kind === 'failed' ? ('FAILED' as const) : kind === 'pending' ? ('PENDING' as const) : ('SUCCEEDED' as const),
           itemCount: kind === 'ok' ? 3 : kind === 'pending' ? null : 0,
+          // A quiet day of an excluding request: a zero-post success that excluded stored posts.
+          ...(kind === 'excluded' && { excludedPostCount: 5 }),
           completedAt: kind === 'pending' ? null : new Date(now - (from + index) * 1000),
         };
       })
@@ -72,6 +74,24 @@ test('provider-run-health-store', async (t) => {
   }
 
   const repeat = (kind: Kind, n: number): Kind[] => Array.from({ length: n }, () => kind);
+
+  // Review 2026-11-26: the zero-post runs of requests that excluded stored posts must leave the query BEFORE its limit, or 20+
+  // of them on top push the failed runs out of the sample and a failing provider reads as healthy.
+  await t.test('many all-excluded runs on top of failed runs do not hide the failures', async () => {
+    await insertRuns('BRIGHTDATA', [...repeat('excluded', 25), ...repeat('failed', 12)]);
+
+    const health = await getProviderRunHealth('BRIGHTDATA');
+
+    assert.strictEqual(health.degraded, true);
+    assert.strictEqual(health.reason, 'VENDOR_FAILURE');
+    assert.strictEqual(health.sampled, 12);
+  });
+
+  await t.test('all-excluded runs alone never degrade the provider', async () => {
+    await insertRuns('BRIGHTDATA', repeat('excluded', 20));
+
+    assert.strictEqual((await getProviderRunHealth('BRIGHTDATA')).degraded, false);
+  });
 
   await t.test('a fleet of failed runs is degraded as VENDOR_FAILURE', async () => {
     await insertRuns('BRIGHTDATA', repeat('failed', 20));

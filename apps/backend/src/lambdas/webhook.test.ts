@@ -90,7 +90,7 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, profileId));
   });
 
-  async function deliver(body: string | null, options: { sweptAsExpired?: boolean } = {}) {
+  async function deliver(body: string | null, options: { sweptAsExpired?: boolean; excludedPostCount?: number } = {}) {
     const snapshotId = `sd_webhook_test_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
     const webhookToken = randomBytes(24).toString('hex');
     const auditRunId = await recordActorRunStart({
@@ -99,6 +99,7 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
       profileId,
       runId: snapshotId,
       rawInput: {},
+      excludedPostCount: options.excludedPostCount,
       status: 'PENDING',
     });
     const { id: pendingJobId } = await createPendingJob({
@@ -224,6 +225,32 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     assert.match(run.errorMessage ?? '', /No records found/);
     assert.strictEqual(job.status, 'EXPIRED', 'the job is not completed, so the batch scrapes the profile again');
     assert.strictEqual(lastScrapedAt, null, 'a failed run must not mark the profile as freshly scraped');
+  });
+
+  // Live test 2026-11-26: a run in which every post of the window was excluded finishes `ready`, 0 records, with a dead_page
+  // error, so it is an empty run like any other; the same request with NO error is still the outage signature.
+  await t.test('zero records after the request excluded every stored post (dead_page): a quiet day, SUCCEEDED and completed, nothing re-queued', async () => {
+    progressResult = legitimatelyEmpty;
+
+    const { run, job, lastScrapedAt } = await deliver('[]', { excludedPostCount: 4 });
+
+    assert.strictEqual(run.status, 'SUCCEEDED');
+    assert.strictEqual(run.itemCount, 0);
+    assert.strictEqual(run.excludedPostCount, 4);
+    assert.strictEqual(job.status, 'COMPLETED');
+    assert.ok(lastScrapedAt, 'the profile was scraped, so lastScrapedAt is stamped');
+    assert.strictEqual(run.newPosts, 0, 'the cadence backoff reads this as an empty run');
+    assert.deepStrictEqual(sqsMessages, []);
+  });
+
+  await t.test('zero records and no error after the request excluded posts is still a vendor failure (outage signature)', async () => {
+    progressResult = outage;
+
+    const { run, job } = await deliver('[]', { excludedPostCount: 4 });
+
+    assert.strictEqual(run.status, 'FAILED');
+    assert.strictEqual(job.status, 'EXPIRED');
+    assert.strictEqual(sqsMessages.length, 1, 'handed to the fallback like any vendor failure');
   });
 
   await t.test('a vendor failure hands the Instagram profile to the SQS scrape queue immediately', async () => {

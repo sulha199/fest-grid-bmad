@@ -380,6 +380,17 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(row.itemsUsedThisCycle, 1);
   });
 
+  await t.test('getPostByUrl returns a post with an empty caption instead of treating it as not found', async () => {
+    setCallApifyActor(async () => [
+      { url: 'https://www.instagram.com/p/C_flyer/', caption: '', timestamp: '2026-08-08T00:00:00Z', displayUrl: 'https://example.com/flyer.jpg' },
+    ]);
+
+    const post = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/C_flyer/');
+
+    assert.ok(post, 'a flyer-only post is a real post');
+    assert.strictEqual(post!.content, '');
+  });
+
   await t.test('getPostByUrl builds the actor input as username+dataDetailLevel, not directUrls (BUG-053 regression guard)', async () => {
     let calledInput: any = null;
     let calledActor: string | undefined;
@@ -658,7 +669,7 @@ test('instagram-adapter tests', async (t) => {
     assert.strictEqual(result, null);
   });
 
-  await t.test('getPostByUrl returns null for item missing caption', async () => {
+  await t.test('getPostByUrl returns a post whose caption is missing as an empty-caption post (2026-11-26)', async () => {
     setCallApifyActor(async (actorId) => {
       const response = [
         {
@@ -671,7 +682,8 @@ test('instagram-adapter tests', async (t) => {
       return response as any;
     });
     const result = await instagramScraperAdapter.getPostByUrl('https://www.instagram.com/p/missing_fields/');
-    assert.strictEqual(result, null);
+    assert.ok(result);
+    assert.strictEqual(result!.content, '');
   });
 
   await t.test('lookupAccountProfile returns null for item missing biography', async () => {
@@ -762,15 +774,16 @@ test('instagram-adapter tests', async (t) => {
     );
   });
 
-  await t.test('mapApifyItemToScrapedPost returns null for invalid item (missing required fields)', async () => {
-    const invalidItem = {
+  await t.test('mapApifyItemToScrapedPost accepts an item with no caption (a flyer-only post, 2026-11-26)', async () => {
+    const item = {
       url: 'https://www.instagram.com/p/missing_content/',
       // Missing caption/text/description (content)
       timestamp: '2026-08-08T00:00:00Z',
     };
 
-    const result = await mapApifyItemToScrapedPost(invalidItem);
-    assert.strictEqual(result, null);
+    const result = await mapApifyItemToScrapedPost(item);
+    assert.ok(result);
+    assert.strictEqual(result!.content, '');
   });
 
   await t.test('mapApifyItemToScrapedPost returns null for invalid item (wrong-typed publishedAt)', async () => {
@@ -854,7 +867,7 @@ test('instagram-adapter tests', async (t) => {
   });
 
   await t.test('getNewestPosts filters out invalid items and returns only valid ones', async () => {
-    setCallApifyActor(async () => [
+    setCallApifyActor((async () => [
       {
         timestamp: '2026-08-08T00:00:00Z',
         url: 'https://www.instagram.com/p/C_abc123/',
@@ -863,14 +876,15 @@ test('instagram-adapter tests', async (t) => {
       },
       {
         url: 'https://www.instagram.com/p/invalid/',
-        // Missing caption and timestamp
+        timestamp: 12345, // a number: fails validation
+        caption: 'Invalid post',
       },
       {
         timestamp: '2026-08-07T00:00:00Z',
         url: 'https://www.instagram.com/p/C_xyz789/',
         caption: 'Another valid post',
       },
-    ]);
+    ]) as any);
 
     const posts = await instagramScraperAdapter.getNewestPosts(
       { accountId: '123', username: 'test_username' }

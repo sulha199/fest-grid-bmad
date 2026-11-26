@@ -37,6 +37,22 @@ test('buildGeminiExtractionRequest unit tests', async (t) => {
     assert.strictEqual(result.imageContentType, undefined);
   });
 
+  await t.test('Case A2: a post with no caption never sends an empty text part', async () => {
+    const message: ProcessingJobMessage = {
+      postId: 'post-empty',
+      accountId: 'account-1',
+      content: '',
+      postUrl: 'https://test.com/post-empty',
+      publishedAt: '2026-08-10T12:00:00Z'
+    };
+
+    const result = await buildGeminiExtractionRequest(message);
+    assert.strictEqual(result.request.contents, '(no caption)');
+
+    const withAccount = await buildGeminiExtractionRequest({ ...message, ownerUsername: 'someaccount' });
+    assert.strictEqual(withAccount.request.contents, 'Account Name Metadata: "someaccount"\nPost Content:\n"(no caption)"');
+  });
+
   await t.test('Case B: image-present success path uses multi-part contents with base64 data', async () => {
     const message: ProcessingJobMessage = {
       postId: 'post-2',

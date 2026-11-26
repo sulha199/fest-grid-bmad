@@ -5,6 +5,8 @@ export interface ProviderRunSample {
   status: ProviderRunStatus;
   itemCount: number | null;
   completedAt: Date | null;
+  /** Post ids the request excluded (Bright Data `posts_to_not_include`); null or absent when none. */
+  excludedPostCount?: number | null;
 }
 
 /**
@@ -16,13 +18,23 @@ export interface ProviderRunSample {
  */
 export type ProviderRunOutcome = 'ok' | 'empty' | 'failed';
 
-/** `null` while the run is unfinished: those say nothing about the provider yet. */
+/**
+ * `null` while the run is unfinished: those say nothing about the provider yet. The same goes for a success
+ * that returned nothing after the request excluded posts already stored: a quiet day on which every post
+ * was excluded and a silent outage both look like that, so the run proves nothing either way. It is neither
+ * `empty` (a sample of those would read as an outage, `ALL_EMPTY`, and push every profile to the paid
+ * fallback on a quiet day) nor `ok`. A real outage is still seen through the runs that fail, time out or
+ * return posts for other profiles.
+ */
 export function classifyProviderRun(run: ProviderRunSample): ProviderRunOutcome | null {
   if (run.status === 'PENDING' || run.completedAt === null) {
     return null;
   }
   if (run.status !== 'SUCCEEDED') {
     return 'failed';
+  }
+  if (run.itemCount === 0 && (run.excludedPostCount ?? 0) > 0) {
+    return null;
   }
   return run.itemCount === 0 ? 'empty' : 'ok';
 }

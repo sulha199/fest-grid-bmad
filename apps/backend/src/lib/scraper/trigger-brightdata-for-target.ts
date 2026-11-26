@@ -2,6 +2,8 @@ import { isProviderCapacityAvailable, recordProviderUsage } from './usage-store.
 import { getScrapeCursor } from './get-scrape-cursor.js';
 import { gateDegradedProvider, releaseProviderProbe } from './provider-run-health-store.js';
 import { triggerBrightDataJob, mapBrightDataDateToStartDate } from './brightdata-client.js';
+import { getPostsToNotInclude } from './get-posts-to-not-include.js';
+import { isHistorySeeded } from './history-seeded-store.js';
 import { createPendingJob } from './brightdata-pending-jobs-store.js';
 import { loadBackendEnv } from '../../env.js';
 import { recordActorRunStart } from './record-actor-run.js';
@@ -42,11 +44,24 @@ export let attemptBrightDataTrigger = async (
     const startDate = mapBrightDataDateToStartDate(scrapeCursorTimestamp);
     const profileUrl = `https://www.instagram.com/${target.username}/`;
 
+    // Posts already stored for this profile inside the requested window are excluded, so a quiet day returns nothing
+    // instead of the newest posts bought again. Only for a seeded profile (see getPostsToNotInclude). A lookup that fails
+    // sends no list: that is today's behaviour (a re-delivery the persist step de-duplicates), never a failed trigger.
+    let postsToNotInclude: string[] = [];
+    try {
+      if (await isHistorySeeded(target.profileId)) {
+        postsToNotInclude = await getPostsToNotInclude(target.profileId, scrapeCursorTimestamp);
+      }
+    } catch (error) {
+      console.error(`Could not build the Bright Data exclusion list for ${target.username}; sending none:`, error);
+    }
+
     const triggerResult = await triggerBrightDataJob(
       {
         url: profileUrl,
         numOfPosts: env.scrapeResultsLimit || 10,
         startDate,
+        postsToNotInclude,
       },
       webhookUrl
     );
@@ -61,7 +76,10 @@ export let attemptBrightDataTrigger = async (
         url: profileUrl,
         numOfPosts: env.scrapeResultsLimit || 10,
         startDate,
+        // Audit: the numeric ids this request excluded (decimal strings).
+        postsToNotInclude,
       },
+      excludedPostCount: postsToNotInclude.length,
       status: 'PENDING',
     });
 
