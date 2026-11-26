@@ -178,3 +178,18 @@ These override any earlier wording, including the 40-character rule in section 2
 ## 14. Owner review of the proposal's story list (2026-11-26)
 
 - **DECIDED: the organizer links shown today move onto `/go/` inside Story 12.4.** The owner rule "every link and CTA goes through the first-party endpoint" covers the links of Story 0.37 (Extract and display event links) too. This replaces assumption A12 and the "follow-up, not part of this course" sentence in section 3 of the proposal; the ratchet 12.z covers them.
+
+## 15. Owner decisions on A8 and A9, and the backfill scope (2026-11-26)
+
+- **DECIDED: the wrong-pin gaps (handoff 13E, assumption A9) are part of Epic 11.** This restores the routing the owner gave on 2026-11-21 (handoff section 11: the wrong-coordinates defect goes into this course); the input file had left it out. Replaces assumption A9 and covers backlog `FIND-261124-axb`.
+  - Silent account-default location (code and data): first, next to Story 11.9, because it keeps creating wrong pins. Planning suggestion, not an owner decision: do not switch inheritance off altogether (a venue account's default is right); inherit only for such accounts, not for curator accounts, and mark the source. How to tell the account kinds apart is not checked.
+  - City check on the geocoding result (code): investigate first, the cause of the Semarang case is not verified.
+  - Re-geocode the old schedules that were never attempted (data), next to Story 11.16; writer go-ahead needed.
+- **DECIDED: every backfill covers active events only** (still running or upcoming: the schedule's end date, else start date, is not past in its own time zone). Data keeps moving, so past events are not worth rewriting. This replaces C10's "layer 1 for all events" and applies to Stories 11.11, 11.15, 11.16, the new re-geocode work, and also limits the recompute sweep of Story 11.12 (otherwise the sweep would rewrite past events anyway; its drift count is measured on active events). Past events stay as they are, including their pins.
+- Production read-only counts of 2026-11-26 (active measured by Jakarta date): 1,436 active schedules, 1,344 with a pin; 486 pins never attempted by the current geocoding path, 111 of them outside an Indonesia bounding box (approximate); 289 of the 486 have location text (206 distinct texts), 197 have none; 3,271 never-attempted pins belong to past schedules and are left alone.
+- **DECIDED: the "next 7 days" time filter is a story inside an epic** (planning assumption: Epic 11, it is about dates; the owner said "into an epic" without naming it). It is independent of the other stories and can be built at any time; it uses the same `overlaps` field, so Story 11.13 applies to it automatically.
+  - Time dropdown `Kapan saja | 7 hari ke depan | Hari ini` (EN `Anytime | Next 7 days | Today`) replaces the `Hari ini | Mendatang | Semua` toggle on the home, feed, favorites and account pages. The label is not "Minggu ini": "this week" means Monday to Sunday elsewhere in the code.
+  - Range: today to today + 6 days; schedules that already ended today are excluded, as the Today filter does. No new SQL.
+  - The old value `UPCOMING` stays accepted for old links and stored filters.
+  - Fix BUG-097 (these filters use the UTC date) in the same story.
+  - Only the time filter is covered. The other header changes of handoff 9 and 11 (scrolling facet row, chevrons, AI button on the search row, icon buttons, collapse motion) stay in backlog `IDEA-261124-15a`.
