@@ -26,6 +26,7 @@ export async function getProviderRunHealth(vendor: ScraperVendor, now: Date = ne
       status: scraperActorRuns.status,
       itemCount: scraperActorRuns.itemCount,
       completedAt: scraperActorRuns.completedAt,
+      excludedPostCount: scraperActorRuns.excludedPostCount,
     })
     .from(scraperActorRuns)
     .where(

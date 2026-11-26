@@ -604,10 +604,10 @@ function isNotFoundItem(item: any, kind: 'post' | 'profile'): boolean {
   }
 
   // Fallback: item lacks the fields a real result must have.
-  // For posts: must have both caption AND timestamp
+  // For posts: must have a timestamp (a caption may be empty: a flyer-only post has none)
   // For profiles: must have both fullName AND biography
   if (kind === 'post') {
-    if (!item.caption || !item.timestamp) {
+    if (!item.timestamp) {
       return true;
     }
   } else if (kind === 'profile') {

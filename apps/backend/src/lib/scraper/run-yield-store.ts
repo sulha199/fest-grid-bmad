@@ -6,6 +6,25 @@ import { PROGRESS_LOOKUP_TIMEOUT_MS, lookUpBrightDataProgress } from './classify
 import type { BrightDataProgressResponse } from './brightdata-client.js';
 
 /**
+ * How many post ids the run's request excluded (`posts_to_not_include`), read from its audit row; 0 when it
+ * excluded none, the row is unknown or the read fails (the classification then keeps its stricter reading).
+ */
+export async function getRunExcludedPostCount(scraperActorRunId: string | null | undefined): Promise<number> {
+  if (!scraperActorRunId) return 0;
+  try {
+    const [row] = await db
+      .select({ excludedPostCount: scraperActorRuns.excludedPostCount })
+      .from(scraperActorRuns)
+      .where(eq(scraperActorRuns.id, scraperActorRunId))
+      .limit(1);
+    return row?.excludedPostCount ?? 0;
+  } catch (error) {
+    console.error(`Failed to read the excluded-post count of run ${scraperActorRunId}:`, error);
+    return 0;
+  }
+}
+
+/**
  * Records how many posts an async run delivered that did not exist before, on its audit row. A run that
  * delivered posts but no new one is as empty as one that delivered none, which is what a scrape backoff needs
  * to know. Best effort and never throws: the posts are already stored, the count is bookkeeping.

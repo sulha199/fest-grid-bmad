@@ -70,7 +70,7 @@ async function runPreview(ctx: JobHandlerContext): Promise<JobHandlerResult> {
       }
     }
     // The caption: the stored one, else the held one (an image-only post's is an empty string, which is a caption).
-    const caption = post?.content ? post.content : held?.content;
+    const caption = post?.content != null ? post.content : held?.content;
     if (caption === undefined || (!post && !held)) {
       // A caption that was cleared since the start, or one phase 1 could not hold: nothing to extract from.
       return { outcome: 'FAILED', reasonCode: 'EXTRACTION_FAILED', errorMessage: NO_CAPTION_MESSAGE, resultData: keepReport };

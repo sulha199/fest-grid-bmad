@@ -426,6 +426,8 @@ export const scraperActorRuns = pgTable('scraper_actor_runs', {
   // Null when the run was not processed by an async result handler. A run that delivered posts but no new
   // one is an "empty" run for the scrape backoff.
   newPosts: integer('new_posts'),
+  // Post ids the request excluded (Bright Data `posts_to_not_include`); null when it excluded none or the run is not Bright Data.
+  excludedPostCount: integer('excluded_post_count'),
   errorMessage: text('error_message'),
   pendingJobId: uuid('pending_job_id'),
   startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
@@ -474,9 +476,8 @@ export const postAccountAssociations = pgTable('post_account_associations', {
   onePublisherPerPostIdx: uniqueIndex('idx_post_account_associations_one_publisher_per_post')
     .on(t.postId)
     .where(sql`role IN ('PUBLISHER', 'PUBLISHER_UNKNOWN')`),
-  oneScrapingSourcePerPostIdx: uniqueIndex('idx_post_account_associations_one_scraping_source_per_post')
-    .on(t.postId)
-    .where(sql`role = 'SCRAPING_SOURCE'`),
+  // The one-SCRAPING_SOURCE-per-post partial unique index was dropped (migration 0105, owner decision 2026-11-26,
+  // AD-25 Rule 2): every account whose scrape returned a post is linked to it. Only the publisher index remains.
   accountIdPostIdIdx: index('idx_post_account_associations_account_id_post_id').on(t.accountId, t.postId),
 }));
 

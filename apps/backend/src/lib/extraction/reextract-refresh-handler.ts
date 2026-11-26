@@ -132,7 +132,8 @@ function failedForCaption(outcome: StopOutcome, retryAfter: string | null): JobH
  */
 async function refreshImages(target: { post: PostRow | undefined; url: string; inputKey: string }, ctx: JobHandlerContext, now: Date): Promise<RefreshResult> {
   const { post, url, inputKey } = target;
-  const captionNeeded = !post || !post.content;
+  // '' is a stored caption (a flyer-only post); only null means none stored or cleared.
+  const captionNeeded = !post || post.content == null;
   // A URL that is not stored has no images of ours to judge: the caption is the only reason.
   const reasons: ReextractRefreshReason[] = post ? reextractRefreshReasons(post, now, { captionMissing: captionNeeded }) : ['CAPTION_MISSING'];
   if (reasons.length === 0) {
@@ -262,7 +263,8 @@ export const reextractRefreshHandler: JobHandler = {
     const target = post
       ? { post, url: post.postUrl, inputKey: reextractPostInputKey(post.id) }
       : { post: undefined, url: (input as { url: string }).url, inputKey: reextractUrlInputKey((input as { url: string }).url) };
-    const captionNeeded = !post || !post.content;
+    // '' is a stored caption (a flyer-only post); only null means none stored or cleared.
+  const captionNeeded = !post || post.content == null;
 
     await ctx.setPhase(REEXTRACT_PHASE_REFRESH);
 

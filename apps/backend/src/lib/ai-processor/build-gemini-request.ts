@@ -307,9 +307,11 @@ The social media post was published on ${publishDate}. Use this publish date as 
 Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate information. If a field is absent, leave it null or undefined.`;
 
   const accountName = message.ownerDisplayName?.trim() || message.ownerUsername?.trim() || '';
+  // A post with no caption (the event is in its image) must not send an empty text part, which Gemini rejects.
+  const captionText = message.content.trim() === '' ? '(no caption)' : message.content;
   const captionWithAccountContext = accountName
-    ? `Account Name Metadata: "${accountName}"\nPost Content:\n"${message.content}"`
-    : message.content;
+    ? `Account Name Metadata: "${accountName}"\nPost Content:\n"${captionText}"`
+    : captionText;
 
   // BUG-101 -- a stored post's slide list can repeat the cover (file name, not whole URL,
   // matches a different signed query) when it was ingested by the pre-fix Apify adapter.
