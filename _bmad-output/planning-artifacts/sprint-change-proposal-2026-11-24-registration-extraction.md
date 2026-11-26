@@ -5,10 +5,40 @@ trigger_story: none (POC-driven owner request; change trigger = planning-artifac
 scope: Major
 mode: Batch (unattended scheduled run; nobody could answer questions)
 status: proposed (awaiting owner approval; NOT approved)
-revision: 5 (2026-11-26, owner answers Q5 and Q6: list highlights carry a count, the label is never repeated; input section 13)
+revision: 6 (2026-11-26, input sections 14 and 15: event links onto /go/ in Story 12.4, wrong-pin stories and the next-7-days filter in Epic 11, backfills for active events only)
 ---
 
 # Sprint Change Proposal: registration, CTA bar, highlight, honest dates and the extraction update
+
+## Revision 6 (2026-11-26): what changed since revision 5
+
+Source: sections 14 and 15 of the input file and handoff sections 11 and 13E. Status stays **proposed, not approved**.
+
+1. **Event links onto `/go/` (input 14):** the organizer links that Story 0.37 (Extract and display event links)
+   renders today move onto the first-party endpoint **inside Story 12.4**, with acceptance criteria; the
+   "follow-up, not part of this course" wording and assumption A12 are removed; ratchet 12.z covers them (C1, 4.1
+   edit 1, 4.3, 5.2, A12).
+2. **Wrong pins in Epic 11 (input 15, handoff 11 and 13E):** three new stories, 11.19 (Inherit the account default
+   location only for organizer and venue accounts, and mark it), 11.20 (Investigate wrong-city geocoding matches and
+   add a city check if the cause supports it), 11.21 (Re-geocode active schedules never attempted by the current
+   path); new change C11; assumption A9 replaced; `FIND-261124-axb` now points at them.
+3. **Backfills cover active events only (input 15):** C10, section 3.5, Stories 11.11, 11.12 (its sweep and drift
+   count), 11.15, 11.16 and 11.21; retitled 11.11, 11.12, 11.15, 11.16 (ids unchanged, proposed keys renamed).
+   Past events stay as they are, including their pins. The highlight recompute step of 11.7 is not named by the
+   owner; it is kept to active events as a recommendation (Q7).
+4. **Next-7-days time filter (input 15):** new Story 11.22 (Replace the temporal toggle with a time dropdown with the
+   next 7 days, and use the viewer's date), new change C12, with acceptance criteria and the BUG-097 fix; assumption
+   A8 replaced; `IDEA-261124-15a` keeps only the other header changes.
+5. **Numbering:** new stories take 11.19 to 11.22; 11.17 stays reserved and the ratchet keeps its proposed key
+   `11-18z`, so no existing id moves. Epic 11 has **21** stories, **32** in total.
+6. **Code read (read only, 2026-11-26)** for the new criteria: account kinds, the default-location path, the temporal
+   filter in domain, GraphQL and the four pages, and the event-link render (sections 5.1 and 5.2).
+7. **Master moved:** PR #269 (Stop re-buying Bright Data posts, store caption-less posts, link every scraping
+   account) merged. It drops the one-scraping-source-per-post index (migration 0105, AD-25 Rule 2 amended), so a
+   post can now have several scraping accounts: this matters for which account's default location 11.19 inherits
+   (Q8). Caption-less posts are now stored (empty caption kept distinct from a cleared one): layer 2 (11.15) treats
+   an empty caption like a missing one.
+8. **Section 11:** six new questions (Q7 to Q12) with recommendations.
 
 ## Revision 5 (2026-11-26): what changed since revision 4
 
@@ -133,8 +163,10 @@ keywords and a core event name for matching, and the existing data needs a backf
 `events.types`, `schedules.performers` and `schedules.ticket_price`, but **no column** for prizes, promos,
 inclusions, free flag, stage, tiers, highlight, display flag or core name.
 
-**Category.** New requirement from the owner, backed by a measured POC; plus two defects found on the way
-(online locations geocoded to wrong places, registration windows winning the card date).
+**Category.** New requirement from the owner, backed by a measured POC; plus defects found on the way
+(online locations geocoded to wrong places, a curator account's default location pinned on events, a geocoding
+match in the wrong city, registration windows winning the card date). Revision 6 adds the owner's time filter
+"next 7 days" (input 15).
 
 **Evidence (from the POC, all redacted, sample ids only).**
 - QR: 14.8% of posts carry a decodable QR, 43% of codes sit on later slides, 68% of URL codes are behind
@@ -160,6 +192,10 @@ inclusions, free flag, stage, tiers, highlight, display flag or core name.
 - OCR for the slide map (findings 11.20): 1 of 5 dedicated slides found (model 5 of 5).
 - Online locations: all 72 online-only schedules in production carry a wrong pin (handoff L).
 - Dates: 103 stored events have only non-counting rows by title rule v2 (handoff M).
+- Pins of active schedules (production read-only, 2026-11-26, active by Jakarta date): 1,436 active schedules,
+  1,344 with a pin; 486 pins never attempted by the current geocoding path, 111 of them outside an Indonesia
+  bounding box (approximate); 289 of the 486 have location text (206 distinct texts), 197 have none; 3,271
+  never-attempted pins of past schedules are left alone (input 15).
 
 ---
 
@@ -171,7 +207,7 @@ inclusions, free flag, stage, tiers, highlight, display flag or core name.
 | 1.2 Core problem | [x] | New requirement + two data defects (section 1). |
 | 1.3 Evidence | [x] | Findings 9-11.22, handoff J-O. |
 | 2.1 Current epic | [x] | No single epic owns this; Epic 3 (extraction) and Epic 1/1.i1 (card, detail) are touched but can finish as planned. |
-| 2.2 Epic-level change | [!] | **Two new epics proposed** (Epic 11 Extraction and honest dates, Epic 12 Registration, CTA bar and prices; sections 5.1-5.2). Existing epics get notes, not new scope. |
+| 2.2 Epic-level change | [!] | **Two new epics proposed** (Epic 11 Extraction and honest dates, Epic 12 Registration, CTA bar and prices; sections 5.1-5.2). Existing epics get notes, not new scope. Revision 6: Epic 11 also takes the wrong-pin stories and the next-7-days filter (input 15). |
 | 2.3 Future epics | [x] | Epic 9 (AI filter, `isFree`), Epic 10 (re-extract preview) touched, section 3.2. |
 | 2.4 Obsolete / new epics | [x] | None obsolete. Two new epics; "Remind me" and the cover per event stay carved out. |
 | 2.5 Order | [x] | Section 8. |
@@ -212,9 +248,10 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   correction, re-extract on the job engine): preview shows options, persists nothing until apply (AD-40).
 - Owner rule (revision 2): destinations that come from organizer or scraped data are not put in the page; the
   page links to a first-party endpoint that checks and answers 302 (shape in section 4.3, AD-55 and AD-57
-  amendments). Story 0.37 (Extract and display event links; sprint-status key
-  `0-37-extract-and-display-event-links`, no epics.md section) renders organizer links today; moving it onto
-  `/go/` is a follow-up for the epic readiness check of Epic 12, not part of this course.
+  amendments). **The organizer links shown today move onto `/go/` inside Story 12.4 (owner decision, input 14):**
+  Story 0.37 (Extract and display event links; sprint-status key `0-37-extract-and-display-event-links`, status
+  `review`, no epics.md section) renders `events.links` as plain `<a href={url}>` in `EventDetailView.tsx`, and the
+  public `Event.links` field returns the full `url`. Both change in Story 12.4; ratchet 12.z covers them.
 - **QR: decided (decision 11, option B).** The decoder is adopted, but Story 12.2 ships **last** in Epic 12 behind
   a memory gate: only after the cause of the AI-processor Lambda out-of-memory seen since 2026-11-20 is
   understood, and the replay shows the peak memory with decoding at most 10% above the same replay without it and
@@ -223,8 +260,8 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   wait for QR.
 - **Low confidence (decision 9, option A):** no `evidence` field; an option whose source is an image gets
   `lowConfidence` set by code; the moderator opens the original post. D7's quoted evidence is withdrawn.
-- New stories: 12.1 (registration table), 12.3 (descriptor read), 12.4 (link endpoint), 12.5 (action bar), 12.6
-  (sheet) (slice 1); 12.8 (phones), 12.9 (retention), 12.10 (WhatsApp and phone) (slice 2); 12.7 (prices, slice
+- New stories: 12.1 (registration table), 12.3 (descriptor read), 12.4 (link endpoint, also for the existing
+  event links of Story 0.37), 12.5 (action bar), 12.6 (sheet) (slice 1); 12.8 (phones), 12.9 (retention), 12.10 (WhatsApp and phone) (slice 2); 12.7 (prices, slice
   3); 12.2 (QR, last); 12.z (link ratchet).
 - ADs: new **AD-55 (Registration options table, bounded-retention contact, AD-8 hard-delete exception, cache
   split)**, new **AD-56 (Deterministic phone detector and contact scrub)**, new **AD-57 (QR decode step and
@@ -368,11 +405,13 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
 - PRD: 4.3 LocationDetails / 4.4 Schedule: an online-only location has no coordinates and no map pin; it never
   falls back to the account's default location; a hybrid text is still geocoded. Resolution value `online` (new
   member of the TypeScript `LocationResolution` type; column is text, no migration).
-- **Decided (decision 1, option A):** the 72 existing wrong pins are cleared after Story 11.9 ships, by Story
-  11.16's script (`--dry-run`, `--apply`, rollback copy), with the owner's go-ahead and the writer role.
+- **Decided (decision 1, option A):** the existing wrong pins are cleared after Story 11.9 ships, by Story
+  11.16's script (`--dry-run`, `--apply`, rollback copy), with the owner's go-ahead and the writer role. **Active
+  schedules only (input 15):** the 72 counted on 2026-11-24 include past ones, which stay as they are; the dry run
+  counts the active ones.
 - Stories affected: 0.i7a-0.i7c (Confidence-aware Geoapify resolution; the map link gate must also hide on
   `online`), 1.6e (detail schedule location link).
-- New stories: 11.9; existing-row cleanup in 11.16.
+- New stories: 11.9; existing-row cleanup in 11.16 (active only). The other wrong-pin causes are C11.
 - ADs: amends **AD-14 (Geoapify confidence propagation)** with the `online` resolution.
 
 **C8. Own cover per event on multi-event carousels: deferred (decision 4, option A).**
@@ -406,10 +445,15 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
 - New stories: 11.1 (prompt seam), 11.2 (gate).
 - ADs: new **AD-61 (Replay release gate for extraction changes)**.
 
-**C10. Backfill of existing events (after C2-C7 ship).**
+**C10. Backfill of active events (after C2-C7 ship).**
 - PRD: none beyond the fields above; a one-off data operation (results into the new columns; moderator edits never
   overwritten).
-- Layers: (1) code only for all events: stage by rule v2 with the C6 fixes, display and main flags through
+- **Scope (owner decision, input 15): every backfill covers active events only**, meaning still running or
+  upcoming: the schedule's end date, else its start date, is not past in its own time zone. An event is active when
+  at least one of its schedules is; its rows are then all written, because `computeDisplayFlags` reads every row of
+  the event (A14). Past events stay as they are. This replaces revision 5's "layer 1 for all events" and also limits
+  the recompute sweep of Story 11.12 and the re-geocode of Story 11.21.
+- Layers: (1) code only, for active events: stage by rule v2 with the C6 fixes, display and main flags through
   `computeDisplayFlags`, tiers from the stored "NAME: Rp..." string, performer highlight and the stored card
   highlight, a first `core_event_name` and `activity_type` by a code rule (about 73% of same-series pairs on the
   test set, an optimistic figure because the rule was written after seeing those names); (2) caption re-read for
@@ -419,13 +463,50 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   string (which can come from another merged post: already what the site shows, so no new error, but not proof
   that this post states it); 266 events get layer 1 only; (3) a script with `--dry-run`, `--apply` and a rollback
   copy, run only with the owner's go-ahead and the writer credential. Race-pack events merge through the dedup
-  scoring (the 11.10 matcher); three stored duplicate events of one project go to the dedup flow. Online pins:
-  Story 11.16.
+  scoring (the 11.10 matcher); three stored duplicate events of one project go to the dedup flow (if still
+  active). Online pins: Story 11.16; never-attempted pins: Story 11.21.
 - Stories affected: 3.6v / 3.6w (merge), 3.4o (curator caption nulling) and the 30-day caption blanking (fewer
   captions over time; run layer 2 early after the code ships).
-- New stories: 11.11 (layer 1), 11.15 (layer 2), 11.16 (online pins).
+- New stories: 11.11 (layer 1), 11.15 (layer 2), 11.16 (online pins), 11.21 (never-attempted pins); all active
+  events only.
 - ADs: **AD-30 Rule 7 and Rule 9** (race-pack merge, moderator edits preserved); **AD-45 (CI bridge for a
   credential-less agent)** does not cover writes of this kind: the apply step stays with the owner.
+
+**C11. Wrong pins beyond online locations (revision 6; input 15, handoff 11 and 13E; replaces A9).**
+- Owner routing: the wrong-coordinates defect of handoff 10 goes into this course (handoff 11, 2026-11-21);
+  confirmed 2026-11-26 (input 15). Covers backlog `FIND-261124-axb`.
+- **Silent account-default location (code and data), first, next to Story 11.9.** Code today
+  (`resolve-account-and-locations.ts`, read only): a schedule with no location text of its own and no event-level
+  text is geocoded from the account's `default_location` address, for every account, and nothing records that (the
+  code comment says inherited coordinates carry no `location_resolution`). The account used is `posts.account_id`
+  (`message.accountId`), which the code itself notes is not reliably the publisher; since PR #269 a post can have
+  several scraping accounts. Account kinds exist: `social_media_account_profiles.account_type`
+  (`ORGANIZER_VENUE_EVENT | PERSONAL | CURATOR_GUIDE`, nullable) with `account_type_status`
+  (`CONFIRMED | AWAITING_APPROVAL`), classified per PRD 3.16. Planning suggestion (not an owner decision): keep
+  inheritance for organizer and venue accounts only and mark the source with a new resolution `account_default`;
+  the exact account kinds, statuses and which account of the post are Q8. Story 11.19.
+- **City check on the geocoding result (code): investigate first.** The Semarang case (keywords naming the venue,
+  the city and the province resolved by the first keyword step to a point about 120 km away) has no verified
+  cause. Story 11.20 investigates and adds a check only if the cause supports it.
+- **Re-geocode never-attempted pins (data), next to Story 11.16, active schedules only:** 486 such pins on
+  2026-11-26 (289 with text, 197 without); writer go-ahead needed. Story 11.21; the outcome when nothing is found is
+  Q9.
+- PRD: 3.7 Default Location (inheritance rule and source mark), 4.3 (`account_default` resolution). ADs: amends
+  **AD-14** (`account_default`, the inheritance rule, a city check if 11.20 adds one).
+
+**C12. Time filter "next 7 days" (revision 6; input 15; replaces A8 for the time filter only).**
+- A time dropdown `Kapan saja | 7 hari ke depan | Hari ini` (EN `Anytime | Next 7 days | Today`) replaces the
+  `Hari ini | Mendatang | Semua` toggle on the home, feed, favorites and account pages. The label is not "Minggu
+  ini": `THIS_WEEK` means Monday to Sunday in `buildEventsQueryCondition.ts` (checked).
+- Range: today to today + 6 days; schedules that already ended today are excluded, as the Today filter does; no new
+  SQL (the same `overlaps` and `notEnded` conditions). The old value `UPCOMING` stays accepted for old links and
+  stored filters. BUG-097 (these filters use the UTC date) is fixed in the same story.
+- Independent of every other story; it uses the same `overlaps` field, so Story 11.13 (field map on the display
+  columns) applies to it automatically.
+- Only the time filter: the scrolling facet row, chevrons, the AI button on the search row, icon buttons and the
+  collapse motion stay in backlog `IDEA-261124-15a`.
+- Stories affected: 0.i5d (Temporal filter in the FilterHub; sprint-status `review`), BUG-097. New story: 11.22.
+  ADs: amends **AD-20** (new value, viewer's date). PRD: 3.12 and the `TemporalFilter` enum.
 
 ### 3.2 Epics touched
 
@@ -433,7 +514,9 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
 |---|---|
 | Epic 3 (Social Media Event Integration), in progress | Notes on 3.6i, 3.6j, 3.6l, 3.6p, 3.6s, 3.6v, 3.6w; no new stories here (they go to Epics 11 and 12). |
 | Epic 1 (Core App and Event Discovery) and Epic 1.i1 (One card primitive), in progress | Card redesign (11.14) supersedes the date box and footer of 1.3b/1.i1k; detail stories 1.6/1.6a/1.6e/1.6f gain the bar (12.5) and the highlight list (11.14). Do not fork the card; go through EVENT-CARD-DESIGN.md. |
-| Epic 0.i7 (Confidence-aware Geoapify resolution), in progress | `online` resolution must be honoured by 0.i7c's map-link gate. |
+| Epic 0.i7 (Confidence-aware Geoapify resolution), in progress | `online` resolution must be honoured by 0.i7c's map-link gate; the new `account_default` resolution (11.19), a possible city check (11.20) and the re-geocode of active never-attempted pins (11.21) build on its ladder. |
+| Sweep 0.i5 (Temporal filter, 0.i5d), in review | The Today / Upcoming / All toggle becomes the time dropdown of Story 11.22; `UPCOMING` stays accepted. |
+| Story 0.37 (Extract and display event links), in review, no epic section | Its links render through `/go/` (Story 12.4); the public read stops returning the full URL. |
 | Epic 4 (Data Quality and Moderation) | 4.1/4.1b correction form writes a stage and calls `computeDisplayFlags` and the composer; 4.2 preview shows composed highlight and options. |
 | Epic 9 (AI Prompt Filter v1.1), backlog | `isFree` column available later; no change now. |
 | Epic 10 (Background vendor jobs), in progress | 10.6/10.6a re-extract preview must run the new post-extraction call and composer and keep AD-40's write-free rule; re-extract apply calls `computeDisplayFlags`. |
@@ -453,9 +536,12 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   hosts them is an AD-58 choice.
 - New library: `zxing-wasm` (about 2 MB with WASM embedded) in the AI-processor Lambda bundle (decision 11), decoding
   a downscaled copy, shipped last behind the memory gate; `libphonenumber-js` for slice 2.
-- New first-party link endpoint `/go/{opaqueOptionId}` (Story 12.4): one more hop on every registration click
-  and a new single point of failure for those clicks (section 4.3); placement (web route or API Lambda) is an
-  architecture decision.
+- New first-party link endpoint `/go/{opaqueId}` (Story 12.4): one more hop on every registration click and on
+  every click on an event link of Story 0.37, and a new single point of failure for those clicks (section 4.3);
+  placement (web route or API Lambda) is an architecture decision; how an event link gets its opaque id is Q10.
+- `LocationResolution` gains `account_default` (11.19) beside `online` (11.9); the column is text, no migration.
+- `TemporalFilter` gains `NEXT_7_DAYS` in the domain enum, the GraphQL enum (`EventFilterInput`, `EventFilter`), the
+  UI type and the `?temporal=` parser (11.22); no new SQL for the range.
 - New pure domain functions in `packages/domain`: stage guard, `computeDisplayFlags` (display and main flags),
   title rule v2 (Story 11.5), `composeHighlight` (card and detail modes), `decideTiersPerEvent`, a core-name code
   rule (backfill), `isOnlineOnlyLocation` (next to `GENERIC_KEYWORDS`), `detectRegistrationPhones`,
@@ -506,16 +592,17 @@ carries them. No copy of a date lives on `events`.
 
 **Who keeps the flag.** One domain function, called by every schedule write path: extraction ingestion, manual
 correction, merge, set primary post, re-extract apply, backfill, admin scripts; guarded by ratchet 11.z. A step of
-an existing scheduled sweep recomputes the flags of every event, repairs those that differ and logs the number
-repaired (non-zero = some write path forgot the function) (Story 11.12). No database trigger (it would duplicate
+an existing scheduled sweep recomputes the flags of every **active** event (input 15), repairs those that differ
+and logs the number repaired (non-zero = some write path forgot the function) (Story 11.12). Past events are not
+swept. No database trigger (it would duplicate
 the rules in plpgsql; skipped `IDEA-261124-jz4`).
 
 | Step | What ships or runs | Effect on the list | Stories |
 |---|---|---|---|
 | (a) | Migration: `stage` default `event`, `stage_source` default `default`, `is_display` default true, generated `display_*` columns, partial index | none: every row flagged, `display_*` equal the real dates | 11.3 |
 | (b) | Readers point at `display_*`; every write path calls `computeDisplayFlags`; extraction writes `stage` | new events honest from the start; old rows unchanged | 11.4, 11.13 |
-| (c) | Layer-1 backfill sets stages (title rule v2) and recomputes flags | old registration windows stop winning the date | 11.11 |
-| (d) | Healing step in the scheduled sweep; read-only consistency check | drift repaired and counted | 11.12 |
+| (c) | Layer-1 backfill sets stages (title rule v2) and recomputes flags, active events only | registration windows of active events stop winning the date; past events unchanged | 11.11 |
+| (d) | Healing step in the scheduled sweep (active events); read-only consistency check | drift repaired and counted on active events | 11.12 |
 
 Readers can switch at once (step b), because the defaults keep today's behaviour; there is no reader gate. Story
 11.12 is a consistency check, not a switch.
@@ -538,6 +625,8 @@ Readers can switch at once (step b), because the defaults keep today's behaviour
    checks it and redirects; the destination host stays visible; a phone number is shown only when the user acts.
    Buttons carry no price; the event's tiers and "from" price are shown beside them (decision 10). An option read
    from an image carries a low-confidence mark (decision 9). QR-decoded links follow the memory gate of decision 11.
+   The same endpoint serves the event's other organizer links (ticketing, RSVP, link-in-bio: Story 0.37); every link
+   and CTA of the event detail that comes from organizer or scraped data goes through it (owner, input 14).
    Rationale: owner ask; slicing per D3.
 2. **3.7 multi-event grouping rule (line ~93).**
    OLD: "Registration and sign-up windows are schedules of the event they belong to, never separate events."
@@ -582,6 +671,22 @@ Readers can switch at once (step b), because the defaults keep today's behaviour
    posts read by eye) and the Story 12.2 memory limit. **5 Security:** add the `/go/` rule (no open redirect, scheme allow-list, blocklist, kill switch,
    phone revealed on action with a per-IP rate limit).
 10. **Frontmatter `updated`** and a change note referencing this proposal.
+11. **3.7 Default Location for Subscriptions (revision 6, C11).**
+   OLD: "If the AI agent does not find an explicit location in a post, it will use this default location for the
+   event."
+   NEW: "If the AI agent does not find an explicit location in a post, the schedule takes this default location only
+   when the account is an organizer, venue or event account (Section 3.16 classification; exact kinds and statuses
+   per Q8), and the schedule records that its location came from the account default. For curator, personal and
+   unclassified accounts the schedule has no map pin." The 3.15 Venue Type Source sentence ("included whenever a
+   schedule inherits its account's Default Location") stays true for the inheriting case.
+12. **3.12 / 3.15 temporal filter and the `TemporalFilter` enum (revision 6, C12).** The manual time control is a
+   dropdown Anytime | Next 7 days | Today (ID Kapan saja | 7 hari ke depan | Hari ini); Next 7 days = today to
+   today + 6, schedules already ended excluded; dates use the viewer's day, not UTC (BUG-097); the enum gains
+   `NEXT_7_DAYS` and keeps `UPCOMING` for old links, saved AI filters and the API. Line ~307 "the Today/Upcoming
+   toggle stay live" becomes "the time dropdown stays live". The AI filter vocabulary is unchanged.
+13. **Data backfills (revision 6, C10).** Add to 3.7 or 5: "Backfills, re-geocoding and recompute sweeps touch
+   active events only (still running or upcoming in the schedule's own time zone); past events are left as they
+   are, including their pins."
 
 ### 4.2 Epics and stories (`epics.md`), to be applied after approval by correct-course edits, not by `bmad-create-epics-and-stories`
 
@@ -605,6 +710,10 @@ Readers can switch at once (step b), because the defaults keep today's behaviour
   - Story 4.1 (Manual correction): "Writes a stage and its stage source, then calls `computeDisplayFlags` and the
     composer (11.13, 11.7)."
   - Story 0.i7c (Map link gate): "Also hidden for resolution `online` (11.9)."
+  - Story 0.i5d (Add the temporal filter to the FilterHub): "The toggle is replaced by the time dropdown of Story
+    11.22 (Anytime, Next 7 days, Today); `UPCOMING` stays accepted for old links and stored filters."
+- Story 0.37 (Extract and display event links) has **no `epics.md` section** (sprint-status `review`); its move onto
+  `/go/` is an acceptance criterion of Story 12.4, recorded here and in the Epic 12 section.
 - Story 0.35 (Fix ticketPrice "from" label pairing for free-text prices) has **no `epics.md` section**; its
   relation to `fromPrice` (shown beside `ticketPrice` where tiers exist; 0.35 stays in force) is recorded in this
   proposal only.
@@ -627,7 +736,8 @@ New ADs (the spine ends at AD-54, checked 2026-11-26; `bmad-architecture` assign
   `other`; only a flagged `registration` row uses its end date as the start date); partial index
   `schedule_display_date_idx`; the write paths that must call it (ratchet 11.z); the healing step on an existing
   scheduled sweep (which sweep: hourly or 5-minute, an AD choice), logging the repaired count; no trigger;
-  `stage_source`; correct for several main schedules in one event.
+  `stage_source`; correct for several main schedules in one event; the healing step covers active events only
+  (input 15).
 
 **Owner rule for the event detail, as amendments to the proposed AD-55 and AD-57 (revision 2).** The spine
 has no rule on outbound links that this contradicts (checked: AD-54's rule on `javascript:` URLs in notification
@@ -638,19 +748,23 @@ templates and the AD-16/AD-35 canonical-slug redirects are about other things), 
   acts: a POST (GraphQL mutation or JSON route, declared public under AD-7) with a per-IP rate limit, following
   the `takeAlertEmailBudget` precedent; desktop shows "Copy number", touch navigates to `tel:`.
 - **AD-57 amendment (link endpoint).** Every action goes through a first-party link
-  `<a href="/go/{opaqueOptionId}" target="_blank" rel="noopener noreferrer">`; the endpoint checks and answers
+  `<a href="/go/{opaqueId}" target="_blank" rel="noopener noreferrer">` (an option id, or an event-link id since
+  revision 6); the endpoint checks and answers
   **302**. Never `window.open` after an async fetch (popup blockers drop it because the user gesture is gone).
   The endpoint accepts only an opaque option id, never a URL (no open redirect). Checks on every request:
   scheme allow-list (`https`, `wa.me` over https, `tel`); a host blocklist that applies at once to old events
   too; a kill switch per option; an unknown, expired or blocked id answers a first-party page, not a redirect.
   Click logging is by POST, or GET logging is accepted as noisy (link prefetchers trigger GET).
 - **Scope.** Destinations that come from organizer or scraped data: registration links, QR-derived links,
-  WhatsApp, phone, files and brochures, contacts. Not first-party navigation (calendar, share, map link).
+  WhatsApp, phone, files and brochures, contacts, **and the event links of Story 0.37 (`events.links`)** (owner,
+  input 14). Not first-party navigation (calendar, share, map link). How an event link gets its opaque id (derived
+  at read time or stored) is Q10.
 - **UI.** The destination host stays visible next to the action (trust line).
 - **Costs and limits.** The endpoint is a new single point of failure for every registration click and adds
   one round trip of latency. Validation on write (AD-57 link trust) stays the main control; the endpoint adds the
   blocklist, the kill switch and the gate on phone numbers.
-- Stories: 12.3 (read shape), 12.4 (endpoint), 12.10 (phone on action), 12.z (ratchet).
+- Stories: 12.3 (read shape), 12.4 (endpoint and the existing event links), 12.10 (phone on action), 12.z
+  (ratchet).
 
 - **AD-59 Highlight composer** (decision 3, hybrid): one function `composeHighlight(facts, mode)`; `detail` mode
   returns the ordered list from every ladder rung with content, read time, no limit; `card` mode is the first item
@@ -671,9 +785,11 @@ templates and the AD-16/AD-35 canonical-slug redirects are about other things), 
   option B threshold and the Story 12.2 memory limit; the composer baseline restarts with the no-limit composer.
 
 Amendments: AD-7 (public phone-reveal and click-log fields with a rate limit), AD-8 (exception list), AD-14
-(`online`), **AD-17** (the field-map descriptor's `startCol` / `endCol` point at `display_start_date` /
+(`online`; revision 6: `account_default`, inheritance only for the account kinds of Q8, and a city check if Story
+11.20 adds one), **AD-17** (the field-map descriptor's `startCol` / `endCol` point at `display_start_date` /
 `display_end_date` with the condition `is_display`; `highlight` is a plain list column), **AD-20** (`!ended` and
-the temporal filter read the display columns; BUG-096 cutoff untouched), AD-29 (number retention), AD-30 Rule 5
+the temporal filter read the display columns; BUG-096 cutoff untouched; revision 6: `NEXT_7_DAYS` = `overlaps`
+today to today + 6 AND `notEnded`, `UPCOMING` kept, the viewer's day instead of UTC for BUG-097), AD-29 (number retention), AD-30 Rule 5
 (payload, "one call" wording), Rule 7 (race pack for new posts and backfill with `coreEventName` and
 `activityType` as scoring inputs, `sharedLink`, a wider candidate date window for race-pack candidates if Story
 11.10 measures that it is needed), Rule 9 (union, moderator edits, flags and highlight recomputed), AD-33 (bar
@@ -699,12 +815,19 @@ each in the change that adds it (CLAUDE.md section 4).
 - `DESIGN.md` / `EXPERIENCE.md`: bottom bar, side card, modal footer, multi-option sheet, phone/WhatsApp
   actions, message preview, trust line, state table; tokens only, lucide icons, EN + ID copy, `z-overlay-sticky`.
 - Prototypes to translate (not copy): `prototypes/registration-cta/` (card, list, detail, sheets).
+- Revision 6: the time dropdown (Story 11.22) on the home, feed, favorites and account pages: Kapan saja | 7 hari ke
+  depan | Hari ini (EN Anytime | Next 7 days | Today), placed first in the facet row, using the existing facet
+  trigger (`Button variant="outline"` in a `Popover`); the shared chevron trigger, the scrolling row and the other
+  header changes stay in `IDEA-261124-15a`. Event links of Story 0.37 keep their list on the detail page with the
+  label and the destination host visible (trust line). A schedule without its own location whose account is not an
+  inheriting kind (11.19) has no pin: the distance slot falls through to its next rung and the map link is hidden.
 
 ---
 
 ## 5. Stories
 
-Two epics (owner, finding 9). Both numbers are free: `epics.md` ends at Epic 10, `sprint-status.yaml` has no
+Two epics (owner, finding 9); **21 stories in Epic 11 and 11 in Epic 12, 32 in total** (revision 6). Both numbers
+are free (checked again 2026-11-26 after merging the base branch and `master`): `epics.md` ends at Epic 10, `sprint-status.yaml` has no
 `epic-11` or `epic-12` key and the spine ends at AD-54 (checked 2026-11-26 after merging `master` and the base
 branch). Nothing was added to `sprint-status.yaml`; proposed keys are in section 5.4.
 
@@ -722,16 +845,21 @@ branch). Nothing was added to `sprint-status.yaml`; proposed keys are in section
 | 11.8 | Merge location keywords, tiers and core event name into one post-extraction call | C5 | 11.2, 11.3 |
 | 11.9 | Skip geocoding for online-only locations | C7 | none |
 | 11.10 | Match new race-pack posts into the main event through the dedup scoring | C6 (rule 4) | 11.4, 11.5, 11.8 |
-| 11.11 | Backfill old events from stored data (layer 1) | C10 | 11.5, 11.7, 11.9, 11.13 shipped; race-pack step after 11.10 |
-| 11.12 | Recompute display flags in the scheduled sweep and report drift | C6, C10 | 11.13 |
+| 11.11 | Backfill active events from stored data (layer 1) | C10 | 11.5, 11.7, 11.9, 11.13 shipped; race-pack step after 11.10 |
+| 11.12 | Recompute display flags of active events in the scheduled sweep and report drift | C6, C10 | 11.13 |
 | 11.13 | Compute display flags on every write path and point the field map at the display columns | C2, C6 | 11.3, 11.4 |
 | 11.14 | Redesign the grid card and show the highlight list and dummy-date labels | C4, C6 | 11.7, 11.13, UX |
-| 11.15 | Backfill old events by re-reading captions in a local session (layer 2) | C10 | 11.11 |
-| 11.16 | Clear the wrong pins of existing online locations | C7, C10 | 11.9 shipped (decision 1) |
+| 11.15 | Backfill active events by re-reading captions in a local session (layer 2) | C10 | 11.11 |
+| 11.16 | Clear the wrong pins of active online-only schedules | C7, C10 | 11.9 shipped (decision 1) |
+| 11.19 | Inherit the account default location only for organizer and venue accounts, and mark it | C11 | none (first, next to 11.9) |
+| 11.20 | Investigate wrong-city geocoding matches and add a city check if the cause supports it | C11 | none |
+| 11.21 | Re-geocode active schedules never attempted by the current path | C11, C10 | 11.9 and 11.19 shipped; after 11.20 if it adds a check |
+| 11.22 | Replace the temporal toggle with a time dropdown with the next 7 days, and use the viewer's date | C12 | none |
 | 11.z | Ratchet: highlight, main flag and display flag come only from their domain functions | C2, C4, C6 | 11.7, 11.13 |
 
 Not in Epic 11: **11.17** (Give each event its own cover slide on multi-event carousels) is deferred (decision 4);
-the id stays reserved and the work is backlog `IDEA-261124-8jo`.
+the id stays reserved and the work is backlog `IDEA-261124-8jo`. The ratchet 11.z keeps its proposed key `11-18z`;
+the revision 6 stories take 11.19 to 11.22, so no earlier id moves.
 
 Acceptance criteria to carry into `bmad-create-story`:
 - **11.2 (Replay gate):** interleaved A/B, 6+ runs, events and schedules counted against production; fresh caption
@@ -771,8 +899,9 @@ Acceptance criteria to carry into `bmad-create-story`:
   judges, prizes, take-home items, promos and the like). The production code has no highlight length limit today (checked, read only), so there is nothing
   else to remove. Extraction,
   manual correction, merge, re-extract apply and the backfill write `events.highlight` and
-  `highlight_rules_version` through it; a recompute step (no LLM) rewrites every row whose version is older than
-  the code's and logs the count; the re-extract preview shows the same output without writing (AD-40). Given a
+  `highlight_rules_version` through it; a recompute step (no LLM) rewrites every row of an **active** event whose
+  version is older than the code's and logs the count (active only is a recommendation, Q7; past events keep their
+  stored text); the re-extract preview shows the same output without writing (AD-40). Given a
   fact set, the card highlight equals the first detail item (property test); a test with a first item longer than
   40 characters stores it whole.
   Acceptance criteria and tests for the count (owner answer Q5; values below are placeholders, no real names):
@@ -806,17 +935,21 @@ Acceptance criteria to carry into `bmad-create-story`:
   matched on their raw name until 11.11 and 11.15 fill it. The Rule 7 candidate window (2 days) may miss a pickup
   several days before the race: the story measures it and proposes a wider window for race-pack candidates only.
   `coreEventName` is never displayed (test: no UI or GraphQL list field exposes it).
-- **11.11 (Layer-1 backfill):** sets `stage` by title rule v2 (11.5) with `stage_source = rule_v2` on every row
-  whose source is still `default`; recomputes the flags through `computeDisplayFlags`; splits stored price strings
+- **11.11 (Layer-1 backfill, active events only):** selects active events (at least one schedule whose end date,
+  else start date, is not past in its own time zone; the BUG-096 per-schedule cutoff gives that day); past events are
+  not read or written, and a test with one past and one active fixture event proves it. On the active events it sets
+  `stage` by title rule v2 (11.5) with `stage_source = rule_v2` on every row whose source is still `default`; recomputes the flags through `computeDisplayFlags`; splits stored price strings
   into tiers (leaving `ticket_price` as it is); writes the stored card highlight; fills `core_event_name` and
   `activity_type` by the code rule (first fill, about 73% on the test set, optimistic) where empty; moderator edits
   never overwritten; `--dry-run`, `--apply`, rollback copy; apply only with the owner's go-ahead and the writer
-  credential. Its race-pack step feeds the 17 stored race-pack events through the 11.10 matcher (suggestions unless
-  high tier).
-- **11.12 (Healing sweep):** a step of an existing scheduled sweep (AD-58 names it) recomputes the flags of every
-  event with `computeDisplayFlags`, repairs rows that differ and logs the number repaired; a read-only mode (script
-  or SQL, for the owner or the CI bridge read path) only counts. After 11.11 has run, the count is 0; a non-zero
-  count names the write path to fix. Infra docs updated for the new sweep step.
+  credential; the dry run prints the number of active events and rows it would change. Its race-pack step feeds the
+  active ones among the 17 stored race-pack events through the 11.10 matcher (suggestions unless high tier).
+- **11.12 (Healing sweep, active events only):** a step of an existing scheduled sweep (AD-58 names it) recomputes
+  the flags of every **active** event with `computeDisplayFlags`, repairs rows that differ and logs the number
+  repaired; past events are never swept (otherwise the sweep would rewrite them, input 15), with a test on a past
+  fixture event whose stored flags differ from the computed ones and stay unchanged. The drift count is measured on
+  active events; a read-only mode (script or SQL, for the owner or the CI bridge read path) only counts. After 11.11
+  has run, the count is 0; a non-zero count names the write path to fix. Infra docs updated for the new sweep step.
 - **11.13 (Flags on write and field map):** `computeDisplayFlags(rowsOfOneEvent)` implements the six rules of C6
   and the `other` rule (100% unit tested); it reads `activityType` when present (race-pack rule) and otherwise
   falls back to rule 5. Every schedule write path calls it: extraction ingestion, manual correction, merge, set
@@ -838,16 +971,82 @@ Acceptance criteria to carry into `bmad-create-story`:
   does not fit; no character limit in the component; the component shows the stored text as is and adds no count
   or "+N" of its own, so "Penampil (4): ..." keeps its count visible at the start) and the short dummy-date label by stage; the detail page shows the ordered highlight list and the full dummy-date sentence; EN
   + ID copy.
-- **11.15 (Layer 2):** local Claude session (not Gemini), same schema and code; re-reads captions and images for
-  the 414 + 129 events; fills facts, highlight, `core_event_name` and `activity_type` where the code rule left them
+- **11.15 (Layer 2, active events only):** local Claude session (not Gemini), same schema and code; re-reads
+  captions and images for the active events with a caption (414) or only an image (129) as counted 2026-11-24, recounted
+  at run time; an empty caption (stored since PR #269) counts as no caption; fills facts, highlight, `core_event_name` and `activity_type` where the code rule left them
   empty; tier input = caption and the stored price string (noted as possibly from another merged post); same
   `--dry-run` / `--apply` / rollback and owner go-ahead.
-- **11.16 (Online pins):** script with `--dry-run`, `--apply` and a rollback copy (from
-  `poc/registration-extraction/online-locations-review.sql`) clears the pins of the existing online-only
-  schedules once 11.9 has shipped (decision 1); apply with the owner's go-ahead and the writer role.
+- **11.16 (Online pins, active schedules only):** script with `--dry-run`, `--apply` and a rollback copy (from
+  `poc/registration-extraction/online-locations-review.sql`) clears the pins of the **active** online-only
+  schedules once 11.9 has shipped (decision 1); pins of past schedules stay (input 15); the dry run reports the active
+  count next to the 72 of 2026-11-24; apply with the owner's go-ahead and the writer role.
 - **11.z (Ratchet):** a source scan fails when a schedule write path does not call `computeDisplayFlags`, when
   code writes `is_display`, `is_main_schedule` or `events.highlight` outside their domain functions, or when a UI or
   GraphQL list field exposes `coreEventName`.
+- **11.19 (Account-default location, revision 6):** code facts checked read only on 2026-11-26:
+  `resolveAccountAndLocations` (`apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts`) geocodes the
+  account's `default_location` address for a schedule with no own text and no event text, for any account, and
+  records no `location_resolution`; the account is `posts.account_id` (`message.accountId`), not reliably the
+  publisher; since PR #269 a post can have several `SCRAPING_SOURCE` accounts. Criteria:
+  - Given a schedule with no own location text and no event-level text, when the deciding account (Q8: recommended
+    the post's `PUBLISHER`, else `posts.account_id`) has `account_type = ORGANIZER_VENUE_EVENT` (status per Q8:
+    recommended `CONFIRMED` only), then the schedule takes the default location and `location_resolution =
+    account_default` (new `LocationResolution` member; text column, no migration).
+  - Given the same schedule and a `CURATOR_GUIDE`, `PERSONAL` or unclassified account, then the schedule gets no
+    coordinates (no pin; the card's distance slot falls through; the map link is hidden). The account default may
+    still bias a text lookup as today (`proximityFor`), never become the pin.
+  - A schedule with its own text, or with event-level text, follows the keyword ladder unchanged; an online-only
+    text never inherits (11.9 wins).
+  - Same rule on the extraction and the re-extract apply paths (both call `buildExtractedEventMessage`); the stepped
+    path too. Unit tests for each account kind and status, 100% coverage of the new decision function.
+  - Old rows are not rewritten here; active rows are handled by 11.21. PRD 3.7 amended (4.1 edit 11), AD-14 amended.
+- **11.20 (City check, investigate first, revision 6):**
+  - Step 1, read only: reproduce the Semarang case (keywords naming the venue, the city and the province; the first
+    keyword step returned a point about 120 km from the city) offline with the stored keywords and a recorded provider
+    response; write in the story file whether the provider, `select-best-candidate` or the trust check caused it.
+    Sample ids only.
+  - Step 2, only if the cause is a candidate whose city or province does not match the keywords: a check rejects such
+    a candidate (the ladder moves to its next step) and records why; unit tests with the case as a fixture; the check
+    is measured on a read-only sample of active `kw1` / `kw2` pins (how many it would reject) before release.
+  - If the cause is something else, the story closes with the finding written down and no check; it never ships a
+    check without a verified cause.
+- **11.21 (Re-geocode, active schedules only, revision 6):** script with `--dry-run`, `--apply` and a rollback copy.
+  - Selects active schedules (same rule as 11.11) whose pin was never attempted by the current path (no
+    `location_resolution`); counts on 2026-11-26: 486, 111 of them outside an Indonesia box (approximate), 289 with
+    text (206 distinct texts), 197 without. Past schedules (3,271 never-attempted pins) are not read or written, with
+    a test.
+  - With text: the current path (keywords call and ladder, 11.9's online rule, 11.20's check if shipped) runs once
+    per distinct text; the result and its `location_resolution` are written. Without text: the 11.19 rule decides
+    (inherit with `account_default`, or no pin). When nothing is found, the pin is cleared (recommended, Q9).
+  - Moderator-set locations are never overwritten; the dry run prints counts by outcome (replaced, cleared,
+    unchanged, inherited) for the owner before any apply; apply only with the owner's go-ahead and the writer role.
+- **11.22 (Time dropdown with the next 7 days, revision 6):** code facts checked read only on 2026-11-26: domain
+  `TemporalFilter { TODAY, UPCOMING }` and `buildTemporalCondition` in
+  `packages/domain/src/events/buildEventsQueryCondition.ts` (UPCOMING = `overlaps` from tomorrow with no end; TODAY =
+  `overlaps` today AND `notEnded`); GraphQL `enum TemporalFilter { TODAY UPCOMING }` on `EventFilterInput` and
+  `EventFilter` (`apps/backend/src/schema/events.graphql`); UI `TemporalFilterToggle` (radiogroup, `packages/ui`)
+  wired by `useTemporalFilter` (`?temporal=`, `parseAsStringEnum(["TODAY", "UPCOMING"])`) on the four pages
+  `home-content.tsx`, `feed/feed-content.tsx`, `favorites/favorites-content.tsx` and
+  `[platformSlug]/[username]/account-content.tsx`; no page passes a time zone, so `resolveTodayISO` uses the UTC
+  date (BUG-097). Criteria:
+  - A dropdown `Kapan saja | 7 hari ke depan | Hari ini` (EN `Anytime | Next 7 days | Today`) replaces the toggle on
+    the four pages; `Kapan saja` is the null value (today's "Semua"); EN + ID copy through next-intl with the locale
+    parity ratchet; the PostHog `temporal_filter_changed` event carries the new value.
+  - `NEXT_7_DAYS` is added to the domain enum, the GraphQL enum, the UI type and the URL parser.
+    `buildTemporalCondition('NEXT_7_DAYS')` = `overlaps` {from: today, to: today + 6} AND `notEnded` (the TODAY
+    pair), no new SQL. Tests: a schedule that ended earlier today is excluded; one on today + 6 is included; one
+    starting on today + 7 is excluded; a multi-day schedule that started before today and runs into the window is
+    included.
+  - `UPCOMING` stays accepted: GraphQL, the domain and saved AI filters keep it with its current meaning; an old link
+    `?temporal=UPCOMING` opens without error (how the dropdown shows it: Q11).
+  - BUG-097 fixed in the same story: "today" for TODAY, NEXT_7_DAYS and UPCOMING, `notEnded` and the `Query.events`
+    next-upcoming sort key come from the viewer's day, not UTC; the pages pass a time zone to `resolveTodayISO`
+    (the option exists, unused); the logged-out viewer's zone and any SQL the per-schedule rule needs are Q12; the
+    shared ended-cases fixture gains a case at 00:00-07:00 WIB.
+  - The filter reads dates through the AD-17 field map, so after 11.13 it uses the display columns with no change of
+    its own; whichever of 11.13 and 11.22 lands second adds a test with a registration-window fixture.
+  - The AI filter vocabulary (its `THIS_WEEK` anchor and "next 7 days" span) is unchanged. The other header changes
+    stay in `IDEA-261124-15a`. PRD 3.12 and the enum amended (4.1 edit 12), AD-20 amended.
 
 ### 5.2 Proposed Epic 12: "Registration, CTA bar and prices"
 
@@ -855,7 +1054,7 @@ Acceptance criteria to carry into `bmad-create-story`:
 |---|---|---|---|
 | 12.1 | Store registration links in their own table | C1 (slice 1) | AD-55 |
 | 12.3 | Read registration options through a separate uncached query that returns safe descriptors only | C1 (slice 1) | 12.1 |
-| 12.4 | Add the first-party link endpoint `/go/{opaqueOptionId}` with allow-list, blocklist and kill switch | C1, owner rule | AD-55, AD-57, 12.1 |
+| 12.4 | Add the first-party link endpoint `/go/` with allow-list, blocklist and kill switch, and move the existing event links onto it | C1, owner rule (input 14) | AD-55, AD-57, 12.1 (the event-link part needs only AD-57) |
 | 12.5 | Show the event action bar on phones and the side card on desktop | C1 (slice 1) | 12.3, 12.4, UX |
 | 12.6 | Open a sheet when an event has several registration options | C1 (slice 1) | 12.5 |
 | 12.7 | Show the event's price tiers and the "from" price beside the registration buttons | C5 (slice 3) | 11.8, 12.6 |
@@ -875,14 +1074,29 @@ Acceptance criteria to carry into `bmad-create-story`:
   JS heap, sharp and per-post memory logging to the AI processor; use those logs for (1) and (2).
   A button needs a decoded payload; a payment payload is never a Register button. Infra docs updated in the same
   change (zxing-wasm). Slice 1 does not wait for it.
-- **12.4 (Link endpoint):** shape in section 4.3 (AD-55 and AD-57 amendments). The descriptor read of 12.3 never
-  carries a full URL or a phone number; the endpoint takes only an opaque option id, never a URL.
+- **12.4 (Link endpoint and the existing event links):** shape in section 4.3 (AD-55 and AD-57 amendments). The
+  descriptor read of 12.3 never carries a full URL or a phone number; the endpoint takes only an opaque id, never a
+  URL. **Event links of Story 0.37 (owner decision, input 14):**
+  - Given an event with `events.links`, when its detail page renders (page and `@modal` route, both cached through
+    `get-event-by-slug-cached.ts`), then each link is `<a href="/go/{opaqueId}" target="_blank" rel="noopener
+    noreferrer">` showing its label and destination host; the full URL is not in the HTML (test on the rendered
+    page).
+  - The public `Event.links` read returns descriptors (opaque id, label, host) and no `url`; the correction dialog
+    (`correction-dialog.tsx`, which seeds its form from the event's links) and the moderator re-extract preview get
+    the full URL through a gated read (Q10).
+  - The endpoint applies to event links the same checks as to options: scheme allow-list, host blocklist (effective
+    at once for every event, past ones included), kill switch per link, and a first-party page for an unknown,
+    blocked or removed id. Writes still pass `sanitizeEventLinks`.
+  - Works for every event that has links, past ones included, without rewriting stored data (recommended in Q10:
+    ids derived at read time, so this is not a backfill and the active-only rule does not apply).
+  - Ratchet 12.z covers `EventDetailView.tsx`'s link list.
 - **12.7 (Prices):** reads the event's tiers (11.8); buttons carry no price; `fromPrice` and the tiers sit beside
   the buttons; `ticketPrice` is shown as today where the event has no tiers; low-confidence tiers carry the mark.
 - **12.10 (Phone actions):** the number is returned only when the user acts (POST, per-IP rate limit, declared
   public under AD-7); "Copy number" on desktop, `tel:` on touch; WhatsApp goes through `/go/`.
 - **12.z (Ratchet):** a source scan fails when an event-detail component puts a URL from an option, a QR, a
-  contact or a brochure into `href`, `window.open` or `location` other than a `/go/` link; first-party
+  contact, a brochure or an event link (`events.links`, Story 0.37) into `href`, `window.open` or `location` other
+  than a `/go/` link; first-party
   navigation (calendar, share, map link) is exempt by name.
 
 ### 5.3 Id maps
@@ -901,11 +1115,18 @@ Compute display flags on every write path and point the field map at the display
 highlight list), 11.17 (removed from Epic 11, deferred), 12.2 (moved last, memory gate), 12.7 (prices are the
 event's tiers).
 
+Revision 5 -> revision 6 (ids kept, no renumbering): retitled 11.11, 11.12, 11.15, 11.16 (active events only) and
+12.4 (also the existing event links); new 11.19 (Account-default location), 11.20 (City check), 11.21 (Re-geocode
+active never-attempted pins), 11.22 (Time dropdown with the next 7 days). 11.17 stays reserved; the ratchet keeps
+`11-18z`.
+
 ### 5.4 Proposed sprint-status keys (to be added after approval; not added now)
 
-Checked 2026-11-26 with `scripts/sprint-status-tool.py get epic-11` / `epic-12`: neither key exists. The two
-ratchets take the next free number with the `z` suffix, as `10-14z` does; 11.17 is skipped because its id is
-reserved for the deferred cover story.
+Checked 2026-11-26 (again in revision 6, after merging the base branch and `master`) with
+`scripts/sprint-status-tool.py get epic-11` / `epic-12`: neither key exists. The two ratchets took the next free
+number with the `z` suffix when they were proposed, as `10-14z` does; 11.17 is skipped because its id is reserved
+for the deferred cover story. The revision 6 stories take 11.19 to 11.22 after the ratchet's `11-18z` rather than
+moving it (no renumbering).
 
 ```yaml
   epic-11: backlog
@@ -919,19 +1140,23 @@ reserved for the deferred cover story.
   11-8-merge-location-keywords-tiers-and-core-event-name-into-one-post-extraction-call: backlog
   11-9-skip-geocoding-for-online-only-locations: backlog
   11-10-match-new-race-pack-posts-into-the-main-event-through-the-dedup-scoring: backlog
-  11-11-backfill-old-events-from-stored-data-layer-1: backlog
-  11-12-recompute-display-flags-in-the-scheduled-sweep-and-report-drift: backlog
+  11-11-backfill-active-events-from-stored-data-layer-1: backlog
+  11-12-recompute-display-flags-of-active-events-in-the-scheduled-sweep-and-report-drift: backlog
   11-13-compute-display-flags-on-every-write-path-and-point-the-field-map-at-the-display-columns: backlog
   11-14-redesign-the-grid-card-and-show-the-highlight-list-and-dummy-date-labels: backlog
-  11-15-backfill-old-events-by-re-reading-captions-in-a-local-session-layer-2: backlog
-  11-16-clear-the-wrong-pins-of-existing-online-locations: backlog
+  11-15-backfill-active-events-by-re-reading-captions-in-a-local-session-layer-2: backlog
+  11-16-clear-the-wrong-pins-of-active-online-only-schedules: backlog
   11-18z-ratchet-highlight-main-flag-and-display-flag-come-only-from-their-domain-functions: backlog
+  11-19-inherit-the-account-default-location-only-for-organizer-and-venue-accounts-and-mark-it: backlog
+  11-20-investigate-wrong-city-geocoding-matches-and-add-a-city-check-if-the-cause-supports-it: backlog
+  11-21-re-geocode-active-schedules-never-attempted-by-the-current-path: backlog
+  11-22-replace-the-temporal-toggle-with-a-time-dropdown-with-the-next-7-days-and-use-the-viewers-date: backlog
   epic-11-retrospective: optional
   epic-12: backlog
   12-1-store-registration-links-in-their-own-table: backlog
   12-2-decode-qr-codes-into-registration-links-behind-the-memory-gate: backlog
   12-3-read-registration-options-through-a-separate-uncached-query-that-returns-safe-descriptors-only: backlog
-  12-4-add-the-first-party-link-endpoint-with-allow-list-blocklist-and-kill-switch: backlog
+  12-4-add-the-first-party-link-endpoint-and-move-the-existing-event-links-onto-it: backlog
   12-5-show-the-event-action-bar-on-phones-and-the-side-card-on-desktop: backlog
   12-6-open-a-sheet-when-an-event-has-several-registration-options: backlog
   12-7-show-the-events-price-tiers-and-the-from-price-beside-the-registration-buttons: backlog
@@ -943,8 +1168,8 @@ reserved for the deferred cover story.
 ```
 
 Carved out (backlog children of `CC-261124-vjh`, section 10): own cover per event (deferred), slide map merged into
-the tier call, image tier call on the stepped path, filter header changes, the "Remind me" epic, remaining
-geocoding gaps, the images variant of the tier call, a button-to-tier reference, a GENERAL-price rule for
+the tier call, image tier call on the stepped path, the filter header changes other than the time filter, the
+"Remind me" epic, the images variant of the tier call, a button-to-tier reference, a GENERAL-price rule for
 multi-event posts, and four skipped approaches.
 
 ---
@@ -953,7 +1178,7 @@ multi-event posts, and four skipped approaches.
 
 | # | Decision | Answer (date, source) |
 |---|---|---|
-| 1 | Clear the 72 existing online pins | **Decided, option A** (2026-11-26, input 10): clear them after Story 11.9 ships, with Story 11.16's `--dry-run`, `--apply` and rollback copy; owner go-ahead and writer role. |
+| 1 | Clear the 72 existing online pins | **Decided, option A** (2026-11-26, input 10; active schedules only since input 15, past pins stay): clear them after Story 11.9 ships, with Story 11.16's `--dry-run`, `--apply` and rollback copy; owner go-ahead and writer role. |
 | 2 | Date for non-competition events with only non-counting rows | **Decided, option A** (2026-11-26, input 10): flag every non-counting row; the query picks the nearest upcoming one, the card labels it by its stage, the event leaves the list after its last phase (C6 rule 5, Story 11.13). |
 | 3 | Highlight stored or composed at read time | **Decided, hybrid** (2026-11-25, input 8; length amended 2026-11-26, input 12): card highlight = first detail item, stored whole, no length limit, ellipsis in the UI, with a rules version and a recompute step; detail composed at read time as an ordered list from the same function (AD-59, Story 11.7). List items carry their count in parentheses after the label, no "+N", the label is never repeated (2026-11-26, input 13, owner answers Q5 and Q6). |
 | 4 | Own cover per event on carousels | **Decided, option A, deferred** (2026-11-26, input 10): Story 11.17 not built in Epic 11; backlog `IDEA-261124-8jo`; OCR alternative not good enough (findings 11.20). |
@@ -967,7 +1192,10 @@ multi-event posts, and four skipped approaches.
 | 12 | Does a stage `other` row count? | **Decided, option A** (2026-11-25, input 8): `other` does not count as an event day, but an event whose rows are all `other` is treated as `event`. |
 
 Also decided after revision 2: the list query design (input 9), the core event name inside Stories 11.3, 11.8,
-11.10, 11.11 and 11.15 (input 10), and the tier call input (option A, input 11).
+11.10, 11.11 and 11.15 (input 10), and the tier call input (option A, input 11). Decided 2026-11-26 for revision 6:
+the event links of Story 0.37 move onto `/go/` inside Story 12.4 (input 14); the wrong-pin gaps are part of Epic 11;
+every backfill covers active events only, including the Story 11.12 sweep; the next-7-days time filter is a story
+in Epic 11 (input 15; the epic is a planning assumption, the owner said "into an epic").
 
 ---
 
@@ -982,9 +1210,13 @@ Also decided after revision 2: the list query design (input 9), the core event n
   composer sets a new baseline); zero output-cap hits; performer/prize extraction variance, the B-trigger count,
   multi-event tier errors and the core-name figures are reported, not gated.
 - **A7** The backlog row is registered with status `triaged` (analysed, no story); this is not an approval.
-- **A8** Filter-header changes from handoff 9/11 are outside C1-C10 and carved out.
-- **A9** The 3,703 never-attempted schedule geocodes, the silent account-default inheritance and the city check
-  (handoff 13E) are outside C7 and carved out.
+- **A8** (revised in revision 6, input 15) The time filter of handoff 9 is in scope as Story 11.22 (C12). The other
+  filter-header changes of handoff 9 and 11 (scrolling facet row, chevrons, AI button on the search row, icon
+  buttons, collapse motion) stay carved out in `IDEA-261124-15a`. Putting 11.22 in Epic 11 rather than another epic
+  is a planning assumption (the owner said "into an epic").
+- **A9** (replaced in revision 6, input 15) The wrong-pin gaps of handoff 13E are part of Epic 11: Stories 11.19,
+  11.20 and 11.21 (C11). The never-attempted count is now the active one (486 on 2026-11-26), not the 3,703 of all
+  dates; past pins stay.
 - **A10** `stage_source` is kept next to `stage`. Revision 3 no longer uses it for a reader gate; it still tells
   the backfill (11.11) which rows to fill and protects moderator-set stages. Any equivalent marker chosen by
   `bmad-architecture` works.
@@ -995,11 +1227,17 @@ Also decided after revision 2: the list query design (input 9), the core event n
 - **A11c** (revision 5) The handoff's "+N" lines (composer summary, rule F table rows for PERFORMANCE and FESTIVAL,
   S50 "+n accepted") are amended in the same strike-through style for owner answer Q5. The footer's "+N jadwal"
   (count of other schedules) is a different slot and stays.
-- **A12** Story 0.37 (Extract and display event links) renders organizer links today; moving them onto `/go/` is
-  noted for the Epic 12 readiness check, not added as a story here.
+- **A12** (replaced in revision 6, input 14) The organizer links that Story 0.37 renders move onto `/go/` inside
+  Story 12.4, with acceptance criteria; ratchet 12.z covers them.
 - **A13** (revision 3) Where the core name sits on a multi-event post (location call or tier call) and which
   scheduled sweep hosts the healing, recompute and purge steps are left to `bmad-architecture` (AD-60, AD-58);
   neither changes the request count.
+- **A14** (revision 6) "Active" is decided per schedule (end date, else start date, not past in its own time zone);
+  an event is active when at least one schedule is. Backfills that work per event (11.11, 11.15, the 11.12 sweep,
+  the 11.7 recompute if Q7 is accepted) write every row of an active event, because the display flags are computed
+  from all rows of one event; 11.16 and 11.21 work per schedule.
+- **A15** (revision 6) The Story 11.19 rule (organizer and venue accounts only, marked source) is the input's
+  planning suggestion, not an owner decision; the exact kinds, statuses and the deciding account are Q8.
 - A1, A5, A6 of earlier revisions are now owner decisions (8, 4, 12) and were removed.
 
 ---
@@ -1007,7 +1245,7 @@ Also decided after revision 2: the list query design (input 9), the core event n
 ## 8. Recommended approach, order and handoff
 
 **Path:** Direct adjustment through two new feature epics (Option 1), gated by the replay gate. Effort **High**
-(28 stories: 17 in Epic 11, 11 in Epic 12, across extraction, data, UI and backfill), risk **Medium** (prompt
+(32 stories: 21 in Epic 11, 11 in Epic 12, across extraction, data, geocoding, UI and backfill), risk **Medium** (prompt
 changes can collapse events; mitigated by C9), timeline: Epics 11 and 12 can run in parallel after the architecture
 pass; Epic 12 needs Epic 11 only for prices (12.7 waits for 11.8) and the replay gate (12.2 waits for 11.2).
 
@@ -1019,7 +1257,8 @@ Architect (`bmad-architecture`), then PO/Dev for stories.
 pull request is opened; cloud routine prompts start with that fetch and merge.
 
 **Planning order (after owner approval):**
-1. Owner answers section 11: Q1 to Q6 all answered 2026-11-26; no question remains open.
+1. Owner answers section 11: Q1 to Q6 answered 2026-11-26; Q7 to Q12 (revision 6) open, none blocks the PRD,
+   UX or architecture pass (Q8 to Q12 can be answered at story creation).
 2. `bmad-prd` (update): section 4.1 edits.
 3. `bmad-ux`: section 4.4.
 4. `bmad-architecture`: AD-55 to AD-61, the AD-55/AD-57 link-endpoint amendments and the amendments in 4.3.
@@ -1029,7 +1268,11 @@ pull request is opened; cloud routine prompts start with that fetch and merge.
 
 **Dependency order (Epic 11):**
 ```
-11.9 (online, independent) -> 11.16 (online pins, decision 1)
+11.9 (online, independent) -> 11.16 (online pins of active schedules, decision 1)
+11.19 (account-default rule, independent; first, next to 11.9)
+11.20 (city check, investigation first, independent)
+11.9 + 11.19 (+ 11.20 if it adds a check) -> 11.21 (re-geocode active never-attempted pins)
+11.22 (time dropdown and BUG-097, independent; any time)
 11.1 -> 11.2 -> 11.3 -> 11.4 -> 11.13 (flags on write, field map)
                     \-> 11.6 -> 11.7 (composer, stored card highlight)
                     \-> 11.8 (post-extraction call, core name)
@@ -1050,8 +1293,10 @@ all of the above + 11.2 + memory gate -> 12.2 (QR, last)
 ```
 
 **Implementation order:**
-1. 11.9 Skip geocoding for online-only locations (small, independent, stops new wrong pins); then 11.16 Clear the
-   wrong pins (owner go-ahead, writer role).
+1. 11.9 Skip geocoding for online-only locations and 11.19 Inherit the account default location only for
+   organizer and venue accounts (small, independent, both stop new wrong pins); 11.20 investigation in parallel;
+   then 11.16 Clear the wrong pins of active online-only schedules and 11.21 Re-geocode active never-attempted pins
+   (owner go-ahead, writer role; 11.21 after 11.20's outcome). 11.22 Time dropdown can be built at any point.
 2. 11.1 Prompt seam -> 11.2 Replay gate; 11.5 Title rule v2 in parallel (pure domain code).
 3. 11.3 Columns (rollout step a) -> 11.4 Stage on write -> 11.13 Flags on write and field map (step b) -> 11.6
    Facts -> 11.7 Composer -> 11.8 Post-extraction call (each prompt change through the gate) -> 11.10 Race-pack
@@ -1066,9 +1311,13 @@ all of the above + 11.2 + memory gate -> 12.2 (QR, last)
 
 **Success criteria:** gate green on every prompt or schema change; no card shows a registration window as the event
 day when the event has an event-day row; every dummy date carries its label; the healing step's repaired count is 0
-after the backfill; `EXPLAIN` of the list query uses `schedule_display_date_idx` and its cost stays within AD-17;
-no online-only schedule has a pin; every Register button has a decoded or extracted link (never a payment QR) and
-reaches it only through `/go/`; no full organizer URL or phone number in the event-detail HTML; phones gone at
+after the backfill on active events; `EXPLAIN` of the list query uses `schedule_display_date_idx` and its cost
+stays within AD-17; no active online-only schedule has a pin; no new schedule takes a curator, personal or
+unclassified account's default location as its pin, and every inherited pin is marked `account_default`; no active
+schedule is left never attempted by the current path; past events unchanged by every backfill; "7 hari ke depan"
+shows today to today + 6 by the viewer's day, and old `?temporal=UPCOMING` links still open; every Register button has a decoded or extracted link (never a payment QR) and
+reaches it only through `/go/`; no full organizer URL (registration option or event link) or phone number in the
+event-detail HTML; phones gone at
 event end + 1 day; `ticketPrice` still written for new events; `coreEventName` never displayed; EN + ID copy and the
 AD-33 and locale ratchets green.
 
@@ -1100,13 +1349,23 @@ AD-33 and locale ratchets green.
 - **I11 (revision 3)** Input section 8 calls the healing step's host "the existing scheduled sweep (the one that also
   deletes phone numbers)", but that purge step is itself new (Story 12.9) and Epic 11 may ship first. The plan puts
   both steps on one existing sweep chosen by AD-58; no owner decision needed.
+- **I12 (revision 6)** Input 15 says the next-7-days filter needs "no new SQL" and also that BUG-097 is fixed in the
+  same story; the BUG-097 note says the fix needs "the same per-schedule zone rule as BUG-096", which may need SQL in
+  `notEnded` and the sort key. The range itself needs none. Raised as Q12.
+- **I13 (revision 6)** Every backfill covers active events only, but the event links of Story 0.37 must go through
+  `/go/` on every event page, past ones included. If the opaque link ids were stored, past events would need a data
+  write. Raised as Q10 (recommended: ids derived at read time, no data write).
+- **I14 (revision 6)** Input 15 calls the next-7-days story "independent of the other stories", while the
+  `IDEA-261124-15a` header work it leaves behind includes the shared chevron trigger the owner mock uses for this
+  dropdown. Story 11.22 uses the existing facet trigger; the chevron comes with `IDEA-261124-15a`. No owner decision
+  needed unless the owner wants the chevron with 11.22.
 
 ---
 
 ## 10. Backlog registration
 
 Row `CC-261124-vjh` (Registration options, CTA bar, composed highlight, honest dates and the extraction update;
-proposal, `triaged`, note updated for revision 5) and these children in
+proposal, `triaged`, note updated for revision 6) and these children in
 `_bmad-output/implementation-artifacts/backlog.yaml`:
 - `IDEA-261124-8jo` Own cover slide per event on multi-event carousels (backlog; decision 4: deferred, Story 11.17
   not built in Epic 11).
@@ -1115,9 +1374,12 @@ proposal, `triaged`, note updated for revision 5) and these children in
 - `IDEA-261124-wk6` Image-aware tier call on the stepped extraction path (backlog; decision 6 keeps it off; title
   updated from "Decide whether..." because the decision is taken; possible later story with a gate that stops promo
   price lists).
-- `IDEA-261124-15a` Filter header: "This week" dropdown, scrolling facet row, AI button on the search row (backlog).
+- `IDEA-261124-15a` Filter header: scrolling facet row, chevrons, AI button on the search row, icon buttons,
+  collapse motion (backlog; retitled in revision 6: the time filter left it for Story 11.22).
 - `IDEA-261124-nta` "Remind me" before a deadline or start, own epic (backlog; D9).
-- `FIND-261124-axb` Remaining geocoding gaps (backlog; handoff 13E).
+- `FIND-261124-axb` Remaining geocoding gaps (backlog until Stories 11.19, 11.20 and 11.21 exist; note updated in
+  revision 6: covered by those stories, active schedules only). BUG-097 (TODAY/UPCOMING use the UTC date) is fixed
+  by Story 11.22; its row is not edited by this run and is linked when 11.22 is created.
 - `IDEA-261124-ofm` (new) Let the tier call read the post images (option B), only if the gate finds missed poster
   prices (backlog; threshold decided 2026-11-26: two or more in 40 posts read by eye; first reading 0 of 40).
 - `IDEA-261124-xdv` (new) Optional reference from a registration button to a price tier (backlog; decision 10).
@@ -1130,6 +1392,8 @@ proposal, `triaged`, note updated for revision 5) and these children in
 ---
 
 ## 11. Owner answers (record) and remaining questions
+
+Revision 6 adds six questions (Q7 to Q12) at the end of this section; none is decided here.
 
 Q1 to Q4 were asked in revision 3 and answered by the owner on 2026-11-26 (input section 12, which overrides
 earlier wording). Q5 was asked in revision 4 and answered the same day (input section 13). The earlier
@@ -1173,4 +1437,35 @@ recommendation is kept next to each answer for the record.
   the start of a value is dropped ("Hadiah (2): Rp5 juta, Rp3 juta"); a single item keeps the current rule (value as
   written, label not added a second time, no count). Applied in C4, 4.1 edit 3, AD-59, Story 11.7 and decision 3.
 
-**No question remains open.**
+### Questions opened in revision 6 (not decided; recommendation given)
+
+- **Q7. Highlight recompute step (Story 11.7) for active events only?** Input 15 names Stories 11.11, 11.15, 11.16,
+  the re-geocode and the 11.12 sweep, not the 11.7 recompute step, which also rewrites stored rows whenever the
+  highlight rules change. **Recommended: active events only**, by the owner's own reason ("past events are not worth
+  rewriting"); past events keep the text stored when they were last written. Written into Story 11.7 as the
+  recommendation.
+- **Q8. Which accounts keep the default-location inheritance (Story 11.19)?** Code: `account_type` is
+  `ORGANIZER_VENUE_EVENT | PERSONAL | CURATOR_GUIDE` or null, with status `CONFIRMED | AWAITING_APPROVAL`; the
+  account used today is `posts.account_id`, not reliably the publisher, and a post can now have several scraping
+  accounts (PR #269). **Recommended:** inherit only when the post's `PUBLISHER` account (else `posts.account_id`) is
+  `ORGANIZER_VENUE_EVENT` with status `CONFIRMED`; `AWAITING_APPROVAL`, null, `PERSONAL` and `CURATOR_GUIDE` get no
+  pin; mark inherited pins `account_default`. How many active schedules this leaves without a pin is counted in
+  11.21's dry run before anything is applied.
+- **Q9. Re-geocode outcome when nothing is found (Story 11.21).** **Recommended:** clear the pin (no pin is better
+  than a wrong one, as decision 1 did for online pins), and for the 197 schedules without text apply the Q8 rule;
+  the dry run shows the counts per outcome to the owner before apply.
+- **Q10. Opaque ids for the event links of Story 0.37 (Story 12.4).** **Recommended:** derive the id at read time
+  from the event and the link (for example the event's public id and the link's position, or a keyed hash), resolved
+  by the endpoint from `events.links`; no stored id, so every event works, past ones included, with no data write
+  (I13). The public `Event.links` stops returning `url`; the correction dialog and the moderator re-extract preview
+  read full URLs through a gated query. Alternative: copy the links into `registration_options` as LINK options,
+  which needs a data write over every event with links (and would break the active-only rule).
+- **Q11. What an old `?temporal=UPCOMING` link shows (Story 11.22).** The dropdown has no "Upcoming" item.
+  **Recommended:** the page reads it as `Kapan saja` and rewrites the URL without a history entry (no event is
+  hidden; "Kapan saja" is the nearest wider choice); GraphQL, the domain and saved AI filters keep `UPCOMING` with
+  its current meaning (tomorrow onward). Alternative: read it as "7 hari ke depan" (narrower, hides later events).
+- **Q12. BUG-097 inside Story 11.22: the logged-out viewer's day, and SQL (I12).** **Recommended:** the client sends
+  the browser's IANA time zone, falling back to `Asia/Jakarta` (the platform's default country is ID); logged-in
+  users use `users.timezone` when set. The 7-day range needs no new SQL; if `notEnded` or the next-upcoming sort key
+  need the per-schedule rule of BUG-096, reuse its existing `schedule_past_cutoff_date` function and name any new
+  SQL in the story, limited to BUG-097.
