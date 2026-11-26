@@ -140,3 +140,8 @@ These replace the earlier idea of storing three copied dates (and the "enable th
 - **Open decision 5 (dummy-date label): DECIDED, option A.** Short on the card, full on the detail: "Daftar s/d 6 Nov" ("Register by 6 Nov"), "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov"; the detail page writes the full sentence ("Pendaftaran sampai 6 November 2026").
 - **Open decision 7 (slide map merged into the tier call): DECIDED, option A.** Stays separate; run a merge POC only when the cover per event is built (backlog IDEA-261124-f6n).
 - All twelve open decisions of the proposal are now answered (8, 3, 6, 9, 10, 11, 12 earlier; 1, 2, 4, 5, 7 here).
+- **Core event name, DECIDED 2026-11-26 (owner: "correct course", not backlog).** It is part of this course, inside existing stories, not a new one:
+  - Story 11.3 (columns): add `core_event_name` and `activity_type` on `events`.
+  - Story 11.8 (post-extraction call): return `coreEventName` and `activityType` in the same call (no extra request); measure it inside the merged call before release (only the separate call was measured).
+  - Story 11.10 (race-pack matching): use them as input to the dedup scoring (name similarity and dates), never an exact key; `activityType = RACE_PACK_COLLECTION` is the race-pack signal. Matching only, never the displayed name.
+  - Existing events have no core name, and a new race pack is matched against stored main events: the revision plans how to fill them (a code rule in the layer-1 backfill, Story 11.11, as a first fill, about 73% on the test set, an optimistic figure; the local-session re-read, Story 11.15, for the rest).
