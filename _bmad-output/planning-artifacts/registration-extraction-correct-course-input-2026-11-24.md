@@ -173,3 +173,4 @@ These override any earlier wording, including the 40-character rule in section 2
 - Applies to every list label (performers, speakers, instructors, judges, prizes, take-home items, promos and the like). One item gets no count. Single values (price hook, free entry) get no count.
 - The count is part of the composed text; **no separate count column**. A later format change is handled by the highlight rules version and the recompute job.
 - **"+N" and the cut to two names are withdrawn** (this replaces the earlier acceptance of "+n"). A count in front of the label ("4 Penampil") was rejected because it reads wrongly for some labels ("3 Peserta dapat").
+- **Label not repeated (owner agreed 2026-11-26):** in a list of two or more items, a label word at the start of a value is dropped ("Hadiah (2): Rp5 juta, Rp3 juta", not "Hadiah (2): Hadiah Rp5 juta, Hadiah Rp3 juta"). A single item keeps the current rule: the value as written, the label not added a second time.
