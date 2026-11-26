@@ -118,8 +118,8 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     return { run, job, lastScrapedAt: profile.lastScrapedAt };
   }
 
-  await t.test('a ready, empty snapshot of a request that excluded stored posts is a quiet day: SUCCEEDED, nothing re-queued', async () => {
-    progress = { status: 'ready', records: 0, errors: 0, errorMessage: 'No records found. The data may not be available or has changed...' };
+  await t.test('a ready, empty snapshot of a request that excluded every stored post (dead_page) is a quiet day: SUCCEEDED, nothing re-queued', async () => {
+    progress = { status: 'ready', records: 0, errors: 1, errorCodes: { dead_page: 1 } };
 
     const { run, job, lastScrapedAt } = await sweepOneExpiredJob({ excludedPostCount: 3 });
 
@@ -128,6 +128,15 @@ test('stale-job-sweep: Bright Data jobs', async (t) => {
     assert.strictEqual(job.status, 'COMPLETED');
     assert.ok(lastScrapedAt);
     assert.deepStrictEqual(sqsBodies, []);
+  });
+
+  await t.test('a ready, empty snapshot with no error is a vendor failure even when posts were excluded', async () => {
+    progress = { status: 'ready', records: 0, errors: 0 };
+
+    const { run, job } = await sweepOneExpiredJob({ excludedPostCount: 3 });
+
+    assert.strictEqual(run.status, 'FAILED');
+    assert.strictEqual(job.status, 'EXPIRED');
   });
 
   await t.test('a ready snapshot with records is a SUCCEEDED run', async () => {

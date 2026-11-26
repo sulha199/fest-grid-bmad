@@ -8,7 +8,7 @@ import { processBrightDataResult } from '../lib/scraper/process-brightdata-resul
 import { recordActorRunResult } from '../lib/scraper/record-actor-run.js';
 import { classifyBrightDataRun, describeBrightDataVendorFailure } from '../lib/scraper/classify-brightdata-run.js';
 import { handleBrightDataFailedRun } from '../lib/scraper/handle-brightdata-failed-run.js';
-import { getRunExcludedPostCount, reportBrightDataYield } from '../lib/scraper/run-yield-store.js';
+import { reportBrightDataYield } from '../lib/scraper/run-yield-store.js';
 
 export const handler = async (
   event: APIGatewayProxyEvent,
@@ -62,9 +62,7 @@ export const handler = async (
     // A snapshot with no records is not necessarily a good run (BUG-074): tell an account with
     // nothing new from a vendor that returned nothing for everyone, and never store the latter as a
     // success. The classification is a free progress lookup, made only when records is empty.
-    // A request that excluded posts already stored returns nothing on a quiet day: the count tells that apart.
-    const excludedPostCount = records.length === 0 ? await getRunExcludedPostCount(pendingJob.scraperActorRunId) : 0;
-    const { resultClass, progress } = await classifyBrightDataRun(pendingJob.snapshotId, records.length, { excludedPostCount });
+    const { resultClass, progress } = await classifyBrightDataRun(pendingJob.snapshotId, records.length);
 
     if (resultClass === 'vendor_failure') {
       const reason = describeBrightDataVendorFailure(progress);

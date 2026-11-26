@@ -79,16 +79,8 @@ test("progress that reports zero records, or none, still decides on the dead_pag
   assert.equal(classifyBrightDataResult({ recordCount: 0, progress: { status: "ready" } }), "vendor_failure");
 });
 
-test("a ready zero-record snapshot of a request that excluded known posts is empty, not a vendor failure", () => {
-  // Every post of the window was excluded (a quiet day): Bright Data reports zero records and 'No records found',
-  // the same signature as a silent outage, so the run must not be sent to the paid fallback.
-  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: vendorFailure, excludedPostCount: 3 }), "empty");
-});
-
-test("excluded posts never hide a failed snapshot, and a request that excluded nothing keeps the old rule", () => {
-  const failed = { status: "failed", records: 0, errors: 0, errorCodes: null, errorMessage: "boom" };
-  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: failed, excludedPostCount: 3 }), "vendor_failure");
-  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: vendorFailure, excludedPostCount: 0 }), "vendor_failure");
-  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: vendorFailure, excludedPostCount: null }), "vendor_failure");
-  assert.equal(classifyBrightDataResult({ recordCount: 2, progress: vendorFailure, excludedPostCount: 3 }), "ok");
+test("a run in which every post was excluded reports dead_page (live test 2026-11-26): empty; with no error it is still a vendor failure", () => {
+  // `posts_to_not_include` needs no rule of its own: the all-excluded snapshot carries the dead_page error.
+  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: legitimatelyEmpty }), "empty");
+  assert.equal(classifyBrightDataResult({ recordCount: 0, progress: vendorFailure }), "vendor_failure");
 });

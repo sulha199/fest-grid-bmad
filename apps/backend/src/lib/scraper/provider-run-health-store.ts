@@ -5,7 +5,7 @@ import {
   evaluateProviderRunHealth,
   type ProviderRunHealth,
 } from '@festgrid/domain';
-import { and, desc, eq, isNotNull, ne } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, ne, sql } from 'drizzle-orm';
 
 // Result-level provider health (BUG-074, IDEA-095). scraper-provider-health-store.ts counts days on
 // which no *trigger* succeeded; a vendor that accepts every trigger and returns nothing (Bright Data,
@@ -33,7 +33,12 @@ export async function getProviderRunHealth(vendor: ScraperVendor, now: Date = ne
       and(
         eq(scraperActorRuns.vendor, vendor),
         ne(scraperActorRuns.status, 'PENDING'),
-        isNotNull(scraperActorRuns.completedAt)
+        isNotNull(scraperActorRuns.completedAt),
+        // A zero-post success of a request that excluded stored posts proves nothing about the provider (a quiet day, or a
+        // silent outage: see classifyProviderRun). It is dropped HERE, before the limit: read after it, such runs (about a
+        // third of all runs) would push real evidence out of the sample and leave it under minRuns, which reads as healthy
+        // (BUG-082 again). COALESCE: NULL item_count / excluded_post_count (older rows, other vendors) keep their row.
+        sql`NOT (${scraperActorRuns.status} = 'SUCCEEDED' AND COALESCE(${scraperActorRuns.itemCount}, -1) = 0 AND COALESCE(${scraperActorRuns.excludedPostCount}, 0) > 0)`
       )
     )
     .orderBy(desc(scraperActorRuns.completedAt))

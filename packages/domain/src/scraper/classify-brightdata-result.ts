@@ -37,20 +37,17 @@ export interface BrightDataProgressSnapshot {
  *   `running`, or a status this code has never seen;
  * - progress reports records the delivery did not carry (a truncated or unparseable body). The vendor
  *   did deliver; the loss is ours, and it is not the vendor failing.
- * - the request excluded posts already stored (`excludedPostCount > 0`, `posts_to_not_include`) and the
- *   snapshot finished `ready` with no records and no error: a quiet day on which every post of the window was
- *   excluded looks exactly like this (Bright Data reports zero records and a "No records found" message), and
- *   so would a silent outage. They cannot be told apart from the report, so the run is `empty`, never a
- *   vendor failure that would send the account to the paid fallback. A snapshot that `failed` is still a
- *   failure, and a delivery that was not excluding anything keeps the table above.
+ *
+ * A request that excluded posts already stored (`posts_to_not_include`) needs no rule of its own: live test 2026-11-26
+ * showed that a run in which every post of the window was excluded finishes `ready` with `records: 0` and
+ * `error_codes: {"dead_page":1}`, which is `empty` above. Residual limit: an outage that also reports `dead_page`
+ * looks the same as a quiet excluded day.
  */
 export function classifyBrightDataResult(input: {
   recordCount: number;
   progress: BrightDataProgressSnapshot | null | undefined;
-  /** How many post ids the request excluded; absent or 0 when it excluded none. */
-  excludedPostCount?: number | null;
 }): ScrapeResultClass {
-  const { recordCount, progress, excludedPostCount } = input;
+  const { recordCount, progress } = input;
 
   if (recordCount > 0) {
     return 'ok';
@@ -68,9 +65,6 @@ export function classifyBrightDataResult(input: {
     return 'empty';
   }
   if ((progress.errorCodes?.dead_page ?? 0) > 0) {
-    return 'empty';
-  }
-  if ((excludedPostCount ?? 0) > 0) {
     return 'empty';
   }
   return 'vendor_failure';

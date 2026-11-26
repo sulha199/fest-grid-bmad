@@ -10,7 +10,7 @@ import { enqueueFallbackScrape } from './enqueue-fallback-scrape.js';
 import { recordActorRunResult } from './record-actor-run.js';
 import { classifyBrightDataRun, describeBrightDataVendorFailure } from './classify-brightdata-run.js';
 import { handleBrightDataFailedRun } from './handle-brightdata-failed-run.js';
-import { getRunExcludedPostCount, reportBrightDataYield } from './run-yield-store.js';
+import { reportBrightDataYield } from './run-yield-store.js';
 
 // Story 10.5 (IDEA-102): how far a still-running snapshot's job expiry is pushed. The sweep runs hourly and only reads jobs whose
 // expiry has PASSED, so the push must be shorter than the hour (30 minutes): it is then expired again by the next run and looked at
@@ -45,8 +45,7 @@ async function processSingleExpiredBrightDataJob(job: any): Promise<void> {
     if (output.status === 'SUCCEEDED') {
       // A "ready" snapshot with no items is not necessarily a good run (BUG-074): a vendor that
       // returned nothing for everyone is a failure, handled like any other failed run below.
-      const excludedPostCount = output.items.length === 0 ? await getRunExcludedPostCount(job.scraperActorRunId) : 0;
-      const { resultClass, progress } = await classifyBrightDataRun(job.snapshotId, output.items.length, { progress: output.progress, excludedPostCount });
+      const { resultClass, progress } = await classifyBrightDataRun(job.snapshotId, output.items.length, { progress: output.progress });
       if (resultClass === 'vendor_failure') {
         await handleBrightDataFailedRun(job, {
           status: 'FAILED',

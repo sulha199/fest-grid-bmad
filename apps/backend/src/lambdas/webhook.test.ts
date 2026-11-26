@@ -227,10 +227,10 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     assert.strictEqual(lastScrapedAt, null, 'a failed run must not mark the profile as freshly scraped');
   });
 
-  // A request that excluded the posts already stored returns nothing on a quiet day. That is the same report as a silent
-  // outage, so it must never be a vendor failure (which would hand the profile to the paid Apify fallback).
-  await t.test('zero records after the request excluded stored posts: a quiet day, SUCCEEDED and completed, nothing re-queued', async () => {
-    progressResult = outage;
+  // Live test 2026-11-26: a run in which every post of the window was excluded finishes `ready`, 0 records, with a dead_page
+  // error, so it is an empty run like any other; the same request with NO error is still the outage signature.
+  await t.test('zero records after the request excluded every stored post (dead_page): a quiet day, SUCCEEDED and completed, nothing re-queued', async () => {
+    progressResult = legitimatelyEmpty;
 
     const { run, job, lastScrapedAt } = await deliver('[]', { excludedPostCount: 4 });
 
@@ -243,13 +243,14 @@ test('Bright Data webhook: result classification (BUG-074)', async (t) => {
     assert.deepStrictEqual(sqsMessages, []);
   });
 
-  await t.test('a snapshot Bright Data reports as failed is still a vendor failure when posts were excluded', async () => {
-    progressResult = { status: 'failed', records: 0, errors: 0, errorMessage: 'boom' };
+  await t.test('zero records and no error after the request excluded posts is still a vendor failure (outage signature)', async () => {
+    progressResult = outage;
 
     const { run, job } = await deliver('[]', { excludedPostCount: 4 });
 
     assert.strictEqual(run.status, 'FAILED');
     assert.strictEqual(job.status, 'EXPIRED');
+    assert.strictEqual(sqsMessages.length, 1, 'handed to the fallback like any vendor failure');
   });
 
   await t.test('a vendor failure hands the Instagram profile to the SQS scrape queue immediately', async () => {

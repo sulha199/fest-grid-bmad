@@ -264,7 +264,7 @@ export const reextractRefreshHandler: JobHandler = {
       ? { post, url: post.postUrl, inputKey: reextractPostInputKey(post.id) }
       : { post: undefined, url: (input as { url: string }).url, inputKey: reextractUrlInputKey((input as { url: string }).url) };
     // '' is a stored caption (a flyer-only post); only null means none stored or cleared.
-  const captionNeeded = !post || post.content == null;
+    const captionNeeded = !post || post.content == null;
 
     await ctx.setPhase(REEXTRACT_PHASE_REFRESH);
 

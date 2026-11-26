@@ -40,9 +40,9 @@ export const BRIGHT_DATA_MAX_EXCLUDED_POSTS = 200;
  *
  * Bright Data honours only NUMERIC post ids (a shortcode is ignored, live test 2026-10-31) and counts
  * `num_of_posts` after the exclusion. Ids are sent as decimal strings, never as JSON numbers, which a
- * JavaScript `JSON.stringify` cannot write above 2^53 without losing precision. Whether Bright Data
- * accepts a string where its documentation shows an id is not verified (see the PR notes); this one
- * function is the only place that decides the wire shape.
+ * JavaScript `JSON.stringify` cannot write above 2^53 without losing precision. Verified live
+ * 2026-11-26: decimal strings are honoured (the excluded post is not returned), JSON number ids are
+ * ignored. This one function is the only place that decides the wire shape.
  *
  * Input shortcodes are given newest first. Invalid shortcodes and repeats are dropped.
  */

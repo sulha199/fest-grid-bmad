@@ -40,16 +40,13 @@ export async function lookUpBrightDataProgress(snapshotId: string, timeoutMs: nu
  * failure. A lookup that fails or times out is inconclusive and classes as `empty` -- how every
  * zero-record run was treated before this existed -- rather than declaring an outage on no evidence.
  *
- * `excludedPostCount` is how many post ids the request excluded: a zero-record snapshot of such a request is `empty`
- * unless Bright Data reports it failed (a quiet day and a silent outage look the same, see `classifyBrightDataResult`).
- *
  * A caller that has already read the progress report (the stale-job sweep) passes it in, so the
  * verdict is made on the same report that decided the snapshot was finished and costs no second call.
  */
 export async function classifyBrightDataRun(
   snapshotId: string,
   recordCount: number,
-  options: { progress?: BrightDataProgressResponse | null; lookupTimeoutMs?: number; excludedPostCount?: number | null } = {}
+  options: { progress?: BrightDataProgressResponse | null; lookupTimeoutMs?: number } = {}
 ): Promise<BrightDataRunClassification> {
   if (recordCount > 0) {
     return { resultClass: 'ok', progress: null };
@@ -66,7 +63,7 @@ export async function classifyBrightDataRun(
     );
   }
 
-  return { resultClass: classifyBrightDataResult({ recordCount, progress, excludedPostCount: options.excludedPostCount }), progress };
+  return { resultClass: classifyBrightDataResult({ recordCount, progress }), progress };
 }
 
 /** A one-line, log- and audit-friendly reason for a `vendor_failure`. */
