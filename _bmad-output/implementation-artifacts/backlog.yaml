@@ -3267,3 +3267,12 @@ items:
      ref: [implementation-artifacts/spec-poll-and-drain-empty-tick-gate.md, apps/backend/src/lib/metrics/emit-metric.ts],
      touches: [app:infrastructure, app:backend],
      note: "Follow-up to FIND-261122-q5w (empty poll-and-drain ticks block 20 s of billed Lambda time). The PollDrain* metrics exist (9 custom metrics in total, 10 are free); no alarm yet, so a lost sqs:GetQueueAttributes grant or a wrong hint costs 20 s unseen."}
+
+  # ── 2026-11-26 (bmad-quick-dev: dot-separated extracted times fail the ingestion insert) ──
+  BUG-261126-u6f:
+    {type: bug, status: done, created: 2026-11-26,
+     impact: user-visible, effort: s,
+     title: "An extracted time written with dots (\"20.10:00\") fails the Postgres time insert and drops every event of the post to the dead-letter queue",
+     ref: [packages/domain/src/events/normalize-extracted-time.ts, packages/domain/src/events/build-event-insert-values.ts, apps/backend/src/lib/events/warn-dropped-schedule-times.ts],
+     touches: [pkg:domain, app:backend, cross:ai-extraction],
+     note: "Prod ingestor errors 2026-11-12..25 (about 7 messages): invalid input syntax for type time \"20.00:00\" / \"20.10:00\". Fixed: normalizeExtractedTime turns the string into HH:MM:SS or null before the overnight rule; a dropped value logs one console.warn. Gemini prompt and schema untouched. After deploy the owner redrives festgrid-data-ingestion-queue-dlq-prod."}
