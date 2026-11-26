@@ -121,3 +121,17 @@ test('mapExtractionPayloadToProposedCorrection - omits links when payload has no
 
   assert.equal(result.links, undefined);
 });
+
+test('mapExtractionPayloadToProposedCorrection - normalizes dot times and drops unparseable ones', () => {
+  const result = mapExtractionPayloadToProposedCorrection({
+    eventName: 'Malam Musik',
+    types: [],
+    categories: [],
+    location: 'Jakarta',
+    schedules: [
+      { isMainSchedule: true, eventStartDate: '2026-11-20', eventStartTime: '20.10:00', eventEndTime: 'selesai' },
+    ],
+  } as never);
+  assert.strictEqual(result.schedules[0].eventStartTime, '20:10:00');
+  assert.strictEqual(result.schedules[0].eventEndTime, undefined);
+});

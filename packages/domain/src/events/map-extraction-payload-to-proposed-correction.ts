@@ -1,6 +1,7 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
 import { GeminiEventPayload, ProposedEventCorrection, ProposedScheduleCorrection } from './types.js';
 import { sanitizeEventLinks } from './sanitize-event-links.js';
+import { normalizeExtractedTime } from './normalize-extracted-time.js';
 
 // Story 3.6s — retyped from GeminiExtractionPayload (now the post-level `events[]` wrapper) to
 // GeminiEventPayload: this function always maps exactly one event into one correction preview
@@ -15,8 +16,9 @@ export function mapExtractionPayloadToProposedCorrection(payload: GeminiEventPay
     isMainSchedule: s.isMainSchedule,
     eventStartDate: s.eventStartDate,
     eventEndDate: s.eventEndDate,
-    eventStartTime: s.eventStartTime,
-    eventEndTime: s.eventEndTime,
+    // AI output: normalized so the preview form and the later correction submit carry a valid time.
+    eventStartTime: normalizeExtractedTime(s.eventStartTime) ?? undefined,
+    eventEndTime: normalizeExtractedTime(s.eventEndTime) ?? undefined,
     title: s.title,
     performers: s.performers,
     location: s.location,

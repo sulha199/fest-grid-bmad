@@ -520,6 +520,58 @@ test('processIngestionJob integration tests', async (t) => {
     assert.strictEqual(res.inserted, false);
   });
 
+  await t.test('Dot-separated extracted times ingest successfully as valid times (no Postgres time error)', async (t) => {
+    const [dotPost] = await db
+      .insert(posts)
+      .values({
+        accountId: profile.id,
+        platform: 'instagram',
+        content: 'A post whose extraction wrote times the Indonesian way',
+        postUrl: 'https://instagram.com/p/post-ingest-dot-' + Date.now(),
+        publishedAt: new Date(),
+      })
+      .returning();
+    extraSeededPostIds.push(dotPost.id);
+
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map(String).join(' '));
+    };
+    t.after(() => {
+      console.warn = originalWarn;
+    });
+
+    const message: ExtractedEventMessage = {
+      postId: dotPost.id,
+      sourceSocialMediaAccountId: accountId,
+      eventName: 'Malam Musik Dot ' + Date.now(),
+      types: [EventType.FESTIVAL],
+      categories: [EventCategory.MUSIC],
+      location: 'Jakarta',
+      confidenceScore: 0.9,
+      schedules: [
+        { isMainSchedule: true, eventStartDate: '2026-11-20', eventStartTime: '20.10:00', eventEndTime: '23.00' },
+        { isMainSchedule: false, eventStartDate: '2026-11-21', eventStartTime: '21.00', eventEndTime: '02.00' },
+        { isMainSchedule: false, eventStartDate: '2026-11-22', eventStartTime: 'selesai', title: 'Penutupan' },
+      ],
+    };
+
+    const res = await processIngestionJob(message);
+    assert.strictEqual(res.inserted, true);
+
+    const [insertedEvent] = await db.select().from(events).where(eq(events.postId, dotPost.id));
+    const rows = await db.select().from(schedules).where(eq(schedules.eventId, insertedEvent.id));
+    const byDate = new Map(rows.map((r) => [r.eventStartDate, r]));
+
+    assert.strictEqual(byDate.get('2026-11-20')?.eventStartTime, '20:10:00');
+    assert.strictEqual(byDate.get('2026-11-20')?.eventEndTime, '23:00:00');
+    assert.strictEqual(byDate.get('2026-11-21')?.eventEndDate, '2026-11-22');
+    assert.strictEqual(byDate.get('2026-11-22')?.eventStartTime, null);
+    assert.strictEqual(byDate.get('2026-11-22')?.title, 'Penutupan');
+    assert.ok(warnings.some((w) => w.includes(`postId=${dotPost.id}`) && w.includes('field=eventStartTime') && w.includes('selesai')));
+  });
+
   await t.test('Absent location fallback and zero schedules', async () => {
     const message: ExtractedEventMessage = {
       postId: seededPost2.id,
