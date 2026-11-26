@@ -5,10 +5,27 @@ trigger_story: none (POC-driven owner request; change trigger = planning-artifac
 scope: Major
 mode: Batch (unattended scheduled run; nobody could answer questions)
 status: proposed (awaiting owner approval; NOT approved)
-revision: 4 (2026-11-26, owner answers to the four questions of revision 3 and the A4 gate criteria; input section 12)
+revision: 5 (2026-11-26, owner answer to question 5 of revision 4: list highlights carry a count; input section 13)
 ---
 
 # Sprint Change Proposal: registration, CTA bar, highlight, honest dates and the extraction update
+
+## Revision 5 (2026-11-26): what changed since revision 4
+
+Source: section 13 of the input file (owner answer to Q5). Status stays **proposed, not approved**.
+
+1. **List highlights carry a count (Q5):** a highlight that lists two or more items writes the item count in
+   parentheses after the label and keeps every item ("Penampil (4): Band A, Band B, Band C, Band D"); one item
+   gets no count; single values (price hook, free entry) get no count. Applies to every list label (performers,
+   speakers, instructors, judges, prizes, take-home items, promos and the like). The count is part of the stored
+   text, no count column; a later format change goes through `highlight_rules_version` and the recompute step.
+   "+N" and the cut to two names are withdrawn (C4, PRD edits 3 and 6, AD-59, UX 4.4, Stories 11.7 and 11.14,
+   decision 3, A11c, handoff 13F and S50, backlog note).
+2. **Section 11:** Q5 recorded as answered. One new question, **Q6** (a list whose items already start with the
+   label word), follows from Q5 and the existing "no doubled label" rule; it has a recommendation and does not
+   block approval of the rest.
+3. **Backlog note of `CC-261124-vjh` shortened** to one fact under 300 characters (board check 15 flagged the
+   revision 4 note); the history stays in these revision notes.
 
 ## Revision 4 (2026-11-26): what changed since revision 3
 
@@ -265,6 +282,14 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   every rung of the type ladder that has content (all names, all prizes, promos, price hook, free, take-home
   items). The card highlight is the first item of that list, stored whole, so card and detail cannot disagree;
   no cut and no skip for length, the UI shows an ellipsis (owner answer Q1).
+- **List items carry a count (owner answer Q5, revision 5):** an item that lists two or more values writes the
+  number of values in parentheses after the label and keeps every value: "Penampil (4): Band A, Band B, Band C,
+  Band D". Every list label does this (performers, speakers, instructors, judges, prizes, take-home items, promos
+  and the like); a list of one value gets no count ("Penampil: Band A"); single values (price hook, free entry)
+  never get a count. The count is the number of values written (after de-duplication and the vague-value filter),
+  part of the stored text, with no separate count column. "+N" and the cut to two names are withdrawn; a count in
+  front of the label ("4 Penampil") was rejected by the owner. A value that already starts with its label does not
+  get the label twice (existing rule); how that combines with a list of two or more is Q6 (section 11).
 - Stories affected: 1.3b (Reusable EventCard), Epic 1.i1 primitives (status/nearby badge 1.i1i, date box
   1.i1k), 1.6a (detail view), 4.2 / 10.6 (re-extract preview shows the composed highlight).
 - New stories: 11.7 (composer, stored card highlight, recompute step), 11.14 (card and detail list).
@@ -521,7 +546,9 @@ Readers can switch at once (step b), because the defaults keep today's behaviour
 3. **3.1 Event Discovery: card highlight and honest dates.** Add the highlight rules of C4 (stored card highlight,
    detail list from the same function, decision 3) and the date rules of C6 (the six rules, several schedules,
    `other` rule of decision 12, decision 2's next-phase rule). The card highlight is the first detail item stored
-   whole, with no length limit; the card ends it with an ellipsis when it does not fit. A dummy date is a flagged
+   whole, with no length limit; the card ends it with an ellipsis when it does not fit. A list item of two or more
+   values reads "<Label> (<count>): <every value>" ("Penampil (4): Band A, Band B, Band C, Band D"); one value and
+   single values have no count; no "+N" (owner answer Q5). A dummy date is a flagged
    row whose stage is neither `event` nor `other`. Dummy-date labels (decision 5): card "Daftar s/d
    6 Nov", "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov"; detail "Pendaftaran sampai 6 November
    2026" (EN: "Register by 6 Nov", full sentence on the detail).
@@ -535,7 +562,8 @@ Readers can switch at once (step b), because the defaults keep today's behaviour
    re-extract that no longer finds it; raw captions blanked 30 days after expiry; free text passes the contact
    scrub. Online-only locations are not geocoded.
 6. **4.1 EventInfo.** Add `prizes`, `promos`, `inclusions`, `isFree` (bounded shapes), `highlight` (card, stored,
-   the first detail item stored whole, no length limit, with a rules version; the detail list is composed at read
+   the first detail item stored whole, no length limit, with a rules version; a list item carries its count in
+   parentheses after the label, part of the text, no count field; the detail list is composed at read
    time), `fromPrice` (derived
    from the event's tiers), `coreEventName` and `activityType` (matching only, never displayed); note on
    `contactInfo`/`hasPrivateContact` (D1).
@@ -626,7 +654,10 @@ templates and the AD-16/AD-35 canonical-slug redirects are about other things), 
 - **AD-59 Highlight composer** (decision 3, hybrid): one function `composeHighlight(facts, mode)`; `detail` mode
   returns the ordered list from every ladder rung with content, read time, no limit; `card` mode is the first item
   of that list, whole (no length limit, no skip, no cut; degrees after the first comma of a name removed; no
-  buy-get cut), and is stored in `events.highlight` with `highlight_rules_version`;
+  buy-get cut), and is stored in `events.highlight` with `highlight_rules_version`; a list item of two or more
+  values is "<Label> (<count>): <every value>", one value or a single value has no count, no "+N" (owner answer
+  Q5); the count lives only in the text, a format change bumps `highlight_rules_version` and the recompute step
+  rewrites the stored rows;
   every write path (extraction, manual correction, merge, re-extract apply, backfill) computes it; a recompute step
   (no LLM) refreshes rows with an older version; the re-extract preview uses the same function.
 - **AD-60 Post-extraction call**: merged call for one event, separate per-event tier call for several; inputs =
@@ -653,9 +684,12 @@ each in the change that adds it (CLAUDE.md section 4).
 
 ### 4.4 UX (`design-artifacts/UX-festgrid-run-1/`), to be applied by `bmad-ux`
 - `EVENT-CARD-DESIGN.md`: grid card from the owner mock (handoff 9): one status/date badge in the thumbnail,
-  footer left slot (distance, else "Gratis", else start time, else "+N"), right slot event type, green area =
+  footer left slot (distance, else "Gratis", else start time, else "+N jadwal" / "+N more", the count of other
+  schedules, unrelated to Q5), right slot event type, green area =
   performers or the stored card highlight (2 lines, ending in an ellipsis when it does not fit; the data has no
-  character limit), container-query text size. Dummy-date label (decision 5),
+  character limit). A list highlight starts with its label and count ("Penampil (4): Band A, Band B, ..."), so the
+  count stays visible when the end is cut by the ellipsis; the card never computes or appends a count of its own
+  (owner answer Q5). Container-query text size. Dummy-date label (decision 5),
   short form by stage: "Daftar s/d 6 Nov" / "Register by 6 Nov", "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit
   s/d 12 Nov" (EN copy to be written with the same pattern).
 - Event detail: the full ordered highlight list (no character limit) from the composer's `detail` mode; the full
@@ -730,14 +764,32 @@ Acceptance criteria to carry into `bmad-create-story`:
 - **11.7 (Composer and stored card highlight):** `composeHighlight(facts, 'detail')` returns the ordered list from
   every ladder rung with content; `'card'` is its first item, whole. The port removes the POC's length rule:
   no `MAX = 40`, no skip of a candidate that is too long, no buy-get cut at the condition word; academic degrees
-  after the first comma of a name are always removed (owner answer Q1); the performer line on the card follows Q5
-  (section 11). The production code has no highlight length limit today (checked, read only), so there is nothing
+  after the first comma of a name are always removed (owner answer Q1). The port also removes the POC's
+  "+N" suffix and its two-names-then-one loop: a list item of two or more values writes every value with the count
+  in parentheses after the label (owner answer Q5), for every list label (performers, speakers, instructors,
+  judges, prizes, take-home items, promos and the like). The production code has no highlight length limit today (checked, read only), so there is nothing
   else to remove. Extraction,
   manual correction, merge, re-extract apply and the backfill write `events.highlight` and
   `highlight_rules_version` through it; a recompute step (no LLM) rewrites every row whose version is older than
   the code's and logs the count; the re-extract preview shows the same output without writing (AD-40). Given a
   fact set, the card highlight equals the first detail item (property test); a test with a first item longer than
   40 characters stores it whole.
+  Acceptance criteria and tests for the count (owner answer Q5; values below are placeholders, no real names):
+  - Given four performers, the item is "Penampil (4): Band A, Band B, Band C, Band D": every value kept, no "+N",
+    the count equals the number of values written.
+  - Given one performer, the item is "Penampil: Band A" with no count (one item, no count); the same holds for one
+    prize, one take-home item and one promo.
+  - Given two values that are the same after de-duplication (or after the degree removal), the item has one value
+    and no count.
+  - A price hook ("Mulai dari Rp50.000") and free entry ("Gratis") never carry a count.
+  - Label the value already starts with: given one prize whose value starts with "Hadiah" ("Hadiah Rp5 juta"), the
+    item is "Hadiah Rp5 juta", not "Hadiah Hadiah Rp5 juta" and with no count. Given two or more such values, the
+    expected text follows Q6 (recommended: "Hadiah (2): Rp5 juta, Rp3 juta"); this test is written once Q6 is
+    answered.
+  - A fact set that yields no "+" followed by a digit anywhere in the composed text (regression test against the
+    POC format).
+  - The recompute step rewrites a row stored with an older `highlight_rules_version` in the POC format into the
+    count format.
 - **11.8 (Post-extraction call):** one merged call for a one-event post (location keywords, priced options,
   `coreEventName`, `activityType`); for two or more events, the location call plus a separate per-event tier call.
   The tier part reads the caption **and the `ticketPrice` string the main extraction returned for each event**;
@@ -782,7 +834,8 @@ Acceptance criteria to carry into `bmad-create-story`:
   note (PR #268): schedule times reaching `computeDisplayFlags` and the BUG-096 cutoff are already normalized
   `HH:MM:SS` or null; fixtures should include a null time from a dropped value.
 - **11.14 (Card and detail):** card per `EVENT-CARD-DESIGN.md` with the stored card highlight (ellipsis when it
-  does not fit; no character limit in the component) and the short dummy-date label by stage; the detail page shows the ordered highlight list and the full dummy-date sentence; EN
+  does not fit; no character limit in the component; the component shows the stored text as is and adds no count
+  or "+N" of its own, so "Penampil (4): ..." keeps its count visible at the start) and the short dummy-date label by stage; the detail page shows the ordered highlight list and the full dummy-date sentence; EN
   + ID copy.
 - **11.15 (Layer 2):** local Claude session (not Gemini), same schema and code; re-reads captions and images for
   the 414 + 129 events; fills facts, highlight, `core_event_name` and `activity_type` where the code rule left them
@@ -901,7 +954,7 @@ multi-event posts, and four skipped approaches.
 |---|---|---|
 | 1 | Clear the 72 existing online pins | **Decided, option A** (2026-11-26, input 10): clear them after Story 11.9 ships, with Story 11.16's `--dry-run`, `--apply` and rollback copy; owner go-ahead and writer role. |
 | 2 | Date for non-competition events with only non-counting rows | **Decided, option A** (2026-11-26, input 10): flag every non-counting row; the query picks the nearest upcoming one, the card labels it by its stage, the event leaves the list after its last phase (C6 rule 5, Story 11.13). |
-| 3 | Highlight stored or composed at read time | **Decided, hybrid** (2026-11-25, input 8; length amended 2026-11-26, input 12): card highlight = first detail item, stored whole, no length limit, ellipsis in the UI, with a rules version and a recompute step; detail composed at read time as an ordered list from the same function (AD-59, Story 11.7). |
+| 3 | Highlight stored or composed at read time | **Decided, hybrid** (2026-11-25, input 8; length amended 2026-11-26, input 12): card highlight = first detail item, stored whole, no length limit, ellipsis in the UI, with a rules version and a recompute step; detail composed at read time as an ordered list from the same function (AD-59, Story 11.7). List items carry their count in parentheses after the label, no "+N" (2026-11-26, input 13, owner answer Q5). |
 | 4 | Own cover per event on carousels | **Decided, option A, deferred** (2026-11-26, input 10): Story 11.17 not built in Epic 11; backlog `IDEA-261124-8jo`; OCR alternative not good enough (findings 11.20). |
 | 5 | Wording of the dummy-date label | **Decided, option A** (2026-11-26, input 10): short on the card ("Daftar s/d 6 Nov", "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov"), full sentence on the detail ("Pendaftaran sampai 6 November 2026"). |
 | 6 | Whether the cursor path gets the post-extraction call | **Decided by POC, option A** (2026-11-25, input 8, findings 11.18): no tier call on the stepped path; location per step; limit documented in AD-60. |
@@ -938,6 +991,9 @@ Also decided after revision 2: the list query design (input 9), the core event n
   section 11 asks for every replace-`ticketPrice` wording to change; decision 9 withdraws D7's quoted evidence).
 - **A11b** (revision 4) The handoff's highlight lines (Mary's "about 30-40 chars", the composer summary, rule F and the
   first-look figures) are amended in the same strike-through style for owner answer Q1.
+- **A11c** (revision 5) The handoff's "+N" lines (composer summary, rule F table rows for PERFORMANCE and FESTIVAL,
+  S50 "+n accepted") are amended in the same strike-through style for owner answer Q5. The footer's "+N jadwal"
+  (count of other schedules) is a different slot and stays.
 - **A12** Story 0.37 (Extract and display event links) renders organizer links today; moving them onto `/go/` is
   noted for the Epic 12 readiness check, not added as a story here.
 - **A13** (revision 3) Where the core name sits on a multi-event post (location call or tier call) and which
@@ -962,8 +1018,8 @@ Architect (`bmad-architecture`), then PO/Dev for stories.
 pull request is opened; cloud routine prompts start with that fetch and merge.
 
 **Planning order (after owner approval):**
-1. Owner answers section 11: Q1 to Q4 answered 2026-11-26; Q5 (performer list on the card) before `bmad-ux` and
-   Story 11.7.
+1. Owner answers section 11: Q1 to Q5 answered 2026-11-26; Q6 (a list whose values start with the label word)
+   before Story 11.7 is created (it changes one test, not the plan).
 2. `bmad-prd` (update): section 4.1 edits.
 3. `bmad-ux`: section 4.4.
 4. `bmad-architecture`: AD-55 to AD-61, the AD-55/AD-57 link-endpoint amendments and the amendments in 4.3.
@@ -1050,7 +1106,7 @@ AD-33 and locale ratchets green.
 ## 10. Backlog registration
 
 Row `CC-261124-vjh` (Registration options, CTA bar, composed highlight, honest dates and the extraction update;
-proposal, `triaged`, note updated for revision 4) and these children in
+proposal, `triaged`, note updated for revision 5) and these children in
 `_bmad-output/implementation-artifacts/backlog.yaml`:
 - `IDEA-261124-8jo` Own cover slide per event on multi-event carousels (backlog; decision 4: deferred, Story 11.17
   not built in Epic 11).
@@ -1076,7 +1132,8 @@ proposal, `triaged`, note updated for revision 4) and these children in
 ## 11. Owner answers (record) and remaining questions
 
 Q1 to Q4 were asked in revision 3 and answered by the owner on 2026-11-26 (input section 12, which overrides
-earlier wording). Revision 3's recommendation is kept next to each answer for the record.
+earlier wording). Q5 was asked in revision 4 and answered the same day (input section 13). The earlier
+recommendation is kept next to each answer for the record.
 
 - **Q1. Card highlight longer than 40 characters** (I10). Revision 3 recommended: two repairs, then the next item
   that fits. **Answer: no cut and no skip for length.** The card highlight is the first item of the detail list,
@@ -1099,12 +1156,24 @@ earlier wording). Revision 3's recommendation is kept next to each answer for th
   is not built. Applied in C9, Story 11.2 and backlog `IDEA-261124-ofm`.
 - **A4. Release gate pass criteria: accepted as written in revision 3** (section 7).
 
-Remaining question (new in revision 4; nothing below is decided):
+- **Q5. Performer line on the card now that there is no length limit** (asked in revision 4). Revision 4
+  recommended: every name in the item, the card stores it whole, "+N" no longer written into the data.
+  **Answer (2026-11-26, input section 13):** a highlight that lists two or more items writes the item count in
+  parentheses after the label and keeps every item ("Penampil (4): Band A, Band B, Band C, Band D"); the card
+  stores that text whole and the UI ends it with an ellipsis, so the count stays visible. Applies to every list
+  label; one item gets no count; single values (price hook, free entry) get no count; the count is part of the text,
+  no count column; a format change goes through the rules version and the recompute step. "+N" and the cut to two
+  names are withdrawn (this replaces the earlier acceptance of "+n"); a count in front of the label ("4 Penampil")
+  was rejected. Applied in C4, 4.1 (edits 3 and 6), AD-59, 4.4, Stories 11.7 and 11.14, decision 3, A11c, the
+  handoff (13F, rule F table, S50) and the backlog note.
 
-- **Q5. Performer line on the card now that there is no length limit.** The POC composer writes "Penampil: A, B +N"
-  and drops to one name when two do not fit 40 characters (handoff 13F; S50 "+n accepted"); revision 3's detail
-  list carries all names. Q1 says the card is the first detail item stored whole, which would make the card line
-  every performer's name, while the "+N" wording was accepted by the owner when the limit existed.
-  **Recommendation:** the detail item lists every name; the card stores that item whole (Q1) and the UI ends it
-  with an ellipsis, so "+N" is no longer written into the data. If the owner wants "+N" on the card, it should be
-  a display-time rule of the card component (count of names not shown), not a stored cut.
+Remaining question (new in revision 5; nothing below is decided, and it does not block approval of the rest):
+
+- **Q6. A list whose values already start with the label word.** The composer never writes a label twice: one prize
+  "Hadiah Rp5 juta" stays "Hadiah Rp5 juta" (POC rule, kept). Q5 says a list of two or more values starts with
+  "<Label> (<count>):", but does not say what happens to values that themselves start with that word (for example
+  two prizes "Hadiah Rp5 juta" and "Hadiah Rp3 juta", or take-home items that start with "Dapat"). Writing them as
+  they are gives "Hadiah (2): Hadiah Rp5 juta, Hadiah Rp3 juta". **Recommendation:** in a list of two or more, drop
+  the leading label word from each value that starts with it ("Hadiah (2): Rp5 juta, Rp3 juta"); the one-value case
+  keeps the current rule (value as written, label not added, no count). Story 11.7 carries the one-value test now
+  and adds the list test once Q6 is answered.
