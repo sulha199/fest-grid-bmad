@@ -16,6 +16,7 @@ import { loadSourcePost } from '../ai-processor/build-reextraction-preview.js';
 import { PARKED_ORDINAL_BASE, enrichAndPromoteEvent, setEventPostOrdinal } from '../events/set-event-primary-post.js';
 import { evaluateIngestionMatch, resolveStubSource } from '../ingestor/evaluate-ingestion-match.js';
 import { writeIngestionDecision } from '../ingestor/write-ingestion-decision.js';
+import { warnDroppedScheduleTimes } from '../events/warn-dropped-schedule-times.js';
 import { getActiveSubscriberUserIdsForPost } from '../subscriptions/get-active-subscriber-user-ids-for-post.js';
 import { createGeocodeSession } from '../geolocation/geocode-session.js';
 import { loadPreviewJobForApply, lockPreviewJobResult, writePreviewJobResult } from './reextract-preview-job.js';
@@ -237,6 +238,7 @@ async function applyInTransaction(
         // applied correction keep their value). The slug is stripped so no re-slug can happen: a
         // reused event keeps its address, and a new slug could collide with another event's.
         const { event, schedules: scheduleValues } = buildEventInsertValues(message, sourcePost ?? null);
+        warnDroppedScheduleTimes(message);
         const { slug: _derivedSlug, ...eventWithoutSlug } = event;
         const enriched = await enrichAndPromoteEvent(tx, existing, eventWithoutSlug, scheduleValues, post.id, ordinal);
         reusedRow = enriched.event;

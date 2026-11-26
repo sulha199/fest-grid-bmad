@@ -8,6 +8,7 @@ import {
 } from './types.js';
 import { getPlatformSlug } from '../scraper/platform-registry.js';
 import { normalizeOvernightEndDate } from './normalize-overnight-end-date.js';
+import { normalizeExtractedTime } from './normalize-extracted-time.js';
 import { LOCATION_NOT_SPECIFIED } from './unfilled.js';
 import { normalizeLocationKeywords } from './normalize-location-keywords.js';
 import { ScrapablePlatform } from '../subscriptions/platforms.js';
@@ -53,15 +54,20 @@ export function buildEventInsertValues(
   }
 
   const schedules: ScheduleInsertValues[] = (message.schedules || []).map((s: ExtractedScheduleMessage) => {
+    // The model sometimes writes times the Indonesian way ("20.10:00"), which Postgres rejects and
+    // which would fail the whole ingestion message. Normalize first, so the overnight rule and the
+    // later time comparisons see valid HH:MM:SS (or null), never the raw string.
+    const eventStartTime = normalizeExtractedTime(s.eventStartTime);
+    const eventEndTime = normalizeExtractedTime(s.eventEndTime);
     return {
       isMainSchedule: s.isMainSchedule,
       eventStartDate: s.eventStartDate,
       // An overnight event ("21:00 - 02:00", no end date) is stored with the next day as its end
       // date, the shape the correction validator already requires -- see normalizeOvernightEndDate.
       eventEndDate:
-        normalizeOvernightEndDate(s.eventStartDate, s.eventStartTime, s.eventEndDate, s.eventEndTime) || null,
-      eventStartTime: s.eventStartTime || null,
-      eventEndTime: s.eventEndTime || null,
+        normalizeOvernightEndDate(s.eventStartDate, eventStartTime, s.eventEndDate, eventEndTime) || null,
+      eventStartTime,
+      eventEndTime,
       title: s.title || null,
       performers: s.performers || null,
       location: s.location || null,

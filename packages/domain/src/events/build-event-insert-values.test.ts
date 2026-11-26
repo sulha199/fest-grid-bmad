@@ -479,3 +479,62 @@ test('buildEventInsertValues - maps locationResolution onto the schedule, null w
   assert.strictEqual(schedules[0].locationResolution, 'kw2');
   assert.strictEqual(schedules[1].locationResolution, null);
 });
+
+function dotTimeMessage(schedules: Array<Partial<NonNullable<ExtractedEventMessage['schedules']>[number]>>): ExtractedEventMessage {
+  return {
+    postId: 'post-dot',
+    sourceSocialMediaAccountId: 'account-1',
+    eventName: 'Malam Musik',
+    types: [EventType.FESTIVAL],
+    categories: [EventCategory.MUSIC],
+    location: 'Jakarta',
+    schedules: schedules.map((s) => ({
+      isMainSchedule: true,
+      eventStartDate: '2026-11-20',
+      ...s,
+    })) as NonNullable<ExtractedEventMessage['schedules']>,
+  } as ExtractedEventMessage;
+}
+
+test('buildEventInsertValues - dot-separated times are stored as valid HH:MM:SS', () => {
+  const { schedules } = buildEventInsertValues(
+    dotTimeMessage([{ eventStartTime: '20.10:00', eventEndTime: '22.00' }]),
+    null
+  );
+  assert.strictEqual(schedules[0].eventStartTime, '20:10:00');
+  assert.strictEqual(schedules[0].eventEndTime, '22:00:00');
+});
+
+test('buildEventInsertValues - an overnight pair written with dots still gets the next-day end date', () => {
+  const { schedules } = buildEventInsertValues(
+    dotTimeMessage([{ eventStartTime: '21.00', eventEndTime: '02.00' }]),
+    null
+  );
+  assert.strictEqual(schedules[0].eventStartTime, '21:00:00');
+  assert.strictEqual(schedules[0].eventEndTime, '02:00:00');
+  assert.strictEqual(schedules[0].eventEndDate, '2026-11-21');
+});
+
+test('buildEventInsertValues - an unparseable time becomes null and the rest of the schedule survives', () => {
+  const { schedules } = buildEventInsertValues(
+    dotTimeMessage([{ eventStartTime: '20:00 - 22:00', eventEndTime: 'selesai', title: 'Day 1', location: 'Hall A' }]),
+    null
+  );
+  assert.strictEqual(schedules[0].eventStartTime, null);
+  assert.strictEqual(schedules[0].eventEndTime, null);
+  assert.strictEqual(schedules[0].eventEndDate, null);
+  assert.strictEqual(schedules[0].title, 'Day 1');
+  assert.strictEqual(schedules[0].location, 'Hall A');
+  assert.strictEqual(schedules[0].eventStartDate, '2026-11-20');
+});
+
+test('buildEventInsertValues - main-schedule promotion orders by the normalized start time', () => {
+  const { schedules } = buildEventInsertValues(
+    dotTimeMessage([
+      { isMainSchedule: false, eventStartTime: '20.00' },
+      { isMainSchedule: false, eventStartTime: '9.30' },
+    ]),
+    null
+  );
+  assert.deepStrictEqual(schedules.map((s) => s.isMainSchedule), [false, true]);
+});
