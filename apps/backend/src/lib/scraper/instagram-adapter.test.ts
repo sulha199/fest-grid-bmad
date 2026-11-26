@@ -867,7 +867,7 @@ test('instagram-adapter tests', async (t) => {
   });
 
   await t.test('getNewestPosts filters out invalid items and returns only valid ones', async () => {
-    setCallApifyActor(async () => [
+    setCallApifyActor((async () => [
       {
         timestamp: '2026-08-08T00:00:00Z',
         url: 'https://www.instagram.com/p/C_abc123/',
@@ -884,7 +884,7 @@ test('instagram-adapter tests', async (t) => {
         url: 'https://www.instagram.com/p/C_xyz789/',
         caption: 'Another valid post',
       },
-    ]);
+    ]) as any);
 
     const posts = await instagramScraperAdapter.getNewestPosts(
       { accountId: '123', username: 'test_username' }
