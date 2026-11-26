@@ -22,6 +22,25 @@ test('dot separators, whole or mixed', () => {
   assert.strictEqual(normalizeExtractedTime('20:10.30'), '20:10:30');
 });
 
+test('values Postgres time accepts today keep inserting: fraction, zone suffix, AM/PM', () => {
+  assert.strictEqual(normalizeExtractedTime('20:00:00.000'), '20:00:00');
+  assert.strictEqual(normalizeExtractedTime('20:00:00.5'), '20:00:00');
+  assert.strictEqual(normalizeExtractedTime('20:00:00Z'), '20:00:00');
+  assert.strictEqual(normalizeExtractedTime('20:00:00+07:00'), '20:00:00');
+  assert.strictEqual(normalizeExtractedTime('20:00:00+07'), '20:00:00');
+  assert.strictEqual(normalizeExtractedTime('20:00:00 +0700'), '20:00:00');
+  assert.strictEqual(normalizeExtractedTime('20:00:00-07'), '20:00:00');
+  assert.strictEqual(normalizeExtractedTime('20:00+07'), '20:00:00');
+  assert.strictEqual(normalizeExtractedTime('20:00 z'), '20:00:00');
+  assert.strictEqual(normalizeExtractedTime('8:30 PM'), '20:30:00');
+  assert.strictEqual(normalizeExtractedTime('8:30pm'), '20:30:00');
+  assert.strictEqual(normalizeExtractedTime('8.30 AM'), '08:30:00');
+  assert.strictEqual(normalizeExtractedTime('12:00 AM'), '00:00:00');
+  assert.strictEqual(normalizeExtractedTime('12:15 PM'), '12:15:00');
+  assert.strictEqual(normalizeExtractedTime('11:59:59 PM'), '23:59:59');
+  assert.strictEqual(normalizeExtractedTime('7.30 PM WIB'), '19:30:00');
+});
+
 test('whitespace and a trailing Indonesian zone label are stripped', () => {
   assert.strictEqual(normalizeExtractedTime('  19.30  '), '19:30:00');
   assert.strictEqual(normalizeExtractedTime('19.30 WIB'), '19:30:00');
@@ -44,7 +63,7 @@ test('out-of-range parts are null', () => {
 });
 
 test('ranges, free text and malformed values are null, never an exception', () => {
-  for (const bad of ['20:00 - 22:00', '20.00-22.00', 'selesai', 'TBA', '', '   ', '20', '2000', '20:0', '8:30 PM', '20:00 WIBB', 'WIB', '20:00:00.5', '-1:00']) {
+  for (const bad of ['20:00 - 22:00', '20.00-22.00', 'selesai', 'TBA', '', '   ', '20', '2000', '20:0', '20:00 WIBB', 'WIB', '-1:00', '20:00-22:00', '10:00-11:00', '20:00 - 22:00 WIB', '20:00:00.1234567', '20:00 PM', '0:30 AM', '13:00 PM', '20:00+16', '20:00+07:60', '20:00:00-99']) {
     assert.strictEqual(normalizeExtractedTime(bad), null, bad);
   }
 });
