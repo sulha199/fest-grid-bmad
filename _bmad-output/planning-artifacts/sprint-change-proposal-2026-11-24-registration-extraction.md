@@ -5,10 +5,39 @@ trigger_story: none (POC-driven owner request; change trigger = planning-artifac
 scope: Major
 mode: Batch (unattended scheduled run; nobody could answer questions)
 status: proposed (awaiting owner approval; NOT approved)
-revision: 3 (2026-11-26, owner decisions of 2026-11-25 and 2026-11-26 and POC findings 11.18 to 11.22; input sections 8 to 11)
+revision: 4 (2026-11-26, owner answers to the four questions of revision 3 and the A4 gate criteria; input section 12)
 ---
 
 # Sprint Change Proposal: registration, CTA bar, highlight, honest dates and the extraction update
+
+## Revision 4 (2026-11-26): what changed since revision 3
+
+Source: section 12 of the input file (owner answers to the four questions of revision 3; it overrides earlier
+wording, including the 40-character rule of input sections 2 and 8). Status stays **proposed, not approved**.
+
+1. **Card highlight, no length limit (Q1):** the card highlight is the first item of the detail list, stored
+   whole; the UI ends it with an ellipsis when it does not fit. The 40-character limit, the skip-if-too-long rule
+   and the buy-get cut at the condition word are removed everywhere (C4, section 3.3, PRD edits 3 and 6, AD-59, UX
+   4.4, Stories 11.3, 11.7 and 11.14, decision 3, handoff F, backlog note). Removing academic degrees after the
+   first comma of a name stays. The production code has no highlight column and no length limit today (checked,
+   read only); the limit lives only in the POC composer (`MAX = 40` in `compose-highlight.mjs`), so Story 11.7
+   ports the composer **without** it. The 0.86 composer precision was measured with the length rule: the first
+   release with this change sets a new baseline (A4, Story 11.2).
+2. **Dummy dates, option A (Q2):** `display_is_dummy` = flagged and stage neither `event` nor `other`; the card
+   label comes from the stage; a competition `submission` row keeps its real start and end dates and shows "Submit
+   s/d"; only a flagged `registration` row uses its end date as the start date (section 3.5, C6, AD-58, Stories 11.3
+   and 11.13; I9 resolved).
+3. **Story 12.2 memory gate (Q3):** replay peak memory with QR decoding at most 10% above the same replay without
+   it, and below 80% of the Lambda's configured memory (C1, C9, AD-57, Story 12.2).
+4. **Option B trigger (Q4):** per release 40 fresh posts read by eye, Claude first, doubtful posts to the owner;
+   option B is built when two or more ticket prices visible on the images were not returned; one is reported and
+   watched; a price label on a single product is not a ticket price. **First reading 2026-11-26: 0 of 40**
+   (findings 11.22), option B not built (C9, Story 11.2, backlog `IDEA-261124-ofm`).
+5. **A4 accepted as written** (release gate pass criteria); recorded in section 7 and Story 11.2.
+6. **Section 11** is now a record of the owner's answers; one new question (Q5, performer list on the card) that
+   follows from Q1 and an earlier wording rule.
+7. **Master moved:** PR #268 (normalize extracted times before the Postgres time insert) and PR #266 (AI-processor
+   memory logging) merged; notes added to Stories 11.4, 11.13 and 12.2.
 
 ## Revision 3 (2026-11-26): what changed since revision 2
 
@@ -96,7 +125,8 @@ inclusions, free flag, stage, tiers, highlight, display flag or core name.
 - Stage: required `stage` filled on 191 of 191 rows; the model's own main flag sat on a non-counting row on
   11% of main rows and 2-3 events had no main row; one post collapsed 3 events to 1 (findings 10.1, 11.1).
 - Highlight composer: first-look precision 0.86 / recall 0.85 on a fresh 60-caption set; facts vary between
-  runs on 23% of captions (findings 11.15, 11.17).
+  runs on 23% of captions (findings 11.15, 11.17). Measured with the 40-character rule that revision 4 drops, so
+  it is not the baseline for the first release with the change (A4).
 - Tiers: separate call equal to the merged call on 58 of 59 posts; the merged call put prices on the wrong
   event in 1 of 7 multi-event posts (findings 11.10, 11.12).
 - Tier input (findings 11.22): amounts found 32 of 68 from the caption alone, 67 of 68 with the extraction's
@@ -170,7 +200,8 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   `/go/` is a follow-up for the epic readiness check of Epic 12, not part of this course.
 - **QR: decided (decision 11, option B).** The decoder is adopted, but Story 12.2 ships **last** in Epic 12 behind
   a memory gate: only after the cause of the AI-processor Lambda out-of-memory seen since 2026-11-20 is
-  understood, and the replay shows the peak memory does not rise above a set limit (value: section 11, Q3);
+  understood, and the replay shows the peak memory with decoding at most 10% above the same replay without it and
+  below 80% of the Lambda's configured memory (owner answer Q3, input section 12);
   decoding runs on a downscaled copy of the image. Slice 1 (buttons from caption links, phone, WhatsApp) does not
   wait for QR.
 - **Low confidence (decision 9, option A):** no `evidence` field; an option whose source is an image gets
@@ -216,21 +247,24 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   `responseSchema` size limit (project-context, 2026-10-30) applies to every new enum.
 
 **C4. Highlight composed in code from the facts.**
-- PRD: 3.1 Event Discovery and 4.1: one card highlight per event, at most 40 characters, composed by one function
+- PRD: 3.1 Event Discovery and 4.1: one card highlight per event, stored whole with no length limit (the UI ends it
+  with an ellipsis when it does not fit; owner answer Q1), composed by one function
   from typed facts with the owner rules listed in the input (type ladder and precedence; promo needs a cue and a
   figure; early bird wording; names are valid and come **before "free" on every type**; stated free counts and
   the model's `isFree` needs a free word; competition common perks are not highlights, workshop take-home items
-  are; PROMOTION price hook, performer last resort; buy-get cut at its condition word; no doubled "Hadiah"; vague
-  prize is not a prize). D12: no highlight when absent; scope or category labels are not highlights; a highlight
+  are; PROMOTION price hook, performer last resort; academic degrees after the first comma of a name removed; no
+  doubled "Hadiah"; vague
+  prize is not a prize). The buy-get cut at its condition word existed only to fit 40 characters and is dropped
+  (revision 4). D12: no highlight when absent; scope or category labels are not highlights; a highlight
   is never a paid slot (Mary R8). The model never writes the highlight.
-- **Decided (decision 3, hybrid):** the **card** highlight is stored (`events.highlight`, at most 40 characters)
+- **Decided (decision 3, hybrid):** the **card** highlight is stored (`events.highlight`, no length limit)
   with `events.highlight_rules_version`; a light recompute step (no LLM, from the stored facts) refreshes rows
   whose version is older than the code's when the rules change; every write path (extraction, manual correction,
   merge, re-extract apply) computes it through the one shared function. The **event detail** composes at read
   time with no character limit: the same function in a `detail` mode returns an ordered list of highlights from
   every rung of the type ladder that has content (all names, all prizes, promos, price hook, free, take-home
-  items). The card highlight is derived from the first item of that list, so card and detail cannot disagree
-  (how a first item longer than 40 characters is handled: section 11, Q1).
+  items). The card highlight is the first item of that list, stored whole, so card and detail cannot disagree;
+  no cut and no skip for length, the UI shows an ellipsis (owner answer Q1).
 - Stories affected: 1.3b (Reusable EventCard), Epic 1.i1 primitives (status/nearby badge 1.i1i, date box
   1.i1k), 1.6a (detail view), 4.2 / 10.6 (re-extract preview shows the composed highlight).
 - New stories: 11.7 (composer, stored card highlight, recompute step), 11.14 (card and detail list).
@@ -283,7 +317,10 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   6. A ticket-sale row with one date is the event day (title rule v2 fix).
   A dummy date always carries a label so the card never claims an event day (decision 5: card "Daftar s/d 6 Nov",
   "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov"; detail "Pendaftaran sampai 6 November 2026").
-  Which flagged stages count as dummy: section 11, Q2. Title rule v2 is the first pass for old rows and a
+  Dummy dates (owner answer Q2, option A): a flagged row is a dummy date when its stage is neither `event` nor
+  `other`; the card label comes from the stage. A competition `submission` row keeps its real start and end dates
+  (it counts as the event date) and shows "Submit s/d"; only a flagged `registration` row uses its end date as the
+  start date. Title rule v2 is the first pass for old rows and a
   fallback, with the three fixes (Story 11.5).
 - **Several schedules or several main schedules in one event:** every row carries its own flag; the list ORDER BY
   picks the nearest upcoming flagged row (then main, then earliest), so an event with two `event` rows on
@@ -328,12 +365,15 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   previous release on that fresh set (A4); zero output-cap hits).
 - **New measurements (revision 3):**
   1. **Option B trigger** (input section 11): on a fresh sample of posts read by eye, count ticket prices visible
-     on the images that the main extraction did not return. Reported every release; the threshold that triggers
-     building option B is section 11, Q4.
+     on the images that the main extraction did not return. Per release 40 fresh posts are read by eye (Claude
+     first; only doubtful posts go to the owner); option B is built when two or more such prices are found; one is
+     reported and watched; a price label on a single product is not a ticket price (owner answer Q4). First
+     reading 2026-11-26: 0 of 40 (findings 11.22), so option B is not built.
   2. **Multi-event tiers:** count events with a missing or an extra tier on multi-event posts.
   3. **Core event name inside the merged call** (Story 11.8): same-series pairs found and activity type
      stability compared with the separate-call POC figures (88% pairs, precision 1.00, 29 of 30 repeats).
-  4. **Peak memory** of the AI-processor Lambda on the replay, for Story 12.2 (decision 11).
+  4. **Peak memory** of the AI-processor Lambda on the replay, with and without QR decoding, for the Story 12.2
+     gate (at most +10% and below 80% of the configured memory; owner answer Q3).
 - Stories affected: every story that changes the prompt or schema (11.4 Stage on write, 11.6 Facts, 11.8
   Post-extraction call, 12.2 QR); the extraction accuracy eval
   (`docs/infrastructure/extraction-accuracy-eval.md`, `packages/domain/src/extraction-eval/`).
@@ -378,8 +418,8 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
 - New columns on `schedules`: `stage` (NOT NULL, default `event`), `stage_source` (assumption A10),
   `is_display boolean NOT NULL DEFAULT true`, and three generated columns `display_start_date`,
   `display_end_date`, `display_is_dummy` (section 3.5); partial index `schedule_display_date_idx`.
-- New columns on `events`: facts (`prizes`, `promos`, `inclusions`, `is_free`), `highlight` (at most 40
-  characters) and `highlight_rules_version`, `core_event_name`, `activity_type`; tiers (table or jsonb, AD-60) with
+- New columns on `events`: facts (`prizes`, `promos`, `inclusions`, `is_free`), `highlight` (`text`, no length
+  limit) and `highlight_rules_version`, `core_event_name`, `activity_type`; tiers (table or jsonb, AD-60) with
   `low_confidence`; `fromPrice` derived. `schedules.ticket_price` stays and stays written for new events.
 - New table `registration_options` (AD-55), with no price column.
 - Steps on an existing scheduled sweep (no new Lambda, queue or rule expected): the display-flag healing step
@@ -425,8 +465,10 @@ column names are the current `event_start_date` / `event_end_date`):
   (`COALESCE(event_end_date, event_start_date)`); NULL when `is_display` is false.
 - `display_end_date` = the real `event_end_date`; NULL for a flagged `registration` row (a one-day dummy) and when
   `is_display` is false.
-- `display_is_dummy` = flagged and stage `registration` (input section 9); whether other flagged non-event stages
-  (decision 2 rows, the race-pack pickup, the competition submission row) are dummy too is section 11, Q2.
+- `display_is_dummy` = flagged and stage neither `event` nor `other` (owner answer Q2, option A; replaces input
+  section 9's "stage `registration`" only): flagged `registration`, `submission`, `announcement` and `preparation`
+  rows are dummy dates and the card label comes from the stage. Only a flagged `registration` row moves its end
+  date into `display_start_date`; a competition `submission` row keeps its real dates and shows "Submit s/d".
 Whether the time columns need display twins is checked by Story 11.13 against the BUG-096 per-schedule timezone
 cutoff (migration 0090), which itself is untouched.
 
@@ -478,7 +520,9 @@ Readers can switch at once (step b), because the defaults keep today's behaviour
    event's tiers." (decision 8).
 3. **3.1 Event Discovery: card highlight and honest dates.** Add the highlight rules of C4 (stored card highlight,
    detail list from the same function, decision 3) and the date rules of C6 (the six rules, several schedules,
-   `other` rule of decision 12, decision 2's next-phase rule). Dummy-date labels (decision 5): card "Daftar s/d
+   `other` rule of decision 12, decision 2's next-phase rule). The card highlight is the first detail item stored
+   whole, with no length limit; the card ends it with an ellipsis when it does not fit. A dummy date is a flagged
+   row whose stage is neither `event` nor `other`. Dummy-date labels (decision 5): card "Daftar s/d
    6 Nov", "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov"; detail "Pendaftaran sampai 6 November
    2026" (EN: "Register by 6 Nov", full sentence on the detail).
 4. **3.8 Gemini API management.** Add the request budget table of section 3.4, the rule that the post-extraction
@@ -491,7 +535,8 @@ Readers can switch at once (step b), because the defaults keep today's behaviour
    re-extract that no longer finds it; raw captions blanked 30 days after expiry; free text passes the contact
    scrub. Online-only locations are not geocoded.
 6. **4.1 EventInfo.** Add `prizes`, `promos`, `inclusions`, `isFree` (bounded shapes), `highlight` (card, stored,
-   at most 40 characters, with a rules version; the detail list is composed at read time), `fromPrice` (derived
+   the first detail item stored whole, no length limit, with a rules version; the detail list is composed at read
+   time), `fromPrice` (derived
    from the event's tiers), `coreEventName` and `activityType` (matching only, never displayed); note on
    `contactInfo`/`hasPrivateContact` (D1).
 7. **4.3 LocationDetails / 4.4 Schedule.**
@@ -503,8 +548,9 @@ Readers can switch at once (step b), because the defaults keep today's behaviour
 8. **New 4.22 RegistrationOption** (no price field) and **4.23 PriceTier** (belongs to the event: label, kind
    `CATEGORY | TIME_WINDOW | OTHER`, audience enum, conditions <= 80 chars, price, optional dates, event,
    `lowConfidence`).
-9. **5 AI Extraction Quality.** Add the C9 replay gate with the relative criterion of A4 and the four revision 3
-   measurements. **5 Security:** add the `/go/` rule (no open redirect, scheme allow-list, blocklist, kill switch,
+9. **5 AI Extraction Quality.** Add the C9 replay gate with the A4 pass criteria (accepted by the owner
+   2026-11-26), the four revision 3 measurements, the option B threshold (two or more missed image prices in 40
+   posts read by eye) and the Story 12.2 memory limit. **5 Security:** add the `/go/` rule (no open redirect, scheme allow-list, blocklist, kill switch,
    phone revealed on action with a per-IP rate limit).
 10. **Frontmatter `updated`** and a change note referencing this proposal.
 
@@ -544,11 +590,12 @@ New ADs (the spine ends at AD-54, checked 2026-11-26; `bmad-architecture` assign
   only place a number lives.
 - **AD-57 QR decode step and link trust**: decode in the AI-processor Lambda on a downscaled copy, redirector
   policy, pairing a code with its label, payment payload never a Register button, `sharedLink` dedup clue; the
-  memory gate of decision 11 (cause of the out-of-memory since 2026-11-20 understood, replay peak under the set
-  limit) before the decode step ships.
+  memory gate of decision 11 (cause of the out-of-memory since 2026-11-20 understood; replay peak with decoding at
+  most 10% above the same replay without it and below 80% of the configured memory) before the decode step ships.
 - **AD-58 Stage, display flag and generated display dates**: required stage + code guard; `computeDisplayFlags`
   as the only writer of `is_display` and the derived main flag, with the six rules of C6 and the `other` rule;
-  generated `display_start_date`, `display_end_date`, `display_is_dummy`; partial index
+  generated `display_start_date`, `display_end_date`, `display_is_dummy` (flagged and stage neither `event` nor
+  `other`; only a flagged `registration` row uses its end date as the start date); partial index
   `schedule_display_date_idx`; the write paths that must call it (ratchet 11.z); the healing step on an existing
   scheduled sweep (which sweep: hourly or 5-minute, an AD choice), logging the repaired count; no trigger;
   `stage_source`; correct for several main schedules in one event.
@@ -577,8 +624,9 @@ templates and the AD-16/AD-35 canonical-slug redirects are about other things), 
 - Stories: 12.3 (read shape), 12.4 (endpoint), 12.10 (phone on action), 12.z (ratchet).
 
 - **AD-59 Highlight composer** (decision 3, hybrid): one function `composeHighlight(facts, mode)`; `detail` mode
-  returns the ordered list from every ladder rung with content, read time, no limit; `card` mode derives from the
-  first item of that list (section 11, Q1) and is stored in `events.highlight` with `highlight_rules_version`;
+  returns the ordered list from every ladder rung with content, read time, no limit; `card` mode is the first item
+  of that list, whole (no length limit, no skip, no cut; degrees after the first comma of a name removed; no
+  buy-get cut), and is stored in `events.highlight` with `highlight_rules_version`;
   every write path (extraction, manual correction, merge, re-extract apply, backfill) computes it; a recompute step
   (no LLM) refreshes rows with an older version; the re-extract preview uses the same function.
 - **AD-60 Post-extraction call**: merged call for one event, separate per-event tier call for several; inputs =
@@ -587,7 +635,8 @@ templates and the AD-16/AD-35 canonical-slug redirects are about other things), 
   tiers belong to the event, buttons carry no price (decision 10); `lowConfidence` set by code when an amount is
   not in the caption (decision 9); request budget; best effort; **no tier call on the stepped path, location per
   step** (decision 6, findings 11.18).
-- **AD-61 Replay release gate**: C9 with the four revision 3 measurements.
+- **AD-61 Replay release gate**: C9 with the four revision 3 measurements, the A4 pass criteria (accepted), the
+  option B threshold and the Story 12.2 memory limit; the composer baseline restarts with the no-limit composer.
 
 Amendments: AD-7 (public phone-reveal and click-log fields with a rate limit), AD-8 (exception list), AD-14
 (`online`), **AD-17** (the field-map descriptor's `startCol` / `endCol` point at `display_start_date` /
@@ -605,7 +654,8 @@ each in the change that adds it (CLAUDE.md section 4).
 ### 4.4 UX (`design-artifacts/UX-festgrid-run-1/`), to be applied by `bmad-ux`
 - `EVENT-CARD-DESIGN.md`: grid card from the owner mock (handoff 9): one status/date badge in the thumbnail,
   footer left slot (distance, else "Gratis", else start time, else "+N"), right slot event type, green area =
-  performers or the stored card highlight (2 lines), container-query text size. Dummy-date label (decision 5),
+  performers or the stored card highlight (2 lines, ending in an ellipsis when it does not fit; the data has no
+  character limit), container-query text size. Dummy-date label (decision 5),
   short form by stage: "Daftar s/d 6 Nov" / "Register by 6 Nov", "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit
   s/d 12 Nov" (EN copy to be written with the same pattern).
 - Event detail: the full ordered highlight list (no character limit) from the composer's `detail` mode; the full
@@ -650,32 +700,44 @@ the id stays reserved and the work is backlog `IDEA-261124-8jo`.
 
 Acceptance criteria to carry into `bmad-create-story`:
 - **11.2 (Replay gate):** interleaved A/B, 6+ runs, events and schedules counted against production; fresh caption
-  set with labels written first; zero output-cap hits; A4 criteria. Reports every release: (1) ticket prices
-  visible on the images of a fresh sample, read by eye, that the main extraction did not return (option B trigger,
-  threshold Q4); (2) events with a missing or extra tier on multi-event posts; (3) for 11.8, `coreEventName`
-  same-series pairs and `activityType` stability inside the merged call; (4) for 12.2, the AI-processor Lambda's
-  peak memory on the replay.
+  set with labels written first; zero output-cap hits; A4 criteria (accepted by the owner 2026-11-26). The first
+  release with the no-limit composer (11.7) sets a new composer precision baseline; 0.86 was measured with the
+  40-character rule. Reports every release: (1) ticket prices visible on the images of 40 fresh posts, read by eye
+  (Claude first, doubtful posts to the owner), that the main extraction did not return; two or more trigger
+  option B (`IDEA-261124-ofm`), one is reported and watched, a price label on a single product is not a ticket
+  price (first reading 2026-11-26: 0 of 40); (2) events with a missing or extra tier on multi-event posts; (3) for
+  11.8, `coreEventName` same-series pairs and `activityType` stability inside the merged call; (4) for 12.2, the
+  AI-processor Lambda's peak memory on the replay with and without QR decoding.
 - **11.3 (Columns):** `schedules.stage` NOT NULL default `event`; `stage_source` (`default | model | rule_v2 |
   moderator`, default `default`, A10); `schedules.is_display boolean NOT NULL DEFAULT true`; generated
-  `display_start_date`, `display_end_date`, `display_is_dummy` as defined in section 3.5; partial index
+  `display_start_date`, `display_end_date`, `display_is_dummy` as defined in section 3.5 (Q2 answered); partial index
   `schedule_display_date_idx ON schedules (event_id, COALESCE(display_end_date, display_start_date), display_start_date) WHERE is_display`
   (hand-written SQL, like the 0055 expression index; drizzle-kit cannot express it); on `events`: `prizes`,
-  `promos`, `inclusions`, `is_free`, `highlight` (at most 40 characters), `highlight_rules_version`,
+  `promos`, `inclusions`, `is_free`, `highlight` (`text`, no length limit: no `varchar(n)` and no length CHECK),
+  `highlight_rules_version`,
   `core_event_name`, `activity_type`; tiers with `low_confidence`. Given the migration has run and nothing else,
   when `Query.events` runs, then every row has `is_display = true` and `display_*` equal the real dates
   (behaviour identical to today, checked by a test on a fixture with a registration row).
 - **11.4 (Stage on write):** extraction writes `stage` and `stage_source = model`; the code guard fills a missing
-  stage; the main flag is never taken from the model; manual correction and merge write their own source.
+  stage; the main flag is never taken from the model; manual correction and merge write their own source. Master
+  note (PR #268, merged 2026-11-26): `buildEventInsertValues` and `mapExtractionPayloadToProposedCorrection` now pass
+  extracted times through `normalizeExtractedTime` (unparseable times stored as null and logged by
+  `warnDroppedScheduleTimes`); adding `stage` there must keep that normalization and its tests.
 - **11.5 (Title rule v2):** ports `poc/registration-extraction/stage-classifier-v2.mjs` to `packages/domain` with
   the three fixes: (1) a ticket-sale row with one date is the event day; (2) "collection" or "launch" in a product
   post is an event, not a phase; (3) a title that mixes an announcement with a presentation or a prize-giving is
   the final day (counts). 100% unit tested, with the POC's cases as fixtures (sample ids only).
 - **11.7 (Composer and stored card highlight):** `composeHighlight(facts, 'detail')` returns the ordered list from
-  every ladder rung with content; `'card'` derives from its first item (Q1) at most 40 characters; extraction,
+  every ladder rung with content; `'card'` is its first item, whole. The port removes the POC's length rule:
+  no `MAX = 40`, no skip of a candidate that is too long, no buy-get cut at the condition word; academic degrees
+  after the first comma of a name are always removed (owner answer Q1); the performer line on the card follows Q5
+  (section 11). The production code has no highlight length limit today (checked, read only), so there is nothing
+  else to remove. Extraction,
   manual correction, merge, re-extract apply and the backfill write `events.highlight` and
   `highlight_rules_version` through it; a recompute step (no LLM) rewrites every row whose version is older than
   the code's and logs the count; the re-extract preview shows the same output without writing (AD-40). Given a
-  fact set, the card highlight equals the card form of the first detail item (property test).
+  fact set, the card highlight equals the first detail item (property test); a test with a first item longer than
+  40 characters stores it whole.
 - **11.8 (Post-extraction call):** one merged call for a one-event post (location keywords, priced options,
   `coreEventName`, `activityType`); for two or more events, the location call plus a separate per-event tier call.
   The tier part reads the caption **and the `ticketPrice` string the main extraction returned for each event**;
@@ -714,9 +776,13 @@ Acceptance criteria to carry into `bmad-create-story`:
   row, never the window; (4) a competition with only a registration window shows the end of registration as a
   dummy date; (5) an event whose rows are all `other` shows like `event`; (6) a non-competition event with an
   announcement and a preparation row shows the nearest upcoming one and leaves the list after the last; (7) the
-  BUG-096 timezone cutoff behaves as before; (8) `EXPLAIN` on the list query uses `schedule_display_date_idx`.
-- **11.14 (Card and detail):** card per `EVENT-CARD-DESIGN.md` with the stored card highlight and the short
-  dummy-date label by stage; the detail page shows the ordered highlight list and the full dummy-date sentence; EN
+  BUG-096 timezone cutoff behaves as before; (8) `EXPLAIN` on the list query uses `schedule_display_date_idx`;
+  (9) `display_is_dummy` is true for flagged `registration`, `submission`, `announcement` and `preparation` rows and
+  false for `event` and `other` rows; a competition `submission` row keeps its real start and end dates (Q2). Master
+  note (PR #268): schedule times reaching `computeDisplayFlags` and the BUG-096 cutoff are already normalized
+  `HH:MM:SS` or null; fixtures should include a null time from a dropped value.
+- **11.14 (Card and detail):** card per `EVENT-CARD-DESIGN.md` with the stored card highlight (ellipsis when it
+  does not fit; no character limit in the component) and the short dummy-date label by stage; the detail page shows the ordered highlight list and the full dummy-date sentence; EN
   + ID copy.
 - **11.15 (Layer 2):** local Claude session (not Gemini), same schema and code; re-reads captions and images for
   the 414 + 129 events; fills facts, highlight, `core_event_name` and `activity_type` where the code rule left them
@@ -750,7 +816,9 @@ Acceptance criteria to carry into `bmad-create-story`:
   `lowConfidence` (decision 9).
 - **12.2 (QR, last):** ships after every other Epic 12 story. Gate before merge: (1) the cause of the AI-processor
   Lambda out-of-memory seen since 2026-11-20 is understood and written down; (2) the replay (11.2) shows the peak
-  memory with decoding does not rise above the set limit (Q3); (3) decoding runs on a downscaled copy of the image.
+  memory with decoding is at most 10% above the same replay without it and below 80% of the Lambda's configured
+  memory (owner answer Q3); (3) decoding runs on a downscaled copy of the image. Master note: PR #266 (merged) added
+  JS heap, sharp and per-post memory logging to the AI processor; use those logs for (1) and (2).
   A button needs a decoded payload; a payment payload is never a Register button. Infra docs updated in the same
   change (zxing-wasm). Slice 1 does not wait for it.
 - **12.4 (Link endpoint):** shape in section 4.3 (AD-55 and AD-57 amendments). The descriptor read of 12.3 never
@@ -833,7 +901,7 @@ multi-event posts, and four skipped approaches.
 |---|---|---|
 | 1 | Clear the 72 existing online pins | **Decided, option A** (2026-11-26, input 10): clear them after Story 11.9 ships, with Story 11.16's `--dry-run`, `--apply` and rollback copy; owner go-ahead and writer role. |
 | 2 | Date for non-competition events with only non-counting rows | **Decided, option A** (2026-11-26, input 10): flag every non-counting row; the query picks the nearest upcoming one, the card labels it by its stage, the event leaves the list after its last phase (C6 rule 5, Story 11.13). |
-| 3 | Highlight stored or composed at read time | **Decided, hybrid** (2026-11-25, input 8): card highlight stored (40 characters) with a rules version and a recompute step; detail composed at read time as an ordered list from the same function (AD-59, Story 11.7). |
+| 3 | Highlight stored or composed at read time | **Decided, hybrid** (2026-11-25, input 8; length amended 2026-11-26, input 12): card highlight = first detail item, stored whole, no length limit, ellipsis in the UI, with a rules version and a recompute step; detail composed at read time as an ordered list from the same function (AD-59, Story 11.7). |
 | 4 | Own cover per event on carousels | **Decided, option A, deferred** (2026-11-26, input 10): Story 11.17 not built in Epic 11; backlog `IDEA-261124-8jo`; OCR alternative not good enough (findings 11.20). |
 | 5 | Wording of the dummy-date label | **Decided, option A** (2026-11-26, input 10): short on the card ("Daftar s/d 6 Nov", "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov"), full sentence on the detail ("Pendaftaran sampai 6 November 2026"). |
 | 6 | Whether the cursor path gets the post-extraction call | **Decided by POC, option A** (2026-11-25, input 8, findings 11.18): no tier call on the stepped path; location per step; limit documented in AD-60. |
@@ -853,13 +921,12 @@ Also decided after revision 2: the list query design (input 9), the core event n
 
 - **A2** Mode = Batch (no one could review edits one by one).
 - **A3** New work goes into **new Epics 11 and 12** (split agreed by the owner, finding 9), not into Epic 3.
-- **A4** Release gate pass criteria where the input gives none (revision 2, finding 7, not yet answered: section
-  11, Q4 covers the B trigger only): the new arm must not lose events or schedules on any gate post more often than
+- **A4** Release gate pass criteria, **accepted by the owner as written on 2026-11-26** (input section 12): the new arm must not lose events or schedules on any gate post more often than
   the production arm does on the same post; first-look composer precision on that release's fresh, never-read
   caption set must be **not worse than the previous release** on its own fresh set, read with the sampling noise of
-  a 60-caption set in mind (0.86 is the first baseline); zero output-cap hits; performer/prize extraction variance,
-  the B-trigger count, multi-event tier errors and the core-name figures are reported, not gated. The owner can
-  change these.
+  a 60-caption set in mind (0.86 was measured with the 40-character rule, so the first release with the no-limit
+  composer sets a new baseline); zero output-cap hits; performer/prize extraction variance, the B-trigger count,
+  multi-event tier errors and the core-name figures are reported, not gated.
 - **A7** The backlog row is registered with status `triaged` (analysed, no story); this is not an approval.
 - **A8** Filter-header changes from handoff 9/11 are outside C1-C10 and carved out.
 - **A9** The 3,703 never-attempted schedule geocodes, the silent account-default inheritance and the city check
@@ -869,6 +936,8 @@ Also decided after revision 2: the list query design (input 9), the core event n
   `bmad-architecture` works.
 - **A11** The handoff's D5 and D7 lines are amended in the same strike-through style revision 2 used for D6 (input
   section 11 asks for every replace-`ticketPrice` wording to change; decision 9 withdraws D7's quoted evidence).
+- **A11b** (revision 4) The handoff's highlight lines (Mary's "about 30-40 chars", the composer summary, rule F and the
+  first-look figures) are amended in the same strike-through style for owner answer Q1.
 - **A12** Story 0.37 (Extract and display event links) renders organizer links today; moving them onto `/go/` is
   noted for the Epic 12 readiness check, not added as a story here.
 - **A13** (revision 3) Where the core name sits on a multi-event post (location call or tier call) and which
@@ -893,8 +962,8 @@ Architect (`bmad-architecture`), then PO/Dev for stories.
 pull request is opened; cloud routine prompts start with that fetch and merge.
 
 **Planning order (after owner approval):**
-1. Owner answers section 11 (Q1 and Q2 before `bmad-ux` and `bmad-architecture`; Q3 before Story 12.2; Q4 before
-   Story 11.2).
+1. Owner answers section 11: Q1 to Q4 answered 2026-11-26; Q5 (performer list on the card) before `bmad-ux` and
+   Story 11.7.
 2. `bmad-prd` (update): section 4.1 edits.
 3. `bmad-ux`: section 4.4.
 4. `bmad-architecture`: AD-55 to AD-61, the AD-55/AD-57 link-endpoint amendments and the amendments in 4.3.
@@ -968,10 +1037,10 @@ AD-33 and locale ratchets green.
 - **I8** PRD 4.1 / 5 still say private contact is discarded; D1 needs the PRD amendment before slice 2 ships (known).
 - **I9 (revision 3)** Input section 9 defines `display_is_dummy` as "flagged and stage `registration`", but the later
   decisions 2 and 5 (input section 10) flag and label rows of other stages too ("Pengumuman", "Ambil kit", "Submit
-  s/d"). Not decided here: section 11, Q2.
+  s/d"). **Resolved 2026-11-26** (owner answer Q2, option A).
 - **I10 (revision 3)** Input section 8 says the card highlight is the first detail item "cut to 40 characters";
-  the owner rule of C4 says a value that does not fit is skipped, never cut (except two repairs). Not decided here:
-  section 11, Q1.
+  the owner rule of C4 says a value that does not fit is skipped, never cut (except two repairs). **Resolved
+  2026-11-26** (owner answer Q1): no limit, stored whole, ellipsis in the UI.
 - **I11 (revision 3)** Input section 8 calls the healing step's host "the existing scheduled sweep (the one that also
   deletes phone numbers)", but that purge step is itself new (Story 12.9) and Epic 11 may ship first. The plan puts
   both steps on one existing sweep chosen by AD-58; no owner decision needed.
@@ -981,7 +1050,7 @@ AD-33 and locale ratchets green.
 ## 10. Backlog registration
 
 Row `CC-261124-vjh` (Registration options, CTA bar, composed highlight, honest dates and the extraction update;
-proposal, `triaged`, note updated for revision 3) and these children in
+proposal, `triaged`, note updated for revision 4) and these children in
 `_bmad-output/implementation-artifacts/backlog.yaml`:
 - `IDEA-261124-8jo` Own cover slide per event on multi-event carousels (backlog; decision 4: deferred, Story 11.17
   not built in Epic 11).
@@ -994,7 +1063,7 @@ proposal, `triaged`, note updated for revision 3) and these children in
 - `IDEA-261124-nta` "Remind me" before a deadline or start, own epic (backlog; D9).
 - `FIND-261124-axb` Remaining geocoding gaps (backlog; handoff 13E).
 - `IDEA-261124-ofm` (new) Let the tier call read the post images (option B), only if the gate finds missed poster
-  prices (backlog).
+  prices (backlog; threshold decided 2026-11-26: two or more in 40 posts read by eye; first reading 0 of 40).
 - `IDEA-261124-xdv` (new) Optional reference from a registration button to a price tier (backlog; decision 10).
 - `IDEA-261124-gj0` (new) Rule: a price stated for all events of a multi-event post is GENERAL (backlog; untested).
 - `IDEA-261124-5yi` Ask the model for registration windows or trust its main flag (skipped).
@@ -1004,26 +1073,38 @@ proposal, `triaged`, note updated for revision 3) and these children in
 
 ---
 
-## 11. Questions for the owner
+## 11. Owner answers (record) and remaining questions
 
-Each point is left open because the input is silent or contradicts itself; nothing below is decided.
+Q1 to Q4 were asked in revision 3 and answered by the owner on 2026-11-26 (input section 12, which overrides
+earlier wording). Revision 3's recommendation is kept next to each answer for the record.
 
-- **Q1. Card highlight when the first detail item is longer than 40 characters** (I10). Input section 8 says "cut to
-  40 characters"; the earlier owner rule says skip, never cut, except the two repairs (degrees dropped after the
-  first comma; a buy-get value cut at its condition word).
-  **Recommendation:** apply the two repairs to the first item; if it still does not fit, take the next detail item
-  that fits; never cut mid-word. Card and detail still agree, because the card item is always an item of the detail
-  list.
-- **Q2. Which flagged rows are dummy dates** (I9). Input section 9: only a flagged `registration` row. Decisions 2
-  and 5 label announcement, preparation (pickup) and submission rows too.
-  **Recommendation:** `display_is_dummy` = flagged and stage not `event` and not `other`; the card label comes from
-  the stage; the competition `submission` row keeps its real dates but shows the "Submit s/d" label. This keeps
-  owner rule (d) "the card never claims an event day".
-- **Q3. Memory limit for the Story 12.2 gate.** Decision 11 says "a set limit" with no value.
-  **Recommendation:** replay peak memory with QR decoding at most 10% above the measured peak of the same replay
-  without decoding, and below 80% of the Lambda's configured memory.
-- **Q4. When the release gate triggers option B** (the images variant of the tier call). Input section 11 names the
-  measurement, not a threshold.
-  **Recommendation:** read 40 fresh posts by eye per release; build option B (`IDEA-261124-ofm`) when two or more
-  ticket prices visible on the images were not returned by the extraction (the POC found 0 of 40); one is reported
-  and watched. Also confirm A4 (relative gate criterion), which finding 7 left unanswered.
+- **Q1. Card highlight longer than 40 characters** (I10). Revision 3 recommended: two repairs, then the next item
+  that fits. **Answer: no cut and no skip for length.** The card highlight is the first item of the detail list,
+  stored whole; the UI shows an ellipsis when it does not fit. No 40-character limit in the data or the composer
+  (column, validation, acceptance criteria, PRD and UX text). The buy-get cut at the condition word is dropped;
+  removing academic degrees after the first comma of a name stays. The composer precision of 0.86 was measured
+  with the length rule, so the first release with this change sets a new baseline. Applied in C4, 3.3, 4.1, 4.3,
+  4.4, Stories 11.2, 11.3, 11.7, 11.14, decision 3, A4, handoff F and the backlog note.
+- **Q2. Which flagged rows are dummy dates** (I9). **Answer: option A, as recommended.** `display_is_dummy` =
+  flagged and stage neither `event` nor `other`; the card label comes from the stage. A competition `submission`
+  row keeps its real start and end dates (it counts as the event date) and shows "Submit s/d". Only a flagged
+  `registration` row uses its end date as the start date. Applied in C6, 3.5, AD-58, Stories 11.3 and 11.13.
+- **Q3. Memory limit for the Story 12.2 gate. Answer: as recommended.** Replay peak memory with QR decoding at most
+  10% above the measured peak of the same replay without it, and below 80% of the Lambda's configured memory.
+  Applied in C1, C9, AD-57 and Story 12.2.
+- **Q4. When the release gate triggers option B. Answer: as recommended.** Per release, 40 fresh posts are read by
+  eye; option B is built when two or more ticket prices visible on the images were not returned by the
+  extraction; one is reported and watched. Claude reads first; only doubtful posts go to the owner. A price label
+  on a single product is not a ticket price. **First reading 2026-11-26: 0 of 40** (findings 11.22), so option B
+  is not built. Applied in C9, Story 11.2 and backlog `IDEA-261124-ofm`.
+- **A4. Release gate pass criteria: accepted as written in revision 3** (section 7).
+
+Remaining question (new in revision 4; nothing below is decided):
+
+- **Q5. Performer line on the card now that there is no length limit.** The POC composer writes "Penampil: A, B +N"
+  and drops to one name when two do not fit 40 characters (handoff 13F; S50 "+n accepted"); revision 3's detail
+  list carries all names. Q1 says the card is the first detail item stored whole, which would make the card line
+  every performer's name, while the "+N" wording was accepted by the owner when the limit existed.
+  **Recommendation:** the detail item lists every name; the card stores that item whole (Q1) and the UI ends it
+  with an ellipsis, so "+N" is no longer written into the data. If the owner wants "+N" on the card, it should be
+  a display-time rule of the card component (count of names not shown), not a stored cut.

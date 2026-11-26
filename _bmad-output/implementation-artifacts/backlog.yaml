@@ -3149,7 +3149,7 @@ items:
      title: "Registration options, CTA bar, composed highlight, honest dates and the extraction update",
      ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, cross:prd, cross:architecture, web:events, pkg:domain, pkg:database, pkg:ui, app:backend],
-     note: "Proposed, not approved. Revision 3 (2026-11-26): all twelve open decisions answered; display flag with generated dates replaces the reader gate; core event name; tier call reads extraction price strings, ticketPrice stays; QR last."}
+     note: "Proposed, not approved. Revision 4 (2026-11-26): owner answered Q1-Q4 and accepted A4: card highlight stored whole with no 40-character limit (ellipsis in the UI, buy-get cut dropped); display_is_dummy = flagged and stage neither event nor other; 12.2 memory gate +10% and under 80%; option B at two or more missed image prices in 40 posts (first reading 0 of 40). Revision 3: all twelve open decisions answered; display flag with generated dates replaces the reader gate; core event name; tier call reads extraction price strings, ticketPrice stays; QR last."}
 
   IDEA-261124-8jo:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
@@ -3219,7 +3219,7 @@ items:
      title: "Let the tier call read the post images (option B) if the gate finds missed poster prices",
      ref: [_bmad-output/poc/registration-extraction/findings.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, app:backend],
-     note: "Owner decision 2026-11-26: option A (caption and extraction price strings) is built; B only if the release gate's by-eye count of missed image prices passes the threshold (owner question Q4). Findings 11.22: 0 missed in 40 posts; B costs 3.4x prompt tokens."}
+     note: "Owner decision 2026-11-26: option A (caption and extraction price strings) is built; B only when the release gate's by-eye reading of 40 fresh posts finds two or more ticket prices on the images that the extraction did not return (owner answer Q4, 2026-11-26; one is reported and watched; a price label on a single product is not a ticket price). First reading 2026-11-26: 0 of 40 (findings 11.22), not built; B costs 3.4x prompt tokens."}
 
   IDEA-261124-xdv:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
