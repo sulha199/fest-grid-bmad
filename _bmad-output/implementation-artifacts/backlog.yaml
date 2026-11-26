@@ -3183,3 +3183,11 @@ items:
      ref: [apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/scraper/get-posts-to-not-include.ts],
      touches: [app:backend],
      note: "persistScrapedPost filled a missing imageUrl or videoUrl on re-delivery. Also compare Bright Data's billed records with delivered records after deploy: an all-excluded run reports records 0 and errors 1 (dead_page)."}
+
+  FIND-261126-lxi:
+    {type: finding, status: backlog, created: 2026-11-26,
+     impact: internal, effort: s,
+     title: "Node 26 on new GitHub runner images breaks apps/web tests; engines '>=22.0.0' lets workflows drift",
+     ref: [.github/workflows/ci.yml, package.json],
+     touches: [app:infrastructure, web:system],
+     note: "ci.yml pinned to Node 24. Other workflows still read package.json and may get Node 26. Lambda runs Node 22. Decide one pinned version."}
