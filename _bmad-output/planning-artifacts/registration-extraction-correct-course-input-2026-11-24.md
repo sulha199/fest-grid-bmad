@@ -166,3 +166,10 @@ These override any earlier wording, including the 40-character rule in section 2
 - **Q4, trigger of option B (the tier call reading images): decided as recommended.** Per release, 40 fresh posts are read by eye; option B is built when two or more ticket prices visible on the images were not returned by the extraction; one is reported and watched. The reading is done by Claude first; only doubtful posts go to the owner. A price label on a single product is not a ticket price.
 - **First reading, 2026-11-26: 0 of 40 posts** (findings 11.22), so option B is not built.
 - **A4, release gate pass criteria: accepted as written in revision 3.** The new arm does not lose events or schedules on a gate post more often than the production arm; first-look composer precision on the release's fresh caption set is not worse than the previous release's (read with the sampling noise of a 60-caption set); zero output-cap hits; the other figures are reported, not gated.
+
+## 13. Owner answer to question 5 of revision 4: list highlights carry a count (2026-11-26)
+
+- **DECIDED:** a highlight that lists two or more items writes the number of items in parentheses after the label and keeps every item: `Penampil (4): Band A, Band B, Band C, Band D`. The card stores that text whole and the UI ends it with an ellipsis, so the count stays visible at the start.
+- Applies to every list label (performers, speakers, instructors, judges, prizes, take-home items, promos and the like). One item gets no count. Single values (price hook, free entry) get no count.
+- The count is part of the composed text; **no separate count column**. A later format change is handled by the highlight rules version and the recompute job.
+- **"+N" and the cut to two names are withdrawn** (this replaces the earlier acceptance of "+n"). A count in front of the label ("4 Penampil") was rejected because it reads wrongly for some labels ("3 Peserta dapat").
