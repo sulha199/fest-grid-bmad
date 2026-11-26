@@ -3149,7 +3149,7 @@ items:
      title: "Registration options, CTA bar, composed highlight, honest dates and the extraction update",
      ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, cross:prd, cross:architecture, web:events, pkg:domain, pkg:database, pkg:ui, app:backend],
-     note: "Proposed, not approved. Revision 2 (2026-11-24): split into Epic 11 (Extraction and honest dates) and Epic 12 (Registration, CTA bar and prices); stage rollout gate, /go/ link endpoint; Open decision 8 decided."}
+     note: "Proposed, not approved. Revision 3 (2026-11-26): all twelve open decisions answered; display flag with generated dates replaces the reader gate; core event name; tier call reads extraction price strings, ticketPrice stays; QR last."}
 
   IDEA-261124-8jo:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
@@ -3157,7 +3157,7 @@ items:
      title: "Give each event its own cover slide on multi-event carousels",
      ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, app:backend, web:events],
-     note: "C8 of the proposal; optional, about 1 post in 100; waits for owner open decision 4 and correct event extraction."}
+     note: "C8 of the proposal; about 1 post in 100. Open decision 4 decided 2026-11-26: deferred, Story 11.17 not built in Epic 11. OCR alternative measured and not good enough (findings 11.20)."}
 
   IDEA-261124-f6n:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
@@ -3165,15 +3165,15 @@ items:
      title: "Merge the slide map into the per-event tier call to keep multi-event carousels at 3 requests",
      ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, app:backend],
-     note: "Untested; measure only if C8 is adopted (open decision 7)."}
+     note: "Open decision 7 decided 2026-11-26: the slide map stays a separate call; run a merge POC only when the cover per event (IDEA-261124-8jo) is built."}
 
   IDEA-261124-wk6:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
      impact: latent, effort: s,
-     title: "Decide whether the stepped (cursor) extraction path gets the post-extraction call",
+     title: "Image-aware tier call on the stepped (cursor) extraction path, with a gate against promo price lists",
      ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, app:backend],
-     note: "Open decision 6; path is off by default and location runs per step there, so C5 does not apply as designed."}
+     note: "Open decision 6 decided 2026-11-25 (option A): no tier call on the stepped path, location per step (AD-60). Findings 11.18: images call found one real tier list in 32 long carousels and read promo price lists as tiers on 3; kept as a possible later story."}
 
   IDEA-261124-15a:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
@@ -3212,6 +3212,44 @@ items:
      ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction],
      note: "value: dropped on POC evidence: caused runaway output on 2.2% of calls and glued-on text; bounded shapes and an output cap instead."}
+
+  IDEA-261124-ofm:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: latent, effort: s,
+     title: "Let the tier call read the post images (option B) if the gate finds missed poster prices",
+     ref: [_bmad-output/poc/registration-extraction/findings.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Owner decision 2026-11-26: option A (caption and extraction price strings) is built; B only if the release gate's by-eye count of missed image prices passes the threshold (owner question Q4). Findings 11.22: 0 missed in 40 posts; B costs 3.4x prompt tokens."}
+
+  IDEA-261124-xdv:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: cosmetic, effort: s,
+     title: "Optional reference from a registration button to the price tier it sells",
+     ref: [_bmad-output/poc/registration-extraction/findings.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, web:events, pkg:database],
+     note: "Open decision 10 (option C): tiers belong to the event, buttons carry no price. Findings 11.19: no caption in 2,992 states which channel sells which tier, so nothing to measure yet."}
+
+  IDEA-261124-gj0:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: latent, effort: s,
+     title: "Treat a price stated for all events of a multi-event post as GENERAL in the tier call",
+     ref: [_bmad-output/poc/registration-extraction/findings.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, pkg:domain],
+     note: "Untested rule (input section 11). Multi-event posts with one fee for many events stay weak; the release gate counts events with a missing or extra tier first."}
+
+  IDEA-261124-dtk:
+    {type: idea, status: skipped, created: 2026-11-24, parent: CC-261124-vjh,
+     title: "Deterministic OCR instead of the slide-map model call for the cover per event",
+     ref: [_bmad-output/poc/registration-extraction/findings.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "value: dropped on POC evidence (findings 11.20): OCR found 1 of 5 dedicated slides, the model 5; stylised type and abbreviations not read."}
+
+  IDEA-261124-jz4:
+    {type: idea, status: skipped, created: 2026-11-24, parent: CC-261124-vjh,
+     title: "Database trigger to keep schedules.is_display in step with the stages",
+     ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md],
+     touches: [pkg:database],
+     note: "value: dropped by owner decision 2026-11-25: it would duplicate the date rules in plpgsql; one domain function on every write path plus a healing sweep instead."}
 
   # ── 2026-11-22 ──────────────────────────────────────────────────────────────
   FIND-261122-q5w:
