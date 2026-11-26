@@ -190,9 +190,12 @@ export function resolveDateRangeFilter(
   } else if (anchor === 'THIS_WEEK') {
     const day = base.getUTCDay();
     s.setUTCDate(s.getUTCDate() + (day === 0 ? -6 : 1 - day));
-    e.setUTCDate(s.getUTCDate() + 6);
-    if (isMonthUnit) { s.setUTCMonth(s.getUTCMonth() + offsetAmount); e.setUTCMonth(e.getUTCMonth() + offsetAmount); }
-    else applyDayOrWeekOffset(s, e);
+    // The end is derived from the (already Monday-aligned) start, never from `e`, which still holds
+    // the current day's month: that gave 37-day windows when the week crossed a month boundary.
+    if (isMonthUnit) s.setUTCMonth(s.getUTCMonth() + offsetAmount);
+    else s.setUTCDate(s.getUTCDate() + (isWeekUnit ? offsetAmount * 7 : offsetAmount));
+    e = new Date(s);
+    e.setUTCDate(e.getUTCDate() + 6);
   } else if (isMonthUnit) {
     // Day-1/day-0-of-next-month anchors avoid setUTCMonth's day-of-month overflow
     // (e.g. Aug 31 shifted a month would normalize into October, not September).
