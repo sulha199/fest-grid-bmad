@@ -174,3 +174,7 @@ These override any earlier wording, including the 40-character rule in section 2
 - The count is part of the composed text; **no separate count column**. A later format change is handled by the highlight rules version and the recompute job.
 - **"+N" and the cut to two names are withdrawn** (this replaces the earlier acceptance of "+n"). A count in front of the label ("4 Penampil") was rejected because it reads wrongly for some labels ("3 Peserta dapat").
 - **Label not repeated (owner agreed 2026-11-26):** in a list of two or more items, a label word at the start of a value is dropped ("Hadiah (2): Rp5 juta, Rp3 juta", not "Hadiah (2): Hadiah Rp5 juta, Hadiah Rp3 juta"). A single item keeps the current rule: the value as written, the label not added a second time.
+
+## 14. Owner review of the proposal's story list (2026-11-26)
+
+- **DECIDED: the organizer links shown today move onto `/go/` inside Story 12.4.** The owner rule "every link and CTA goes through the first-party endpoint" covers the links of Story 0.37 (Extract and display event links) too. This replaces assumption A12 and the "follow-up, not part of this course" sentence in section 3 of the proposal; the ratchet 12.z covers them.
