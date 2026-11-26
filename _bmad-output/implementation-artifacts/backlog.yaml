@@ -3149,7 +3149,7 @@ items:
      title: "Registration options, CTA bar, composed highlight, honest dates and the extraction update",
      ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, cross:prd, cross:architecture, web:events, pkg:domain, pkg:database, pkg:ui, app:backend],
-     note: "Proposed, not approved. Revision 5 (2026-11-26): Q1-Q5 answered (list highlights carry a count in parentheses, no +N); open Q6 (list values starting with the label word). History in the proposal's revision notes."}
+     note: "Proposed, not approved. Revision 5 (2026-11-26): Q1-Q6 answered (list highlights carry a count in parentheses, no +N, label never repeated); no question open. History in the proposal's revision notes."}
 
   IDEA-261124-8jo:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,

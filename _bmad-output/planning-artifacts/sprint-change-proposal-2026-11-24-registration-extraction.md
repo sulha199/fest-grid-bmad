@@ -5,7 +5,7 @@ trigger_story: none (POC-driven owner request; change trigger = planning-artifac
 scope: Major
 mode: Batch (unattended scheduled run; nobody could answer questions)
 status: proposed (awaiting owner approval; NOT approved)
-revision: 5 (2026-11-26, owner answer to question 5 of revision 4: list highlights carry a count; input section 13)
+revision: 5 (2026-11-26, owner answers Q5 and Q6: list highlights carry a count, the label is never repeated; input section 13)
 ---
 
 # Sprint Change Proposal: registration, CTA bar, highlight, honest dates and the extraction update
@@ -21,9 +21,9 @@ Source: section 13 of the input file (owner answer to Q5). Status stays **propos
    text, no count column; a later format change goes through `highlight_rules_version` and the recompute step.
    "+N" and the cut to two names are withdrawn (C4, PRD edits 3 and 6, AD-59, UX 4.4, Stories 11.7 and 11.14,
    decision 3, A11c, handoff 13F and S50, backlog note).
-2. **Section 11:** Q5 recorded as answered. One new question, **Q6** (a list whose items already start with the
-   label word), follows from Q5 and the existing "no doubled label" rule; it has a recommendation and does not
-   block approval of the rest.
+2. **Section 11:** Q5 recorded as answered. Q6 (a list whose values already start with the label word) followed
+   from Q5 and was answered by the owner the same day as recommended (input section 13, last bullet): in a list of
+   two or more, the label word at the start of a value is dropped. **No question remains open.**
 3. **Backlog note of `CC-261124-vjh` shortened** to one fact under 300 characters (board check 15 flagged the
    revision 4 note); the history stays in these revision notes.
 
@@ -288,8 +288,9 @@ Every item lists: PRD effect, epics/stories affected, new stories (ids in sectio
   and the like); a list of one value gets no count ("Penampil: Band A"); single values (price hook, free entry)
   never get a count. The count is the number of values written (after de-duplication and the vague-value filter),
   part of the stored text, with no separate count column. "+N" and the cut to two names are withdrawn; a count in
-  front of the label ("4 Penampil") was rejected by the owner. A value that already starts with its label does not
-  get the label twice (existing rule); how that combines with a list of two or more is Q6 (section 11).
+  front of the label ("4 Penampil") was rejected by the owner. The label is never repeated (owner answer Q6): a
+  single value that already starts with its label is written as it is ("Hadiah Rp5 juta"); in a list of two or more,
+  a label word at the start of a value is dropped ("Hadiah (2): Rp5 juta, Rp3 juta").
 - Stories affected: 1.3b (Reusable EventCard), Epic 1.i1 primitives (status/nearby badge 1.i1i, date box
   1.i1k), 1.6a (detail view), 4.2 / 10.6 (re-extract preview shows the composed highlight).
 - New stories: 11.7 (composer, stored card highlight, recompute step), 11.14 (card and detail list).
@@ -548,7 +549,7 @@ Readers can switch at once (step b), because the defaults keep today's behaviour
    `other` rule of decision 12, decision 2's next-phase rule). The card highlight is the first detail item stored
    whole, with no length limit; the card ends it with an ellipsis when it does not fit. A list item of two or more
    values reads "<Label> (<count>): <every value>" ("Penampil (4): Band A, Band B, Band C, Band D"); one value and
-   single values have no count; no "+N" (owner answer Q5). A dummy date is a flagged
+   single values have no count; no "+N" (owner answer Q5); the label is never repeated (Q6). A dummy date is a flagged
    row whose stage is neither `event` nor `other`. Dummy-date labels (decision 5): card "Daftar s/d
    6 Nov", "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov"; detail "Pendaftaran sampai 6 November
    2026" (EN: "Register by 6 Nov", full sentence on the detail).
@@ -656,7 +657,7 @@ templates and the AD-16/AD-35 canonical-slug redirects are about other things), 
   of that list, whole (no length limit, no skip, no cut; degrees after the first comma of a name removed; no
   buy-get cut), and is stored in `events.highlight` with `highlight_rules_version`; a list item of two or more
   values is "<Label> (<count>): <every value>", one value or a single value has no count, no "+N" (owner answer
-  Q5); the count lives only in the text, a format change bumps `highlight_rules_version` and the recompute step
+  Q5), a label word at the start of a list value is dropped (Q6); the count lives only in the text, a format change bumps `highlight_rules_version` and the recompute step
   rewrites the stored rows;
   every write path (extraction, manual correction, merge, re-extract apply, backfill) computes it; a recompute step
   (no LLM) refreshes rows with an older version; the re-extract preview uses the same function.
@@ -783,9 +784,9 @@ Acceptance criteria to carry into `bmad-create-story`:
     and no count.
   - A price hook ("Mulai dari Rp50.000") and free entry ("Gratis") never carry a count.
   - Label the value already starts with: given one prize whose value starts with "Hadiah" ("Hadiah Rp5 juta"), the
-    item is "Hadiah Rp5 juta", not "Hadiah Hadiah Rp5 juta" and with no count. Given two or more such values, the
-    expected text follows Q6 (recommended: "Hadiah (2): Rp5 juta, Rp3 juta"); this test is written once Q6 is
-    answered.
+    item is "Hadiah Rp5 juta", not "Hadiah Hadiah Rp5 juta" and with no count. Given two such values ("Hadiah Rp5
+    juta", "Hadiah Rp3 juta"), the item is "Hadiah (2): Rp5 juta, Rp3 juta" (owner answer Q6); a list where only
+    some values start with the label drops the word only from those.
   - A fact set that yields no "+" followed by a digit anywhere in the composed text (regression test against the
     POC format).
   - The recompute step rewrites a row stored with an older `highlight_rules_version` in the POC format into the
@@ -954,7 +955,7 @@ multi-event posts, and four skipped approaches.
 |---|---|---|
 | 1 | Clear the 72 existing online pins | **Decided, option A** (2026-11-26, input 10): clear them after Story 11.9 ships, with Story 11.16's `--dry-run`, `--apply` and rollback copy; owner go-ahead and writer role. |
 | 2 | Date for non-competition events with only non-counting rows | **Decided, option A** (2026-11-26, input 10): flag every non-counting row; the query picks the nearest upcoming one, the card labels it by its stage, the event leaves the list after its last phase (C6 rule 5, Story 11.13). |
-| 3 | Highlight stored or composed at read time | **Decided, hybrid** (2026-11-25, input 8; length amended 2026-11-26, input 12): card highlight = first detail item, stored whole, no length limit, ellipsis in the UI, with a rules version and a recompute step; detail composed at read time as an ordered list from the same function (AD-59, Story 11.7). List items carry their count in parentheses after the label, no "+N" (2026-11-26, input 13, owner answer Q5). |
+| 3 | Highlight stored or composed at read time | **Decided, hybrid** (2026-11-25, input 8; length amended 2026-11-26, input 12): card highlight = first detail item, stored whole, no length limit, ellipsis in the UI, with a rules version and a recompute step; detail composed at read time as an ordered list from the same function (AD-59, Story 11.7). List items carry their count in parentheses after the label, no "+N", the label is never repeated (2026-11-26, input 13, owner answers Q5 and Q6). |
 | 4 | Own cover per event on carousels | **Decided, option A, deferred** (2026-11-26, input 10): Story 11.17 not built in Epic 11; backlog `IDEA-261124-8jo`; OCR alternative not good enough (findings 11.20). |
 | 5 | Wording of the dummy-date label | **Decided, option A** (2026-11-26, input 10): short on the card ("Daftar s/d 6 Nov", "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov"), full sentence on the detail ("Pendaftaran sampai 6 November 2026"). |
 | 6 | Whether the cursor path gets the post-extraction call | **Decided by POC, option A** (2026-11-25, input 8, findings 11.18): no tier call on the stepped path; location per step; limit documented in AD-60. |
@@ -1018,8 +1019,7 @@ Architect (`bmad-architecture`), then PO/Dev for stories.
 pull request is opened; cloud routine prompts start with that fetch and merge.
 
 **Planning order (after owner approval):**
-1. Owner answers section 11: Q1 to Q5 answered 2026-11-26; Q6 (a list whose values start with the label word)
-   before Story 11.7 is created (it changes one test, not the plan).
+1. Owner answers section 11: Q1 to Q6 all answered 2026-11-26; no question remains open.
 2. `bmad-prd` (update): section 4.1 edits.
 3. `bmad-ux`: section 4.4.
 4. `bmad-architecture`: AD-55 to AD-61, the AD-55/AD-57 link-endpoint amendments and the amendments in 4.3.
@@ -1167,13 +1167,10 @@ recommendation is kept next to each answer for the record.
   was rejected. Applied in C4, 4.1 (edits 3 and 6), AD-59, 4.4, Stories 11.7 and 11.14, decision 3, A11c, the
   handoff (13F, rule F table, S50) and the backlog note.
 
-Remaining question (new in revision 5; nothing below is decided, and it does not block approval of the rest):
+- **Q6. A list whose values already start with the label word** (raised in revision 5, follows from Q5 and the
+  "no doubled label" rule). Recommended: drop the leading label word from each list value that starts with it.
+  **Answer (2026-11-26, input section 13, last bullet): as recommended.** In a list of two or more, a label word at
+  the start of a value is dropped ("Hadiah (2): Rp5 juta, Rp3 juta"); a single item keeps the current rule (value as
+  written, label not added a second time, no count). Applied in C4, 4.1 edit 3, AD-59, Story 11.7 and decision 3.
 
-- **Q6. A list whose values already start with the label word.** The composer never writes a label twice: one prize
-  "Hadiah Rp5 juta" stays "Hadiah Rp5 juta" (POC rule, kept). Q5 says a list of two or more values starts with
-  "<Label> (<count>):", but does not say what happens to values that themselves start with that word (for example
-  two prizes "Hadiah Rp5 juta" and "Hadiah Rp3 juta", or take-home items that start with "Dapat"). Writing them as
-  they are gives "Hadiah (2): Hadiah Rp5 juta, Hadiah Rp3 juta". **Recommendation:** in a list of two or more, drop
-  the leading label word from each value that starts with it ("Hadiah (2): Rp5 juta, Rp3 juta"); the one-value case
-  keeps the current rule (value as written, label not added, no count). Story 11.7 carries the one-value test now
-  and adds the list test once Q6 is answered.
+**No question remains open.**
