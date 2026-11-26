@@ -145,3 +145,13 @@ These replace the earlier idea of storing three copied dates (and the "enable th
   - Story 11.8 (post-extraction call): return `coreEventName` and `activityType` in the same call (no extra request); measure it inside the merged call before release (only the separate call was measured).
   - Story 11.10 (race-pack matching): use them as input to the dedup scoring (name similarity and dates), never an exact key; `activityType = RACE_PACK_COLLECTION` is the race-pack signal. Matching only, never the displayed name.
   - Existing events have no core name, and a new race pack is matched against stored main events: the revision plans how to fill them (a code rule in the layer-1 backfill, Story 11.11, as a first fill, about 73% on the test set, an optimistic figure; the local-session re-read, Story 11.15, for the rest).
+
+## 11. Input of the tier call (owner decision of 2026-11-26) and one correction
+
+- **DECIDED: option A, with B as fallback only if A proves insufficient.** The post-extraction tier call (merged or per event) reads the caption **and the price string the main extraction returned for each event**, not the caption alone. This changes C5 and Story 11.8.
+- Measured (findings 11.22): amounts found 32 of 68 with the caption alone, 67 of 68 with the strings, 68 of 68 with the images; tiers emitted when due 12, 20 and 20 of 20. In 40 posts with no stored price the images call found no missed ticket price, so **B is not built**.
+- **`ticketPrice` stays an output of the main extraction for new events**, because on poster-only posts it is the only record of the price the tier call sees. Any wording that says a per-option price replaces `ticketPrice` for new events must be changed: the tier options are added beside it.
+- The release gate (C9) measures what would trigger B: ticket prices visible on the images that the extraction did not return, on a fresh sample read by eye.
+- Multi-event posts with one fee for many events stay weak (strings repeat the extraction's per-event inconsistency). The gate counts events with a missing or extra tier; a rule "a price stated for all events is GENERAL" is not tested.
+- Backfill layer 2: the stored price string of a merged event can come from another post; it is already what the site shows, so it adds no new error, but it is not proof that this post states it.
+- **Correction:** the earlier statement that prices only on the poster are rare (findings 11.9, 1 of 53) was drawn from a sample picked by caption price cues. In production 131 of 417 priced events with a caption (31%) have the amount only on the images.
