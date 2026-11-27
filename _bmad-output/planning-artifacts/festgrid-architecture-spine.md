@@ -2473,10 +2473,15 @@ This document defines the core architectural invariants for the FestDaily applic
         Order: match `lower(username)`; only if nothing matches **and** the segment is all digits,
         match `account_id`. **Username wins** when an all-digit username equals another account's
         numeric ID; the rare collision is accepted.
-    4.  **Transitional tie-break.** While twin rows exist (before BUG-059 story 4), a handle-keyed
-        row and its numeric twin share one username. The resolver orders matches numeric
-        `account_id` first, then oldest `created_at`, and takes one. Remove this rule when story 4
-        has run and a unique `(platform, lower(username))` index exists.
+    4.  **Transitional tie-break** (amended 2026-11-27, BUG-261127-3ur). While twin rows exist, a
+        handle-keyed row and its numeric twin share one username. The resolver orders matches:
+        (1) a row with at least one **active** subscription first (a soft-deleted subscription
+        does not count); (2) then a row that has been scraped (`last_scraped_at` not null);
+        (3) then numeric `account_id` first, then oldest `created_at`, then `id`; and takes one.
+        The original order (numeric first, then oldest) assumed the numeric twin held the posts;
+        14 subscribed usernames showed the opposite on 2026-11-27 (the subscribed, scraped handle
+        row lost to an empty numeric twin). Remove this rule when BUG-059 story 4 has run and a
+        unique `(platform, lower(username))` index exists.
     5.  **One canonical URL, by redirect.** The page compares the URL segment with
         the **normalized** `profile.username` (the same lower-casing `buildAccountHref` applies, so a
         stored mixed-case value cannot cause a redirect loop); any difference (numeric ID,

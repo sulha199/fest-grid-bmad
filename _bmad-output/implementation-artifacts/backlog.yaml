@@ -3200,3 +3200,12 @@ items:
      ref: [packages/domain/src/events/buildEventsQueryCondition.ts],
      touches: [pkg:domain, web:events],
      note: "resolveDateRangeFilter set the end from the start's day-of-month on a Date still in the current month (2026-12-02 gave 2026-11-30..2027-01-05). The end now derives from the Monday start; a THIS_WEEK shifted by MONTH also kept a squeezed window after day overflow, same fix."}
+
+  # ── 2026-11-27 (prod: the account page showed an empty numeric twin instead of the subscribed row) ──
+  BUG-261127-3ur:
+    {type: bug, status: done, created: 2026-11-27,
+     impact: user-visible, effort: xs,
+     title: "Account page resolves a username to the empty numeric twin instead of the subscribed, scraped row (14 subscribed usernames)",
+     ref: [apps/backend/src/lib/accounts/resolve-profile-by-username.ts, planning-artifacts/festgrid-architecture-spine.md, backlog/BUG-059-subscribed-profile-twin-split.md],
+     touches: [app:backend, web:accounts],
+     note: "AD-35 Rule 4 tie-break is now active subscription, then scraped, then numeric, then oldest. Twin rows remain until BUG-059 story 4. Read-only lookup findProfileByUsername orders by created_at only and was not changed."}
