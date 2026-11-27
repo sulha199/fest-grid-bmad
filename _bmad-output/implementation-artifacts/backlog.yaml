@@ -3149,7 +3149,7 @@ items:
      title: "Registration options, CTA bar, composed highlight, honest dates and the extraction update",
      ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, cross:prd, cross:architecture, web:events, pkg:domain, pkg:database, pkg:ui, app:backend],
-     note: "Proposed, not approved. Revision 6 (2026-11-26): wrong pins and a next-7-days filter join Epic 11, event links onto /go/ in 12.4, backfills active events only; Q7-Q12 open."}
+     note: "Proposed, not approved. Revision 7 (2026-11-27): Q7-Q12 answered as recommended, no question open; 32 stories in Epics 11 and 12; reviewer summary at the top."}
 
   IDEA-261124-8jo:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
@@ -3219,7 +3219,7 @@ items:
      title: "Let the tier call read the post images (option B) if the gate finds missed poster prices",
      ref: [_bmad-output/poc/registration-extraction/findings.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, app:backend],
-     note: "Owner decision 2026-11-26: option A (caption and extraction price strings) is built; B only when the release gate's by-eye reading of 40 fresh posts finds two or more ticket prices on the images that the extraction did not return (owner answer Q4, 2026-11-26; one is reported and watched; a price label on a single product is not a ticket price). First reading 2026-11-26: 0 of 40 (findings 11.22), not built; B costs 3.4x prompt tokens."}
+     note: "Built only if the release gate finds two or more missed image ticket prices in 40 fresh posts read by eye (owner answer Q4); first reading 2026-11-26: 0 of 40. Detail in the proposal, Story 11.2."}
 
   IDEA-261124-xdv:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
