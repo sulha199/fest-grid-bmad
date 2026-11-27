@@ -131,10 +131,30 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   React.useEffect(() => {
     if (!isMenuOpen) return;
 
+    // WAI-ARIA menu button pattern: opening the menu moves focus to its first item.
+    const menuItems = () =>
+      Array.from(menuContainerRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    menuItems()[0]?.focus();
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsMenuOpen(false);
         menuTriggerRef.current?.focus();
+        return;
+      }
+
+      // Arrow keys, Home and End move between the items (the trigger counts as "before the first item").
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key) && menuContainerRef.current?.contains(document.activeElement)) {
+        const items = menuItems();
+        if (items.length > 0) {
+          e.preventDefault();
+          const current = items.indexOf(document.activeElement as HTMLElement);
+          let next = 0;
+          if (e.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % items.length;
+          else if (e.key === 'ArrowUp') next = current <= 0 ? items.length - 1 : current - 1;
+          else if (e.key === 'End') next = items.length - 1;
+          items[next]?.focus();
+        }
         return;
       }
       

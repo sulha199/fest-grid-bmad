@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "test:a11y": "vitest run src/a11y",
     "test:e2e": "playwright test",
     "e2e:save-auth": "node e2e/save-storage-state.mjs",
     "codegen": "graphql-codegen --config codegen.ts && node fix-codegen.js"

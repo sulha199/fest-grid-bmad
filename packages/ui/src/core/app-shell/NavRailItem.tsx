@@ -33,7 +33,9 @@ export function NavRailItem(props: NavRailItemProps) {
   const baseClasses = `group relative ${hitAreaClass} ${focusRingClass} ${className}`;
 
   const renderedIcon = (
-    <span className={`relative flex items-center justify-center h-5 w-5 ${isActive ? activeIconClass : ''}`}>
+    // Decorative: the link or button already has `aria-label={label}`, and lucide-react 0.473 does not mark its svg
+    // `aria-hidden` itself, so a screen reader would announce an unnamed "graphics-document" before every label.
+    <span aria-hidden="true" className={`relative flex items-center justify-center h-5 w-5 ${isActive ? activeIconClass : ''}`}>
       {icon}
     </span>
   );

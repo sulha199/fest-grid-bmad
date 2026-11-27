@@ -61,6 +61,10 @@
         "NEXT_PUBLIC_FIREBASE_VAPID_KEY"
       ]
     },
+    "test:a11y": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],

@@ -130,6 +130,7 @@ export const InstagramEmbed: React.FC<InstagramEmbedProps> = ({
         {!isReady && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 min-h-[200px] w-full animate-pulse"
+            role="status"
             aria-label={embedLoadingLabel}
             data-testid="instagram-embed-loading"
           >

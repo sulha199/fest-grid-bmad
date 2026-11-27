@@ -72,6 +72,13 @@ jobs:
           GEOAPIFY_API_KEY: 'test-geoapify-key'
         run: pnpm run test
 
+      # Accessibility audit (project-context.md "Accessibility", PRD Section 5): axe-core (WCAG 2.2 A/AA), keyboard
+      # and virtual screen-reader suites for the navbar, the event list and the event detail. `pnpm run test`
+      # already runs them; this named step makes a failure show up as an accessibility failure. It needs no
+      # database or secrets. It does not replace the manual keyboard and screen-reader pass.
+      - name: Run accessibility audit (axe, keyboard, screen reader)
+        run: pnpm run test:a11y
+
       # `pnpm run test` fails the build if packages/domain drops below 100% (packages/domain/.c8rc.json).
       # This keeps the README's coverage badge honest: it fails if docs/badges/domain-coverage.json
       # no longer matches the measured coverage.
