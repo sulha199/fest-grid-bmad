@@ -3309,3 +3309,12 @@ items:
      ref: [.github/workflows/ci.yml, package.json],
      touches: [app:infrastructure, web:system],
      note: "ci.yml pinned to Node 24. Other workflows still read package.json and may get Node 26. Lambda runs Node 22. Decide one pinned version."}
+
+  # ── 2026-11-26 (bmad-quick-dev: THIS_WEEK window wrong across a month boundary) ──
+  BUG-261126-pwb:
+    {type: bug, status: done, created: 2026-11-26,
+     impact: user-visible, effort: xs,
+     title: "A THIS_WEEK date filter is 37 days long when the week crosses a month or year boundary (AI filter 'this week', 'this weekend')",
+     ref: [packages/domain/src/events/buildEventsQueryCondition.ts],
+     touches: [pkg:domain, web:events],
+     note: "resolveDateRangeFilter set the end from the start's day-of-month on a Date still in the current month (2026-12-02 gave 2026-11-30..2027-01-05). The end now derives from the Monday start; a THIS_WEEK shifted by MONTH also kept a squeezed window after day overflow, same fix."}
