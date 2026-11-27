@@ -118,6 +118,17 @@ describe('WCAG automated ratchet', () => {
       render(<EventCard {...base} prominentPoster imageUrl="https://example.com/p.jpg" isFavorited onFavoriteToggle={vi.fn()} />);
       expect(screen.getByRole('button', { name: 'Toggle favorite' })).toHaveAttribute('aria-pressed', 'true');
     });
+    it('card whose poster failed to load: the favorite control is not nested inside the card button', async () => {
+      const { container } = render(<EventCard {...base} prominentPoster imageUrl="https://example.com/broken.jpg" onClick={vi.fn()} onFavoriteToggle={vi.fn()} />);
+      // The poster image fails (then its fallback, if any): the card shows the large favorite control in its place.
+      fireEvent.error(container.querySelector('img') as HTMLImageElement);
+      expect(container.querySelector('img')).toBeNull();
+      const favorite = screen.getByRole('button', { name: /^Toggle favorite/ });
+      const cardButton = container.querySelector('article > button') as HTMLElement;
+      expect(cardButton).not.toBeNull();
+      expect(cardButton.contains(favorite)).toBe(false);
+      await expectNoViolations(container);
+    });
     it('compact card', async () => {
       const { container } = render(<EventCardCompact eventName="Summer Music Festival" isMainSchedule dateBoxMonth="AUG" dateBoxDay="15" dateBoxTillLabel="till" eventStartDate="2026-08-15" eventStartTime="18:00" locale="en-US" timezone="UTC" onClick={vi.fn()} favoriteToggleLabel="Toggle favorite" onFavoriteToggle={vi.fn()} isFavorited imageUrl="https://example.com/p.jpg" locationName="Navy Pier" />);
       await expectNoViolations(container);

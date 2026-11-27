@@ -38,7 +38,7 @@ export function AmbientLocationBanner({
 }: AmbientLocationBannerProps) {
   return (
     <div className={ambientCapabilityBannerTokens.base}>
-      <p className="flex-1">{labels.message}</p>
+      <p className={ambientCapabilityBannerTokens.message}>{labels.message}</p>
       <div className={ambientCapabilityBannerTokens.actions}>
         <Button onClick={onEnableClick} disabled={isPending}>
           {labels.enableButtonLabel}

@@ -15,6 +15,11 @@
  */
 export const ambientCapabilityBannerTokens = {
   base: 'w-full flex flex-col items-start gap-3 px-4 py-3 bg-violet-50 border-b border-violet-200 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4',
+  /**
+   * The message. The bar is light violet in both themes, so its text is explicitly dark: inheriting the page's `foreground`
+   * made it near-white on `violet-50` (1.04:1) in the dark theme.
+   */
+  message: 'flex-1 text-violet-950',
   /** Button row. Wraps and only refuses to shrink once the banner is a single row (`sm`+): a no-wrap, non-shrinking row wider than a phone stretches the whole page. */
   actions: 'flex flex-wrap items-center gap-2 sm:shrink-0',
   dismissPermanent: 'py-2 px-4 rounded-md font-semibold bg-gray-200 text-gray-800',

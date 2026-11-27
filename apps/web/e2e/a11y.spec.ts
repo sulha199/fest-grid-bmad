@@ -11,10 +11,10 @@ import { resolve } from 'node:path';
  * judged on the painted page.
  *
  * It is a ratchet with two parts. (1) Every rule that is not in `a11y-baseline.json` must report zero elements in every
- * scenario: names, roles, ARIA validity, label in name, nested controls and the like cannot regress. (2) The rules that
- * are listed there are known, open findings (colour contrast of a few colours, and the favorite button that sits inside the
- * card's own button when a poster image fails to load); each may flag at most that many elements in one scenario. The caps are upper
- * bounds because the count moves with the clock (the "happening now" badge) and with the viewer-location banner, so a
+ * scenario: names, roles, ARIA validity, label in name, nested controls and the like cannot regress. (2) The rule that is
+ * listed there (`color-contrast`) is a known, open design finding (the contrast of a few colours); it may flag at most
+ * that many elements in one scenario. The cap is an upper bound because the count moves with the clock (the "happening
+ * now" badge) and with the viewer-location banner, so a
  * per-scenario count would be flaky. Lower a cap when the finding is fixed. It does not prove WCAG conformance: axe
  * finds only part of the failures, and focus order and screen-reader output still need a person.
  */
