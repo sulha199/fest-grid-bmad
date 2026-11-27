@@ -2,7 +2,7 @@
 title: "EVENT-CARD-DESIGN.md: festgrid — Event-Card family"
 status: "draft"
 created: "2026-09-26T00:00:00Z"
-updated: "2026-09-27T00:00:00Z"
+updated: "2026-11-27T00:00:00Z"
 extracted_from: "design-artifacts/UX-festgrid-run-1/DESIGN.md"
 extraction_reason: >
   Split out of DESIGN.md (2026-09-26) because the event_card_* token family had grown into the
@@ -24,6 +24,10 @@ current, authoritative AC breakdown driving this family's next revision pass (co
 date-box, image-error fallback parity, nearby-badge distance text, `EventCardCalendarGridItem`
 adoption for the calendar desktop single-day cell, etc.) — the tokens below still describe
 **today's shipped/documented behavior**, not yet amended for that consolidation.
+
+> **Planned redesign in flight (added 2026-11-27): NOT YET BUILT.** The section "Planned: grid card redesign
+> (Epic 11, Story 11.14)" at the end of this file describes the grid card that will replace the masonry card's date
+> box and footer. The tokens in the `yaml` block below still describe today's shipped card until Story 11.14 ships.
 
 All other `DESIGN.md` tokens (colors, typography, `card`, `button`, `grid`, `calendar` container/
 grid-weekly chrome, `modal`, `nav`, etc.) are unaffected by this split and remain in `DESIGN.md`.
@@ -684,3 +688,35 @@ components:
     base: "flex items-center gap-1 text-xs font-medium" # count text rendered inline next to the existing Heart icon inside the favorite-toggle button, not a separate element -- reuses EventCard's existing top-right slot rather than adding a third overlay
     # Confirmed visually unchanged by the 2026-09-04 bmad-ux pass (sprint-change-proposal-2026-09-04.md Section 4.3 item 3) -- both reference screenshots show this top-right slot untouched by the new date_box/till_badge/badge_row additions.
 ```
+
+---
+
+## Planned: grid card redesign (Epic 11, Story 11.14) [PLANNED; NOT YET BUILT]
+
+*Added 2026-11-27 by a headless `bmad-ux` update from `_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md` (backlog CC-261124-vjh, approved by the owner 2026-11-27), section 4.4. Nothing in this section exists in the code
+today. It supersedes the date box and footer of `event_card_masonry` / `event_card_date_box` (Stories 1.3b, 1.i1k) only
+when Story 11.14 ships; until then the tokens above stay authoritative. Do not fork the card: Story 11.14 changes it
+through this file.*
+
+- **Source:** the owner mock (handoff `event-registration-cta-handoff-2026-11-20.md` section 9); prototypes to
+  translate, not copy: `prototypes/registration-cta/` and `prototypes/registration-cta-mocks/`.
+- **Thumbnail:** one status/date badge in the thumbnail (replaces the separate date box and status badge row).
+- **Footer, left slot (first rung that has content wins):** distance; else "Gratis" / "Free"; else the start time;
+  else "+N jadwal" / "+N more" (the count of the event's other schedules; unrelated to the highlight count below).
+- **Footer, right slot:** the event type.
+- **Green area:** the performers, or the stored card highlight (`events.highlight`, Epic 11 Story 11.7), at most 2
+  lines, ending in an ellipsis when it does not fit. The data has no character limit and the component sets none.
+  A list highlight starts with its label and count ("Penampil (4): Band A, Band B, ..."), so the count stays visible
+  when the end is cut; the card shows the stored text as it is and never computes or appends a count or "+N" of
+  its own (owner answer Q5).
+- **Text size:** container-query based, so the card reads the same in every column width.
+- **Dummy-date label (decision 5), short form by stage** (shown when the card date comes from a flagged row whose
+  stage is neither `event` nor `other`, Epic 11 Story 11.13): `registration` "Daftar s/d 6 Nov" / "Register by 6 Nov";
+  `announcement` "Pengumuman 17 Okt" / "Announcement 17 Oct"; `preparation` (race-pack pickup) "Ambil kit 13 Nov" /
+  "Kit pickup 13 Nov"; `submission` "Submit s/d 12 Nov" / "Submit by 12 Nov". EN copy other than "Register by" is a
+  draft `[ASSUMPTION]`, final in Story 11.14 (locale parity ratchet). A competition `submission` row keeps its real dates.
+- **No pin, no distance:** a schedule without a map pin (online-only, Story 11.9; account default not inherited,
+  Story 11.19; re-geocode found nothing, Story 11.21) has no distance, so the left slot falls through to its next
+  rung, and the map link is hidden.
+- **Tokens:** only existing tokens and lucide icons; the token names for this layout are written in Story 11.14.
+

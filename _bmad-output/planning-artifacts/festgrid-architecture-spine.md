@@ -2,7 +2,7 @@
 title: "Architecture Spine: FestDaily"
 status: "draft"
 created: "2026-07-20T09:34:00Z"
-updated: "2026-11-09T00:00:00Z"
+updated: "2026-11-27T00:00:00Z"
 ---
 
 # Architecture Spine: FestDaily
@@ -129,6 +129,8 @@ This document defines the core architectural invariants for the FestDaily applic
     5.  **New moderator-gated resources extend, not bypass, this surface:** e.g. accepting/reverting a `DefaultLocationChangeRequest` (PRD Section 4.14) is gated by the same `requireModerator` check as report moderation — a new resource type, not a new enforcement mechanism.
 *   **Enforced by (added 2026-11-04):** `apps/backend/src/schema/auth-surface.ratchet.test.ts`, a source-scan ratchet over the TypeScript AST of `src/schema/resolvers.ts` and the merged `.graphql` files. Rule 3: every `Query`/`Mutation` field must call `requireAuth`/`requireModerator` on a top-level statement before its first `await`, with no `if`, loop, `switch`, label, `return` or `throw` ahead of it (`if (x) return data; requireAuth(c)` fails), or be listed in the test's `PUBLIC_ROOT_FIELDS` (never guarded) or `OPTIONAL_AUTH_ROOT_FIELDS` (guarded only inside a branch), each entry carrying a reason and a source and failing the moment it goes stale. A `try` block counts only when its `catch` ends in `throw` or an empty `return` (`return`, `return null`, `return undefined`) and returns no data earlier: `try { requireAuth(c) } catch {}` swallows the failure and `catch { return await db.select() }` serves the failed caller, so neither is a guard. The check reads statement shapes, not a full control-flow graph (a guard hidden inside a helper, or a call that throws before the guard, is not modelled), and the detector is pinned by a table of accepted and rejected snippets in the same file. Hand-rolled reads of `context.user` are held to a shrink-only list. Rule 1: no root argument or input field may name the acting user (`userId`, `ownerId`, ...). Related (added 2026-11-07): nothing reachable from the return type of a `PUBLIC_ROOT_FIELDS` query may carry a user identifier field (`ownerUserId`, `createdByUserId`, ...), because a caller with no session must not learn who owns something; `Query.widgetById` returns `PublicWidget` (no owner, no `deletedAt`) for that reason. Not covered: full path analysis, that a resolver checks ownership of the *resource*, and object-type field resolvers (`Event.*`, `Report.*`). Those stay with the resolvers' own integration tests.
 
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 12, Stories 12.4 and 12.10; NOT YET BUILT:** The phone-reveal operation (a POST: GraphQL mutation or JSON route) and any click-log POST of the `/go/` endpoint are declared **public** fields with a per-IP rate limit on the `takeAlertEmailBudget` fixed-window precedent (AD-55, AD-57).
+
 ---
 
 ### AD-8: Soft-Delete Convention
@@ -160,6 +162,8 @@ This document defines the core architectural invariants for the FestDaily applic
         **Accepted legacy exception:** `toggleFavorite` and `toggleCalendarAddition` (`apps/backend/src/schema/resolvers.ts`) predate this rule and use an implicit-toggle shape instead (no `action` argument; the server infers direction from the row's current `deletedAt`, returning a custom `ToggleFavoriteResult`/`ToggleCalendarAdditionResult` boolean-flag type rather than the resource's own type). They are shipped, tested, and functionally equivalent (both achieve delete-then-undo), and are not being reconciled to rule 4. Every new soft-delete mutation — `deleteUserLocation`'s migration above, and `ApiKey`/`Subscription` delete mutations (Epic 3/4) once built — must use the rule 4 shape.
 
         **Accepted hard-delete exception (added 2026-08-11, Epic 4 readiness re-sweep, confirmed with the user via `AskUserQuestion`):** `deleteEventPermanently(id: ID!): Boolean!` (Story 4.4a, `events`, moderator-only) is a genuine hard `DELETE`, not a soft-delete/restore-cycle mutation, and is therefore exempt from — not a violator of — this AD's "Prevents: hard deletes on bound tables" clause. It exists as a deliberate, distinct moderator action from `restoreEvent` (the soft-delete/undo pair): permanently removing egregious/abusive event listings that should not remain recoverable, cascading to dependent `schedules`/`corrections`/`reports`/`favorites`/`calendarAdditions` rows. Any future hard-delete mutation on a bound table must be similarly named here as an explicit exception before being built — this is not a general license to bypass rule 1/4 for convenience.
+
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 12, Stories 12.1 and 12.9; NOT YET BUILT:** Exception list gains `registration_options` phone values: a registration phone is **hard-deleted** (never soft-deleted) at event end + 1 day, on takedown, on permanent delete of the event and when a re-extract no longer finds it (AD-55).
 
 ---
 
@@ -482,6 +486,8 @@ This document defines the core architectural invariants for the FestDaily applic
           proximity rule, outage, kill switch, shared session) + `apps/backend/src/lib/extraction/apply-post-reextraction.test.ts`
           (14 events on 13 places: 12 lookups, the rest `skipped`) + `set-event-primary-post.test.ts` and
           `merge-events.test.ts` (the column follows the coordinates).
+
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 11, Stories 11.9, 11.19, 11.20 and 11.21; NOT YET BUILT:** `LocationResolution` gains `online` (an online-only text: no geocoding, no coordinates, no pin, no fall-back to the account default; a hybrid text is still geocoded; `isOnlineOnlyLocation` lives in `packages/domain` next to `GENERIC_KEYWORDS`) and `account_default` (coordinates inherited from the account's Default Location). Text column, no migration. **Inheritance rule:** a schedule with no own location text and no event-level text inherits the account default only when the deciding account (the post's `PUBLISHER` account, else `posts.account_id`) has `account_type = ORGANIZER_VENUE_EVENT` and `account_type_status = CONFIRMED`; every other case gets no coordinates (the default may still bias a text lookup through `proximityFor`, never become the pin). Same rule on the extraction, re-extract apply and stepped paths. A re-geocode of an active never-attempted pin that finds nothing **clears** the pin. A city check on the selected candidate is added only if Story 11.20 verifies that cause; until then none exists. The map-link gate (0.i7c) also hides on `online`.
 
 ---
 ### AD-15: Event Card Media Primitive
@@ -882,6 +888,8 @@ This document defines the core architectural invariants for the FestDaily applic
     (`apps/web/src/features/events/queries.graphql`) must not request it. (3) The only per-row change to `Query.events` is
     `isFromSubscribedAccount`'s `EXISTS` gaining one index lookup (AD-30 Rule 6, EXPLAIN-gated).
 
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 11, Stories 11.7 and 11.13; NOT YET BUILT:** The list field-map descriptor's `startCol` / `endCol` point at the generated `schedules.display_start_date` / `display_end_date` with the condition `is_display` (AD-58); `overlaps`, `notEnded`, the three ORDER BY subqueries and `selectDisplaySchedule` keep their shape and read those columns; partial index `schedule_display_date_idx`. `events.highlight` is a plain list column (no per-row resolver). The registration read is a separate uncached query, never part of `Query.events` (AD-55).
+
 ---
 ### AD-18: Filter Apply-Timing Convention
 
@@ -1053,6 +1061,8 @@ This document defines the core architectural invariants for the FestDaily applic
     manual migration edit (`drizzle-kit` cannot generate it — `packages/database/schema.ts`'s own
     documented limitation), and a time-aware condition likely needs something similar, but sizing
     that requires real `EXPLAIN ANALYZE` evidence at the implementation story, not a guess here.
+
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 11, Stories 11.13 and 11.22; NOT YET BUILT:** `!ended` and the temporal filter read the display columns through the AD-17 field map (BUG-096 per-schedule cutoff, migration 0090, untouched). `TemporalFilter` gains `NEXT_7_DAYS` = `overlaps` {today, today + 6} AND `notEnded` (the TODAY pair, no new SQL); `UPCOMING` stays with its meaning (tomorrow onward) for GraphQL, the domain and saved AI filters; the web URL parser maps an old `?temporal=UPCOMING` to the empty value. BUG-097: "today" for TODAY, NEXT_7_DAYS, UPCOMING, `notEnded` and the next-upcoming sort key is the viewer's day (`users.timezone`, else the browser's IANA zone passed by the page, else `Asia/Jakarta`); any SQL this needs reuses `schedule_past_cutoff_date` and is named in Story 11.22.
 
 ---
 
@@ -1690,6 +1700,8 @@ This document defines the core architectural invariants for the FestDaily applic
     there would be no natural home for the ground-truth comparison columns this table exists to
     hold.
 
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 12, Story 12.8; NOT YET BUILT:** The audit log never stores a registration phone number: phone values are recorded only as masked descriptors or counts; the phone column of `registration_options` is the only place a number lives (AD-56).
+
 ---
 
 
@@ -2076,6 +2088,8 @@ This document defines the core architectural invariants for the FestDaily applic
     `event_posts` in the hot-path join (adds a join to the most-queried endpoint); promoting a
     roundup's events by editing in place without a per-link ordinal (re-run duplicates, Rule 3).
 
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epics 11 and 12 (Stories 11.4, 11.6, 11.8, 11.10, 11.13, 11.7, 12.1); NOT YET BUILT:** **Rule 5:** the payload gains a required `stage` per schedule row (`event | registration | submission | announcement | preparation | other`) and the facts `prizes`, `promos`, `inclusions`, `isFree` (bounded shapes, no `evidence` field, request-level `maxOutputTokens`); `isMainSchedule` is never taken from the model (AD-58); grouping rule (4) unchanged; "one Gemini call per post" describes the extraction call only, the post-extraction call is AD-60. **Rule 7:** a new event with `activityType = RACE_PACK_COLLECTION` is first scored against stored main events with `coreEventName` as the name-similarity input (never an exact key), for new posts and the backfill; a `sharedLink` clue from a decoded QR feeds the score; a wider candidate date window for race-pack candidates only, if Story 11.10 measures that it is needed. **Rule 9:** enrich and merge union registration options and price tiers, never overwrite moderator edits, and rerun `computeDisplayFlags` (AD-58) and the composer (AD-59) on the result.
+
 ---
 
 ### AD-31: Post–Account Association Semantics — Roles, Organizer-Authored Predicate, Event-Level Union Filtering
@@ -2378,6 +2392,8 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Enforced by:** the Vitest ratchet in Rule 4, to be added by the story that performs the Rule 2
     migration (not built in this architecture pass — planning/architecture work does not modify
     source or test code; see routing).
+
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 12, Story 12.5; NOT YET BUILT:** The event action bar (below `lg`) and the `@modal` sticky footer sit on the `z-overlay-sticky` tier; the multi-option sheet uses the existing overlay-modal tier.
 
 ---
 
@@ -2695,6 +2711,8 @@ This document defines the core architectural invariants for the FestDaily applic
     in the job payload leaves nothing to purge); a new table for previews (the job table already
     carries owner scope, status and result); a cooldown on every preview (a moderator re-checking
     after a prompt fix would be blocked, and Gemini quota is already governed by the key gateway).
+
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epics 11 and 12 (Stories 11.7, 11.8, 12.1); NOT YET BUILT:** The re-extract preview runs the post-extraction call (AD-60), the composer (AD-59) and shows stages, display flags, tiers and registration options, persisting none of them until apply; apply calls `computeDisplayFlags` and the composer through the shared write path.
 
 ---
 
@@ -3345,6 +3363,8 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Enforced by:** domain unit tests that reproduce every row of the table (CAP-2); the live regression harness
     over the corpus in `evidence.md`.
 
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 11, Story 11.8; NOT YET BUILT:** No tier call on the stepped (cursor) path; location keywords stay per step (AD-60). Also applies to AD-51's bound.
+
 ---
 
 ### AD-47: A Step Is One Queue Message Carrying the Cursor; the Cursor Is Also Persisted; Resume Is Automatic
@@ -3468,6 +3488,8 @@ This document defines the core architectural invariants for the FestDaily applic
 *   **Enforced by:** client tests with a mocked SDK response for each signal; a process-ai-job test for the
     parse-failure path.
 
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 11, Stories 11.6 and 11.8; NOT YET BUILT:** The facts and the post-extraction call each carry a request-level `maxOutputTokens`; a cap hit is reported like any truncation, and the release gate (AD-61) requires zero cap hits.
+
 ---
 
 ### AD-50: A Post Is "Still Being Finished" or "Partial"; the Roundup Sibling List Is a Separate Read
@@ -3537,6 +3559,8 @@ This document defines the core architectural invariants for the FestDaily applic
 
 ---
 
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 11, Story 11.8; NOT YET BUILT:** The work per post grows by at most one best-effort post-extraction request (two on a multi-event post), never on the stepped path (AD-60).
+
 ---
 
 ### AD-52: One Retry Policy Maps a Classified Failure to a Decision; Durable Retries Live in a Post-Level Attempt Ledger
@@ -3599,6 +3623,8 @@ This document defines the core architectural invariants for the FestDaily applic
         attempt=<n> delayMs=<ms>`.
 *   **Enforced by:** domain tests over every row of the table (100% coverage like other domain code); the status
     lockstep test; a test that a job failing after in-call retries increments the ledger once.
+
+*   **Planned amendment, CC-261124-vjh (approved 2026-11-27), Epic 11, Story 11.8; NOT YET BUILT:** The post-extraction call is best effort: a classified failure of one part leaves the others and the extraction result; it is retried under this policy at most like the location-keywords call it replaces, never blocking ingestion.
 
 ---
 
@@ -3934,6 +3960,86 @@ This document defines the core architectural invariants for the FestDaily applic
     `alert-email-budget-store.test.ts` (compare-and-swap under five parallel calls, release, prune), the adapter test for
     the SES `Html.Data` and `Text.Data` split; Story 0.i1z adds the sweep. Numbering checked on all nine local branches on
     2026-11-14: AD-53 was the highest.
+
+### AD-55: Registration Options Live in Their Own Table; Contact Is Bounded; the Read Is Uncached and Safe [PLANNED: Epic 12; NOT YET BUILT]
+
+*   **Status:** Planned by CC-261124-vjh (`sprint-change-proposal-2026-11-24-registration-extraction.md`, approved 2026-11-27). No table, query or UI exists yet.
+*   **Binds:** a new table `registration_options` (Story 12.1), the registration read (Story 12.3), the phone-reveal operation (Story 12.10), the retention sweep step (Story 12.9), enrich and merge (AD-30 Rule 9).
+*   **Prevents:** registration links and phones stored on schedules or events; a price on a button; a phone or full organizer URL in cached HTML, meta tags, share cards or analytics; a soft-deleted phone that lives on.
+*   **Rule:**
+    1.  **Table.** `registration_options(id, event_id, type LINK|WHATSAPP|PHONE|FILE|CONTACT, label, url, phone_e164, source CAPTION|IMAGE|QR, low_confidence, ...)`, RLS like the event tables, **no price column** (tiers belong to the event, AD-60). `low_confidence` is set by code when the option was read from an image.
+    2.  **Bounded contact.** A phone lives only here, as E.164, never with a person's name (AD-56). Hard-deleted (AD-8 exception) at event end + 1 day, on takedown, on permanent delete and when a re-extract no longer finds it; the read predicate already hides an option past its retention so a late sweep shows nothing.
+    3.  **Read shape.** The public read (Story 12.3) is a separate **uncached** query (never through `get-event-by-slug-cached.ts`, never part of `Query.events`) returning only safe descriptors: opaque option id, label, type, destination host, masked phone (`+62 8** **** 12`). It never returns the full URL or the number. The number is returned only on a user action: a public POST with a per-IP rate limit (AD-7).
+    4.  **Excluded** from meta tags, share payloads and analytics events.
+*   **Enforced by:** the Story 12.3 read test (no URL or number in the descriptor), the Story 12.9 retention test, ratchet 12.z.
+
+### AD-56: One Deterministic Phone Detector and Contact Scrub [PLANNED: Epic 12, Story 12.8; NOT YET BUILT]
+
+*   **Status:** Planned by CC-261124-vjh. Today every private contact is discarded (Story 3.6i) and that stays true outside this AD.
+*   **Binds:** `detectRegistrationPhones` and `scrubContactData` in `packages/domain` (100% unit tested, `libphonenumber-js`); every write path that stores free text from a post.
+*   **Prevents:** the model deciding what a phone is; a phone kept in a description, a performer line, a highlight or an audit row.
+*   **Rule:** detection is code, not model: mobile numbers only, kept only when a registration cue is near the number; the phone column of `registration_options` is the only place a number lives; every other free-text field passes `scrubContactData` before it is stored.
+*   **Enforced by:** domain unit tests; the Story 3.6j performer-contact guard still runs.
+
+### AD-57: QR Decode Step and Outbound Link Trust Go Through One First-Party Endpoint [PLANNED: Epic 12, Stories 12.4, 12.10, 12.z and 12.2; NOT YET BUILT]
+
+*   **Status:** Planned by CC-261124-vjh. Today the event links of Story 0.37 render as plain `<a href={url}>` and the public `Event.links` returns the full URL; both stay so until Story 12.4 ships.
+*   **Binds:** the endpoint `/go/{opaqueId}`; `isAllowedDestination` (scheme allow-list and host blocklist) in `packages/domain`; `EventDetailView.tsx`'s link list and every event-detail action; the QR decode step in the AI-processor Lambda (Story 12.2).
+*   **Prevents:** an organizer or scraped destination in the page; an open redirect; `window.open` after an async fetch (popup blockers drop it); a payment QR shown as Register; a QR decoder that runs the AI processor out of memory.
+*   **Rule:**
+    1.  **Link endpoint.** Every action and every organizer link of the event detail is `<a href="/go/{opaqueId}" target="_blank" rel="noopener noreferrer">`. The endpoint accepts only an opaque id, never a URL, and on every request checks the scheme allow-list (`https`, `wa.me` over https, `tel`), a host blocklist that applies at once to every event (past ones included) and a kill switch per option or link, then answers **302**; an unknown, expired or blocked id answers a first-party page. Click logging is by POST, or GET logging accepted as noisy. Validation on write stays the main control. The destination host stays visible next to the action.
+    2.  **Scope.** Registration links, QR-derived links, WhatsApp, phone, files, contacts and the event links of Story 0.37 (`events.links`). First-party navigation (calendar, share, map link) is exempt by name.
+    3.  **Event-link ids.** Derived at read time, never stored, no data write, so every event works, past ones included: the id is the event id plus a keyed hash (HMAC with a server secret) of the link's URL, and the endpoint resolves it by recomputing over that event's `events.links`. The public `Event.links` returns descriptors (id, label, host) and no `url`; the correction dialog and the re-extract preview read full URLs through a gated query. Writes still pass `sanitizeEventLinks`.
+    4.  **QR (Story 12.2, last in Epic 12).** Decoding (`zxing-wasm`) runs in the AI-processor Lambda on a downscaled copy of the same slides the extraction reads; a button needs a decoded payload; redirectors are followed only per the link policy; a code is paired with its nearby label; a payment payload is never a Register button; a decoded link can feed AD-30 Rule 7 as a `sharedLink` clue. **Memory gate before it ships:** the cause of the AI-processor out-of-memory seen since 2026-11-20 is understood and written down, and the replay (AD-61) shows peak memory with decoding at most 10% above the same replay without it and below 80% of the configured memory.
+*   **Costs:** one more hop and a new single point of failure for every registration and event-link click.
+*   **Enforced by:** ratchet 12.z (no organizer URL in `href`, `window.open` or `location` other than `/go/`), the Story 12.4 rendered-page test, the Story 12.2 replay.
+*   **Deferred:** where the endpoint runs (a web route handler or an API Lambda route) is decided in Story 12.4; both satisfy this rule as long as the link stays first-party and the destination never reaches the page.
+
+### AD-58: Stage per Schedule Row; One Function Writes the Display and Main Flags; Generated Display Dates [PLANNED: Epic 11, Stories 11.3, 11.4, 11.5, 11.11, 11.12, 11.13 and 11.z; NOT YET BUILT]
+
+*   **Status:** Planned by CC-261124-vjh. Today `schedules` has no `stage`, no `is_display` and no display columns; the list reads the real dates and the model's main flag.
+*   **Binds:** columns `schedules.stage` (NOT NULL, default `event`), `schedules.stage_source` (`default | model | rule_v2 | moderator`, default `default`), `schedules.is_display boolean NOT NULL DEFAULT true`; generated columns `display_start_date`, `display_end_date`, `display_is_dummy`; partial index `schedule_display_date_idx ON schedules (event_id, COALESCE(display_end_date, display_start_date), display_start_date) WHERE is_display` (hand-written SQL); `computeDisplayFlags(rowsOfOneEvent)` and the stage guard and title rule v2 in `packages/domain`; every schedule write path.
+*   **Prevents:** a registration window winning the card date; a model-chosen main flag; flags drifting because one write path forgot them; a date copy on `events`; a database trigger duplicating the rules in plpgsql.
+*   **Rule:**
+    1.  **Stage.** Required per row; a code guard fills a missing stage; `stage_source` records who set it and protects moderator-set stages from the backfill.
+    2.  **One writer.** `computeDisplayFlags` is the only code that writes `is_display` and `is_main_schedule`, from all rows of one event, with the six date rules of the PRD (FR136) and the `other` rule (`other` counts only when every row is `other`); it reads `activityType` when present (race-pack rule). Every write path calls it: extraction ingestion, manual correction, merge, set primary post, re-extract apply, backfill, admin scripts.
+    3.  **Generated columns.** `display_start_date` = the real start date, or for a flagged `registration` row the real end of the window (`COALESCE(event_end_date, event_start_date)`), NULL when not flagged; `display_end_date` = the real end date, NULL for a flagged `registration` row and when not flagged; `display_is_dummy` = flagged and stage neither `event` nor `other`. A competition `submission` row keeps its real dates. Several main schedules per event are allowed; the ORDER BY picks the nearest upcoming flagged row.
+    4.  **Rollout.** The migration flags every row, so the list is identical until stages are written; readers switch at once (AD-17); no reader gate.
+    5.  **Healing step (decided 2026-11-27, A13):** a step of the existing **5-minute `job-engine-sweep`** (database only, already the retention host; no new rule, no vendor call) recomputes the flags of **active** events only (at least one schedule whose end date, else start date, is not past in its own time zone), repairs rows that differ and logs the repaired count; past events are never swept. A read-only mode only counts.
+*   **Enforced by:** ratchet 11.z (no write of `is_display` or `is_main_schedule` outside the function; every schedule write path calls it), the Story 11.13 fixtures and `EXPLAIN` test, the Story 11.12 drift count.
+
+### AD-59: The Highlight Is Composed in Code by One Function; the Card Highlight Is Stored, the Detail List Is Read-Time [PLANNED: Epic 11, Stories 11.7, 11.14 and 11.z; NOT YET BUILT]
+
+*   **Status:** Planned by CC-261124-vjh. Today there is no highlight column and no composer in production (the composer exists only in the POC).
+*   **Binds:** `composeHighlight(facts, mode)` in `packages/domain`; `events.highlight` (`text`, no length limit) and `events.highlight_rules_version`; every write path; the event detail; the re-extract preview.
+*   **Prevents:** the model writing a highlight; card and detail disagreeing; a length cut or "+N" in the data; a past event's text rewritten by a rules change.
+*   **Rule:**
+    1.  `detail` mode returns the ordered list from every rung of the type ladder that has content, at read time, no limit. `card` mode is its first item, whole (no length limit, no skip, no cut, no buy-get cut; academic degrees after the first comma of a name removed), stored with the rules version.
+    2.  A list item of two or more values is "<Label> (<count>): <every value>"; one value or a single value has no count; no "+N"; a label word at the start of a list value is dropped; the count lives only in the text.
+    3.  Every write path (extraction, manual correction, merge, re-extract apply, backfill) stores it through the function; the re-extract preview shows the same output without writing (AD-40).
+    4.  **Recompute (decided 2026-11-27, A13):** a step of the same 5-minute `job-engine-sweep` (no LLM) rewrites the stored highlight of **active** events whose `highlight_rules_version` is older than the code's and logs the count; past events keep their stored text.
+*   **Enforced by:** ratchet 11.z (no write of `events.highlight` outside the function), the Story 11.7 property test (card = first detail item).
+
+### AD-60: One Best-Effort Post-Extraction Call for Location Keywords, Price Tiers and the Core Event Name [PLANNED: Epic 11, Story 11.8; tier display Epic 12, Story 12.7; NOT YET BUILT]
+
+*   **Status:** Planned by CC-261124-vjh. Today the second call per post is the location-keywords call only.
+*   **Binds:** the post-extraction call in the AI processor; `decideTiersPerEvent` and the core-name code rule in `packages/domain`; the tier storage; `events.core_event_name`, `events.activity_type`.
+*   **Prevents:** a price on a registration button; `ticketPrice` replaced by tiers; a third request on single-event posts; a tier call on the stepped path; a displayed core name.
+*   **Rule:**
+    1.  **Shape.** One-event post: one merged call returning location keywords, priced options, `coreEventName`, `activityType` (2 requests per post). Two or more events: the location call returns location keywords **and** `coreEventName` / `activityType` for every event (decided 2026-11-27, A13: the per-post call already sees every event, and the tier call keeps the measured tier-only prompt), plus a separate per-event tier call (3 requests). Stepped path: no tier call, location per step.
+    2.  **Inputs.** The caption and the per-event `ticketPrice` strings the extraction returned; images are not sent. `ticketPrice` stays an extraction output and stays written to `schedules.ticket_price`.
+    3.  **Tiers.** Only when two distinct amounts exist inside one event; they belong to the event; audience `PUBLIC | STUDENT | CHILD | MEMBER | LOCAL_RESIDENT | GROUP | OTHER`; `fromPrice` = the lowest positive PUBLIC amount (derived); `low_confidence` set by code when the amount is not in the caption text. **Storage (decided 2026-11-27):** a `jsonb` column `events.price_tiers` validated by a domain schema, not a table (no joins on the hot path; enrich and merge union the array).
+    4.  **Best effort.** Each part is validated separately; a failed part leaves the others and the extraction result (AD-52).
+    5.  `coreEventName` and `activityType` are matching inputs only (AD-30 Rule 7), never displayed.
+*   **Enforced by:** the release gate (AD-61) before the merged call ships; ratchet 11.z (no UI or GraphQL list field exposes `coreEventName`).
+
+### AD-61: Every Extraction Prompt or Schema Change Passes a Replay Release Gate [PLANNED: Epic 11, Stories 11.1 and 11.2; NOT YET BUILT]
+
+*   **Status:** Planned by CC-261124-vjh. No gate exists yet; until Story 11.2 ships, the extraction accuracy eval (`docs/infrastructure/extraction-accuracy-eval.md`) is the only check.
+*   **Binds:** every change to the extraction prompt or response schema (Stories 11.4, 11.6, 11.8, 12.2 and later); a prompt seam in the extraction request builder (Story 11.1).
+*   **Prevents:** a prompt change that collapses events or schedules; a composer precision judged on captions already read; an output-cap regression.
+*   **Rule:** interleaved A/B on real posts with images, six or more runs, events and schedules counted against production; a fresh, never-read caption set per release with labels written first. Pass: the new arm loses events or schedules on no gate post more often than the production arm; first-look composer precision not worse than the previous release on its own fresh set (the first release with the no-limit composer sets a new baseline); zero output-cap hits. Reported, not gated: performer and prize variance; image ticket prices of 40 fresh posts read by eye that the extraction missed (two or more trigger the images variant, backlog IDEA-261124-ofm); events with a missing or extra tier on multi-event posts; the core name inside the merged call against the separate-call POC figures; for Story 12.2 the AI-processor peak memory with and without QR decoding.
+*   **Enforced by:** the Story 11.2 gate report attached to every such change.
 
 ---
 

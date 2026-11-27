@@ -2,7 +2,7 @@
 title: "EXPERIENCE.md: festgrid"
 status: "draft"
 created: "2026-07-20T10:59:00Z"
-updated: "2026-10-01T00:00:00Z"
+updated: "2026-11-27T00:00:00Z"
 sources:
   - "design-artifacts/UX-festgrid-run-1/DESIGN.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -309,6 +309,10 @@ onReset: () => {
 
 ### Temporal Filter: Today / Upcoming / All (Card View Only)
 
+> **[PLANNED: Epic 11, Story 11.22; not yet built]** This toggle is what ships today. It will be replaced by the time
+> dropdown described in "Planned: Time Filter Dropdown (Next 7 Days)" below; until Story 11.22 ships, this section
+> stays authoritative.
+
 *Added via a targeted `bmad-ux` pass, 2026-09-17 — IDEA-019, a coaching-path session grounded directly in `EventDiscoveryPanel.tsx`/`FilterHub.tsx`/`format-event-date.ts`'s actual current code rather than the backlog note's own description alone. **Amended same day, user-directed:** the first option was originally labeled and defined as "Happening now" (`started && !ended`, clock-time-strict); renamed to **"Today"** and redefined to cover anything scheduled today regardless of whether it's started yet, so a user planning their day sees a later-today event (e.g. an 8pm concert at 2pm) under this option instead of missing it. Reasoning: "Happening now," read strictly, answers "is this in progress this exact second" — useful, but not what someone planning their day is actually asking, which is closer to "what's on today."*
 
 **Format: a 3-way mutually exclusive segmented control (`{components.temporal_filter}`), not a dropdown or a 4th FilterHub facet — confirming the backlog note's own reasoning.** `role="radiogroup"` of three `role="radio"` options, single-select with roving tabindex — deliberately **not** `EventDiscoveryPanel`'s own `role="tablist"`/`"tab"` view-switcher pattern (`EventDiscoveryPanel.tsx` lines 111–134): that control switches which content panel is displayed, while this one filters data within whichever panel is already showing — different APG roles for a reason, not a styling choice.
@@ -427,6 +431,64 @@ onReset: () => {
 - **Merge action, with confirmation and an undo window.** Merging two events (whether moderator-initiated from the suggested-match list or a direct duplicate-cleanup flow) requires an explicit confirmation step before it commits — the loser is soft-deleted, favorites/reports/calendar entries repoint to the winner, and the loser's slug becomes an alias (AD-30 Rule 9) — then opens an **undo window matching the existing Soft Delete with Undo pattern** (State Patterns § Soft Delete with Undo below): same toast-with-Undo mechanics, the same `{components.notification.undo_duration_ms}` timing, and the same live-region/focus/non-color-cue accessibility treatment (Accessibility Floor § Soft Delete with Undo) — a merge is a destructive action on moderator-visible records exactly like any other soft-delete this pattern already covers, so it inherits the pattern rather than defining a second one. The one difference from a plain soft-delete: "Undo" here must reverse a merge's full repoint set (links, favorites, calendar entries, slug alias — the merge journal Story 3.6w owns), not a single-record restore; that reversal logic is Story 3.6w's own backend concern, not a new frontend interaction.
 
   *(Added 2026-10-01, ad-hoc accessibility lens, `review-accessibility-cc-024.md`.)* **The confirmation step itself is new surface area the inherited Soft Delete with Undo pattern does not define** — that pattern's own Trigger is a single click that commits immediately, with no prior dialog, so its Accessibility Floor entry only specifies focus behavior for the *toast*, never for a pre-commit step. Merge's confirmation is a standard focus-trapping modal dialog (unlike the toast, which stays deliberately non-modal/no-trap): opening it moves focus into the dialog; **Cancel** returns focus to the row's merge-trigger control, dialog closes, nothing else happens; **Confirm** commits the merge, closes the dialog, returns focus to that same trigger control, and only then does the Undo toast appear and its live-region announcement fire (State Patterns § Soft Delete with Undo's existing Trigger-focus rule and Accessibility Floor § Soft Delete with Undo (Notification Toast)'s live-region rule both apply unchanged from that point on — only the step before Trigger is new).
+
+### Planned: Time Filter Dropdown (Next 7 Days) [PLANNED: Epic 11, Story 11.22; not yet built]
+
+*Added 2026-11-27 by a headless `bmad-ux` update from `_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md` (backlog CC-261124-vjh, approved by the owner 2026-11-27), section 4.4. Not built: today's control is the Today /
+Upcoming / All toggle above.*
+
+- A dropdown **Kapan saja | 7 hari ke depan | Hari ini** (EN **Anytime | Next 7 days | Today**) replaces the toggle on
+  the home, feed, favorites and account pages. It sits first in the facet row and uses the existing facet trigger
+  (`Button variant="outline"` in a `Popover`). "Kapan saja" is the empty value (today's "Semua"/All).
+- "7 hari ke depan" shows today to today + 6 by the viewer's day; "Hari ini" keeps its meaning; both drop schedules
+  that already ended today. The viewer's day comes from `users.timezone`, else the browser's time zone, else
+  `Asia/Jakarta`.
+- An old `?temporal=UPCOMING` link opens with "Kapan saja" selected and the URL is rewritten without `temporal` and
+  without a new history entry (owner answer Q11).
+- The label is not "Minggu ini": that phrase belongs to the AI filter's Monday-to-Sunday week.
+- Out of scope here: the shared chevron trigger, the scrolling facet row and the other filter-header changes (backlog
+  IDEA-261124-15a).
+
+### Planned: Card Highlight, Detail Highlight List and Dummy-Date Labels [PLANNED: Epic 11, Stories 11.7, 11.13 and 11.14; not yet built]
+
+*Added 2026-11-27 from `_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md` (backlog CC-261124-vjh, approved by the owner 2026-11-27), section 4.4. Visual layout: `EVENT-CARD-DESIGN.md`, "Planned: grid card redesign".*
+
+- **Card:** the stored card highlight (or the performers) in the green area, two lines, ellipsis when it does not fit;
+  the component adds no count and no "+N" of its own. The short dummy-date label by stage ("Daftar s/d 6 Nov",
+  "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov") whenever the card date is a dummy date, so a card
+  never claims an event day it does not have.
+- **Event detail:** the full ordered highlight list, no character limit, from the composer's `detail` mode (every
+  name, every prize, promos, the price hook, free entry, take-home items); its first item is the card highlight. A
+  list item of two or more values reads "<Label> (<count>): <every value>". The full dummy-date sentence
+  ("Pendaftaran sampai 6 November 2026"; EN wording a draft `[ASSUMPTION]`, final in Story 11.14).
+- **No pin:** a schedule without its own location whose deciding account is not a confirmed organizer or venue
+  account (Story 11.19), an online-only schedule (Story 11.9) and a schedule whose re-geocode found nothing (Story
+  11.21) have no pin: the card's distance slot falls through to its next rung and the map link is hidden.
+
+### Planned: Event Registration and Call to Action [PLANNED: Epic 12; not yet built]
+
+*Added 2026-11-27 from `_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md` (backlog CC-261124-vjh, approved by the owner 2026-11-27), section 4.4 and PRD Section 3.19. Nothing here exists today: the detail header still
+carries heart, calendar and share, and the event links of Story 0.37 are plain links to their full URL. Visual
+notes: `DESIGN.md`, "Planned components". Prototypes to translate, not copy: `prototypes/registration-cta/`.*
+
+- **Bottom bar / side card / modal footer (Story 12.5):** below `lg` a bottom action bar; at `lg` and up a sticky
+  side card; in the `@modal` route a sticky modal footer; all on `z-overlay-sticky` (AD-33). One primary call to
+  action, up to three icon actions and a kebab; the state table of handoff section 4 decides them, first match
+  wins. The call-to-action label depends on the event type, fallback "Daftar" / "Register". Share lives in the bar;
+  the header's heart, calendar and share move to it.
+- **Several options (Story 12.6):** the primary action opens a sheet listing every option with its label and host.
+- **Prices (Story 12.7):** the event's price tiers and "from" price beside the buttons, never inside them; an event
+  without tiers shows its ticket price as today; a low-confidence tier carries the mark.
+- **WhatsApp and phone (Story 12.10):** a WhatsApp icon and a phone icon; a message preview before WhatsApp opens; the
+  number is fetched only when the user acts; `tel:` only on touch devices, "Salin nomor" / "Copy number" on desktop.
+- **Trust line:** the destination host stays visible next to every action and every event link.
+- **Links go through `/go/` (Story 12.4):** every action and every event link of Story 0.37 is a first-party
+  `/go/{id}` link opened in a new tab; the event links keep their list on the detail page with the label and the
+  host visible. An unknown, expired or blocked link lands on a first-party page that says the link is no longer
+  available.
+- **Low confidence:** an option read from an image carries a mark and a link to the original post.
+- **Accessibility `[ASSUMPTION]`, inherited from the Accessibility Floor, to confirm in Story 12.5:** every icon action has an accessible name in EN and ID; the bar never covers the last content
+  row (the page reserves its height); the sheet traps focus and returns it to the trigger.
 
 ## State Patterns
 

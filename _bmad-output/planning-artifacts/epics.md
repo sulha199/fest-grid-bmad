@@ -141,6 +141,18 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - **FR128 (added 2026-11-02):** The other long vendor-backed actions run as jobs on the same engine and appear on the Jobs page: AI-assisted correction and extract-from-a-post-URL (re-scraping the one post through the provider chain when its caption or images no longer exist), the scrape-this-account-now action (which re-attaches to a running job), and the moderator administrative jobs such as payload reprocessing and the dedup, snapshot-replay and backfill operations (PRD 3.7, 3.9.1, 3.9.3; IDEA-047, IDEA-261102-dkk).
 - **FR129 (added 2026-11-02; amended 2026-11-11):** Extracting the posts a user selected by hand (PRD 3.10) runs as one job per confirmed selection: the quota and subscription checks still refuse first, posts already extracted or in flight are skipped and counted, an Attempt failed post is started over, progress and ending are read from the posts' own statuses, the job is Waiting (holding no place) while a post is Queued, Extracting or waiting for an automatic retry (bounded at 26 hours), and ends Succeeded with limits when a post failed for good (PRD 3.10, 3.18).
 - **FR130 (added 2026-11-11):** Every job is a user job (started by a person, with an owner) or a system job (started by the platform, no owner); places, queueing, reuse, finished-notifications and the ordinary user's Jobs page apply to user jobs only, and the record carries the distinction from the start with no system job type built yet (PRD 3.18).
+- **FR131 (added 2026-11-27, planned, CC-261124-vjh):** Registration options are stored apart from schedules and shown in a bottom action bar on phones, a sticky side card on desktop and a sheet for several options; buttons carry no price (PRD 3.19).
+- **FR132 (added 2026-11-27, planned):** Every organizer or scraped destination of the event detail, including the event links of Story 0.37, goes through a first-party `/go/{opaqueId}` endpoint with a scheme allow-list, a host blocklist and a kill switch, never an open redirect (PRD 3.19, 5 Security).
+- **FR133 (added 2026-11-27, planned):** A phone published for registration is stored only in its registration option as E.164, revealed only on a user action with a per-IP rate limit, and hard-deleted at event end + 1 day; free text passes a deterministic contact scrub (PRD 3.16, 3.19).
+- **FR134 (added 2026-11-27, planned):** A QR code becomes a registration option only from a decoded payload, never from a payment payload, and decoding ships last behind a memory gate (PRD 3.19).
+- **FR135 (added 2026-11-27, planned):** One card highlight per event, composed in code from typed facts, stored whole with no length limit and a rules version; the detail shows the full ordered list from the same function; list items carry their count in parentheses (PRD 3.1).
+- **FR136 (added 2026-11-27, planned):** Each schedule carries a stage; the card date comes only from rows flagged by one code function, and a dummy date always carries a label (PRD 3.1, 4.4).
+- **FR137 (added 2026-11-27, planned):** One best-effort post-extraction call returns location keywords, the event's price tiers and a core event name; `ticketPrice` stays an extraction output; tiers and the "from" price are shown beside the registration buttons (PRD 3.8, 3.19, 4.23).
+- **FR138 (added 2026-11-27, planned):** An online-only location is not geocoded and has no pin; existing wrong pins of active online-only schedules are cleared (PRD 3.16, 4.3).
+- **FR139 (added 2026-11-27, planned):** The account default location is inherited only for a confirmed organizer, venue or event account and is marked `account_default`; active never-attempted pins are re-geocoded and a pin nothing confirms is cleared (PRD 3.7, 4.3).
+- **FR140 (added 2026-11-27, planned):** The time filter is a dropdown Anytime | Next 7 days | Today on the viewer's day, not UTC; `UPCOMING` stays accepted (PRD 3.12, 4.18).
+- **FR141 (added 2026-11-27, planned):** Every extraction prompt or schema change passes a replay release gate (PRD 5 AI Extraction Quality).
+- **FR142 (added 2026-11-27, planned):** Backfills, re-geocoding and recompute sweeps touch active events only (PRD 5 Data Backfills).
 
 ### NonFunctional Requirements
 - **NFR1:** Event discovery page should load in under 2 seconds on a standard 4G connection.
@@ -332,6 +344,18 @@ This document provides the complete epic and story breakdown for festgrid, decom
 - FR128: Epic 10 - Background vendor jobs (Stories 10.9 to 10.12, AI correction, extract-by-URL, refresh now and the administrative jobs; PRD 3.18, added 2026-11-02)
 - FR129: Epic 10 - Background vendor jobs (Story 10.12a, manual post selection as a job; PRD 3.10 and 3.18, added 2026-11-02)
 - FR130: Epic 10 - Background vendor jobs (Story 10.1a carries the field; Stories 10.3, 10.4 and 10.13 apply the user-jobs-only rules; PRD 3.18, added 2026-11-11)
+- FR131: Epic 12 - Registration, CTA bar and prices (Stories 12.1, 12.3, 12.5, 12.6; PRD 3.19, added 2026-11-27, planned)
+- FR132: Epic 12 - Registration, CTA bar and prices (Story 12.4, ratchet 12.11z; PRD 3.19 and 5 Security, added 2026-11-27, planned)
+- FR133: Epic 12 - Registration, CTA bar and prices (Stories 12.8, 12.9, 12.10; PRD 3.16 and 3.19, added 2026-11-27, planned)
+- FR134: Epic 12 - Registration, CTA bar and prices (Story 12.2, last; PRD 3.19, added 2026-11-27, planned)
+- FR135: Epic 11 - Extraction and honest dates (Stories 11.6, 11.7, 11.14, ratchet 11.18z; PRD 3.1, added 2026-11-27, planned)
+- FR136: Epic 11 - Extraction and honest dates (Stories 11.3, 11.4, 11.5, 11.10, 11.12, 11.13, 11.14; PRD 3.1 and 4.4, added 2026-11-27, planned)
+- FR137: Epic 11 (Story 11.8) and Epic 12 (Story 12.7) (PRD 3.8, 3.19 and 4.23, added 2026-11-27, planned)
+- FR138: Epic 11 - Extraction and honest dates (Stories 11.9, 11.16; PRD 3.16 and 4.3, added 2026-11-27, planned)
+- FR139: Epic 11 - Extraction and honest dates (Stories 11.19, 11.20, 11.21; PRD 3.7 and 4.3, added 2026-11-27, planned)
+- FR140: Epic 11 - Extraction and honest dates (Story 11.22; PRD 3.12 and 4.18, added 2026-11-27, planned)
+- FR141: Epic 11 - Extraction and honest dates (Stories 11.1, 11.2; PRD 5, added 2026-11-27, planned)
+- FR142: Epic 11 - Extraction and honest dates (Stories 11.7, 11.11, 11.12, 11.15, 11.16, 11.21; PRD 5, added 2026-11-27, planned)
 
 ## Epic List
 
@@ -1425,6 +1449,8 @@ Users can discover and browse events.
 
 **Depends on:** Story 1.3b (`EventCard`) AC14 (this amendment builds directly on AC14's `started`/`TILL` derivation).
 
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** Card layout replaced by Story 11.14 through EVENT-CARD-DESIGN.md.
+
 ### Story 1.3c: Build the reusable infinite-scroll hook
 
 **As a** developer,
@@ -2128,6 +2154,8 @@ Note: Added 2026-08-01 at user request, scoped to Epic 1 (the only route it can 
 **Depends on:** Story 1.i1a.
 
 **Note:** Split via Gate 2 (`bmad-create-story`, 2026-09-17) while drafting Story 1.i1j (backlog.yaml IDEA-025) — DESIGN.md's 2026-09-14 pass documents this gap twice (`event_card_date_box.base_default`'s own comment, and `event_card_compact.date_box`'s comment, which calls it "the same follow-up story"), explicitly deferring it as "doc-only pass, no code changed here... needs a follow-up story." No story anywhere in `epics.md`/`backlog.yaml` owned this before now. Not folded into Story 1.i1j since it changes the shared primitive's own shape (needed by both masonry and the compact row), not a local detail of the compact row's badge content — a shared-primitive fix has its own consumer set, independent of Story 1.i1j's unrelated content-column badge addition. Implements backlog.yaml `IDEA-042` (child of `IDEA-025`).
+
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** Card layout replaced by Story 11.14 through EVENT-CARD-DESIGN.md.
 
 ### Story 1.i1l: Apply the six unowned 2026-09-14 prototype-fidelity rules
 
@@ -3376,6 +3404,8 @@ Users can subscribe to social media accounts to import events into their feed.
 
 **Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** With `events[]` extraction (Story 3.6s) this story's behavior applies **per extracted event**, not once per payload — an explicit AC in Story 3.6s/3.6t verifies it for a multi-event post.
 
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** Registration phones are kept per D1/D2 by Story 12.8; every other private contact is still discarded.
+
 ### Story 3.6j: Verify and guard against performer-contact/photo leakage in extraction
 
 **As a** platform operator,
@@ -3439,6 +3469,8 @@ Users can subscribe to social media accounts to import events into their feed.
 **Cross-reference (2026-09-30, added via `bmad-correct-course`):** This story's `minScheduleCount`/`expectedScheduleNames` fields gain persistence into the new `extraction_audit_logs` table via Story 3.6p, for extraction-quality evaluation — no change to this story's own already-shipped/in-review log-only behavior.
 
 **Amendment (2026-10-01, `bmad-correct-course`, `sprint-change-proposal-2026-10-01-multi-event-posts.md`):** `minScheduleCount`/`expectedScheduleNames` become **per-event** (Story 3.6s); a post-level `minEventCount` is added.
+
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** QR decode (12.2) reads the same slides on a downscaled copy; the single-request rule holds for extraction.
 
 ### Story 3.6m: Add hasFaceImage/faceImageCount self-reported fields to Gemini extraction schema
 
@@ -3624,6 +3656,8 @@ without paying for a separate detection call on every extracted image.
 
 **Amendment (2026-10-01, `bmad-correct-course`, CC-024 readiness follow-up):** The extraction call (`callGemini` → `callGeminiGenerateContent`, `apps/backend/src/lib/ai-gateway/`) has no timeout today, and Story 0.i2a/0.i2c (the guarded vendor-call wrapper that would add one) **cannot be created yet**: no Architecture Spine decision for the wrapper exists (AD-1–AD-31 contain none; 0.i2a's own note says it establishes a new AD, and it carries FIND-004's vendor-DPA compliance gate). So this story carries a **minimal inline guard** and does not wait: an `AbortController`-based request timeout on the extraction call and an explicit response-size cap (`maxOutputTokens`), with a timeout surfaced as a retryable job failure, never a hang; a unit test covers both. Story 0.i2c, when it later lands, supersedes this guard by routing the same call through the wrapper — it should delete the inline guard, not stack on it.
 
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** Stage per schedule row added by Story 11.4; grouping rule (4) unchanged; `ticketPrice` per event stays in the output.
+
 ### Story 3.6t: Ingest multiple events per post, with per-event slugs and notifications
 
 **As a** subscriber,
@@ -3697,6 +3731,8 @@ without paying for a separate detection call on every extracted image.
 
 **Amendment (2026-10-04, `bmad-create-story`, CC-024 Wave 4B):** The first AC's organizer-account scoring signal is narrowed: `organizerHandle` must be **discounted/ignored** when the new item's source post is roundup-sourced (`posts.grouping_reason = 'roundup'`) or curator-sourced (posting account `accountType = 'CURATOR_GUIDE'`). Story 3.6s's extraction prompt sets `organizerHandle` to the *posting* account when no handle is explicitly tagged on an item (by design, so the handle survives the curator caption being nulled by Story 3.4o) — for a roundup/curator-sourced item that is the curator/aggregator, not the real organizer, and must not be allowed to falsely inflate a match score. Both signals the discount needs (`posts.grouping_reason`, and the curator check underlying `isOrganizerAuthoredPost`) are already computed by `processIngestionJob` (Story 3.6t) and are reused, not re-derived. See `3-6v-match-new-posts-to-existing-events-and-enrich-them-in-place.md` for the full as-built design (candidate query/scoring, the AD-31 Rule 4 helper, promotion/enrichment, and the `eventBySlug`/Next.js redirect wiring).
 
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** A new race-pack post is matched into its main event by the dedup scoring first, with `coreEventName` and `activityType` as inputs, never a name key (Story 11.10); registration options and tiers are unioned on enrich; flags recomputed.
+
 ### Story 3.6w: Let moderators merge duplicate events, with slug redirects
 
 **As a** moderator,
@@ -3717,6 +3753,8 @@ without paying for a separate detection call on every extracted image.
 3. **Manual/direct merge flow out of scope.** `EXPERIENCE.md`'s passing mention of a "direct duplicate-cleanup flow" (picking any two arbitrary events to merge, not just approving a matcher-flagged suggestion) is not described by this story's own AC text above and has no UI spec. Resolved: out of scope for this story; tracked forward as backlog idea **IDEA-062**.
 
 Beyond the literal AC text above, this story's creation also added (per this workflow's "leave the system working end-to-end" mandate, not a new user-facing feature): extending `Query.moderatorPendingItemCount` (the Moderator Pending-Item Badge) to also count pending suggested matches — already required by the PRD's own 2026-10-02 FR114 amendment to that badge, but not yet implemented by any story since no suggestion rows existed before Story 3.6v and no moderator-facing read of them existed before this story; and guarding the existing `restoreEvent(action: RESTORE)` mutation against a merged event (it would otherwise "restore" an event with none of its favorites/calendar entries/links, all already repointed to the merge winner, into a reachable but broken active state). See `3-6w-let-moderators-merge-duplicate-events-with-slug-redirects.md` for the full as-designed merge/undo mechanics (the `event_merges` journal table, `mergeEvents`/`undoEventMerge`).
+
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** Registration options and tiers are unioned on merge; `computeDisplayFlags` and the composer run on the merged event; moderator edits never overwritten.
 
 ### Story 3.6x: Show all events from a post on a post collection page
 
@@ -4325,6 +4363,8 @@ Users can contribute to data quality by correcting event details and reporting i
 *   **And**, when the event being corrected has more than one `Schedule`, the form edits only the schedule with `isMainSchedule: true` — matching PRD 3.9.1's singular "Schedule" framing and the only UX scenario (06.5) that depicts the form, which shows exactly one schedule. Editing/adding non-main schedules is out of scope for this story.
 
 **Depends on:** Story 4.1a, Story 4.1b.
+
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** Writes a stage and its stage source, then calls `computeDisplayFlags` and the composer (11.13, 11.7).
 
 ### Story 4.2a: Build the on-demand AI-assisted correction extraction API layer
 
@@ -5570,6 +5610,8 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Note:** Added 2026-09-11 as a **sweep** story (gate §5) — IDEA-019 shares this epic's FilterHub surface but is not epic-worthy on its own (criterion 5). It is new user-visible behaviour riding the epic's mechanism, not a violation of its invariant; the invariant and the other members are unchanged.
 
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** The toggle is replaced by the time dropdown of Story 11.22 (Anytime, Next 7 days, Today); `UPCOMING` stays accepted for old links and stored filters.
+
 ### Story 0.i5e: Adopt the controller in Feed/Favorites
 
 **As a** developer,
@@ -5809,6 +5851,8 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Depends on:** Story 0.i7a.
 
 **Note:** Amended 2026-09-13 via `bmad-epic-readiness-check` (Gate 1) — the original AC assumed `mapper.ts` could already read `s.locationDetails.confidence`, but the GraphQL SDL/query/codegen chain that would carry it from backend to frontend didn't exist. Added as the final AC rather than a separate story since this story is the one consuming the field.
+
+**Note (CC-261124-vjh, approved 2026-11-27; planned, not yet built):** Also hidden for resolution `online` (11.9).
 
 ### Story 0.i7d: Expose confidence/matchType through the remaining Geoapify-consuming mutations and the location-preview query
 
@@ -6375,3 +6419,475 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Readiness swept 2026-11-01** (`bmad-epic-readiness-check`, Gate 1 + Gate 3, `epic-readiness/epic-10-readiness.md`): no story split, no new prerequisite story. 10.1a validated buildable as one story with the AD embedded (worker host, job-table relation to the four existing tables and slot-reservation storage were already settled by the design notes and by the story's own AC before this sweep; the one real gap, cross-Lambda phase hand-off for a job whose phases need different Lambda capabilities, is now its own explicit AC). AD-32's `callVendor` adoption gap for Apify/Bright Data scraper call sites, which the spine flagged as missing (AD-32 Rule 6), is already closed by Story 0.i2d (`done`) and enforced going forward by 0.i2z (`review`); Story 10.2's own AC already routes its new post-chain calls through it — no new story needed. AD-41 Rule 1 ("the subscription always succeeds") is amended, not superseded, by Story 10.7 (AC added). Story 10.13's moderator-notification AC was corrected (0.i1a's drafted contract is all-moderators fan-out with no single-recipient mode) and a missing AC for FR124's main in-app/push channel (every job owner, not just moderators) was added — this was the one FR→AC traceability gap found. Dependencies on Epic 0.i3 (10.1a) and Epic 0.i5/0.i6 (10.4) are soft, not hard: the mechanisms Story 10.4 actually needs (0.i5a, 0.i6a) are already `review`-status and safe to build against; only their ratchets (0-i5z, 0-i6z) are still pending. Story 0.24 (wizard primitive) is marked `ready-for-dev` in `sprint-status.yaml` but is confirmed already implemented in code (`apps/web/src/features/wizard/wizard-registry.ts`, committed) — stale bookkeeping, not a blocker for Story 10.8; flagged for correction outside this sweep's scope. Next: `bmad-create-story` on Story 10.1a first.
 
 **Changed after the sweep, 2026-11-02 and 2026-11-11** (product owner decisions, addendum in `epic-readiness/epic-10-readiness.md`): a job started over its limit is queued instead of refused (FR121; Story 10.3 rewritten, Story 10.1a gains `admitted_at` with no acceptance criterion changed); manual post selection becomes a job type (FR129; new Story 10.12a, backlog row IDEA-261102-tov), which on 2026-11-11 was reworked for master's stepped extraction (AD-46 to AD-52): it stays open through automatic retries (bound 26 hours) as a `WAITING` job that holds no place, and there is no separate extraction limit; a new `WAITING` status means only a `RUNNING` job holds one of the 3 places; every job is a user job or a system job (FR130, data only: nothing is built for system jobs); every job's inline progress can be minimized and re-opened at its last progress (FR123; Stories 10.4 and 10.6). Epic 10 has seventeen stories: Story 10.3 was then narrowed to the backend and its UI half became Story 10.3a (2026-11-11, product owner decision when Story 10.3 was created); the cap, the follower mechanism and the claim change found while creating it are recorded in the Story 10.3 file. Gate 1 and Gate 3 were re-run for the new story only and found no split and no new prerequisite.
+
+## Epics 11 and 12 (Registration, highlight, honest dates and the extraction update) — feature epics from an approved sprint change proposal
+
+**Source:** backlog `CC-261124-vjh`, `planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md` (revision 7, approved by the owner 2026-11-27; sections 5.1 and 5.2 hold the full acceptance criteria and the code facts behind them). **Planned, not yet built:** no story below has a story file or code yet. PRD §3.19 and the `[PLANNED: Epic 11/12]` markers, the UX "Planned" sections and the spine's AD-55 to AD-61 describe the target. Full acceptance criteria come from `bmad-create-story` after `bmad-epic-readiness-check` on each epic; the criteria below are the ones to carry. Applied by direct edit (correct-course follow-up), never by `bmad-create-epics-and-stories`.
+
+**Process rule (owner, 2026-11-24):** every working branch and planning run merges `master` before the first edit, before every push and before a pull request is opened. **Backfill rule (owner, 2026-11-26):** every backfill, re-geocode and recompute touches active events only (a schedule whose end date, else start date, is not past in its own time zone; an event is active when one of its schedules is); past events stay as they are. Data-writing scripts have `--dry-run`, `--apply` and a rollback copy and apply only with the owner's go-ahead and the writer credential.
+
+### Epic 11: Extraction and honest dates
+
+**Capability:** The extraction returns a stage per schedule row and the facts behind one card highlight; code (not the model) derives the main and display flags, the card date and the highlight; a second best-effort call returns location keywords, price tiers and a core event name for matching; online-only and wrong account-default pins stop; the time filter gains "next 7 days" on the viewer's day; active events are backfilled. Every prompt or schema change passes a replay gate.
+**Spec:** PRD §3.1 (FR135, FR136), §3.7 (FR139), §3.8 (FR137), §3.12 (FR140), §3.16 (FR138), §5 AI Extraction Quality (FR141) and Data Backfills (FR142); spine AD-58, AD-59, AD-60, AD-61 and the planned amendments to AD-14, AD-17, AD-20, AD-30, AD-46, AD-49, AD-51, AD-52; UX `EVENT-CARD-DESIGN.md` and `EXPERIENCE.md` "Planned" sections.
+**FRs covered:** FR135, FR136, FR137 (extraction side), FR138, FR139, FR140, FR141, FR142.
+**Order:** (1) 11.9, 11.19, 11.20, then 11.16 and 11.21 (owner go-ahead); 11.22 any time; (2) 11.1 -> 11.2, 11.5 in parallel; (3) 11.3 -> 11.4 -> 11.13 -> 11.6 -> 11.7 -> 11.8 -> 11.10; (4) 11.11 -> 11.12 -> 11.14; (7) 11.15; (8) 11.z. Story 11.17 is reserved and not part of the epic (decision 4: backlog `IDEA-261124-8jo`); the ratchet keeps the key `11-18z`.
+
+### Story 11.1: Add a prompt seam to the extraction request builder
+
+**As a** developer,
+**I want** the extraction request builder to take its prompt and response schema through one seam,
+**So that** the replay gate can run a candidate prompt against the production prompt on the same posts.
+
+**Acceptance Criteria:**
+
+*   **Given** the extraction request builder, **when** a caller passes a prompt and schema variant, **then** the request is built from that variant and the production path keeps building the current prompt unchanged (no behaviour change in production).
+*   **And** the seam is the only place the replay gate (Story 11.2) and later prompt stories (11.4, 11.6, 11.8, 12.2) change the prompt or schema; the Gemini `responseSchema` size limit (project-context, 2026-10-30) is checked for every variant.
+
+**Depends on:** AD-61.
+
+### Story 11.2: Build the replay release gate with a fresh caption set per release
+
+**As a** developer,
+**I want** a replay gate that compares a candidate extraction against production on real posts,
+**So that** no prompt or schema change ships when it loses events or schedules or lowers composer precision.
+
+**Acceptance Criteria:**
+
+*   **Given** a candidate prompt or schema, **when** the gate runs, **then** it replays interleaved A/B on real posts with images, six or more runs, and counts events and schedules against production.
+*   **And** each release uses a fresh, never-read caption set whose labels are written before the composer output is read; output-cap hits must be zero.
+*   **And** the pass criteria are A4 (accepted by the owner 2026-11-26): the new arm loses events or schedules on no gate post more often than the production arm; first-look composer precision on the fresh set is not worse than the previous release on its own fresh set. The first release with the no-limit composer (11.7) sets a new composer precision baseline (0.86 was measured with the 40-character rule).
+*   **And** every release reports, not gated: (1) ticket prices visible on the images of 40 fresh posts, read by eye (Claude first, doubtful posts to the owner), that the main extraction did not return; two or more trigger option B (`IDEA-261124-ofm`), one is reported and watched, a price label on a single product is not a ticket price (first reading 2026-11-26: 0 of 40); (2) events with a missing or extra tier on multi-event posts; (3) for 11.8, `coreEventName` same-series pairs and `activityType` stability inside the merged call against the separate-call POC figures (88% pairs, precision 1.00, 29 of 30 repeats); (4) for 12.2, the AI-processor Lambda's peak memory on the replay with and without QR decoding.
+
+**Depends on:** Story 11.1.
+
+### Story 11.3: Add stage, display flag, display dates, fact, highlight, core-name and tier columns
+
+**As a** developer,
+**I want** the columns the new extraction, the display flags and the highlight need, added with defaults that keep today's behaviour,
+**So that** readers can switch to the display columns at once with no visible change until stages are written.
+
+**Acceptance Criteria:**
+
+*   **Given** the migration, **then** `schedules.stage` is NOT NULL default `event`; `schedules.stage_source` (`default | model | rule_v2 | moderator`, default `default`); `schedules.is_display boolean NOT NULL DEFAULT true`; generated `display_start_date`, `display_end_date`, `display_is_dummy` as AD-58 defines them (only a flagged `registration` row moves its end date into `display_start_date`; `display_is_dummy` = flagged and stage neither `event` nor `other`).
+*   **And** the partial index `schedule_display_date_idx ON schedules (event_id, COALESCE(display_end_date, display_start_date), display_start_date) WHERE is_display` is hand-written SQL (like the 0055 expression index; drizzle-kit cannot express it).
+*   **And** on `events`: `prizes`, `promos`, `inclusions`, `is_free`, `highlight` (`text`, no length limit: no `varchar(n)` and no length CHECK), `highlight_rules_version`, `core_event_name`, `activity_type`, and the price tiers with `low_confidence` (`events.price_tiers` jsonb, AD-60).
+*   **And** given the migration has run and nothing else, when `Query.events` runs, then every row has `is_display = true` and `display_*` equal the real dates (behaviour identical to today, checked by a test on a fixture with a registration row).
+
+**Depends on:** AD-58, AD-59, AD-60.
+
+### Story 11.4: Require a stage per schedule row and keep the main flag derived in code
+
+**As a** developer,
+**I want** the extraction to return a stage for every schedule row and the main flag never to come from the model,
+**So that** registration windows and other phases can no longer win the card date.
+
+**Acceptance Criteria:**
+
+*   **Given** an extraction, **then** it writes `stage` and `stage_source = model`; a code guard fills a missing stage; the main flag is never taken from the model; manual correction and merge write their own source.
+*   **And** the prompt change passes the replay gate (Story 11.2); grouping rule (4) of AD-30 Rule 5 is unchanged.
+*   **And** master note (PR #268, merged 2026-11-26): `buildEventInsertValues` and `mapExtractionPayloadToProposedCorrection` pass extracted times through `normalizeExtractedTime` (unparseable times stored as null and logged by `warnDroppedScheduleTimes`); adding `stage` there keeps that normalization and its tests.
+
+**Depends on:** Stories 11.2, 11.3.
+
+### Story 11.5: Port title rule v2 with its three fixes to the domain package
+
+**As a** developer,
+**I want** the POC's title rule v2 as a pure domain function,
+**So that** stored rows get a stage by rule and new rows have a fallback.
+
+**Acceptance Criteria:**
+
+*   **Given** `poc/registration-extraction/stage-classifier-v2.mjs`, **when** it is ported to `packages/domain`, **then** it carries the three fixes: (1) a ticket-sale row with one date is the event day; (2) "collection" or "launch" in a product post is an event, not a phase; (3) a title that mixes an announcement with a presentation or a prize-giving is the final day (counts).
+*   **And** it is 100% unit tested, with the POC's cases as fixtures (sample ids only).
+
+**Depends on:** AD-58.
+
+### Story 11.6: Extract prizes, promos, inclusions, free flag and speaker performers
+
+**As a** developer,
+**I want** the extraction to return the facts the highlight is composed from,
+**So that** the composer has typed input and the model never writes a highlight.
+
+**Acceptance Criteria:**
+
+*   **Given** the extraction payload, **then** it gains `prizes[]`, `promos[]`, `inclusions[]` and `isFree` in bounded shapes, with no `evidence` copy field (decision 9) and a request-level `maxOutputTokens`; the new instructions sit at the end of the prompt; `performers` is also filled from "Bersama / Pembicara / Pemateri" lines.
+*   **And** the performer-contact leakage guard (Story 3.6j) still runs on the wider performer rule; `ticketPrice` stays in the extraction output.
+*   **And** the prompt change passes the replay gate (Story 11.2) and the facts are stored in the Story 11.3 columns.
+
+**Depends on:** Stories 11.2, 11.3.
+
+### Story 11.7: Port the highlight composer and store the card highlight on every write path
+
+**As a** visitor,
+**I want** one highlight per event composed by fixed rules,
+**So that** the card and the detail page show the same, honest selling point.
+
+**Acceptance Criteria:**
+
+*   **Given** a fact set, **then** `composeHighlight(facts, 'detail')` returns the ordered list from every ladder rung with content, and `'card'` is its first item, whole. The port removes the POC's length rule (no `MAX = 40`, no skip of a too-long candidate, no buy-get cut at the condition word); academic degrees after the first comma of a name are always removed (owner answer Q1). It also removes the POC's "+N" suffix and its two-names-then-one loop.
+*   **And** a list item of two or more values writes every value with the count in parentheses after the label (owner answer Q5), for every list label (performers, speakers, instructors, judges, prizes, take-home items, promos and the like). Tests (placeholder values, no real names): four performers give "Penampil (4): Band A, Band B, Band C, Band D"; one performer gives "Penampil: Band A" (same for one prize, one take-home item, one promo); two values equal after de-duplication or degree removal give one value and no count; a price hook ("Mulai dari Rp50.000") and free entry ("Gratis") never carry a count; one prize "Hadiah Rp5 juta" stays "Hadiah Rp5 juta" with no count, two such values give "Hadiah (2): Rp5 juta, Rp3 juta" (owner answer Q6), and a list where only some values start with the label drops the word only from those; no composed text contains "+" followed by a digit.
+*   **And** extraction, manual correction, merge, re-extract apply and the backfill write `events.highlight` and `highlight_rules_version` through it; the re-extract preview shows the same output without writing (AD-40).
+*   **And** a recompute step (no LLM, a step of the 5-minute job-engine sweep, AD-59) rewrites every row of an **active** event whose version is older than the code's and logs the count; past events keep their stored text (owner answer Q7), tested on a past fixture event stored with an older version that stays unchanged; it rewrites a row stored in the POC format into the count format.
+*   **And** given a fact set, the card highlight equals the first detail item (property test); a first item longer than 40 characters is stored whole.
+
+**Depends on:** Stories 11.3, 11.6.
+
+### Story 11.8: Merge location keywords, tiers and core event name into one post-extraction call
+
+**As a** developer,
+**I want** the location-keywords call to also return price tiers and a core event name,
+**So that** prices and matching improve without a third request on single-event posts.
+
+**Acceptance Criteria:**
+
+*   **Given** a one-event post, **then** one merged call returns location keywords, priced options, `coreEventName` and `activityType`; for two or more events, the location call returns location keywords and `coreEventName` / `activityType` per event (AD-60, decided 2026-11-27) plus a separate per-event tier call.
+*   **And** the tier part reads the caption **and the `ticketPrice` string the main extraction returned for each event**; no images. `ticketPrice` stays in the extraction output and in `schedules.ticket_price`; tier options are stored beside it.
+*   **And** tiers only when two distinct amounts exist inside one event; `fromPrice` = lowest positive PUBLIC amount; an option whose amount does not appear in the caption text gets `lowConfidence = true` (code).
+*   **And** parts are validated separately; a failed part leaves the others. Not run on the stepped path (decision 6).
+*   **And** before release, the gate (Story 11.2) measures the core name inside the merged call against the separate-call POC figures.
+
+**Depends on:** Stories 11.2, 11.3.
+
+### Story 11.9: Skip geocoding for online-only locations
+
+**As a** visitor,
+**I want** an online event never to show a map pin,
+**So that** I am not sent to a wrong place.
+
+**Acceptance Criteria:**
+
+*   **Given** a schedule whose location text is online-only, **then** it is not geocoded, gets no coordinates and no map pin, never falls back to the account's default location, and is marked with the resolution `online` (new `LocationResolution` member; text column, no migration); a hybrid text is still geocoded.
+*   **And** `isOnlineOnlyLocation` lives in `packages/domain` next to `GENERIC_KEYWORDS`, 100% unit tested; the 0.i7c map-link gate also hides on `online`.
+
+**Depends on:** none.
+
+### Story 11.10: Match new race-pack posts into the main event through the dedup scoring
+
+**As a** visitor,
+**I want** a race-pack pickup post to join its main race event,
+**So that** the list does not show the pickup as a separate event.
+
+**Acceptance Criteria:**
+
+*   **Given** a new event with `activityType = RACE_PACK_COLLECTION`, **then** it is first matched against stored main events through the AD-30 Rule 7 dedup scoring, with `coreEventName` as the name-similarity input and the dates; never an exact key. High tier merges, mid tier queues a suggestion; with no main event it is shown as it is with its dummy date (end of registration, else the pickup date) and label.
+*   **And** stored main events without a core name are matched on their raw name until 11.11 and 11.15 fill it.
+*   **And** the Rule 7 candidate window (2 days) may miss a pickup several days before the race: the story measures it and proposes a wider window for race-pack candidates only.
+*   **And** `coreEventName` is never displayed (test: no UI or GraphQL list field exposes it).
+
+**Depends on:** Stories 11.4, 11.5, 11.8.
+
+### Story 11.11: Backfill active events from stored data (layer 1)
+
+**As a** visitor,
+**I want** existing active events to get honest dates, tiers and highlights,
+**So that** the change shows on today's list, not only on new posts.
+
+**Acceptance Criteria:**
+
+*   **Given** the backfill, **then** it selects active events (at least one schedule whose end date, else start date, is not past in its own time zone; the BUG-096 per-schedule cutoff gives that day); past events are not read or written, proved by a test with one past and one active fixture event.
+*   **And** on the active events it sets `stage` by title rule v2 (11.5) with `stage_source = rule_v2` on every row whose source is still `default`; recomputes the flags through `computeDisplayFlags`; splits stored price strings into tiers (leaving `ticket_price` as it is); writes the stored card highlight; fills `core_event_name` and `activity_type` by the code rule (first fill, about 73% on the test set, optimistic) where empty; moderator edits are never overwritten.
+*   **And** `--dry-run`, `--apply`, rollback copy; apply only with the owner's go-ahead and the writer credential; the dry run prints the number of active events and rows it would change.
+*   **And** its race-pack step feeds the active ones among the 17 stored race-pack events through the 11.10 matcher (suggestions unless high tier).
+
+**Depends on:** Stories 11.5, 11.7, 11.9 and 11.13 shipped; the race-pack step after 11.10.
+
+### Story 11.12: Recompute display flags of active events in the scheduled sweep and report drift
+
+**As a** developer,
+**I want** a sweep step that repairs display flags a write path forgot,
+**So that** drift is fixed and counted instead of shown to visitors.
+
+**Acceptance Criteria:**
+
+*   **Given** the 5-minute job-engine sweep (AD-58, decided 2026-11-27), **then** a step recomputes the flags of every **active** event with `computeDisplayFlags`, repairs rows that differ and logs the number repaired; past events are never swept, tested on a past fixture event whose stored flags differ from the computed ones and stay unchanged.
+*   **And** a read-only mode (script or SQL, for the owner or the CI bridge read path) only counts; after 11.11 has run the count is 0; a non-zero count names the write path to fix.
+*   **And** the infra docs (`docs/infrastructure/architecture-diagram.md`, `high-level-overview.md`) are updated for the new sweep step.
+
+**Depends on:** Story 11.13.
+
+### Story 11.13: Compute display flags on every write path and point the field map at the display columns
+
+**As a** visitor,
+**I want** the card date to come only from rows that count,
+**So that** a registration window or an announcement never poses as the event day.
+
+**Acceptance Criteria:**
+
+*   **Given** `computeDisplayFlags(rowsOfOneEvent)`, **then** it implements the six rules of C6 and the `other` rule (100% unit tested); it reads `activityType` when present (race-pack rule) and otherwise falls back to rule 5. Every schedule write path calls it: extraction ingestion, manual correction, merge, set primary post, re-extract apply, backfill, admin scripts.
+*   **And** the AD-17 field-map descriptor's `startCol` / `endCol` point at `display_start_date` / `display_end_date` with the condition `is_display`; `overlaps`, `notEnded` and the three ORDER BY subqueries keep their shape; `selectDisplaySchedule` uses the same columns. Whether the time columns need display twins is checked against the BUG-096 cutoff (migration 0090, untouched).
+*   **And** tests, each on a fixture: (1) two `event` rows on different dates show the nearer upcoming one, then the next, and the event leaves the list after the last; (2) several main schedules stay flagged and the order key picks the nearest upcoming; (3) an `event` row and a registration window show the `event` row, never the window; (4) a competition with only a registration window shows the end of registration as a dummy date; (5) all rows `other` show like `event`; (6) a non-competition event with an announcement and a preparation row shows the nearest upcoming one and leaves the list after the last; (7) the BUG-096 timezone cutoff behaves as before; (8) `EXPLAIN` on the list query uses `schedule_display_date_idx`; (9) `display_is_dummy` is true for flagged `registration`, `submission`, `announcement` and `preparation` rows and false for `event` and `other` rows, and a competition `submission` row keeps its real dates (Q2).
+*   **And** master note (PR #268): times reaching `computeDisplayFlags` and the BUG-096 cutoff are normalized `HH:MM:SS` or null; fixtures include a null time from a dropped value.
+
+**Depends on:** Stories 11.3, 11.4.
+
+### Story 11.14: Redesign the grid card and show the highlight list and dummy-date labels
+
+**As a** visitor,
+**I want** a card with one status/date badge, a highlight and a labelled date when the date is not an event day,
+**So that** I can judge an event at a glance without being misled.
+
+**Acceptance Criteria:**
+
+*   **Given** `EVENT-CARD-DESIGN.md` ("Planned: grid card redesign"), **then** the card shows the stored card highlight (ellipsis when it does not fit; no character limit in the component; the stored text shown as is, with no count or "+N" added, so "Penampil (4): ..." keeps its count visible) and the short dummy-date label by stage.
+*   **And** the detail page shows the ordered highlight list and the full dummy-date sentence; EN + ID copy (locale parity ratchet).
+*   **And** the card is changed through `EVENT-CARD-DESIGN.md`, not forked; it supersedes the date box and footer of Stories 1.3b and 1.i1k.
+
+**Depends on:** Stories 11.7, 11.13; UX.
+
+### Story 11.15: Backfill active events by re-reading captions in a local session (layer 2)
+
+**As a** visitor,
+**I want** active events whose facts cannot be derived from stored data to be re-read,
+**So that** their highlight, tiers and core name are filled too.
+
+**Acceptance Criteria:**
+
+*   **Given** a local Claude session (not Gemini), same schema and code, **then** it re-reads captions and images for the active events with a caption (414) or only an image (129) as counted 2026-11-24, recounted at run time; an empty caption (stored since PR #269) counts as no caption.
+*   **And** it fills facts, highlight, `core_event_name` and `activity_type` where the code rule left them empty; tier input = caption and the stored price string (noted as possibly from another merged post).
+*   **And** same `--dry-run` / `--apply` / rollback and owner go-ahead; past events are not read or written.
+
+**Depends on:** Story 11.11.
+
+### Story 11.16: Clear the wrong pins of active online-only schedules
+
+**As a** visitor,
+**I want** the wrong map pins of online events removed,
+**So that** current events do not point to a wrong place.
+
+**Acceptance Criteria:**
+
+*   **Given** Story 11.9 has shipped (decision 1), **then** a script with `--dry-run`, `--apply` and a rollback copy (from `poc/registration-extraction/online-locations-review.sql`) clears the pins of the **active** online-only schedules; pins of past schedules stay.
+*   **And** the dry run reports the active count next to the 72 of 2026-11-24; apply only with the owner's go-ahead and the writer role.
+
+**Depends on:** Story 11.9 shipped (decision 1).
+
+### Story 11.18z: Ratchet: highlight, main flag and display flag come only from their domain functions
+
+**As a** developer,
+**I want** a source scan that fails when the highlight or the flags are written outside their functions,
+**So that** a new write path cannot bring the drift back.
+
+**Acceptance Criteria:**
+
+*   **Given** the source tree, **then** a scan fails when a schedule write path does not call `computeDisplayFlags`, when code writes `is_display`, `is_main_schedule` or `events.highlight` outside their domain functions, or when a UI or GraphQL list field exposes `coreEventName`.
+
+**Depends on:** Stories 11.7, 11.13.
+
+**Note:** Proposed as "11.z"; numbered `11.18z` (sprint-status key `11-18z-...`) because 11.17 is reserved for the deferred cover story (`IDEA-261124-8jo`) and the stories added in revision 6 took 11.19 to 11.22 without moving it.
+
+### Story 11.19: Inherit the account default location only for organizer and venue accounts, and mark it
+
+**As a** visitor,
+**I want** an event without its own location to take an account's default location only when that account is the organizer or the venue,
+**So that** a curator's home city is not pinned on someone else's event.
+
+**Acceptance Criteria:**
+
+*   **Given** a schedule with no own location text and no event-level text, **when** the deciding account (owner answer Q8: the post's `PUBLISHER` account, else `posts.account_id`) has `account_type = ORGANIZER_VENUE_EVENT` and `account_type_status = CONFIRMED`, **then** the schedule takes the default location and `location_resolution = account_default` (new `LocationResolution` member; text column, no migration).
+*   **And** given the same schedule and an account that is `CURATOR_GUIDE`, `PERSONAL`, has no account type, or is `ORGANIZER_VENUE_EVENT` with status `AWAITING_APPROVAL`, then the schedule gets no coordinates (no pin; the card's distance slot falls through; the map link is hidden); the default may still bias a text lookup as today (`proximityFor`), never become the pin.
+*   **And** a schedule with its own text or event-level text follows the keyword ladder unchanged; an online-only text never inherits (11.9 wins).
+*   **And** the same rule on the extraction and the re-extract apply paths (both call `buildExtractedEventMessage`) and the stepped path; unit tests for each account kind and status, 100% coverage of the new decision function.
+*   **And** old rows are not rewritten here (active rows: Story 11.21). Scale (production read-only, 2026-11-27, approximate): 167 organizer or venue confirmed (kept), 203 curator confirmed and 59 with no account type (no pin under the rule). Code facts: `resolveAccountAndLocations` (`apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts`) today geocodes any account's default address and records no `location_resolution`; since PR #269 a post can have several `SCRAPING_SOURCE` accounts.
+
+**Depends on:** none (first, next to 11.9).
+
+### Story 11.20: Investigate wrong-city geocoding matches and add a city check if the cause supports it
+
+**As a** developer,
+**I want** to find why a geocoding result landed in another city before adding any check,
+**So that** a check is added only for a verified cause.
+
+**Acceptance Criteria:**
+
+*   **Given** the Semarang case (keywords naming the venue, the city and the province; the first keyword step returned a point about 120 km from the city), **when** it is reproduced offline (read only) with the stored keywords and a recorded provider response, **then** the story file records whether the provider, `select-best-candidate` or the trust check caused it. Sample ids only.
+*   **And** only if the cause is a candidate whose city or province does not match the keywords: a check rejects such a candidate (the ladder moves to its next step) and records why; unit tests with the case as a fixture; the check is measured on a read-only sample of active `kw1` / `kw2` pins (how many it would reject) before release.
+*   **And** if the cause is something else, the story closes with the finding written down and no check; it never ships a check without a verified cause.
+
+**Depends on:** none.
+
+### Story 11.21: Re-geocode active schedules never attempted by the current path
+
+**As a** visitor,
+**I want** old pins of current events re-checked by today's geocoding,
+**So that** a pin from an older, weaker path is replaced or removed.
+
+**Acceptance Criteria:**
+
+*   **Given** a script with `--dry-run`, `--apply` and a rollback copy, **then** it selects active schedules (same rule as 11.11) whose pin was never attempted by the current path (no `location_resolution`); counts on 2026-11-26: 486, 111 of them outside an Indonesia box (approximate), 289 with text (206 distinct texts), 197 without. Past schedules (3,271 never-attempted pins) are not read or written, with a test.
+*   **And** with text: the current path (keywords call and ladder, 11.9's online rule, 11.20's check if shipped) runs once per distinct text and the result and its `location_resolution` are written; without text: the 11.19 rule decides (inherit with `account_default`, or no pin); when nothing is found, the pin is cleared (owner answer Q9).
+*   **And** moderator-set locations are never overwritten; the dry run prints counts by outcome (replaced, cleared, unchanged, inherited) for the owner before any apply; apply only with the owner's go-ahead and the writer role.
+
+**Depends on:** Stories 11.9 and 11.19 shipped; after 11.20 if it adds a check.
+
+### Story 11.22: Replace the temporal toggle with a time dropdown with the next 7 days, and use the viewer's date
+
+**As a** visitor,
+**I want** to see what happens in the next seven days, counted on my own day,
+**So that** "today" is not UTC's yesterday in the early morning in Jakarta.
+
+**Acceptance Criteria:**
+
+*   **Given** the home, feed, favorites and account pages, **then** a dropdown `Kapan saja | 7 hari ke depan | Hari ini` (EN `Anytime | Next 7 days | Today`) replaces the toggle; `Kapan saja` is the null value (today's "Semua"); EN + ID copy through next-intl with the locale parity ratchet; the PostHog `temporal_filter_changed` event carries the new value.
+*   **And** `NEXT_7_DAYS` is added to the domain enum, the GraphQL enum, the UI type and the URL parser; `buildTemporalCondition('NEXT_7_DAYS')` = `overlaps` {from: today, to: today + 6} AND `notEnded` (the TODAY pair), no new SQL. Tests: a schedule that ended earlier today is excluded; one on today + 6 is included; one starting on today + 7 is excluded; a multi-day schedule that started before today and runs into the window is included.
+*   **And** `UPCOMING` stays accepted: GraphQL, the domain and saved AI filters keep it with its current meaning (tomorrow onward); given an old link `?temporal=UPCOMING`, the page opens without error with "Kapan saja" selected and the URL rewritten without `temporal` and without a new history entry (owner answer Q11, test).
+*   **And** BUG-097 is fixed in the same story: "today" for TODAY, NEXT_7_DAYS and UPCOMING, `notEnded` and the `Query.events` next-upcoming sort key come from the viewer's day: `users.timezone` when set, else the browser's IANA time zone, else `Asia/Jakarta` (owner answer Q12); the pages pass a time zone to `resolveTodayISO`; no new SQL beyond what BUG-097 needs, reusing `schedule_past_cutoff_date` (any such SQL is named in the story); the shared ended-cases fixture gains a case at 00:00-07:00 WIB.
+*   **And** the filter reads dates through the AD-17 field map, so after 11.13 it uses the display columns with no change of its own; whichever of 11.13 and 11.22 lands second adds a test with a registration-window fixture.
+*   **And** the AI filter vocabulary is unchanged; the other header changes stay in `IDEA-261124-15a`. PR #270 (`BUG-261126-pwb`) changed `resolveDateRangeFilter` in the same file (`buildEventsQueryCondition.ts`); merge `master` first and keep its week-window tests green.
+
+**Depends on:** none.
+
+### Epic 12: Registration, CTA bar and prices
+
+**Capability:** A visitor sees how to register for an event in a bottom bar on phones and a side card on desktop, with several options in a sheet, the event's price tiers and "from" price beside the buttons, and WhatsApp and phone actions that reveal the number only on action. Every organizer or scraped destination, including the event links of Story 0.37, goes through a first-party `/go/` endpoint. QR-decoded links come last, behind a memory gate.
+**Spec:** PRD §3.19 (FR131 to FR134), §3.16 and §5 Security, §4.22 and §4.23; spine AD-55, AD-56, AD-57 and the planned amendments to AD-7, AD-8, AD-29, AD-30 Rule 9, AD-33, AD-40; UX `DESIGN.md` "Planned components" and `EXPERIENCE.md` "Planned: Event Registration and Call to Action"; prototypes `prototypes/registration-cta/`.
+**FRs covered:** FR131, FR132, FR133, FR134, FR137 (display side).
+**Order:** (5) 12.1 -> 12.3 -> 12.4 -> 12.5 -> 12.6 -> 12.7; (6) 12.8 -> 12.9 -> 12.10; (8) 12.z; (9) 12.2 last. Epic 12 needs Epic 11 only for prices (12.7 waits for 11.8) and the replay gate (12.2 waits for 11.2).
+
+### Story 12.1: Store registration links in their own table
+
+**As a** developer,
+**I want** registration options stored apart from schedules,
+**So that** links, phones and QR links have one home with their own retention.
+
+**Acceptance Criteria:**
+
+*   **Given** the migration, **then** `registration_options` exists as AD-55 defines it, with RLS and **no price column** (decision 10); an option whose value was read from an image gets `lowConfidence` (decision 9).
+*   **And** extraction writes the caption links of an event into it; enrich and merge union the options (AD-30 Rule 9); the re-extract preview shows them without writing (AD-40).
+
+**Depends on:** AD-55.
+
+### Story 12.3: Read registration options through a separate uncached query that returns safe descriptors only
+
+**As a** visitor,
+**I want** the registration choices of an event without any number or organizer URL in the page,
+**So that** cached pages never carry a phone or a raw destination.
+
+**Acceptance Criteria:**
+
+*   **Given** the registration read, **then** it is a separate **uncached** query (never through `get-event-by-slug-cached.ts`, never part of `Query.events`) that returns only option id (opaque), label, type (`LINK | WHATSAPP | PHONE | FILE | CONTACT`), destination host and masked phone (for example `+62 8** **** 12`); it never returns the full URL or the phone number (test).
+*   **And** options are excluded from meta tags, share payloads and analytics events.
+
+**Depends on:** Story 12.1.
+
+### Story 12.4: Add the first-party link endpoint `/go/` with allow-list, blocklist and kill switch, and move the existing event links onto it
+
+**As a** visitor,
+**I want** every organizer link of an event to go through a checked first-party link,
+**So that** a bad or blocked destination is stopped even on old events.
+
+**Acceptance Criteria:**
+
+*   **Given** the endpoint (AD-57), **then** it accepts only an opaque id, never a URL; checks a scheme allow-list (`https`, `wa.me` over https, `tel`), a host blocklist that applies at once to every event and a kill switch per option; answers 302; an unknown, expired or blocked id answers a first-party page. The descriptor read of 12.3 never carries a full URL or a phone number.
+*   **And** event links of Story 0.37 (owner decision, input 14): given an event with `events.links`, when its detail page renders (page and `@modal` route, both cached through `get-event-by-slug-cached.ts`), then each link is `<a href="/go/{opaqueId}" target="_blank" rel="noopener noreferrer">` showing its label and destination host; the full URL is not in the HTML (test on the rendered page).
+*   **And** the public `Event.links` read returns descriptors (opaque id, label, host) and no `url`; the correction dialog (`correction-dialog.tsx`) and the moderator re-extract preview get the full URL through a gated read (owner answer Q10).
+*   **And** the endpoint applies to event links the same checks as to options (blocklist effective for past events too, kill switch per link, first-party page for an unknown, blocked or removed id); writes still pass `sanitizeEventLinks`.
+*   **And** the opaque id of an event link is derived at read time (event id plus a keyed hash of the link URL, AD-57) and resolved from `events.links`; no stored id, no data write; test: a link of a past fixture event redirects through `/go/` with no row written. Where the endpoint runs (web route or API Lambda) is decided in this story (AD-57 Deferred).
+*   **And** ratchet 12.z covers `EventDetailView.tsx`'s link list.
+
+**Depends on:** AD-55, AD-57, Story 12.1 (the event-link part needs only AD-57).
+
+### Story 12.5: Show the event action bar on phones and the side card on desktop
+
+**As a** visitor,
+**I want** the main way to register always in reach,
+**So that** I can act on an event without hunting through the page.
+
+**Acceptance Criteria:**
+
+*   **Given** the event detail, **then** below `lg` a bottom action bar, at `lg` and up a sticky side card, and in the `@modal` route a sticky modal footer (D11), on the `z-overlay-sticky` tier (AD-33); one primary call to action, up to three icons and a kebab, chosen by the handoff's state table (first match wins); the call-to-action label per event type with fallback "Register" (D8); Share in the bar and the header's heart, calendar and share moved to it (D10).
+*   **And** every action links through `/go/` (12.4) and shows its destination host (trust line); an option read from an image shows the low-confidence mark with a link to the original post.
+*   **And** tokens only, lucide icons, EN + ID copy; the flow follows `EXPERIENCE.md` "Planned: Event Registration and Call to Action"; prototypes are translated, not copied.
+
+**Depends on:** Stories 12.3, 12.4; UX.
+
+### Story 12.6: Open a sheet when an event has several registration options
+
+**As a** visitor,
+**I want** to choose between several ways to register,
+**So that** I pick the channel that suits me.
+
+**Acceptance Criteria:**
+
+*   **Given** an event with two or more options, **then** the primary action opens a sheet listing each option with its label and destination host, each a `/go/` link; a multi-event post attaches a phone only when the post yields one event or the option names its event (D4).
+
+**Depends on:** Story 12.5.
+
+### Story 12.7: Show the event's price tiers and the "from" price beside the registration buttons
+
+**As a** visitor,
+**I want** the prices next to the registration buttons,
+**So that** I know the cost before I click.
+
+**Acceptance Criteria:**
+
+*   **Given** the event's tiers (11.8), **then** buttons carry no price; `fromPrice` and the tiers sit beside the buttons; `ticketPrice` is shown as today where the event has no tiers; low-confidence tiers carry the mark.
+*   **And** Story 0.35's displayed `ticketPrice` string stays in force; `fromPrice` is shown beside it only where tiers exist.
+
+**Depends on:** Stories 11.8, 12.6.
+
+### Story 12.8: Detect registration phones deterministically and scrub free text
+
+**As a** developer,
+**I want** registration phones found by code and every other number removed from stored text,
+**So that** a phone lives only where its retention is enforced.
+
+**Acceptance Criteria:**
+
+*   **Given** a post, **then** `detectRegistrationPhones` (AD-56, `libphonenumber-js`, mobile only, a registration cue near the number) stores a found number only in `registration_options` as E.164, never with a person's name; every other free-text field passes `scrubContactData`; both 100% unit tested.
+*   **And** every other private contact is still discarded (Story 3.6i); the audit log stores no number (AD-29); the PRD privacy amendment (FR133) is in force before this ships.
+
+**Depends on:** AD-56, Story 12.1.
+
+### Story 12.9: Delete registration phones after the event ends (retention sweep)
+
+**As a** person whose number was on a poster,
+**I want** the number deleted soon after the event,
+**So that** FestDaily does not keep it longer than registration needs.
+
+**Acceptance Criteria:**
+
+*   **Given** a registration phone, **then** a step of the 5-minute job-engine sweep (AD-55, AD-58 host, decided 2026-11-27) hard-deletes it at event end + 1 day; it is also deleted on takedown, on permanent delete and when a re-extract no longer finds it; the read predicate hides it once past retention even before the sweep runs.
+*   **And** raw captions are blanked 30 days after expiry (existing rule kept); the infra docs are updated for the new sweep step.
+
+**Depends on:** Story 12.8.
+
+### Story 12.10: Add WhatsApp and phone actions with a message preview, revealed on action
+
+**As a** visitor,
+**I want** to message or call the organizer from the event,
+**So that** I can register by WhatsApp or phone when that is the channel.
+
+**Acceptance Criteria:**
+
+*   **Given** an option of type WHATSAPP or PHONE, **then** the number is returned only when the user acts (POST, per-IP rate limit, declared public under AD-7); "Copy number" on desktop, `tel:` on touch; WhatsApp goes through `/go/`; a message preview is shown before WhatsApp opens.
+
+**Depends on:** Stories 12.4, 12.5, 12.8.
+
+### Story 12.11z: Ratchet: the event detail renders organizer or scraped destinations only as `/go/` links
+
+**As a** developer,
+**I want** a source scan that fails when the event detail puts an organizer URL in the page,
+**So that** a new component cannot bypass the link endpoint.
+
+**Acceptance Criteria:**
+
+*   **Given** the event-detail components, **then** a scan fails when one puts a URL from an option, a QR, a contact, a brochure or an event link (`events.links`, Story 0.37) into `href`, `window.open` or `location` other than a `/go/` link; first-party navigation (calendar, share, map link) is exempt by name.
+
+**Depends on:** Stories 12.4, 12.5.
+
+**Note:** Proposed as "12.z"; numbered `12.11z` (sprint-status key `12-11z-...`), the next free number with the `z` suffix, as `10.14z` was.
+
+### Story 12.2: Decode QR codes into registration links (last, behind the memory gate)
+
+**As a** visitor,
+**I want** a registration link printed only as a QR code to become a button,
+**So that** I can register without scanning the poster.
+
+**Acceptance Criteria:**
+
+*   **Given** every other Epic 12 story has shipped, **then** the gate before merge holds: (1) the cause of the AI-processor Lambda out-of-memory seen since 2026-11-20 is understood and written down; (2) the replay (11.2) shows the peak memory with decoding at most 10% above the same replay without it and below 80% of the Lambda's configured memory (owner answer Q3); (3) decoding runs on a downscaled copy of the image. PR #266 (merged) added JS heap, sharp and per-post memory logging to the AI processor; use those logs for (1) and (2).
+*   **And** a button needs a decoded payload; a payment payload is never a Register button; the destination host is always shown; a decoded link can feed AD-30 Rule 7 as a `sharedLink` clue.
+*   **And** the infra docs are updated in the same change (`zxing-wasm` in the AI-processor bundle; CLAUDE.md section 4). Slice 1 does not wait for it.
+
+**Depends on:** AD-57, Stories 12.1 and 11.2, the memory gate; ships last in Epic 12.

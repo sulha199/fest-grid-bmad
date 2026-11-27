@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-07-29T02:58:30Z
-last_updated: 2026-11-14T01:51:26Z
+last_updated: 2026-11-27T00:00:00Z
 project: festgrid
 project_key: NOKEY
 tracking_system: file-system
@@ -2565,6 +2565,44 @@ development_status:
   10-13-notify-when-a-job-finishes: review
   10-14z-ratchet-no-lambda-reaches-a-vendor-call-without-registering-the-adapters: backlog
   epic-10-retrospective: optional
+  # Epics 11 and 12 added 2026-11-27 from the approved sprint change proposal CC-261124-vjh (planning only, no story file yet).
+  # 11.17 is reserved (backlog IDEA-261124-8jo). See epics.md "Epics 11 and 12".
+  epic-11: backlog
+  11-1-add-a-prompt-seam-to-the-extraction-request-builder: backlog
+  11-2-build-the-replay-release-gate-with-a-fresh-caption-set-per-release: backlog
+  11-3-add-stage-display-flag-display-dates-fact-highlight-core-name-and-tier-columns: backlog
+  11-4-require-a-stage-per-schedule-row-and-keep-the-main-flag-derived-in-code: backlog
+  11-5-port-title-rule-v2-with-its-three-fixes-to-the-domain-package: backlog
+  11-6-extract-prizes-promos-inclusions-free-flag-and-speaker-performers: backlog
+  11-7-port-the-highlight-composer-and-store-the-card-highlight-on-every-write-path: backlog
+  11-8-merge-location-keywords-tiers-and-core-event-name-into-one-post-extraction-call: backlog
+  11-9-skip-geocoding-for-online-only-locations: backlog
+  11-10-match-new-race-pack-posts-into-the-main-event-through-the-dedup-scoring: backlog
+  11-11-backfill-active-events-from-stored-data-layer-1: backlog
+  11-12-recompute-display-flags-of-active-events-in-the-scheduled-sweep-and-report-drift: backlog
+  11-13-compute-display-flags-on-every-write-path-and-point-the-field-map-at-the-display-columns: backlog
+  11-14-redesign-the-grid-card-and-show-the-highlight-list-and-dummy-date-labels: backlog
+  11-15-backfill-active-events-by-re-reading-captions-in-a-local-session-layer-2: backlog
+  11-16-clear-the-wrong-pins-of-active-online-only-schedules: backlog
+  11-18z-ratchet-highlight-main-flag-and-display-flag-come-only-from-their-domain-functions: backlog
+  11-19-inherit-the-account-default-location-only-for-organizer-and-venue-accounts-and-mark-it: backlog
+  11-20-investigate-wrong-city-geocoding-matches-and-add-a-city-check-if-the-cause-supports-it: backlog
+  11-21-re-geocode-active-schedules-never-attempted-by-the-current-path: backlog
+  11-22-replace-the-temporal-toggle-with-a-time-dropdown-with-the-next-7-days-and-use-the-viewers-date: backlog
+  epic-11-retrospective: optional
+  epic-12: backlog
+  12-1-store-registration-links-in-their-own-table: backlog
+  12-2-decode-qr-codes-into-registration-links-behind-the-memory-gate: backlog
+  12-3-read-registration-options-through-a-separate-uncached-query-that-returns-safe-descriptors-only: backlog
+  12-4-add-the-first-party-link-endpoint-and-move-the-existing-event-links-onto-it: backlog
+  12-5-show-the-event-action-bar-on-phones-and-the-side-card-on-desktop: backlog
+  12-6-open-a-sheet-when-an-event-has-several-registration-options: backlog
+  12-7-show-the-events-price-tiers-and-the-from-price-beside-the-registration-buttons: backlog
+  12-8-detect-registration-phones-deterministically-and-scrub-free-text: backlog
+  12-9-delete-registration-phones-after-the-event-ends-retention-sweep: backlog
+  12-10-add-whatsapp-and-phone-actions-with-a-message-preview-revealed-on-action: backlog
+  12-11z-ratchet-the-event-detail-renders-organizer-or-scraped-destinations-only-as-go-links: backlog
+  epic-12-retrospective: optional
 
 action_items:
   - id: correct-course-2026-09-02-1

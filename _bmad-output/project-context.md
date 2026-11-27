@@ -24,6 +24,14 @@ _This file contains critical rules and patterns that AI agents must follow when 
 ## App Name
 The application name is "FestDaily" (previously "FestGrid"). All instances of "FestGrid" in legacy documentation should be treated as "FestDaily" in implementation. Do not raise issues for renaming "FestGrid" to "FestDaily".
 
+## Planned changes in flight: Epic 11 and Epic 12 (CC-261124-vjh)
+
+The owner approved `_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md` on 2026-11-27 (Epic 11 Extraction and honest dates, Epic 12 Registration, CTA bar and prices; 32 stories in `epics.md`, all `backlog`). None of it is built yet; the PRD, UX and spine mark every new rule **PLANNED**.
+- **Read the proposal before changing any of:** the extraction prompt or response schema (every change goes through the replay gate of Story 11.2, AD-61); schedule columns; the list query (`Query.events`), sorting and the temporal filter; the highlight and the event card; registration, the CTA bar, prices and outbound links (`/go/`); location geocoding and default-location inheritance.
+- **Ask the owner** before doing anything that contradicts the plan.
+- **Taken:** AD-55 to AD-61 and epic numbers 11 and 12 (11.17 is reserved). Pick the next free numbers for anything else.
+- Remove this block when both epics are done.
+
 ## Reference Documents
 
 The following documents contain detailed specifications, architectures, and design definitions for the project. Ensure you read only the required ones when it matters.
@@ -220,4 +228,4 @@ To avoid monolithic global stores and ensure strict end-to-end typing, the appli
 - Update when the technology stack or core patterns change.
 - Review quarterly to remove rules that have become obvious or obsolete.
 
-_Last Updated: 2026-10-23T00:00:00Z_
+_Last Updated: 2026-11-27T00:00:00Z_

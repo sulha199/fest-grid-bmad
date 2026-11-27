@@ -1,0 +1,24 @@
+// Second held-out draw: excludes the dev sample and every round-1 review item. Prints MASKED contexts only.
+import { readFileSync, writeFileSync } from 'node:fs';
+import { detectRegistrationPhones, normalizeCaption, maskE164 } from './detect-phones.ts';
+const all = readFileSync('private/all-captions.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+const dev = new Set(readFileSync('private/sample.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l).post_id));
+const r1 = JSON.parse(readFileSync('private/heldout-sheet.json', 'utf8'));
+const used = new Set([...r1.pos, ...r1.neg].map((x: any) => x.post_id));
+const LOOSE = /(?:\+?62|\b0)[ .-]?8\d{1,2}[ .-]?\d{3,4}[ .-]?\d{2,5}/;
+const seenText = new Set<string>();
+const fresh = all.filter((r) => !dev.has(r.post_id) && !used.has(r.post_id)).filter((r) => { const k = normalizeCaption(r.caption).slice(0, 160); if (seenText.has(k)) return false; seenText.add(k); return true; });
+const withDet = fresh.map((r) => ({ r, det: detectRegistrationPhones(r.caption) }));
+const pos = withDet.filter((x) => x.det.length).sort((a, b) => (a.r.post_id < b.r.post_id ? -1 : 1));
+const neg = withDet.filter((x) => !x.det.length && LOOSE.test(normalizeCaption(x.r.caption))).sort((a, b) => (a.r.post_id < b.r.post_id ? -1 : 1));
+console.log('fresh distinct captions', fresh.length, 'detector-positive', pos.length, 'loose-negative', neg.length);
+const mask = (s: string) => s.replace(/\d/g, 'x');
+const PH = /(?:\(?\+?[ ]?62\)?[ \-.]?|0)8\d(?:[ \-.()]?\d){6,11}/g;
+const ctx = (t: string, i: number, l: number) => mask(t.slice(Math.max(0, i - 80), Math.min(t.length, i + l + 30)).replace(/\n+/g, ' ⏎ '));
+const step = (xs: any[], k: number) => xs.length <= k ? xs : xs.filter((_, i) => { const s = Math.max(1, Math.floor(xs.length / k)); return i % s === (s > 1 ? 1 : 0); }).slice(0, k);
+const P = step(pos, 50).map((x, i) => { const t = normalizeCaption(x.r.caption); const m = [...t.matchAll(PH)][0]; return { id: 'P' + (i + 1), det: x.det.map((d) => `${maskE164(d.e164)}:${d.role}:${d.cue}`).join(' ; '), c: m ? ctx(t, m.index!, m[0].length) : '(wa link) ' + mask(t.slice(t.search(/wa\.me/i) - 60, t.search(/wa\.me/i) + 60)) }; });
+const N = step(neg, 30).map((x, i) => { const t = normalizeCaption(x.r.caption); const m = t.match(LOOSE)!; return { id: 'Q' + (i + 1), c: ctx(t, m.index!, m[0].length) }; });
+writeFileSync('private/heldout2-sheet.json', JSON.stringify({ P, N }, null, 1));
+for (const p of P) console.log(p.id, p.det.slice(0, 60), '|', p.c);
+console.log('---- negatives');
+for (const n of N) console.log(n.id, n.c);
