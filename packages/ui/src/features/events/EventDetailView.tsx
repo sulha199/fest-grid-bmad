@@ -131,10 +131,30 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
   React.useEffect(() => {
     if (!isMenuOpen) return;
 
+    // WAI-ARIA menu button pattern: opening the menu moves focus to its first item.
+    const menuItems = () =>
+      Array.from(menuContainerRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    menuItems()[0]?.focus();
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsMenuOpen(false);
         menuTriggerRef.current?.focus();
+        return;
+      }
+
+      // Arrow keys, Home and End move between the items (the trigger counts as "before the first item").
+      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key) && menuContainerRef.current?.contains(document.activeElement)) {
+        const items = menuItems();
+        if (items.length > 0) {
+          e.preventDefault();
+          const current = items.indexOf(document.activeElement as HTMLElement);
+          let next = 0;
+          if (e.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % items.length;
+          else if (e.key === 'ArrowUp') next = current <= 0 ? items.length - 1 : current - 1;
+          else if (e.key === 'End') next = items.length - 1;
+          items[next]?.focus();
+        }
         return;
       }
       
@@ -358,8 +378,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
               className={`rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center shrink-0 ${
                 favoriteCount !== undefined ? 'px-2.5 py-2 gap-1.5' : 'p-2'
               }`}
-              aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
-              aria-pressed={isFavorited}
+              // The name changes with the state, so no aria-pressed (a screen reader would say both).
+              aria-label={`${isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}${favoriteCount !== undefined ? ` ${favoriteCount}` : ''}`}
             >
               <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
               {favoriteCount !== undefined && (
@@ -599,7 +619,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             })}
           </ul>
         ) : (
-          <p className="text-gray-500 italic">{labels.noSchedulesLabel}</p>
+          <p className="text-gray-500 dark:text-gray-400 italic">{labels.noSchedulesLabel}</p>
         )}
       </section>
 
@@ -634,7 +654,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       {!hasMultiplePosts && (
         <>
           {hasSourceAttribution && (
-            <section className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 text-sm text-gray-500">
+            <section className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 text-sm text-gray-500 dark:text-gray-400">
               <div className="flex items-center gap-4 flex-wrap">
                 {hasSourceAttribution && publishedAt && (
                   <span className="flex items-center gap-1">
@@ -709,7 +729,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
           {(sourcePosts as EventDetailViewSourcePost[]).map((sourcePost) => {
             const postHasAttribution = sourcePost.originalPostUrl || sourcePost.sourcePostUrl;
             return (
-              <li key={sourcePost.postId} className="flex flex-col gap-3 text-sm text-gray-500">
+              <li key={sourcePost.postId} className="flex flex-col gap-3 text-sm text-gray-500 dark:text-gray-400">
                 <div className="flex items-center gap-2 flex-wrap">
                   {sourcePost.isPrimary && (
                     <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
@@ -790,6 +810,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       {(relatedEventsSentinelRef || isRelatedEventsLoading || (relatedEventGroups && relatedEventGroups.length > 0)) && (
         <div
           ref={relatedEventsSentinelRef}
+          // A bare div may not carry an aria-label (axe aria-prohibited-attr): the section is a labelled region.
+          role={labels.relatedEventsSectionAriaLabel ? 'region' : undefined}
           aria-label={labels.relatedEventsSectionAriaLabel}
           aria-busy={isRelatedEventsLoading ? 'true' : undefined}
           className="flex flex-col gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800"

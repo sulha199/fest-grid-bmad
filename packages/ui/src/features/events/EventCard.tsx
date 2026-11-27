@@ -276,7 +276,9 @@ export function EventCard({
     ? formatEventCardDateBoxLine(activeLocale, activeTimezone, now, dateObj, endDateTime, endTime)
     : '';
 
-  const finalImageAlt = imageAlt || eventName;
+  // The card's link already speaks the title (the heading), so a poster whose alt is just the event name is decorative:
+  // an empty alt stops the screen reader reading the title twice. A caller's own, different description is kept.
+  const finalImageAlt = imageAlt && imageAlt !== eventName ? imageAlt : '';
 
   // AC14 — TILL sub-badge (masonry only): "till hh:mm" / bare "till" / no badge.
   const started = now.getTime() >= dateObj.getTime();
@@ -327,7 +329,8 @@ export function EventCard({
       className={`w-full ${EVENT_CARD_CONTAINER_CLASS} rounded-xl overflow-hidden shadow-sm border border-border bg-card transition-all hover:shadow-md relative group flex flex-col ${
         pendingRemoval ? 'opacity-50 grayscale' : ''
       }`}
-      aria-disabled={pendingRemoval}
+      // Not aria-disabled: the article role does not support it, so it announced nothing. Tests and CSS hook on this.
+      data-pending-removal={pendingRemoval ? 'true' : undefined}
     >
       {onFavoriteToggle && !isMasonryDefault && posterImagePresent && (
         <button
@@ -337,7 +340,9 @@ export function EventCard({
             e.stopPropagation();
             onFavoriteToggle(e);
           }}
-          aria-label={defaultLabels.favoriteToggle}
+          // The visible count is part of the name (WCAG 2.5.3, label in name): "Toggle favorite 4".
+          aria-label={favoriteCount !== undefined ? `${defaultLabels.favoriteToggle} ${favoriteCount}` : defaultLabels.favoriteToggle}
+          aria-pressed={!!isFavorited}
           // Rule 4 (`DESIGN.md` § event_card_date_box.base): `top-2` by default, `top-5` when a
           // TILL tag is present -- gives the TILL tag (rendered as its own floating sibling
           // above the date pill, not nested inside it) clearance against the poster's own
@@ -370,6 +375,24 @@ export function EventCard({
           (favorite BEFORE the navigate root) with no new logic. Scale follows the
           thumbnail's image presence: 'default' corner pill over the image, or 'large'
           centered control in the reserved-blank fallback. */}
+      {onFavoriteToggle && !isMasonryDefault && !posterImagePresent && (
+        // AC-IMG-3: no poster to show, so the large favorite control takes the poster area. It overlays the same square
+        // the poster wrapper below occupies (full card width, aspect-square, at the top), as a SIBLING of RootTag.
+        <div
+          className="absolute inset-x-0 top-0 z-30 aspect-square flex items-center justify-center pointer-events-none"
+          style={{ minHeight: `${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem` }}
+        >
+          <div className="pointer-events-auto">
+            <EventCardFavoriteBadge
+              scale="large"
+              isFavorited={isFavorited}
+              favoriteCount={favoriteCount}
+              onFavoriteToggle={onFavoriteToggle}
+              labels={{ favoriteToggle: defaultLabels.favoriteToggle }}
+            />
+          </div>
+        </div>
+      )}
       {isMasonryDefault && onFavoriteToggle && (
         <div
           className={
@@ -511,20 +534,10 @@ export function EventCard({
               // every sibling variant (VM2/VM6/VM7) already shows in its own reserved-blank
               // fallback, only when a favorite toggle is supplied; otherwise a plain reserved-
               // blank area (no control, no icon — this div's own bg-muted background).
-              onFavoriteToggle && (
-                <div
-                  className="flex items-center justify-center w-full h-full"
-                  style={{ minHeight: `${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem` }}
-                >
-                  <EventCardFavoriteBadge
-                    scale="large"
-                    isFavorited={isFavorited}
-                    favoriteCount={favoriteCount}
-                    onFavoriteToggle={onFavoriteToggle}
-                    labels={{ favoriteToggle: defaultLabels.favoriteToggle }}
-                  />
-                </div>
-              )
+              // The favorite control for this state is rendered as a sibling of the card's own link or button (below,
+              // after the corner button), never inside it: a button inside a button is invalid HTML and axe
+              // reports it as nested-interactive.
+              null
             )}
           </div>
         )}

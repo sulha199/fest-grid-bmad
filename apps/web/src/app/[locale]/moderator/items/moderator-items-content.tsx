@@ -161,7 +161,7 @@ export function ModeratorItemsContent() {
   if (error) {
     return (
       <div className="p-4 sm:p-8 w-full max-w-4xl mx-auto text-center space-y-4">
-        <h1 className="text-xl font-bold text-destructive">{t("errorTitle")}</h1>
+        <h1 className="text-xl font-bold text-destructive dark:text-red-400">{t("errorTitle")}</h1>
         <p className="text-muted-foreground">{t("errorDescription")}</p>
         <button
           onClick={refetchAll}

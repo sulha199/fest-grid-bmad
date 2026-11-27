@@ -71,6 +71,9 @@ export function PwaInstallIosModal({
       <div
         className="fixed inset-0 bg-black bg-opacity-50"
         data-testid="pwa-install-ios-modal-overlay"
+        // A scrim, not a control: Escape and the close button are the keyboard ways to dismiss the dialog.
+        role="presentation"
+        aria-hidden="true"
         onClick={onClose}
       />
       <div

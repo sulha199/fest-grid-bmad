@@ -32,7 +32,7 @@ export function AccountLocationField({
         <button
           type="button"
           onClick={onClear}
-          className="text-muted-foreground hover:text-destructive transition-colors p-1 hover:bg-accent/50 rounded flex items-center justify-center h-6 w-6 shrink-0"
+          className="text-muted-foreground hover:text-destructive dark:hover:text-red-400 transition-colors p-1 hover:bg-accent/50 rounded flex items-center justify-center h-6 w-6 shrink-0"
           aria-label={labels.clearLabel}
         >
           <MapPinOff className="h-3.5 w-3.5" />

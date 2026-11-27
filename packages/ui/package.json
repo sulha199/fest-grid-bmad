@@ -50,6 +50,7 @@
   },
   "scripts": {
     "test": "vitest run",
+    "test:a11y": "vitest run src/a11y",
     "test:tz": "cross-env FESTGRID_TEST_TZ=Asia/Jakarta vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/EventCard.timezone.test.tsx src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx && cross-env FESTGRID_TEST_TZ=America/Los_Angeles vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/EventCard.timezone.test.tsx src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx && cross-env FESTGRID_TEST_TZ=Pacific/Auckland vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/EventCard.timezone.test.tsx src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx && cross-env FESTGRID_TEST_TZ=Pacific/Kiritimati vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/EventCard.timezone.test.tsx src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx && cross-env FESTGRID_TEST_TZ=Pacific/Pago_Pago vitest run src/features/events/format-event-date.timezone.test.ts src/features/events/EventCard.timezone.test.tsx src/features/events/WeeklyCalendarView.timezone.test.tsx src/features/events/WeeklyCalendarView.test.tsx",
     "lint": "eslint . --max-warnings 0"
   },
@@ -57,6 +58,7 @@
     "@festgrid/eslint-config": "workspace:*",
     "@festgrid/testing-config": "workspace:*",
     "@festgrid/typescript-config": "workspace:*",
+    "@guidepup/virtual-screen-reader": "^0.33.0",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -64,7 +66,9 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
+    "axe-core": "^4.14.1",
     "eslint": "^9.9.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "jsdom": "^30.0.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.50.0",

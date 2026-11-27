@@ -184,7 +184,7 @@ export function AiFiltersContent() {
       <PageContainer fullWidth={false}>
         <PageHeader title={t("title")} />
         <div className="flex flex-col items-center justify-center p-12 border rounded-lg text-center space-y-4 bg-card text-card-foreground">
-          <p className="text-destructive font-medium">{t("errorState")}</p>
+          <p className="text-destructive dark:text-red-400 font-medium">{t("errorState")}</p>
         </div>
       </PageContainer>
     );
@@ -252,7 +252,7 @@ export function AiFiltersContent() {
                         handleDelete(filter.id);
                       }}
                       disabled={pending}
-                      className="p-2 hover:bg-accent text-destructive hover:text-destructive-foreground rounded-md transition-colors"
+                      className="p-2 hover:bg-accent text-destructive dark:text-red-400 hover:text-destructive-foreground rounded-md transition-colors"
                       aria-label="Delete"
                     >
                       <Trash2 className="h-4 w-4" />

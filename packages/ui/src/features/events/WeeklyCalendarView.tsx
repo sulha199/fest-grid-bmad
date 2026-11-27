@@ -889,7 +889,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   // Loading Skeleton State (AC11)
   if (status === 'loading') {
     return (
-      <div className={`${CALENDAR_BASE_CLASS} ${className} animate-pulse`} aria-busy="true" aria-label={defaultLabels.loadingText}>
+      <div className={`${CALENDAR_BASE_CLASS} ${className} animate-pulse`} role="status" aria-busy="true" aria-label={defaultLabels.loadingText}>
         <div className={HEADER_CLASS}>
           <div className="h-7 w-48 bg-gray-200 rounded" />
           <div className="flex gap-2">
@@ -930,7 +930,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   // Error State (AC11)
   if (status === 'error') {
     return (
-      <div className={`${CALENDAR_BASE_CLASS} p-6 bg-destructive/5 text-destructive border-destructive/20 ${className}`}>
+      <div className={`${CALENDAR_BASE_CLASS} p-6 bg-destructive/5 text-destructive dark:text-red-400 border-destructive/20 ${className}`}>
         <h3 className="text-lg font-bold mb-2">Error loading calendar events</h3>
         <p className="text-sm font-medium mb-1">{errorMessage || 'An unexpected error occurred.'}</p>
         {errorDetail && (
@@ -1683,7 +1683,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
           location={schedule.locationName}
           imageUrl={schedule.imageUrl}
           imageFallbackUrl={schedule.imageFallbackUrl}
-          imageAlt={schedule.eventName}
+          imageAlt="" // decorative: the item's title already names the event
           isMultiDay
           isFavorited={schedule.isFavorited}
           favoriteCount={schedule.favoriteCount}

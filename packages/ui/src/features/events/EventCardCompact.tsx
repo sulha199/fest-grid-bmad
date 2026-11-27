@@ -239,7 +239,7 @@ export function EventCardCompact({
           size="compact"
           imageUrl={imageUrl}
           imageFallbackUrl={imageFallbackUrl}
-          imageAlt={eventName}
+          imageAlt="" // decorative: the row's title already names the event
           collapseOnFallback
           // The with-image favorite pill is composed externally below (card-corner position,
           // like the TILL tag) -- the slot itself renders no favorite control at all (Story

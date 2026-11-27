@@ -153,7 +153,7 @@ export default function WidgetsPage() {
                     </button>
                     <button
                       onClick={() => handleDelete(widget.id)}
-                      className="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors border border-destructive text-destructive bg-background hover:bg-destructive/10 h-8 px-3"
+                      className="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors border border-destructive text-destructive dark:text-red-400 bg-background hover:bg-destructive/10 h-8 px-3"
                     >
                       Delete
                     </button>
@@ -247,7 +247,7 @@ export default function WidgetsPage() {
                 value={filtersText}
                 onChange={(e) => setFiltersText(e.target.value)}
                 placeholder='e.g. { "types": ["FESTIVAL"] }'
-                className="w-full h-32 text-xs p-3 font-mono rounded-md border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="w-full h-32 text-xs p-3 font-mono rounded-md border border-field-border bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 required
               />
             </div>

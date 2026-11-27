@@ -121,7 +121,7 @@ export function ApiKeysContent() {
   if (error) {
     return (
       <PageContainer fullWidth={false} className="text-center space-y-4">
-        <p className="text-destructive font-medium">{t("errorState")}</p>
+        <p className="text-destructive dark:text-red-400 font-medium">{t("errorState")}</p>
         <Button onClick={() => refetch()} variant="outline">
           {t("retryButtonLabel")}
         </Button>
@@ -184,7 +184,7 @@ export function ApiKeysContent() {
                         onClick={() => handleDelete(key)}
                         disabled={pending}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className="h-4 w-4 text-destructive dark:text-red-400" />
                         <span className="sr-only">{t("revokeButtonLabel")}</span>
                       </Button>
                     </TableCell>

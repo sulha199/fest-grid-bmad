@@ -15,7 +15,7 @@ const BASE_CLASS =
 const OPTION_CLASS =
   'flex-1 sm:flex-none min-h-11 px-3 py-1.5 rounded text-sm font-medium text-center transition-colors';
 const OPTION_ACTIVE_CLASS = 'bg-violet-600 text-white';
-const OPTION_INACTIVE_CLASS = 'text-gray-600 hover:bg-gray-100';
+const OPTION_INACTIVE_CLASS = 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800';
 
 /**
  * Segmented Today / Upcoming / All temporal filter toggle (IDEA-019, AD-20). Built on the

@@ -3327,3 +3327,60 @@ items:
      ref: [apps/backend/src/lib/accounts/resolve-profile-by-username.ts, planning-artifacts/festgrid-architecture-spine.md, backlog/BUG-059-subscribed-profile-twin-split.md],
      touches: [app:backend, web:accounts],
      note: "AD-35 Rule 4 tie-break is now active subscription, then scraped, then numeric, then oldest. Twin rows remain until BUG-059 story 4. findProfileByUsername (oldest row wins) only reads, but subscribe-to-account uses it to pick the row a new subscription is written to; it runs only when no row has the submitted account_id, so it can pick a numeric twin only after e.g. a rename. Not changed."}
+
+  # ── 2026-11-27 (accessibility follow-ups from PR 272: WCAG 2.2 AA ratchet and the contrast fixes) ──
+  FIND-261127-opn:
+    {type: finding, status: backlog, created: 2026-11-27,
+     impact: compliance, effort: m,
+     title: "Manual keyboard-only and real screen reader pass (NVDA, JAWS, VoiceOver) on the WCAG surfaces; no conformance claim until recorded",
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
+     touches: [web:events, pkg:ui, cross:prd, cross:process],
+     note: "PRD Section 5 Accessibility: the automated suites pass but cannot judge focus order, visible focus or spoken output; FestDaily may not say WCAG compliant until a person has done and recorded this."}
+
+  FIND-261127-eyf:
+    {type: finding, status: backlog, created: 2026-11-27,
+     impact: user-visible, effort: s,
+     title: "Secondary button hover fill (bg-secondary/80) keeps white text at 3.18:1, below 4.5:1",
+     ref: [planning-artifacts/a11y-contrast-proposal-2026-11-27.md],
+     touches: [pkg:ui, web:system, cross:ux-tokens],
+     note: "An 80% fill washes the colour out at any base lightness; needs a different hover treatment (darker fill or /90). bg-destructive/90 now passes at 4.53."}
+
+  BUG-261127-b1x:
+    {type: bug, status: backlog, created: 2026-11-27,
+     impact: user-visible, effort: xs,
+     title: "AI filter success message: text-emerald-600 on bg-emerald-50 is 3.58:1 (text-emerald-700 gives 5.21)",
+     ref: [packages/ui/src/features/events/AIFilterOverlay.tsx],
+     touches: [pkg:ui, web:events],
+     note: "Not caught by the browser suite because no scenario opens the AI filter result state; add one with the fix."}
+
+  FIND-261127-prm:
+    {type: finding, status: backlog, created: 2026-11-27,
+     impact: user-visible, effort: s,
+     title: "Dark theme: border-destructive (error field outlines, 9 uses) is the dark-red button fill, about 2:1 on the dark page",
+     ref: [planning-artifacts/a11y-contrast-proposal-2026-11-27.md],
+     touches: [pkg:ui, web:system, cross:ux-tokens],
+     note: "text-destructive got dark:text-red-400; the border form did not. WCAG 1.4.11 applies where the red outline is the only error cue. Unmeasured: no scenario shows an invalid field in dark."}
+
+  IDEA-261127-skg:
+    {type: idea, status: backlog, created: 2026-11-27,
+     impact: compliance, effort: m,
+     title: "Extend the enforced jsx-a11y lint and the real-browser axe suite beyond the first WCAG surfaces (settings, account, posts, moderator, wizard)",
+     ref: [planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md],
+     touches: [web:settings, web:accounts, web:posts, web:moderation, web:wizard, cross:prd],
+     note: "A screen carries no commitment until listed in PRD Section 5. The wizard pages hard-code bg-white (no dark theme), so they need a theme decision before a dark audit."}
+
+  FIND-261127-hn8:
+    {type: finding, status: backlog, created: 2026-11-27,
+     impact: internal, effort: s,
+     title: "jsdom accessibility cases still missing for CorrectionDialog, EventDetailWrapper (previous/next, related events), home-content and CalendarView",
+     ref: [],
+     touches: [pkg:ui, web:events],
+     note: "Listed as known gaps in Accessibility rule 8; the browser suite renders them but the axe, keyboard and screen reader unit suites do not."}
+
+  FIND-261127-fva:
+    {type: finding, status: backlog, created: 2026-11-27,
+     impact: internal, effort: s,
+     title: "Backend row-count ratchet failed once on CI (user_locations 2 -> 3) with every test green; not reproduced locally",
+     ref: [apps/backend/scripts/run-tests-with-row-count-ratchet.ts],
+     touches: [app:backend, cross:process],
+     note: "PR 272 run 46002738213 (backend tests took 22 min, about twice normal); the re-run on a docs-only commit and a fresh-DB local run both passed. Only createUserLocation inserts that table; suspect a late write from a slow runner. Log the test file in progress when it recurs."}

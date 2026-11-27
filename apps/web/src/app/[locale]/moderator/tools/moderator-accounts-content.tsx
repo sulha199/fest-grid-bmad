@@ -97,7 +97,7 @@ export function ModeratorAccountsContent() {
       {!!accountsError && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <div className="flex items-center gap-3">
-            <div className="text-destructive">✕</div>
+            <div className="text-destructive dark:text-red-400">✕</div>
             <div>
               <h3 className="font-semibold">{t('errorHeadline')}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{(accountsError as any)?.message || t('unknownError')}</p>

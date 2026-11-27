@@ -322,11 +322,11 @@ describe('FavoritesContent', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
+    const removeButton = screen.getAllByRole('button', { name: /^Remove from Favorites/ })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {
-      const article = screen.getAllByRole('article').find((el) => el.getAttribute('aria-disabled') === 'true');
+      const article = screen.getAllByRole('article').find((el) => el.getAttribute('data-pending-removal') === 'true');
       expect(article).toBeTruthy();
     });
 
@@ -342,7 +342,7 @@ describe('FavoritesContent', () => {
     fireEvent.click(undoButton);
 
     await waitFor(() => {
-      const pendingArticles = screen.getAllByRole('article').filter((el) => el.getAttribute('aria-disabled') === 'true');
+      const pendingArticles = screen.getAllByRole('article').filter((el) => el.getAttribute('data-pending-removal') === 'true');
       expect(pendingArticles).toHaveLength(0);
     });
 
@@ -363,11 +363,11 @@ describe('FavoritesContent', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
+    const removeButton = screen.getAllByRole('button', { name: /^Remove from Favorites/ })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {
-      const article = screen.getAllByRole('article').find((el) => el.getAttribute('aria-disabled') === 'true');
+      const article = screen.getAllByRole('article').find((el) => el.getAttribute('data-pending-removal') === 'true');
       expect(article).toBeTruthy();
     });
 
@@ -382,7 +382,7 @@ describe('FavoritesContent', () => {
     fireEvent.click(removeButton);
 
     await waitFor(() => {
-      const pendingArticles = screen.getAllByRole('article').filter((el) => el.getAttribute('aria-disabled') === 'true');
+      const pendingArticles = screen.getAllByRole('article').filter((el) => el.getAttribute('data-pending-removal') === 'true');
       expect(pendingArticles).toHaveLength(0);
     });
 
@@ -402,7 +402,7 @@ describe('FavoritesContent', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
+    const removeButton = screen.getAllByRole('button', { name: /^Remove from Favorites/ })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {
@@ -497,11 +497,11 @@ describe('FavoritesContent - Story 0.i5e (pagination controller)', () => {
       expect(screen.getByText('Event evt-1')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getAllByRole('button', { name: 'Remove from Favorites' })[0];
+    const removeButton = screen.getAllByRole('button', { name: /^Remove from Favorites/ })[0];
     fireEvent.click(removeButton);
 
     await waitFor(() => {
-      const article = screen.getAllByRole('article').find((el) => el.getAttribute('aria-disabled') === 'true');
+      const article = screen.getAllByRole('article').find((el) => el.getAttribute('data-pending-removal') === 'true');
       expect(article).toBeTruthy();
     });
 
@@ -513,7 +513,7 @@ describe('FavoritesContent - Story 0.i5e (pagination controller)', () => {
     fireEvent.click(festivalOption);
 
     await waitFor(() => {
-      const pendingArticles = screen.getAllByRole('article').filter((el) => el.getAttribute('aria-disabled') === 'true');
+      const pendingArticles = screen.getAllByRole('article').filter((el) => el.getAttribute('data-pending-removal') === 'true');
       expect(pendingArticles).toHaveLength(0);
     });
   });

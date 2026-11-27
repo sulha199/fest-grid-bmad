@@ -84,11 +84,12 @@ export function ReportDialog({ isOpen, onClose, eventId, onReported }: ReportDia
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              <span id="report-reason-label" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
                 {t("reasonLabel") || "Reason for reporting"}
-              </label>
+              </span>
               
               <RadioGroup
+                aria-labelledby="report-reason-label"
                 value={selectedReason || ""}
                 onValueChange={(val) => setSelectedReason(val as ReportReason)}
                 disabled={isPending}

@@ -63,7 +63,7 @@ export function SubscribedAccountCard({
           )}
         </div>
         {location && isLocationTrustworthy(location) ? (
-          <span className={`truncate text-gray-500 ${usernameTextClass}`}>
+          <span className={`truncate text-gray-500 dark:text-gray-400 ${usernameTextClass}`}>
             <LocationLink
               name={location.name}
               searchQuery={buildLocationSearchQuery({ name: location.name, city: location.city })}
@@ -71,7 +71,7 @@ export function SubscribedAccountCard({
           </span>
         ) : (
           account.displayName && account.username && (
-            <span className={`truncate text-gray-500 ${usernameTextClass}`} title={account.username}>@{account.username}</span>
+            <span className={`truncate text-gray-500 dark:text-gray-400 ${usernameTextClass}`} title={account.username}>@{account.username}</span>
           )
         )}
       </div>

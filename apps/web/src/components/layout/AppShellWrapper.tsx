@@ -244,6 +244,7 @@ export function AppShellWrapper({ children }: { children: ReactNode }) {
         moderatorPendingItemCount={moderatorPendingItemCount}
         jobsBadgeCount={jobsFinishedCount}
         jobsBadgeLabel={userMenuLabels.jobsBadgeLabel}
+        moderatorPendingLabel={moderatorPendingItemCount > 0 ? tUserMenu('moderatorPendingLabel', { count: moderatorPendingItemCount }) : undefined}
         onSignOut={signOut}
         userMenuLabels={userMenuLabels}
         resolveHref={(entry) => (entry.requiresApiKey && !hasApiKey ? `/wizard/onboarding/api-key?redirect=${encodeURIComponent(entry.href || '/')}` : entry.href || '/')}

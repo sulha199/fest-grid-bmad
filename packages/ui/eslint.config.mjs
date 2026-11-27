@@ -1,4 +1,5 @@
 import tseslint from 'typescript-eslint';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import { config as reactInternalConfig } from '@festgrid/eslint-config/react-internal';
 import noDynamicTailwindArbitraryValue from './eslint-rules/no-dynamic-tailwind-arbitrary-value.mjs';
 
@@ -15,6 +16,25 @@ import noDynamicTailwindArbitraryValue from './eslint-rules/no-dynamic-tailwind-
  */
 export default [
   ...reactInternalConfig,
+  // Accessibility lint (project-context.md "Accessibility"): the jsx-a11y recommended rules, enforced on the surfaces
+  // the WCAG commitment covers (navbar, event list, event detail and the shared controls they use). Warnings fail the
+  // build here (`--max-warnings 0`). Tests are excluded. A new surface joins this list when it joins the commitment.
+  {
+    files: [
+      'src/features/events/**/*.{ts,tsx}',
+      'src/core/app-shell/**/*.{ts,tsx}',
+      'src/core/*.{ts,tsx}',
+      'src/core/ui/**/*.{ts,tsx}',
+    ],
+    ignores: ['**/*.test.{ts,tsx}'],
+    languageOptions: { parser: tseslint.parser },
+    plugins: { 'jsx-a11y': jsxA11y },
+    rules: {
+      ...jsxA11y.flatConfigs.recommended.rules,
+      // The label text sits two levels down (label > div > span), deeper than the rule's default depth of 2.
+      'jsx-a11y/label-has-associated-control': ['warn', { depth: 4 }],
+    },
+  },
   {
     files: ['src/features/events/**/*.{ts,tsx}'],
     // `InstagramEmbed.tsx` carries a pre-existing `eslint-disable-next-line

@@ -81,7 +81,7 @@ export function PayloadListItem({ payload, onReprocess, onDelete, isReprocessing
                 setIsDeleted(true)
                 onDelete(payload.id)
               }}
-              className="inline-flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/20"
+              className="inline-flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive dark:text-red-400 hover:bg-destructive/20"
               disabled={isDeleting}
             >
               {isDeleting ? t("deletingLabel") : t("deleteButton")}

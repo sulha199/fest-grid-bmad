@@ -285,7 +285,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
         />
       );
 
-      const button = screen.getByRole('button', { name: 'Toggle favorite' });
+      const button = screen.getByRole('button', { name: /^Toggle favorite/ });
       fireEvent.click(button);
       expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
       expect(screen.getByText('12')).toBeInTheDocument();
@@ -293,7 +293,7 @@ describe('EventCardCalendarGridItem (Story 1.i1f AC15-16)', () => {
 
     it('does not render a favorite control when onFavoriteToggle is not provided', () => {
       render(<EventCardCalendarGridItem {...defaultProps} />);
-      expect(screen.queryByRole('button', { name: 'Toggle favorite' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Toggle favorite/ })).not.toBeInTheDocument();
     });
   });
 

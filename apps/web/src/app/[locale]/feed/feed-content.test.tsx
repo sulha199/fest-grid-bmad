@@ -436,7 +436,7 @@ describe('FeedContent - Story 0.i5e (pagination controller)', () => {
     // Pre-toggle state: favorited, count 5
     expect(screen.getByText('5')).toBeInTheDocument();
 
-    const toggleButton = screen.getByRole('button', { name: 'Remove from Favorites' });
+    const toggleButton = screen.getByRole('button', { name: /^Remove from Favorites/ });
     fireEvent.click(toggleButton);
 
     await waitFor(() => {

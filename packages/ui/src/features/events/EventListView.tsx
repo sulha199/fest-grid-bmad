@@ -36,10 +36,10 @@ export function EventListView<TEvent extends EventListViewItem>({
 
   if (status === 'error') {
     return (
-      <div className="text-center py-10 text-destructive">
+      <div className="text-center py-10 text-destructive dark:text-red-400">
         {errorMessage && <p>{errorMessage}</p>}
         {errorDetail && (
-          <pre className="text-xs mt-4 text-left max-w-full overflow-auto bg-destructive/10 p-4 rounded text-destructive">
+          <pre className="text-xs mt-4 text-left max-w-full overflow-auto bg-destructive/10 p-4 rounded text-destructive dark:text-red-400">
             {errorDetail}
           </pre>
         )}

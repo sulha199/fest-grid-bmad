@@ -545,11 +545,12 @@ describe('EventDetailView', () => {
     const onAddToCalendar = vi.fn();
     render(<EventDetailView {...minimalProps} onFavoriteToggle={onFavoriteToggle} onAddToCalendar={onAddToCalendar} isFavorited={true} isAddedToCalendar={false} />);
 
-    const favBtn = screen.getByRole('button', { name: 'Remove from Favorites' });
+    const favBtn = screen.getByRole('button', { name: /^Remove from Favorites/ });
     const heading = screen.getByRole('heading', { name: 'Test Event' });
 
     expect(favBtn).toBeInTheDocument();
-    expect(favBtn).toHaveAttribute('aria-pressed', 'true');
+    // The state is carried by the name ("Remove from Favorites"), not by aria-pressed as well: both together read twice.
+    expect(favBtn).not.toHaveAttribute('aria-pressed');
     expect(heading.parentElement).toContainElement(favBtn);
     expect(heading).toHaveClass('text-2xl');
     expect(heading).not.toHaveClass('text-3xl');
@@ -567,7 +568,7 @@ describe('EventDetailView', () => {
     const onFavoriteToggle = vi.fn();
     render(<EventDetailView {...minimalProps} onFavoriteToggle={onFavoriteToggle} isFavorited={false} favoriteCount={12} />);
 
-    const favBtn = screen.getByRole('button', { name: 'Add to Favorites' });
+    const favBtn = screen.getByRole('button', { name: /^Add to Favorites/ });
     expect(favBtn).toHaveTextContent('12');
   });
 
@@ -575,7 +576,7 @@ describe('EventDetailView', () => {
     const onFavoriteToggle = vi.fn();
     render(<EventDetailView {...minimalProps} onFavoriteToggle={onFavoriteToggle} isFavorited={false} favoriteCount={0} />);
 
-    const favBtn = screen.getByRole('button', { name: 'Add to Favorites' });
+    const favBtn = screen.getByRole('button', { name: /^Add to Favorites/ });
     expect(favBtn).toHaveTextContent('0');
   });
 
@@ -583,7 +584,7 @@ describe('EventDetailView', () => {
     const onFavoriteToggle = vi.fn();
     render(<EventDetailView {...minimalProps} onFavoriteToggle={onFavoriteToggle} isFavorited={false} />);
 
-    const favBtn = screen.getByRole('button', { name: 'Add to Favorites' });
+    const favBtn = screen.getByRole('button', { name: /^Add to Favorites/ });
     expect(favBtn).toHaveTextContent('');
   });
 

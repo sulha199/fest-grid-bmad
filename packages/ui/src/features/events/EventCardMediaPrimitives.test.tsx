@@ -251,7 +251,7 @@ describe('EventCardFavoriteBadge - AC5 (i18n label plumbing matching EventCard c
 
   it('falls back to the English default "Toggle favorite" when no label is provided', () => {
     render(<EventCardFavoriteBadge scale="default" onFavoriteToggle={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Toggle favorite/ })).toBeInTheDocument();
   });
 
   it('accepts the same favoriteToggle override shape as EventCardLabels', () => {
@@ -360,7 +360,7 @@ describe('EventCardFavoriteBadge icon/text-size overrides (Story 1.i1m AC5)', ()
 
   it('uses the ratio-derived default icon size and fixed text-sm when neither override is supplied (masonry/default regression guard)', () => {
     render(<EventCardFavoriteBadge scale="large" onFavoriteToggle={vi.fn()} favoriteCount={3} />);
-    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    const button = screen.getByRole('button', { name: /^Toggle favorite/ });
     expect(button.className).toMatch(/\btext-sm\b/);
     const heart = button.querySelector('svg');
     const expected = expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE);
@@ -385,7 +385,7 @@ describe('EventCardFavoriteBadge icon/text-size overrides (Story 1.i1m AC5)', ()
         largeTextSizeClassName="text-sm [@container(min-width:490px)]:text-base"
       />
     );
-    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    const button = screen.getByRole('button', { name: /^Toggle favorite/ });
     expect(button.className).toMatch(/\[@container\(min-width:490px\)\]:text-base\b/);
     const heart = button.querySelector('svg');
     expect(heart?.style.width).toBe(overrideStyle.width);
@@ -533,7 +533,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
     expect(badge).toHaveTextContent(text);
     expect(badge).toHaveClass('bg-muted');
     expect(badge).toHaveClass('text-muted-foreground');
-    expect(badge).not.toHaveClass('bg-emerald-600');
+    expect(badge).not.toHaveClass('bg-emerald-700');
     expect(badge).not.toHaveClass('text-white');
   });
 
@@ -541,7 +541,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
     const { container } = render(<EventCardStatusBadge text="Happening Now" variant="happeningNow" />);
     const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
     expect(badge).toHaveTextContent('Happening Now');
-    expect(badge).toHaveClass('bg-emerald-600');
+    expect(badge).toHaveClass('bg-emerald-700');
     expect(badge).toHaveClass('text-white');
     expect(badge).not.toHaveClass('bg-muted');
     expect(badge).not.toHaveClass('text-muted-foreground');
@@ -556,7 +556,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
   it('keeps one shared geometry across both variants (only color differs per state)', () => {
     // Strips only the four color utilities that distinguish the two DESIGN.md shapes, so any
     // geometry drift between the neutral and emerald variants fails here.
-    const COLOR_CLASSES = ['bg-muted', 'text-muted-foreground', 'bg-emerald-600', 'text-white'];
+    const COLOR_CLASSES = ['bg-muted', 'text-muted-foreground', 'bg-emerald-700', 'text-white'];
     const shapeOf = (className: string) => className.split(' ').filter((c) => !COLOR_CLASSES.includes(c));
 
     const { container, rerender } = render(<EventCardStatusBadge text="Upcoming" />);

@@ -101,7 +101,7 @@ export function LocationPickerField({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={addressPlaceholder}
-          className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-10 w-full rounded-md border border-field-border bg-background pl-9 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           required
         />
       </div>
@@ -132,7 +132,7 @@ export function LocationPickerField({
       </div>
 
       {error && (
-        <p className="text-xs text-destructive pt-1" data-testid="geolocation-error">
+        <p className="text-xs text-destructive dark:text-red-400 pt-1" data-testid="geolocation-error">
           {error}
         </p>
       )}

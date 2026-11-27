@@ -121,7 +121,7 @@ export function LocationsContent() {
   if (error) {
     return (
       <PageContainer fullWidth={false} className="text-center space-y-4">
-        <p className="text-destructive font-medium">{t("errorState")}</p>
+        <p className="text-destructive dark:text-red-400 font-medium">{t("errorState")}</p>
         <button
           onClick={() => refetch()}
           className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
@@ -194,7 +194,7 @@ export function LocationsContent() {
                     <button
                       onClick={() => handleDelete(loc)}
                       disabled={pending}
-                      className="p-2 hover:bg-accent text-destructive hover:text-destructive-foreground rounded-md transition-colors"
+                      className="p-2 hover:bg-accent text-destructive dark:text-red-400 hover:text-destructive-foreground rounded-md transition-colors"
                       aria-label="Delete"
                     >
                       <Trash2 className="h-4 w-4" />

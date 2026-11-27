@@ -6,8 +6,10 @@
     "dev": "node scripts/copy-maplibre-worker.mjs && next dev",
     "build": "node scripts/copy-maplibre-worker.mjs && NODE_USE_ENV_PROXY=1 next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint && pnpm run lint:a11y",
+    "lint:a11y": "eslint --config eslint.a11y.config.mjs --max-warnings 0 .",
     "test": "vitest run",
+    "test:a11y": "vitest run src/a11y",
     "test:e2e": "playwright test",
     "e2e:save-auth": "node e2e/save-storage-state.mjs",
     "codegen": "graphql-codegen --config codegen.ts && node fix-codegen.js"
@@ -48,6 +50,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
     "@festgrid/eslint-config": "workspace:*",
     "@festgrid/testing-config": "workspace:^",
     "@festgrid/typescript-config": "workspace:*",
@@ -66,6 +69,8 @@
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10.5.4",
+    "axe-core": "^4.14.1",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "jsdom": "^30.0.1",
     "msw": "2.15.0",
     "postcss": "^8.5.22",

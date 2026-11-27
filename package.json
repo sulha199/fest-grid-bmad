@@ -10,6 +10,7 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint --filter=!@festgrid/ai-dev-orchestrator",
     "test": "turbo run test --filter=!@festgrid/ai-dev-orchestrator",
+    "test:a11y": "turbo run test:a11y --filter=@festgrid/ui --filter=web",
     "coverage:badge": "node scripts/coverage-badge.mjs"
   },
   "devDependencies": {

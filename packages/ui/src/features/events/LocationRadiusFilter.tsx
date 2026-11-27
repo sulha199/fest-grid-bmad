@@ -33,7 +33,7 @@ export function LocationRadiusFilter({
           value={selectedValue || "off"}
           onChange={(e) => onSelectLocation(e.target.value)}
           disabled={isLoadingLocations}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-10 w-full rounded-md border border-field-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <option value="off">{labels.offOptionLabel}</option>
           {savedLocations.map((loc) => (
@@ -49,7 +49,7 @@ export function LocationRadiusFilter({
           </span>
         )}
         {locationsError && (
-          <span className="text-xs text-destructive" role="alert">
+          <span className="text-xs text-destructive dark:text-red-400" role="alert">
             {labels.locationsErrorLabel}
           </span>
         )}
@@ -92,10 +92,10 @@ export function LocationRadiusFilter({
           </div>
         )}
         {currentLocationError === "permission-denied" && (
-          <p className="text-destructive">{labels.permissionDeniedLabel}</p>
+          <p className="text-destructive dark:text-red-400">{labels.permissionDeniedLabel}</p>
         )}
         {currentLocationError && currentLocationError !== "permission-denied" && (
-          <p className="text-destructive">{labels.unavailableLabel}</p>
+          <p className="text-destructive dark:text-red-400">{labels.unavailableLabel}</p>
         )}
       </div>
     </div>

@@ -162,7 +162,7 @@ export function AIFilterOverlay({
               placeholder={labels.placeholder}
               rows={4}
               disabled={isLoading || !!resolvedSummary}
-              className="w-full p-4 text-base rounded-xl border border-input bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 resize-none shadow-sm"
+              className="w-full p-4 text-base rounded-xl border border-field-border bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 resize-none shadow-sm"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey && !resolvedSummary) {
                   e.preventDefault();
@@ -193,7 +193,7 @@ export function AIFilterOverlay({
             )}
 
             {error && (
-              <div role="alert" className="text-sm font-medium text-destructive mt-1 p-3 bg-destructive/10 rounded-lg">
+              <div role="alert" className="text-sm font-medium text-destructive dark:text-red-400 mt-1 p-3 bg-destructive/10 rounded-lg">
                 {error}
               </div>
             )}
@@ -215,7 +215,7 @@ export function AIFilterOverlay({
             )}
 
             {saveError && (
-              <div role="alert" className="text-sm font-medium text-destructive mt-1 p-3 bg-destructive/10 rounded-lg">
+              <div role="alert" className="text-sm font-medium text-destructive dark:text-red-400 mt-1 p-3 bg-destructive/10 rounded-lg">
                 {saveError}
               </div>
             )}

@@ -294,7 +294,9 @@ export function EventCardFavoriteBadge({
   return (
     <button
       type="button"
-      aria-label={defaultLabels.favoriteToggle}
+      // The visible count is part of the name (WCAG 2.5.3, label in name): "Toggle favorite 4".
+      aria-label={favoriteCount !== undefined ? `${defaultLabels.favoriteToggle} ${favoriteCount}` : defaultLabels.favoriteToggle}
+      aria-pressed={isFavorited}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -441,14 +443,14 @@ const EVENT_CARD_STATUS_BADGE_VARIANT_CLASS: Record<
   string
 > = {
   default: 'bg-muted text-muted-foreground',
-  happeningNow: 'bg-emerald-600 text-white',
+  happeningNow: 'bg-emerald-700 text-white',
   // "Ending soon" (statusEndsAt/statusEndsToday) — reuses the masonry TILL tag's own amber-700
   // (verified ~5.03:1 contrast on white, DESIGN.md's event_card_till_badge note), so amber reads
   // as one consistent "end-time" color across the card family.
   endingSoon: 'bg-amber-700 text-white',
   // "Starting soon" (statusInHours) — distinct from amber (ending) and emerald (live now);
   // sky rather than indigo/violet since the calendar card's own chrome already uses violet-50/200.
-  startingSoon: 'bg-sky-600 text-white',
+  startingSoon: 'bg-sky-700 text-white',
 };
 
 export function EventCardStatusBadge({

@@ -205,7 +205,7 @@ export function UserMenu({
                 onClose();
               }}
               onKeyDown={handleKeyDownOnLastItem}
-              className="min-h-11 w-full flex items-center gap-3 px-4 py-2 hover:bg-muted text-sm text-destructive hover:text-destructive rounded-md transition-colors text-start"
+              className="min-h-11 w-full flex items-center gap-3 px-4 py-2 hover:bg-muted text-sm text-destructive dark:text-red-400 hover:text-destructive dark:hover:text-red-400 rounded-md transition-colors text-start"
             >
               <LogOut className="h-4 w-4" />
               <span>{labels.logout || 'Log Out'}</span>
