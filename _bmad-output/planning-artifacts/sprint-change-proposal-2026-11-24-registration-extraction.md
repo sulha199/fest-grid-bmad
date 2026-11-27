@@ -4,7 +4,9 @@ date: 2026-11-24
 trigger_story: none (POC-driven owner request; change trigger = planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md)
 scope: Major
 mode: Batch (unattended scheduled run; nobody could answer questions)
-status: proposed (awaiting owner approval; NOT approved)
+status: approved
+approved: 2026-11-27
+approved_by: owner (project owner, in chat)
 revision: 7 (2026-11-27, input section 16: owner accepted the recommendations for Q7 to Q12; reviewer summary added; consistency pass)
 ---
 
@@ -12,7 +14,8 @@ revision: 7 (2026-11-27, input section 16: owner accepted the recommendations fo
 
 ## Reviewer summary
 
-Status **proposed, not approved**. 32 stories in two new epics; no question open (Q1 to Q12 answered, section 11).
+Status **approved** by the owner on 2026-11-27 (in chat); being applied to the PRD, UX, architecture, `epics.md` and
+`sprint-status.yaml`. 32 stories in two new epics; no question open (Q1 to Q12 answered, section 11).
 
 **Epic 11 Extraction and honest dates (21):**
 11.1 Prompt seam in the extraction request builder · 11.2 Replay release gate, fresh caption set per release ·
@@ -285,7 +288,7 @@ match in the wrong city, registration windows winning the card date). Revision 6
 | 4.4 Path | [x] | Direct adjustment through two new feature epics, gated by a replay gate (section 3.3). |
 | 5.x Proposal parts | [x] | This document. |
 | 6.1-6.2 Review | [x] | Self-reviewed; inconsistencies in section 9, owner questions in section 11. |
-| 6.3 Approval | [!] | **Not obtained (unattended run). Stops here.** |
+| 6.3 Approval | [x] | **Approved by the owner on 2026-11-27 (in chat).** Applied to PRD, UX, spine, `epics.md` and `sprint-status.yaml` by a scheduled planning run the same day. |
 | 6.4 sprint-status | [N/A until approval] | Not edited. Proposed keys in section 5.4. |
 | 6.4a backlog.yaml | [x] | Row `CC-261124-vjh` (status `triaged`) and 13 child rows; checks run (section 10). |
 | 6.5 Handoff | [x] | Section 8. |

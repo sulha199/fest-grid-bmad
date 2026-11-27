@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-11-24"
+last_updated: "2026-11-27"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -3149,7 +3149,7 @@ items:
      title: "Registration options, CTA bar, composed highlight, honest dates and the extraction update",
      ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, cross:prd, cross:architecture, web:events, pkg:domain, pkg:database, pkg:ui, app:backend],
-     note: "Proposed, not approved. Revision 7 (2026-11-27): Q7-Q12 answered as recommended, no question open; 32 stories in Epics 11 and 12; reviewer summary at the top."}
+     note: "Approved by the owner 2026-11-27 (revision 7); planning edits being applied; 32 stories in Epics 11 and 12, none created yet."}
 
   IDEA-261124-8jo:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
