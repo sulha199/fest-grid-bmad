@@ -3149,7 +3149,7 @@ items:
      title: "Registration options, CTA bar, composed highlight, honest dates and the extraction update",
      ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [cross:ai-extraction, cross:prd, cross:architecture, web:events, pkg:domain, pkg:database, pkg:ui, app:backend],
-     note: "Approved by the owner 2026-11-27 (revision 7); planning edits being applied; 32 stories in Epics 11 and 12, none created yet."}
+     note: "Approved 2026-11-27; PRD, UX, spine (AD-55..AD-61), epics.md and sprint-status keys applied; Epics 11 and 12 (32 stories) in backlog, no story file yet."}
 
   IDEA-261124-8jo:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
@@ -3181,7 +3181,7 @@ items:
      title: "Filter header: one scrolling facet row, chevron triggers, AI button on the search row, icon buttons, collapse motion",
      ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
      touches: [web:events, pkg:ui, cross:ux-tokens, cross:i18n],
-     note: "Handoff sections 9 and 11. The time filter left this row for proposed Story 11.22 (input 15, revision 6); the rest stays here (A8)."}
+     note: "Handoff sections 9 and 11. The time filter left this row for Story 11.22 (Epic 11, backlog since 2026-11-27); the rest stays here (A8)."}
 
   IDEA-261124-nta:
     {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
@@ -3192,12 +3192,12 @@ items:
      note: "Owner decision D9: its own epic, needs a scheduling backend; kept out of the CTA bar scope."}
 
   FIND-261124-axb:
-    {type: finding, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+    {type: finding, status: backlog, created: 2026-11-24, parent: CC-261124-vjh, epic: epic-11,
      impact: user-visible, effort: m,
      title: "Remaining geocoding gaps: never-attempted schedules, silent account-default fallback, city check",
      ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
      touches: [web:locations, app:backend, pkg:domain],
-     note: "Handoff 13E. In scope since revision 6 (input 15): proposed Stories 11.19, 11.20, 11.21, active schedules only (486 never attempted on 2026-11-26); past pins stay."}
+     note: "Handoff 13E. Covered by Stories 11.19, 11.20, 11.21 (Epic 11, backlog since 2026-11-27), active schedules only (486 never attempted on 2026-11-26); past pins stay."}
 
   IDEA-261124-5yi:
     {type: idea, status: skipped, created: 2026-11-24, parent: CC-261124-vjh,

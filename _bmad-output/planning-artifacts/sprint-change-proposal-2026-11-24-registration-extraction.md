@@ -289,7 +289,7 @@ match in the wrong city, registration windows winning the card date). Revision 6
 | 5.x Proposal parts | [x] | This document. |
 | 6.1-6.2 Review | [x] | Self-reviewed; inconsistencies in section 9, owner questions in section 11. |
 | 6.3 Approval | [x] | **Approved by the owner on 2026-11-27 (in chat).** Applied to PRD, UX, spine, `epics.md` and `sprint-status.yaml` by a scheduled planning run the same day. |
-| 6.4 sprint-status | [N/A until approval] | Not edited. Proposed keys in section 5.4. |
+| 6.4 sprint-status | [x] | Keys of section 5.4 added 2026-11-27 after approval (epics and stories in `backlog`); `epics.md` Epics 11 and 12 added the same day. |
 | 6.4a backlog.yaml | [x] | Row `CC-261124-vjh` (status `triaged`) and 13 child rows; checks run (section 10). |
 | 6.5 Handoff | [x] | Section 8. |
 
