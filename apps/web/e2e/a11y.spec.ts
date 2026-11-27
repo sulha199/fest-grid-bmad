@@ -12,8 +12,8 @@ import { resolve } from 'node:path';
  *
  * It is a ratchet with two parts. (1) Every rule that is not in `a11y-baseline.json` must report zero elements in every
  * scenario: names, roles, ARIA validity, label in name, nested controls and the like cannot regress. (2) The rules that
- * are listed there are known, open design findings (colour contrast of a few colours, and the repeat-day badge that
- * is focusable inside a card link); each may flag at most that many elements in one scenario. The caps are upper
+ * are listed there are known, open findings (colour contrast of a few colours, and the favorite button that sits inside the
+ * card's own button when a poster image fails to load); each may flag at most that many elements in one scenario. The caps are upper
  * bounds because the count moves with the clock (the "happening now" badge) and with the viewer-location banner, so a
  * per-scenario count would be flaky. Lower a cap when the finding is fixed. It does not prove WCAG conformance: axe
  * finds only part of the failures, and focus order and screen-reader output still need a person.
@@ -30,11 +30,12 @@ const VIEWPORTS = {
 } as const;
 const THEMES = ['light', 'dark'] as const;
 
-async function setTheme(page: Page, theme: (typeof THEMES)[number]) {
-  // `.dark` on <html> is what the CSS variables in globals.css key off.
-  await page.evaluate((t) => {
-    document.documentElement.classList.toggle('dark', t === 'dark');
-  }, theme);
+/**
+ * next-themes reads the `theme` key from localStorage before the first paint and rewrites the <html> class on hydration,
+ * so a class added after load is lost. Set the key before any navigation instead.
+ */
+async function useTheme(page: Page, theme: (typeof THEMES)[number]) {
+  await page.addInitScript((t) => window.localStorage.setItem('theme', t), theme);
 }
 
 async function audit(page: Page, scenario: string, include?: string) {
@@ -60,13 +61,15 @@ for (const [vpName, viewport] of Object.entries(VIEWPORTS)) {
       test.use({ viewport });
 
       test('event list (discovery page, navbar included)', async ({ page }) => {
+        await useTheme(page, theme);
         await page.goto('/en');
         await expect(page.locator('article').first()).toBeVisible({ timeout: 15000 });
-        await setTheme(page, theme);
+        await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^((?!dark).)*$/);
         await audit(page, `list ${vpName} ${theme}`);
       });
 
       test('event detail (modal)', async ({ page }) => {
+        await useTheme(page, theme);
         await page.goto('/en');
         const firstCard = page.locator('article').first();
         await expect(firstCard).toBeVisible({ timeout: 15000 });
@@ -75,14 +78,15 @@ for (const [vpName, viewport] of Object.entries(VIEWPORTS)) {
           if (!(await page.getByRole('dialog').isVisible())) await firstCard.click();
           await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
         }).toPass({ timeout: 40000 });
-        await setTheme(page, theme);
+        await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^((?!dark).)*$/);
         await audit(page, `detail modal ${vpName} ${theme}`);
       });
 
       test('event detail (full page)', async ({ page }) => {
+        await useTheme(page, theme);
         await page.goto('/en/events/ongoing-culture-fest-2026-2027-fixed');
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        await setTheme(page, theme);
+        await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^((?!dark).)*$/);
         await audit(page, `detail page ${vpName} ${theme}`);
       });
     });
