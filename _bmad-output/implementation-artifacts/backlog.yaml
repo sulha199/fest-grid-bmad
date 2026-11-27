@@ -3208,4 +3208,4 @@ items:
      title: "Account page resolves a username to the empty numeric twin instead of the subscribed, scraped row (14 subscribed usernames)",
      ref: [apps/backend/src/lib/accounts/resolve-profile-by-username.ts, planning-artifacts/festgrid-architecture-spine.md, backlog/BUG-059-subscribed-profile-twin-split.md],
      touches: [app:backend, web:accounts],
-     note: "AD-35 Rule 4 tie-break is now active subscription, then scraped, then numeric, then oldest. Twin rows remain until BUG-059 story 4. Read-only lookup findProfileByUsername orders by created_at only and was not changed."}
+     note: "AD-35 Rule 4 tie-break is now active subscription, then scraped, then numeric, then oldest. Twin rows remain until BUG-059 story 4. findProfileByUsername (oldest row wins) only reads, but subscribe-to-account uses it to pick the row a new subscription is written to; it runs only when no row has the submitted account_id, so it can pick a numeric twin only after e.g. a rename. Not changed."}

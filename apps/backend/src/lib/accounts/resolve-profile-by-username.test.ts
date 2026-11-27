@@ -123,6 +123,8 @@ test('resolveProfileByUsername (AD-35)', async (t) => {
   });
 
   await t.test('a subscribed handle row beats an older and a newer empty numeric twin', async () => {
+    // Also guards the correlated subquery: if the EXISTS were not tied to the outer profile row it
+    // would be true for every row, all rows would tie and the older numeric twin would win.
     const handle = await makeProfile(`${tag}-sub`, `sub.${tag}`, new Date('2026-03-01T00:00:00Z'));
     await makeProfile(`6${Date.now()}`.slice(0, 12), `sub.${tag}`, new Date('2026-01-01T00:00:00Z'));
     await makeProfile(`5${Date.now()}`.slice(0, 12), `sub.${tag}`, new Date('2026-05-01T00:00:00Z'));
@@ -186,18 +188,6 @@ test('resolveProfileByUsername (AD-35)', async (t) => {
     const found = await resolveProfileByUsername('instagram', `num.${tag}`, COLUMNS);
 
     assert.equal(found?.id, numericRow.id);
-  });
-
-  await t.test('the subscription check follows each row, not just any subscription on the platform', async () => {
-    // Guards the correlated subquery: it must compare against the outer profile row.
-    const other = await makeProfile(`${tag}-other`, `other.${tag}`);
-    await subscribe(other.id);
-    const first = await makeProfile(`${tag}-c1`, `corr.${tag}`, new Date('2026-01-01T00:00:00Z'));
-    await makeProfile(`${tag}-c2`, `corr.${tag}`, new Date('2026-02-01T00:00:00Z'));
-
-    const found = await resolveProfileByUsername('instagram', `corr.${tag}`, COLUMNS);
-
-    assert.equal(found?.id, first.id);
   });
 
   await t.test('returns undefined for an unknown segment, an unknown numeric id, and a blank segment', async () => {
