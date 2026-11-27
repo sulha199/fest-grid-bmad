@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import { db } from '../../db/client.js';
 import {
   brightdataPendingJobs,
+  postAccountAssociations,
   posts,
   scraperActorRuns,
   scraperProviderUsage,
@@ -98,6 +99,61 @@ test('attemptBrightDataTrigger start date', async (t) => {
 
       const expected = mapBrightDataDateToStartDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
       assert.strictEqual(triggerInputs[0].startDate, expected);
+    } finally {
+      await db.update(socialMediaAccountProfiles).set({ historySeededAt: new Date() }).where(eq(socialMediaAccountProfiles.id, profileId));
+    }
+  });
+
+  // Fix of 2026-11-26: posts already stored for the profile inside the window are sent as numeric ids, so they are not delivered (and
+  // billed) again; the audit row keeps the list and its size.
+  await t.test('sends the stored posts of the window as posts_to_not_include and records them on the run', async () => {
+    const other = new Date('2026-10-20T15:30:00.000Z');
+    await db.insert(posts).values([
+      { accountId: profileId, platform: 'instagram', postUrl: 'https://www.instagram.com/p/bd-ex-new/', publishedAt: other, platformPostId: 'DAAAAAAAAAA', platformPostType: 'p' },
+      { accountId: profileId, platform: 'instagram', postUrl: 'https://www.instagram.com/p/bd-ex-old/', publishedAt: new Date('2026-10-01T00:00:00.000Z'), platformPostId: 'BAAAAAAAAAA', platformPostType: 'p' },
+      { accountId: profileId, platform: 'instagram', postUrl: 'https://www.instagram.com/p/bd-ex-noid/', publishedAt: new Date('2026-10-19T12:00:00.000Z') },
+    ]);
+
+    await attemptBrightDataTrigger(target(), '2026-10-13T00:00:00.000Z');
+
+    // Window opens a day before the start of the cursor's day (cursor 10-19): the 10-01 post is outside it.
+    assert.deepStrictEqual(triggerInputs[0].postsToNotInclude, [(3n * 64n ** 10n).toString()]);
+    const [run] = await db.select().from(scraperActorRuns).where(eq(scraperActorRuns.profileId, profileId));
+    assert.strictEqual(run.excludedPostCount, 1);
+    assert.deepStrictEqual((run.rawInput as { postsToNotInclude: string[] }).postsToNotInclude, [(3n * 64n ** 10n).toString()]);
+  });
+
+  await t.test('a post linked to the profile only through an association is excluded too', async () => {
+    const [owner] = await db
+      .insert(socialMediaAccountProfiles)
+      .values({ accountId: 'bd-trigger-owner-' + Date.now(), platform: 'instagram', username: 'bd_trigger_owner', displayName: 'BD Trigger Owner' })
+      .returning({ id: socialMediaAccountProfiles.id });
+    try {
+      const [post] = await db
+        .insert(posts)
+        .values({ accountId: owner.id, platform: 'instagram', postUrl: 'https://www.instagram.com/p/bd-ex-linked/', publishedAt: new Date('2026-10-20T15:30:00.000Z'), platformPostId: 'BAAAAAAAAAB', platformPostType: 'p' })
+        .returning({ id: posts.id });
+      await db.insert(postAccountAssociations).values({ postId: post.id, accountId: profileId, role: 'SCRAPING_SOURCE' });
+
+      await attemptBrightDataTrigger(target(), '2026-10-13T00:00:00.000Z');
+
+      assert.deepStrictEqual(triggerInputs[0].postsToNotInclude, [(64n ** 10n + 1n).toString()]);
+    } finally {
+      await db.delete(posts).where(eq(posts.accountId, owner.id));
+      await db.delete(socialMediaAccountProfiles).where(eq(socialMediaAccountProfiles.id, owner.id));
+    }
+  });
+
+  await t.test('a profile that is not seeded yet excludes nothing (its first scrape must reach its own posts)', async () => {
+    await db.update(socialMediaAccountProfiles).set({ historySeededAt: null }).where(eq(socialMediaAccountProfiles.id, profileId));
+    try {
+      await db.insert(posts).values({ accountId: profileId, platform: 'instagram', postUrl: 'https://www.instagram.com/p/bd-ex-unseeded/', publishedAt: new Date(), platformPostId: 'BAAAAAAAAAA', platformPostType: 'p' });
+
+      await attemptBrightDataTrigger(target(), new Date().toISOString());
+
+      assert.deepStrictEqual(triggerInputs[0].postsToNotInclude, []);
+      const [run] = await db.select().from(scraperActorRuns).where(eq(scraperActorRuns.profileId, profileId));
+      assert.strictEqual(run.excludedPostCount, 0);
     } finally {
       await db.update(socialMediaAccountProfiles).set({ historySeededAt: new Date() }).where(eq(socialMediaAccountProfiles.id, profileId));
     }

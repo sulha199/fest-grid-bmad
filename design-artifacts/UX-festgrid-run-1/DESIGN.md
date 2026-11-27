@@ -2,7 +2,7 @@
 title: "DESIGN.md: festgrid"
 status: "draft"
 created: "2026-07-13T22:33:00Z"
-updated: "2026-09-18T00:00:00Z"
+updated: "2026-11-27T00:00:00Z"
 sources:
   - "_bmad-output/planning-artifacts/prfaq-festgrid.md"
   - "_bmad-output/planning-artifacts/prds/festgrid-prd-2026-07-10-2047/prd.md"
@@ -249,3 +249,20 @@ Visual Form: This logo uses a very neat basic event card grid ($2 \times 2$). Ho
 
 * **Logomark (Icon):** A minimalist 2x2 grid structure. Three squares are in a neutral base color, while the square in the upper right corner transforms into a **Spark (4-Pointed Star)** shape, symbolizing the moment of *Exciting Discovery*.
 * **Logotype (Text):** "Fest" (Bold, primary) + "Grid" (Light, secondary)
+
+## Planned components: event action bar, side card and sheet (Epic 12) [PLANNED; NOT YET BUILT]
+
+*Added 2026-11-27 by a headless `bmad-ux` update from `_bmad-output/planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md` (backlog CC-261124-vjh, approved by the owner 2026-11-27), section 4.4. None of these components exists today and
+no token for them is in the frontmatter yet; their tokens are written by the Epic 12 stories (12.5, 12.6, 12.7,
+12.10). Behaviour is in `EXPERIENCE.md`, "Planned: Event Registration and Call to Action".*
+
+- **Bottom action bar** (below `lg`, event detail page) and **modal sticky footer** (the `@modal` route): on the
+  `z-overlay-sticky` tier (Architecture Spine AD-33), tokens only, lucide icons, EN + ID copy.
+- **Sticky side card** (`lg` and up): the same actions in a card beside the detail content.
+- **Multi-option sheet:** reuses the existing bottom sheet / dialog primitives; no new overlay tier.
+- **Price tiers and "from" price** sit beside the buttons, never inside them (Story 12.7).
+- **Trust line:** the destination host in muted small text next to each action.
+- **Low-confidence mark** on an option or tier read from an image, with a link to the original post.
+- **Card and detail highlight, dummy-date labels:** see `EVENT-CARD-DESIGN.md`, "Planned: grid card redesign"
+  (Epic 11, Story 11.14).
+

@@ -4,7 +4,7 @@
 # `impact`/`effort` are required on open un-promoted rows only. No stored priority —
 # rank at read time with a named lens from backlog-spec.md §11.
 generated: 2026-09-04
-last_updated: "2026-11-11"
+last_updated: "2026-11-27"
 
 # ── tag registry ── every `touches` entry MUST resolve here
 tags:
@@ -3132,3 +3132,198 @@ items:
      ref: [implementation-artifacts/deferred-work.md, implementation-artifacts/spec-location-keywords-extraction.md],
      touches: [app:backend, cross:ai-extraction],
      note: "Deferred from: bmad-quick-dev review of spec-location-keywords-extraction (separate keywords call) (2026-11-11). 6 findings: unabortable 10 s timeout, no salvage of a cut-off answer, replayed step repeats the call, correction clearing, location guard, rule 5 fallback."}
+
+
+  IDEA-261121-tvh:
+    {type: idea, status: backlog, created: 2026-11-21,
+     impact: user-visible, effort: s,
+     title: "Do not auto-promote a repost that matches an event from a multi-event post unless the strict names are equal",
+     ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md, apps/backend/src/lib/events/match-event-to-existing.ts, packages/domain/src/events/match-scoring.ts],
+     touches: [app:backend, pkg:domain, web:events],
+     note: "Raised 2026-11-21 from the Kopi Kenangan post (4 sibling events, slugs ~1..~3). The same-post guard stops siblings merging with each other, but a later single-event repost with a generic title ('Kopi Kenangan Payday Promo') scores 0.86 trigram similarity against the BCA sibling, above the 0.85 auto-link floor. With a matching organizer or shared link and the same start date it is promoted to the high tier and merges into BCA. Proposal: when the candidate event belongs to a post with grouping_reason SEPARATE_EVENTS, skip the mid-to-high promotion unless the strict normalised names are equal, so it stays a moderator suggestion. Similarity numbers are pg_trgm emulations, not prod measurements: check against prod before building. Detail: handoff section 10."}
+
+  # ── 2026-11-24 (bmad-correct-course: registration, highlight and extraction update) ──
+  CC-261124-vjh:
+    {type: proposal, status: triaged, created: 2026-11-24,
+     impact: user-visible, effort: l,
+     title: "Registration options, CTA bar, composed highlight, honest dates and the extraction update",
+     ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, cross:prd, cross:architecture, web:events, pkg:domain, pkg:database, pkg:ui, app:backend],
+     note: "Approved 2026-11-27; PRD, UX, spine (AD-55..AD-61), epics.md and sprint-status keys applied; Epics 11 and 12 (32 stories) in backlog, no story file yet."}
+
+  IDEA-261124-8jo:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: cosmetic, effort: s,
+     title: "Give each event its own cover slide on multi-event carousels",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, app:backend, web:events],
+     note: "C8 of the proposal; about 1 post in 100. Open decision 4 decided 2026-11-26: deferred, Story 11.17 not built in Epic 11. OCR alternative measured and not good enough (findings 11.20)."}
+
+  IDEA-261124-f6n:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: internal, effort: s,
+     title: "Merge the slide map into the per-event tier call to keep multi-event carousels at 3 requests",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Open decision 7 decided 2026-11-26: the slide map stays a separate call; run a merge POC only when the cover per event (IDEA-261124-8jo) is built."}
+
+  IDEA-261124-wk6:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: latent, effort: s,
+     title: "Image-aware tier call on the stepped (cursor) extraction path, with a gate against promo price lists",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Open decision 6 decided 2026-11-25 (option A): no tier call on the stepped path, location per step (AD-60). Findings 11.18: images call found one real tier list in 32 long carousels and read promo price lists as tiers on 3; kept as a possible later story."}
+
+  IDEA-261124-15a:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: user-visible, effort: m,
+     title: "Filter header: one scrolling facet row, chevron triggers, AI button on the search row, icon buttons, collapse motion",
+     ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [web:events, pkg:ui, cross:ux-tokens, cross:i18n],
+     note: "Handoff sections 9 and 11. The time filter left this row for Story 11.22 (Epic 11, backlog since 2026-11-27); the rest stays here (A8)."}
+
+  IDEA-261124-nta:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: user-visible, effort: l,
+     title: "Remind me before a registration deadline or event start (own epic)",
+     ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md],
+     touches: [web:events, app:backend, cross:notifications],
+     note: "Owner decision D9: its own epic, needs a scheduling backend; kept out of the CTA bar scope."}
+
+  FIND-261124-axb:
+    {type: finding, status: backlog, created: 2026-11-24, parent: CC-261124-vjh, epic: epic-11,
+     impact: user-visible, effort: m,
+     title: "Remaining geocoding gaps: never-attempted schedules, silent account-default fallback, city check",
+     ref: [planning-artifacts/event-registration-cta-handoff-2026-11-20.md, apps/backend/src/lib/ai-processor/resolve-account-and-locations.ts],
+     touches: [web:locations, app:backend, pkg:domain],
+     note: "Handoff 13E. Covered by Stories 11.19, 11.20, 11.21 (Epic 11, backlog since 2026-11-27), active schedules only (486 never attempted on 2026-11-26); past pins stay."}
+
+  IDEA-261124-5yi:
+    {type: idea, status: skipped, created: 2026-11-24, parent: CC-261124-vjh,
+     title: "Ask the model for registration windows or trust its main-schedule flag",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction],
+     note: "value: dropped on POC evidence: windows returned in 0 of 36 runs; main flag wrong on 11% of main rows. Stage per row plus code instead."}
+
+  IDEA-261124-ibh:
+    {type: idea, status: skipped, created: 2026-11-24, parent: CC-261124-vjh,
+     title: "Required evidence copy field on free-text extraction fields",
+     ref: [planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction],
+     note: "value: dropped on POC evidence: caused runaway output on 2.2% of calls and glued-on text; bounded shapes and an output cap instead."}
+
+  IDEA-261124-ofm:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: latent, effort: s,
+     title: "Let the tier call read the post images (option B) if the gate finds missed poster prices",
+     ref: [_bmad-output/poc/registration-extraction/findings.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "Built only if the release gate finds two or more missed image ticket prices in 40 fresh posts read by eye (owner answer Q4); first reading 2026-11-26: 0 of 40. Detail in the proposal, Story 11.2."}
+
+  IDEA-261124-xdv:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: cosmetic, effort: s,
+     title: "Optional reference from a registration button to the price tier it sells",
+     ref: [_bmad-output/poc/registration-extraction/findings.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, web:events, pkg:database],
+     note: "Open decision 10 (option C): tiers belong to the event, buttons carry no price. Findings 11.19: no caption in 2,992 states which channel sells which tier, so nothing to measure yet."}
+
+  IDEA-261124-gj0:
+    {type: idea, status: backlog, created: 2026-11-24, parent: CC-261124-vjh,
+     impact: latent, effort: s,
+     title: "Treat a price stated for all events of a multi-event post as GENERAL in the tier call",
+     ref: [_bmad-output/poc/registration-extraction/findings.md, planning-artifacts/sprint-change-proposal-2026-11-24-registration-extraction.md],
+     touches: [cross:ai-extraction, pkg:domain],
+     note: "Untested rule (input section 11). Multi-event posts with one fee for many events stay weak; the release gate counts events with a missing or extra tier first."}
+
+  IDEA-261124-dtk:
+    {type: idea, status: skipped, created: 2026-11-24, parent: CC-261124-vjh,
+     title: "Deterministic OCR instead of the slide-map model call for the cover per event",
+     ref: [_bmad-output/poc/registration-extraction/findings.md],
+     touches: [cross:ai-extraction, app:backend],
+     note: "value: dropped on POC evidence (findings 11.20): OCR found 1 of 5 dedicated slides, the model 5; stylised type and abbreviations not read."}
+
+  IDEA-261124-jz4:
+    {type: idea, status: skipped, created: 2026-11-24, parent: CC-261124-vjh,
+     title: "Database trigger to keep schedules.is_display in step with the stages",
+     ref: [planning-artifacts/registration-extraction-correct-course-input-2026-11-24.md],
+     touches: [pkg:database],
+     note: "value: dropped by owner decision 2026-11-25: it would duplicate the date rules in plpgsql; one domain function on every write path plus a healing sweep instead."}
+
+  # ── 2026-11-22 ──────────────────────────────────────────────────────────────
+  FIND-261122-q5w:
+    {type: finding, status: triaged, created: 2026-11-22,
+     impact: internal, effort: s,
+     title: "Empty poll-and-drain ticks block 20 s of billed Lambda time, running the Lambda free tier out around day 24",
+     ref: [implementation-artifacts/spec-poll-and-drain-empty-tick-gate.md, apps/backend/src/lib/aws/poll-and-drain-queue.ts],
+     touches: [app:backend, app:infrastructure, cross:architecture],
+     note: "Same class as FIND-034 (Lambda SQS pollers run 24/7 on idle queues). Fix: short-poll first, long-poll only if queue depth > 0. Live after next backend deploy; confirm in CloudWatch REPORT."}
+
+  FIND-261122-lbv:
+    {type: finding, status: backlog, created: 2026-11-22,
+     impact: internal, effort: s,
+     title: "Alarm on poll-and-drain depth-failed and sustained long-poll-miss rates (gated and hinted)",
+     ref: [implementation-artifacts/spec-poll-and-drain-empty-tick-gate.md, apps/backend/src/lib/metrics/emit-metric.ts],
+     touches: [app:infrastructure, app:backend],
+     note: "Follow-up to FIND-261122-q5w (empty poll-and-drain ticks block 20 s of billed Lambda time). The PollDrain* metrics exist (9 custom metrics in total, 10 are free); no alarm yet, so a lost sqs:GetQueueAttributes grant or a wrong hint costs 20 s unseen."}
+
+  # ── 2026-11-26 (bmad-quick-dev: dot-separated extracted times fail the ingestion insert) ──
+  BUG-261126-u6f:
+    {type: bug, status: done, created: 2026-11-26,
+     impact: user-visible, effort: s,
+     title: "An extracted time written with dots (\"20.10:00\") fails the Postgres time insert and drops every event of the post to the dead-letter queue",
+     ref: [packages/domain/src/events/normalize-extracted-time.ts, packages/domain/src/events/build-event-insert-values.ts, apps/backend/src/lib/events/warn-dropped-schedule-times.ts],
+     touches: [pkg:domain, app:backend, cross:ai-extraction],
+     note: "Prod ingestor errors 2026-11-12..25 (about 7 messages): invalid input syntax for type time \"20.00:00\" / \"20.10:00\". Fixed: normalizeExtractedTime turns the string into HH:MM:SS or null before the overnight rule; a dropped value logs one console.warn. Gemini prompt and schema untouched. After deploy the owner redrives festgrid-data-ingestion-queue-dlq-prod."}
+
+  # ── 2026-11-26 (review of the Bright Data re-delivery fix, PR #269) ──
+  FIND-261126-lhp:
+    {type: finding, status: backlog, created: 2026-11-26,
+     impact: user-visible, effort: s,
+     title: "A caption-less post whose cover cannot be read can be marked extracted with no events",
+     ref: [apps/backend/src/lib/ai-processor/build-gemini-request.ts],
+     touches: [app:backend, cross:ai-extraction],
+     note: "Since empty captions are accepted, the text-only fallback after an image read failure sends only '(no caption)'. Not a regression: such posts were rejected before."}
+
+  FIND-261126-9do:
+    {type: finding, status: backlog, created: 2026-11-26,
+     impact: user-visible, effort: s,
+     title: "Backfill the missing SCRAPING_SOURCE links of past posts for accounts whose scrape returned them",
+     ref: [apps/backend/src/lib/posts/persist-post-account-associations.ts],
+     touches: [app:backend, pkg:database],
+     note: "214 of 3,797 delivered post-and-account pairs in November 2026 had no link (migration 0105 drops the index that caused it). Source: scraper_actor_runs.raw_output. Needs a production write, so the owner approves it."}
+
+  FIND-261126-5sb:
+    {type: finding, status: backlog, created: 2026-11-26,
+     impact: internal, effort: xs,
+     title: "Excluded posts are never re-delivered: no media backfill for them, and billing of the dead_page record is unchecked",
+     ref: [apps/backend/src/lib/posts/persist-scraped-post.ts, apps/backend/src/lib/scraper/get-posts-to-not-include.ts],
+     touches: [app:backend],
+     note: "persistScrapedPost filled a missing imageUrl or videoUrl on re-delivery. Also compare Bright Data's billed records with delivered records after deploy: an all-excluded run reports records 0 and errors 1 (dead_page)."}
+
+  FIND-261126-lxi:
+    {type: finding, status: backlog, created: 2026-11-26,
+     impact: internal, effort: s,
+     title: "Node 26 on new GitHub runner images breaks apps/web tests; engines '>=22.0.0' lets workflows drift",
+     ref: [.github/workflows/ci.yml, package.json],
+     touches: [app:infrastructure, web:system],
+     note: "ci.yml pinned to Node 24. Other workflows still read package.json and may get Node 26. Lambda runs Node 22. Decide one pinned version."}
+
+  # ── 2026-11-26 (bmad-quick-dev: THIS_WEEK window wrong across a month boundary) ──
+  BUG-261126-pwb:
+    {type: bug, status: done, created: 2026-11-26,
+     impact: user-visible, effort: xs,
+     title: "A THIS_WEEK date filter is 37 days long when the week crosses a month or year boundary (AI filter 'this week', 'this weekend')",
+     ref: [packages/domain/src/events/buildEventsQueryCondition.ts],
+     touches: [pkg:domain, web:events],
+     note: "resolveDateRangeFilter set the end from the start's day-of-month on a Date still in the current month (2026-12-02 gave 2026-11-30..2027-01-05). The end now derives from the Monday start; a THIS_WEEK shifted by MONTH also kept a squeezed window after day overflow, same fix."}
+
+  # ── 2026-11-27 (prod: the account page showed an empty numeric twin instead of the subscribed row) ──
+  BUG-261127-3ur:
+    {type: bug, status: done, created: 2026-11-27,
+     impact: user-visible, effort: xs,
+     title: "Account page resolves a username to the empty numeric twin instead of the subscribed, scraped row (14 subscribed usernames)",
+     ref: [apps/backend/src/lib/accounts/resolve-profile-by-username.ts, planning-artifacts/festgrid-architecture-spine.md, backlog/BUG-059-subscribed-profile-twin-split.md],
+     touches: [app:backend, web:accounts],
+     note: "AD-35 Rule 4 tie-break is now active subscription, then scraped, then numeric, then oldest. Twin rows remain until BUG-059 story 4. findProfileByUsername (oldest row wins) only reads, but subscribe-to-account uses it to pick the row a new subscription is written to; it runs only when no row has the submitted account_id, so it can pick a numeric twin only after e.g. a rename. Not changed."}

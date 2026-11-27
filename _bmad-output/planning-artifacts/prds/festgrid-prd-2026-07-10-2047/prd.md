@@ -7,7 +7,7 @@ status: "final"
 
 created: "2026-07-10T20:50:17Z"
 
-updated: "2026-11-02T00:00:00Z"
+updated: "2026-11-27T00:00:00Z"
 
 ---
 
@@ -16,6 +16,8 @@ updated: "2026-11-02T00:00:00Z"
 ## 1. Introduction
 
 This document outlines the product requirements for FestDaily, a platform designed to help city residents and families discover, schedule, and enjoy local cultural, entertainment, and hobby events. It aims to solve the problem of missed opportunities due to disorganized information and forgotten plans.
+
+> **Planned changes in flight (added 2026-11-27, backlog CC-261124-vjh, Sprint Change Proposal `sprint-change-proposal-2026-11-24-registration-extraction.md`, approved by the owner 2026-11-27).** Every rule marked **[PLANNED: Epic 11 ...]** or **[PLANNED: Epic 12 ...]** in this document is **planned and not yet built**: the code does not do it yet, and text next to it that describes today's behaviour stays true until the named story ships. Epic 11 (Extraction and honest dates) covers the stage per schedule row and honest card dates, the composed highlight, the extraction facts, the post-extraction call and price tiers, online-only and account-default locations, the "next 7 days" time filter and the backfills of active events (FR135 to FR142). Epic 12 (Registration, CTA bar and prices) covers registration options, the action bar and side card, the first-party `/go/` link endpoint, registration phones and QR-decoded links (FR131 to FR134, and the tier display of FR137). When a story ships, its marker is removed in the same change.
 
 ## 2. Goals
 
@@ -33,6 +35,8 @@ This document outlines the product requirements for FestDaily, a platform design
 *   **Curated Listings:** Display a curated selection of local events.
 *   **Search and Filter (FilterHub):** A free-text search bar will allow users to search by event-name, performers, and location name, using partial matching for performance. Users can also filter events by type and category. This filter bar is referred to elsewhere in this document as "FilterHub." When a search phrase starts with `#`, it matches exactly against a post's hashtags (Section 4.7) instead of event-name/performers/location — e.g. `#jogjaevent` matches the literal hashtag, not a substring. Hashtag search combines with type/category filters the same way normal search does (added 2026-08-28). See Section 3.15 for a free-text, AI prompt-based alternative to operating it manually.
 *   **Default View:** By default, the event discovery page will only display ongoing and upcoming events.
+*   **Card Highlight (FR135) [PLANNED: Epic 11, Stories 11.6, 11.7 and 11.14; not yet built]:** Each event has at most one card highlight, composed in code by one shared function from typed facts (performers and speakers, prizes, promos, take-home items, a free flag, a price hook); the AI model never writes the highlight. The card highlight is the first item of the event detail's highlight list, stored whole with **no length limit**; the card ends it with an ellipsis when it does not fit. The event detail shows the full ordered list, composed at read time by the same function, so card and detail cannot disagree. A list item of two or more values reads "<Label> (<count>): <every value>" (for example "Penampil (4): Band A, Band B, Band C, Band D"); a list of one value and single values (price hook, free entry) carry no count; no "+N" suffix. The label is never repeated: a single value that already starts with its label is written as it is, and in a list of two or more a label word at the start of a value is dropped. Owner rules for what may be a highlight: names come before "free" on every event type; a promo needs a cue and a figure; a vague prize is not a prize; academic degrees after the first comma of a name are removed; scope or category labels are not highlights; no highlight when no fact qualifies; a highlight is never a paid slot. When the rules change, a rules version and a recompute step (no LLM) refresh the stored text of **active** events only; past events keep their stored text.
+*   **Honest Card Dates (FR136) [PLANNED: Epic 11, Stories 11.3, 11.4, 11.5, 11.12 and 11.13; not yet built]:** Each schedule carries a `stage` (Section 4.4), and the card date comes only from schedules flagged for display. The flags are computed in code from all schedules of one event: (1) a schedule with stage `event` counts; `other` counts only when every schedule of the event is `other`; (2) a competition with no competition-day schedule shows its `submission` schedule; (3) a registration window with no event day (competition, open call) is a dummy date shown at the **end** of registration; (4) a race-pack collection with no main event shows the end of registration, else the pickup date; (5) any other event with no counting schedule flags every non-counting schedule, the list shows the nearest upcoming one labelled by its stage, and the event leaves the list after its last phase; (6) a ticket-sale schedule with one date is the event day. An event with several counting schedules shows the nearest upcoming one and leaves the list after its last. A dummy date (a flagged schedule whose stage is neither `event` nor `other`) always carries a label, so the card never claims an event day: card "Daftar s/d 6 Nov", "Pengumuman 17 Okt", "Ambil kit 13 Nov", "Submit s/d 12 Nov" (EN "Register by 6 Nov", same pattern); detail "Pendaftaran sampai 6 November 2026". A competition `submission` schedule keeps its real dates. Until these stories ship, the card date comes from today's schedule selection, and a registration window can still win it.
 *   **Event Status Badge (added 2026-09-04):** Every event card displays a relative-time status badge summarizing where the event stands relative to now: `Ended` (a schedule that has fully passed — relevant to card-reusing surfaces like Archive, not the default ongoing/upcoming Discovery view above), `Happening Now`/similar (started, not ending today), `Ends Today` (started, ends today), `In (n) hour(s)` (starts later today), `Tomorrow`, the weekday name (starts within the same week), `In (n) days` (starts next week), or `Upcoming` (beyond that). Exact wording and the same-week/next-week/next-month boundaries are defined in the implementing story (Story 1.3b).
 *   **Nearby Badge (added 2026-09-04):** When the viewer has granted browser location permission, a card for an event within 5km of the viewer's current position shows a "Nearby" badge. No badge is shown when permission is not granted — this badge never itself prompts for location access (distinct from Section 3.3's explicit, user-initiated "nearby events" search, which does prompt).
 
@@ -79,6 +83,7 @@ This feature allows users to curate their event feed by subscribing to specific 
     *   **Refresh Now Shows Progress (added 2026-11-02; FR128):** The on-demand "scrape this account" action runs as a job (Section 3.18): the user sees its progress and result on the account and on the Jobs page, and asking again while it runs re-attaches to the running job instead of scraping twice.
     *   **Automatic Extraction of New Posts (clarified 2026-10-01; BUG-039):** Extraction of newly scraped posts from subscribed accounts is automatic, not something a user must trigger. After each scrape, every new post is enqueued for extraction under the Tier 1/Tier 2 key-selection and quota rules (Quota Management Algorithm, below), consuming the same one extraction call per post as any other path. Posts that cannot be extracted automatically — older posts that predate the subscription, and posts left unextracted because no key had quota — remain available for the user to select by hand (Section 3.10). The Multi-Event Posts rules below apply identically to automatically and manually extracted posts. **(Amended 2026-11-02, FR127; IDEA-009)** The posts a first-scrape job saves for a newly subscribed account are queued for extraction as soon as the job finishes, without waiting for the daily batch. They stay within the Gemini daily request budget and the Tier 1/Tier 2 key rules; posts the budget cannot cover stay Pending for manual selection (Section 3.10).
     *   **Default Location for Subscriptions:** To handle cases where an event's location is implicit (e.g., an event at a mall posted on the mall's social media), users can optionally set a "Default Location" when subscribing to an account. If the AI agent does not find an explicit location in a post, it will use this default location for the event.
+        *   **Inheritance Limited to Confirmed Organizer Accounts (FR139) [PLANNED: Epic 11, Stories 11.19 and 11.21; not yet built]:** The sentence above describes today's behaviour (any account's default location is inherited, and nothing records it). Planned: a schedule with no location text of its own and no event-level text takes this default location only when the post's publisher account (else the account the post was collected from) is a confirmed organizer, venue or event account (Section 3.16 classification: `ORGANIZER_VENUE_EVENT` with status `CONFIRMED`), and the schedule records that its location came from the account default (resolution `account_default`, Section 4.3). For curator, personal, unclassified and not-yet-confirmed accounts the schedule has no map pin; the default location may still bias a text lookup. Active schedules whose pin was never attempted by the current geocoding path are re-geocoded once; a re-geocode that finds nothing clears the pin (no pin is better than a wrong one). A city check on the geocoding result is added only if Story 11.20 finds a verified cause for wrong-city matches. The Section 3.15 Venue Type Source sentence stays true for the inheriting case.
         *   **Shared, Account-Level Setting:** A "Default Location" belongs to the social media account, not to an individual subscriber — because AI extraction runs once per post for accounts with multiple subscribers, a per-subscriber default would be ambiguous about which value applies to the resulting event. Any subscriber may set it if unset.
         *   **Immediate Apply with Moderator Oversight:** Editing a "Default Location" takes effect immediately, with no pre-approval gate — extraction is not blocked waiting on review. When a change is made, moderators are notified by email and can, from Moderator Tools (Section 3.9.3), accept the change or revert the account to its previous default location. This is the default posture for a human edit and for a high-confidence AI inference (see below); a low-confidence AI inference instead requires moderator pre-approval before it applies.
         *   **AI-Assisted Location Inference (added 2026-08-24; confidence gate added 2026-08-28):** If a "Default Location" is still unset when a post is scraped, the system infers one automatically rather than leaving the account without a fallback. The AI agent is given only the post's own scraped metadata (its caption and any location name attached to the post itself) — never a subscriber's saved location preference (Section 3.3), which exists for a different, already-consented purpose (finding nearby events) and must not be repurposed to label an account, per the Location Data Reuse Boundary (Section 5). The agent's inferred place description is then resolved into full location details (coordinates, formatted address) via the standard geolocation lookup. The inference call also returns a confidence score (0.0–1.0, same scale as `EventInfo.confidenceScore`, Section 4.1). When the score meets or exceeds `LOCATION_INFERENCE_CONFIDENCE_THRESHOLD` (default `0.5`, environment-variable configurable), the result is written to "Default Location" immediately, going through the same immediate-apply-with-moderator-oversight flow above. When the score falls below the threshold, the inferred value is **not** applied — it is held as an `AWAITING_APPROVAL` request (Section 4.14) that a moderator must explicitly approve or reject from Moderator Tools (Section 3.9.3) before it ever reaches `SocialMediaAccountProfile.defaultLocation`; the account's Default Location stays unset (or keeps its prior value) in the meantime, so extraction never runs against an unvetted guess. Which of the two produced a given change, and whether it required pre-approval, is recorded (Section 4.14) so moderators can tell them apart.
@@ -90,7 +95,7 @@ This feature allows users to curate their event feed by subscribing to specific 
     1.  **Strong signals — any one makes a separate event:** an item has its own registration/ticket/fee/sign-up, its own organizer handle, or a different venue.
     2.  **Weak signals — two or more make a separate event:** a standalone headliner or title, dates more than about 7 days apart, or a different category.
     3.  Items within about 7 days of each other under one title and venue are **one event** with several schedules (`program-lineup`).
-    4.  **Dependent stages** (e.g. online audition → finalists → final) are **one event** (`dependent-stages`). Registration and sign-up windows are schedules of the event they belong to, never separate events.
+    4.  **Dependent stages** (e.g. online audition → finalists → final) are **one event** (`dependent-stages`). Registration and sign-up windows are schedules of the event they belong to, never separate events. **[PLANNED: Epic 11, Story 11.4, and Epic 12; not yet built]** Each schedule will carry a `stage`; a registration window is a schedule with `stage = registration`. How to register (links, phones) will be held in registration options (Section 3.19); prices will be the event's price tiers (Section 4.23).
     5.  Anything else is one event.
 
     *   **Roundup Posts:** A post that lists many events by many organizers (`roundup`) yields an event per item **only when the item has a readable date and a readable location**; every other item is skipped, not guessed. The number of events extracted from one post is capped (default 10, configurable). Events created from a roundup are **stubs** (`detailLevel: 'stub'`) that show the roundup post's cover image and a lighter "details coming" treatment until a post from the event's own organizer is linked (Cross-Post Event Matching, below). Events from a curator/local-guide account (Section 3.16) are likewise stubs.
@@ -152,6 +157,7 @@ To ensure reliable and stable operation while adhering to Google Gemini API usag
 *   **MVP Capacity Limitations:** For the Minimum Viable Product (MVP), operating with a single backend server instance, there will be a finite capacity for the total number of social media accounts that can be actively subscribed and processed. This limit is dictated by factors such as the available Gemini API quotas (QPM/QPD), the average processing time required per subscribed account, and the overall server resources.
 *   **User Notification for Capacity Limits:** When the MVP's capacity limit for new social media account subscriptions is reached, users attempting to add further subscriptions will be gracefully informed via an in-app message that they cannot add more accounts at this time. The message will explain that this is due to current server capacity and that new subscriptions will be enabled once additional backend servers are provisioned or horizontal scaling is implemented.
 *   **Multi-Image Extraction Stays Within One Call (added 2026-09-03; FR112):** Section 3.7's multi-image (carousel) extraction sends a post's cover image plus additional slide images as multiple parts of a **single** request, never as separate sequential requests per image — confirmed during design as the quota-efficient choice, since Gemini's free-tier quota is bounded by RPM/RPD (request count) as well as token throughput, and batching avoids multiplying request count for a single post's extraction. A configurable per-post image-count cap (default 5) bounds worst-case token volume and latency regardless of how many images a source post actually has.
+*   **Request Budget per Post (FR137) [PLANNED: Epic 11, Story 11.8; not yet built]:** Today a post costs two requests (the extraction call and the location-keywords call). Planned: the second call becomes one best-effort **post-extraction call** that returns location keywords, the event's price tiers and a core event name (matching only), each part validated separately so a failed part leaves the others. Its inputs are the caption and the per-event `ticketPrice` strings the extraction returned; images are not sent. A one-event post costs **2** requests (extraction, merged call); a post with two or more events costs **3** (extraction, location and core-name call, per-event tier call); the stepped (cursor) path is unchanged and gets no tier call. Average about 2.04 requests per post; the capacity formula below must be re-run with these numbers and the production key's real limit.
 *   **Capacity Calculation Formula:** A key architectural requirement is the definition and implementation of a clear, verifiable formula or methodology to calculate the maximum sustainable number of subscribed social media accounts per backend server instance. This formula will be defined in detail during the architectural planning phase. It will quantify the relationship between Gemini API quotas, average data extraction frequency, processing load, and system throughput. It will serve as the basis for capacity planning, informing decisions on when and how to scale the backend infrastructure horizontally.
 
 ### 3.9 Manual Event Data Correction and User Reporting
@@ -253,6 +259,7 @@ To ensure a high-quality, app-like experience, the following global UI patterns 
     *   **Blocking:** Critical asynchronous actions (e.g., submitting forms, data extraction, reporting) will use a full-screen semi-transparent overlay with a spinner to prevent user interaction until the process completes. **(Amended 2026-11-02, FR116)** An action that depends on a scraping vendor and can exceed a few seconds is a job (Section 3.18), not a blocking action: it never holds the overlay for the wait and shows the inline job progress instead.
     *   **Non-Blocking:** Initial page data fetching will utilize Skeleton screens that mirror the expected content layout. Fetching subsequent data (e.g., infinite scroll) will use a localized spinner at the bottom of the list.
 *   **Infinite Scroll (Autoscroll):** All long lists (e.g., Main Discovery Feed, Favorites, Manual Post Selection, My Calendar) must implement infinite scrolling to seamlessly append data as the user scrolls, rather than requiring traditional pagination clicks. **Exception (2026-11-13):** history lists that page through a cursor with the shared list-pagination controller, such as the Jobs page (FR123) and the moderator lists, page with Previous and Next controls instead (AD-18).
+*   **Time Filter Dropdown (FR140) [PLANNED: Epic 11, Story 11.22; not yet built]:** Today the home, feed, favorites and account pages carry a Today / Upcoming / All toggle that resolves "today" from the UTC date (BUG-097). Planned: a dropdown Anytime | Next 7 days | Today (ID Kapan saja | 7 hari ke depan | Hari ini) replaces the toggle. Next 7 days is today to today + 6, excluding schedules that already ended today (as Today does). Dates use the viewer's day, not UTC: `users.timezone` when set, else the browser's IANA time zone, else `Asia/Jakarta`. The `TemporalFilter` enum gains `NEXT_7_DAYS` and keeps `UPCOMING` with its meaning for saved AI filters and the API; an old `?temporal=UPCOMING` link opens as Anytime and the URL is rewritten without a history entry. The AI filter vocabulary is unchanged; the other filter-header changes are out of scope (backlog IDEA-261124-15a).
 *   **Context-Aware Detail Views:** 
     *   When a user clicks on an item in a list to view its details, the detail view must provide "Next" and "Previous" navigation controls.
     *   This navigation operates within the exact context of the list the user originated from, respecting active search queries, filters, and sort orders.
@@ -304,7 +311,7 @@ As a faster alternative to operating FilterHub's manual controls (Section 3.1), 
 *   **Region Matching, a Known Limitation:** Admin-area/region matching (e.g. distinguishing "Kota Yogyakarta" from "Kabupaten Sleman") relies on the existing geolocation provider's administrative-area data (Section 4.3). Because that data is community-sourced (OpenStreetMap), address matching near a city/regency boundary may occasionally be imprecise. This is an accepted v1 limitation, not a blocking defect — true polygon/point-in-polygon geographic filtering was considered and rejected as new infrastructure not justified by current use cases.
 *   **Summary Is the Only Transparency Layer:** The resulting filter — whether just-extracted or loaded from a save — is described to the user solely by a deterministic, template-rendered summary sentence built from its current field values and any caveats (never an AI-generated or frozen caption). There is no edit UI for a filter, ever: the only way to change one is to re-prompt. This single mechanism is deliberately the entire trust/transparency layer.
 *   **Saving and Reuse:** A user can save a resolved filter from a dedicated "My AI Filters" list page (same pattern as the Favorites and Subscribed Accounts list pages, Sections 3.2 and 3.7). Loading a saved filter into Discovery and then adjusting a FilterHub manual control (Section 3.1) changes only that browsing session's query state — it never mutates the saved filter itself.
-*   **FilterHub Entry Point:** The prompt entry point is a small icon-only trigger (no permanent label) that opens the prompt as an overlay, adding no permanent width to FilterHub. While a prompt is being resolved, the overlay uses Section 3.12's existing blocking full-screen-overlay pattern (the same one used for other data-extraction actions), not a lighter-weight spinner. When an AI filter is active, it replaces FilterHub's manual controls with a single collapsed row showing the live summary plus clear/expand actions — the two are never shown stacked together. Expand is offered only when manual controls can represent the filter (a flat filter); a compound OR/NOT filter offers clear only. The search box and the Today/Upcoming toggle stay live beside an active AI filter and narrow it (ANDed).
+*   **FilterHub Entry Point:** The prompt entry point is a small icon-only trigger (no permanent label) that opens the prompt as an overlay, adding no permanent width to FilterHub. While a prompt is being resolved, the overlay uses Section 3.12's existing blocking full-screen-overlay pattern (the same one used for other data-extraction actions), not a lighter-weight spinner. When an AI filter is active, it replaces FilterHub's manual controls with a single collapsed row showing the live summary plus clear/expand actions — the two are never shown stacked together. Expand is offered only when manual controls can represent the filter (a flat filter); a compound OR/NOT filter offers clear only. The search box and the Today/Upcoming toggle stay live beside an active AI filter and narrow it (ANDed). **[PLANNED: Epic 11, Story 11.22; not yet built]** The toggle becomes the time dropdown of Section 3.12, which stays live the same way.
 
 > **Considered and rejected:** a general-purpose, open-dialogue chatbot — this would let a user's own BYOK Gemini API key (Section 3.11) be used as a free chat proxy through the app, an abuse vector the constrained, structured-output-only extraction task above avoids. Also rejected: a dedicated "AI mode" toggle that hides FilterHub entirely — the icon-only trigger above was chosen instead so manual and AI-driven filtering coexist without an app-wide mode switch.
 
@@ -320,6 +327,8 @@ Full rationale and the authoritative rule-by-rule reference lives in `monetizati
 *   **Opted-in accounts get a visually distinct, more prominent card** — the image becomes the visual center of interest rather than a small thumbnail. **(Added 2026-09-04; revised 2026-09-30)** The presence of a non-null `durableImageUrl` OR `durableThumbnailUrl` on an event is the frontend's trigger for this prominent treatment (Architecture Spine AD-28 Rule 7) — no separate opt-in flag is exposed to or read by the client. `durableImageUrl` is never populated for a non-opted-in account's post (AD-12 Rule 1) and, when present, is always rendered in preference to `durableThumbnailUrl`. As of 2026-09-30 this is no longer a binary "prominent vs. nothing" incentive: an opted-in account's prominent card shows the sharp, unblurred original (`durableImageUrl`); a non-opted-in account can still get the prominent treatment using a face-blurred thumbnail (`durableThumbnailUrl`, below) whenever one was generated. Opting in remains materially better (sharp vs. blurred) but is no longer the only way to get a prominent card at all. See Story 1.3b for the exact layout.
 *   **Face-blurred thumbnails are consent-independent.** **(Added 2026-09-30, Architecture Spine AD-28)** Any face detected in a post's image is blurred in a separate, durably-stored `durableThumbnailUrl` derivative — generated and stored **regardless of the source account's `isImageStorageOptedIn` status**. This is a deliberate, explicit divergence from this section's own default-hotlink/no-persistent-copy-without-opt-in rule above: that rule exists to prevent an unconsented copy of an account's *original* content for copyright/ToS-exposure reasons, while this rule protects an independent concern (an identifiable bystander's privacy) via a blurred derivative. `durableThumbnailUrl` is skipped entirely (never generated or stored) for an event whose schedule(s) end before its source image's own expiry would have made a durable copy relevant in the first place — narrowing the feature's footprint for short-lived events. Detection uses `face-api.js`, chosen to avoid a recurring per-image AWS fee at the accepted cost of lower recall than a managed cloud detector on small/angled/occluded faces — some bystander faces may go unblurred.
 *   **Faces are blurred before an image is sent to the AI vendor, unless the post's owner opted in. (FR115, added 2026-10-04, Architecture Spine AD-28 Rule 10)** When the backend setting `BLUR_FACES_BEFORE_AI` is on (the default), every image of a post, including each carousel slide, has detected faces blurred **before** it is sent to the AI vendor for extraction, so an identifiable bystander's face does not leave FestDaily unblurred. The exception is a post whose **owner** (the account that published it, never a co-author) has `isImageStorageOptedIn = true`: its original images are sent unchanged. If the blur cannot be completed for an image, that image is not sent: the post is extracted from its caption text only. Setting `BLUR_FACES_BEFORE_AI` off restores the previous behavior, where the vendor receives the original image. The same detection pass produces the stored blurred thumbnail, so detection runs once per image.
+*   **Registration Phones and Contact Scrub (FR133) [PLANNED: Epic 12, Stories 12.8, 12.9 and 12.10; not yet built]:** Today a raw private contact is discarded and never stored (Section 4.1, `hasPrivateContact`), and that stays true for every contact except this one planned exception: a phone number published by the organizer **for registration** is stored only in its registration option (Section 4.22), only as E.164, never with a person's name; it is hard-deleted at event end + 1 day, on takedown, on permanent delete, and when a re-extract no longer finds it; raw captions are blanked 30 days after expiry; free text passes a deterministic contact scrub. The number is shown only when the user acts. Every other private contact is still discarded.
+*   **Online-Only Locations Are Not Geocoded (FR138) [PLANNED: Epic 11, Stories 11.9 and 11.16; not yet built]:** Today an online-only location can be geocoded to a wrong place. Planned: an online-only location gets no coordinates and no map pin, never falls back to the account's default location, and is marked with the resolution `online`; a hybrid text is still geocoded. The existing wrong pins of active online-only schedules are cleared once; past schedules stay as they are.
 *   **Event detail page:** Uses an embedded Instagram post (oEmbed-style), not a raw hotlinked image URL. This is a copyright/retention-footprint improvement, not by itself a personal-data-exposure fix — an embed showing an identifiable individual is still subject to the same display-lifecycle bound as a hotlinked image would be. Requires a defined fallback ("content no longer available" for non-opted-in accounts; `durableImageUrl` is acceptable for opted-in accounts) if the source post becomes unavailable.
 *   **`SocialMediaAccountProfile.profileImageUrl` is never stored or displayed on any surface, including via embed, regardless of the account's image-storage opt-in status** (Section 4.5) — this is a stricter, independent rule from the post/poster-image handling above.
 *   **Account-type filtering:** **(Amended 2026-10-15; Stories 3.4n, 3.4o)** Each subscribed account is classified as an organizer/venue/event, a curator/local-guide, or a personal account. An account is scraped only if it has never been classified (legacy), or its classification is confirmed as organizer/venue/event or curator/local-guide. Personal accounts, and any account whose classification is still awaiting moderator approval, are never scraped. The same rule applies to the daily batch scrape, the on-demand "scrape this account" action and the scrape started when a user first subscribes. Posts from a curator/local-guide account are scraped only to extract events (which are stubs, Section 3.7): their images are not durably stored unless the account is opted in (Section 4.5), and a post's caption is never displayed and is cleared once extraction finishes. When an on-demand scrape is refused because of the account type, the user is told so rather than shown a generic failure. **(Amended 2026-11-02)** The same rule applies to every job that scrapes an account or a post (Section 3.18), including the re-extract image refresh (Section 3.9.3).
@@ -363,6 +372,18 @@ Some actions need a scraping vendor (Apify or Bright Data) and can take longer t
     *   **OI-2, the lookup fallback flow for a vote (IDEA-261031-nts D1, D3, D4):** D1 whether lookup requests are kept durably, D3 the budget of the interactive attempt, D4 whether a vote applies by itself when the lookup resolves. D2's channel is answered by FR124. *Owner: product owner, through bmad-ux. Revisit: before Stories 10.4 and 10.7.*
     *   **OI-3, whose vendor credential a job uses (CC-032 cost model; Story 3-4b contributed vendor keys, legally gated):** the standing constraint from Story 3-4b is that a contributed Apify token is never used for a moderator-initiated run. The engine lets the credential depend on the job type, so either outcome plugs in without changing the chain. *Owner: product owner (legal gate). Revisit: when CC-032 is decided.*
     *   **OI-4, whether correction jobs (today `manual_extraction_jobs`) move onto the engine's own table:** the user sees the same result either way, because correction jobs appear on the Jobs page. *Owner: architect. Decided in Story 10.9.*
+
+### 3.19 Event Registration and Call to Action (Epic 12, added 2026-11-27) [PLANNED: Epic 12; not yet built]
+
+> **Planned, not yet built.** Nothing in this section exists in the code today: the event detail has no registration bar, no registration options are stored, and the event links of Story 0.37 are rendered as plain links to their full URL. Source: backlog CC-261124-vjh, Sprint Change Proposal `sprint-change-proposal-2026-11-24-registration-extraction.md` (approved 2026-11-27), owner asks 1-8 and decisions D1-D12 of `event-registration-cta-handoff-2026-11-20.md` (D5, D6 and D7 as amended there).
+
+*   **Registration Options (FR131; Stories 12.1, 12.3, 12.5, 12.6):** How to register is stored apart from schedules, as registration options of the event (Section 4.22): links, phones and QR-decoded links. A registration **window** stays a schedule with `stage = registration` (Section 3.7). An option read from an image carries a low-confidence mark set by code, and the moderator opens the original post to check it. On a multi-event post a phone attaches to an event only when the post yields one event or the option names its event (D4).
+*   **Action Bar and Side Card (FR131; Stories 12.5, 12.6):** Below the `lg` breakpoint the event detail shows a bottom action bar; at `lg` and up a sticky side card; in the `@modal` route a sticky modal footer (D11). The bar carries one primary call to action, up to three icon actions and a kebab menu, chosen by a state table where the first match wins (handoff section 4). Several options open a sheet. The call-to-action label depends on the event type, with the fallback "Register" (D8). Share is in the bar; the detail header loses its heart, calendar and share icons to the bar (D10). A trust line shows the destination host next to each action.
+*   **Prices Beside the Buttons (FR137; Story 12.7):** Buttons carry no price. The event's price tiers and its "from" price (Section 4.23) are shown beside the buttons; an event without tiers shows its `ticketPrice` as today; a low-confidence tier carries the mark.
+*   **WhatsApp and Phone (FR133; Stories 12.8, 12.10):** A WhatsApp action and a phone action, with a message preview before WhatsApp opens. The number is never in the page: it is returned only when the user acts, with a per-IP rate limit; `tel:` only on touch devices, "Copy number" on desktop.
+*   **First-Party Link Endpoint (FR132; Stories 12.4, 12.z):** A destination that comes from organizer or scraped data is never put in the page. The page links to a first-party endpoint (`/go/{opaqueId}`) that checks the destination and redirects; the endpoint accepts only an opaque id, never a URL. The same endpoint serves the event's other organizer links (ticketing, RSVP, link-in-bio: Story 0.37), so every link and call to action of the event detail that comes from organizer or scraped data goes through it, on every event, past ones included (owner, 2026-11-26). The public event read stops returning the full URL of these links; the correction dialog and the moderator re-extract preview read it through a gated query. First-party navigation (calendar, share, map link) is not affected.
+*   **QR-Decoded Links (FR134; Story 12.2, last):** A QR code on the post can become a registration option only from a **decoded** payload; a payment payload is never a Register button; the destination host is always shown. QR decoding ships last in Epic 12, behind a memory gate (the cause of the AI-processor out-of-memory seen since 2026-11-20 understood; replay peak memory with decoding at most 10% above the same replay without it and below 80% of the configured memory). The rest of this section does not wait for it.
+*   **Slicing (D3):** slice 1 = registration links, the bar, the sheet and the `/go/` endpoint; slice 2 = phones, WhatsApp and the retention sweep; slice 3 = prices beside the buttons; QR last. "Remind me" before a deadline is its own later epic (D9, backlog IDEA-261124-nta).
 
 ## 4. Event Data Schema
 
@@ -468,6 +489,37 @@ interface EventInfo {
    * detail instead of displaying a stored copy. See Section 5 (Security).
    */
   hasPrivateContact?: boolean;
+  /*
+   * PLANNED (Epic 11, Stories 11.3, 11.6, 11.7, 11.8; Epic 12 for contact):
+   * NOT YET BUILT. The fields below do not exist in the database or the API
+   * today. `contactInfo`/`hasPrivateContact` above stay as described; the
+   * one planned exception is a registration phone, stored only in a
+   * registration option (Section 4.22, Section 3.16, FR133).
+   */
+  /** PLANNED (Story 11.6). Prizes named in the post (bounded list). */
+  prizes?: string[];
+  /** PLANNED (Story 11.6). Promos with a cue and a figure (bounded list). */
+  promos?: string[];
+  /** PLANNED (Story 11.6). Take-home items included in the ticket (bounded list). */
+  inclusions?: string[];
+  /** PLANNED (Story 11.6). True when the post states free entry in words. */
+  isFree?: boolean;
+  /**
+   * PLANNED (Story 11.7). The card highlight (FR135): the first item of the
+   * detail highlight list, stored whole, no length limit, composed in code
+   * by the shared composer (never by the model). A list item carries its
+   * count in parentheses after the label, as part of the text; there is no
+   * count field. The detail list itself is composed at read time.
+   */
+  highlight?: string;
+  /** PLANNED (Story 11.7). Version of the highlight rules that wrote `highlight`. */
+  highlightRulesVersion?: number;
+  /** PLANNED (Stories 11.8, 12.7). Lowest positive PUBLIC amount of the event's price tiers (derived, Section 4.23). */
+  fromPrice?: number;
+  /** PLANNED (Stories 11.8, 11.10). Stand-alone event name without activity words; matching only, never displayed. */
+  coreEventName?: string;
+  /** PLANNED (Stories 11.8, 11.10). Activity type (e.g. RACE_PACK_COLLECTION); matching only, never displayed. */
+  activityType?: string;
   /**
    * A description of the event.
    */
@@ -616,6 +668,14 @@ interface LocationDetails {
    * with the rest of `LocationDetails`.
    */
   venueType?: string;
+  /*
+   * PLANNED (Epic 11, Stories 11.9 and 11.19): NOT YET BUILT. The location
+   * resolution gains two values: `online` (an online-only location, no
+   * coordinates and no pin, FR138) and `account_default` (the coordinates
+   * were inherited from the account's Default Location, allowed only for a
+   * confirmed organizer/venue/event account, FR139). Text column, no new
+   * field.
+   */
 }
 ```
 
@@ -629,8 +689,22 @@ interface LocationDetails {
 interface Schedule {
   /**
    * Indicates if this is the main schedule for the event.
+   * PLANNED (Epic 11, Story 11.13): derived in code from the stages of all
+   * schedules of the event, never taken from the model (FR136).
    */
   isMainSchedule: boolean;
+  /**
+   * PLANNED (Epic 11, Stories 11.3 and 11.4): NOT YET BUILT. Required phase
+   * of this schedule: 'event' | 'registration' | 'submission' |
+   * 'announcement' | 'preparation' | 'other' (FR136).
+   */
+  stage?: 'event' | 'registration' | 'submission' | 'announcement' | 'preparation' | 'other';
+  /**
+   * PLANNED (Epic 11, Stories 11.3 and 11.13): NOT YET BUILT. True when this
+   * schedule may give the event's card date; derived in code from all
+   * schedules of the event (FR136).
+   */
+  isDisplay?: boolean;
   /**
    * The start date of the event in YYYY-MM-DD format.
    */
@@ -671,6 +745,8 @@ interface Schedule {
    * a fuller record of an individual across events (Section 5, Security).
    * No performer photo or contact info is ever extracted into this or any
    * other field, even when the source post provides one.
+   * PLANNED (Epic 11, Story 11.6): also filled from speaker lines
+   * ("Bersama", "Pembicara", "Pemateri"); the performer-contact guard still runs.
    */
   performers?: string[];
   /**
@@ -679,6 +755,9 @@ interface Schedule {
   location?: string;
   /**
    * The ticket price for this schedule.
+   * PLANNED (Epic 11, Story 11.8): stays an extraction output for every
+   * schedule, new and old; price tiers are stored beside it on the event
+   * (Section 4.23), never instead of it.
    */
   ticketPrice?: string;
   /**
@@ -1507,6 +1586,9 @@ enum DayOfWeek {
 enum TemporalFilter {
   TODAY,
   UPCOMING
+  // PLANNED (Epic 11, Story 11.22): NEXT_7_DAYS (today to today + 6, ended
+  // schedules excluded, the viewer's day). Not yet built. UPCOMING stays
+  // with its meaning for saved AI filters and the API (FR140).
 }
 
 /**
@@ -1757,6 +1839,57 @@ interface Job {
 }
 ```
 
+### 4.22. RegistrationOption Interface (added 2026-11-27, Section 3.19) [PLANNED: Epic 12, Story 12.1; not yet built]
+
+```typescript
+/**
+ * PLANNED (Epic 12, Stories 12.1, 12.3, 12.8): NOT YET BUILT.
+ * One way to register for an event (FR131). Held apart from schedules.
+ * Carries no price (prices are the event's tiers, Section 4.23).
+ * The public read returns safe descriptors only (opaque id, label, type,
+ * destination host, masked phone); never the full URL or the number.
+ */
+interface RegistrationOption {
+  id: string;
+  eventId: string;
+  type: 'LINK' | 'WHATSAPP' | 'PHONE' | 'FILE' | 'CONTACT';
+  label?: string;
+  /** Destination (server side only; reached through `/go/{id}`, FR132). */
+  url?: string;
+  /** Registration phone in E.164, never with a person's name; hard-deleted at event end + 1 day (FR133). */
+  phoneE164?: string;
+  /** Where the option came from: caption, image or decoded QR (FR134). */
+  source: 'CAPTION' | 'IMAGE' | 'QR';
+  /** Set by code when the option was read from an image. */
+  lowConfidence: boolean;
+}
+```
+
+### 4.23. PriceTier Interface (added 2026-11-27, Section 3.19) [PLANNED: Epic 11, Story 11.8, shown by Epic 12, Story 12.7; not yet built]
+
+```typescript
+/**
+ * PLANNED (Epic 11, Stories 11.3 and 11.8; display in Story 12.7): NOT YET BUILT.
+ * A price tier of an event (FR137). Tiers belong to the event, not to a
+ * registration option, and are stored beside `Schedule.ticketPrice`, never
+ * instead of it. Written only when two distinct amounts exist inside one
+ * event. `EventInfo.fromPrice` = the lowest positive PUBLIC amount.
+ */
+interface PriceTier {
+  eventId: string;
+  label: string;
+  kind: 'CATEGORY' | 'TIME_WINDOW' | 'OTHER';
+  audience: 'PUBLIC' | 'STUDENT' | 'CHILD' | 'MEMBER' | 'LOCAL_RESIDENT' | 'GROUP' | 'OTHER';
+  /** At most 80 characters. */
+  conditions?: string;
+  price: number;
+  startDate?: string;
+  endDate?: string;
+  /** Set by code when the amount does not appear in the caption text (it came from the poster through the price string). */
+  lowConfidence: boolean;
+}
+```
+
 ## 5. Non-Functional Requirements
 
 ### Performance
@@ -1800,16 +1933,21 @@ interface Job {
 
 ### AI Extraction Quality
 *   All AI-driven event extractions must produce a `confidenceScore` along with the `EventInfo` data. Events with a score below a defined threshold will be automatically flagged for human review to ensure data quality.
+*   **Replay Release Gate (FR141) [PLANNED: Epic 11, Stories 11.1 and 11.2; not yet built]:** Every change to the extraction prompt or response schema passes a replay gate before release: interleaved A/B on real posts with images, six or more runs, events and schedules counted against production; a fresh, never-read caption set per release, with labels written before the composer output is read. Pass criteria (owner, 2026-11-26): the new arm loses events or schedules on no gate post more often than the production arm on the same post; first-look composer precision on that release's fresh set is not worse than the previous release on its own fresh set (the first release with the no-limit composer sets a new baseline); zero output-cap hits. Reported each release, not gated: performer and prize variance; ticket prices visible on the images of 40 fresh posts read by eye that the extraction did not return (two or more trigger the images variant of the tier call, backlog IDEA-261124-ofm; a price label on a single product is not a ticket price); events with a missing or extra tier on multi-event posts; the core event name inside the merged call; and, for QR decoding (Story 12.2), the AI-processor peak memory with and without decoding (at most +10% and below 80% of the configured memory).
 
 ### Security
 
-*   **Scraped-Content Personal Data (Indonesia PDP Law / GDPR):** Data extracted from third-party social posts must be minimized per Section 3.16 and the field-level rules in Section 4 (`EventInfo.hasPrivateContact`, `Schedule.performers`, `SocialMediaAccountProfile.profileImageUrl`/`isImageStorageOptedIn`). Two rules not yet enforced anywhere in the pipeline, tracked as open build items in epics.md: (1) a children's-data keyword filter that prevents an individual minor's name from ever being written to the database (not merely hidden at display), with a separate, non-self-service exception path for verified schools/studios; (2) vendor confirmation from Apify and Bright Data, in writing, that their Instagram scraping operates logged-out against public data only — the favorable Meta v. Bright Data legal comparison this product currently relies on depends on that being true, not just structurally plausible from the adapter code.
+*   **Scraped-Content Personal Data (Indonesia PDP Law / GDPR):** Data extracted from third-party social posts must be minimized per Section 3.16 and the field-level rules in Section 4 (`EventInfo.hasPrivateContact`, `Schedule.performers`, `SocialMediaAccountProfile.profileImageUrl`/`isImageStorageOptedIn`). Two rules not yet enforced anywhere in the pipeline, tracked as open build items in epics.md: (1) a children's-data keyword filter that prevents an individual minor's name from ever being written to the database (not merely hidden at display), with a separate, non-self-service exception path for verified schools/studios; (2) vendor confirmation from Apify and Bright Data, in writing, that their Instagram scraping operates logged-out against public data only — the favorable Meta v. Bright Data legal comparison this product currently relies on depends on that being true, not just structurally plausible from the adapter code. **[PLANNED: Epic 12, Stories 12.8 and 12.9; not yet built]** One bounded exception to discarding private contact: a phone the organizer published for registration is kept only in its registration option, as E.164, and hard-deleted at event end + 1 day (Section 3.16, FR133).
 *   **Public-Accounts-Only Scraping Scope (added 2026-10-06):** FestDaily only allows subscribing to **public** social media accounts, so every scrape is intended to target a public account and its publicly visible posts; private accounts are not meant to be subscribed to or scraped. **Enforcement gap:** the subscribe path does not yet check whether an account is private, so today this is product intent backed only by logged-out scraping returning nothing for private accounts (tracked as FIND-079). **(Amended 2026-11-02)** The subscribe job (Section 3.7, FR126) checks that the account is public and ends with that reason when it is not, which closes this gap once it is built (Story 10.7). The data therefore stays the account owner's own public content, and the scraping-method confirmation above (logged-out, public data only) is consistent with product scope rather than an additional restriction on it. The vendor confirmation is a statement about *how* Apify and Bright Data collect (logged-out, public only), not about who owns the data; account-owner and data-subject protections remain the field-level rules in the first bullet above.
 *   **AI Vendor Data Use (added 2026-10-04):** Google's Gemini API terms let it use content submitted through *unpaid* keys, including images, to improve its products, with possible human review; paid keys are not used that way. FestDaily's extraction keys include subscribers' own keys whose billing tier is not verified, so a bystander's face must not reach the vendor unblurred by default (Section 3.16, FR115). Whether to verify or require a paid tier at key setup is tracked separately (FIND-066). **Business-model note (2026-10-12):** the BYOK design itself is under legal and business-model review (platform-paid vs user-paid vs hybrid; the business plan currently assumes platform-paid extraction, this PRD is built on BYOK), tracked as CC-032. Apify has indicated user-contributed scraping tokens are acceptable only when used for accounts that user follows (Story 3.4b, reopened, still gated); no Gemini-side confirmation exists. Nothing in this PRD changes until that decision is made.
 *   User data and privacy must be protected with industry-standard security measures. When BYOK Gemini API keys are used server-side for event data extraction, they will be securely stored and managed with robust encryption and access controls. Your personal, identifiable data (event preferences, saved locations, calendar and favorite selections, account details) is used solely to personalize your experience within the app; we do not spam your calendar, and we do not sell personal data to third parties. Crucially, our 'add to calendar' feature works one-way, simply adding selected events to your calendar without accessing its existing content. We absolutely do not read your personal calendar content.
 *   **Private vs. Sellable Data Boundary:** A distinct, non-identifiable category — aggregated, anonymized usage and interest data (e.g. category/event-type demand trends, regional favorite/calendar-add volume) — is not subject to the "we do not sell personal data" commitment above and may be shared or sold to city tourism boards, venues, and local partners as part of the platform's monetization strategy (Section 6). This is permitted only when the data is reduced to the same k-anonymity standard already established by the vote list's "Near Me" ranking (Section 3.13): bucketed to city/province granularity, never raw coordinates, suppressed entirely for any region with fewer than 5 distinct contributing users, and with no path back to an individual account. Any future sellable-data product must be validated against this standard before launch.
 *   **Widget Embedding:** The embeddable widget (Section 3.14) is served from a dedicated route with a dynamically-scoped `frame-ancestors` policy limited to registered domain patterns (Section 4.17), validated against a Public Suffix List at registration time to prevent whitelisting a shared-hosting domain — the rest of the application's framing protection is unaffected.
+*   **First-Party Link Endpoint (FR132, FR133) [PLANNED: Epic 12, Stories 12.4 and 12.10; not yet built]:** `/go/{opaqueId}` is not an open redirect: it accepts only an opaque option or event-link id, never a URL; it checks a scheme allow-list (`https`, `wa.me` over https, `tel`), a host blocklist that applies at once to every event (past ones included), and a kill switch per option or link; an unknown, expired or blocked id answers a first-party page, not a redirect. A phone number is revealed only on a user action, through a public POST with a per-IP rate limit.
 *   **Location Data Reuse Boundary:** A user's saved/current location (Section 4.6) must never be used to label or infer a social media account's location (Section 3.13), even in aggregate — doing so would repurpose location data collected for a different, already-consented purpose (finding nearby events) and risks re-identifying an individual voter when few people have voted for an account. Location may only be used as a per-viewer, non-persisted ranking weight.
+
+### Data Backfills (FR142) [PLANNED: Epic 11, Stories 11.7, 11.11, 11.12, 11.15, 11.16 and 11.21; not yet built]
+*   Backfills, re-geocoding and recompute sweeps touch **active** events only (still running or upcoming in the schedule's own time zone; an event is active when at least one of its schedules is). Past events are left as they are, including their pins and their stored card highlight. Moderator edits are never overwritten. Every data-writing backfill has a dry run, an apply step and a rollback copy, and is applied only with the owner's go-ahead and the writer credential.
 
 ### Analytics
 *   The platform will use **PostHog** to collect product analytics, track user interaction events, and optionally record session replays. This provides a modern alternative to Google Analytics, tailored for deep product usage insights, while allowing anonymization of user data to measure key performance indicators and improve the service.

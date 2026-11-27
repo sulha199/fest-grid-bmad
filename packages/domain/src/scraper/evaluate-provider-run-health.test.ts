@@ -318,3 +318,22 @@ test("with the carry-over disabled the behaviour is the plain fresh-window one",
   const stale = Array.from({ length: 12 }, (_, i) => failed(100 * 60 + i));
   assert.equal(evaluate(stale, options).degraded, false);
 });
+
+test("classifyProviderRun: a zero-post success after posts were excluded is inconclusive", () => {
+  const excluded = (excludedPostCount: number | null): ProviderRunSample => ({ ...empty(1), excludedPostCount });
+  assert.equal(classifyProviderRun(excluded(4)), null);
+  assert.equal(classifyProviderRun(excluded(0)), "empty");
+  assert.equal(classifyProviderRun(excluded(null)), "empty");
+  assert.equal(classifyProviderRun({ ...ok(1), excludedPostCount: 4 }), "ok");
+  assert.equal(classifyProviderRun({ ...failed(1), excludedPostCount: 4 }), "failed");
+});
+
+test("a quiet day of all-excluded runs does not degrade the provider, a fleet of failures still does", () => {
+  const allExcluded = (m: number): ProviderRunSample => ({ ...empty(m), excludedPostCount: 5 });
+  // 20 quiet runs: nothing conclusive in the sample, so it proves nothing (never ALL_EMPTY).
+  assert.equal(evaluate(many(allExcluded, 20)).degraded, false);
+  // Plain empties (no exclusion) are still read as ALL_EMPTY.
+  assert.equal(evaluate(many(empty, 20)).reason, "ALL_EMPTY");
+  // A real outage that fails or times out is still caught next to the quiet runs.
+  assert.equal(evaluate([...many(failed, 12), ...many(allExcluded, 8, 12)]).reason, "VENDOR_FAILURE");
+});

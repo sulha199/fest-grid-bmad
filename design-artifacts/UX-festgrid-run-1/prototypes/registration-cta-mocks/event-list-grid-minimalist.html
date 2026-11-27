@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Grid Minimalis</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom scrollbar hide for filter horizontal scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 pb-20">
+
+    <!-- Header & Filter Bar -->
+    <header class="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 py-3">
+        <div class="max-w-md mx-auto flex items-center justify-between gap-2">
+            <!-- Search / Filter Input -->
+            <div class="relative flex-1">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" placeholder="Cari event atau lokasi..." class="w-full bg-slate-100 text-xs sm:text-sm pl-9 pr-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
+            </div>
+            <!-- Filter Button -->
+            <button class="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium px-3.5 py-2 rounded-full transition">
+                <i class="fa-solid fa-sliders text-xs"></i>
+                <span>Filter</span>
+            </button>
+        </div>
+
+        <!-- Horizontal Categories (Quick Filter) -->
+        <div class="max-w-md mx-auto flex gap-2 mt-3 overflow-x-auto no-scrollbar pb-1">
+            <button class="bg-slate-900 text-white text-xs px-3.5 py-1.5 rounded-full font-medium whitespace-nowrap">Semua</button>
+            <button class="bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs px-3.5 py-1.5 rounded-full font-medium whitespace-nowrap transition">Terdekat (4km)</button>
+            <button class="bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs px-3.5 py-1.5 rounded-full font-medium whitespace-nowrap transition">Promo & Diskon</button>
+            <button class="bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs px-3.5 py-1.5 rounded-full font-medium whitespace-nowrap transition">Olahraga</button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-md mx-auto px-4 pt-4">
+
+        <!-- Grid Event Cards (2 Kolom Layout) -->
+        <div class="grid grid-cols-2 gap-3.5" id="event-grid">
+
+            <!-- Card 1: Styles Prizeventure -->
+            <article class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 border border-slate-100 flex flex-col group">
+                <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+                    <img src="https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=500&q=80" alt="Styles Prizeventure" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    <!-- Top Badges Overlay -->
+                    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+                        <span class="bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-sm">Berlangsung</span>
+                        <button onclick="toggleFavorite(this)" class="pointer-events-auto w-7 h-7 bg-black/30 hover:bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center text-white transition">
+                            <i class="fa-regular fa-heart text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-xs sm:text-sm font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">Styles Prizeventure 2026</h2>
+                        <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-location-dot text-slate-400 text-[10px]"></i>
+                            <span class="truncate">Lippo Plaza Jogja</span>
+                        </p>
+                    </div>
+                    <!-- Metadata Footer -->
+                    <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                        <span class="text-indigo-600 font-semibold"><i class="fa-solid fa-person-walking text-[9px] mr-0.5"></i> 4 km</span>
+                        <span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">s/d 12 Des</span>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Card 2: Lippo Malls Campaign -->
+            <article class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 border border-slate-100 flex flex-col group">
+                <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+                    <img src="https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=500&q=80" alt="Styles Prizeventure Lippo Malls" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+                        <span class="bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-sm">Berlangsung</span>
+                        <button onclick="toggleFavorite(this)" class="pointer-events-auto w-7 h-7 bg-black/30 hover:bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center text-white transition">
+                            <i class="fa-regular fa-heart text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-xs sm:text-sm font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">Styles Prizeventure Grand Prize</h2>
+                        <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-location-dot text-slate-400 text-[10px]"></i>
+                            <span class="truncate">Lippo Malls Network</span>
+                        </p>
+                    </div>
+                    <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                        <span class="text-slate-400">Nasional</span>
+                        <span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">s/d 12 Des</span>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Card 3: Kejuaraan Bulutangkis -->
+            <article class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 border border-slate-100 flex flex-col group">
+                <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+                    <img src="https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=500&q=80" alt="Kejuaraan Bulutangkis" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+                        <span class="bg-amber-500/90 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-sm">Segera</span>
+                        <button onclick="toggleFavorite(this)" class="pointer-events-auto w-7 h-7 bg-black/30 hover:bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center text-white transition">
+                            <i class="fa-regular fa-heart text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-xs sm:text-sm font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">Kejuaraan Bulutangkis Tegal Challenge</h2>
+                        <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-location-dot text-slate-400 text-[10px]"></i>
+                            <span class="truncate">GOR Purna Bharatangkas</span>
+                        </p>
+                    </div>
+                    <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                        <span class="text-emerald-600 font-semibold">Hadiah 33 Juta</span>
+                        <span class="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-semibold">s/d 3 Nov</span>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Card 4: Beyond Gold Promo -->
+            <article class="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 border border-slate-100 flex flex-col group">
+                <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+                    <img src="https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=500&q=80" alt="Gold Jewelry Promo" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    <div class="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center pointer-events-none">
+                        <span class="bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-sm">Berlangsung</span>
+                        <button onclick="toggleFavorite(this)" class="pointer-events-auto w-7 h-7 bg-black/30 hover:bg-black/50 backdrop-blur-md rounded-full flex items-center justify-center text-white transition">
+                            <i class="fa-regular fa-heart text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-xs sm:text-sm font-semibold text-slate-800 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">Beyond Gold & Jewelry Promo</h2>
+                        <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                            <i class="fa-solid fa-location-dot text-slate-400 text-[10px]"></i>
+                            <span class="truncate">Wahyu Redjo Beyond</span>
+                        </p>
+                    </div>
+                    <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                        <span class="text-slate-400">Promo Mall</span>
+                        <span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">s/d 10 Nov</span>
+                    </div>
+                </div>
+            </article>
+
+        </div>
+    </main>
+
+    <!-- Bottom Navigation Bar (Minimalist) -->
+    <nav class="fixed bottom-0 left-0 right-0 z-30 bg-white/90 backdrop-blur-lg border-t border-slate-200/80">
+        <div class="max-w-md mx-auto flex justify-around items-center h-14">
+            <a href="#" class="flex flex-col items-center text-indigo-600">
+                <i class="fa-solid fa-compass text-base"></i>
+                <span class="text-[10px] mt-0.5 font-semibold">Jelajah</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-rss text-base"></i>
+                <span class="text-[10px] mt-0.5 font-medium">Feed</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-slate-400 hover:text-slate-600">
+                <i class="fa-regular fa-heart text-base"></i>
+                <span class="text-[10px] mt-0.5 font-medium">Favorit</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-slate-400 hover:text-slate-600">
+                <i class="fa-regular fa-calendar-check text-base"></i>
+                <span class="text-[10px] mt-0.5 font-medium">Jadwal</span>
+            </a>
+            <a href="#" class="flex flex-col items-center text-slate-400 hover:text-slate-600 relative">
+                <i class="fa-regular fa-user text-base"></i>
+                <span class="text-[10px] mt-0.5 font-medium">Akun</span>
+                <span class="absolute top-0 right-2 w-2 h-2 bg-rose-500 rounded-full"></span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Interactive Script for Likes -->
+    <script>
+        function toggleFavorite(button) {
+            const icon = button.querySelector('i');
+            if (icon.classList.contains('fa-regular')) {
+                icon.classList.remove('fa-regular');
+                icon.classList.add('fa-solid', 'text-rose-500');
+                button.classList.add('bg-white');
+                button.classList.remove('bg-black/30');
+            } else {
+                icon.classList.remove('fa-solid', 'text-rose-500');
+                icon.classList.add('fa-regular');
+                button.classList.remove('bg-white');
+                button.classList.add('bg-black/30');
+            }
+        }
+    </script>
+</body>
+</html>

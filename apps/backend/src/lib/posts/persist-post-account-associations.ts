@@ -26,13 +26,15 @@ interface AssociationCandidate {
  * role, not just (post, account).
  *
  * Each row is inserted independently via a **bare** `onConflictDoNothing()` (no
- * `target`), which is deliberate: a `target`-scoped call would only suppress a conflict
- * on that one named constraint, but a cross-account conflict on a per-post role slot
- * (AC4's "second, different SCRAPING_SOURCE account" case) violates one of the two
- * **partial** unique indexes on `post_id` (`idx_post_account_associations_one_*`), not
- * the 3-column `(post_id, account_id, role)` unique. A bare `onConflictDoNothing()`
- * suppresses a conflict on *any* unique/exclusion constraint on the table, which is
- * what's needed to make that case a silent no-op rather than a thrown error.
+ * `target`), which is deliberate: a conflicting second `PUBLISHER` row violates the partial unique index
+ * `idx_post_account_associations_one_publisher_per_post`, not the 3-column `(post_id, account_id, role)`
+ * unique, and a `target`-scoped call would not suppress it. A bare `onConflictDoNothing()` suppresses a
+ * conflict on *any* unique constraint, which makes that case a silent no-op rather than a thrown error.
+ *
+ * Every account whose scrape returned the post gets its own `SCRAPING_SOURCE` row (AD-25 Rule 2, amended
+ * 2026-11-26): the one-scraping-source-per-post index was dropped, so a second account's scrape of a stored post
+ * links it to that account (its cursor advances, its subscribers see the post). A repeat by the same account
+ * is a no-op through the 3-column unique.
  *
  * Each insert is additionally wrapped in its own try/catch (log, don't rethrow), matching
  * Story 3.14's established per-identity resilience pattern (`processDiscoveredIdentities`)

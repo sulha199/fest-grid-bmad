@@ -1,4 +1,5 @@
 import { EventType, EventCategory } from '@festgrid/shared-types';
+import { logFaceBlurMem } from './face-blur-mem-log.js';
 import {
   type ProcessingJobMessage,
   POST_GROUPING_REASONS,
@@ -306,9 +307,11 @@ The social media post was published on ${publishDate}. Use this publish date as 
 Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate information. If a field is absent, leave it null or undefined.`;
 
   const accountName = message.ownerDisplayName?.trim() || message.ownerUsername?.trim() || '';
+  // A post with no caption (the event is in its image) must not send an empty text part, which Gemini rejects.
+  const captionText = message.content.trim() === '' ? '(no caption)' : message.content;
   const captionWithAccountContext = accountName
-    ? `Account Name Metadata: "${accountName}"\nPost Content:\n"${message.content}"`
-    : message.content;
+    ? `Account Name Metadata: "${accountName}"\nPost Content:\n"${captionText}"`
+    : captionText;
 
   // BUG-101 -- a stored post's slide list can repeat the cover (file name, not whole URL,
   // matches a different signed query) when it was ingested by the pre-fix Apify adapter.
@@ -365,6 +368,7 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     const { detectAndBlurFacesSeam } = await import('./detect-and-blur-faces.js');
     // Sequential by construction (AD-28 Rule 10, Task 3.3) -- every call site below awaits this
     // one image at a time, cover first then each slide in order, never concurrently.
+    logFaceBlurMem('pre-ai-blur-before', { postId: message.postId });
     const result = await detectAndBlurFacesSeam(imageBuffer, contentType);
     return { data: result.buffer.toString('base64'), blurred: result.buffer, faceCount: result.faceCount };
   }
@@ -542,6 +546,8 @@ Strictly adhere to the provided JSON schema. Do not hallucinate or fabricate inf
     // Story 3.6s (AC3) — explicit response-size cap.
     maxOutputTokens: env.geminiMaxOutputTokens,
   };
+
+  logFaceBlurMem('gemini-request-built', { postId: message.postId, imagesSent: Array.isArray(contents) ? contents.length - 1 : 0 });
 
   return {
     request,

@@ -1763,7 +1763,8 @@ export const resolvers: Resolvers = {
       if (existingPostRows.length > 0) {
         // Existing-post path
         const post = existingPostRows[0];
-        if (!post.content) {
+        // null = cleared for privacy; '' is a real, empty caption.
+        if (post.content == null) {
           return {
             errorCode: 'EXTRACTION_FAILED',
             errorMessage: 'The source post content has been removed for privacy compliance.',

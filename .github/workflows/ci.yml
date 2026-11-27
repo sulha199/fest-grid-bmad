@@ -40,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: 'package.json'
+          node-version: '24' # pinned: Node 26 breaks apps/web tests (localStorage), see FIND-261126-lxi
           cache: 'pnpm'
 
       - name: Turbo Cache
@@ -126,7 +126,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: 'package.json'
+          node-version: '24' # pinned: Node 26 breaks apps/web tests (localStorage), see FIND-261126-lxi
           cache: 'pnpm'
 
       - name: Turbo Cache
@@ -232,7 +232,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: 'package.json'
+          node-version: '24' # pinned: Node 26 breaks apps/web tests (localStorage), see FIND-261126-lxi
           cache: 'pnpm'
 
       - name: Turbo Cache
@@ -274,7 +274,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: 'package.json'
+          node-version: '24' # pinned: Node 26 breaks apps/web tests (localStorage), see FIND-261126-lxi
           cache: 'pnpm'
 
       - name: Turbo Cache

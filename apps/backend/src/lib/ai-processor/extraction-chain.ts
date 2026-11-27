@@ -37,6 +37,18 @@ export function buildStepMessage(base: StepMessageBase, cursor: ExtractionCursor
   };
 }
 
+// Step messages this Lambda environment has put on the AI queue since the count was last read. The drain's
+// long-poll hint (drain-long-poll-hint.ts) reads it: a step sent a moment ago may not show in the queue's
+// approximate counts yet, so the receive after it must not trust them.
+let stepsEnqueued = 0;
+
+/** Returns how many step messages were enqueued since the last call, and resets the count. */
+export function consumeEnqueuedStepCount(): number {
+  const count = stepsEnqueued;
+  stepsEnqueued = 0;
+  return count;
+}
+
 /** Sends a step message to the AI processing queue after the inter-step delay. */
 export async function enqueueStepMessage(message: ProcessingJobMessage): Promise<void> {
   const queueUrl = loadBackendEnv().aiProcessingQueueUrl;
@@ -44,6 +56,7 @@ export async function enqueueStepMessage(message: ProcessingJobMessage): Promise
     throw new Error('AI_PROCESSING_QUEUE_URL is not configured; cannot enqueue the next extraction step');
   }
   await sendSqsMessage(queueUrl, JSON.stringify(message), { delaySeconds: STEP_DELAY_SECONDS });
+  stepsEnqueued += 1;
 }
 
 export interface FirstCursorInput {

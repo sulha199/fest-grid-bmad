@@ -1,0 +1,4 @@
+# Real captions, real phone numbers and hand labels live here: never commit.
+private/
+node_modules/
+.cache/

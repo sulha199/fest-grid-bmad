@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Acara - Festival Dagelan Mataram Milenial 2026</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-28">
+
+    <!-- Top Floating Header Bar -->
+    <header class="fixed top-0 inset-x-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-4 py-3">
+        <div class="max-w-3xl mx-auto flex items-center justify-between">
+            <!-- Left: Back Button & Next/Prev Event Navigation -->
+            <div class="flex items-center gap-1.5">
+                <button class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors" aria-label="Kembali">
+                    <i class="fa-solid fa-arrow-left text-xs"></i>
+                </button>
+                <div class="h-4 w-px bg-slate-200 mx-1"></div>
+                <!-- Prev / Next Navigation -->
+                <button class="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors" title="Acara Sebelumnya">
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <button class="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 transition-colors" title="Acara Selanjutnya">
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+            </div>
+
+            <span class="text-xs font-semibold text-slate-500 tracking-wide uppercase hidden sm:inline-block">Detail Acara</span>
+
+            <!-- Right: Share, Like, and More Options Dropdown -->
+            <div class="flex items-center gap-2">
+                <button class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors" aria-label="Bagikan">
+                    <i class="fa-solid fa-share-nodes text-xs"></i>
+                </button>
+                <button class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-rose-500 transition-colors" aria-label="Favorit">
+                    <i class="fa-regular fa-heart text-xs"></i>
+                </button>
+                
+                <!-- More Actions Dropdown Menu Container -->
+                <div class="relative">
+                    <button id="moreMenuBtn" onclick="toggleDropdown()" class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors" aria-label="Menu Opsi">
+                        <i class="fa-solid fa-ellipsis-vertical text-xs"></i>
+                    </button>
+
+                    <!-- Dropdown Content -->
+                    <div id="moreDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 text-xs">
+                        <a href="#" class="flex items-center gap-2.5 px-3.5 py-2 text-slate-700 hover:bg-slate-100 transition-colors">
+                            <i class="fa-regular fa-pen-to-square text-indigo-600 text-sm"></i>
+                            <span>Correct Data (Koreksi)</span>
+                        </a>
+                        <a href="#" class="flex items-center gap-2.5 px-3.5 py-2 text-rose-600 hover:bg-rose-50 transition-colors">
+                            <i class="fa-regular fa-flag text-rose-500 text-sm"></i>
+                            <span>Report Event (Laporkan)</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 pt-20">
+        
+        <!-- Title & Category Badges -->
+        <div class="mb-6">
+            <div class="flex flex-wrap items-center gap-2 mb-2.5">
+                <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Pendaftaran Dibuka
+                </span>
+                <span class="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[11px] font-semibold uppercase tracking-wider">
+                    Kompetisi Budaya
+                </span>
+                <span class="text-xs text-slate-400">•</span>
+                <span class="text-xs text-slate-500 font-medium">
+                    <i class="fa-solid fa-location-dot text-indigo-500 mr-1"></i> Yogyakarta
+                </span>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-snug">
+                Festival Dagelan Mataram Milenial 2026 - Dagelan Cilik
+            </h1>
+            <div class="flex flex-wrap gap-2 mt-3">
+                <span class="px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 text-xs font-medium shadow-sm">Seni & Budaya</span>
+                <span class="px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 text-xs font-medium shadow-sm">Keluarga & Anak</span>
+                <span class="px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 text-xs font-medium shadow-sm">Kompetisi</span>
+                <span class="px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 text-xs font-medium shadow-sm">Festival</span>
+            </div>
+        </div>
+
+        <!-- Organizer Profile -->
+        <div class="flex items-center justify-between pb-6 mb-6 border-b border-slate-200">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-full bg-gradient-to-tr from-pink-500 to-indigo-500 p-0.5">
+                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Organizer Avatar" class="w-full h-full object-cover rounded-full">
+                </div>
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                        Jogjakarta Creative Hub
+                        <i class="fa-solid fa-circle-check text-indigo-600 text-xs"></i>
+                    </h2>
+                    <p class="text-xs text-slate-500">@jogjakarta_creative_hub</p>
+                </div>
+            </div>
+            <button class="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold shadow-sm transition-colors">
+                + Ikuti
+            </button>
+        </div>
+
+        <!-- Description -->
+        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm mb-6">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Tentang Acara</h3>
+            <p class="text-sm text-slate-600 leading-relaxed">
+                Lomba Dagelan Cilik (usia 10-16 tahun) dalam rangka penyelenggaraan Festival Dagelan Mataram Milenial Jogja-Jateng 2026. Acara ini bertujuan melestarikan seni komedi tradisional Mataram kepada generasi muda.
+            </p>
+        </div>
+
+        <!-- Event Resources / Quick Links Bar -->
+        <div class="mb-8">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5">Informasi & Berkas</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <a href="#" class="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm text-slate-700 hover:text-indigo-600 transition-all">
+                    <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-phone text-xs"></i>
+                    </div>
+                    <span class="text-xs font-semibold truncate">Kontak Info</span>
+                </a>
+                
+                <a href="#" class="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm text-slate-700 hover:text-indigo-600 transition-all">
+                    <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-book-open text-xs"></i>
+                    </div>
+                    <span class="text-xs font-semibold truncate">Panduan Acara</span>
+                </a>
+
+                <a href="#" class="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm text-slate-700 hover:text-indigo-600 transition-all">
+                    <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-map-location-dot text-xs"></i>
+                    </div>
+                    <span class="text-xs font-semibold truncate">Denah Lokasi</span>
+                </a>
+
+                <a href="#" class="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-sm text-slate-700 hover:text-indigo-600 transition-all">
+                    <div class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-file-pdf text-xs"></i>
+                    </div>
+                    <span class="text-xs font-semibold truncate">Unduh Brosur</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- TIMELINE JADWAL ACARA (MINIMALIST TIMELINE) -->
+        <section class="mb-10">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-clock text-indigo-600"></i> Jadwal & Tahapan Pelaksanaan
+                </h2>
+                <!-- Global Shared Location Badge (Menghilangkan Duplikasi) -->
+                <span class="text-xs text-slate-500 flex items-center gap-1">
+                    <i class="fa-solid fa-location-dot text-slate-400"></i> Ramayana Ballet Purawisata
+                </span>
+            </div>
+
+            <!-- Timeline Vertical Wrapper -->
+            <div class="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
+
+                <!-- Timeline Item 1: Periode Pendaftaran (Berlangsung) -->
+                <div class="relative group">
+                    <!-- Dot Node (Active state with ring glow) -->
+                    <div class="absolute -left-6 top-1.5 w-5 h-5 rounded-full bg-indigo-600 ring-4 ring-indigo-100 flex items-center justify-center">
+                        <div class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                    </div>
+
+                    <!-- Card Body -->
+                    <div class="bg-white rounded-xl p-4 border border-indigo-200 shadow-sm hover:border-indigo-300 transition-all">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wide">
+                                    Sedang Berlangsung
+                                </span>
+                                <h3 class="text-sm font-bold text-slate-900 mt-1">Periode Pendaftaran</h3>
+                                <p class="text-xs font-semibold text-indigo-600 mt-0.5">
+                                    <i class="fa-regular fa-calendar-check mr-1"></i> 16 Sep 2026 - 11 Nov 2026
+                                </p>
+                            </div>
+                            <button onclick="addToCalendar('Periode Pendaftaran', '2026-09-16', '2026-11-11')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 text-xs font-medium transition-colors flex items-center gap-1.5" title="Simpan Pengingat Kalender">
+                                <i class="fa-regular fa-calendar-plus"></i>
+                                <span class="hidden sm:inline">Ingatkan</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline Item 2: Technical Meeting (Mendatang) -->
+                <div class="relative group">
+                    <!-- Dot Node (Upcoming state) -->
+                    <div class="absolute -left-6 top-1.5 w-5 h-5 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center">
+                        <div class="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                    </div>
+
+                    <!-- Card Body -->
+                    <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:border-slate-300 transition-all">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wide">
+                                    Mendatang
+                                </span>
+                                <h3 class="text-sm font-bold text-slate-900 mt-1">Technical Meeting</h3>
+                                <p class="text-xs font-medium text-slate-600 mt-0.5">
+                                    <i class="fa-regular fa-calendar mr-1"></i> Kamis, 12 Nov 2026
+                                </p>
+                            </div>
+                            <button onclick="addToCalendar('Technical Meeting', '2026-11-12')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 text-xs font-medium transition-colors flex items-center gap-1.5" title="Simpan Pengingat Kalender">
+                                <i class="fa-regular fa-calendar-plus"></i>
+                                <span class="hidden sm:inline">Ingatkan</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline Item 3: Babak Penyisihan Pertama -->
+                <div class="relative group">
+                    <!-- Dot Node -->
+                    <div class="absolute -left-6 top-1.5 w-5 h-5 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center">
+                        <div class="w-1.5 h-1.5 rounded-full bg-slate-400"></div>
+                    </div>
+
+                    <!-- Card Body -->
+                    <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:border-slate-300 transition-all">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wide">
+                                    Mendatang
+                                </span>
+                                <h3 class="text-sm font-bold text-slate-900 mt-1">Babak Penyisihan Pertama</h3>
+                                <p class="text-xs font-medium text-slate-600 mt-0.5">
+                                    <i class="fa-regular fa-calendar mr-1"></i> Minggu, 22 Nov 2026
+                                </p>
+                            </div>
+                            <button onclick="addToCalendar('Babak Penyisihan Pertama', '2026-11-22')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 text-xs font-medium transition-colors flex items-center gap-1.5" title="Simpan Pengingat Kalender">
+                                <i class="fa-regular fa-calendar-plus"></i>
+                                <span class="hidden sm:inline">Ingatkan</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline Item 4: Grand Final -->
+                <div class="relative group">
+                    <!-- Dot Node -->
+                    <div class="absolute -left-6 top-1.5 w-5 h-5 rounded-full bg-white border-2 border-amber-500 flex items-center justify-center">
+                        <div class="w-2 h-2 rounded-full bg-amber-500"></div>
+                    </div>
+
+                    <!-- Card Body -->
+                    <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:border-slate-300 transition-all">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-bold uppercase tracking-wide">
+                                    Puncak Acara
+                                </span>
+                                <h3 class="text-sm font-bold text-slate-900 mt-1">Babak Grand Final</h3>
+                                <p class="text-xs font-medium text-slate-600 mt-0.5">
+                                    <i class="fa-regular fa-calendar mr-1"></i> 01 Des 2026 - 31 Des 2026
+                                </p>
+                            </div>
+                            <button onclick="addToCalendar('Grand Final', '2026-12-01', '2026-12-31')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 text-xs font-medium transition-colors flex items-center gap-1.5" title="Simpan Pengingat Kalender">
+                                <i class="fa-regular fa-calendar-plus"></i>
+                                <span class="hidden sm:inline">Ingatkan</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- RELATED INSTAGRAM POSTS SECTION -->
+        <section class="border-t border-slate-200 pt-6 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-brands fa-instagram text-pink-600 text-sm"></i> Sumber & Postingan Instagram Terkait
+                </h2>
+                <span class="text-[11px] text-slate-400 font-medium">2 Postingan</span>
+            </div>
+
+            <div class="space-y-3">
+                <!-- Instagram Card Item 1 -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all">
+                    <!-- Compact Header Row -->
+                    <div class="p-3 flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <!-- Thumbnail -->
+                            <div class="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200/60">
+                                <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=200&auto=format&fit=crop&q=80" alt="Thumbnail Poster Utama" class="w-full h-full object-cover">
+                                <div class="absolute bottom-0.5 right-0.5 w-4 h-4 rounded bg-black/60 backdrop-blur-sm flex items-center justify-center text-white text-[9px]">
+                                    <i class="fa-brands fa-instagram"></i>
+                                </div>
+                            </div>
+                            
+                            <!-- Post Info -->
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs font-bold text-slate-900 truncate">@jogjakarta_creative_hub</span>
+                                    <span class="px-1.5 py-0.2 bg-indigo-50 text-indigo-600 rounded text-[9px] font-semibold">Poster Utama</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 truncate mt-0.5">Pengumuman resmi & syarat pendaftaran Dagelan Cilik 2026...</p>
+                                <span class="text-[10px] text-slate-400 block mt-0.5">Diposting 27 Okt 2026</span>
+                            </div>
+                        </div>
+
+                        <!-- 2 Action Buttons -->
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                            <!-- Primary Button: Expand OEmbed -->
+                            <button onclick="toggleIgEmbed('ig-embed-1', this)" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 text-xs font-semibold transition-colors flex items-center gap-1.5 border border-slate-200/80">
+                                <i class="fa-regular fa-image"></i>
+                                <span class="btn-text hidden sm:inline">Lihat Poster</span>
+                                <i class="fa-solid fa-chevron-down text-[10px] chevron-icon transition-transform duration-200"></i>
+                            </button>
+
+                            <!-- Secondary Button: Open in New Tab -->
+                            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-pink-600 flex items-center justify-center transition-colors" title="Buka di Instagram (Tab Baru)">
+                                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Expandable OEmbed Container (Hidden by Default) -->
+                    <div id="ig-embed-1" class="hidden border-t border-slate-100 bg-slate-50/70 p-4">
+                        <div class="max-w-sm mx-auto bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <!-- Simulated OEmbed Top Bar -->
+                            <div class="px-3 py-2.5 flex items-center justify-between border-b border-slate-100">
+                                <div class="flex items-center gap-2">
+                                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="w-7 h-7 rounded-full object-cover">
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-900 leading-none">jogjakarta_creative_hub</p>
+                                        <p class="text-[10px] text-slate-400 mt-0.5">Yogyakarta</p>
+                                    </div>
+                                </div>
+                                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-md bg-sky-500 hover:bg-sky-600 text-white text-[11px] font-semibold transition-colors">
+                                    View profile
+                                </a>
+                            </div>
+
+                            <!-- Simulated Poster Image inside OEmbed -->
+                            <div class="relative aspect-[4/5] bg-slate-900">
+                                <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&auto=format&fit=crop&q=80" alt="Instagram Poster Full" class="w-full h-full object-cover">
+                            </div>
+
+                            <!-- Simulated OEmbed Footer -->
+                            <div class="p-3">
+                                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-sky-600 hover:underline block mb-2">
+                                    View more on Instagram
+                                </a>
+                                <div class="flex items-center justify-between text-slate-600 text-sm pb-2 border-b border-slate-100">
+                                    <div class="flex items-center gap-3">
+                                        <i class="fa-regular fa-heart"></i>
+                                        <i class="fa-regular fa-comment"></i>
+                                        <i class="fa-regular fa-paper-plane"></i>
+                                    </div>
+                                    <i class="fa-regular fa-bookmark"></i>
+                                </div>
+                                <p class="text-[11px] text-slate-600 mt-2 line-clamp-2">
+                                    <span class="font-bold text-slate-900">jogjakarta_creative_hub</span> Halo sedulur Jogja-Jateng! Pendaftaran Festival Dagelan Mataram Milenial 2026 kategori Dagelan Cilik resmi dibuka...
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Instagram Card Item 2 -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all">
+                    <!-- Compact Header Row -->
+                    <div class="p-3 flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <!-- Thumbnail -->
+                            <div class="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200/60">
+                                <img src="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=200&auto=format&fit=crop&q=80" alt="Thumbnail Juknis" class="w-full h-full object-cover">
+                                <div class="absolute bottom-0.5 right-0.5 w-4 h-4 rounded bg-black/60 backdrop-blur-sm flex items-center justify-center text-white text-[9px]">
+                                    <i class="fa-brands fa-instagram"></i>
+                                </div>
+                            </div>
+                            
+                            <!-- Post Info -->
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-xs font-bold text-slate-900 truncate">@visitingjogja</span>
+                                    <span class="px-1.5 py-0.2 bg-slate-100 text-slate-600 rounded text-[9px] font-semibold">Info Teknis</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 truncate mt-0.5">Detail ketentuan durasi tampil & kriteria penilaian juri...</p>
+                                <span class="text-[10px] text-slate-400 block mt-0.5">Diposting 02 Nov 2026</span>
+                            </div>
+                        </div>
+
+                        <!-- 2 Action Buttons -->
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                            <!-- Primary Button: Expand OEmbed -->
+                            <button onclick="toggleIgEmbed('ig-embed-2', this)" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 text-xs font-semibold transition-colors flex items-center gap-1.5 border border-slate-200/80">
+                                <i class="fa-regular fa-image"></i>
+                                <span class="btn-text hidden sm:inline">Lihat Poster</span>
+                                <i class="fa-solid fa-chevron-down text-[10px] chevron-icon transition-transform duration-200"></i>
+                            </button>
+
+                            <!-- Secondary Button: Open in New Tab -->
+                            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="w-8 h-8 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-pink-600 flex items-center justify-center transition-colors" title="Buka di Instagram (Tab Baru)">
+                                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Expandable OEmbed Container (Hidden by Default) -->
+                    <div id="ig-embed-2" class="hidden border-t border-slate-100 bg-slate-50/70 p-4">
+                        <div class="max-w-sm mx-auto bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <!-- Simulated OEmbed Top Bar -->
+                            <div class="px-3 py-2.5 flex items-center justify-between border-b border-slate-100">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs">VJ</div>
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-900 leading-none">visitingjogja</p>
+                                        <p class="text-[10px] text-slate-400 mt-0.5">Dinas Pariwisata DIY</p>
+                                    </div>
+                                </div>
+                                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-md bg-sky-500 hover:bg-sky-600 text-white text-[11px] font-semibold transition-colors">
+                                    View profile
+                                </a>
+                            </div>
+
+                            <!-- Simulated Fallback / Rate Limit Notice inside OEmbed -->
+                            <div class="aspect-square bg-slate-100 flex flex-col items-center justify-center p-6 text-center">
+                                <div class="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-pink-500 text-xl mb-3">
+                                    <i class="fa-brands fa-instagram"></i>
+                                </div>
+                                <p class="text-xs font-semibold text-slate-800 mb-1">Pratinjau Postingan Instagram</p>
+                                <p class="text-[11px] text-slate-500 mb-4 max-w-[220px]">Jika pratinjau terbatas oleh Instagram, silakan buka langsung melalui aplikasi.</p>
+                                <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-semibold shadow-sm hover:opacity-90 transition-opacity">
+                                    Buka Postingan di Instagram
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Related Events Section -->
+        <section class="border-t border-slate-200 pt-6">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Acara Lain dari Penyelenggara Ini</h2>
+            
+            <a href="#" class="block bg-white rounded-xl p-3 border border-slate-200 hover:border-indigo-300 shadow-sm transition-all group">
+                <div class="flex items-center gap-3">
+                    <div class="w-14 h-14 rounded-lg bg-slate-900 text-white flex flex-col items-center justify-center flex-shrink-0 font-bold">
+                        <span class="text-[10px] uppercase tracking-wider text-slate-400">NOV</span>
+                        <span class="text-base leading-none">22</span>
+                    </div>
+                    <div class="flex-grow min-w-0">
+                        <h3 class="text-xs sm:text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+                            Festival Dagelan Mataram Milenial 2026 - Dagelan Umum
+                        </h3>
+                        <p class="text-[11px] text-slate-500 truncate mt-0.5">
+                            <i class="fa-solid fa-location-dot text-slate-400 mr-1"></i> Ramayana Ballet Purawisata
+                        </p>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-xs text-slate-400 group-hover:text-indigo-600 transition-colors pr-1"></i>
+                </div>
+            </a>
+        </section>
+
+    </main>
+
+    <!-- Bottom Action Bar (Fixed RSVP / Registration Bar) -->
+    <div class="fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-lg border-t border-slate-200 p-4 z-40">
+        <div class="max-w-3xl mx-auto flex items-center justify-between gap-4">
+            <div>
+                <span class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pendaftaran</span>
+                <span class="text-xs sm:text-sm font-bold text-emerald-600 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Terbuka s.d. 11 Nov
+                </span>
+            </div>
+            
+            <button class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold transition-all shadow-md shadow-indigo-500/20 flex items-center gap-2">
+                Daftar Sekarang <i class="fa-solid fa-arrow-right text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Simple JavaScript for Dropdown Interactivity -->
+    <script>
+        function toggleDropdown() {
+            const dropdown = document.getElementById('moreDropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        // Close dropdown when clicking outside
+        window.addEventListener('click', function(e) {
+            const btn = document.getElementById('moreMenuBtn');
+            const dropdown = document.getElementById('moreDropdown');
+            if (btn && dropdown && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        // Add to calendar placeholder function
+        function addToCalendar(title, startDate, endDate) {
+            const dateStr = endDate ? `${startDate} hingga ${endDate}` : startDate;
+            console.log(`Menambahkan ke kalender: ${title} (${dateStr})`);
+        }
+
+        // Toggle Instagram OEmbed Expand/Collapse
+        function toggleIgEmbed(embedId, btnElement) {
+            const embedContainer = document.getElementById(embedId);
+            const btnText = btnElement.querySelector('.btn-text');
+            const chevron = btnElement.querySelector('.chevron-icon');
+            
+            const isHidden = embedContainer.classList.contains('hidden');
+            
+            if (isHidden) {
+                embedContainer.classList.remove('hidden');
+                if (btnText) btnText.textContent = 'Tutup';
+                if (chevron) chevron.classList.add('rotate-180');
+                btnElement.classList.add('bg-indigo-50', 'text-indigo-600', 'border-indigo-200');
+                btnElement.classList.remove('bg-slate-100', 'text-slate-700');
+            } else {
+                embedContainer.classList.add('hidden');
+                if (btnText) btnText.textContent = 'Lihat Poster';
+                if (chevron) chevron.classList.remove('rotate-180');
+                btnElement.classList.remove('bg-indigo-50', 'text-indigo-600', 'border-indigo-200');
+                btnElement.classList.add('bg-slate-100', 'text-slate-700');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -28,6 +28,11 @@ export interface BrightDataTriggerInput {
   url: string;
   numOfPosts: number;
   startDate: string; // MM-DD-YYYY format
+  /**
+   * Numeric ids (decimal strings, never JSON numbers: they exceed 2^53) of posts Bright Data must not deliver again.
+   * Sent as `posts_to_not_include` only when not empty. `num_of_posts` counts after the exclusion.
+   */
+  postsToNotInclude?: string[];
 }
 
 export interface BrightDataTriggerResponse {
@@ -112,6 +117,9 @@ async function _triggerBrightDataJob(
               url: input.url,
               num_of_posts: input.numOfPosts,
               start_date: input.startDate,
+              ...(input.postsToNotInclude && input.postsToNotInclude.length > 0 && {
+                posts_to_not_include: input.postsToNotInclude,
+              }),
             },
           ],
         }),

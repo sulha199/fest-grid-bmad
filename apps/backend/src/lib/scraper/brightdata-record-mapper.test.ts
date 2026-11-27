@@ -123,26 +123,32 @@ test('brightdata-record-mapper tests', async (t) => {
     assert.strictEqual(unprocessed.length - countStart, 0);
   });
 
-  await t.test('returns null and persists unprocessed payload for failed AJV validation', async () => {
+  // Fix of 2026-11-26: a post with no caption (the event is in the flyer) is valid. It used to be rejected into
+  // unprocessed_scraper_payloads, never stored and bought again on every run (29 rejections in November).
+  await t.test('accepts a post with an empty caption and writes no unprocessed payload', async () => {
     const record = {
-      url: 'https://www.instagram.com/p/invalid/',
-      description: '', // Fails minLength: 1 for content
+      url: 'https://www.instagram.com/p/image-only/',
+      description: '',
       date_posted: '2026-08-08T00:00:00Z',
+      photos: ['https://example.com/flyer.jpg'],
     };
 
     const countStart = (await db.select().from(unprocessedScraperPayloads)).length;
-
     const candidate = await mapBrightDataRecordToScrapedPost(record);
 
-    assert.strictEqual(candidate, null);
+    assert.ok(candidate);
+    assert.strictEqual(candidate.content, '');
+    assert.strictEqual(candidate.imageUrl, 'https://example.com/flyer.jpg');
+    assert.strictEqual((await db.select().from(unprocessedScraperPayloads)).length, countStart);
+  });
 
-    const unprocessed = await db.select().from(unprocessedScraperPayloads);
-
-    assert.strictEqual(unprocessed.length - countStart, 1);
-    const newPayload = unprocessed.find(p => (p.context as any)?.postUrl === 'https://www.instagram.com/p/invalid/');
-    assert.ok(newPayload);
-    const payloadContext = newPayload.context as any;
-    assert.strictEqual(payloadContext.postUrl, 'https://www.instagram.com/p/invalid/');
+  await t.test('a null or missing caption maps to an empty one', async () => {
+    const candidate = await mapBrightDataRecordToScrapedPost({
+      url: 'https://www.instagram.com/p/no-description/',
+      description: null,
+      date_posted: '2026-08-08T00:00:00Z',
+    });
+    assert.strictEqual(candidate?.content, '');
   });
 
   await t.test('extracts locationName from location_details.name when present (FIND-024)', async () => {

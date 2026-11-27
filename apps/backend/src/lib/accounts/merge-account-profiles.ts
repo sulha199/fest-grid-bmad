@@ -156,10 +156,10 @@ export async function mergeAccountProfiles(options: MergeAccountProfilesOptions)
       update posts set account_id = ${survivorId}, updated_at = now()
       where account_id = ${twinId} returning id`));
 
-    // Post-account associations. The per-post partial unique indexes (one publisher, one scraping
-    // source) cannot be violated by a repoint, because each post has at most one such row and it
-    // belongs to exactly one of the two profiles. The only collision is the same (post, role) on
-    // both rows, which can happen for COAUTHOR (several allowed per post): keep the survivor's.
+    // Post-account associations. The one-publisher partial unique index cannot be violated by a repoint (a post has at
+    // most one such row, held by exactly one of the two profiles). COAUTHOR and, since AD-25 Rule 2 was amended
+    // (2026-11-26), SCRAPING_SOURCE can both sit on both profiles for one post, which would collide on
+    // (post, account, role) once repointed: the twin's row is dropped there and the survivor's kept.
     const twinRow2 = alias(postAccountAssociations, 'twin_row');
     const survivorRow2 = alias(postAccountAssociations, 'survivor_row');
     const duplicateAssociations = await tx

@@ -23,6 +23,7 @@ import { computeLatestScheduleEnd, isThumbnailStillRelevant, type GeminiEventPay
 import { db } from '../../db/client.js';
 import { type BackendEnv } from '../../env.js';
 import { detectAndBlurFacesSeam } from './detect-and-blur-faces.js';
+import { logFaceBlurMem } from './face-blur-mem-log.js';
 import { uploadFaceBlurThumbnailSeam } from './upload-face-blur-thumbnail.js';
 
 export interface ThumbnailBackfillCandidate {
@@ -192,6 +193,7 @@ export async function runThumbnailBackfill(
     }
 
     try {
+      logFaceBlurMem('thumbnail-build-before', { postId: target.postId });
       const image = await fetchImage(target.imageUrl);
       // Fail closed: if detection throws we never reach the upload, so an unblurred image can
       // never become a thumbnail.
@@ -200,6 +202,7 @@ export async function runThumbnailBackfill(
       if (!url) {
         throw new Error('uploadFaceBlurThumbnail returned null (see the preceding error/warning)');
       }
+      logFaceBlurMem('thumbnail-build-after', { postId: target.postId });
       result.built++;
       console.log(`Built thumbnail for post ${target.postId} (${blurred.faceCount} face(s) blurred): ${url}`);
     } catch (error) {

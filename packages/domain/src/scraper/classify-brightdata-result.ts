@@ -37,6 +37,11 @@ export interface BrightDataProgressSnapshot {
  *   `running`, or a status this code has never seen;
  * - progress reports records the delivery did not carry (a truncated or unparseable body). The vendor
  *   did deliver; the loss is ours, and it is not the vendor failing.
+ *
+ * A request that excluded posts already stored (`posts_to_not_include`) needs no rule of its own: live test 2026-11-26
+ * showed that a run in which every post of the window was excluded finishes `ready` with `records: 0` and
+ * `error_codes: {"dead_page":1}`, which is `empty` above. Residual limit: an outage that also reports `dead_page`
+ * looks the same as a quiet excluded day.
  */
 export function classifyBrightDataResult(input: {
   recordCount: number;
