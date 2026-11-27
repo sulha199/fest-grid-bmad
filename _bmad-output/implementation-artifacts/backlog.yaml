@@ -3376,3 +3376,11 @@ items:
      ref: [],
      touches: [pkg:ui, web:events],
      note: "Listed as known gaps in Accessibility rule 8; the browser suite renders them but the axe, keyboard and screen reader unit suites do not."}
+
+  FIND-261127-fva:
+    {type: finding, status: backlog, created: 2026-11-27,
+     impact: internal, effort: s,
+     title: "Backend row-count ratchet failed once on CI (user_locations 2 -> 3) with every test green; not reproduced locally",
+     ref: [apps/backend/scripts/run-tests-with-row-count-ratchet.ts],
+     touches: [app:backend, cross:process],
+     note: "PR 272 run 46002738213 (backend tests took 22 min, about twice normal); the re-run on a docs-only commit and a fresh-DB local run both passed. Only createUserLocation inserts that table; suspect a late write from a slow runner. Log the test file in progress when it recurs."}
