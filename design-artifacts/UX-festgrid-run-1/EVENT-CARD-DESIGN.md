@@ -719,4 +719,25 @@ through this file.*
   Story 11.19; re-geocode found nothing, Story 11.21) has no distance, so the left slot falls through to its next
   rung, and the map link is hidden.
 - **Tokens:** only existing tokens and lucide icons; the token names for this layout are written in Story 11.14.
+- **Accessibility (added 2026-11-27, headless `bmad-ux`; full rules in `EXPERIENCE.md`, Accessibility Floor,
+  "Planned: Epic 11 and Epic 12 surfaces", A-1 to A-10):**
+  - Colours only from the semantic tokens as changed on 2026-11-27 (`apps/web/src/app/globals.css`); no
+    `text-slate-400`, no muted text faded by opacity, no white text on `bg-emerald-600`.
+  - The status/date badge has an opaque fill reaching 4.5:1 over any image: "Now" `bg-emerald-700 text-white`,
+    "Starting soon" `bg-sky-700 text-white`, the other states and the dummy-date label a pair listed in
+    `apps/web/src/a11y/token-contrast.test.ts` (for example `bg-background text-foreground`).
+  - The green highlight area and the footer use a text pair that passes 4.5:1 in light and dark; the footer icons
+    (distance, type) are `aria-hidden` next to their text.
+  - The card link and the favorite button are siblings, never nested (axe `nested-interactive` zero); the favorite
+    button is a `ToggleIconButton` with "Toggle favorite" and `aria-pressed`.
+  - **Text size exception (owner decision 2026-11-28):** on a card narrower than 145px the badge and footer text
+    stays 10px (`text-[10px]`), 12px from 145px up (`@container (min-width: 145px)`). This is an explicit exception
+    to the 11px minimum badge text rule of 2026-09-14 (`EXPERIENCE.md`, "Masonry EventCard Badge Row").
+  - Every changed control gets a case in the axe, keyboard and screen-reader suites, and the card stays covered by
+    the browser axe run of `apps/web/e2e/a11y.spec.ts` with an empty baseline.
+  - **Prototype status:** `prototypes/registration-cta/` predates the contrast change and is not authoritative for
+    colour or markup (a local axe run of 2026-11-27 with the new tokens found `slate-400` on white 2.56:1, faded
+    muted text 3.36:1, white on `emerald-600` 3.76:1, 16 nested interactive controls and 13 unnamed icon buttons or
+    links). **Before Story 11.14 is created** (owner decision 2026-11-28), `event-card/grid-card-owner-layout.html`
+    is updated to the new tokens and these rules and approved by the owner.
 

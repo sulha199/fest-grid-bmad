@@ -265,4 +265,12 @@ no token for them is in the frontmatter yet; their tokens are written by the Epi
 - **Low-confidence mark** on an option or tier read from an image, with a link to the original post.
 - **Card and detail highlight, dummy-date labels:** see `EVENT-CARD-DESIGN.md`, "Planned: grid card redesign"
   (Epic 11, Story 11.14).
+- **Accessibility and colour (added 2026-11-27, headless `bmad-ux`):** colours only from the semantic tokens as
+  changed by the contrast work of 2026-11-27 (`apps/web/src/app/globals.css`, `design-artifacts/a11y-contrast-proposal/`);
+  the trust line uses `text-muted-foreground` at full opacity (no `text-slate-400`, no opacity fade); no white text on
+  `bg-emerald-600` (a green primary button uses `bg-success text-success-foreground` or `bg-emerald-700`); the
+  low-confidence mark is text or an icon with a name, never colour alone. Every icon action is an `IconButton` with
+  an EN and ID name; nothing interactive sits inside another control. The prototypes under
+  `prototypes/registration-cta/` are not authoritative for colour or markup. Full rules: `EXPERIENCE.md`,
+  Accessibility Floor, "Planned: Epic 11 and Epic 12 surfaces".
 

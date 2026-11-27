@@ -6632,8 +6632,11 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **Given** `EVENT-CARD-DESIGN.md` ("Planned: grid card redesign"), **then** the card shows the stored card highlight (ellipsis when it does not fit; no character limit in the component; the stored text shown as is, with no count or "+N" added, so "Penampil (4): ..." keeps its count visible) and the short dummy-date label by stage.
 *   **And** the detail page shows the ordered highlight list and the full dummy-date sentence; EN + ID copy (locale parity ratchet).
 *   **And** the card is changed through `EVENT-CARD-DESIGN.md`, not forked; it supersedes the date box and footer of Stories 1.3b and 1.i1k.
+*   **And** the card and detail follow `EXPERIENCE.md` Accessibility Floor, "Planned: Epic 11 and Epic 12 surfaces" (A-1 to A-10): token colours only (no `slate-400` text, no opacity-faded muted text, no white on `emerald-600`); the status/date badge reaches 4.5:1; the card link and the favorite button are not nested; badge and footer text 10px below a 145px card width and 12px otherwise (owner decision 2026-11-28, exception to the 11px badge rule); every changed control has a case in the axe, keyboard and screen-reader suites, and `a11y-baseline.json` stays empty.
 
-**Depends on:** Stories 11.7, 11.13; UX.
+**Precondition (owner decision 2026-11-28):** before this story is created with `bmad-create-story`, the grid card prototype `design-artifacts/UX-festgrid-run-1/prototypes/registration-cta/event-card/grid-card-owner-layout.html` is updated to the new tokens and the rules above and approved by the owner. The action bar, sheet and filter prototypes are not updated first; they are translated during `bmad-dev-story` using the same rules.
+
+**Depends on:** Stories 11.7, 11.13; UX; the precondition above.
 
 ### Story 11.15: Backfill active events by re-reading captions in a local session (layer 2)
 

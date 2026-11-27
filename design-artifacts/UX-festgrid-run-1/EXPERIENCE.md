@@ -448,6 +448,9 @@ Upcoming / All toggle above.*
 - The label is not "Minggu ini": that phrase belongs to the AI filter's Monday-to-Sunday week.
 - Out of scope here: the shared chevron trigger, the scrolling facet row and the other filter-header changes (backlog
   IDEA-261124-15a).
+- Accessibility: Accessibility Floor, "Planned: Epic 11 and Epic 12 surfaces" (A-1, A-2, A-4, A-6, A-7). The dropdown
+  keeps the facet trigger's name with its selected value and exposes the choice as a radio group or a Radix `Select`
+  (one state signal); the keyboard and screen-reader suites gain a case and the popups specs a scenario.
 
 ### Planned: Card Highlight, Detail Highlight List and Dummy-Date Labels [PLANNED: Epic 11, Stories 11.7, 11.13 and 11.14; not yet built]
 
@@ -464,6 +467,9 @@ Upcoming / All toggle above.*
 - **No pin:** a schedule without its own location whose deciding account is not a confirmed organizer or venue
   account (Story 11.19), an online-only schedule (Story 11.9) and a schedule whose re-geocode found nothing (Story
   11.21) have no pin: the card's distance slot falls through to its next rung and the map link is hidden.
+- **Accessibility:** Accessibility Floor, "Planned: Epic 11 and Epic 12 surfaces", rules A-1 to A-10 (token colours,
+  the status/date badge at 4.5:1, the 10px narrow-card exception, the card link and favorite button as siblings, the
+  grid card prototype updated and approved before Story 11.14 is created).
 
 ### Planned: Event Registration and Call to Action [PLANNED: Epic 12; not yet built]
 
@@ -487,8 +493,9 @@ notes: `DESIGN.md`, "Planned components". Prototypes to translate, not copy: `pr
   host visible. An unknown, expired or blocked link lands on a first-party page that says the link is no longer
   available.
 - **Low confidence:** an option read from an image carries a mark and a link to the original post.
-- **Accessibility `[ASSUMPTION]`, inherited from the Accessibility Floor, to confirm in Story 12.5:** every icon action has an accessible name in EN and ID; the bar never covers the last content
-  row (the page reserves its height); the sheet traps focus and returns it to the trigger.
+- **Accessibility:** Accessibility Floor, "Planned: Epic 11 and Epic 12 surfaces", rules A-1 to A-8 and A-10 (names
+  for every icon action in EN and ID, no nested controls, the bar never covers the last content row, the sheet traps
+  focus and returns it to the trigger, a ratchet case per control; the prototypes' colours are not authoritative).
 
 ## State Patterns
 
@@ -548,6 +555,57 @@ At the rail tiers (≥768px), the app logo is pinned to the top of the rail; Pro
 - **Hit area:** minimum `{components.nav.item_hit_area}` per item, independent of the icon's visual size.
 - **Motion:** the touch tap-to-flash label and any rail/tab-bar transition respect `prefers-reduced-motion` (instant show/hide fallback, never a shorter animated fade).
 
+### Planned: Epic 11 and Epic 12 surfaces [PLANNED: Epics 11 and 12; not yet built]
+
+*Added 2026-11-27 by a headless `bmad-ux` update (owner-directed scheduled run). Applies to every surface the Epic 11
+and Epic 12 stories add or change: the grid card of Story 11.14 and its detail highlight list, the time dropdown of
+Story 11.22, the action bar, side card and modal footer of Story 12.5, the options sheet of Story 12.6, the prices of
+Story 12.7, the WhatsApp and phone actions of Story 12.10 and the `/go/` "link no longer available" page of Story
+12.4. Each rule is testable; story creation copies the rules that apply into the story's acceptance criteria. The
+project-wide rules are in `_bmad-output/project-context.md`, "Accessibility (WCAG 2.2 AA)"; these add to them.*
+
+- **A-1 Colours come from the semantic tokens** as changed by the contrast work of 2026-11-27
+  (`_bmad-output/planning-artifacts/a11y-contrast-proposal-2026-11-27.md`, `design-artifacts/a11y-contrast-proposal/`,
+  `apps/web/src/app/globals.css`): `text-foreground`, `text-muted-foreground`, `bg-success`/`text-success-foreground`,
+  `border-field-border` for text-entry controls, `text-destructive` with `dark:text-red-400`. Test: a new colour
+  pair is added to `apps/web/src/a11y/token-contrast.test.ts` and passes 4.5:1 (text) or 3:1 (large text, UI parts),
+  in light and dark.
+- **A-2 Banned pairings:** no `text-slate-400` (or `text-gray-400` on a light surface) text; no muted text faded by
+  opacity (`text-muted-foreground/70`, `opacity-*` on a text element); no white text on `bg-emerald-600` (3.76:1).
+  Test: a source scan or code review of the changed files finds none of them.
+- **A-3 Status/date badge:** the one badge in the thumbnail (Story 11.14) sits on an opaque fill whose text pair
+  reaches 4.5:1 whatever the image behind it: "Now" `bg-emerald-700 text-white` (5.48:1), "Starting soon"
+  `bg-sky-700 text-white` (5.93:1), every other state and the dummy-date label a pair from `token-contrast.test.ts`
+  (for example `bg-background text-foreground`). No translucent or blurred fill carries badge text.
+- **A-4 Names:** every icon-only control (heart, calendar, share, kebab, WhatsApp, phone, copy number, map link,
+  sheet close) has an accessible name in EN and ID, built with `IconButton` / `ToggleIconButton`
+  (`packages/ui/src/core/ui/icon-button.tsx`); a control that also shows text uses that same text as its name.
+  Decorative icons are `aria-hidden`.
+- **A-5 No nesting:** no interactive control inside another interactive control. The grid card's link and its
+  favorite button are siblings (the card link is not a wrapper around the button), and each option row of the sheet
+  is one link, not a link holding a button. Test: axe `nested-interactive` reports zero.
+- **A-6 Toggles, overlays, target size, focus:** project-context rules 3 to 5 apply as written: one state signal per
+  toggle; the sheet and dropdown use the Radix primitives (focus moves in, Tab stays in, Escape closes and focus
+  returns to the trigger); every control at least 24 by 24 CSS px and 44 px for touch; visible focus ring. The bar
+  never covers the last content row (the page reserves its height).
+- **A-7 Ratchet case per control:** every new or changed control gets a case in the automated accessibility suites
+  (`packages/ui/src/a11y/`, `apps/web/src/a11y/`: axe, keyboard, screen reader) and every new popup a scenario in
+  `apps/web/e2e/a11y.spec.ts` (light and dark, desktop and phone) with `a11y-baseline.json` left empty, and in
+  `apps/web/e2e/responsive-popups.spec.ts`. A new `apps/web` surface is added to `eslint-a11y-scope.mjs`.
+- **A-8 Prototypes are not authoritative for colour or markup.** The HTML prototypes under
+  `prototypes/registration-cta/` predate the contrast change. A local axe run of 2026-11-27 on them with the new
+  tokens still found contrast failures (`slate-400` on white 2.56:1, faded muted text 3.36:1, white on
+  `emerald-600` 3.76:1), 16 nested interactive controls and 13 unnamed icon buttons or links. Translate their layout,
+  never their classes or markup; these rules and the tokens win.
+- **A-9 Narrow grid card text (owner decision 2026-11-28):** on a grid card narrower than 145px the badge and footer
+  text stays 10px (12px otherwise, through the `@container (min-width: 145px)` step). This is an explicit exception
+  to the 11px minimum badge text rule of 2026-09-14 ("Masonry EventCard Badge Row" below); the 10px text keeps 4.5:1
+  contrast and the 24 px target rule.
+- **A-10 Timing (owner decision 2026-11-28):** before Story 11.14 is created, the grid card prototype
+  (`prototypes/registration-cta/event-card/grid-card-owner-layout.html`) is updated to the new tokens and these
+  rules and approved by the owner. The action bar, sheet and filter prototypes are translated during `bmad-dev-story`
+  of their stories using these rules; they are not updated first.
+
 ### Soft Delete with Undo (Notification Toast)
 
 *Scoped to the Soft Delete with Undo pattern (State Patterns above) — added 2026-08-06 alongside its immediate-commit revision, following an ad-hoc accessibility review (`review-accessibility-soft-delete-undo.md`).*
@@ -562,7 +620,7 @@ At the rail tiers (≥768px), the app logo is pinned to the top of the rail; Pro
 
 *Scoped to Component Patterns § Masonry EventCard: Date Box, TILL Badge, and Status/Nearby Badge Row above — added 2026-09-04 alongside that pattern. Extended 2026-09-11 for the `prominentPoster=false` default-state thumbnail and its fallback, and for the new Calendar Row Card pattern, which shares the same conventions. Extended again 2026-09-14 for the new Calendar Grid Item Card's favorite-control and reading-order conventions — but see the Reserved space bullet below, which only masonry still follows as of 2026-09-14 (the Calendar Row Card's own reserved-space convention was reversed the same pass) — a deliberate divergence, not an inconsistency to fix.*
 
-- **Minimum badge text size (new 2026-09-14, user-directed general rule):** the TILL badge, favorite badge/count, radius/nearby badge, and status ("Now") badge never render below **11px** text, across all three card families and every real card width validated this pass. Several of this pass's own narrower real-width panels (masonry's 175px mobile card, the calendar-row's 326px narrow-mobile row) had dropped to 9-10px before this rule was applied — all corrected. `{components.event_card_till_badge.base}` and `{components.event_card_status_badge.base}`/`{components.event_card_nearby_badge.base}` reflect the floor directly in their token classes (`text-[11px]`/`text-xs` at 12px); the same floor applies to `{components.event_card_favorite_count_badge_large}`'s count text at every width it's rendered.
+- **Minimum badge text size (new 2026-09-14, user-directed general rule; one exception, owner decision 2026-11-28: on the planned Story 11.14 grid card narrower than 145px, badge and footer text is 10px, see "Planned: Epic 11 and Epic 12 surfaces" rule A-9):** the TILL badge, favorite badge/count, radius/nearby badge, and status ("Now") badge never render below **11px** text, across all three card families and every real card width validated this pass. Several of this pass's own narrower real-width panels (masonry's 175px mobile card, the calendar-row's 326px narrow-mobile row) had dropped to 9-10px before this rule was applied — all corrected. `{components.event_card_till_badge.base}` and `{components.event_card_status_badge.base}`/`{components.event_card_nearby_badge.base}` reflect the floor directly in their token classes (`text-[11px]`/`text-xs` at 12px); the same floor applies to `{components.event_card_favorite_count_badge_large}`'s count text at every width it's rendered.
 - **Favorite badge font-size >= TILL badge font-size (new 2026-09-14, round 6, user-directed general rule).** Verified at every real width across all three card families: wherever both badges appear on the same card, the favorite badge's text is never smaller than the TILL badge's. The one violation this rule caught (masonry's mobile favorite count at 11px against TILL's round-7 bump to 12px) was fixed by raising the favorite badge, never by lowering the TILL badge.
 - **TILL and favorite badge font/padding harmonized across all three masonry states (new 2026-09-14, round 8, user-directed: "the till badge has font and padding size uniform across different variant" / "the favorite badge has font and padding size uniform on prominent-card & card-with-small-thumbnail").** Previously the prominent-poster state pinned its TILL and favorite badges at a fixed `text-[11px]` regardless of viewport, while the default-with-thumbnail/fallback states already followed a responsive `text-xs` (12px) mobile / `text-sm` (14px) desktop pair (Component Patterns § Masonry EventCard, "all non-prominent card" rule). That exception is now removed: all three masonry states use the identical 12px-mobile/14px-desktop pair for both badges, and the favorite badge's padding (`px-1.5 py-1`) is now identical between the prominent poster's own overlay (`{components.event_card_date_box.favorite_pill}`) and the default-with-thumbnail state's corner pill (`{components.event_card_masonry.thumbnail_default.favorite_badge}`) — previously the desktop instance of the latter used a looser `px-2.5 py-1.5`.
 - **Non-color cue (WCAG 1.4.1):** the status badge (`{components.event_card_status_badge}`) and nearby badge (`{components.event_card_nearby_badge}`) are never distinguished by color alone — each has unique, self-describing text, and the nearby badge additionally carries its own icon. A viewer with color-vision deficiency or a grayscale display can still tell them apart. This holds for the Calendar Grid Item Card's badges too, unchanged — only their position (side stack or `location_row`, not inline under the title) differs from their siblings.
