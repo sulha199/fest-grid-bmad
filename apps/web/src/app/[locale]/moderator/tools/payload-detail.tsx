@@ -63,12 +63,12 @@ export function PayloadDetail({ payload, onReprocess, isReprocessing }: PayloadD
         <div className="rounded-md bg-destructive/10 p-4 space-y-1">
           {payload.validationError.length > 0 ? (
             payload.validationError.map((error, idx) => (
-              <div key={idx} className="text-sm font-medium text-destructive">
+              <div key={idx} className="text-sm font-medium text-destructive dark:text-red-400">
                 {error.message}
               </div>
             ))
           ) : (
-            <div className="text-sm font-medium text-destructive">Unknown validation error</div>
+            <div className="text-sm font-medium text-destructive dark:text-red-400">Unknown validation error</div>
           )}
         </div>
       </div>

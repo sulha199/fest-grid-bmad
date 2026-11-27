@@ -141,7 +141,7 @@ export function ReportedEventGroup({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 pt-4 border-t">
           {confirmDelete ? (
             <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-              <span className="text-xs text-destructive font-medium text-center sm:text-right">
+              <span className="text-xs text-destructive dark:text-red-400 font-medium text-center sm:text-right">
                 {t("buttonDeletePermanentlyConfirm")}
               </span>
               <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">

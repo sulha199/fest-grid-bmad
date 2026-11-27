@@ -11,9 +11,8 @@ import { resolve } from 'node:path';
  * judged on the painted page.
  *
  * It is a ratchet with two parts. (1) Every rule that is not in `a11y-baseline.json` must report zero elements in every
- * scenario: names, roles, ARIA validity, label in name, nested controls and the like cannot regress. (2) The rule that is
- * listed there (`color-contrast`) is a known, open design finding (the contrast of a few colours); it may flag at most
- * that many elements in one scenario. The cap is an upper bound because the count moves with the clock (the "happening
+ * scenario: names, roles, ARIA validity, label in name, nested controls and the like cannot regress. (2) A rule listed in `a11y-baseline.json` is a known, open finding and may flag at most
+ * that many elements in one scenario (the file is empty since the contrast proposal of 27 Nov 2026 was adopted). The cap is an upper bound because the count moves with the clock (the "happening
  * now" badge) and with the viewer-location banner, so a
  * per-scenario count would be flaky. Lower a cap when the finding is fixed. It does not prove WCAG conformance: axe
  * finds only part of the failures, and focus order and screen-reader output still need a person.
@@ -115,23 +114,29 @@ test.describe('popups (desktop, light)', () => {
   });
 });
 
-test.describe('signed in (desktop, light)', () => {
-  const storageState = process.env.E2E_AUTH_USER_STORAGE_STATE ?? process.env.E2E_AUTH_STORAGE_STATE;
-  test.skip(!storageState, 'Set E2E_FAKE_AUTH=1 to run the signed-in scenarios.');
-  test.use({ viewport: VIEWPORTS.desktop, storageState: storageState as string });
+for (const theme of THEMES) {
+  test.describe(`signed in (desktop, ${theme})`, () => {
+    const storageState = process.env.E2E_AUTH_USER_STORAGE_STATE ?? process.env.E2E_AUTH_STORAGE_STATE;
+    test.skip(!storageState, 'Set E2E_FAKE_AUTH=1 to run the signed-in scenarios.');
+    test.use({ viewport: VIEWPORTS.desktop, storageState: storageState as string });
 
-  test('navbar with the profile menu open', async ({ page }) => {
-    await page.goto('/en');
-    await expect(page.locator('article').first()).toBeVisible({ timeout: 15000 });
-    // The profile trigger is the one button with a popup in the Main navigation (the mobile bar is hidden at this width).
-    await page.locator('nav[aria-label="Main"] button[aria-haspopup="true"]:visible').first().click();
-    await expect(page.getByTestId('user-menu').filter({ visible: true })).toBeVisible();
-    await audit(page, 'profile menu open desktop light');
-  });
+    test('navbar with the profile menu open', async ({ page }) => {
+      await useTheme(page, theme);
+      await page.goto('/en');
+      await expect(page.locator('article').first()).toBeVisible({ timeout: 15000 });
+      // The profile trigger is the one button with a popup in the Main navigation (the mobile bar is hidden at this width).
+      await page.locator('nav[aria-label="Main"] button[aria-haspopup="true"]:visible').first().click();
+      await expect(page.getByTestId('user-menu').filter({ visible: true })).toBeVisible();
+      await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^((?!dark).)*$/);
+      await audit(page, `profile menu open desktop ${theme}`);
+    });
 
-  test('favorites page', async ({ page }) => {
-    await page.goto('/en/favorites');
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await audit(page, 'favorites desktop light');
+    test('favorites page', async ({ page }) => {
+      await useTheme(page, theme);
+      await page.goto('/en/favorites');
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await expect(page.locator('html')).toHaveClass(theme === 'dark' ? /dark/ : /^((?!dark).)*$/);
+      await audit(page, `favorites desktop ${theme}`);
+    });
   });
-});
+}

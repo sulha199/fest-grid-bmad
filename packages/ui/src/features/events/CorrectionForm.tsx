@@ -228,16 +228,16 @@ export function CorrectionForm({
   };
 
   const inputClass =
-    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+    "flex h-10 w-full rounded-md border border-field-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
   const textareaClass =
-    "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-auto";
+    "flex min-h-[80px] w-full rounded-md border border-field-border bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-auto";
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6 text-slate-900 dark:text-slate-100">
       {headerActions && <div className="header-actions-container">{headerActions}</div>}
 
       {unmatchedErrors.length > 0 && (
-        <div className="p-4 rounded-md border border-destructive/20 bg-destructive/5 text-destructive text-sm" role="alert">
+        <div className="p-4 rounded-md border border-destructive/20 bg-destructive/5 text-destructive dark:text-red-400 text-sm" role="alert">
           <span className="font-semibold block mb-2">{labels.unmatchedErrorFallbackLabel}</span>
           <ul className="list-disc pl-5 space-y-1">
             {unmatchedErrors.map((err, idx) => (
@@ -262,7 +262,7 @@ export function CorrectionForm({
               className={inputClass}
             />
             {getFieldError(["eventName"]) && (
-              <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+              <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                 {getFieldError(["eventName"])}
               </span>
             )}
@@ -278,7 +278,7 @@ export function CorrectionForm({
                 hideClearAction
               />
               {getFieldError(["types"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["types"])}
                 </span>
               )}
@@ -293,7 +293,7 @@ export function CorrectionForm({
                 hideClearAction
               />
               {getFieldError(["categories"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["categories"])}
                 </span>
               )}
@@ -312,7 +312,7 @@ export function CorrectionForm({
               className={inputClass}
             />
             {getFieldError(["location"]) && (
-              <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+              <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                 {getFieldError(["location"])}
               </span>
             )}
@@ -331,7 +331,7 @@ export function CorrectionForm({
                 className={inputClass}
               />
               {getFieldError(["organizerName"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["organizerName"])}
                 </span>
               )}
@@ -349,7 +349,7 @@ export function CorrectionForm({
                 className={inputClass}
               />
               {getFieldError(["contactInfo"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["contactInfo"])}
                 </span>
               )}
@@ -367,7 +367,7 @@ export function CorrectionForm({
               className={textareaClass}
             />
             {getFieldError(["description"]) && (
-              <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+              <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                 {getFieldError(["description"])}
               </span>
             )}
@@ -397,7 +397,7 @@ export function CorrectionForm({
                     className={inputClass}
                   />
                   {getFieldError([`links[${index}].url`]) && (
-                    <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                    <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                       {getFieldError([`links[${index}].url`])}
                     </span>
                   )}
@@ -420,7 +420,7 @@ export function CorrectionForm({
                   type="button"
                   aria-label={labels.removeLinkLabel(index + 1)}
                   onClick={() => handleRemoveLink(index)}
-                  className="text-muted-foreground hover:text-destructive transition-colors self-end md:self-start md:mt-6 h-10 w-10 flex items-center justify-center"
+                  className="text-muted-foreground hover:text-destructive dark:hover:text-red-400 transition-colors self-end md:self-start md:mt-6 h-10 w-10 flex items-center justify-center"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -464,7 +464,7 @@ export function CorrectionForm({
                 className={inputClass}
               />
               {getFieldError(["schedules[0].eventStartDate", "eventStartDate"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["schedules[0].eventStartDate", "eventStartDate"])}
                 </span>
               )}
@@ -482,7 +482,7 @@ export function CorrectionForm({
                 className={inputClass}
               />
               {getFieldError(["schedules[0].eventEndDate", "eventEndDate"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["schedules[0].eventEndDate", "eventEndDate"])}
                 </span>
               )}
@@ -502,7 +502,7 @@ export function CorrectionForm({
                 className={inputClass}
               />
               {getFieldError(["schedules[0].eventStartTime", "eventStartTime"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["schedules[0].eventStartTime", "eventStartTime"])}
                 </span>
               )}
@@ -520,7 +520,7 @@ export function CorrectionForm({
                 className={inputClass}
               />
               {getFieldError(["schedules[0].eventEndTime", "eventEndTime"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["schedules[0].eventEndTime", "eventEndTime"])}
                 </span>
               )}
@@ -539,7 +539,7 @@ export function CorrectionForm({
               className={inputClass}
             />
             {getFieldError(["schedules[0].title", "title"]) && (
-              <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+              <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                 {getFieldError(["schedules[0].title", "title"])}
               </span>
             )}
@@ -557,7 +557,7 @@ export function CorrectionForm({
               className={inputClass}
             />
             {getFieldError(["schedules[0].performers", "performers"]) && (
-              <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+              <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                 {getFieldError(["schedules[0].performers", "performers"])}
               </span>
             )}
@@ -576,7 +576,7 @@ export function CorrectionForm({
                 className={inputClass}
               />
               {getFieldError(["schedules[0].location"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["schedules[0].location"])}
                 </span>
               )}
@@ -594,7 +594,7 @@ export function CorrectionForm({
                 className={inputClass}
               />
               {getFieldError(["schedules[0].ticketPrice", "ticketPrice"]) && (
-                <span className="text-xs text-destructive mt-1 block font-medium" role="alert">
+                <span className="text-xs text-destructive dark:text-red-400 mt-1 block font-medium" role="alert">
                   {getFieldError(["schedules[0].ticketPrice", "ticketPrice"])}
                 </span>
               )}

@@ -156,7 +156,7 @@ export function ReextractPreviewResult({ preview, apply, banner }: ReextractPrev
         <div className="space-y-2 rounded-lg border p-3" data-testid="reextract-apply-panel">
           <p className="text-sm">{isRoundup ? t('applyExplainerRoundup') : t('applyExplainer')}</p>
           {apply.phase === 'failed' && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-sm text-destructive dark:text-red-400">
               {apply.errorMessage || t('applyFailed')}
             </p>
           )}

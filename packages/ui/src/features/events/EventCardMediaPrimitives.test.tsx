@@ -533,7 +533,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
     expect(badge).toHaveTextContent(text);
     expect(badge).toHaveClass('bg-muted');
     expect(badge).toHaveClass('text-muted-foreground');
-    expect(badge).not.toHaveClass('bg-emerald-600');
+    expect(badge).not.toHaveClass('bg-emerald-700');
     expect(badge).not.toHaveClass('text-white');
   });
 
@@ -541,7 +541,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
     const { container } = render(<EventCardStatusBadge text="Happening Now" variant="happeningNow" />);
     const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
     expect(badge).toHaveTextContent('Happening Now');
-    expect(badge).toHaveClass('bg-emerald-600');
+    expect(badge).toHaveClass('bg-emerald-700');
     expect(badge).toHaveClass('text-white');
     expect(badge).not.toHaveClass('bg-muted');
     expect(badge).not.toHaveClass('text-muted-foreground');
@@ -556,7 +556,7 @@ describe('EventCardStatusBadge - AC1/AC6 (two DESIGN.md shapes, non-interactive)
   it('keeps one shared geometry across both variants (only color differs per state)', () => {
     // Strips only the four color utilities that distinguish the two DESIGN.md shapes, so any
     // geometry drift between the neutral and emerald variants fails here.
-    const COLOR_CLASSES = ['bg-muted', 'text-muted-foreground', 'bg-emerald-600', 'text-white'];
+    const COLOR_CLASSES = ['bg-muted', 'text-muted-foreground', 'bg-emerald-700', 'text-white'];
     const shapeOf = (className: string) => className.split(' ').filter((c) => !COLOR_CLASSES.includes(c));
 
     const { container, rerender } = render(<EventCardStatusBadge text="Upcoming" />);

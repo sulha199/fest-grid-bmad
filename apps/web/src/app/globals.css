@@ -16,23 +16,24 @@
     --primary: 217 33% 17%; /* #1E293B */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 238 82% 67%; /* #6366F1 */
+    --secondary: 238 82% 65%; /* #5D61EF, was 67% / #6366F1: white text 4.5:1 (a11y proposal 2026-11-27) */
     --secondary-foreground: 210 40% 98%;
 
     --accent: 358 100% 68%; /* #FF5A5F */
-    --accent-foreground: 210 40% 98%;
+    --accent-foreground: 222.2 47.4% 11.2%; /* dark text on the coral: 5.9:1 (white was 2.9:1) */
 
-    --success: 160 84% 39%; /* #10B981 */
+    --success: 160 84% 28%; /* #0B835B, was 39% / #10B981: white text 4.5:1 */
     --success-foreground: 210 40% 98%;
 
-    --destructive: 0 84% 60%; /* error: #EF4444 */
+    --destructive: 0 84% 46%; /* error: #D81313, was 60% / #EF4444: text on white and on hover surfaces 4.5:1 */
     --destructive-foreground: 210 40% 98%;
 
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted-foreground: 215.4 16.3% 45.5%; /* was 46.9%: 4.5:1 on the muted surface */
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
+    --field-border: 214.3 31.8% 58%; /* border of text-entry controls, 3:1 vs the page (WCAG 1.4.11) */
     --ring: 221.2 83.2% 53.3%;
 
     --wizard-primary: 217 91% 60%; /* #3B82F6 */
@@ -68,16 +69,17 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --success: 160 84% 39%; /* Keep same for now */
+    --success: 160 84% 28%; /* same as light: white text 4.5:1 */
     --success-foreground: 210 40% 98%;
     
     --wizard-primary: 217 91% 60%;
-    --wizard-secondary: 220 9% 46%;
+    --wizard-secondary: 220 9% 49%; /* was 46%: 4.5:1 on the dark page */
 
     --nav-active-indicator: 358 72% 57%; /* #E04347 — reuse light-mode HSL for dark-mode placeholder */
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
+    --field-border: 217.2 32.6% 41%; /* border of text-entry controls, 3:1 vs the page (WCAG 1.4.11) */
     --ring: 212.7 26.8% 83.9%;
   }
 }

@@ -115,7 +115,7 @@ export function EmbedDomainsDialog({ widgetId, isOpen, onClose }: EmbedDomainsDi
                 value={newPattern}
                 onChange={(e) => setNewPattern(e.target.value)}
                 placeholder="e.g. acmecorp.com or *.acmecorp.com"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-full rounded-md border border-field-border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 required
                 disabled={isRegistering}
               />
@@ -154,7 +154,7 @@ export function EmbedDomainsDialog({ widgetId, isOpen, onClose }: EmbedDomainsDi
                   <button
                     onClick={() => handleRemove(domain.id)}
                     disabled={isDeregistering}
-                    className="text-xs font-semibold text-destructive hover:underline disabled:opacity-50"
+                    className="text-xs font-semibold text-destructive dark:text-red-400 hover:underline disabled:opacity-50"
                   >
                     Remove
                   </button>

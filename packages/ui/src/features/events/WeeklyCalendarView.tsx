@@ -930,7 +930,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   // Error State (AC11)
   if (status === 'error') {
     return (
-      <div className={`${CALENDAR_BASE_CLASS} p-6 bg-destructive/5 text-destructive border-destructive/20 ${className}`}>
+      <div className={`${CALENDAR_BASE_CLASS} p-6 bg-destructive/5 text-destructive dark:text-red-400 border-destructive/20 ${className}`}>
         <h3 className="text-lg font-bold mb-2">Error loading calendar events</h3>
         <p className="text-sm font-medium mb-1">{errorMessage || 'An unexpected error occurred.'}</p>
         {errorDetail && (

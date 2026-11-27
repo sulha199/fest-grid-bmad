@@ -55,7 +55,7 @@ export function ReextractJobResult({ job, onRetry, retryPending = false, notice,
   if (read.state === 'error') {
     return (
       <div className="space-y-3" role="alert" data-testid="reextract-preview-error">
-        <p className="text-sm text-destructive">{t('genericError')}</p>
+        <p className="text-sm text-destructive dark:text-red-400">{t('genericError')}</p>
         <Button variant="outline" className="min-h-11" onClick={read.refetch}>
           {t('retry')}
         </Button>

@@ -199,7 +199,7 @@ export function MapView({
           data-testid="map-error"
         >
           <div className="flex flex-col items-center gap-2 max-w-[280px]">
-            <span className="text-sm font-medium text-destructive">{errorText}</span>
+            <span className="text-sm font-medium text-destructive dark:text-red-400">{errorText}</span>
           </div>
         </div>
       )}

@@ -469,7 +469,7 @@ export function PostsSelectContent() {
   if (hasError) {
     return (
       <div className="p-4 sm:p-8 max-w-xl mx-auto text-center space-y-4 mt-20">
-        <p className="text-destructive font-medium">Failed to load content. Please try again later.</p>
+        <p className="text-destructive dark:text-red-400 font-medium">Failed to load content. Please try again later.</p>
         <button
           onClick={refetchAll}
           className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
@@ -590,7 +590,7 @@ export function PostsSelectContent() {
                   )}
                   {sub.account.accountTypeStatus === 'CONFIRMED' && sub.account.accountType === 'PERSONAL' && (
                     <Ban
-                      className="h-4 w-4 text-destructive shrink-0"
+                      className="h-4 w-4 text-destructive dark:text-red-400 shrink-0"
                       xlinkTitle={t('gatedPersonalTooltip') || "Can't be tracked"}
                     />
                   )}
@@ -633,7 +633,7 @@ export function PostsSelectContent() {
           </GridContainer>
         ) : postsError ? (
           <div className="text-center p-8 border rounded-xl border-dashed">
-            <p className="text-destructive font-medium mb-4">Failed to load posts for this account.</p>
+            <p className="text-destructive dark:text-red-400 font-medium mb-4">Failed to load posts for this account.</p>
             <button
               onClick={refetchPosts}
               className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
@@ -651,7 +651,7 @@ export function PostsSelectContent() {
           </div>
         ) : activeSub?.account?.accountTypeStatus === 'CONFIRMED' && activeSub?.account?.accountType === 'PERSONAL' ? (
           <div className="text-center p-16 border rounded-xl border-dashed border-slate-200 dark:border-slate-800 space-y-4 max-w-xl mx-auto">
-            <Ban className="h-10 w-10 text-destructive mx-auto" />
+            <Ban className="h-10 w-10 text-destructive dark:text-red-400 mx-auto" />
             <h3 className="text-lg font-semibold">{t('gatedPersonalTitle') || 'Personal Account'}</h3>
             <p className="text-sm text-muted-foreground">
               {t('gatedPersonalDescription') || "This account can't be tracked."}

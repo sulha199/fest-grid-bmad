@@ -619,7 +619,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
             })}
           </ul>
         ) : (
-          <p className="text-gray-500 italic">{labels.noSchedulesLabel}</p>
+          <p className="text-gray-500 dark:text-gray-400 italic">{labels.noSchedulesLabel}</p>
         )}
       </section>
 
@@ -654,7 +654,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       {!hasMultiplePosts && (
         <>
           {hasSourceAttribution && (
-            <section className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 text-sm text-gray-500">
+            <section className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-3 text-sm text-gray-500 dark:text-gray-400">
               <div className="flex items-center gap-4 flex-wrap">
                 {hasSourceAttribution && publishedAt && (
                   <span className="flex items-center gap-1">
@@ -729,7 +729,7 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
           {(sourcePosts as EventDetailViewSourcePost[]).map((sourcePost) => {
             const postHasAttribution = sourcePost.originalPostUrl || sourcePost.sourcePostUrl;
             return (
-              <li key={sourcePost.postId} className="flex flex-col gap-3 text-sm text-gray-500">
+              <li key={sourcePost.postId} className="flex flex-col gap-3 text-sm text-gray-500 dark:text-gray-400">
                 <div className="flex items-center gap-2 flex-wrap">
                   {sourcePost.isPrimary && (
                     <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium">

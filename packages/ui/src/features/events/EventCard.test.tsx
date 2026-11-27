@@ -1024,7 +1024,7 @@ describe('EventCard', () => {
       const badge = container.querySelector('[data-event-card-status-badge]') as HTMLElement;
       expect(badge).not.toBeNull();
       expect(badge).toHaveTextContent('Now');
-      expect(badge).toHaveClass('bg-emerald-600');
+      expect(badge).toHaveClass('bg-emerald-700');
       expect(badge).toHaveClass('text-white');
       expect(badge).not.toHaveClass('bg-muted');
       expect(badge).not.toHaveClass('text-muted-foreground');
@@ -1045,7 +1045,7 @@ describe('EventCard', () => {
       expect(badge).toHaveTextContent('Ended');
       expect(badge).toHaveClass('bg-muted');
       expect(badge).toHaveClass('text-muted-foreground');
-      expect(badge).not.toHaveClass('bg-emerald-600');
+      expect(badge).not.toHaveClass('bg-emerald-700');
       expect(badge).not.toHaveClass('text-white');
     });
 

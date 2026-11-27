@@ -1934,7 +1934,7 @@ describe('WeeklyCalendarView', () => {
           expect(badges).toHaveLength(1);
           badges.forEach((badge) => {
             expect(badge).toHaveTextContent('Now');
-            expect(badge).toHaveClass('bg-emerald-600');
+            expect(badge).toHaveClass('bg-emerald-700');
             expect(badge).toHaveClass('text-white');
           });
         });
@@ -1967,7 +1967,7 @@ describe('WeeklyCalendarView', () => {
         expect(badge).toHaveTextContent('Ended');
         expect(badge).toHaveClass('bg-muted');
         expect(badge).toHaveClass('text-muted-foreground');
-        expect(badge).not.toHaveClass('bg-emerald-600');
+        expect(badge).not.toHaveClass('bg-emerald-700');
       });
 
       it('renders the Upcoming status badge for a schedule starting 14+ days out (AC1/AC2)', () => {

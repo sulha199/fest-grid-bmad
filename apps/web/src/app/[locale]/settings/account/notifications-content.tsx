@@ -204,7 +204,7 @@ export function NotificationsContent() {
   if (error) {
     return (
       <PageContainer fullWidth={false} className="text-center space-y-4">
-        <p className="text-destructive font-medium">{t("errorState")}</p>
+        <p className="text-destructive dark:text-red-400 font-medium">{t("errorState")}</p>
         <button
           onClick={() => refetch()}
           className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"

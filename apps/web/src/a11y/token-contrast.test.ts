@@ -23,6 +23,8 @@ interface Pair {
   /** 4.5 for text, 3 for interface components and graphics. */
   min: number;
   what: string;
+  /** The pair exists in this theme only. */
+  only?: Theme;
 }
 
 const TEXT = 4.5;
@@ -42,24 +44,21 @@ const PAIRS: Pair[] = [
   { fg: 'wizard-primary', bg: 'background', min: UI, what: 'wizard primary as a UI colour' },
   { fg: 'ring', bg: 'background', min: UI, what: 'focus ring' },
   { fg: 'nav-active-indicator', bg: 'background', min: UI, what: 'active navigation indicator' },
-  { fg: 'border', bg: 'background', min: UI, what: 'component border' },
-  { fg: 'input', bg: 'background', min: UI, what: 'input border' },
+  // WCAG 1.4.11 applies per component: the border of a text-entry control is what identifies it (3:1). `--border` (card
+  // edges, dividers) and `--input` (outline buttons, which a visible label identifies) are decorative or redundant, so
+  // they are not held to 3:1. Text-entry controls use `border-field-border`.
+  { fg: 'field-border', bg: 'background', min: UI, what: 'text-entry control border' },
+  { fg: 'field-border', bg: 'card', min: UI, what: 'text-entry control border on a card or dialog' },
+  { fg: 'destructive', bg: 'card', min: TEXT, what: 'destructive text on a card or menu (light only: the dark theme uses text-red-400)', only: 'light' },
 ];
 
-/** Measured 27 Nov 2026 (floor = the measured ratio, rounded down to 2 places). They may not get worse. */
-const KNOWN_BELOW_AA: Record<string, number> = {
-  'light secondary-foreground/secondary': 4.11,
-  'light accent-foreground/accent': 2.89,
-  'light success-foreground/success': 2.48,
-  'light destructive-foreground/destructive': 3.61,
-  'light muted-foreground/muted': 4.34,
-  'light border/background': 1.18,
-  'light input/background': 1.18,
-  'dark success-foreground/success': 2.48,
-  'dark wizard-secondary/background': 4.14,
-  'dark border/background': 1.37,
-  'dark input/background': 1.37,
-};
+/**
+ * Pairs that fail today, with the ratio measured on 27 Nov 2026 (floor = the measured ratio, rounded to 2 places). They may
+ * not get worse. Empty since the owner adopted the contrast proposal (a11y-contrast-proposal-2026-11-27.md): every token
+ * pair passes. `destructive/card` is light-only because the dark `--destructive` is a button fill, not a text colour.
+ */
+const KNOWN_BELOW_AA: Record<string, number> = {};
+
 
 const measured = (theme: Theme, p: Pair) => {
   const t = THEMES[theme];
@@ -70,6 +69,7 @@ const key = (theme: Theme, p: Pair) => `${theme} ${p.fg}/${p.bg}`;
 describe('design token contrast', () => {
   for (const theme of Object.keys(THEMES) as Theme[]) {
     for (const p of PAIRS) {
+      if (p.only && p.only !== theme) continue;
       const k = key(theme, p);
       if (!(k in KNOWN_BELOW_AA)) {
         it(`${k} (${p.what}) is at least ${p.min}:1`, () => {
@@ -86,7 +86,7 @@ describe('design token contrast', () => {
   }
 
   it('every listed known failure names a real pair', () => {
-    const real = new Set((Object.keys(THEMES) as Theme[]).flatMap((th) => PAIRS.map((p) => key(th, p))));
+    const real = new Set((Object.keys(THEMES) as Theme[]).flatMap((th) => PAIRS.filter((p) => !p.only || p.only === th).map((p) => key(th, p))));
     for (const k of Object.keys(KNOWN_BELOW_AA)) expect(real.has(k), k).toBe(true);
   });
 });

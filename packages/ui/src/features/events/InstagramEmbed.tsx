@@ -166,7 +166,7 @@ export const InstagramEmbed: React.FC<InstagramEmbedProps> = ({
       aria-live="polite"
       data-testid="instagram-embed-unavailable"
     >
-      <div className="flex flex-col items-center justify-center text-gray-400 min-h-[200px] w-full gap-2">
+      <div className="flex flex-col items-center justify-center text-gray-600 dark:text-gray-400 min-h-[200px] w-full gap-2">
         <ImageIcon className="w-12 h-12 opacity-50" />
         <span className="text-sm">{contentNoLongerAvailableLabel}</span>
       </div>
