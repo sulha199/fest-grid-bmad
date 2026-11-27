@@ -193,3 +193,13 @@ These override any earlier wording, including the 40-character rule in section 2
   - The old value `UPCOMING` stays accepted for old links and stored filters.
   - Fix BUG-097 (these filters use the UTC date) in the same story.
   - Only the time filter is covered. The other header changes of handoff 9 and 11 (scrolling facet row, chevrons, AI button on the search row, icon buttons, collapse motion) stay in backlog `IDEA-261124-15a`.
+
+## 16. Owner answers to Q7 to Q12 of revision 6 (2026-11-27): all accepted as recommended
+
+- **Q7:** the highlight recompute step (Story 11.7) covers active events only.
+- **Q8:** the account default location is inherited only when the post's `PUBLISHER` account (else `posts.account_id`) is `ORGANIZER_VENUE_EVENT` with status `CONFIRMED`; every other case gets no pin; inherited pins are marked `account_default`. Production read-only count of 2026-11-27, active pins without location text, account taken from the event's earliest linked post (approximate): organizer or venue confirmed 167 (kept), curator confirmed 203 and no account type 59 (these would have no pin). The 11.21 dry run shows the real counts before apply.
+- **Q9:** a re-geocode that finds nothing clears the pin; schedules without text follow Q8; the dry run shows the counts per outcome to the owner before apply.
+- **Q10:** the ids of the Story 0.37 event links are derived at read time; no stored id and no data write; the public `Event.links` stops returning `url`, and the correction dialog and re-extract preview read full URLs through a gated query.
+- **Q11:** an old `?temporal=UPCOMING` link is read as "Kapan saja" and the URL is rewritten without a history entry; GraphQL, the domain and saved AI filters keep `UPCOMING` with its meaning.
+- **Q12:** the viewer's day comes from `users.timezone` when set, else the browser's IANA time zone, else `Asia/Jakarta`; no new SQL beyond what BUG-097 needs, reusing `schedule_past_cutoff_date`.
+- **Outside the proposal:** the month-boundary bug of `THIS_WEEK` is fixed separately in PR #270 (BUG-261126-pwb); note it in Story 11.22 if it touches the same function.
