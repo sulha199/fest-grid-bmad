@@ -378,8 +378,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
               className={`rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex items-center shrink-0 ${
                 favoriteCount !== undefined ? 'px-2.5 py-2 gap-1.5' : 'p-2'
               }`}
-              aria-label={isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}
-              aria-pressed={isFavorited}
+              // The name changes with the state, so no aria-pressed (a screen reader would say both).
+              aria-label={`${isFavorited ? labels.removeFavoriteButtonLabel : labels.favoriteButtonLabel}${favoriteCount !== undefined ? ` ${favoriteCount}` : ''}`}
             >
               <Heart className={`w-6 h-6 ${isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
               {favoriteCount !== undefined && (
@@ -810,6 +810,8 @@ export const EventDetailView: React.FC<EventDetailViewProps> = ({
       {(relatedEventsSentinelRef || isRelatedEventsLoading || (relatedEventGroups && relatedEventGroups.length > 0)) && (
         <div
           ref={relatedEventsSentinelRef}
+          // A bare div may not carry an aria-label (axe aria-prohibited-attr): the section is a labelled region.
+          role={labels.relatedEventsSectionAriaLabel ? 'region' : undefined}
           aria-label={labels.relatedEventsSectionAriaLabel}
           aria-busy={isRelatedEventsLoading ? 'true' : undefined}
           className="flex flex-col gap-4 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800"

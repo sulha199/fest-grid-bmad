@@ -56,7 +56,8 @@ test.describe("Event Details", () => {
 
       // Find the favorite button (it should be in "Add to Favorites" state initially)
       const favBtn = page.getByRole("button", { name: "Add to Favorites" })
-      await expect(favBtn).toHaveAttribute("aria-pressed", "false")
+      // The state is the name ("Add to Favorites" / "Remove from Favorites"), not aria-pressed as well.
+      await expect(favBtn).not.toHaveAttribute("aria-pressed")
 
       // Click to favorite
       await favBtn.click()
@@ -154,6 +155,6 @@ test.describe("Event Details", () => {
     // no intermediate "Add to Favorites" (favorited=false) flash corrected a moment later.
     const favoriteButton = page.locator("role=dialog").getByRole("button", { name: "Remove from Favorites" })
     await expect(favoriteButton).toBeVisible({ timeout: 2000 })
-    await expect(favoriteButton).toHaveAttribute("aria-pressed", "true")
+    await expect(favoriteButton).not.toHaveAttribute("aria-pressed")
   })
 })

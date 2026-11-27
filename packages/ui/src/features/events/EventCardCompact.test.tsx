@@ -154,7 +154,7 @@ describe('EventCardCompact (Story 3.6ua)', () => {
       const img = document.querySelector('img');
       expect(img).toHaveAttribute('src', 'https://img.example/poster.jpg');
 
-      const favoriteButtons = screen.getAllByRole('button', { name: 'Toggle favorite' });
+      const favoriteButtons = screen.getAllByRole('button', { name: /^Toggle favorite/ });
       // Exactly one favorite control renders (the slot's own corner pill; the "large"
       // fallback variant collapses to null when an image is present).
       expect(favoriteButtons).toHaveLength(1);
@@ -166,7 +166,7 @@ describe('EventCardCompact (Story 3.6ua)', () => {
       // No media slot in the DOM at all (collapseOnFallback).
       expect(document.querySelector('[data-event-card-media-slot]')).not.toBeInTheDocument();
 
-      const favoriteButtons = screen.getAllByRole('button', { name: 'Toggle favorite' });
+      const favoriteButtons = screen.getAllByRole('button', { name: /^Toggle favorite/ });
       expect(favoriteButtons).toHaveLength(1);
       expect(screen.getByText('5')).toBeInTheDocument();
     });
@@ -194,7 +194,7 @@ describe('EventCardCompact (Story 3.6ua)', () => {
     it('fires onFavoriteToggle when the favorite control is clicked', () => {
       const onFavoriteToggle = vi.fn();
       render(<EventCardCompact {...defaultProps} onFavoriteToggle={onFavoriteToggle} />);
-      fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' }));
+      fireEvent.click(screen.getByRole('button', { name: /^Toggle favorite/ }));
       expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
       // Zero-arg callback — caller closes over its own event identity.
       expect(onFavoriteToggle).toHaveBeenCalledWith();

@@ -294,7 +294,8 @@ export function EventCardFavoriteBadge({
   return (
     <button
       type="button"
-      aria-label={defaultLabels.favoriteToggle}
+      // The visible count is part of the name (WCAG 2.5.3, label in name): "Toggle favorite 4".
+      aria-label={favoriteCount !== undefined ? `${defaultLabels.favoriteToggle} ${favoriteCount}` : defaultLabels.favoriteToggle}
       aria-pressed={isFavorited}
       onClick={(e) => {
         e.preventDefault();

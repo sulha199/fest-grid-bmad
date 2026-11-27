@@ -171,6 +171,9 @@ export function MapView({
       <div
         ref={mapContainerRef}
         style={{ width: '100%', height: '100%' }}
+        // The map keeps keyboard focus so its arrow-key pan and +/- zoom work; a region gives the aria-label a role to sit on.
+        role="region"
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         aria-label={ariaText}
         data-testid="map-container"

@@ -35,6 +35,8 @@ export interface AppShellProps {
   /** Story 10.13: jobs finished since the Jobs page was last opened, and the sentence that says so (the Jobs menu entry's badge). */
   jobsBadgeCount?: number;
   jobsBadgeLabel?: string;
+  /** The sentence for the pending count ("3 moderator items waiting"), already localized. It is added to the closed profile trigger's name so a screen reader hears the number the badge shows. */
+  moderatorPendingLabel?: string;
   onSignOut?: () => void;
   userMenuLabels?: Record<string, string>;
   resolveHref?: (entry: import('./profile-menu-entries').ProfileMenuEntry) => string;
@@ -54,6 +56,7 @@ export function AppShell({
   moderatorPendingItemCount = 0,
   jobsBadgeCount = 0,
   jobsBadgeLabel,
+  moderatorPendingLabel,
   onSignOut,
   userMenuLabels,
   resolveHref,
@@ -92,7 +95,14 @@ export function AppShell({
   ) : bareProfileIcon;
 
   // Determine Profile label
+  // The trigger's `aria-label` replaces its content, so the count badge inside it would never be spoken. While the
+  // menu is closed (the only time the badge shows on the avatar) the sentence is added to the spoken name only; the
+  // visible label stays the name, and the spoken name starts with it, so WCAG 2.5.3 (label in name) holds.
   const profileLabel = isAuthenticated ? (displayName || 'User') : labels.login;
+  const profileAccessibleLabel =
+    isAuthenticated && moderatorPendingItemCount > 0 && !isOpen && moderatorPendingLabel
+      ? `${profileLabel}, ${moderatorPendingLabel}`
+      : undefined;
 
   // Render the Profile NavRailItem
   const renderProfileItem = (triggerType: 'mobile' | 'desktop', className?: string) => {
@@ -115,6 +125,7 @@ export function AppShell({
         variant="trigger"
         icon={profileIcon}
         label={profileLabel}
+        accessibleLabel={profileAccessibleLabel}
         onActivate={() => toggleMenu(triggerType)}
         ariaExpanded={isOpen && activeTrigger === triggerType}
         buttonRef={triggerType === 'mobile' ? mobileTriggerRef : desktopTriggerRef}

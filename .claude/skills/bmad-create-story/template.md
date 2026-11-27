@@ -93,6 +93,7 @@ so that {{benefit}}.
 - [ ] AC satisfaction
 - [ ] Required tests passing
 - [ ] Lint and type checks passing for touched packages
+- [ ] Accessibility (only when the story touches the navbar, the event list or the event detail, or adds a control or popup): each new or changed control has a case in the three suites under `packages/ui/src/a11y/` (axe, keyboard, screen reader; `pnpm run test:a11y`), uses `IconButton` / `ToggleIconButton` where it is an icon-only control, and meets `_bmad-output/project-context.md` "Accessibility" rules 1 to 8
 
 ## Completion Status
 

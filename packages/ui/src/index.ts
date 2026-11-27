@@ -34,6 +34,7 @@ export * from './core/map';
 export * from './core/map.types';
 export * from './core/RawJsonViewer';
 export * from './core/ui/button';
+export * from './core/ui/icon-button';
 export * from './features/locations';
 export * from './features/events';
 export * from './features/auth';

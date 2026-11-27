@@ -787,7 +787,7 @@ describe('WeeklyCalendarView', () => {
     expect(onScheduleClick).toHaveBeenCalledWith(sampleSchedules[2]);
 
     // AC7 — the primitive's favorite control is a sibling, never nested in the click target.
-    const favoriteButton = within(bar).getByRole('button', { name: 'Toggle favorite' });
+    const favoriteButton = within(bar).getByRole('button', { name: /^Toggle favorite/ });
     expect(barButton.contains(favoriteButton)).toBe(false);
 
     fireEvent.click(favoriteButton);
@@ -1111,7 +1111,7 @@ describe('WeeklyCalendarView', () => {
 
     const cardWithUndefined = screen.getByText('Event with Undefined Favorites').closest('[data-testid="calendar-grid-card"]') as HTMLElement;
     // No count span at all when `favoriteCount` is undefined — only the icon renders.
-    expect(within(cardWithUndefined).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+    expect(within(cardWithUndefined).getByRole('button', { name: /^Toggle favorite/ })).toBeInTheDocument();
     expect(within(cardWithUndefined).queryByText('0')).not.toBeInTheDocument();
   });
 
@@ -1524,7 +1524,7 @@ describe('WeeklyCalendarView', () => {
       expect(img).toHaveAttribute('src', 'https://img.example/thumb.jpg');
 
       // Favorite badge is always a live control when onFavoriteToggle is supplied (AD-15 Rule 4).
-      expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+      expect(within(mobileView).getByRole('button', { name: /^Toggle favorite/ })).toBeInTheDocument();
     });
 
     // Story 1.i1m CI ratchet (inverts the Story 1.i1z ratchet of the same name that used to
@@ -1560,7 +1560,7 @@ describe('WeeklyCalendarView', () => {
       // No reserved element at all — not merely an empty/blank one.
       expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
       // The favorite control still renders (externally composed) and remains interactive.
-      expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+      expect(within(mobileView).getByRole('button', { name: /^Toggle favorite/ })).toBeInTheDocument();
     });
 
     // Story 1.i1m CI ratchet (inverts the Story 1.i1z ratchet of the same name). The slot is
@@ -1600,7 +1600,7 @@ describe('WeeklyCalendarView', () => {
       // After the error, the slot element itself is gone from the DOM (not just its image).
       expect(container.querySelector('[data-event-card-media-slot]')).toBeNull();
       // The favorite badge (now externally composed) still renders and remains interactive.
-      expect(within(mobileView).getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+      expect(within(mobileView).getByRole('button', { name: /^Toggle favorite/ })).toBeInTheDocument();
     });
 
     // Story 1.i1m AC2 — the content column expands to fill the width the media slot's
@@ -1665,10 +1665,10 @@ describe('WeeklyCalendarView', () => {
       expect(withImageSlot).not.toBeNull();
       // User feedback (2026-10-03): the with-image favorite pill sits on the card container's
       // top-right corner (like the TILL tag), composed outside the slot's `overflow-hidden`.
-      expect(within(withImageSlot as HTMLElement).queryByRole('button', { name: 'Toggle favorite' })).toBeNull();
+      expect(within(withImageSlot as HTMLElement).queryByRole('button', { name: /^Toggle favorite/ })).toBeNull();
       const withImageBadgeButton = within(
         rtlScreen.getByTestId('mobile-calendar-view')
-      ).getByRole('button', { name: 'Toggle favorite' });
+      ).getByRole('button', { name: /^Toggle favorite/ });
       expect(withImageBadgeButton).toHaveClass('absolute');
       expect(withImageBadgeButton).toHaveClass('-top-1.5');
       expect(withImageBadgeButton).toHaveClass('-right-1.5');
@@ -1700,7 +1700,7 @@ describe('WeeklyCalendarView', () => {
       // both.
       const noImageBadgeButton = within(
         rtlScreen.getByTestId('mobile-calendar-view')
-      ).getByRole('button', { name: 'Toggle favorite' });
+      ).getByRole('button', { name: /^Toggle favorite/ });
       // No slot exists in this state — the row's own outer wrapper is the ancestor that must
       // declare the property instead, per Task 3.2's relocation.
       let rowWrapperAncestor: HTMLElement | null = noImageBadgeButton.parentElement;
@@ -1737,7 +1737,7 @@ describe('WeeklyCalendarView', () => {
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      const favButton = within(mobileView).getByRole('button', { name: 'Toggle favorite' });
+      const favButton = within(mobileView).getByRole('button', { name: /^Toggle favorite/ });
       fireEvent.click(favButton);
 
       expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
@@ -1765,7 +1765,7 @@ describe('WeeklyCalendarView', () => {
       );
 
       const mobileView = rtlScreen.getByTestId('mobile-calendar-view');
-      expect(within(mobileView).queryByRole('button', { name: 'Toggle favorite' })).not.toBeInTheDocument();
+      expect(within(mobileView).queryByRole('button', { name: /^Toggle favorite/ })).not.toBeInTheDocument();
     });
 
     it('shows a bare till on a continuing multi-day segment before its last day (AC4)', () => {

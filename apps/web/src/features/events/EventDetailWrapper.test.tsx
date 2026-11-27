@@ -476,15 +476,15 @@ describe("EventDetailWrapper", () => {
     // Wait for data to load
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     
-    const favBtn = await screen.findByRole("button", { name: "EventDetailsPage.favoriteButtonLabel" })
-    expect(favBtn).toHaveAttribute("aria-pressed", "false")
+    const favBtn = await screen.findByRole("button", { name: /^EventDetailsPage\.favoriteButtonLabel/ })
+    expect(favBtn).toHaveAccessibleName(/^EventDetailsPage\.favoriteButtonLabel/)
 
     // Click to favorite
     fireEvent.click(favBtn)
 
     // Optimistic UI updates aria-pressed immediately to true
     await waitFor(() => {
-      expect(favBtn).toHaveAttribute("aria-pressed", "true")
+      expect(favBtn).toHaveAccessibleName(/^EventDetailsPage\.removeFavoriteButtonLabel/)
     })
 
     // Wait for analytics to be called on success
@@ -587,7 +587,7 @@ describe("EventDetailWrapper", () => {
 
     renderComponent()
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
-    const favBtn = await screen.findByRole("button", { name: "EventDetailsPage.favoriteButtonLabel" })
+    const favBtn = await screen.findByRole("button", { name: /^EventDetailsPage\.favoriteButtonLabel/ })
 
     fireEvent.click(favBtn)
 
@@ -622,13 +622,13 @@ describe("EventDetailWrapper", () => {
     renderComponent()
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
 
-    const favBtn = await screen.findByRole("button", { name: "EventDetailsPage.favoriteButtonLabel" })
+    const favBtn = await screen.findByRole("button", { name: /^EventDetailsPage\.favoriteButtonLabel/ })
     expect(await screen.findByText("3")).toBeInTheDocument()
 
     fireEvent.click(favBtn)
 
     await waitFor(() => {
-      expect(favBtn).toHaveAttribute("aria-pressed", "true")
+      expect(favBtn).toHaveAccessibleName(/^EventDetailsPage\.removeFavoriteButtonLabel/)
     })
 
     await waitFor(() => {
@@ -644,14 +644,14 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     
-    const favBtn = await screen.findByRole("button", { name: "EventDetailsPage.favoriteButtonLabel" })
+    const favBtn = await screen.findByRole("button", { name: /^EventDetailsPage\.favoriteButtonLabel/ })
     fireEvent.click(favBtn)
 
     // Verify router pushed to login
     expect(mockRouterPush).toHaveBeenCalledWith("/login")
     
     // UI remains unfavorited (no optimistic update)
-    expect(favBtn).toHaveAttribute("aria-pressed", "false")
+    expect(favBtn).toHaveAccessibleName(/^EventDetailsPage\.favoriteButtonLabel/)
     expect(mockPosthogCapture).not.toHaveBeenCalledWith("event_favorited", expect.anything())
   })
 
@@ -662,7 +662,7 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
     
-    const favBtn = await screen.findByRole("button", { name: "EventDetailsPage.favoriteButtonLabel" })
+    const favBtn = await screen.findByRole("button", { name: /^EventDetailsPage\.favoriteButtonLabel/ })
     
     // Click to favorite
     fireEvent.click(favBtn)
@@ -680,7 +680,7 @@ describe("EventDetailWrapper", () => {
 
     expect(await screen.findByRole("heading", { name: "Test Event" })).toBeInTheDocument()
 
-    const favBtn = await screen.findByRole("button", { name: "EventDetailsPage.favoriteButtonLabel" })
+    const favBtn = await screen.findByRole("button", { name: /^EventDetailsPage\.favoriteButtonLabel/ })
     fireEvent.click(favBtn)
 
     // Optimistic flip is rolled back and the error path is surfaced, exactly like a
@@ -689,7 +689,7 @@ describe("EventDetailWrapper", () => {
     await waitFor(() => {
       expect(screen.getByText("EventDetailsPage.favoriteErrorAnnouncement")).toBeInTheDocument()
     })
-    expect(favBtn).toHaveAttribute("aria-pressed", "false")
+    expect(favBtn).toHaveAccessibleName(/^EventDetailsPage\.favoriteButtonLabel/)
   })
 
   it('uses favorites list context for next navigation when opened from favorites', async () => {

@@ -86,7 +86,7 @@ export function NavRailItem(props: NavRailItemProps) {
     <button
       type="button"
       className={baseClasses}
-      aria-label={label}
+      aria-label={props.accessibleLabel ?? label}
       aria-haspopup="true"
       aria-expanded={ariaExpanded}
       ref={buttonRef}

@@ -49,6 +49,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
     "@festgrid/eslint-config": "workspace:*",
     "@festgrid/testing-config": "workspace:^",
     "@festgrid/typescript-config": "workspace:*",

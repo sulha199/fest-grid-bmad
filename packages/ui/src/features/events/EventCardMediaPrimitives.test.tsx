@@ -251,7 +251,7 @@ describe('EventCardFavoriteBadge - AC5 (i18n label plumbing matching EventCard c
 
   it('falls back to the English default "Toggle favorite" when no label is provided', () => {
     render(<EventCardFavoriteBadge scale="default" onFavoriteToggle={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Toggle favorite' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Toggle favorite/ })).toBeInTheDocument();
   });
 
   it('accepts the same favoriteToggle override shape as EventCardLabels', () => {
@@ -360,7 +360,7 @@ describe('EventCardFavoriteBadge icon/text-size overrides (Story 1.i1m AC5)', ()
 
   it('uses the ratio-derived default icon size and fixed text-sm when neither override is supplied (masonry/default regression guard)', () => {
     render(<EventCardFavoriteBadge scale="large" onFavoriteToggle={vi.fn()} favoriteCount={3} />);
-    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    const button = screen.getByRole('button', { name: /^Toggle favorite/ });
     expect(button.className).toMatch(/\btext-sm\b/);
     const heart = button.querySelector('svg');
     const expected = expectedIconSize(EVENT_CARD_BADGE_ICON_SCALE_LARGE);
@@ -385,7 +385,7 @@ describe('EventCardFavoriteBadge icon/text-size overrides (Story 1.i1m AC5)', ()
         largeTextSizeClassName="text-sm [@container(min-width:490px)]:text-base"
       />
     );
-    const button = screen.getByRole('button', { name: 'Toggle favorite' });
+    const button = screen.getByRole('button', { name: /^Toggle favorite/ });
     expect(button.className).toMatch(/\[@container\(min-width:490px\)\]:text-base\b/);
     const heart = button.querySelector('svg');
     expect(heart?.style.width).toBe(overrideStyle.width);

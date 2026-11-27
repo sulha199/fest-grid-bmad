@@ -276,7 +276,9 @@ export function EventCard({
     ? formatEventCardDateBoxLine(activeLocale, activeTimezone, now, dateObj, endDateTime, endTime)
     : '';
 
-  const finalImageAlt = imageAlt || eventName;
+  // The card's link already speaks the title (the heading), so a poster whose alt is just the event name is decorative:
+  // an empty alt stops the screen reader reading the title twice. A caller's own, different description is kept.
+  const finalImageAlt = imageAlt && imageAlt !== eventName ? imageAlt : '';
 
   // AC14 — TILL sub-badge (masonry only): "till hh:mm" / bare "till" / no badge.
   const started = now.getTime() >= dateObj.getTime();
@@ -327,7 +329,8 @@ export function EventCard({
       className={`w-full ${EVENT_CARD_CONTAINER_CLASS} rounded-xl overflow-hidden shadow-sm border border-border bg-card transition-all hover:shadow-md relative group flex flex-col ${
         pendingRemoval ? 'opacity-50 grayscale' : ''
       }`}
-      aria-disabled={pendingRemoval}
+      // Not aria-disabled: the article role does not support it, so it announced nothing. Tests and CSS hook on this.
+      data-pending-removal={pendingRemoval ? 'true' : undefined}
     >
       {onFavoriteToggle && !isMasonryDefault && posterImagePresent && (
         <button
@@ -337,7 +340,8 @@ export function EventCard({
             e.stopPropagation();
             onFavoriteToggle(e);
           }}
-          aria-label={defaultLabels.favoriteToggle}
+          // The visible count is part of the name (WCAG 2.5.3, label in name): "Toggle favorite 4".
+          aria-label={favoriteCount !== undefined ? `${defaultLabels.favoriteToggle} ${favoriteCount}` : defaultLabels.favoriteToggle}
           aria-pressed={!!isFavorited}
           // Rule 4 (`DESIGN.md` § event_card_date_box.base): `top-2` by default, `top-5` when a
           // TILL tag is present -- gives the TILL tag (rendered as its own floating sibling

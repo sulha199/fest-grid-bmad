@@ -73,13 +73,37 @@ describe('screen reader: navbar', () => {
   });
 });
 
+describe('screen reader: pending moderator items', () => {
+  const props = { isAuthenticated: true, displayName: 'Shulha', currentPath: '/', renderLink: TestLink, labels: navLabels, moderatorPendingItemCount: 3, moderatorPendingLabel: '3 moderator items waiting' };
+  it('the closed profile trigger speaks the pending count, and its name starts with the visible name', async () => {
+    const { container } = render(<AppShell {...props}><h1>Page</h1></AppShell>);
+    const log = await spoken(container);
+    expect(log.some((p) => p.startsWith('button, Shulha, 3 moderator items waiting'))).toBe(true);
+  });
+  it('without a pending count the name is just the visible name', async () => {
+    const { container } = render(<AppShell {...props} moderatorPendingItemCount={0}><h1>Page</h1></AppShell>);
+    const log = await spoken(container);
+    expect(log.some((p) => p.startsWith('button, Shulha') && p.includes('moderator'))).toBe(false);
+  });
+});
+
 describe('screen reader: event list', () => {
   it('card: a pressed favorite toggle, a level-3 heading, and the link name that reaches the event', async () => {
     const { container } = render(<EventCard eventName="Summer Music Festival" startDate={new Date('2026-08-15T18:00:00Z')} prominentPoster imageUrl="https://example.com/p.jpg" isFavorited favoriteCount={4} onFavoriteToggle={vi.fn()} href="/en/events/summer" locationName="Navy Pier" />);
     const log = await spoken(container);
-    expect(has(log, 'button, Toggle favorite, pressed')).toBe(true);
+    // The visible count (4) is part of the name (WCAG 2.5.3, label in name).
+    expect(has(log, 'button, Toggle favorite 4, pressed')).toBe(true);
     expect(has(log, 'heading, Summer Music Festival, level 3')).toBe(true);
-    expect(log.some((p) => p.startsWith('link,') && p.includes('Summer Music Festival'))).toBe(true);
+    const link = log.find((p) => p.startsWith('link,')) as string;
+    expect(link).toContain('Summer Music Festival');
+    // The poster is decorative (its alt was the title), so the title is spoken once, not twice.
+    expect(link.split('Summer Music Festival').length - 1).toBe(1);
+  });
+
+  it('card: a poster with its own description keeps it', async () => {
+    const { container } = render(<EventCard eventName="Summer Music Festival" imageAlt="Crowd at the main stage" startDate={new Date('2026-08-15T18:00:00Z')} prominentPoster imageUrl="https://example.com/p.jpg" href="/en/events/summer" />);
+    const log = await spoken(container);
+    expect(has(log, 'image, Crowd at the main stage')).toBe(true);
   });
 
   it('card: an unpressed favorite toggle says so', async () => {
@@ -117,7 +141,8 @@ describe('screen reader: event detail', () => {
     const { container } = render(<EventDetailView {...detailProps} />);
     const log = await spoken(container, 120);
     expect(has(log, 'heading, Test Event, level 1')).toBe(true);
-    expect(log.some((p) => p.startsWith('button, Add to Favorites'))).toBe(true);
+    // The name carries the state; aria-pressed as well would make a screen reader say it twice.
+    expect(log.some((p) => p.startsWith('button, Add to Favorites') && !p.includes('pressed'))).toBe(true);
     expect(log.some((p) => p.startsWith('button, More actions') && p.includes('has popup menu'))).toBe(true);
   });
 

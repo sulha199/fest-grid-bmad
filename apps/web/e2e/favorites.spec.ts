@@ -23,7 +23,8 @@ test.describe('Favorites page', () => {
     await expect(undoButton).toBeVisible();
     await undoButton.click();
 
-    await expect(firstCard).toHaveAttribute('aria-disabled', 'false');
+    // Undo restores the card: the pending-removal dimming (opacity-50) is gone.
+    await expect(firstCard).not.toHaveClass(/opacity-50/);
 
     await removeButton.click();
     await page.goto('/en');

@@ -21,6 +21,8 @@ export type NavRailItemProps =
       icon: ReactNode;
       label: string;
       className?: string;
+      /** The spoken name when it must say more than the visible `label` (it must start with it, WCAG 2.5.3). */
+      accessibleLabel?: string;
       onActivate: () => void;
       ariaExpanded?: boolean;
       buttonRef?: React.RefObject<HTMLButtonElement | null>;

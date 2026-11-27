@@ -1683,7 +1683,7 @@ function MultiDaySpanningBar<TSchedule extends WeeklyCalendarViewScheduleShape>(
           location={schedule.locationName}
           imageUrl={schedule.imageUrl}
           imageFallbackUrl={schedule.imageFallbackUrl}
-          imageAlt={schedule.eventName}
+          imageAlt="" // decorative: the item's title already names the event
           isMultiDay
           isFavorited={schedule.isFavorited}
           favoriteCount={schedule.favoriteCount}

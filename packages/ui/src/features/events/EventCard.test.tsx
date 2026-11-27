@@ -141,7 +141,7 @@ describe('EventCard', () => {
   it('handles image success', () => {
     render(<EventCard {...defaultProps} imageUrl="http://example.com/image.jpg" />);
     
-    const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+    const img = (document.querySelector('img') as HTMLImageElement);
     expect(img).toHaveAttribute('src', 'http://example.com/image.jpg');
   });
 
@@ -152,7 +152,7 @@ describe('EventCard', () => {
     // exercises that state directly instead of the removed default.
     render(<EventCard {...defaultProps} prominentPoster imageUrl="http://example.com/bad-image.jpg" />);
 
-    const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+    const img = (document.querySelector('img') as HTMLImageElement);
     const imgContainer = img.parentElement;
 
     // Simulate image load error
@@ -220,7 +220,7 @@ describe('EventCard', () => {
           imageFallbackUrl="http://example.com/fallback.jpg"
         />
       );
-      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const img = (document.querySelector('img') as HTMLImageElement);
       expect(img).toHaveAttribute('src', 'http://example.com/image.jpg');
     });
 
@@ -237,7 +237,7 @@ describe('EventCard', () => {
           imageFallbackUrl="http://example.com/fallback.jpg"
         />
       );
-      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const img = (document.querySelector('img') as HTMLImageElement);
       expect(img).toHaveAttribute('src', 'http://example.com/fallback.jpg');
     });
 
@@ -252,11 +252,11 @@ describe('EventCard', () => {
           imageFallbackUrl="http://example.com/fallback.jpg"
         />
       );
-      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const img = (document.querySelector('img') as HTMLImageElement);
       fireEvent.error(img);
 
       expect(screen.queryByRole('img')).not.toBeInTheDocument();
-      expect(screen.getAllByRole('button', { name: 'Toggle favorite' })).toHaveLength(1);
+      expect(screen.getAllByRole('button', { name: /^Toggle favorite/ })).toHaveLength(1);
     });
 
     // Code-review fix (BUG-042 loopback): without the `imageFallbackUrl !== currentSrc` guard,
@@ -271,7 +271,7 @@ describe('EventCard', () => {
           imageFallbackUrl="http://example.com/same.jpg"
         />
       );
-      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const img = (document.querySelector('img') as HTMLImageElement);
       fireEvent.error(img);
 
       expect(screen.queryByRole('img')).not.toBeInTheDocument();
@@ -286,9 +286,9 @@ describe('EventCard', () => {
           imageFallbackUrl="http://example.com/fallback.jpg"
         />
       );
-      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const img = (document.querySelector('img') as HTMLImageElement);
       fireEvent.error(img);
-      const swapped = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const swapped = (document.querySelector('img') as HTMLImageElement);
       expect(swapped).toHaveAttribute('src', 'http://example.com/fallback.jpg');
     });
 
@@ -301,13 +301,13 @@ describe('EventCard', () => {
           imageFallbackUrl="http://example.com/also-bad.jpg"
         />
       );
-      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const img = (document.querySelector('img') as HTMLImageElement);
       fireEvent.error(img);
-      const swapped = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const swapped = (document.querySelector('img') as HTMLImageElement);
       fireEvent.error(swapped);
 
       expect(screen.queryByRole('img')).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Toggle favorite' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Toggle favorite/ })).not.toBeInTheDocument();
       expect(screen.queryByText('No image available')).not.toBeInTheDocument();
     });
 
@@ -323,14 +323,14 @@ describe('EventCard', () => {
           imageFallbackUrl="http://example.com/also-bad.jpg"
         />
       );
-      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const img = (document.querySelector('img') as HTMLImageElement);
       fireEvent.error(img);
-      const swapped = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const swapped = (document.querySelector('img') as HTMLImageElement);
       fireEvent.error(swapped);
 
       expect(screen.queryByRole('img')).not.toBeInTheDocument();
       // Exactly one favorite control — the large vertical badge — no duplicate small corner button.
-      const favoriteButtons = screen.getAllByRole('button', { name: 'Toggle favorite' });
+      const favoriteButtons = screen.getAllByRole('button', { name: /^Toggle favorite/ });
       expect(favoriteButtons).toHaveLength(1);
       expect(screen.getByText('3')).toBeInTheDocument();
     });
@@ -342,7 +342,9 @@ describe('EventCard', () => {
     const article = screen.getByRole('article');
     expect(article).toHaveClass('opacity-50');
     expect(article).toHaveClass('grayscale');
-    expect(article).toHaveAttribute('aria-disabled', 'true');
+    // No aria-disabled: it is not supported on the article role (jsx-a11y/role-supports-aria-props), so it announced nothing.
+    expect(article).not.toHaveAttribute('aria-disabled');
+    expect(article).toHaveAttribute('data-pending-removal', 'true');
   });
 
   it('renders loading skeleton with aria-busy', () => {
@@ -418,7 +420,7 @@ describe('EventCard', () => {
       />
     );
 
-    const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+    const img = (document.querySelector('img') as HTMLImageElement);
     expect(img).toBeInTheDocument();
 
     // The image renders inside the flex-fill thumbnail slot, not a full-width aspect-[3/4] poster
@@ -1296,7 +1298,7 @@ describe('EventCard', () => {
           locale="en-US"
         />
       );
-      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const img = (document.querySelector('img') as HTMLImageElement);
       const imgContainer = img.parentElement;
       expect(imgContainer).toHaveClass('aspect-square');
       expect(imgContainer).not.toHaveClass('aspect-[2/3]');
@@ -1312,7 +1314,7 @@ describe('EventCard', () => {
           locale="en-US"
         />
       );
-      const img = screen.getByRole('img', { name: 'Summer Music Festival' });
+      const img = (document.querySelector('img') as HTMLImageElement);
       // Default state uses the flex-fill thumbnail slot, not a full-width aspect poster
       const slot = img.closest('[data-event-card-media-slot]');
       expect(slot).not.toBeNull();
@@ -1330,7 +1332,7 @@ describe('EventCard', () => {
       );
       // No href/onClick here, so RootTag is a <div> — the ONLY button on the card is the favorite control.
       expect(container.querySelectorAll('button')).toHaveLength(1);
-      expect(screen.getAllByRole('button', { name: 'Toggle favorite' })).toHaveLength(1);
+      expect(screen.getAllByRole('button', { name: /^Toggle favorite/ })).toHaveLength(1);
     });
 
     it('calls onFavoriteToggle — and not the card onClick/navigation — when the sibling favorite badge is clicked', () => {
@@ -1339,7 +1341,7 @@ describe('EventCard', () => {
       render(
         <EventCard {...defaultProps} variant="masonry" imageUrl="http://example.com/image.jpg" onFavoriteToggle={onFavoriteToggle} onClick={onClick} />
       );
-      fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' }));
+      fireEvent.click(screen.getByRole('button', { name: /^Toggle favorite/ }));
       expect(onFavoriteToggle).toHaveBeenCalledTimes(1);
       expect(onClick).not.toHaveBeenCalled();
     });
@@ -1350,7 +1352,7 @@ describe('EventCard', () => {
       render(
         <EventCard {...defaultProps} variant="masonry" imageUrl="http://example.com/image.jpg" onFavoriteToggle={onFavoriteToggle} onClick={onClick} />
       );
-      fireEvent.click(screen.getByRole('img', { name: 'Summer Music Festival' }));
+      fireEvent.click((document.querySelector('img') as HTMLImageElement));
       expect(onClick).toHaveBeenCalledTimes(1);
       expect(onFavoriteToggle).not.toHaveBeenCalled();
     });
@@ -1360,7 +1362,7 @@ describe('EventCard', () => {
         <EventCard {...defaultProps} variant="masonry" imageUrl="http://example.com/image.jpg" onFavoriteToggle={vi.fn()} onClick={vi.fn()} />
       );
       const article = container.querySelector('article') as HTMLElement;
-      const favButton = screen.getByRole('button', { name: 'Toggle favorite' });
+      const favButton = screen.getByRole('button', { name: /^Toggle favorite/ });
       const favWrapper = favButton.parentElement as HTMLElement;
       const rootButton = Array.from(article.children).find(
         (child) => child.tagName === 'BUTTON' || child.tagName === 'A'
@@ -1379,7 +1381,7 @@ describe('EventCard', () => {
     // bottom point remained visible; confirmed live via Playwright against a seeded card).
     it('never lets the favorite-badge wrapper be shorter than the badge\'s own min-h-11 touch target', () => {
       render(<EventCard {...defaultProps} variant="masonry" onFavoriteToggle={vi.fn()} />);
-      const favButton = screen.getByRole('button', { name: 'Toggle favorite' });
+      const favButton = screen.getByRole('button', { name: /^Toggle favorite/ });
       const favWrapper = favButton.parentElement as HTMLElement;
       expect(favWrapper.style.minHeight).toBe(`${EVENT_CARD_BADGE_MIN_TOUCH_REM}rem`);
     });
@@ -1398,7 +1400,7 @@ describe('EventCard', () => {
           onFavoriteToggle={vi.fn()}
         />
       );
-      const favButton = screen.getByRole('button', { name: 'Toggle favorite' });
+      const favButton = screen.getByRole('button', { name: /^Toggle favorite/ });
       const favWrapper = favButton.parentElement as HTMLElement;
       expect(favWrapper.style.getPropertyValue('--event-card-badge-font-size')).toBe('');
 
@@ -1411,7 +1413,7 @@ describe('EventCard', () => {
     // EVENT_CARD_BADGE_ICON_SCALE_LARGE (2x) every other `scale="large"` consumer still uses.
     it('sizes the no-thumbnail fallback favorite icon at the masonry-only 4x ratio', () => {
       render(<EventCard {...defaultProps} variant="masonry" onFavoriteToggle={vi.fn()} />);
-      const favButton = screen.getByRole('button', { name: 'Toggle favorite' });
+      const favButton = screen.getByRole('button', { name: /^Toggle favorite/ });
       const heart = favButton.querySelector('svg');
       expect(heart?.style.width).toBe('calc(var(--event-card-badge-font-size,0.75rem)*4)');
       expect(heart?.style.height).toBe('calc(var(--event-card-badge-font-size,0.75rem)*4)');

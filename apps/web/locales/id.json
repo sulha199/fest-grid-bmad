@@ -834,7 +834,8 @@
     "logout": "Keluar",
     "close": "Tutup",
     "jobs": "Tugas",
-    "jobsBadgeLabel": "{count} tugas selesai sejak terakhir Anda melihat"
+    "jobsBadgeLabel": "{count} tugas selesai sejak terakhir Anda melihat",
+    "moderatorPendingLabel": "{count} item moderator menunggu"
   },
   "MyAIFiltersPage": {
     "title": "Filter AI Saya",
