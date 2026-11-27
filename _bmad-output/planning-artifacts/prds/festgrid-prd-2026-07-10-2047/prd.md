@@ -1765,6 +1765,13 @@ interface Job {
 *   **API Response Time:** 95% of API calls should complete in under 500ms.
 *   **`Query.events` (`getEvents`) is the highest-traffic endpoint in the system** (added 2026-09-15) — it is the single shared query backing Discovery, Feed, Favorites, and every calendar view, so its per-request cost is multiplied across the whole app rather than isolated to one screen. It **must** be held to a stricter budget than the general 500ms API target above, and any change to it or its field resolvers requires an explicit query-count/cost check (see `project-context.md`'s "Database & Performance" section for the current known N+1 hotspots to fix before this endpoint scales further).
 
+### Accessibility (added 2026-11-27)
+*   **Conformance Target:** WCAG 2.2 Level AA for the main navigation bar, the event list (including its filters, buttons and popups) and the event detail (including its "More actions" menu, add-to-calendar dialog, report dialog and correction dialog). Other screens follow in later stories; until a screen is listed here it carries no accessibility commitment.
+*   **Keyboard:** every function in these surfaces can be used with the keyboard alone, with a visible focus indicator, no keyboard trap, and focus moved into a dialog or menu when it opens and returned to the control that opened it when it closes.
+*   **Names, Roles and States:** every control has an accessible name that contains its visible text; a toggle's on or off state, an expanded menu, the current page in the navigation and a loading state are exposed to assistive technology, never by colour or icon fill alone.
+*   **Target Size and Contrast:** controls are at least 24 by 24 CSS px, and the project standard for touch controls is 44 px; text and interface colours meet the contrast ratios of WCAG 2.2 AA through the design tokens.
+*   **Verification:** an automated axe-core check (WCAG 2.0, 2.1 and 2.2 A and AA rules) runs in the unit test suite for each listed surface and must report no violations. It does not prove conformance (it cannot judge contrast, focus order or screen-reader output), so a person must also do a keyboard-only pass and a screen-reader smoke test before a release that changes these surfaces. FestDaily makes no "WCAG compliant" statement until that manual audit has been done and recorded. Status on 2026-11-27: the automated check passes on the listed surfaces; no manual audit has been recorded.
+
 ### Scalability (MVP)
 *   The system should be able to handle 100 concurrent users with a response time degradation of no more than 15%.
 *   The event ingestion pipeline should be able to process 100 events per hour.

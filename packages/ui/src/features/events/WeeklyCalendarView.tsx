@@ -889,7 +889,7 @@ export function WeeklyCalendarView<TSchedule extends WeeklyCalendarViewScheduleS
   // Loading Skeleton State (AC11)
   if (status === 'loading') {
     return (
-      <div className={`${CALENDAR_BASE_CLASS} ${className} animate-pulse`} aria-busy="true" aria-label={defaultLabels.loadingText}>
+      <div className={`${CALENDAR_BASE_CLASS} ${className} animate-pulse`} role="status" aria-busy="true" aria-label={defaultLabels.loadingText}>
         <div className={HEADER_CLASS}>
           <div className="h-7 w-48 bg-gray-200 rounded" />
           <div className="flex gap-2">

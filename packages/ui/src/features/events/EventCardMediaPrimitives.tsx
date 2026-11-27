@@ -295,6 +295,7 @@ export function EventCardFavoriteBadge({
     <button
       type="button"
       aria-label={defaultLabels.favoriteToggle}
+      aria-pressed={isFavorited}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();

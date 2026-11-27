@@ -338,6 +338,7 @@ export function EventCard({
             onFavoriteToggle(e);
           }}
           aria-label={defaultLabels.favoriteToggle}
+          aria-pressed={!!isFavorited}
           // Rule 4 (`DESIGN.md` § event_card_date_box.base): `top-2` by default, `top-5` when a
           // TILL tag is present -- gives the TILL tag (rendered as its own floating sibling
           // above the date pill, not nested inside it) clearance against the poster's own
