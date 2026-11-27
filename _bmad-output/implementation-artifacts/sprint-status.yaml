@@ -370,6 +370,8 @@ development_status:
   # AD-44 amendment 2026-10-24 (owner-directed): non-exclusive OTHER + safety cap 6, UMKM/entrepreneurship
   # rule, SCIENCE_AND_ENGINEERING (23rd value), golden-corpus re-derivation + live re-run + CC-024 rescrape.
   0-54-amend-event-category-cardinality-and-add-science-and-engineering: done
+  # Added 2026-11-27 by bmad-epic-readiness-check for Epic 11 (Gate 3, G3-1): prerequisite of 11.7, 11.11, 11.12, 11.15, 11.16, 11.21.
+  0-55-add-one-active-event-selector-and-one-data-script-harness-for-backfills-and-sweeps: backlog
   epic-0-retrospective: optional
   # added 2026-09-08 via bmad-form-epics (epic-formation-gate.md) formation pass:
   # six improvement epics clustered from open backlog.yaml rows sharing a mechanism.

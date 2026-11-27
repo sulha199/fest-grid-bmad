@@ -1356,6 +1356,21 @@ The project is set up with a solid foundation and CI/CD pipeline.
 
 **Note:** Promotes backlog row `FIND-064`, re-scoped via `AskUserQuestion` during `bmad-create-story` drafting (2026-10-06) — the row originally proposed "a dedicated test database or per-test cleanup"; the user rejected the dedicated-database/schema/template-copy direction (parallel sessions already use separate local Postgres instances, so cross-session collision was never the real risk) and re-scoped to exactly this story's AC1-5: fix the specific leaking files found, and add a permanent automated regression guard. All three Story Split Gates run fresh (no gap found — `epic-0-readiness.md`'s sweep only covers Stories 0.1-0.19 and predates this story's subject). Full ACs, Dev Notes (including the full audit evidence table and the rejected-alternatives rationale), and gate findings in `_bmad-output/implementation-artifacts/0-49-close-backend-test-row-leaks-and-add-a-permanent-row-count-ratchet.md`.
 
+### Story 0.55: Add one active-event selector and one data-script harness for backfills and sweeps
+
+**As a** developer,
+**I want** one tested definition of an "active" event and schedule, and one harness for data-writing scripts,
+**So that** every Epic 11 backfill, re-geocode and recompute touches the same set of events and carries the same `--dry-run`, `--apply` and rollback safety, as the owner's backfill rule (2026-11-26) requires.
+
+**Acceptance Criteria:**
+
+1. **Given** the owner's backfill rule (a schedule is active when its end date, else its start date, is not past in its own time zone; an event is active when one of its schedules is), **then** one selector in `packages/graphql-select` (or `packages/domain` for the pure date rule) builds that condition from the existing BUG-096 cutoff (`buildPastCutoffDateSql`, `packages/graphql-select/past-cutoff-sql.ts`) with `hide_after_days = 0`, and returns active event ids and active schedule ids; it never re-implements the cutoff.
+2. **And** tests on fixtures: an event whose last schedule ended yesterday in its own time zone is not active; one ending today is active; a multi-day schedule that started before today is active; a schedule with no end date uses its start date; a schedule in another time zone uses its own day; a null time (PR #268) behaves like today's cutoff.
+3. **And** one script harness for `apps/backend/scripts/` gives every data-writing script `--dry-run` (the default, prints counts by outcome and writes nothing), `--apply` (refused without the writer credential), and a rollback copy of every row it changes written before the change (a file or a backup table, named in the output), plus a restore command; unit tests cover the refusal, the dry run writing nothing and the rollback copy round trip on the test database.
+4. **And** the selector and harness are used by Stories 11.7 (recompute step), 11.11, 11.12, 11.15, 11.16 and 11.21; this story changes no data and runs nothing against production.
+
+**Note:** Added 2026-11-27 by `bmad-epic-readiness-check` for Epic 11 (Gate 3, tooling gap; report `epic-readiness/epic-11-readiness.md`, finding G3-1). Six Epic 11 stories need the same "active" rule and the same script safety, but no story owns them: the cutoff exists only inside the list query (`past-cutoff-sql.ts`) and the inline `isPastEvent` expression in the resolvers, and the only existing backfill script (`backfill-overnight-end-dates.ts`) has `--apply` but no rollback copy. It adds no decision to CC-261124-vjh; it builds once what the proposal's backfill rule asks of each script. Placement in Epic 0 follows the numbering rule; the owner may move it into Epic 11 (question Q3 of the report). Stories 0.52 to 0.54 have no section in this file (standalone, see `sprint-status.yaml`), hence 0.55.
+
 ### Epic 1: Core App and Event Discovery
 
 Users can discover and browse events.
@@ -6432,6 +6447,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 **Spec:** PRD §3.1 (FR135, FR136), §3.7 (FR139), §3.8 (FR137), §3.12 (FR140), §3.16 (FR138), §5 AI Extraction Quality (FR141) and Data Backfills (FR142); spine AD-58, AD-59, AD-60, AD-61 and the planned amendments to AD-14, AD-17, AD-20, AD-30, AD-46, AD-49, AD-51, AD-52; UX `EVENT-CARD-DESIGN.md` and `EXPERIENCE.md` "Planned" sections.
 **FRs covered:** FR135, FR136, FR137 (extraction side), FR138, FR139, FR140, FR141, FR142.
 **Order:** (1) 11.9, 11.19, 11.20, then 11.16 and 11.21 (owner go-ahead); 11.22 any time; (2) 11.1 -> 11.2, 11.5 in parallel; (3) 11.3 -> 11.4 -> 11.13 -> 11.6 -> 11.7 -> 11.8 -> 11.10; (4) 11.11 -> 11.12 -> 11.14; (7) 11.15; (8) 11.z. Story 11.17 is reserved and not part of the epic (decision 4: backlog `IDEA-261124-8jo`); the ratchet keeps the key `11-18z`.
+**Readiness swept 2026-11-27** (`bmad-epic-readiness-check`, Gate 1 + Gate 3, `epic-readiness/epic-11-readiness.md`): one new prerequisite, Story 0.55 (active-event selector and data-script harness, `backlog`), needed before 11.7, 11.11, 11.12, 11.15, 11.16 and 11.21; no Epic 11 story split and no story order changed. AC corrections for `bmad-create-story` and three owner questions are in the report; applied here only the POC paths (11.5, 11.16) and the missing dependency of 11.11 on 11.8.
 
 ### Story 11.1: Add a prompt seam to the extraction request builder
 
@@ -6498,7 +6514,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Acceptance Criteria:**
 
-*   **Given** `poc/registration-extraction/stage-classifier-v2.mjs`, **when** it is ported to `packages/domain`, **then** it carries the three fixes: (1) a ticket-sale row with one date is the event day; (2) "collection" or "launch" in a product post is an event, not a phase; (3) a title that mixes an announcement with a presentation or a prize-giving is the final day (counts).
+*   **Given** `_bmad-output/poc/registration-extraction/stage-classifier-v2.mjs`, **when** it is ported to `packages/domain`, **then** it carries the three fixes: (1) a ticket-sale row with one date is the event day; (2) "collection" or "launch" in a product post is an event, not a phase; (3) a title that mixes an announcement with a presentation or a prize-giving is the final day (counts).
 *   **And** it is 100% unit tested, with the POC's cases as fixtures (sample ids only).
 
 **Depends on:** AD-58.
@@ -6531,7 +6547,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** a recompute step (no LLM, a step of the 5-minute job-engine sweep, AD-59) rewrites every row of an **active** event whose version is older than the code's and logs the count; past events keep their stored text (owner answer Q7), tested on a past fixture event stored with an older version that stays unchanged; it rewrites a row stored in the POC format into the count format.
 *   **And** given a fact set, the card highlight equals the first detail item (property test); a first item longer than 40 characters is stored whole.
 
-**Depends on:** Stories 11.3, 11.6.
+**Depends on:** Stories 11.3, 11.6; Story 0.55 (the recompute step's active selector).
 
 ### Story 11.8: Merge location keywords, tiers and core event name into one post-extraction call
 
@@ -6590,7 +6606,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** `--dry-run`, `--apply`, rollback copy; apply only with the owner's go-ahead and the writer credential; the dry run prints the number of active events and rows it would change.
 *   **And** its race-pack step feeds the active ones among the 17 stored race-pack events through the 11.10 matcher (suggestions unless high tier).
 
-**Depends on:** Stories 11.5, 11.7, 11.9 and 11.13 shipped; the race-pack step after 11.10.
+**Depends on:** Stories 11.5, 11.7, 11.8 (tier schema), 11.9 and 11.13 shipped and Story 0.55 (active selector, script harness); the race-pack step after 11.10.
 
 ### Story 11.12: Recompute display flags of active events in the scheduled sweep and report drift
 
@@ -6604,7 +6620,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** a read-only mode (script or SQL, for the owner or the CI bridge read path) only counts; after 11.11 has run the count is 0; a non-zero count names the write path to fix.
 *   **And** the infra docs (`docs/infrastructure/architecture-diagram.md`, `high-level-overview.md`) are updated for the new sweep step.
 
-**Depends on:** Story 11.13.
+**Depends on:** Story 11.13; Story 0.55.
 
 ### Story 11.13: Compute display flags on every write path and point the field map at the display columns
 
@@ -6650,7 +6666,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** it fills facts, highlight, `core_event_name` and `activity_type` where the code rule left them empty; tier input = caption and the stored price string (noted as possibly from another merged post).
 *   **And** same `--dry-run` / `--apply` / rollback and owner go-ahead; past events are not read or written.
 
-**Depends on:** Story 11.11.
+**Depends on:** Story 11.11; Story 0.55.
 
 ### Story 11.16: Clear the wrong pins of active online-only schedules
 
@@ -6660,10 +6676,10 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 
 **Acceptance Criteria:**
 
-*   **Given** Story 11.9 has shipped (decision 1), **then** a script with `--dry-run`, `--apply` and a rollback copy (from `poc/registration-extraction/online-locations-review.sql`) clears the pins of the **active** online-only schedules; pins of past schedules stay.
+*   **Given** Story 11.9 has shipped (decision 1), **then** a script with `--dry-run`, `--apply` and a rollback copy (from `_bmad-output/poc/registration-extraction/online-locations-review.sql`) clears the pins of the **active** online-only schedules; pins of past schedules stay.
 *   **And** the dry run reports the active count next to the 72 of 2026-11-24; apply only with the owner's go-ahead and the writer role.
 
-**Depends on:** Story 11.9 shipped (decision 1).
+**Depends on:** Story 11.9 shipped (decision 1); Story 0.55.
 
 ### Story 11.18z: Ratchet: highlight, main flag and display flag come only from their domain functions
 
@@ -6721,7 +6737,7 @@ The epics below were formed by clustering `backlog.yaml` rows that violate the s
 *   **And** with text: the current path (keywords call and ladder, 11.9's online rule, 11.20's check if shipped) runs once per distinct text and the result and its `location_resolution` are written; without text: the 11.19 rule decides (inherit with `account_default`, or no pin); when nothing is found, the pin is cleared (owner answer Q9).
 *   **And** moderator-set locations are never overwritten; the dry run prints counts by outcome (replaced, cleared, unchanged, inherited) for the owner before any apply; apply only with the owner's go-ahead and the writer role.
 
-**Depends on:** Stories 11.9 and 11.19 shipped; after 11.20 if it adds a check.
+**Depends on:** Stories 11.9 and 11.19 shipped; after 11.20 if it adds a check; Story 0.55.
 
 ### Story 11.22: Replace the temporal toggle with a time dropdown with the next 7 days, and use the viewer's date
 
